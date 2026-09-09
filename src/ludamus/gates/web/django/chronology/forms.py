@@ -4,13 +4,47 @@ from typing import TYPE_CHECKING
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils.formats import date_format
+from django.utils.timezone import localtime
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import SpaceOptionDTO, TimeSlotDTO
+    from ludamus.pacts import TimeSlotDTO
+    from ludamus.pacts.chronology import ProposalAcceptContextDTO
+
+# What this module hands ChoiceField: a pk (or "" for the placeholder) under a
+# label already translated, flat or inside an optgroup.
+type Choice = tuple[int | str, str]
+type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
+
+
+def slot_label(slot: TimeSlotDTO) -> str:
+    # The `date` filter this replaced localises first, so a label built here
+    # has to as well or the times shift by the event's offset.
+    start = localtime(slot.start_time)
+    end = localtime(slot.end_time)
+    return f"{date_format(start, 'l, M j · G:i')}–{date_format(end, 'G:i')}"
+
+
+def slot_choices(
+    time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
+) -> ChoiceList:
+    labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
+    blank: ChoiceList = [("", gettext("Choose a time…"))]
+    preferred = {*preferred_ids}
+    # The facilitator asked for these — float them to the top so the obvious
+    # choice is the first one, no footnote needed. Nothing to float means no
+    # headings at all: "Other times" alone would name a contrast with a group
+    # that is not there.
+    if not (wanted := [pair for pair in labelled if pair[0] in preferred]):
+        return [*blank, *labelled]
+    choices: ChoiceList = [*blank, (gettext("Preferred by the facilitator"), wanted)]
+    if rest := [pair for pair in labelled if pair[0] not in preferred]:
+        choices.append((gettext("Other times"), rest))
+    return choices
 
 
 def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
@@ -24,21 +58,20 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
 
 
 def create_proposal_acceptance_form(
-    *, space_options: Sequence[SpaceOptionDTO], time_slots: Sequence[TimeSlotDTO]
+    context: ProposalAcceptContextDTO,
 ) -> type[forms.Form]:
     # Group bookable leaf spaces under their parent name (optgroups); the
     # service supplies the options so the form stays free of the ORM.
+    time_slots = context.time_slots
     grouped: dict[str, list[tuple[int, str]]] = {}
-    for option in space_options:
+    for option in context.space_options:
         grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
             (option.pk, option.name)
         )
-    choices: list[tuple[str, str] | tuple[str, list[tuple[int, str]]]] = [
-        ("", gettext("Select a space..."))
-    ]
+    choices: ChoiceList = [("", gettext("Select a space..."))]
     choices.extend(grouped.items())
 
-    allowed_space_ids = {option.pk for option in space_options}
+    allowed_space_ids = {option.pk for option in context.space_options}
     allowed_time_slot_ids = {slot.pk for slot in time_slots}
 
     space_field = forms.ChoiceField(
@@ -48,11 +81,10 @@ def create_proposal_acceptance_form(
         help_text=_("Select the space where this session will take place"),
         required=True,
     )
-    # The template renders its own time-slot <select> from the context, so this
-    # field only validates the posted pk server-side.
     time_slot_field = forms.ChoiceField(
-        choices=[(slot.pk, str(slot.pk)) for slot in time_slots],
+        choices=slot_choices(time_slots, context.preferred_time_slot_ids),
         label=_("Time slot"),
+        help_text=_("Pick the start time for this session."),
         required=True,
     )
 

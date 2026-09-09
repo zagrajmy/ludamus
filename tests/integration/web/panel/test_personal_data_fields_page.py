@@ -2,7 +2,12 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.links.db.django.models import PersonalDataField
+from ludamus.links.db.django.models import (
+    PersonalDataField,
+    PersonalDataFieldRequirement,
+)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import FieldUsageSummary
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -43,6 +48,7 @@ class TestPersonalDataFieldsPageView:
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
+                "undeletable_field_reasons": {},
             },
         )
 
@@ -70,6 +76,47 @@ class TestPersonalDataFieldsPageView:
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
+                "undeletable_field_reasons": {},
+            },
+        )
+
+    def test_a_field_a_category_asks_for_says_why_instead_of_offering_delete(
+        self, panel_client, event, proposal_category
+    ):
+        # delete() refuses such a field, so the row carries the sentence that
+        # replaces its Delete button.
+        field = PersonalDataField.objects.create(
+            event=event, name="Email", question="What is your email?", slug="email"
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-fields.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "active_tab": "host",
+                "tab_urls": cfp_tab_urls(event),
+                "fields": [
+                    FieldUsageSummary(
+                        field=OrganizerFieldDTO(
+                            field_type="text",
+                            name="Email",
+                            order=0,
+                            pk=field.pk,
+                            question="What is your email?",
+                            slug="email",
+                        ),
+                        required_count=1,
+                        optional_count=0,
+                    )
+                ],
+                "undeletable_field_reasons": {field.pk: "Used by categories"},
             },
         )
 
@@ -85,6 +132,7 @@ class TestPersonalDataFieldsPageView:
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
+                "undeletable_field_reasons": {},
             },
         )
 
@@ -135,6 +183,7 @@ class TestPersonalDataFieldsPageView:
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
+                "undeletable_field_reasons": {},
             },
         )
 

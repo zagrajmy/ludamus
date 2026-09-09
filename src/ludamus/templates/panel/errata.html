@@ -20,13 +20,15 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    <div class="p-4 flex flex-col gap-6">
+    <div class="panel-bleed">
         {% if current_event %}
             {% if errata %}
                 <div>
                     {% vite_asset 'src/bulk-status.ts' %}
                     {% url 'panel:erratum-acknowledge' slug=current_event.slug as bulk_action_url %}
-                    {% include "panel/parts/_bulk_toolbar.html" with action=bulk_action_url actions="panel/parts/_bulk_actions_errata.html" %}
+                    <div class="max-sm:px-3">
+                        {% include "panel/parts/_bulk_toolbar.html" with action=bulk_action_url actions="panel/parts/_bulk_actions_errata.html" %}
+                    </div>
                     {% tessera_table %}
                         <thead class="bg-bg-tertiary">
                             <tr>
@@ -137,7 +139,7 @@
                             {% endfor %}
                         </tbody>
                     {% endtessera_table %}
-                    {% include "panel/parts/_pagination.html" %}
+                    {% include "components/_pagination.html" %}
                 </div>
             {% elif current_event.publication_time %}
                 <div class="text-center py-8">

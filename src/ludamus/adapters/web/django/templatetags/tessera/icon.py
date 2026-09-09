@@ -43,7 +43,9 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
     """
     renderer = _VARIANT_RENDERERS[variant]
 
-    kwargs["class"] = clsx("shrink-0", kwargs.pop("class", None))
+    # `align-middle`: an inline SVG's baseline is its bottom edge, so an icon
+    # set in text floats above it. Inert for block and flex call sites.
+    kwargs["class"] = clsx("shrink-0 align-middle", kwargs.pop("class", None))
     if s := kwargs.pop("style", None):
         kwargs |= {"style": escape(s)}
 

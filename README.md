@@ -22,6 +22,9 @@ mise dev                # Django :8000 + Vite :5173
 
 After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
 
+No Postgres or Docker needed: the app develops and serves on SQLite by default.
+Set `USE_POSTGRES=true` to opt into Postgres.
+
 `mise run bootstrap` resets and reseeds the local database with the same
 deterministic data used by end-to-end tests.
 

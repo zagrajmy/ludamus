@@ -48,11 +48,7 @@
             {% firstof session_cover_url event.cover_image_url as page_cover_url %}
             <div class="card overflow-hidden">
                 {% if page_cover_url %}
-                    <img src="{{ page_cover_url }}"
-                         alt=""
-                         width="640"
-                         height="360"
-                         class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
+                    {% include "components/cover-strip.html" with url=page_cover_url extra_class="" only %}
                 {% endif %}
                 <div class="card-body">
                     <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
@@ -60,8 +56,7 @@
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 mb-6 text-sm text-foreground-secondary">
                         <span class="inline-flex items-center gap-1.5">
                             {% icon "clock" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                            {{ session.agenda_item.start_time|date:"l, j E" }} ·
-                            <span class="tabular-nums">{{ session.agenda_item.start_time|time:"G:i" }}–{{ session.agenda_item.end_time|time:"G:i" }}</span>
+                            {% include "chronology/_session_when.html" with agenda_item=session.agenda_item only %}
                         </span>
                         {# A shut window (or a session that takes no sign-up) leaves the #}
                         {# effective limit at 0 — no capacity pill rather than a nonsense #}
@@ -190,7 +185,6 @@
                                 </span>
                             </div>
                         {% endif %}
-                        {# The add-companions link only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                         {# The action is anchored to the panel it acts on, and its label #}
                         {# states the outcome instead of a generic "save". #}
                         <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">

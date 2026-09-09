@@ -32,8 +32,9 @@ the new `request.services.<service_name>` shape. Each file is its own PR.
 
 6. **Add unit tests** for the service. Mock the specific repo protocols
    and `TransactionProtocol` directly — never `MagicMock()` of UoW. The
-   pattern is at `tests/unit/test_mills.py:60-75`. Existing integration
-   tests for the view are the regression guard for end-to-end behavior.
+   pattern is `TestCFPPersonalDataFieldService` in `tests/unit/test_mills.py`.
+   Existing integration tests for the view are the regression guard for
+   end-to-end behavior.
 
 ## Boundaries
 
@@ -63,9 +64,10 @@ The `personal_data_fields` family is the canonical example to copy.
   `PersonalDataFieldEditContextDTO`
 - **navigation protocol:** `src/ludamus/pacts/services.py` —
   `ServicesProtocol`, `TransactionProtocol`
+- **transaction adapter:** `src/ludamus/links/db/django/transaction.py` —
+  `DjangoTransaction`
 - **wiring:** `src/ludamus/inits/services.py`,
   `src/ludamus/inits/repositories.py`,
-  `src/ludamus/inits/transaction.py`,
   `src/ludamus/inits/middleware.py`
 - **view:** `src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py`
 - **tests:** `tests/unit/test_mills.py` — `TestCFPPersonalDataFieldService`

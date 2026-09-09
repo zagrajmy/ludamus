@@ -67,6 +67,18 @@ ORGANIZER_TOOL_NAMES = [
     "create_sessions",
     "assign_session",
     "assign_sessions",
+    "update_session",
+    "update_space",
+    "update_event",
+    "set_event_image",
+    "set_sphere_logo",
+    "list_maps",
+    "create_map",
+    "update_map",
+    "set_map_spaces",
+    "delete_map",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
     "list_announcements",
 ]
 

@@ -20,12 +20,12 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import RedirectView, View
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.oauth import oauth
 from ludamus.pacts import RedirectError
-from ludamus.pacts.crowd import ClaimOutcome, UserData
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, ClaimOutcome, UserData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -114,6 +114,19 @@ class Auth0UserInfo(BaseModel):
     picture: str = ""
     preferred_username: str = ""
     sub: str
+
+    @field_validator("picture")
+    @classmethod
+    def _drop_overlong_picture(cls, value: str) -> str:
+        # A URL truncated to the column width would be broken; better no avatar.
+        if len(value) > MAX_AVATAR_URL_LENGTH:
+            logger.warning(
+                "Auth0 picture dropped: %s chars exceeds %s",
+                len(value),
+                MAX_AVATAR_URL_LENGTH,
+            )
+            return ""
+        return value
 
     @property
     def display_name(self) -> str | None:
@@ -227,7 +240,11 @@ class Auth0LoginCallbackActionView(RedirectView):
                 )
                 return None
 
-        except KeyError, ValueError:
+        # HACK: the parens are load-bearing. black's preview mode strips them
+        # from a bare `except (A, B):` here and emits Python 2 syntax that
+        # breaks the import, so the tuple must be bound with `as`.
+        except (KeyError, ValueError) as exc:
+            logger.warning("Invalid Auth0 state payload: %s", exc)
             messages.error(self.request, _("Invalid authentication state"))
             return None
 

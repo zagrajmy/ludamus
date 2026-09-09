@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Q
+from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import Encounter, EncounterRSVP
 from ludamus.links.db.django.repositories.storage import (
@@ -24,17 +24,26 @@ class EncounterRepository(EncounterRepositoryProtocol):
         return EncounterDTO.model_validate(encounter)
 
     @staticmethod
-    def read(pk: int) -> EncounterDTO:
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Encounter.objects.filter(sphere_id=sphere_id).exists()
+
+    # Both reads take the sphere: share codes and pks are globally unique, so
+    # without it a route served under one sphere could reach another's
+    # encounter and sidestep that sphere's encounters page being disabled.
+    @staticmethod
+    def read(pk: int, sphere_id: int) -> EncounterDTO:
         try:
-            encounter = Encounter.objects.get(pk=pk)
+            encounter = Encounter.objects.get(pk=pk, sphere_id=sphere_id)
         except Encounter.DoesNotExist as exception:
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
 
     @staticmethod
-    def read_by_share_code(share_code: str) -> EncounterDTO:
+    def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO:
         try:
-            encounter = Encounter.objects.get(share_code=share_code)
+            encounter = Encounter.objects.get(
+                share_code=share_code, sphere_id=sphere_id
+            )
         except Encounter.DoesNotExist as exception:
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
@@ -57,6 +66,14 @@ class EncounterRepository(EncounterRepositoryProtocol):
             .exclude(creator_id=user_id)
             .order_by("start_time")
         )
+        return [EncounterDTO.model_validate(e) for e in encounters]
+
+    @staticmethod
+    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]:
+        now = datetime.now(tz=UTC)
+        encounters = Encounter.objects.filter(
+            sphere_id=sphere_id, is_public=True, start_time__gte=now
+        ).order_by("start_time")
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
@@ -101,6 +118,15 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int:
         return EncounterRSVP.objects.filter(encounter_id=encounter_id).count()
+
+    @staticmethod
+    def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]:
+        rows = (
+            EncounterRSVP.objects.filter(encounter_id__in=encounter_ids)
+            .values("encounter_id")
+            .annotate(total=Count("pk"))
+        )
+        return {row["encounter_id"]: row["total"] for row in rows}
 
     @staticmethod
     def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool:

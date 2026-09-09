@@ -83,7 +83,9 @@ class TestEncounterEditPageView:
             ),
         )
 
-    def test_removes_header_image(self, authenticated_client, user, sphere):
+    def test_removes_header_image(
+        self, authenticated_client, user, sphere, django_capture_on_commit_callbacks
+    ):
         encounter = EncounterFactory(creator=user, sphere=sphere)
         encounter.header_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
@@ -92,15 +94,16 @@ class TestEncounterEditPageView:
         storage = encounter.header_image.storage
         old_name = encounter.header_image.name
 
-        response = authenticated_client.post(
-            self._url(encounter.pk),
-            {
-                "title": encounter.title,
-                "start_time": "2026-06-01T14:00",
-                "max_participants": 5,
-                "header_image-clear": "on",
-            },
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                self._url(encounter.pk),
+                {
+                    "title": encounter.title,
+                    "start_time": "2026-06-01T14:00",
+                    "max_participants": 5,
+                    "header_image-clear": "on",
+                },
+            )
 
         assert_response(
             response,

@@ -36,7 +36,7 @@ interface Navigation {
   addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
-/** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
+/** ~16% lack Navigation API (Firefox on Android, IE11, older Safari); there, every trigger falls back to a click handler. */
 const { navigation } = globalThis as { navigation?: Navigation };
 
 const openingModals = new Set<string>();
@@ -91,6 +91,23 @@ const getLinkableByModalId = (id: string): { paramName: string; paramValue: stri
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
+// iPadOS reports itself as a Mac, hence the touch-point check behind the UA
+// match. navigator.platform is deprecated but still the one signal iPadOS
+// leaves; when it goes, that branch quietly stops matching iPads and nothing
+// else breaks.
+const isAppleTouchDevice = (): boolean =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+// Whether a modal closes with no view transition at all. Apple touch devices
+// do, in every layout: measured on the live 880-session schedule in WebKit,
+// the transition's capture alone held every tap for about a second before the
+// dialog even closed, where Chromium takes a frame — and a reader closing a
+// session is usually reaching for the search box next. Only the close: the
+// open morph runs on the same engine, but nobody is tapping the page while a
+// modal opens, so its cost buys the animation without taking anything.
+const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
+
 interface ViewTransition {
   finished: Promise<void>;
 }
@@ -99,13 +116,24 @@ interface ViewTransitionDocument {
   startViewTransition?: (callback: () => void) => ViewTransition;
 }
 
+// Held on <html> for a transition's lifetime: it opts the root out of the
+// capture (modal.css), which is what keeps the page under a modal animation
+// tappable — the root's snapshot would otherwise stand in for every element on
+// it, and a snapshot takes no taps.
+const ROOT_PAGE_LIVE = "vt-page-live";
+
 const startViewTransition = (callback: () => void): ViewTransition | null => {
   const doc = document as Document & ViewTransitionDocument;
   if (!doc.startViewTransition) {
     callback();
     return null;
   }
-  return doc.startViewTransition(callback);
+  document.documentElement.classList.add(ROOT_PAGE_LIVE);
+  const transition = doc.startViewTransition(callback);
+  void transition.finished
+    .catch(() => null)
+    .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
+  return transition;
 };
 
 const isSkippedTransitionError = (error: unknown): boolean =>
@@ -120,10 +148,6 @@ const ignoreSkippedTransition = (error: unknown): void => {
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-suppressed";
-// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
-// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
-const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
-const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -162,10 +186,6 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   setSubMorph(root, active);
 };
 
-const setRootMorph = (className: string, active: boolean): void => {
-  document.documentElement.classList.toggle(className, active);
-};
-
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
@@ -180,12 +200,9 @@ const morphTransition = (steps: {
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
+// The plain exit: the dialog's own snapshot animates out (modal.css). Whether
+// to animate at all is the caller's call, decided once in closeModal.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
-  if (!dialog.open) return;
-  if (prefersReducedMotion()) {
-    dialog.close();
-    return;
-  }
   startViewTransition(() => {
     dialog.close();
   })?.finished.catch((error) => {
@@ -243,11 +260,9 @@ const openModal = async (
       openingModals.add(id);
       morphPromise = morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_OPEN, true);
           setMorph(card, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -285,14 +300,13 @@ const closeModal = (
   const dialog = getDialog(id);
   if (dialog.open) {
     const card = sessionCardForModal(id);
-    if (animate && canMorph(card)) {
+    const animated = animate && !closesWithoutTransition();
+    if (animated && canMorph(card)) {
       morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, true);
           setContainerMorph(dialog, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {
@@ -303,7 +317,8 @@ const closeModal = (
         },
       });
     } else {
-      dismissDialog(dialog);
+      if (animated) dismissDialog(dialog);
+      else dialog.close();
       releaseSessionCard(id);
     }
   }
@@ -326,15 +341,39 @@ const closeModal = (
 // stay instant.
 declare const htmx: { process(el: Element): void };
 
-const SESSION_MODAL_PREFIX = "session-";
+// Each lazy source maps a dialog-id prefix to the container carrying a reverse()d
+// URL template (a `0` id placeholder) and how to swap the pk in. Add an entry to
+// lazy-fetch a new modal family; the rest of the machinery is prefix-agnostic.
+interface LazyModalSource {
+  prefix: string;
+  urlAttr: string;
+  urlFor: (template: string, pk: string) => string;
+}
+
+const LAZY_MODAL_SOURCES: LazyModalSource[] = [
+  {
+    prefix: "session-",
+    urlAttr: "data-session-modal-url",
+    urlFor: (template, pk) => template.replace(/\/session\/0\//, `/session/${pk}/`),
+  },
+  {
+    prefix: "notification-modal-",
+    urlAttr: "data-notification-modal-url",
+    urlFor: (template, pk) => template.replace(/\/notifications\/0\//, `/notifications/${pk}/`),
+  },
+];
+
 const inflightModals = new Map<string, Promise<boolean>>();
 
-const modalContainer = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>("[data-session-modal-url]");
+const sourceForId = (id: string): LazyModalSource | null =>
+  LAZY_MODAL_SOURCES.find((source) => id.startsWith(source.prefix)) ?? null;
 
-const sessionModalUrl = (pk: string): string | null => {
-  const template = modalContainer()?.dataset.sessionModalUrl;
-  return template ? template.replace(/\/session\/0\//, `/session/${pk}/`) : null;
+const lazyModalContainer = (source: LazyModalSource): HTMLElement | null =>
+  document.querySelector<HTMLElement>(`[${source.urlAttr}]`);
+
+const lazyModalUrl = (source: LazyModalSource, id: string): string | null => {
+  const template = lazyModalContainer(source)?.getAttribute(source.urlAttr);
+  return template ? source.urlFor(template, id.slice(source.prefix.length)) : null;
 };
 
 const numberWaitingPositions = (root: ParentNode): void => {
@@ -365,7 +404,7 @@ const wireInjectedModal = (dialog: HTMLElement): void => {
   htmx.process(dialog);
 };
 
-const fetchModal = async (id: string, url: string): Promise<boolean> => {
+const fetchModal = async (id: string, url: string, source: LazyModalSource): Promise<boolean> => {
   const response = await fetch(url, {
     headers: { "X-Requested-With": "fetch" },
     signal: AbortSignal.timeout(10_000),
@@ -378,7 +417,7 @@ const fetchModal = async (id: string, url: string): Promise<boolean> => {
   if (!(dialog instanceof HTMLElement) || dialog.id !== id) {
     throw new Error(`modal ${id}: unexpected fragment`);
   }
-  modalContainer()?.append(dialog);
+  lazyModalContainer(source)?.append(dialog);
   wireInjectedModal(dialog);
   return true;
 };
@@ -386,13 +425,14 @@ const fetchModal = async (id: string, url: string): Promise<boolean> => {
 /** Ensure the dialog for `id` is in the DOM, fetching it on first use. */
 const ensureModalLoaded = async (id: string): Promise<boolean> => {
   if (document.getElementById(id)) return true;
-  if (!id.startsWith(SESSION_MODAL_PREFIX)) return false;
-  const url = sessionModalUrl(id.slice(SESSION_MODAL_PREFIX.length));
+  const source = sourceForId(id);
+  if (!source) return false;
+  const url = lazyModalUrl(source, id);
   if (!url) return false;
 
   let pending = inflightModals.get(id);
   if (!pending) {
-    pending = fetchModal(id, url).catch((error: unknown) => {
+    pending = fetchModal(id, url, source).catch((error: unknown) => {
       console.error(error);
       return false;
     });
@@ -402,8 +442,10 @@ const ensureModalLoaded = async (id: string): Promise<boolean> => {
   return pending;
 };
 
-const isLazySessionModal = (id: string): boolean =>
-  id.startsWith(SESSION_MODAL_PREFIX) && modalContainer() !== null;
+const isLazyModal = (id: string): boolean => {
+  const source = sourceForId(id);
+  return source !== null && lazyModalContainer(source) !== null;
+};
 
 const syncModalsFromUrl = (): void => {
   if (openingModals.size > 0) return;
@@ -421,7 +463,7 @@ const syncModalsFromUrl = (): void => {
 
     const target = document.getElementById(modalId);
     if (
-      !isLazySessionModal(modalId) &&
+      !isLazyModal(modalId) &&
       !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
     )
       continue;
@@ -477,7 +519,7 @@ if (navigation) {
 
       const target = document.getElementById(modalId);
       if (
-        !isLazySessionModal(modalId) &&
+        !isLazyModal(modalId) &&
         !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
       )
         continue;
@@ -553,37 +595,48 @@ globalThis.addEventListener("popstate", syncModalsFromUrl);
 syncModalsFromUrl();
 setupModalCloseTriggers();
 
-const setupFallbackLinkHandlers = (): void => {
+// A trigger whose href leaves the current path can't be URL-addressed: the
+// notification rows sit in the navbar, so one notification would get as many
+// `?notification=` URLs as there are pages carrying the bell. Those open where
+// the reader already is and leave the address bar alone; their href stays the
+// real server route, which is what a no-JS click follows.
+const opensInPlace = (href: string): boolean =>
+  new URL(href, location.href).pathname !== location.pathname;
+
+const setupModalLinkHandlers = (): void => {
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
     if (Object.hasOwn(link.dataset, "modalReload")) continue;
     // Re-run after an htmx swap brings new cards in; the links that survived
     // it keep the one handler they already have.
-    if (Object.hasOwn(link.dataset, "modalFallbackBound")) continue;
+    if (Object.hasOwn(link.dataset, "modalClickBound")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
     if (!modalId || !href) continue;
 
     const target = document.getElementById(modalId);
     if (
-      !isLazySessionModal(modalId) &&
+      !isLazyModal(modalId) &&
       !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
     )
       continue;
 
-    link.dataset.modalFallbackBound = "";
+    // Same-path triggers are the Navigation API's job where it exists; without
+    // it every trigger needs the click handler.
+    const inPlace = opensInPlace(href);
+    if (navigation && !inPlace) continue;
+
+    link.dataset.modalClickBound = "";
     link.addEventListener("click", (e) => {
       e.preventDefault();
       void ensureModalLoaded(modalId).then((ok) => {
-        if (ok) void openModal(modalId);
+        if (ok) void openModal(modalId, { updateUrl: !inPlace });
         else globalThis.location.assign(href);
       });
     });
   }
 };
 
-if (!navigation) {
-  setupFallbackLinkHandlers();
-  document.body.addEventListener("htmx:afterSwap", setupFallbackLinkHandlers);
-}
+setupModalLinkHandlers();
+document.body.addEventListener("htmx:afterSwap", setupModalLinkHandlers);
 
 export { closeModal, openModal };

@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
@@ -9,10 +8,13 @@ from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import AttributesMatcher, assert_response
 from tests.integration.web.chronology.helpers import (
+    ENROLLMENT_OPEN,
     enroll_page_context,
-    schedule_context,
+    event_page_context,
+    masked_card,
+    session_card,
 )
 
 
@@ -27,76 +29,20 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
     )
 
 
-def _is_deniably_full(card):
-    # A pretend-full card has to be indistinguishable from a real full one: no
-    # spot left, and every seat taken by a simulacrum (negative pk).
-    return (
-        card.is_full
-        and card.spots_left == 0
-        and card.enrolled_count == card.effective_participants_limit
-        and all(seat.user.pk < 0 for seat in card.session_participations)
-    )
-
-
-_HOUR_KEYS = ("hour_data", "current_hour_data", "future_unavailable_hour_data")
-# One scheduled session reaches the template three times: as a card in
-# `sessions`, in `hour_data`, and in whichever availability lane it belongs to.
-_CARDS_PER_SESSION = 3
-
-
-def _card_buckets(response, start_time, *, lane):
-    # The keys the card layout puts a session card under. `hour_data` always
-    # carries it; masking moves it between the availability lanes, because a
-    # pretend-full card claims enrollment is open. A masked card's simulacra
-    # carry a `creation_time` minted at request time, so the buckets read the
-    # cards back and `_is_deniably_full` checks them.
-    buckets = {"sessions": response.context["sessions"]} | {
-        key: {} for key in _HOUR_KEYS
-    }
-    for key in ("hour_data", lane):
-        buckets[key] = {start_time: response.context[key][start_time]}
-    return buckets
-
-
-def _event_page_context(event, buckets, **overrides):
+def _event_page_context(event, card, *, lane, **overrides):
     # The card-layout event page for a signed-in viewer with no enrollments.
-    url = _event_url(event.slug)
-    return {
-        "ended_hour_data": {},
-        "enrollment_requires_slots": False,
-        "event": event,
-        "filterable_tag_categories": [],
-        "track_filter_names": [],
-        "category_filter_names": [],
-        "object": event,
-        "pending_review_visible": False,
-        "pending_sessions": [],
-        "pending_wizard_view": False,
-        "own_pending_proposals": [],
-        "user_enrollment_config": None,
-        "total_enrolled": 0,
-        "user_enrolled_sessions": [],
-        "event_banned": False,
-        **buckets,
-        **schedule_context(url),
-        "has_enrollable_sessions": False,
-        "scheduled_count": 0,
-        "user_enrolled_session_titles": [],
-        "view": ANY,
+    # One scheduled session reaches the template three times: as a card in
+    # `sessions`, in `hour_data`, and through the availability lane that
+    # `card_days` groups by.
+    start_time = card.agenda_item.start_time
+    return event_page_context(
+        event,
+        url=_event_url(event.slug),
+        sessions=[card],
+        hour_data={start_time: [card]},
+        **{lane: {start_time: [card]}},
         **overrides,
-    }
-
-
-def _every_card(buckets):
-    return [
-        *buckets["sessions"],
-        *(
-            card
-            for key in _HOUR_KEYS
-            for cards in buckets[key].values()
-            for card in cards
-        ),
-    ]
+    )
 
 
 def _ban_viewer(agenda_item, viewer, *, username: str):
@@ -114,6 +60,7 @@ class TestShadowbanPretendFull:
     # with a friend's view), a full one is deniable.
     # See docs/features/crowd/profile/shadowban.md.
 
+    @pytest.mark.usefixtures("enrollment_config")
     def test_event_page_shows_banner_session_as_full(
         self, authenticated_client, agenda_item, active_user, event
     ):
@@ -126,15 +73,15 @@ class TestShadowbanPretendFull:
 
         # The masked card claims an open, fully booked session, so it lands in
         # the current lane and its invented seats count toward the page total.
-        buckets = _card_buckets(
-            response, agenda_item.start_time, lane="current_hour_data"
-        )
+        card = masked_card(agenda_item, presenter=session.presenter, seats=10)
         assert_response(
             response,
             HTTPStatus.OK,
             context_data=_event_page_context(
                 event,
-                buckets,
+                card,
+                lane="current_hour_data",
+                access=ENROLLMENT_OPEN,
                 total_enrolled=10,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -142,10 +89,6 @@ class TestShadowbanPretendFull:
             template_name=["chronology/event.html"],
             contains=["Deniable Game"],
         )
-        cards = _every_card(buckets)
-        assert len(cards) == _CARDS_PER_SESSION
-        assert all(card.pretend_full for card in cards)
-        assert all(_is_deniably_full(card) for card in cards)
         # The "Session full" affordance renders in the lazy-loaded modal, which
         # applies the same shadowban masking for the banned viewer.
         modal = authenticated_client.get(
@@ -154,15 +97,16 @@ class TestShadowbanPretendFull:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        modal_card = modal.context["data"]
         assert_response(
             modal,
             HTTPStatus.OK,
             context_data={
-                "data": modal_card,
+                "data": card,
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
                 "show_roster": True,
+                "enroll_opens_at": None,
+                "map_pk": None,
                 # The deniable card offers what a genuinely full session would.
                 "enroll_actions": EnrollActions(
                     submit_value="waitlist",
@@ -172,10 +116,7 @@ class TestShadowbanPretendFull:
                 ),
             },
             template_name="chronology/parts/session-modal.html",
-            contains="Session full",
         )
-        assert modal_card.pretend_full
-        assert _is_deniably_full(modal_card)
 
     def test_event_page_untouched_for_other_users(
         self, authenticated_client, agenda_item, event
@@ -190,22 +131,61 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_event_url(event.slug))
 
-        buckets = _card_buckets(
-            response, agenda_item.start_time, lane="future_unavailable_hour_data"
-        )
+        # No mask for this viewer: the real card, with its real empty roster.
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
             context_data=_event_page_context(
-                event, buckets, has_enrollable_sessions=True, scheduled_count=1
+                event,
+                card,
+                lane="future_unavailable_hour_data",
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains="Visible Game",
         )
-        cards = _every_card(buckets)
-        assert len(cards) == _CARDS_PER_SESSION
-        assert not any(card.pretend_full for card in cards)
-        assert not any(card.is_full for card in cards)
+
+    def test_masked_modal_keeps_its_footer_when_no_window_is_open(
+        self, authenticated_client, agenda_item, active_user, event
+    ):
+        # The mask is a claim that the session is full, and a footer that
+        # vanishes is a tell: a banned viewer could spot the difference by
+        # comparing their view with a friend's. See
+        # docs/features/crowd/profile/shadowban.md.
+        session = _ban_viewer(agenda_item, active_user, username="quiet-gm")
+
+        response = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "data": masked_card(agenda_item, presenter=session.presenter, seats=10),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                # The mask claims an open, full session, so it keeps the
+                # waiting list a genuinely full one would offer — the viewer's
+                # own (empty) set of windows must not shrink the footer.
+                "enroll_actions": EnrollActions(
+                    submit_value="waitlist",
+                    submit_label="Join waiting list",
+                    submit_icon="clock",
+                    group_label="Enroll with others…",
+                ),
+                "enroll_opens_at": None,
+                "map_pk": None,
+            },
+            template_name="chronology/parts/session-modal.html",
+            contains="Session full",
+        )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_enroll_page_renders_standard_full_state(
@@ -215,23 +195,24 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=enroll_page_context(
-                viewer=active_user, agenda_item=agenda_item
-            ),
-            template_name="chronology/enroll_select.html",
-        )
-        page_session = response.context["session"]
-        assert page_session.is_full
-        # effective_participants_limit walks event.enrollment_configs; the
-        # context instance has no prefetch, so exempt this assertion-side read
-        # from zeal instead of flagging the view under test.
+        # The page holds the Session model, which compares by pk — stating the
+        # instance would say nothing about the faked counts it renders. The
+        # counts walk event.enrollment_configs on an unprefetched instance, so
+        # the assertion-side read is exempted from zeal rather than the view
+        # under test being flagged for it.
         with zeal_ignore():
-            limit = page_session.effective_participants_limit
-        assert page_session.enrolled_count == limit
-        assert page_session.waiting_count == 0
+            assert_response(
+                response,
+                HTTPStatus.OK,
+                context_data=enroll_page_context(
+                    viewer=active_user,
+                    agenda_item=agenda_item,
+                    session=AttributesMatcher(
+                        pk=session.pk, is_full=True, enrolled_count=10, waiting_count=0
+                    ),
+                ),
+                template_name="chronology/enroll_select.html",
+            )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_enroll_post_never_seats_the_shadowbanned(

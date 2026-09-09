@@ -1,0 +1,15 @@
+{% load i18n %}
+<div data-icon-field>
+    <div class="relative">
+        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xl text-foreground"
+              aria-hidden="true">
+            <i data-icon-field-glyph></i>
+        </span>
+        {% include "components/text-field.html" with class="h-11 pr-11" %}
+    </div>
+    <p class="mt-1 text-xs text-foreground-secondary"
+       data-icon-field-status
+       data-empty="{% translate 'No icon' %}"
+       data-unsupported="{% translate 'Preview unavailable for this icon' %}"
+       role="status"></p>
+</div>

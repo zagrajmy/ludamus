@@ -3,18 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final, Literal, TypedDict, get_args
 
 from django.contrib import messages
-from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.redirects import safe_url
 from ludamus.pacts.submissions import RequirementSelectionDTO
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from django.core.paginator import Page
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
 # Every value `active_nav` can take — one per entry in the panel sidebar
@@ -31,6 +27,7 @@ PanelNav = Literal[
     "venues",
     "tracks",
     "timetable",
+    "konwencik-export",
     "errata",
     "settings",
     "bans",
@@ -74,25 +71,13 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
         "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
+        "discounts": reverse("panel:event-discount-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
         "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
     }
-
-
-def safe_url(request: HttpRequest, url: str | None) -> str:
-    # The one host check behind every "back where you came from" redirect,
-    # whether the URL arrived as a `next` param or as the referer.
-    return (
-        url
-        if url
-        and url_has_allowed_host_and_scheme(
-            url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        )
-        else ""
-    )
 
 
 def safe_next_url(request: HttpRequest, fallback: str) -> str:
@@ -102,29 +87,6 @@ def safe_next_url(request: HttpRequest, fallback: str) -> str:
         safe_url(request, request.POST.get("next") or request.GET.get("next"))
         or fallback
     )
-
-
-PAGE_SIZES = (10, 20, 50, 100)
-DEFAULT_PAGE_SIZE = 20
-
-
-class PaginationContext[T](TypedDict):
-    page_obj: Page[T]
-    page_sizes: list[int]
-
-
-def paginate[T](request: HttpRequest, items: Sequence[T]) -> Page[T]:
-    raw = request.GET.get("page_size", "")
-    size = int(raw) if raw.isdigit() and int(raw) in PAGE_SIZES else DEFAULT_PAGE_SIZE
-    return Paginator(items, size).get_page(request.GET.get("page"))
-
-
-def pagination_context[T](
-    request: HttpRequest, items: Sequence[T]
-) -> PaginationContext[T]:
-    # The sizes travel with the page so the picker can't drift from the
-    # sizes `paginate` actually honours.
-    return {"page_obj": paginate(request, items), "page_sizes": list(PAGE_SIZES)}
 
 
 # The whole refusal policy for panel views, in one place. A role that reads the

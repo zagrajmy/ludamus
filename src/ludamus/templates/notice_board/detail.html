@@ -38,7 +38,12 @@
                                 {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
                             {% endif %}
                         </p>
-                        <h1 class="text-2xl font-bold text-white drop-shadow-lg mt-1">{{ encounter.title }}</h1>
+                        <h1 class="text-2xl font-bold text-white drop-shadow-lg mt-1">
+                            {{ encounter.title }}
+                            {% if encounter.is_public %}
+                                <span class="align-middle text-xs uppercase tracking-wider font-semibold text-white/90 px-1.5 py-0.5 rounded-full bg-white/20">{% translate "Public" %}</span>
+                            {% endif %}
+                        </h1>
                     </div>
                 </div>
             {% else %}
@@ -52,7 +57,12 @@
                             {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
                         {% endif %}
                     </p>
-                    <h1 class="text-2xl font-bold text-foreground mt-1">{{ encounter.title }}</h1>
+                    <h1 class="text-2xl font-bold text-foreground mt-1">
+                        {{ encounter.title }}
+                        {% if encounter.is_public %}
+                            <span class="align-middle text-xs uppercase tracking-wider font-semibold text-foreground-muted px-1.5 py-0.5 rounded-full bg-bg-tertiary">{% translate "Public" %}</span>
+                        {% endif %}
+                    </h1>
                 </div>
             {% endif %}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

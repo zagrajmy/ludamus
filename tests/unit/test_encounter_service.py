@@ -7,11 +7,14 @@ from ludamus.mills.encounter import EncounterService
 from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
+from ludamus.pacts.legacy import EncounterPublicPolicy
+from ludamus.pacts.multiverse import SphereRole
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
 SPHERE_ID = 3
 START_TIME = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
+INDEX_LIST_COUNT = 3
 
 
 def _encounter(pk=1, *, creator_id=CREATOR_ID, max_participants=0, start_time=None):
@@ -85,9 +88,17 @@ class TestEncounterService:
         return collaborators.users
 
     @pytest.fixture
-    def service(self, transaction, encounters, rsvps, users):
+    def spheres(self, collaborators):
+        return collaborators.spheres
+
+    @pytest.fixture
+    def service(self, transaction, encounters, rsvps, users, spheres):
         return EncounterService(
-            transaction=transaction, encounters=encounters, rsvps=rsvps, users=users
+            transaction=transaction,
+            encounters=encounters,
+            rsvps=rsvps,
+            users=users,
+            spheres=spheres,
         )
 
     def test_build_index_merges_mine_and_rsvpd_sorted(
@@ -100,17 +111,22 @@ class TestEncounterService:
         encounters.list_upcoming_by_creator.return_value = [mine]
         encounters.list_upcoming_rsvpd.return_value = [rsvpd, mine]
         encounters.list_past.return_value = []
-        rsvps.count_by_encounter.return_value = 2
-        users.read_by_id.return_value = _user(
-            OTHER_USER_ID, full_name="Anna GM", username="anna"
-        )
+        encounters.list_public_upcoming.return_value = []
+        rsvps.count_by_encounters.return_value = {mine.pk: 2, rsvpd.pk: 2}
+        users.read_by_ids.return_value = [
+            _user(OTHER_USER_ID, full_name="Anna GM", username="anna")
+        ]
 
         result = service.build_index(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
         assert [item.encounter.pk for item in result.upcoming] == [rsvpd.pk, mine.pk]
         assert [item.is_mine for item in result.upcoming] == [False, True]
         assert [item.organizer_name for item in result.upcoming] == ["Anna GM", ""]
+        assert [item.rsvp_count for item in result.upcoming] == [2, 2]
         assert result.past == []
+        # One batched lookup per list (upcoming, past, public), not one per
+        # encounter.
+        assert rsvps.count_by_encounters.call_count == INDEX_LIST_COUNT
         encounters.list_upcoming_by_creator.assert_called_once_with(
             SPHERE_ID, CREATOR_ID
         )
@@ -124,14 +140,49 @@ class TestEncounterService:
         encounters.list_upcoming_by_creator.return_value = []
         encounters.list_upcoming_rsvpd.return_value = []
         encounters.list_past.return_value = [past]
-        rsvps.count_by_encounter.return_value = 1
-        users.read_by_id.side_effect = NotFoundError
+        encounters.list_public_upcoming.return_value = []
+        rsvps.count_by_encounters.return_value = {past.pk: 1}
+        users.read_by_ids.return_value = []
 
         result = service.build_index(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
         assert result.upcoming == []
         assert [item.organizer_name for item in result.past] == [""]
         assert [item.is_mine for item in result.past] == [False]
+
+    def test_list_public_upcoming_reads_no_personal_lists(
+        self, service, encounters, rsvps, users
+    ):
+        public = _encounter(3, creator_id=OTHER_USER_ID)
+        encounters.list_public_upcoming.return_value = [public]
+        rsvps.count_by_encounters.return_value = {public.pk: 4}
+        users.read_by_ids.return_value = [_user(OTHER_USER_ID, full_name="Anna GM")]
+
+        result = service.list_public_upcoming(sphere_id=SPHERE_ID)
+
+        assert [item.encounter.pk for item in result] == [public.pk]
+        assert [item.is_mine for item in result] == [False]
+        assert [item.organizer_name for item in result] == ["Anna GM"]
+        assert [item.rsvp_count for item in result] == [4]
+        encounters.list_upcoming_by_creator.assert_not_called()
+        encounters.list_past.assert_not_called()
+
+    def test_build_index_public_excludes_own_upcoming(
+        self, service, encounters, rsvps, users
+    ):
+        mine = _encounter(1)
+        other_public = _encounter(2, creator_id=OTHER_USER_ID)
+        encounters.list_upcoming_by_creator.return_value = [mine]
+        encounters.list_upcoming_rsvpd.return_value = []
+        encounters.list_past.return_value = []
+        encounters.list_public_upcoming.return_value = [mine, other_public]
+        rsvps.count_by_encounters.return_value = {}
+        users.read_by_ids.return_value = [_user(OTHER_USER_ID, full_name="Anna GM")]
+
+        result = service.build_index(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
+        assert [item.encounter.pk for item in result.upcoming] == [mine.pk]
+        assert [item.encounter.pk for item in result.public] == [other_public.pk]
 
     def test_build_detail_assembles_context_and_skips_missing_attendees(
         self, service, encounters, rsvps, users
@@ -156,7 +207,9 @@ class TestEncounterService:
         users.read_by_id.side_effect = read_by_id
 
         result = service.build_detail(
-            share_code=encounter.share_code, current_user_id=OTHER_USER_ID
+            share_code=encounter.share_code,
+            sphere_id=SPHERE_ID,
+            current_user_id=OTHER_USER_ID,
         )
 
         assert isinstance(result, EncounterDetailContextDTO)
@@ -179,7 +232,7 @@ class TestEncounterService:
         rsvps.list_by_encounter.return_value = []
 
         result = service.build_detail(
-            share_code=encounter.share_code, current_user_id=None
+            share_code=encounter.share_code, sphere_id=SPHERE_ID, current_user_id=None
         )
 
         assert result.user_has_rsvpd is False
@@ -199,20 +252,84 @@ class TestEncounterService:
         encounters.create.assert_called_once_with(data)
         transaction.atomic.assert_not_called()
 
+    @pytest.mark.parametrize(
+        ("policy", "role", "expected"),
+        (
+            (EncounterPublicPolicy.DISABLED, SphereRole.MANAGER, False),
+            (EncounterPublicPolicy.EVERYONE, None, True),
+            (EncounterPublicPolicy.MANAGERS, SphereRole.MANAGER, True),
+            (EncounterPublicPolicy.MANAGERS, SphereRole.COMMS, False),
+            (EncounterPublicPolicy.MANAGERS, None, False),
+        ),
+    )
+    def test_can_set_public_follows_policy_and_role(
+        self, service, spheres, users, policy, role, expected
+    ):
+        spheres.read.return_value.encounter_public_policy = policy
+        spheres.manager_role.return_value = role
+        users.read_by_id.return_value = _user(CREATOR_ID)
+
+        assert (
+            service.can_set_public(sphere_id=SPHERE_ID, user_id=CREATOR_ID) is expected
+        )
+
+    def test_create_strips_public_flag_when_policy_forbids(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.DISABLED
+        )
+        data = {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID, "is_public": True}
+
+        service.create(data)
+
+        encounters.create.assert_called_once_with(
+            {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID}
+        )
+
+    def test_create_keeps_public_flag_when_policy_allows(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.EVERYONE
+        )
+        data = {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID, "is_public": True}
+
+        service.create(data)
+
+        encounters.create.assert_called_once_with(data)
+
+    def test_update_owned_preserves_stored_flag_when_policy_forbids(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.DISABLED
+        )
+        encounters.read.side_effect = [_encounter(1), _encounter(1)]
+
+        service.update_owned(
+            pk=1,
+            sphere_id=SPHERE_ID,
+            user_id=CREATOR_ID,
+            data={"title": "Renamed", "is_public": False},
+        )
+
+        encounters.update.assert_called_once_with(1, {"title": "Renamed"})
+
     def test_read_owned_returns_own_encounter(self, service, encounters):
         encounter = _encounter(1)
         encounters.read.return_value = encounter
 
-        result = service.read_owned(pk=1, user_id=CREATOR_ID)
+        result = service.read_owned(pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
         assert result == encounter
-        encounters.read.assert_called_once_with(1)
+        encounters.read.assert_called_once_with(1, SPHERE_ID)
 
     def test_read_owned_rejects_foreign_encounter(self, service, encounters):
         encounters.read.return_value = _encounter(1)
 
         with pytest.raises(NotFoundError):
-            service.read_owned(pk=1, user_id=OTHER_USER_ID)
+            service.read_owned(pk=1, sphere_id=SPHERE_ID, user_id=OTHER_USER_ID)
 
     def test_update_owned_updates_after_ownership_check(
         self, service, transaction, encounters
@@ -222,11 +339,16 @@ class TestEncounterService:
         encounters.read.side_effect = [before, after]
         data = {"title": "Renamed"}
 
-        result = service.update_owned(pk=1, user_id=CREATOR_ID, data=data)
+        result = service.update_owned(
+            pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID, data=data
+        )
 
         assert result == after
         encounters.update.assert_called_once_with(1, data)
-        assert encounters.read.call_args_list == [call(1), call(1)]
+        assert encounters.read.call_args_list == [
+            call(1, SPHERE_ID),
+            call(1, SPHERE_ID),
+        ]
         transaction.atomic.assert_called_once_with()
 
     def test_update_owned_foreign_encounter_has_no_side_effects(
@@ -235,7 +357,9 @@ class TestEncounterService:
         encounters.read.return_value = _encounter(1)
 
         with pytest.raises(NotFoundError):
-            service.update_owned(pk=1, user_id=OTHER_USER_ID, data={"title": "Nope"})
+            service.update_owned(
+                pk=1, sphere_id=SPHERE_ID, user_id=OTHER_USER_ID, data={"title": "Nope"}
+            )
 
         encounters.update.assert_not_called()
 
@@ -244,7 +368,7 @@ class TestEncounterService:
     ):
         encounters.read.return_value = _encounter(1)
 
-        service.delete_owned(pk=1, user_id=CREATOR_ID)
+        service.delete_owned(pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
         encounters.delete.assert_called_once_with(1)
         transaction.atomic.assert_called_once_with()
@@ -255,7 +379,7 @@ class TestEncounterService:
         encounters.read.return_value = _encounter(1)
 
         with pytest.raises(NotFoundError):
-            service.delete_owned(pk=1, user_id=OTHER_USER_ID)
+            service.delete_owned(pk=1, sphere_id=SPHERE_ID, user_id=OTHER_USER_ID)
 
         encounters.delete.assert_not_called()
 
@@ -270,6 +394,7 @@ class TestEncounterService:
 
         outcome = service.rsvp(
             share_code=encounter.share_code,
+            sphere_id=SPHERE_ID,
             user_id=OTHER_USER_ID,
             ip_address="10.0.0.1",
         )
@@ -297,6 +422,7 @@ class TestEncounterService:
 
         outcome = service.rsvp(
             share_code=encounter.share_code,
+            sphere_id=SPHERE_ID,
             user_id=OTHER_USER_ID,
             ip_address="10.0.0.1",
         )
@@ -310,7 +436,10 @@ class TestEncounterService:
         rsvps.recent_rsvp_exists.return_value = True
 
         outcome = service.rsvp(
-            share_code="CODE1", user_id=OTHER_USER_ID, ip_address="10.0.0.1"
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            user_id=OTHER_USER_ID,
+            ip_address="10.0.0.1",
         )
 
         assert outcome == RSVPOutcome.THROTTLED
@@ -326,6 +455,7 @@ class TestEncounterService:
 
         outcome = service.rsvp(
             share_code=encounter.share_code,
+            sphere_id=SPHERE_ID,
             user_id=OTHER_USER_ID,
             ip_address="10.0.0.1",
         )
@@ -338,7 +468,12 @@ class TestEncounterService:
         encounters.read_by_share_code.side_effect = NotFoundError
 
         with pytest.raises(NotFoundError):
-            service.rsvp(share_code="XXXXXX", user_id=OTHER_USER_ID, ip_address="ip")
+            service.rsvp(
+                share_code="XXXXXX",
+                sphere_id=SPHERE_ID,
+                user_id=OTHER_USER_ID,
+                ip_address="ip",
+            )
 
         rsvps.create.assert_not_called()
 
@@ -348,7 +483,9 @@ class TestEncounterService:
         encounter = _encounter(1)
         encounters.read_by_share_code.return_value = encounter
 
-        service.cancel_rsvp(share_code=encounter.share_code, user_id=OTHER_USER_ID)
+        service.cancel_rsvp(
+            share_code=encounter.share_code, sphere_id=SPHERE_ID, user_id=OTHER_USER_ID
+        )
 
         rsvps.delete_by_user.assert_called_once_with(encounter.pk, OTHER_USER_ID)
         transaction.atomic.assert_not_called()
@@ -359,7 +496,9 @@ class TestEncounterService:
         encounters.read_by_share_code.side_effect = NotFoundError
 
         with pytest.raises(NotFoundError):
-            service.cancel_rsvp(share_code="XXXXXX", user_id=OTHER_USER_ID)
+            service.cancel_rsvp(
+                share_code="XXXXXX", sphere_id=SPHERE_ID, user_id=OTHER_USER_ID
+            )
 
         rsvps.delete_by_user.assert_not_called()
 
@@ -367,7 +506,11 @@ class TestEncounterService:
         encounter = _encounter(1)
         encounters.read_by_share_code.return_value = encounter
 
-        result = service.read_by_share_code(encounter.share_code)
+        result = service.read_by_share_code(
+            share_code=encounter.share_code, sphere_id=SPHERE_ID
+        )
 
         assert result == encounter
-        encounters.read_by_share_code.assert_called_once_with(encounter.share_code)
+        encounters.read_by_share_code.assert_called_once_with(
+            encounter.share_code, SPHERE_ID
+        )

@@ -175,6 +175,10 @@ class Repositories:
         return repositories.SpaceTreeRepository()
 
     @cached_property
+    def event_maps(self) -> repositories.EventMapRepository:
+        return repositories.EventMapRepository()
+
+    @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:
         return repositories.TimeSlotRepository()
 
@@ -205,6 +209,10 @@ class Repositories:
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:
         return repositories.DiscountRepository()
+
+    @cached_property
+    def discount_rules(self) -> repositories.DiscountRuleRepository:
+        return repositories.DiscountRuleRepository()
 
     @cached_property
     def encounters(self) -> repositories.EncounterRepository:

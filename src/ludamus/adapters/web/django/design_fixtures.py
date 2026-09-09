@@ -49,6 +49,7 @@ def _mock_venue_and_space() -> LocationData:
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
         "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
+        "programme_order": 0,
     }
 
 
@@ -194,13 +195,16 @@ def mock_session_proposal() -> SessionData:
     )
 
 
+# The fourth system is the last one a card shows, and wider than the pill's
+# 200px default cap: the tags cloud spec needs a value that only fits once a
+# pill may grow to the card.
 _OVERFLOW_SYSTEMS = [
     "D&D 5e",
     "Pathfinder",
     "Fate",
-    "Blades in the Dark",
+    "Vampire: The Masquerade 5th Edition",
     "Call of Cthulhu",
-    "Vampire",
+    "Blades in the Dark",
 ]
 _OVERFLOW_TRIGGERS = [
     "horror",

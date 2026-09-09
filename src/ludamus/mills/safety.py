@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.safety import ShadowbanSignupNotification
 
 if TYPE_CHECKING:
+    from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
     from ludamus.pacts.safety import (
         EventBanDTO,
         EventBanRepositoryProtocol,
@@ -27,24 +28,26 @@ class ShadowbanService:
         self._repo = repo
         self._notifier = notifier
 
-    def list_candidates(self, owner_id: int) -> list[ShadowbanCandidateDTO]:
+    def list_candidates(self, owner_id: UserId) -> list[ShadowbanCandidateDTO]:
         return self._repo.list_candidates(owner_id)
 
-    def banned_user_ids(self, owner_id: int) -> set[int]:
+    def banned_user_ids(self, owner_id: UserId) -> set[UserId]:
         # Players this user shadowbanned — for red-ring avatars and the
         # enrolment skip (a presenter can't have banned players seated).
         return self._repo.banned_user_ids(owner_id)
 
-    def banning_owner_ids(self, target_id: int) -> set[int]:
+    def banning_owner_ids(self, target_id: UserId) -> set[UserId]:
         return self._repo.banning_owner_ids(target_id)
 
-    def set_shadowban(self, *, owner_id: int, target_slug: str, banned: bool) -> None:
+    def set_shadowban(
+        self, *, owner_id: UserId, target_slug: str, banned: bool
+    ) -> None:
         with self._transaction.atomic():
             self._repo.set_shadowban(
                 owner_id=owner_id, target_slug=target_slug, banned=banned
             )
 
-    def add_by_identifier(self, *, owner_id: int, identifier: str) -> bool:
+    def add_by_identifier(self, *, owner_id: UserId, identifier: str) -> bool:
         if not (identifier := identifier.strip()):
             return False
         with self._transaction.atomic():
@@ -53,14 +56,14 @@ class ShadowbanService:
             )
 
     def list_session_warnings(
-        self, *, viewer_id: int, session_id: int
+        self, *, viewer_id: UserId, session_id: SessionId
     ) -> list[SessionShadowbanWarningDTO]:
         return self._repo.list_session_shadowbanned(
             viewer_id=viewer_id, session_id=session_id
         )
 
     def notify_signups(
-        self, *, session_id: int, signed_up: list[tuple[int, str]]
+        self, *, session_id: SessionId, signed_up: list[tuple[UserId, str]]
     ) -> None:
         if not signed_up:
             return
@@ -71,8 +74,8 @@ class ShadowbanService:
             return
 
         name_by_id = dict(signed_up)
-        names_by_recipient: dict[int, tuple[str, list[str], list[str]]] = {}
-        seen_by_recipient: dict[int, set[int]] = {}
+        names_by_recipient: dict[UserId, tuple[str, list[str], list[str]]] = {}
+        seen_by_recipient: dict[UserId, set[UserId]] = {}
         for hit in data.hits:
             _email, event_names, session_names = names_by_recipient.setdefault(
                 hit.recipient_id, (hit.recipient_email, [], [])
@@ -114,16 +117,18 @@ class EventBanService:
         self._transaction = transaction
         self._repo = repo
 
-    def list_for_event(self, event_id: int) -> list[EventBanDTO]:
+    def list_for_event(self, event_id: EventId) -> list[EventBanDTO]:
         return self._repo.list_by_event(event_id)
 
-    def is_banned(self, *, event_id: int, user_id: int) -> bool:
+    def is_banned(self, *, event_id: EventId, user_id: UserId) -> bool:
         return self._repo.is_banned(event_id=event_id, user_id=user_id)
 
-    def banned_event_ids(self, *, event_ids: set[int], user_id: int) -> set[int]:
+    def banned_event_ids(
+        self, *, event_ids: set[EventId], user_id: UserId
+    ) -> set[EventId]:
         return self._repo.banned_event_ids(event_ids=event_ids, user_id=user_id)
 
-    def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
+    def ban(self, *, event_id: EventId, identifier: str, reason: str) -> bool:
         if not (identifier := identifier.strip()):
             return False
         with self._transaction.atomic():
@@ -131,6 +136,6 @@ class EventBanService:
                 event_id=event_id, identifier=identifier, reason=reason.strip()
             )
 
-    def unban(self, *, event_id: int, ban_id: int) -> None:
+    def unban(self, *, event_id: EventId, ban_id: EventBanId) -> None:
         with self._transaction.atomic():
             self._repo.unban(event_id=event_id, ban_id=ban_id)

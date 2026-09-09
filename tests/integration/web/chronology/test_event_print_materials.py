@@ -3,29 +3,23 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils.timezone import localdate
 
-from ludamus.links.db.django.models import SphereMembership, Track
+from ludamus.links.db.django.models import SphereMembership
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
     PrintSessionDTO,
-    PrintSessionListDocumentDTO,
 )
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    SessionFactory,
-    SpaceFactory,
-    TimeSlotFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_cache_control
 from tests.integration.web.chronology.test_event_print_page import (
     _area_schedule_document,
     _assert_print_ok,
     _confirmed_item,
-    _one_hour_page,
+    _one_hour_list_item,
     _scope,
-    _timetable_document,
+    _session_list_document,
 )
 
 
@@ -100,83 +94,14 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_timetable(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
-
-        _assert_print_ok(
-            response,
-            unconfirmed=True,
-            panel_access=True,
-            timetable=_timetable_document(event=event, pages=[]),
-        )
-
     def test_empty_session_list_renders_empty_state(self, client, event, space):
-        Track.objects.create(
-            event=event, name="Focused Track", slug="focused-track", is_public=True
-        )
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
-
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
         _assert_print_ok(
             response,
-            material="session-list",
-            session_list_available=True,
-            tracks_available=True,
             print_scopes=[_scope(space)],
             timetable=None,
-            session_list=PrintSessionListDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name="Focused Track",
-                sessions=[],
-            ),
-        )
-
-    def test_empty_session_list_with_unconfirmed_toggle(
-        self, authenticated_client, active_user, sphere, event, space
-    ):
-        sphere.managers.add(active_user)
-        Track.objects.create(
-            event=event, name="Focused Track", slug="focused-track", is_public=True
-        )
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
-
-        response = authenticated_client.get(
-            self._url(event.slug), {"material": "session-list", "unconfirmed": "1"}
-        )
-
-        _assert_print_ok(
-            response,
-            material="session-list",
-            unconfirmed=True,
-            session_list_available=True,
-            tracks_available=True,
-            panel_access=True,
-            print_scopes=[_scope(space)],
-            timetable=None,
-            session_list=PrintSessionListDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name="Focused Track",
-                sessions=[],
-            ),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
 
     def test_door_cards_with_descriptions_swap_to_the_area_schedule(
@@ -249,33 +174,7 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_manager_can_include_unconfirmed_sessions(
-        self, authenticated_client, active_user, sphere, event, session, space
-    ):
-        sphere.managers.add(active_user)
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=False,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
-
-        _assert_print_ok(
-            response,
-            unconfirmed=True,
-            panel_access=True,
-            print_scopes=[_scope(space)],
-            timetable=_timetable_document(
-                event=event,
-                pages=[_one_hour_page(event=event, session=session, space=space)],
-            ),
-        )
-        assert_cache_control(response, {"private", "max-age=5"})
-
-    def test_unconfirmed_param_is_ignored_for_participants(
+    def test_unconfirmed_session_is_listed_for_participants(
         self, client, event, session, space
     ):
         AgendaItemFactory(
@@ -286,12 +185,17 @@ class TestPublicEventPrintMaterials:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug), {"unconfirmed": "1"})
+        response = client.get(self._url(event.slug))
 
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
         assert_cache_control(response, {"public", "max-age=300"})
 
@@ -303,13 +207,13 @@ class TestPublicEventPrintMaterials:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        _assert_print_ok(response, panel_access=True)
+        _assert_print_ok(response)
         assert_cache_control(response, {"private", "max-age=5"})
         assert "Cookie" in response.headers.get("Vary", "")
         event.refresh_from_db()
         assert event.printables_last_printed_at is not None
 
-    def test_comms_visit_neither_marks_printed_nor_sees_unconfirmed(
+    def test_comms_visit_does_not_mark_printed(
         self, authenticated_client, active_user, sphere, event, session, space
     ):
         SphereMembership.objects.create(
@@ -323,12 +227,17 @@ class TestPublicEventPrintMaterials:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
+        response = authenticated_client.get(self._url(event.slug))
 
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
         event.refresh_from_db()
         assert event.printables_last_printed_at is None

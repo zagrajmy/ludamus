@@ -175,8 +175,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True, json=lambda: {"items": []}
@@ -206,8 +206,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -262,8 +262,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -347,8 +347,8 @@ class TestEventImportProposalView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -404,8 +404,8 @@ class TestEventImportProposalView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -456,7 +456,7 @@ class TestEventImportProposalView:
         )
         integration.save(update_fields=["questions_snapshot_json"])
 
-        with patch("ludamus.links.google_docs.AuthorizedSession") as session_cls:
+        with patch("ludamus.links.google_auth.AuthorizedSession") as session_cls:
             response = panel_client.get(_tab_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
@@ -497,8 +497,8 @@ class TestEventImportProposalView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -569,8 +569,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -618,8 +618,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -653,8 +653,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -688,8 +688,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -714,8 +714,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -742,8 +742,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -800,8 +800,8 @@ class TestEventImportProposalView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True, json=lambda: {"items": []}
@@ -1244,8 +1244,8 @@ class TestEventImportRefetchView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -1315,8 +1315,8 @@ class TestEventImportMissingFieldsView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -1357,8 +1357,8 @@ class TestEventImportMissingFieldsView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -1402,8 +1402,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"], ["Another"]]
@@ -1445,8 +1445,8 @@ class TestEventImportRunActionView:
         too_long = "x" * 300  # Session.title is CharField(max_length=255)
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Block"], [too_long, "GM Bob", "RPG"]]
@@ -1492,8 +1492,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "RPG system"], ["My Talk", "D&D"]]
@@ -1542,8 +1542,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "System"], ["My Talk", "D&D"]]
@@ -1595,8 +1595,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Phone"], ["My Talk", "555-1234"]]
@@ -1640,8 +1640,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
@@ -1686,8 +1686,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "When"], ["My Talk", "Fri"]]
@@ -1723,8 +1723,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Suggested"], ["My Talk", "RPG"], ["Loose", "Custom"]]
@@ -1762,8 +1762,8 @@ class TestEventImportRunActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Kind"], ["My Talk", "RPG"], ["Loose", "Custom"]]
@@ -1802,8 +1802,8 @@ class TestEventImportTestRowActionView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["One"], ["Two"], ["Three"]]
@@ -1836,8 +1836,8 @@ class TestEventImportTestRowActionView:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get([])
             response = panel_client.post(_test_url(event, integration))
@@ -1934,8 +1934,8 @@ class TestEventImportJsonView:
         integration.save(update_fields=["settings_json", "questions_snapshot_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True,
@@ -2271,8 +2271,8 @@ class TestEventImportLogPageView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"]]
@@ -2307,8 +2307,8 @@ class TestEventImportLogPageView:
 
         # First run yields one skipped entry.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["Talk", "loads"]]
@@ -2323,8 +2323,8 @@ class TestEventImportLogPageView:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["Talk", "loads"]]
@@ -2535,8 +2535,8 @@ class TestEventImportLogReimport:
 
         # Initial run creates one proposal + one success log entry.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["Original"]]
@@ -2558,8 +2558,8 @@ class TestEventImportLogReimport:
 
         # Reimport: refetched source still returns the original title.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["Original"]]
@@ -2597,8 +2597,8 @@ class TestEventImportLogReimport:
 
         # Initial run imports a contact email.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["Original", "host@example.com"]]
@@ -2612,8 +2612,8 @@ class TestEventImportLogReimport:
 
         # Reimport: the source row no longer carries an email.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["Original", ""]]
@@ -3437,8 +3437,8 @@ class TestImportActionResultMessages:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"], ["Another"]]
@@ -3448,8 +3448,8 @@ class TestImportActionResultMessages:
 
         # Second run finds both rows already imported via the unique key.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"], ["Another"]]
@@ -3492,8 +3492,8 @@ class TestImportActionResultMessages:
         )
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["My Talk", "a@x.z"]]
@@ -3530,8 +3530,8 @@ class TestImportActionResultMessages:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["My Talk", "loads"]]
@@ -3566,8 +3566,8 @@ class TestImportActionResultMessages:
         integration.save(update_fields=["settings_json"])
 
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["Original"]]
@@ -3579,8 +3579,8 @@ class TestImportActionResultMessages:
 
         # Reimport against a source that no longer carries the row.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get([])
             response = panel_client.post(
@@ -3688,8 +3688,8 @@ class TestImportDistinctSessionsSameName:
 
     def _run(self, client, event, integration, url=None):
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
                 [_LOCALIZED_HEADER, *_LOCALIZED_ROWS]

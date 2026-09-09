@@ -13,6 +13,9 @@
             {% tessera_field form.end_time %}
         </div>
         {% tessera_field form.max_participants %}
+        {% if "is_public" in form.fields %}
+            {% tessera_field form.is_public %}
+        {% endif %}
         <div class="mt-2 md:mt-auto md:ml-auto md:pt-4">{% tessera_button submit_label %}</div>
     </div>
 </div>

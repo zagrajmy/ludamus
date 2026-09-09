@@ -6,6 +6,7 @@ from ludamus.pacts.chronology import SessionModalServiceProtocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import SessionModalDTO, SessionModalRepositoryProtocol
+    from ludamus.pacts.ids import EventId, SessionId, UserId
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -22,10 +23,10 @@ class SessionModalService(SessionModalServiceProtocol):
     def read(
         self,
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None:
         with self._transaction.atomic():
             return self._sessions.read_modal(

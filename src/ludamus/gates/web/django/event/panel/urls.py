@@ -1,5 +1,6 @@
 """URL patterns for the event-scoped Panel."""
 
+from django.db.transaction import non_atomic_requests
 from django.urls import include, path
 
 from ludamus.gates.web.django.chronology.panel.views import (
@@ -23,10 +24,12 @@ from ludamus.gates.web.django.chronology.panel.views import (
 )
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
+    discount_settings,
     enrollment_settings,
     errata,
     facilitator_actions,
     facilitator_edit,
+    konwencik_export,
     mcp_token,
     print_redirects,
     proposal_category_settings,
@@ -149,6 +152,26 @@ urlpatterns = [
         name="enrollment-window-delete",
     ),
     path(
+        "event/<slug:slug>/settings/discounts/",
+        discount_settings.EventDiscountSettingsPageView.as_view(),
+        name="event-discount-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/create/",
+        discount_settings.DiscountRuleCreatePageView.as_view(),
+        name="discount-rule-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/<int:pk>/edit/",
+        discount_settings.DiscountRuleEditPageView.as_view(),
+        name="discount-rule-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/<int:pk>/do/delete",
+        discount_settings.DiscountRuleDeleteActionView.as_view(),
+        name="discount-rule-delete",
+    ),
+    path(
         "event/<slug:slug>/settings/display/",
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",
@@ -215,6 +238,16 @@ urlpatterns = [
         "event/<slug:slug>/venues/do/reorder",
         venues.SpaceReorderActionView.as_view(),
         name="space-reorder",
+    ),
+    path(
+        "event/<slug:slug>/venues/do/reorder-programme",
+        venues.ProgrammeSpaceReorderActionView.as_view(),
+        name="programme-space-reorder",
+    ),
+    path(
+        "event/<slug:slug>/venues/do/move-to-root",
+        venues.SpaceMoveToRootActionView.as_view(),
+        name="space-move-to-root",
     ),
     path(
         "event/<slug:slug>/cfp/time-slots/",
@@ -484,6 +517,11 @@ urlpatterns = [
         name="discounts",
     ),
     path(
+        "event/<slug:slug>/discounts/do/sync",
+        discounts.DiscountSyncActionView.as_view(),
+        name="discount-sync",
+    ),
+    path(
         "event/<slug:slug>/discounts/export/",
         discounts.DiscountExportPageView.as_view(),
         name="discount-export",
@@ -528,6 +566,26 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
         integrations.IntegrationDeletePageView.as_view(),
         name="integration-delete",
+    ),
+    path(
+        "event/<slug:slug>/export/",
+        konwencik_export.KonwencikExportSettingsPageView.as_view(),
+        name="konwencik-export",
+    ),
+    path(
+        "event/<slug:slug>/export/<int:pk>/",
+        konwencik_export.KonwencikExportSettingsPageView.as_view(),
+        name="konwencik-export-settings",
+    ),
+    path(
+        "event/<slug:slug>/export/<int:pk>/run/",
+        # Outside ATOMIC_REQUESTS: the service claims the export lock in its
+        # own transaction and needs that commit visible before it starts
+        # writing the sheet. Wrapped in the request's transaction the claim is
+        # only a savepoint, so a concurrent sweep blocks on the row for the
+        # whole run and then repeats it.
+        non_atomic_requests(konwencik_export.KonwencikExportActionView.as_view()),
+        name="konwencik-export-run",
     ),
     path(
         "event/<slug:slug>/import/",

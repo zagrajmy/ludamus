@@ -26,6 +26,7 @@ XML_NS = {
 class SheetData:
     cells: dict[str, object]
     merges: tuple[str, ...]
+    hidden_columns: frozenset[int] = frozenset()
 
 
 def column_index(reference: str) -> int:
@@ -120,4 +121,10 @@ def _load_sheet(
     merges = tuple(
         node.attrib["ref"] for node in root.findall(".//main:mergeCell", XML_NS)
     )
-    return SheetData(cells=cells, merges=merges)
+    hidden_columns = frozenset(
+        column
+        for node in root.findall("main:cols/main:col", XML_NS)
+        if node.attrib.get("hidden") in {"1", "true"}
+        for column in range(int(node.attrib["min"]) - 1, int(node.attrib["max"]))
+    )
+    return SheetData(cells=cells, merges=merges, hidden_columns=hidden_columns)

@@ -64,6 +64,8 @@ from ludamus.pacts.legacy import ConfirmationSessionRow
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.ids import EventId, SessionId, UserId
+
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
@@ -203,7 +205,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
 
 
 def _session_modal_dto(
-    session: Session, *, viewer_user_ids: list[int], editor_user_id: int | None
+    session: Session, *, viewer_user_ids: list[UserId], editor_user_id: UserId | None
 ) -> SessionModalDTO:
     now = datetime.now(tz=UTC)
     agenda_item = session.agenda_item
@@ -262,10 +264,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def read_modal(
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None:
         # The same queryset the schedule is built from: the modal is public and
         # unauthenticated, so re-deciding visibility here would leave a session
@@ -378,6 +380,14 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.restore()
 
     @staticmethod
+    def list_alive_pks_by_event(event_pk: int) -> list[int]:
+        # `objects` is the alive manager; joins from AgendaItem reach deleted
+        # sessions, so exports intersect against this.
+        return list(
+            Session.objects.filter(event_id=event_pk).values_list("pk", flat=True)
+        )
+
+    @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:
         qs = (
             Session.all_objects.filter(
@@ -434,9 +444,13 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
+        # Through the session's own event FK, not its category: category is
+        # nullable, so the category join raised NotFoundError — a 500 on the
+        # accept page — for a proposal that has no category but does have an
+        # event. Same reasoning as review_inbox_proposals above.
         try:
             event = Event.objects.select_related("proposal_settings").get(
-                proposal_categories__sessions__id=session_id
+                event_sessions__id=session_id
             )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -448,8 +462,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # immediate parent's name so the picker can render optgroups.
         spaces = (
             Space.objects.filter(
-                event__proposal_categories__sessions__id=session_id,
-                children__isnull=True,
+                event__event_sessions__id=session_id, children__isnull=True
             )
             .select_related("parent")
             .order_by("order", "name")
@@ -466,15 +479,15 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
         time_slots = TimeSlot.objects.filter(
-            event__proposal_categories__sessions__id=session_id
-        )
+            event__event_sessions__id=session_id
+        ).order_by("start_time")
         return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
 
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
         try:
             time_slot = TimeSlot.objects.get(
-                id=time_slot_id, event__proposal_categories__sessions__id=session_id
+                id=time_slot_id, event__event_sessions__id=session_id
             )
         except TimeSlot.DoesNotExist as exception:
             raise NotFoundError from exception

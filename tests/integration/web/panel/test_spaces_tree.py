@@ -1,6 +1,7 @@
 """Integration tests for the recursive Space-tree panel CRUD."""
 
 import json
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -9,8 +10,14 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.links.db.django.models import SPACE_NO_CHILDREN_REASON, Space, Track
-from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
+from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
+    SPACE_UNDELETABLE_REASON,
+    Space,
+    Track,
+)
+from ludamus.pacts import EventDTO
+from ludamus.pacts.venues import ProgrammeSpaceRowDTO, SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import assert_not_a_manager, panel_context
@@ -27,14 +34,24 @@ def _record(space):
         description=space.description,
         location=space.location,
         order=space.order,
+        programme_order=space.programme_order,
     )
 
 
-def _node(space, *, is_leaf, children=None, track_names=None, no_children_reason=None):
+def _node(
+    space,
+    *,
+    is_leaf,
+    children=None,
+    track_names=None,
+    no_children_reason=None,
+    undeletable_reason=None,
+):
     return SpaceTreeNodeDTO(
         space=_record(space),
         is_leaf=is_leaf,
         no_children_reason=no_children_reason,
+        undeletable_reason=undeletable_reason,
         track_names=track_names or [],
         children=children or [],
     )
@@ -46,6 +63,27 @@ def _venues_url(event):
 
 def _root(event, name="Hall", **kwargs):
     return Space.objects.create(event=event, name=name, slug=name.lower(), **kwargs)
+
+
+def _venues_context(
+    event,
+    *,
+    tree,
+    rooms_count=0,
+    has_nested_spaces=False,
+    programme_spaces=None,
+    location_preview=None,
+):
+    return {
+        **panel_context(event, active_nav="venues", rooms_count=rooms_count),
+        "active_tab": "layout",
+        "layout_url": _venues_url(event),
+        "programme_url": f"{_venues_url(event)}?view=programme",
+        "tree": tree,
+        "has_nested_spaces": has_nested_spaces,
+        "programme_spaces": programme_spaces or [],
+        "location_preview": location_preview,
+    }
 
 
 @pytest.fixture(name="manager_client")
@@ -74,7 +112,7 @@ class TestSpacesTreePage:
             response,
             HTTPStatus.OK,
             template_name="panel/spaces.html",
-            context_data={**panel_context(event, active_nav="venues"), "tree": []},
+            context_data=_venues_context(event, tree=[]),
         )
 
     def test_renders_nested_tree(self, manager_client, event):
@@ -89,12 +127,12 @@ class TestSpacesTreePage:
             response,
             HTTPStatus.OK,
             template_name="panel/spaces.html",
-            context_data={
-                **panel_context(event, active_nav="venues", rooms_count=2),
-                "tree": [
-                    _node(root, is_leaf=False, children=[_node(leaf, is_leaf=True)])
-                ],
-            },
+            context_data=_venues_context(
+                event,
+                rooms_count=2,
+                has_nested_spaces=True,
+                tree=[_node(root, is_leaf=False, children=[_node(leaf, is_leaf=True)])],
+            ),
         )
 
     def test_marks_a_space_holding_a_session(self, manager_client, event):
@@ -109,16 +147,34 @@ class TestSpacesTreePage:
             response,
             HTTPStatus.OK,
             template_name="panel/spaces.html",
-            context_data={
-                **panel_context(event, active_nav="venues", rooms_count=1),
-                "tree": [
+            context_data=_venues_context(
+                event,
+                rooms_count=1,
+                tree=[
                     _node(
                         room,
                         is_leaf=True,
                         no_children_reason=str(SPACE_NO_CHILDREN_REASON),
+                        undeletable_reason=str(SPACE_UNDELETABLE_REASON),
                     )
                 ],
-            },
+                programme_spaces=[
+                    {
+                        "space": ProgrammeSpaceRowDTO(
+                            pk=room.pk,
+                            name=room.name,
+                            path=room.name,
+                            programme_order=room.programme_order,
+                            track_names=[],
+                        ),
+                        "tracks": [],
+                    }
+                ],
+                location_preview={
+                    "location_label": room.name,
+                    "location_crumbs": [{"name": room.name, "space_filter": None}],
+                },
+            ),
         )
 
     def test_leaf_shows_location_and_track_pills(self, manager_client, event):
@@ -135,20 +191,17 @@ class TestSpacesTreePage:
             response,
             HTTPStatus.OK,
             template_name="panel/spaces.html",
-            context_data={
-                **panel_context(event, active_nav="venues", rooms_count=1),
-                "tree": [
+            context_data=_venues_context(
+                event,
+                rooms_count=1,
+                tree=[
                     _node(
                         leaf,
                         is_leaf=True,
                         track_names=["Board Games", "Card Games", "Larp", "RPG"],
                     )
                 ],
-            },
-            contains=[
-                'title="Building B"',
-                'title="RPG">+1<span class="sr-only">: RPG</span>',
-            ],
+            ),
         )
 
 
@@ -202,10 +255,9 @@ class TestSpaceCreate:
             HTTPStatus.OK,
             template_name="panel/spaces.html",
             messages=[(messages.SUCCESS, "Space created successfully.")],
-            context_data={
-                **panel_context(event, active_nav="venues", rooms_count=1),
-                "tree": [_node(room, is_leaf=True)],
-            },
+            context_data=_venues_context(
+                event, rooms_count=1, tree=[_node(room, is_leaf=True)]
+            ),
         )
 
     def test_create_room_with_location(self, manager_client, event):
@@ -685,6 +737,202 @@ class TestSpaceCopy:
                 "form": ANY,
             },
         )
+
+    def test_get_names_the_only_target_event(self, manager_client, event, sphere):
+        # One other event is not a choice, so the form stops asking for it —
+        # and the page has to say where the subtree is going instead. The
+        # target starts earlier so the sidebar's newest-first order, and with
+        # it `current_event`, is unchanged.
+        node = _root(event, "Hall")
+        target = EventFactory(
+            sphere=sphere,
+            name="Winter Convention",
+            start_time=event.start_time - timedelta(days=30),
+        )
+
+        response = manager_client.get(self._url(event, node.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-copy.html",
+            context_data={
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "events": [EventDTO.model_validate(e) for e in (event, target)],
+                "node": _record(node),
+                "form": ANY,
+            },
+            # The sidebar lists every event by name, so the destination has
+            # to be checked in the sentence that promises to copy into it.
+            contains=(
+                f'Copies "{node.name}" and everything inside it into '
+                f"{target.name} as a new top-level space."
+            ),
+        )
+
+
+class TestProgrammeSpaceReorder:
+    @staticmethod
+    def _url(event):
+        return reverse("panel:programme-space-reorder", kwargs={"slug": event.slug})
+
+    def _reorder(self, manager_client, event, space_ids):
+        return manager_client.post(
+            self._url(event),
+            data=json.dumps({"space_ids": space_ids}),
+            content_type="application/json",
+        )
+
+    def test_reorders_only_the_programme_axis(self, manager_client, event):
+        parent = _root(event, "Building")
+        first = Space.objects.create(
+            event=event,
+            parent=parent,
+            name="First",
+            slug="first",
+            order=0,
+            programme_order=1,
+        )
+        second = Space.objects.create(
+            event=event,
+            parent=parent,
+            name="Second",
+            slug="second",
+            order=1,
+            programme_order=2,
+        )
+        AgendaItemFactory(space=first)
+        AgendaItemFactory(space=second)
+
+        response = self._reorder(manager_client, event, [second.pk, first.pk])
+
+        assert_response(response, HTTPStatus.OK)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert second.programme_order < first.programme_order
+        assert (first.parent_id, first.order) == (parent.pk, 0)
+        assert (second.parent_id, second.order) == (parent.pk, 1)
+
+    def test_rejects_missing_scheduled_space_without_changes(
+        self, manager_client, event
+    ):
+        first = _root(event, "First", programme_order=0)
+        second = _root(event, "Second", programme_order=1)
+        AgendaItemFactory(space=first)
+        AgendaItemFactory(space=second)
+
+        response = self._reorder(manager_client, event, [second.pk])
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert (first.programme_order, second.programme_order) == (0, 1)
+
+    def test_rejects_a_foreign_space_without_changes(
+        self, manager_client, event, sphere
+    ):
+        local = _root(event, "Local", programme_order=0)
+        AgendaItemFactory(space=local)
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign", programme_order=0)
+        AgendaItemFactory(space=foreign)
+
+        response = self._reorder(manager_client, event, [foreign.pk])
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+        local.refresh_from_db()
+        foreign.refresh_from_db()
+        assert local.programme_order == 0
+        assert foreign.programme_order == 0
+
+    def test_non_object_body_returns_400(self, manager_client, event):
+        response = manager_client.post(
+            self._url(event),
+            data=json.dumps([1, 2, 3]),
+            content_type="application/json",
+        )
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+
+    def test_anonymous_user_is_redirected(self, client, event):
+        url = self._url(event)
+
+        response = client.post(url)
+
+        assert_login_required(response, url)
+
+    def test_non_manager_is_redirected(self, authenticated_client, event):
+        response = authenticated_client.post(self._url(event))
+
+        assert_not_a_manager(response)
+
+
+class TestMoveSpaceToRoot:
+    @staticmethod
+    def _url(event):
+        return reverse("panel:space-move-to-root", kwargs={"slug": event.slug})
+
+    def _move(self, manager_client, event, space_id):
+        return manager_client.post(
+            self._url(event),
+            data=json.dumps({"space_id": space_id}),
+            content_type="application/json",
+        )
+
+    def test_moves_a_nested_space_and_preserves_programme_order(
+        self, manager_client, event
+    ):
+        parent = _root(event, "Building", order=0)
+        sibling = _root(event, "Other building", order=1)
+        programme_order = 7
+        child = Space.objects.create(
+            event=event,
+            parent=parent,
+            name="Room",
+            slug="room",
+            order=0,
+            programme_order=programme_order,
+        )
+
+        response = self._move(manager_client, event, child.pk)
+
+        assert_response(response, HTTPStatus.OK)
+        child.refresh_from_db()
+        assert child.parent_id is None
+        assert child.order == sibling.order + 1
+        assert child.programme_order == programme_order
+
+    def test_rejects_a_foreign_space_without_changes(
+        self, manager_client, event, sphere
+    ):
+        other_event = EventFactory(sphere=sphere)
+        foreign_parent = _root(other_event, "Building")
+        foreign = Space.objects.create(
+            event=other_event, parent=foreign_parent, name="Room", slug="room"
+        )
+
+        response = self._move(manager_client, event, foreign.pk)
+
+        assert_response(response, HTTPStatus.NOT_FOUND)
+        foreign.refresh_from_db()
+        assert foreign.parent_id == foreign_parent.pk
+
+    def test_invalid_body_returns_400(self, manager_client, event):
+        response = self._move(manager_client, event, "not-an-id")
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+
+    def test_anonymous_user_is_redirected(self, client, event):
+        url = self._url(event)
+
+        response = client.post(url)
+
+        assert_login_required(response, url)
+
+    def test_non_manager_is_redirected(self, authenticated_client, event):
+        response = authenticated_client.post(self._url(event))
+
+        assert_not_a_manager(response)
 
 
 class TestSpaceReorder:

@@ -16,6 +16,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
@@ -49,7 +50,6 @@ class MaterialSpec:
     label: _LazyStr
     document_kind: DocumentKind
     scope_kind: ScopeKind = "event"
-    requires_session_list: bool = False
 
     # The sidebar controls a material exposes follow directly from its scope, so
     # they are derived rather than stored (keeps the specs from drifting).
@@ -61,11 +61,11 @@ class MaterialSpec:
     def show_track_control(self) -> bool:
         return self.scope_kind == "track"
 
-    # The "with descriptions" capability swaps the timetable grid or the door
-    # cards for the per-space descriptions pages; the session list carries
-    # descriptions already.
+    # The "with descriptions" toggle swaps the timetable grid or the door cards
+    # for the per-space descriptions pages; the session list folds them into
+    # its rows.
     @property
-    def supports_descriptions(self) -> bool:
+    def descriptions_swap_to_area_schedule(self) -> bool:
         return self.document_kind in {"timetable", "door_cards"}
 
     # Timetables and door cards cover a time window; the session list doesn't.
@@ -81,30 +81,27 @@ DOOR_CARDS = "door-cards"
 # Retired material value still reachable from old bookmarks; maps to the
 # timetable material with the descriptions checkbox ticked.
 LEGACY_DESCRIPTIONS_MATERIAL = "timetable-descriptions"
-# One timetable material, scopable to any space-tree node (a single room, a
-# whole floor, a building) or left unscoped for the whole event — the Scope
-# picker covers every level, so there is no separate venue/area/space material.
+# The session list comes first and is the default: it is what a participant
+# who lands here from the event page wants to carry around. One timetable
+# material, scopable to any space-tree node (a single room, a whole floor, a
+# building) or left unscoped for the whole event — the Scope picker covers
+# every level, so there is no separate venue/area/space material.
 MATERIAL_SPECS = (
+    MaterialSpec(SESSION_LIST, _("Program for participants"), "session_list"),
     MaterialSpec(TIMETABLE, _("Timetable"), "timetable", scope_kind="scope"),
     MaterialSpec(
         TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
-    ),
-    MaterialSpec(
-        SESSION_LIST, _("Session list"), "session_list", requires_session_list=True
     ),
     MaterialSpec(DOOR_CARDS, _("Door cards"), "door_cards", scope_kind="scope"),
 )
 MATERIAL_SPECS_BY_VALUE = {spec.value: spec for spec in MATERIAL_SPECS}
 
 
-def _available_materials(
-    *, session_list_available: bool, tracks_available: bool
-) -> tuple[MaterialSpec, ...]:
+def _available_materials(*, tracks_available: bool) -> tuple[MaterialSpec, ...]:
     return tuple(
         spec
         for spec in MATERIAL_SPECS
-        if (session_list_available or not spec.requires_session_list)
-        and (tracks_available or spec.scope_kind != "track")
+        if tracks_available or spec.scope_kind != "track"
     )
 
 
@@ -159,10 +156,9 @@ def _build_print_documents(
     service: PrintMaterialsServiceProtocol,
     document_kind: DocumentKind,
     query: PrintQueryDTO,
-    session_list: PrintSessionListDocumentDTO | None,
 ) -> _PrintDocuments:
     if document_kind == "session_list":
-        return _PrintDocuments(session_list=session_list)
+        return _PrintDocuments(session_list=service.build_session_list(query))
     if document_kind == "timetable":
         return _PrintDocuments(timetable=service.build_timetable(query))
     if document_kind == "area_schedule":
@@ -172,7 +168,14 @@ def _build_print_documents(
     assert_never(document_kind)
 
 
-class PublicEventPrintView(View):
+def _resolve_material(
+    requested: str, available: tuple[MaterialSpec, ...]
+) -> MaterialSpec:
+    # The first available material is the default (see MATERIAL_SPECS).
+    return next((spec for spec in available if spec.value == requested), available[0])
+
+
+class PublicEventPrintView(EventsPageRequiredMixin, View):
     request: RootRequest
     template_name = "chronology/print.html"
     DEFAULT_RANGE_HOURS = 6
@@ -190,8 +193,7 @@ class PublicEventPrintView(View):
         access = panel_access(request)
         panel_user = access.granted
         # A comms member reads this page and changes nothing by opening it:
-        # the printed-materials signal and the unconfirmed sessions are the
-        # organizers' business.
+        # the printed-materials signal is the organizers' business.
         manages_event = access.allows(Capability.PANEL_WRITE)
         if not published and not panel_user:
             raise Http404
@@ -209,26 +211,16 @@ class PublicEventPrintView(View):
 
         tz = get_current_timezone()
         resolved_range = self._resolve_range(event, tz)
-        descriptions = (
-            request.GET.get("descriptions") == "1"
-            or request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL
-        )
-        # Only sphere managers may pull unconfirmed sessions onto paper; for
-        # everyone else the param is ignored, not an error.
-        unconfirmed = manages_event and request.GET.get("unconfirmed") == "1"
-        confirmed_only = not unconfirmed
+        requested_material = request.GET.get("material") or ""
+        descriptions = request.GET.get("descriptions") == "1"
+        if requested_material == LEGACY_DESCRIPTIONS_MATERIAL:
+            requested_material, descriptions = TIMETABLE, True
 
         service = request.services.print_materials
         tracks = service.list_tracks(event.pk)
         selected_track = self._selected_track(tracks)
-        session_list_candidate = service.build_session_list(
-            event.pk, confirmed_only=confirmed_only
-        )
-        material_options = _available_materials(
-            session_list_available=session_list_candidate is not None,
-            tracks_available=bool(tracks),
-        )
-        material_spec = self._resolve_material(material_options)
+        material_options = _available_materials(tracks_available=bool(tracks))
+        material_spec = _resolve_material(requested_material, material_options)
         print_scope = _resolve_print_scope(
             material=material_spec, scope=scope, track=selected_track
         )
@@ -237,7 +229,7 @@ class PublicEventPrintView(View):
         # is scoped.
         document_kind: DocumentKind = (
             "area_schedule"
-            if descriptions and material_spec.supports_descriptions
+            if descriptions and material_spec.descriptions_swap_to_area_schedule
             else material_spec.document_kind
         )
 
@@ -250,10 +242,8 @@ class PublicEventPrintView(View):
                 scope_space_pks=print_scope.space_pks,
                 track_pk=print_scope.track_pk,
                 scope_name=print_scope.name,
-                confirmed_only=confirmed_only,
                 time_range=resolved_range.window,
             ),
-            session_list=session_list_candidate,
         )
 
         event_url = request.build_absolute_uri(
@@ -278,11 +268,8 @@ class PublicEventPrintView(View):
                 "material": material_spec.value,
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
-                "show_descriptions_control": material_spec.supports_descriptions,
                 "show_range_controls": material_spec.show_range_controls,
-                "show_unconfirmed_control": manages_event,
                 "descriptions": descriptions,
-                "unconfirmed": unconfirmed,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -291,24 +278,13 @@ class PublicEventPrintView(View):
                 "range_hours": resolved_range.hours,
             },
         )
-        # A manager's page differs from the public one (extra materials, the
-        # unconfirmed toggle), so it must never land in a shared cache.
+        # The navbar carries the viewer's identity, so an authenticated response
+        # is never shareable; only the anonymous one may sit in a shared cache.
         if published and not panel_user:
             patch_cache_control(response, public=True, max_age=300)
         else:
             patch_cache_control(response, private=True, max_age=5)
         return response
-
-    def _resolve_material(
-        self, available_materials: tuple[MaterialSpec, ...]
-    ) -> MaterialSpec:
-        # The timetable is the default; it carries the Scope picker, so a scoped
-        # request needs no special-casing here.
-        available_by_value = {spec.value: spec for spec in available_materials}
-        material = MATERIAL_SPECS_BY_VALUE.get(self.request.GET.get("material") or "")
-        if material and material.value in available_by_value:
-            return material
-        return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
 
     def _resolve_range(self, event: EventDTO, tz: tzinfo) -> _ResolvedRange:
         # Both params are optional: no start means the event start, no hours

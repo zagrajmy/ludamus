@@ -5,8 +5,9 @@
 {# Compact schedule for big events: a dense chronological ledger (or the #}
 {# rooms grid) paired with a sticky hour scrubber. Reuses the .session / #}
 {# .time-slot-section / .session-grid contract so session-filters.ts and the #}
-{# detail modals apply. Sections are whole local-clock hours, so the rail #}
-{# markers, section ids, and hour headings are always one-to-one. #}
+{# detail modals apply. A section is keyed on its whole local-clock hour — in #}
+{# the rooms grid it is a band inside that hour — so the rail markers, section #}
+{# ids, and hour headings stay one-to-one. #}
 {# The view tabs live in the search/filter toolbar row (event.html). #}
 {# The rooms grid is a map, so it breaks out of main's column and spans the #}
 {# screen (see the breakout utility). The list is a ledger and reads better #}
@@ -17,6 +18,7 @@
 <div class="compact-schedule {% if active_tab == 'rooms' %}breakout{% else %}-mx-4 sm:mx-0{% endif %}"
      data-csrf="{{ csrf_token }}"
      data-event-time-zone="{{ event_timezone }}"
+     data-day-starts-at="{{ programme_day_start_hour }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">
         <div class="min-w-0 flex-1">
@@ -27,30 +29,35 @@
                     {# Each day is a sheet: the ledger rows sit on a raised card, not #}
                     {# directly on the page background. #}
                     <section data-schedule-day
+                             data-day="{{ day.day_start|date:'Y-m-d' }}"
                              class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
-                        {% include "chronology/_schedule_day_header.html" %}
-                        {% for hour in day.hours %}
-                            <div class="time-slot-section scroll-mt-24"
-                                 id="slot-{{ hour.slot_key }}"
-                                 data-slot-hour="{{ hour.slot_key }}">
-                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
-                                    {{ hour.start|time:"H:i" }}
-                                    {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length controls=day.panel_id %}
+                        <div id="{{ day.panel_id }}" data-day-panel>
+                            {% for hour in day.hours %}
+                                <div class="time-slot-section scroll-mt-24"
+                                     id="slot-{{ hour.slot_key }}"
+                                     data-slot-hour="{{ hour.slot_key }}">
+                                    <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
+                                        {{ hour.start|time:"H:i" }}
+                                        {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                                    </div>
+                                    {# Not divide-y: it draws a stray divider under the last visible #}
+                                    {# row when session-filters.ts hides the rows after it (index.css). #}
+                                    <div class="session-grid divide-y-visible relative">
+                                        {% for tile in hour.tiles %}
+                                            {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                {# Not divide-y: it draws a stray divider under the last visible #}
-                                {# row when session-filters.ts hides the rows after it (index.css). #}
-                                <div class="session-grid divide-y-visible">
-                                    {% for tile in hour.tiles %}
-                                        {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </div>
                     </section>
                 {% endfor %}
-                {# The "now" seam, moved between two rows by schedule-now.ts. #}
-                <div class="schedule-now" data-schedule-now hidden>
-                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-2 -translate-y-1/2" %}
+                {# The "now" seam, laid over the row boundary by schedule-now.ts. #}
+                {# start-0.5 + the pill's px-1.5 puts its digits on the rows' time #}
+                {# column (px-2 / max-sm:left-2), so the clock reads as one more time. #}
+                <div class="schedule-now-line" data-schedule-now hidden>
+                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-0.5 -translate-y-1/2" %}
                 </div>
             {% endif %}
         </div>

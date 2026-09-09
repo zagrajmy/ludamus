@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
-from ludamus.links.db.django.models import AgendaItem, Track
+from ludamus.links.db.django.models import AgendaItem, Facilitator, Track
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemUpdateData,
@@ -161,3 +161,49 @@ class TestAgendaItemRepositoryDelete:
 
     def test_delete_nonexistent_does_not_raise(self):
         AgendaItemRepository.delete(99999)
+
+
+def _facilitator(event, display_name):
+    return Facilitator.objects.create(
+        event=event,
+        display_name=display_name,
+        slug=display_name.lower(),
+        accreditation_type="none",
+    )
+
+
+class TestAgendaItemRepositoryFacilitatorSchedule:
+    def test_sole_facilitator_gets_the_whole_session(self, event, session, space):
+        alice = _facilitator(event, "Alice")
+        session.facilitators.add(alice)
+        start = datetime(2026, 6, 19, 10, tzinfo=UTC)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=start + timedelta(hours=2),
+        )
+
+        rows = AgendaItemRepository.list_facilitator_schedule(event.pk)
+
+        assert [
+            (row.facilitator_id, row.session_count, row.minutes) for row in rows
+        ] == [(alice.pk, 1, 120)]
+
+    def test_co_run_session_splits_its_minutes(self, event, session, space):
+        alice = _facilitator(event, "Alice")
+        bob = _facilitator(event, "Bob")
+        session.facilitators.add(alice, bob)
+        start = datetime(2026, 6, 19, 10, tzinfo=UTC)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=start + timedelta(hours=2),
+        )
+
+        rows = AgendaItemRepository.list_facilitator_schedule(event.pk)
+
+        assert sorted(
+            (row.facilitator_id, row.session_count, row.minutes) for row in rows
+        ) == sorted([(alice.pk, 1, 60), (bob.pk, 1, 60)])

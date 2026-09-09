@@ -14,12 +14,14 @@ The importer is intentionally specific to the current POLCON 2026 workbook:
 - column B identifies `Tytuł`, `System`, `Prowadzący`, and `Opis` rows;
 - horizontal title merges determine start time and duration;
 - multiple title rows inside one physical-room block become separate leaf
-  spaces, such as RPG tables, so simultaneous assignments do not conflict.
+  spaces, such as RPG tables, so simultaneous assignments do not conflict;
+- hidden columns are excluded, and only row 3 defines the schedule's time
+  range. Content beyond that header is not extrapolated or repaired into the
+  programme.
 
-Two verified source repairs are explicit in the parser: Saturday's missing
-`sala 106` room label at rows 31–33 and the swapped title/facilitator cells at
-`Sobota!G10`. Add another explicit repair only after checking the workbook.
-Do not infer a replacement from a similar title.
+Workbook-specific text and room repairs are explicit in the parser. Add one
+only after checking the workbook; do not infer a replacement from a similar
+entry or from content outside the visible schedule grid.
 
 Each scheduled cell gets a stable, event-scoped `source_row_id` from its sheet,
 row, and column. That value is the only session retry key. Never match by title,
@@ -59,7 +61,7 @@ Always parse and review before writing:
   --report /tmp/polcon26-programme.json
 ```
 
-The current rehearsal produces 174 sessions, 24 assignable spaces, and 104
+The 2026-09-01 Google Sheet snapshot produces 300 sessions, 40 rooms, and 182
 exact-name facilitators. Counts can legitimately change with the workbook.
 Review warnings and the normalized JSON, especially missing descriptions,
 missing facilitators, placeholders, room names, and simultaneous items.

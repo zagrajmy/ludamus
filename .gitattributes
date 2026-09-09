@@ -1,0 +1,4 @@
+# Append-only logs: take both sides instead of conflicting. Every branch adds
+# its entries at the end, so a plain 3-way merge collides on the last hunk
+# every time, and the resolution is always "keep both".
+PAPERCUTS.txt merge=union

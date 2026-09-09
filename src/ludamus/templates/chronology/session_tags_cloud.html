@@ -4,21 +4,21 @@
     <div class="flex flex-wrap gap-1 mt-2 session-tags-cloud items-center">
         {% for row in data.displayed_field_rows %}
             {% for val in row.visible_values %}
-                {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" %}
+                {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" max_width="max-w-full" %}
             {% endfor %}
         {% endfor %}
         {% if data.session.min_age > 0 %}
-            <span class="px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-[200px] truncate bg-coral-100 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300"
+            <span class="px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-full truncate bg-coral-100 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300"
                   title="{% translate "Minimum age" %}: {{ data.session.min_age }} {% translate "years" %}">
                 {{ data.session.min_age }}+
             </span>
         {% endif %}
         {% if data.cloud_overflow %}
             <div class="session-tags-more relative inline-flex items-center justify-center pointer-events-auto">
-                <div class="session-tags-popover absolute z-30 min-w-56 max-w-[20rem] rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1"
+                <div class="session-tags-popover rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) pointer-events-none flex flex-wrap gap-1"
                      role="tooltip">
                     {% for pill in data.cloud_overflow %}
-                        {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" %}
+                        {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
                     {% endfor %}
                 </div>
                 <span class="session-tags-more-trigger text-sm font-medium text-foreground-muted hover:text-foreground-secondary cursor-help border-b border-dotted border-foreground-muted hover:border-foreground-secondary">+{{ data.cloud_overflow|length }}</span>

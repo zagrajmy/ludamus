@@ -15,6 +15,10 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.inputs import EmptyInput, NonBlankName, require_aware_datetime
+from ludamus.gates.mcp.konwencik_tools import (
+    OrganizerGetKonwencikSettingsTool,
+    OrganizerUpdateKonwencikStylesTool,
+)
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
@@ -180,8 +184,11 @@ class ListAnnouncementsTool(Tool[_SphereInput]):
 
 
 class _AnnouncementBody(BaseModel):
-    title: str = Field(max_length=255)
-    content: str = Field(max_length=50000)
+    title: str = Field(max_length=255, description="Headline shown in the list")
+    content: str = Field(
+        max_length=50000,
+        description="Body text; line breaks are kept, Markdown is not rendered",
+    )
     is_published: bool = Field(
         default=False, description="Publish immediately; false saves a draft"
     )
@@ -305,13 +312,21 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 
 class _CreateEventInput(_SphereInput):
-    name: NonBlankName
+    name: NonBlankName = Field(description="Public event name")
     slug: str = Field(max_length=50, description="URL slug; unique within the sphere")
-    description: str = ""
-    start_time: datetime
-    end_time: datetime
+    description: str = Field(default="", description="Public event description")
+    start_time: datetime = Field(
+        description="Timezone-aware ISO-8601 start (naive values are rejected)"
+    )
+    end_time: datetime = Field(
+        description="Timezone-aware ISO-8601 end; must be after start_time"
+    )
     publication_time: datetime | None = Field(
-        default=None, description="None keeps the event unpublished"
+        default=None,
+        description=(
+            "Timezone-aware; must not be after start_time. "
+            "None keeps the event unpublished"
+        ),
     )
     auto_confirm_sessions: bool = Field(
         default=False,
@@ -382,6 +397,8 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
         *programme_tools(),
+        OrganizerGetKonwencikSettingsTool(),
+        OrganizerUpdateKonwencikStylesTool(),
         OrganizerListAnnouncementsTool(),
     )
 
