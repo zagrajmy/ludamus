@@ -411,6 +411,9 @@ class EventPageView(EventsPageRequiredMixin, AudienceCachedResponseMixin, Detail
                     if has_maps
                     else None
                 ),
+                "print_url": reverse(
+                    "web:chronology:event-print", kwargs={"slug": self.object.slug}
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,

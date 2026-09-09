@@ -32,14 +32,21 @@ class TestLocationData:
         root = Space.objects.create(
             event=event, name="Hall | East", slug="hall-east", order=2
         )
+        programme_order = 7
         leaf = Space.objects.create(
-            event=event, parent=root, name="Table | 1", slug="table-1", order=3
+            event=event,
+            parent=root,
+            name="Table | 1",
+            slug="table-1",
+            order=3,
+            programme_order=programme_order,
         )
 
         data = location_data(leaf)
 
         assert data["space_id"] == leaf.pk
         assert data["parent_id"] == root.pk
+        assert data["programme_order"] == programme_order
         assert data["sort_path"] == (
             (root.order, root.name, root.pk),
             (leaf.order, leaf.name, leaf.pk),
@@ -207,6 +214,67 @@ class TestSpaceTreeRepositoryMutations:
         track.spaces.add(leaf.pk)
 
         assert repo.list_tree(event.pk)[0].track_names == ["Board Games"]
+
+
+class TestProgrammeSpaceOrder:
+    def test_lists_only_directly_scheduled_spaces_with_paths_and_tracks(
+        self, event, repo
+    ):
+        building = repo.create(
+            event_id=event.pk, parent_id=None, data=space_input("Building")
+        )
+        room = repo.create(
+            event_id=event.pk, parent_id=building.pk, data=space_input("Room")
+        )
+        repo.create(
+            event_id=event.pk, parent_id=building.pk, data=space_input("Unused")
+        )
+        track = Track.objects.create(event_id=event.pk, name="Board Games", slug="bg")
+        track.spaces.add(room.pk)
+        AgendaItemFactory(space=Space.objects.get(pk=room.pk))
+
+        assert [row.model_dump() for row in repo.list_programme_spaces(event.pk)] == [
+            {
+                "pk": room.pk,
+                "name": "Room",
+                "path": "Building > Room",
+                "programme_order": room.programme_order,
+                "track_names": ["Board Games"],
+            }
+        ]
+
+    def test_reorders_scheduled_spaces_without_changing_hierarchy(
+        self, event, repo, service
+    ):
+        building = repo.create(
+            event_id=event.pk, parent_id=None, data=space_input("Building")
+        )
+        first = repo.create(
+            event_id=event.pk, parent_id=building.pk, data=space_input("First")
+        )
+        second = repo.create(
+            event_id=event.pk, parent_id=building.pk, data=space_input("Second")
+        )
+        AgendaItemFactory(space=Space.objects.get(pk=first.pk))
+        AgendaItemFactory(space=Space.objects.get(pk=second.pk))
+
+        service.reorder_programme(event.pk, [second.pk, first.pk])
+
+        rows = repo.list_programme_spaces(event.pk)
+        assert [row.pk for row in rows] == [second.pk, first.pk]
+        assert Space.objects.get(pk=first.pk).parent_id == building.pk
+        assert Space.objects.get(pk=second.pk).parent_id == building.pk
+
+    @pytest.mark.parametrize("duplicate", (False, True))
+    def test_rejects_an_incomplete_or_duplicate_order(
+        self, event, repo, service, duplicate
+    ):
+        room = repo.create(event_id=event.pk, parent_id=None, data=space_input("Room"))
+        AgendaItemFactory(space=Space.objects.get(pk=room.pk))
+        submitted_pks = [room.pk, room.pk] if duplicate else []
+
+        with pytest.raises(SpaceValidationError):
+            service.reorder_programme(event.pk, submitted_pks)
 
 
 class TestSpaceTreeServiceDelete:
