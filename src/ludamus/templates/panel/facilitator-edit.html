@@ -19,12 +19,9 @@
         {% tessera_button save_label form="facilitator-edit-form" icon="check" %}
     </div>
 {% endblock header_actions %}
-{% block content_shell_class %}
-    p-2 sm:p-4
-{% endblock content_shell_class %}
 {% block content %}
-    <div class="max-w-2xl">
-        <div class="card mb-6">
+    <div class="panel-bleed">
+        <div class="card max-w-2xl">
             <div class="card-body">
                 <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
                 <div class="space-y-6">
