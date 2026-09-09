@@ -1,3 +1,4 @@
+import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
 
 const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
@@ -8,13 +9,42 @@ const countPdfPages = (pdf: Buffer) => {
 };
 
 test.describe("Public print page", () => {
+  test("defaults to the participant program, one sheet per day", async ({ page }) => {
+    await page.goto(densePrintUrl);
+
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
+    // No scope, track, or time-window controls: a participant prints it all.
+    await expect(page.getByLabel("Scope")).toHaveCount(0);
+    await expect(page.getByLabel("Start")).toHaveCount(0);
+
+    const preview = page.getByRole("region", { name: "Print preview" });
+    const sheets = preview.getByRole("group");
+    await expect(sheets).toHaveCount(3);
+    const rows = sheets.nth(0).getByRole("row");
+    await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+    await expect(sheets.nth(0)).toContainText("Open Play B");
+
+    // Descriptions fold into the rows rather than swapping the document: the
+    // same sheet, the same first session, more text under it.
+    const bare = await sheets.nth(0).getByRole("row").nth(1).innerText();
+    await page.getByLabel("With descriptions").check();
+    await expect(page).toHaveURL(/descriptions=1/);
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
+    const described = preview.getByRole("group").nth(0).getByRole("row").nth(1);
+    await expect(described).toContainText(bare.split("\n")[0]);
+    expect((await described.innerText()).length).toBeGreaterThan(bare.length);
+  });
+
   test("renders dense event timetable as chunked sideways preview pages", async ({
     browserName,
     page,
   }) => {
     await page.goto(`${densePrintUrl}?material=timetable`);
 
-    await expect(page.getByRole("heading", { name: "Timetable" }).first()).toBeVisible();
+    // The day is the sheet's heading: the printed header names the event a
+    // centimetre above it, so a "Timetable" line over it said nothing. Asserted
+    // by level rather than by name, which is a localised date.
+    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
     await expect(page.getByText("Kapitularz 2025 Anonymized").first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Table of contents" })).toBeVisible();
 
@@ -23,6 +53,34 @@ test.describe("Public print page", () => {
     await expect(previewPages).toHaveCount(21);
     await expect(previewPages.nth(0)).toContainText("Workshop Studio - RPG Table 2");
     await expect(previewPages.nth(6)).toContainText("Open Play B");
+
+    // The rooms grid: a tile sits in its room's column on the row it starts
+    // and spans the rows it covers, placed by the nonced stylesheet rather
+    // than auto-flowed.
+    const placements = await previewPages
+      .nth(0)
+      .getByRole("article")
+      .evaluateAll((elements) =>
+        elements.map((element) => {
+          const style = getComputedStyle(element);
+          return {
+            col: Number(element.dataset.col) + 1,
+            row: Number(element.dataset.row) + 1,
+            span: Number(element.dataset.span),
+            gridColumnStart: style.gridColumnStart,
+            gridRowStart: style.gridRowStart,
+            gridRowEnd: style.gridRowEnd,
+          };
+        }),
+      );
+    expect(placements.length).toBeGreaterThan(0);
+    for (const placement of placements) {
+      expect(placement.gridColumnStart).toBe(String(placement.col));
+      expect(placement.gridRowStart).toBe(String(placement.row));
+      expect(placement.gridRowEnd).toBe(`span ${placement.span}`);
+    }
+    expect(placements.some((placement) => placement.span > 1)).toBe(true);
+    await analyzePageAccessibility(page, { include: '[role="region"]' });
 
     const scrollMetrics = await preview.evaluate((preview) => ({
       clientWidth: preview.clientWidth,
@@ -45,6 +103,7 @@ test.describe("Public print page", () => {
 
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
+      ["session-list", "Program for participants"],
       ["timetable", "Timetable"],
       ["track-timetable", "Track timetable"],
       ["door-cards", "Door cards"],
@@ -56,7 +115,6 @@ test.describe("Public print page", () => {
     for (const [, label] of materials) {
       await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
     }
-    await expect(select.getByRole("option", { name: "Session list" })).toHaveCount(0);
     await expect(page.getByLabel("With descriptions")).not.toBeChecked();
   });
 
