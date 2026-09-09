@@ -1219,6 +1219,7 @@ test.describe("Backoffice Panel", () => {
       // Proposals list
       await page.goto("/panel/event/frostfire-con/proposals/");
 
+      await expect(page.getByRole("columnheader", { name: "Presenter name" })).toBeVisible();
       const row = page.locator("tr", {
         hasText: proposalTitle,
       });

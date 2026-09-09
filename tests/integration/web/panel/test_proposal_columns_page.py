@@ -27,7 +27,7 @@ _DEFAULT_KEYS = ["title", "host", "category", "status", "created"]
 
 _BUILTIN_LABELS = {
     "title": "Title",
-    "host": "Display Name",
+    "host": "Presenter name",
     "category": "Category",
     "status": "Status",
     "created": "Created",

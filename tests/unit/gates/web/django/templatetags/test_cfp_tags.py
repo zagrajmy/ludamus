@@ -13,9 +13,14 @@ def _field(value):
     )
 
 
-@pytest.mark.parametrize("field_key", ("display_name", "facilitator_name"))
-def test_presenter_name_content_field_labels(field_key):
-    assert content_field_label(field_key) == "Presenter name"
+@pytest.mark.parametrize(
+    ("field_key", "expected"),
+    (("display_name", "Display name"), ("facilitator_name", "Presenter name")),
+)
+def test_content_field_labels_distinguish_facilitators_from_session_bylines(
+    field_key, expected
+):
+    assert content_field_label(field_key) == expected
 
 
 class TestFieldValueList:

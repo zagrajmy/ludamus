@@ -1226,6 +1226,26 @@ class TestProposeSessionPageView:
         session = Session.objects.get(title="Test Session")
         assert session.facilitator_name == "My Custom Name"
 
+    def test_submit_uses_legacy_display_name_from_wizard(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            session_data={
+                "display_name": "Legacy Presenter",
+                "title": "Test Session",
+                "participants_limit": 6,
+            },
+        )
+
+        authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        session = Session.objects.get(title="Test Session")
+        assert session.facilitator_name == "Legacy Presenter"
+
     def test_submit_creates_session_and_proposal(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):

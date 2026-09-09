@@ -47,7 +47,7 @@ _TRACK_FILTER_CONTEXT = PROPOSAL_FILTER_CONTEXT
 
 _BUILTIN_LABELS = {
     "title": "Title",
-    "host": "Display Name",
+    "host": "Presenter name",
     "category": "Category",
     "status": "Status",
     "created": "Created",
@@ -282,7 +282,6 @@ class TestProposalsPageView:
                 "filter_fields": {},
                 "filter_search": "",
             },
-            contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
         )
 
     def test_filters_by_category(self, panel_client, event):

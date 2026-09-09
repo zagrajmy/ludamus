@@ -388,7 +388,7 @@ def _inverse_text_update(
         return False
     if field == "title":
         update["title"] = old
-    elif field in {"facilitator_name", "display_name"}:
+    elif field == "facilitator_name":
         update["facilitator_name"] = old
     elif field == "description":
         update["description"] = old

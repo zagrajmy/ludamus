@@ -72,6 +72,15 @@ def _session_key(event_slug: str) -> str:
     return f"propose_{event_slug}"
 
 
+def _canonicalize_wizard_state(state: WizardState) -> None:
+    session_data = state.get("session_data")
+    if not isinstance(session_data, dict):
+        return
+    legacy_name = session_data.pop("display_name", None)
+    if "facilitator_name" not in session_data and legacy_name is not None:
+        session_data["facilitator_name"] = legacy_name
+
+
 def _propose_url(event_slug: str) -> str:
     return reverse("web:event:session-propose", kwargs={"event_slug": event_slug})
 
@@ -91,6 +100,7 @@ class _WizardState:
 
     def __enter__(self) -> WizardState:
         self._state = self._session.get(self._key, {})
+        _canonicalize_wizard_state(self._state)
         return self._state
 
     def __exit__(self, *_exc: object) -> None:
@@ -681,7 +691,9 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin):
 class ProposeSessionSubmitActionView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         wizard = self._wizard(request, event_slug, with_category=True)
-        state = request.session.get(_session_key(event_slug), {})
+        key = _session_key(event_slug)
+        state = request.session.get(key, {})
+        _canonicalize_wizard_state(state)
 
         if not state.get("session_data", {}).get("title"):
             raise RedirectError(
@@ -706,7 +718,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
             user_slug=request.context.current_user_slug,
         )
 
-        del request.session[_session_key(event_slug)]
+        del request.session[key]
 
         messages.success(
             request,

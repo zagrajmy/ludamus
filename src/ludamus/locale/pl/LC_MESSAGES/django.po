@@ -904,6 +904,7 @@ msgstr "Oferta odrzucona — miejsce zostało zwolnione."
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Display name"
 msgstr "Nazwa wyświetlana"
@@ -1006,7 +1007,6 @@ msgstr "Kategoria została usunięta."
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposals.html
 msgid "Display Name"
 msgstr "Nazwa wyświetlana"
 
@@ -1067,6 +1067,16 @@ msgstr "Przypisany do"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Title"
 msgstr "Tytuł"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Presenter name"
+msgstr "Nazwa prowadzącego"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
@@ -2731,14 +2741,6 @@ msgstr "Minimalny wiek"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 msgid "0 = no age restriction"
 msgstr "0 = brak ograniczenia wiekowego"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-msgid "Presenter name"
-msgstr "Nazwa prowadzącego"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
