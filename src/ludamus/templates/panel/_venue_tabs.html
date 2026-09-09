@@ -1,0 +1,10 @@
+{% load i18n tessera %}
+{% translate "Venue views" as t_venue_views %}
+{% tabs aria_label=t_venue_views %}
+    {% tab "layout" href=layout_url %}
+        {% translate "Physical layout" %}
+    {% endtab %}
+    {% tab "programme" href=programme_url %}
+        {% translate "Programme order" %}
+    {% endtab %}
+{% endtabs %}

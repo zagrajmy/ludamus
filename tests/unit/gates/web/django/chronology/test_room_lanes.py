@@ -392,7 +392,12 @@ class TestDaylightSavingRows:
 class TestRoomLaneColumns:
     @staticmethod
     def _session(
-        *, space_id: int, space_name: str, order: int, day: int
+        *,
+        space_id: int,
+        space_name: str,
+        order: int,
+        day: int,
+        programme_order: int | None = None,
     ) -> SessionData:
         tz = timezone.get_current_timezone()
         return make_session_data(
@@ -407,6 +412,7 @@ class TestRoomLaneColumns:
                 space_name=space_name,
                 parent_name="",
                 sort_path=((order, space_name, space_id),),
+                programme_order=(order if programme_order is None else programme_order),
             ),
         )
 
@@ -428,6 +434,31 @@ class TestRoomLaneColumns:
         assert [(tile.col, row) for row, tile in positioned_room_tiles(lanes)] == [
             (1, 1),
             (2, 3),
+        ]
+
+    def test_programme_order_overrides_physical_tree_order(self):
+        sessions = {
+            1: self._session(
+                space_id=1,
+                space_name="Physically first",
+                order=0,
+                programme_order=1,
+                day=10,
+            ),
+            2: self._session(
+                space_id=2,
+                space_name="Programmatically first",
+                order=1,
+                programme_order=0,
+                day=10,
+            ),
+        }
+
+        lanes = build_room_lanes(build_schedule_days(sessions))
+
+        assert [lane.name for lane in lanes.rooms] == [
+            "Programmatically first",
+            "Physically first",
         ]
 
     def test_no_schedule_makes_no_rows(self):

@@ -187,7 +187,30 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                 integration.settings_json or "{}"
             ),
             last_run=_last_run(integration),
+            programme_combinations=self._programme_combinations(event_pk),
         )
+
+    def _programme_combinations(self, event_pk: int) -> list[tuple[int, int | None]]:
+        alive = set(self._repos.sessions.list_alive_pks_by_event(event_pk))
+        items = self._repos.agenda_items.list_by_event(event_pk)
+        tracks = self._repos.tracks.list_by_event(event_pk)
+        memberships = self._repos.sessions.list_track_names_by_session(
+            [item.session_id for item in items if item.session_id in alive]
+        )
+        combinations: dict[tuple[int, int | None], None] = {}
+        for item in items:
+            if (
+                item.session_id not in alive
+                or item.category_id is None
+                or _local_span(item, self._zone) is None
+            ):
+                continue
+            session_tracks = memberships.get(item.session_id, {})
+            track = _first_public_track(tracks, session_tracks)
+            if session_tracks and track is None:
+                continue
+            combinations[item.category_id, track.pk if track else None] = None
+        return list(combinations)
 
     def save_settings(
         self,
@@ -198,7 +221,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         settings: KonwencikExportSettings,
     ) -> None:
         self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk)
-        # The page is the only writer, but an id it never offered must not
+        # An id the page never offered must not
         # reach the blob: a foreign category or track would silently colour
         # another event's program.
         allowed_categories = {
@@ -240,6 +263,49 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         self._integrations.update_settings(
             event_id=event_pk, pk=pk, settings_json=scoped.model_dump_json()
         )
+
+    def update_styles(
+        self,
+        *,
+        sphere_id: int,
+        event_pk: int,
+        pk: int,
+        track_colors: dict[int, str],
+        category_icons: dict[int, str],
+    ) -> KonwencikExportSettings:
+        """Patch named styles without overwriting concurrent export settings."""
+        self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk)
+        allowed_tracks = {
+            track.pk
+            for track in self._repos.tracks.list_by_event(event_pk)
+            if track.is_public
+        }
+        allowed_categories = {
+            category.pk for category in self._repos.categories.list_by_event(event_pk)
+        }
+        if (
+            track_colors.keys() - allowed_tracks
+            or category_icons.keys() - allowed_categories
+        ):
+            raise NotFoundError
+        with self._transaction.atomic():
+            fresh = self._integrations.get_for_update(event_pk, pk)
+            settings = KonwencikExportSettings.model_validate_json(
+                fresh.settings_json or "{}"
+            )
+            for target, patch in (
+                (settings.track_colors, track_colors),
+                (settings.category_icons, category_icons),
+            ):
+                for key, value in patch.items():
+                    if value:
+                        target[key] = value
+                    else:
+                        target.pop(key, None)
+            self._integrations.update_settings(
+                event_id=event_pk, pk=pk, settings_json=settings.model_dump_json()
+            )
+        return settings
 
     def _scoped(self, *, sphere_id: int, event_pk: int, pk: int) -> EventIntegrationDTO:
         # Panel access proves the sphere, not the ids the request names.

@@ -230,20 +230,44 @@ body {
 
 /* Every page wears the shell (base.html and the self-contained 500), so the
    document never scrolls and the root needs no scrollbar gutter — .app-scroll
-   below reserves the only one, for the only scroller there is. */
+   below reserves the only one, for the only scroller there is.
+
+   The shell takes the large viewport rather than 100dvh because iOS Safari
+   draws its floating bottom bar over the last 100lvh - 100dvh of the layout
+   viewport instead of shrinking it, and only retracts the bar for a document
+   scroll — which a shell this shape never has, so on a phone it never
+   retracts (iOS 18.7, measured: 100dvh 736, 100lvh 836). At 100dvh the shell
+   stops a bar's height above the page's bottom edge and the canvas below it
+   shows through the translucent bar as a band under the footer. */
 .app-shell {
-  height: 100dvh;
+  height: 100vh;
+  height: 100lvh;
   overflow: hidden;
 }
 
 .app-scroll {
+  /* The strip the bar covers: 0 on a viewport the bar shrinks instead of
+     overlapping, and 0 everywhere the two viewports agree. */
+  --toolbar-cover: calc(100lvh - 100dvh);
+
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scroll-padding-bottom: var(--toolbar-cover);
   -webkit-overflow-scrolling: touch;
+}
+
+/* Hold the page's last box off the bar from inside it, so the strip is painted
+   in that box's own surface and the page reads as running under the bar rather
+   than ending above something else. Inside rather than a strip of the
+   scroller's own, which could only ever guess at that surface. */
+.app-scroll > :last-child::after {
+  content: "";
+  display: block;
+  height: var(--toolbar-cover);
 }
 
 .schedule-rail.is-scrubbing,
@@ -265,6 +289,10 @@ body:has(dialog.modal[open]) .app-scroll {
     display: block;
     height: auto;
     overflow: visible;
+  }
+
+  .app-scroll > :last-child::after {
+    content: none;
   }
 }
 
@@ -328,6 +356,18 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   border-color: var(--color-border-focus) !important;
+}
+
+/* NOTE: unlayered to override the global :focus-visible rule above. */
+.write-in-chips:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary);
+}
+
+.write-in-chips input:focus-visible {
+  box-shadow: none;
 }
 
 @media (max-width: 640px) {
@@ -694,6 +734,11 @@ button:active {
    first, the previous card's border-b for the rest — so a closed gap reads as
    one 1px divider rather than two stacked borders.
 
+   A stack spells the space between its cards three ways — the wrapper's own
+   `gap-*`, `space-y-*` (which Tailwind v4 compiles to `margin-block-end`), and
+   a card's own `mt-*` — so the bleed closes all three rather than leaving each
+   page to remember which one it used.
+
    Cards reached through a wrapper (cfp-edit nests its own inside a form) bleed
    too, which is why the selector is a descendant one and not `> .card`.
    Non-card content in a bled page has no card-body to inset it and asks for
@@ -706,8 +751,13 @@ button:active {
    the wrapper still wins. */
 @layer utilities {
   @media (width < 40rem) {
+    .panel-bleed {
+      gap: 0;
+    }
+
     .panel-bleed .card {
       margin-top: 0;
+      margin-bottom: 0;
       border-radius: 0;
       border-top-width: 0;
       border-left-width: 0;

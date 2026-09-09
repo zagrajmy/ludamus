@@ -46,30 +46,39 @@
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
                 {# which shaved them. Nothing here needs it — the name bounds itself #}
                 {# with max-w + truncate, and 20px of card padding is the backstop. #}
-                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
-                    <span class="shrink-0 relative" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
-                        {# The notch reads as cut out of the card, so its ring #}
-                        {# has to be the card's own surface — --card-surface is #}
-                        {# set beside that background above, so the two cannot #}
-                        {# drift the way two hardcoded class lists would. #}
-                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-(--card-surface)" %}
-                    </span>
-                    <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
-                          data-morph="host"
-                          title="{{ data.session.display_name }}">{{ data.session.display_name }}</span>
-                    {% if data.enrolled_count > 0 %}
-                        <span class="shrink-0 flex justify-end grow -space-x-2"
-                              role="img"
-                              aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
-                            {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
-                                {% if p.status == 'confirmed' %}
-                                    {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=p.is_shadowbanned %}
-                                {% endif %}
-                            {% endfor %}
-                        </span>
-                    {% endif %}
-                </div>
+                {# A session with no facilitator still has a presenter object: the #}
+                {# card DTO substitutes one carrying the display name, so the name #}
+                {# is what says whether there is anybody to show. #}
+                {% if data.session.display_name or data.enrolled_count %}
+                    <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
+                        {% if data.session.display_name %}
+                            <span class="shrink-0 relative" data-morph="avatar">
+                                {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
+                                {# The notch reads as cut out of the card, so its ring #}
+                                {# has to be the card's own surface — --card-surface is #}
+                                {# set beside that background above, so the two cannot #}
+                                {# drift the way two hardcoded class lists would. #}
+                                {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-(--card-surface)" %}
+                            </span>
+                        {% endif %}
+                        {% if data.session.display_name %}
+                            <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
+                                  data-morph="host"
+                                  title="{{ data.session.display_name }}">{{ data.session.display_name }}</span>
+                        {% endif %}
+                        {% if data.enrolled_count > 0 %}
+                            <span class="shrink-0 flex justify-end grow -space-x-2"
+                                  role="img"
+                                  aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
+                                {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
+                                    {% if p.status == 'confirmed' %}
+                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=p.is_shadowbanned %}
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </header>
             {% if data.session.description %}
                 {# Deliberately not a morph group: see session-modal.html. #}

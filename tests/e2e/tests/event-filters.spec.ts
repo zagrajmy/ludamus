@@ -792,7 +792,9 @@ test.describe("Filter state in the URL", () => {
       const a = document.createElement("a");
       a.href = "?q=mega#schedule-region";
       a.textContent = "find mega";
-      document.body.append(a);
+      // Into the scroller, where page content lives: the app-shell body is a
+      // clipped viewport box, so a link appended to it lands past the clip.
+      document.querySelector("main")!.append(a);
     });
 
     const searchNavs: string[] = [];
