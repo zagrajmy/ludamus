@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import TYPE_CHECKING, TypedDict
@@ -72,7 +73,7 @@ class _OptionReader(HTMLParser):
             self._open = None
 
 
-def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
+def _read_options(*, slot: str, disabled: bool, multiple: bool) -> _ComboboxOptions:
     """Turn the slot's options into the data the browser gets, not markup."""
     reader = _OptionReader()
     reader.feed(slot)
@@ -83,8 +84,10 @@ def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
     # the first one — the browser picks index 0 on its own, and reading the
     # parsed <select> used to give us that for free.
     chosen = next((o for o in options if o.selected), None)
-    if chosen is None and options:
+    if chosen is None and options and not multiple:
         chosen = options[0]
+
+    selected = [o.value for o in options if o.selected]
 
     return {
         "disabled": disabled,
@@ -96,14 +99,18 @@ def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
         # A disabled option is not a row anyone can land on, but it can still
         # be the one showing, so it counts for the value and label above.
         "rows": [[o.value, o.label] for o in options if not o.disabled],
-        "value": chosen.value if chosen else "",
+        "value": (
+            json.dumps(selected)
+            if multiple and selected
+            else chosen.value if chosen else ""
+        ),
     }
 
 
 class ComboboxNode(template.Node):
     """Renders a ``<select>`` the browser upgrades into an APG combobox."""
 
-    _BOOLEAN_ATTRS = ("required", "disabled")
+    _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
     _TEMPLATE = "components/combobox.html"
 
     def __init__(
@@ -133,6 +140,7 @@ class ComboboxNode(template.Node):
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
         slot = self.nodelist.render(context)
+        multiple = bool(resolved.get("multiple"))
 
         return render_to_string(
             self._TEMPLATE,
@@ -143,7 +151,12 @@ class ComboboxNode(template.Node):
                 "has_errors": has_errors,
                 "id": element_id,
                 "name": name,
-                "options": _read_options(slot, disabled=bool(resolved.get("disabled"))),
+                "multiple": multiple,
+                "options": _read_options(
+                    slot=slot,
+                    disabled=bool(resolved.get("disabled")),
+                    multiple=multiple,
+                ),
                 "options_id": f"{element_id}-options",
                 "placeholder": placeholder,
                 "slot": slot,

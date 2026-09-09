@@ -307,14 +307,14 @@ class TestSelect:
 class TestComboboxOptionData:
     """The JSON the client reads instead of the option markup."""
 
-    def _payload(self, slot: str) -> dict[str, object]:
+    def _payload(self, slot: str, *, multiple: bool = False) -> dict[str, object]:
         tpl = Template(
             "{% load tessera %}"
-            '{% tessera_combobox id="fruit" name="fruit" %}'
+            '{% tessera_combobox id="fruit" name="fruit" multiple=multiple %}'
             + slot
             + "{% endtessera_combobox %}"
         )
-        html = tpl.render(Context())
+        html = tpl.render(Context({"multiple": multiple}))
         raw = re.search(
             r'<script id="fruit-options" type="application/json">(.*?)</script>',
             html,
@@ -362,8 +362,35 @@ class TestComboboxOptionData:
         assert payload["value"] == "a"
         assert payload["label"] == "Apple"
 
+    def test_multiple_preserves_all_selected_values(self) -> None:
+        payload = self._payload(
+            '<option value="a" selected>Apple</option>'
+            '<option value="b">Banana</option>'
+            '<option value="c" selected>Cherry</option>',
+            multiple=True,
+        )
+        assert json.loads(str(payload["value"])) == ["a", "c"]
+
+    def test_multiple_does_not_select_the_first_option(self) -> None:
+        payload = self._payload('<option value="a">Apple</option>', multiple=True)
+        assert not payload["value"]
+
 
 class TestCombobox:
+    @pytest.mark.parametrize("multiple", (True, False))
+    def test_multiple_is_a_boolean_on_the_native_select(
+        self, *, multiple: bool
+    ) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="fruit" multiple=multiple %}'
+            '<option value="a">Apple</option>{% endtessera_combobox %}'
+        )
+        html = tpl.render(Context({"multiple": multiple}))
+        select = re.search(r"<select\b[^>]*>", html)
+        assert select is not None
+        assert bool(re.search(r"\bmultiple(?:[\s=>])", select.group())) is multiple
+        assert ('aria-multiselectable="true"' in html) is multiple
+
     def test_the_hidden_input_posts_under_the_given_name(self) -> None:
         # The upgraded control is what a form submits, and it takes its name
         # from this attribute. Empty here means the field silently never posts.

@@ -132,12 +132,16 @@ const upgrade = (root: HTMLElement): void => {
   const source = requireEl(root, 'script[type="application/json"]');
   const value = requireEl<HTMLInputElement>(root, "[data-combobox-value]");
   const parsed = parseSource(source);
+  const multiple = "comboboxMultiple" in root.dataset;
   // Leave a disabled control disabled rather than replacing it with a working
   // one.
   if (parsed.disabled) return;
+  // NOTE: htmx parses noscript content as elements, creating duplicate control IDs.
+  root.querySelector("noscript")?.remove();
   value.value ||= parsed.value;
   // Only now the select is out of the picture, so the field posts once.
-  value.name = value.dataset.comboboxName ?? "";
+  const name = value.dataset.comboboxName ?? "";
+  value.name = multiple ? "" : name;
   const shell = requireEl(root, "[data-combobox-shell]");
   const input = requireEl<HTMLInputElement>(root, "[data-combobox-input]");
   const toggle = requireEl(root, "[data-combobox-toggle]");
@@ -150,6 +154,31 @@ const upgrade = (root: HTMLElement): void => {
   let rows: Row[] = [];
   let shown: Row[] = [];
   let activeIndex = -1;
+
+  const selectedValues = (): string[] => {
+    if (!multiple) return [value.value];
+    const selected: unknown = JSON.parse(value.value || "[]");
+    return Array.isArray(selected)
+      ? [...new Set(selected.filter((item): item is string => typeof item === "string"))]
+      : [];
+  };
+
+  const submittedValues = document.createElement("span");
+  if (multiple && name) root.append(submittedValues);
+  const writeSelectedValues = (values: string[]): void => {
+    value.value = multiple ? (values.length > 0 ? JSON.stringify(values) : "") : (values[0] ?? "");
+    if (multiple && name) {
+      submittedValues.replaceChildren(
+        ...values.map((selected) => {
+          const field = document.createElement("input");
+          field.type = "hidden";
+          field.name = name;
+          field.value = selected;
+          return field;
+        }),
+      );
+    }
+  };
 
   // Only a window of the matching rows is in the DOM. An event's hosts run to
   // the hundreds and the schedule page already carries a card per session, so
@@ -310,6 +339,14 @@ const upgrade = (root: HTMLElement): void => {
     rows.find((row) => row.value === wanted)?.label ??
     (wanted === parsed.value ? parsed.label : "");
 
+  const selectedLabel = (): string =>
+    multiple
+      ? selectedValues()
+          .map((selected) => labelOf(selected))
+          .filter(Boolean)
+          .join(", ")
+      : labelOf(value.value);
+
   /**
    * Take a new option list. Whatever the page built is appended to whatever
    * the server wrote, which is how the placeholder row ("All hosts") survives
@@ -357,6 +394,7 @@ const upgrade = (root: HTMLElement): void => {
     }
     windowStart = start;
 
+    const selected = new Set(selectedValues());
     for (let offset = 0; offset < count; offset++) {
       const el = pool[offset] ?? growPool();
       const row = shown[start + offset];
@@ -369,9 +407,10 @@ const upgrade = (root: HTMLElement): void => {
       // the handful of nodes standing in for it.
       el.setAttribute("aria-setsize", String(shown.length));
       el.setAttribute("aria-posinset", String(index + 1));
-      el.setAttribute("aria-selected", String(index === activeIndex));
+      const chosen = multiple ? selected.has(row.value) : row.value === value.value;
+      el.setAttribute("aria-selected", String(multiple ? chosen : index === activeIndex));
       el.toggleAttribute("data-active", index === activeIndex);
-      el.toggleAttribute("data-chosen", row.value === value.value);
+      el.toggleAttribute("data-chosen", chosen);
       const labelEl = el.querySelector("[data-combobox-option-label]");
       if (labelEl && labelEl.textContent !== row.label) labelEl.textContent = row.label;
     }
@@ -486,17 +525,31 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const open = (activate: "first" | "last" | "none" | "selected" = "none"): void => {
-    applyFilter(input.value === labelOf(value.value) ? "" : input.value);
+    applyFilter(input.value === selectedLabel() ? "" : input.value);
     setOpen(true);
     if (activate === "none") return;
     if (activate === "first") setActive(0);
     else if (activate === "last") setActive(shown.length - 1);
-    else setActive(shown.findIndex((row) => row.value === value.value));
+    else setActive(shown.findIndex((row) => selectedValues().includes(row.value)));
   };
 
   /** Write a pick to the hidden input — the value everything else reads. */
   const commit = (row?: Row): void => {
-    if (row) value.value = row.value;
+    if (row && multiple) {
+      const selected = selectedValues();
+      writeSelectedValues(
+        selected.includes(row.value)
+          ? selected.filter((candidate) => candidate !== row.value)
+          : [...selected, row.value],
+      );
+      input.value = selectedLabel();
+      input.select();
+      applyFilter("");
+      setActive(shown.findIndex((candidate) => candidate.value === row.value));
+      value.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+    if (row) writeSelectedValues([row.value]);
     // Either way the box shows what is selected: a query that committed
     // nothing is not a value, and leaving it visible would disagree with the
     // select underneath.
@@ -511,7 +564,7 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const close = (): void => {
-    input.value = labelOf(value.value);
+    input.value = selectedLabel();
     setOpen(false);
   };
 
@@ -567,7 +620,10 @@ const upgrade = (root: HTMLElement): void => {
       }
       case "ArrowUp": {
         if (event.altKey) {
-          if (isOpen()) commit(shown[activeIndex]);
+          if (isOpen()) {
+            if (multiple) close();
+            else commit(shown[activeIndex]);
+          }
         } else {
           move(-1);
         }
@@ -611,6 +667,10 @@ const upgrade = (root: HTMLElement): void => {
         // the same answer arrived at by typing, and making someone press Down
         // first to confirm the only thing left is a click the list has already
         // earned. Two or more matches stay ambiguous, so Tab just leaves.
+        if (multiple) {
+          close();
+          break;
+        }
         if (isOpen()) {
           if (activeIndex !== -1) commit(shown[activeIndex]);
           else if (shown.length === 1) commit(shown[0]);
@@ -622,6 +682,8 @@ const upgrade = (root: HTMLElement): void => {
       }
     }
   });
+
+  input.addEventListener("blur", close);
 
   input.addEventListener("click", () => {
     if (isOpen()) return;
@@ -697,8 +759,14 @@ const upgrade = (root: HTMLElement): void => {
     if (supplied) syncOptions(supplied);
     // A value naming no option is no value. The <select> this stands in for
     // dropped one the same way, so a stale deep link cannot filter to nothing.
-    if (value.value && !rows.some((row) => row.value === value.value)) value.value = "";
-    input.value = labelOf(value.value);
+    writeSelectedValues(
+      selectedValues().filter((selected) => rows.some((row) => row.value === selected)),
+    );
+    input.value = selectedLabel();
+    if (isOpen()) {
+      applyFilter("");
+      setActive(-1);
+    }
   });
 
   // Scrolling the list slides the rendered window along it.
@@ -723,7 +791,8 @@ const upgrade = (root: HTMLElement): void => {
   }
 
   syncOptions([]);
-  input.value = labelOf(value.value);
+  writeSelectedValues(selectedValues());
+  input.value = selectedLabel();
   shell.hidden = false;
   // From here the popover attribute hides it; the attribute would fight it.
   if (popoverCapable) popup.hidden = false;
