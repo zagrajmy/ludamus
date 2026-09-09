@@ -1,8 +1,9 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic import RedirectView
 
+from ludamus.gates.web.django import email_verification
 from ludamus.gates.web.django.auth_pages import login_required_page
-from ludamus.gates.web.django.crowd import auth, profile, verification, views
+from ludamus.gates.web.django.crowd import auth, profile, views
 
 auth0_urlpatterns = [
     path("do/login", auth.Auth0LoginActionView.as_view(), name="login"),
@@ -126,12 +127,12 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
     path(
         "email/link/<str:token>/",
-        verification.EmailLinkPageView.as_view(),
+        email_verification.EmailLinkPageView.as_view(),
         name="email-link",
     ),
     path(
         "profile/email/do/resend",
-        verification.EmailResendActionView.as_view(),
+        email_verification.EmailResendActionView.as_view(),
         name="email-resend",
     ),
 ]

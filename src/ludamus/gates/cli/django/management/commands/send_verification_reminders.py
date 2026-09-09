@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, Unpack
 
 from django.core.management.base import BaseCommand
 
@@ -25,6 +25,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class _Options(TypedDict, total=False):
+    dry_run: bool
+
+
 class Command(BaseCommand):
     help = "Email unverified users a fresh email-verification link."
     dry_run_help = "Print how many users would be reminded and send nothing."
@@ -32,10 +36,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--dry-run", action="store_true", help=self.dry_run_help)
 
-    def handle(self, *_args: object, **options: object) -> None:
+    def handle(self, *_args: *tuple[()], **options: Unpack[_Options]) -> None:
         service = Services().email_verification
         now = datetime.now(UTC)
-        if options["dry_run"]:
+        if options.get("dry_run"):
             due = service.count_due(now=now)
             self.stdout.write(f"Would send verification reminders to {due} user(s).")
             return

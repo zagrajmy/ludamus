@@ -1,4 +1,4 @@
-"""Crowd business invariants."""
+"""Email-verification business invariants."""
 
 from datetime import timedelta
 

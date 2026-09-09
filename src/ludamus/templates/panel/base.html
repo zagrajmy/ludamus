@@ -16,6 +16,12 @@ the sphere.{% endcomment %}
         • {{ current_sphere.name }}
     {% endif %}
 {% endblock title_suffix %}
+{% comment %}The panel already floats its own overlays (menus, modals) near
+the viewport edges; a second fixed nag there blocks their controls, so the
+organizer's own verification nudge waits for a page that isn't racing other
+floating UI for the same corner.{% endcomment %}
+{% block email_verification_banner %}
+{% endblock email_verification_banner %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}

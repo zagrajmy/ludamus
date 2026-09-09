@@ -246,4 +246,6 @@ class TestEmailResendActionView:
     def test_post_requires_login(self, client):
         response = client.post(self.URL)
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.URL}"
+        )

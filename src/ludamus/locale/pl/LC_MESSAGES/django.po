@@ -2084,34 +2084,6 @@ msgstr "Gracz został cicho zbanowany."
 msgid "Shadowban removed."
 msgstr "Cichy ban został usunięty."
 
-#: src/ludamus/gates/web/django/crowd/verification.py
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Your email address is verified."
-msgstr "Twój adres email jest zweryfikowany."
-
-#: src/ludamus/gates/web/django/crowd/verification.py
-msgid "Your new email address is now active."
-msgstr "Twój nowy adres email jest już aktywny."
-
-#: src/ludamus/gates/web/django/crowd/verification.py
-msgid "The email change has been cancelled."
-msgstr "Zmiana adresu email została anulowana."
-
-#: src/ludamus/gates/web/django/crowd/verification.py
-msgid "Verification email sent."
-msgstr "Email weryfikacyjny został wysłany."
-
-#: src/ludamus/gates/web/django/crowd/verification.py
-msgid ""
-"A verification email was sent a moment ago — try again in a few minutes."
-msgstr ""
-"Email weryfikacyjny został wysłany przed chwilą — spróbuj ponownie za kilka "
-"minut."
-
-#: src/ludamus/gates/web/django/crowd/verification.py
-msgid "Your email address needs no verification."
-msgstr "Twój adres email nie wymaga weryfikacji."
-
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Party created."
 msgstr "Drużyna została utworzona."
@@ -2256,6 +2228,34 @@ msgstr "Wybierz opcję lub wpisz własną."
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
+
+#: src/ludamus/gates/web/django/email_verification.py
+#: src/ludamus/templates/crowd/user/edit.html
+msgid "Your email address is verified."
+msgstr "Twój adres email jest zweryfikowany."
+
+#: src/ludamus/gates/web/django/email_verification.py
+msgid "Your new email address is now active."
+msgstr "Twój nowy adres email jest już aktywny."
+
+#: src/ludamus/gates/web/django/email_verification.py
+msgid "The email change has been cancelled."
+msgstr "Zmiana adresu email została anulowana."
+
+#: src/ludamus/gates/web/django/email_verification.py
+msgid "Verification email sent."
+msgstr "Email weryfikacyjny został wysłany."
+
+#: src/ludamus/gates/web/django/email_verification.py
+msgid ""
+"A verification email was sent a moment ago — try again in a few minutes."
+msgstr ""
+"Email weryfikacyjny został wysłany przed chwilą — spróbuj ponownie za kilka "
+"minut."
+
+#: src/ludamus/gates/web/django/email_verification.py
+msgid "Your email address needs no verification."
+msgstr "Twój adres email nie wymaga weryfikacji."
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid ""

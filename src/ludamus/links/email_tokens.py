@@ -8,8 +8,6 @@ check redemption runs anyway.
 
 from __future__ import annotations
 
-from typing import cast
-
 from django.core import signing
 from pydantic import ValidationError
 
@@ -37,9 +35,8 @@ class DjangoEmailTokenCodec(EmailTokenCodecProtocol):
         try:
             # signing.loads is typed Any; the payload is parsed right here at
             # the boundary, so the untyped value never travels further.
-            raw = cast(
-                "object",
-                signing.loads(token, salt=SIGNING_SALT, max_age=EMAIL_LINK_MAX_AGE),
+            raw: object = signing.loads(
+                token, salt=SIGNING_SALT, max_age=EMAIL_LINK_MAX_AGE
             )
         except signing.BadSignature:
             return None

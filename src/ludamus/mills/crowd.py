@@ -36,7 +36,7 @@ from ludamus.pacts.crowd import (
     VerificationRequestOutcome,
 )
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.specs.crowd import (
+from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
     EMAIL_VERIFICATION_RESEND_THROTTLE,
 )

@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from ludamus.links.db.django.crowd import UserRepository
 from ludamus.pacts.crowd import UserType
-from ludamus.specs.crowd import EMAIL_VERIFICATION_RESEND_THROTTLE
+from ludamus.specs.email_verification import EMAIL_VERIFICATION_RESEND_THROTTLE
 from tests.integration.conftest import UserFactory
 
 pytestmark = pytest.mark.django_db

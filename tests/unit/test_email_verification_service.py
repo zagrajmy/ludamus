@@ -11,7 +11,7 @@ from ludamus.pacts.crowd import (
     VerificationRequestOutcome,
 )
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.specs.crowd import EMAIL_VERIFICATION_REMINDER_INTERVAL
+from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
 from tests.unit.factories import user_dto
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
