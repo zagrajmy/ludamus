@@ -1,6 +1,9 @@
 import pytest
 
-from ludamus.gates.web.django.templatetags.cfp_tags import field_value_list
+from ludamus.gates.web.django.templatetags.cfp_tags import (
+    content_field_label,
+    field_value_list,
+)
 from ludamus.pacts import SessionFieldValueDTO
 
 
@@ -8,6 +11,11 @@ def _field(value):
     return SessionFieldValueDTO(
         field_name="Game type", field_question="Game type", value=value
     )
+
+
+@pytest.mark.parametrize("field_key", ("display_name", "facilitator_name"))
+def test_presenter_name_content_field_labels(field_key):
+    assert content_field_label(field_key) == "Presenter name"
 
 
 class TestFieldValueList:

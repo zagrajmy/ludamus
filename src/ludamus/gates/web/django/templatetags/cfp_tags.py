@@ -64,6 +64,7 @@ def content_field_label(field_key: str) -> str:
     # are labelled from their own (user-defined) name, not here.
     labels = {
         "title": _("Title"),
+        "display_name": _("Presenter name"),
         "facilitator_name": _("Presenter name"),
         "description": _("Description"),
         "contact_email": _("Contact email"),
