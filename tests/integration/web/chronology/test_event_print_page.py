@@ -15,10 +15,12 @@ from ludamus.pacts.printing import (
     AreaScheduleSpaceDTO,
     PrintOptionDTO,
     PrintSessionDTO,
-    PrintTimetableCellDTO,
+    PrintSessionListDocumentDTO,
+    PrintSessionListItemDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
+    PrintTimetableTileDTO,
 )
 from ludamus.pacts.venues import PrintScopeOptionDTO
 from tests.integration.conftest import (
@@ -58,35 +60,55 @@ def _confirmed_item(event, session, space):
     )
 
 
-def _timetable_document(*, event, pages, scope_name=None):
+def _timetable_document(*, event, pages, scope_name=None, is_unscoped=False):
     return PrintTimetableDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
         scope_name=scope_name,
-        is_complete=False,
+        is_unscoped=is_unscoped,
         pages=pages,
     )
 
 
+def _session_list_document(*, event, sessions):
+    return PrintSessionListDocumentDTO(
+        event_name=event.name,
+        event_description=event.description,
+        event_start=event.start_time,
+        event_end=event.end_time,
+        sessions=sessions,
+    )
+
+
+def _one_hour_list_item(*, event, session, space):
+    return PrintSessionListItemDTO(
+        title=session.title,
+        presenter_name=session.display_name,
+        description=session.description,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=1),
+        space_name=space.name,
+    )
+
+
 def _one_hour_page(*, event, session, space):
+    end = event.start_time + timedelta(hours=1)
     return PrintTimetablePageDTO(
         day=event.start_time.date(),
         space_names=[space.name],
-        rows=[
-            PrintTimetableRowDTO(
+        rows=[PrintTimetableRowDTO(start_time=event.start_time, end_time=end)],
+        tiles=[
+            PrintTimetableTileDTO(
+                session=PrintSessionDTO(
+                    title=session.title, presenter_name=session.display_name
+                ),
                 start_time=event.start_time,
-                end_time=event.start_time + timedelta(hours=1),
-                cells=[
-                    PrintTimetableCellDTO(
-                        sessions=[
-                            PrintSessionDTO(
-                                title=session.title, presenter_name=session.display_name
-                            )
-                        ]
-                    )
-                ],
+                end_time=end,
+                col=1,
+                row=1,
+                span=1,
             )
         ],
         space_range_name=None,
@@ -127,11 +149,8 @@ def _assert_print_ok(
     selected_scope="",
     selected_track="",
     range_hours=None,
-    material="timetable",
+    material="session-list",
     descriptions=False,
-    unconfirmed=False,
-    session_list_available=False,
-    panel_access=False,
     print_scopes=None,
     tracks=None,
     timetable=ANY,
@@ -143,20 +162,13 @@ def _assert_print_ok(
         print_scopes = []
     if tracks is None:
         tracks = []
-    expected_options = ["timetable"]
+    expected_options = ["session-list", "timetable"]
     # The track scope is only offered when the event actually has tracks.
     if tracks:
         expected_options.append("track-timetable")
-    if session_list_available:
-        expected_options.append("session-list")
     expected_options.append("door-cards")
     show_scope_control = material in {"timetable", "door-cards"}
     show_track_control = material == "track-timetable"
-    show_descriptions_control = material in {
-        "timetable",
-        "track-timetable",
-        "door-cards",
-    }
     show_range_controls = material in {"timetable", "track-timetable", "door-cards"}
     assert_response(
         response,
@@ -176,11 +188,8 @@ def _assert_print_ok(
             "material": material,
             "show_scope_control": show_scope_control,
             "show_track_control": show_track_control,
-            "show_descriptions_control": show_descriptions_control,
             "show_range_controls": show_range_controls,
-            "show_unconfirmed_control": panel_access,
             "descriptions": descriptions,
-            "unconfirmed": unconfirmed,
             "selected_scope": selected_scope,
             "selected_track": selected_track,
             "range_start_value": NonEmptyStringMatcher(),
@@ -206,17 +215,49 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response, print_scopes=[_scope(space)])
+        # The participants' session list is the default: one sheet per day.
+        _assert_print_ok(
+            response,
+            print_scopes=[_scope(space)],
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
+            timetable=None,
+        )
         assert_cache_control(response, {"public", "max-age=300"})
         # The same URL serves a manager variant; only Vary: Cookie keeps a
         # shared cache from handing it to the wrong audience.
         assert "Cookie" in response.headers.get("Vary", "")
-        content = response.content.decode()
-        assert session.title in content
-        assert "Table of contents" in content
-        assert 'href="#timetable-day-1"' in content
-        assert 'id="timetable-day-1"' in content
-        assert "Timetable" in content
+
+    def test_timetable_material_renders_the_grid(self, client, event, session, space):
+        _confirmed_item(event, session, space)
+
+        response = client.get(self._url(event.slug), {"material": "timetable"})
+
+        _assert_print_ok(
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            session_list=None,
+        )
+
+    def test_session_list_with_descriptions_does_not_swap_the_document(
+        self, client, event, session, space
+    ):
+        _confirmed_item(event, session, space)
+
+        response = client.get(self._url(event.slug), {"descriptions": "1"})
+
+        _assert_print_ok(
+            response,
+            descriptions=True,
+            print_scopes=[_scope(space)],
+            area_schedule=None,
+            timetable=None,
+        )
 
     def test_area_descriptions_render_full_description(
         self, client, event, session, space
@@ -227,11 +268,12 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "timetable", "descriptions": "1"}
         )
 
-        _assert_print_ok(response, descriptions=True, print_scopes=[_scope(space)])
-        content = response.content.decode()
-        assert session.title in content
-        assert session.description in content
-        assert 'id="area-space-1"' in content
+        _assert_print_ok(
+            response,
+            material="timetable",
+            descriptions=True,
+            print_scopes=[_scope(space)],
+        )
 
     def test_track_descriptions_list_is_scoped_to_the_selected_track(
         self, client, event, session, space, active_user
@@ -289,6 +331,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(
             response,
+            material="timetable",
             descriptions=True,
             print_scopes=[_scope(space)],
             area_schedule=_area_schedule_document(
@@ -297,7 +340,7 @@ class TestPublicEventPrintView:
             timetable=None,
         )
 
-    def test_unconfirmed_session_is_hidden(self, client, event, session, space):
+    def test_unconfirmed_session_is_printed(self, client, event, session, space):
         AgendaItemFactory(
             session=session,
             space=space,
@@ -309,32 +352,32 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
-        assert session.title not in response.content.decode()
 
-    def test_full_schedule_label_shown_when_a_session_is_pending(
-        self, client, event, session, space, active_user
+    def test_unconfirmed_session_keeps_the_grid_unscoped(
+        self, client, event, session, space
     ):
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-        pending = SessionFactory(
-            presenter=active_user, event=event, participants_limit=10
-        )
-        AgendaItemFactory(
-            session=pending,
-            space=SpaceFactory(event=space.event, name="Side Room"),
             session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug))
+        response = client.get(self._url(event.slug), {"material": "timetable"})
 
-        assert "Full schedule" in response.content.decode()
+        # Confirmation says whether the facilitator answered, not whether the
+        # session is real: it never narrows what the sheet covers.
+        _assert_print_ok(
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
+                is_unscoped=True,
+            ),
+        )
 
     def test_full_schedule_label_hidden_when_complete(
         self, client, event, session, space
@@ -347,9 +390,18 @@ class TestPublicEventPrintView:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug))
+        response = client.get(self._url(event.slug), {"material": "timetable"})
 
-        assert "Full schedule" not in response.content.decode()
+        _assert_print_ok(
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
+                is_unscoped=True,
+            ),
+        )
 
     def test_unpublished_event_is_not_found_for_anonymous(self, client, event):
         event.publication_time = timezone.now() + timedelta(days=1)
@@ -374,7 +426,7 @@ class TestPublicEventPrintView:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        _assert_print_ok(response, panel_access=True, print_scopes=[_scope(space)])
+        _assert_print_ok(response, print_scopes=[_scope(space)])
         assert_cache_control(response, {"private", "max-age=5"})
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
@@ -388,10 +440,13 @@ class TestPublicEventPrintView:
         space.save()
         _confirmed_item(event, session, space)
 
-        response = client.get(f"{self._url(event.slug)}?scope={parent.pk}")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&scope={parent.pk}"
+        )
 
         _assert_print_ok(
             response,
+            material="timetable",
             logo="/media/events/logo.png",
             selected_scope=str(parent.pk),
             print_scopes=[
@@ -399,11 +454,6 @@ class TestPublicEventPrintView:
                 _scope(space, f"Hall > {space.name}"),
             ],
         )
-        content = response.content.decode()
-        assert 'src="/media/events/logo.png"' in content
-        assert "Hall" in content
-        assert "Full schedule" in content
-        assert "30" in content
 
     def test_falls_back_to_sphere_logo_when_event_has_none(
         self, client, event, session, space, sphere
@@ -417,7 +467,6 @@ class TestPublicEventPrintView:
         _assert_print_ok(
             response, logo="/media/spheres/brand.png", print_scopes=[_scope(space)]
         )
-        assert 'src="/media/spheres/brand.png"' in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space
@@ -453,11 +502,14 @@ class TestPublicEventPrintView:
         )
         start = event.start_time.strftime("%Y-%m-%dT%H:%M")
 
-        response = client.get(f"{self._url(event.slug)}?start={start}&hours=3")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&start={start}&hours=3"
+        )
 
         # Only the session inside the window makes the document; `late` is out.
         _assert_print_ok(
             response,
+            material="timetable",
             range_hours=3,
             print_scopes=[_scope(space)],
             timetable=_timetable_document(
@@ -489,50 +541,37 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response)
 
-    def test_session_list_material_falls_back_when_event_is_not_eligible(
-        self, client, event
-    ):
-        response = client.get(self._url(event.slug), {"material": "session-list"})
-
-        _assert_print_ok(response)
-        assert b'value="session-list"' not in response.content
-
-    def test_session_list_renders_for_single_track_single_timeslot(
-        self, client, event, session, space
-    ):
-        track = Track.objects.create(
-            event=event, name="Focused Track", slug="focused-track", is_public=True
-        )
-        session.tracks.add(track)
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
+    def test_session_list_ignores_tracks_and_slots(self, client, event, session, space):
+        # Two tracks and two slots: the retired one-track/one-slot gate would
+        # have hidden the list here.
+        tracks = [
+            Track.objects.create(event=event, name=name, slug=slug, is_public=True)
+            for name, slug in (("Focused Track", "focused-track"), ("Side", "side"))
+        ]
+        for offset in (0, 2):
+            TimeSlotFactory(
+                event=event,
+                start_time=event.start_time + timedelta(hours=offset),
+                end_time=event.start_time + timedelta(hours=offset + 2),
+            )
+        _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
         _assert_print_ok(
             response,
-            material="session-list",
-            session_list_available=True,
-            tracks=[_track_option(track)],
-            # The event's only track is preselected even though the session
-            # list ignores it.
-            selected_track=track.slug,
+            tracks=[_track_option(track) for track in tracks],
+            # The first track is preselected even though the session list
+            # ignores it.
+            selected_track=tracks[0].slug,
             print_scopes=[_scope(space)],
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
-        content = response.content.decode()
-        assert '<option value="session-list"' in content
-        assert session.title in content
-        assert session.description in content
 
     def test_stale_track_slug_falls_back_to_first_track(
         self, client, event, session, space
@@ -565,10 +604,9 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "timetable", "track-timetable", "door-cards"
+                    "session-list", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
@@ -578,9 +616,7 @@ class TestPublicEventPrintView:
                 "selected_track": "focused-track",
                 "session_list": None,
                 "show_scope_control": False,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": True,
                 "timetable": _timetable_document(
                     event=event, pages=[], scope_name=track.name
@@ -596,7 +632,9 @@ class TestPublicEventPrintView:
         # material): pick the leaf in the scope picker.
         _confirmed_item(event, session, space)
 
-        response = client.get(f"{self._url(event.slug)}?scope={space.pk}")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&scope={space.pk}"
+        )
 
         assert_response(
             response,
@@ -608,9 +646,8 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "timetable",
-                "material_options": _specs("timetable", "door-cards"),
+                "material_options": _specs("session-list", "timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
@@ -619,9 +656,7 @@ class TestPublicEventPrintView:
                 "selected_track": "",
                 "session_list": None,
                 "show_scope_control": True,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": False,
                 "timetable": _timetable_document(
                     event=event,
@@ -656,10 +691,9 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "timetable", "track-timetable", "door-cards"
+                    "session-list", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
@@ -669,9 +703,7 @@ class TestPublicEventPrintView:
                 "selected_track": "main-track",
                 "session_list": None,
                 "show_scope_control": False,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": True,
                 "timetable": _timetable_document(
                     event=event,

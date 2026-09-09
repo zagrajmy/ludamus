@@ -281,6 +281,7 @@ class TestKonwencikExportSettingsPageView:
             | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
+                "previews": [],
                 "icon_formset": ANY,
                 "color_formset": ANY,
                 "overrides_form": ANY,
@@ -339,6 +340,7 @@ class TestKonwencikExportSettingsPageView:
             | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
+                "previews": [],
                 "icon_formset": ANY,
                 "color_formset": ANY,
                 "overrides_form": ANY,
@@ -393,6 +395,7 @@ class TestKonwencikExportSettingsPageView:
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
                 ),
+                "previews": [],
                 "icon_formset": ANY,
                 "color_formset": ANY,
                 "overrides_form": ANY,
@@ -421,6 +424,7 @@ class TestKonwencikExportSettingsPageView:
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
                 ),
+                "previews": [],
                 "icon_formset": ANY,
                 "color_formset": ANY,
                 "overrides_form": ANY,
@@ -575,6 +579,7 @@ class TestKonwencikExportSettingsPageView:
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),
+                "previews": [],
                 "color_formset": FormSetErrorsMatcher(
                     {"pk": ["This field is required."]}
                 ),
@@ -604,6 +609,7 @@ class TestKonwencikExportSettingsPageView:
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),
+                "previews": [],
                 "color_formset": FormSetErrorsMatcher(
                     {"color": ["Use a hex colour, e.g. #1e88e5."]}
                 ),

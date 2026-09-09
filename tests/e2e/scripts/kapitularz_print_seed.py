@@ -272,6 +272,7 @@ def _create_spaces(area: Space) -> list[Space]:
             slug=slugify(name),
             capacity=capacity,
             order=order,
+            programme_order=order,
             event=area.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)

@@ -1,0 +1,39 @@
+{% load i18n %}
+{% if location_preview %}
+    <section class="mt-8" aria-labelledby="location-preview-title">
+        <div class="mb-5">
+            <h2 id="location-preview-title"
+                class="text-lg font-semibold text-foreground">{% translate "Longest scheduled location" %}</h2>
+            <p class="mt-1 text-sm text-foreground-muted">
+                {% blocktranslate count path_count=location_preview.location_label|length %}This path is {{ path_count }} character long and the hardest one to fit in session details. Shorter room names make the whole location readable on phones.{% plural %}This path is {{ path_count }} characters long and the hardest one to fit in session details. Shorter room names make the whole location readable on phones.{% endblocktranslate %}
+            </p>
+            <p class="mt-2 break-words text-sm font-medium text-foreground">{{ location_preview.location_label }}</p>
+        </div>
+        <div class="space-y-6">
+            <figure class="min-w-0">
+                <figcaption class="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                    {% translate "Phone modal · 390 px viewport" %}
+                </figcaption>
+                <div class="overflow-x-auto pb-1">
+                    <div class="w-[calc(390px-0.5rem)] rounded-xl border border-border bg-bg-secondary px-6 py-4 shadow-sm"
+                         role="group"
+                         aria-label="{% translate "Phone modal preview" %}">
+                        {% include "panel/_venue_path_sample.html" %}
+                    </div>
+                </div>
+            </figure>
+            <figure class="min-w-0">
+                <figcaption class="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                    {% translate "Desktop modal · 800 px wide" %}
+                </figcaption>
+                <div class="overflow-x-auto pb-1">
+                    <div class="w-200 rounded-xl border border-border bg-bg-secondary px-6 py-4 shadow-sm"
+                         role="group"
+                         aria-label="{% translate "Desktop modal preview" %}">
+                        {% include "panel/_venue_path_sample.html" %}
+                    </div>
+                </div>
+            </figure>
+        </div>
+    </section>
+{% endif %}

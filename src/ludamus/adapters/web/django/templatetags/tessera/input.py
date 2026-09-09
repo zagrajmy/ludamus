@@ -34,12 +34,18 @@ def render_input(field: BoundField) -> str:
     spellcheck = attrs.get("spellcheck")
     if spellcheck is None and input_type in _NO_SPELLCHECK_TYPES:
         spellcheck = "false"
+    template = "components/text-field.html"
+    if input_type == "color":
+        template = "components/color-field.html"
+    elif attrs.get("icon_preview"):
+        template = "components/icon-field.html"
     return render_to_string(
-        "components/text-field.html",
+        template,
         {
             "name": field.html_name,
             "id": field.id_for_label,
-            "input_type": input_type,
+            "input_type": "text" if input_type == "color" else input_type,
+            "label": field.label,
             # Stringified so falsy values render too: 0 must come out as
             # value="0", not as an empty box.
             "value": "" if value is None else str(value),
