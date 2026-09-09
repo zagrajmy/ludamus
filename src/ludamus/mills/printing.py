@@ -1,17 +1,19 @@
 """Printing subdomain business logic.
 
 Assembles the printable materials of the public ``/print`` page (per-room-and-day
-door cards, a printed timetable, and description-rich per-area time-range pages)
-from scheduled agenda items. Queries default to confirmed sessions only;
-``confirmed_only=False`` (the sphere managers' toggle) also includes the
-unconfirmed ones. Empty timetable cells render as explicit gaps; door cards are
-participant-facing and list only rooms and hours that actually hold a session.
+door cards, a printed timetable, description-rich per-area time-range pages, and
+the participants' session list)
+from scheduled agenda items. The timetable draws an idle room as an empty
+column; door cards are participant-facing and list only rooms and hours that
+actually hold a session.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from datetime import timedelta
+from functools import partial
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import (
@@ -28,15 +30,14 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
-    PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
+    PrintTimetableTileDTO,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-    from datetime import date, datetime, tzinfo
+    from datetime import date, datetime
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -44,7 +45,6 @@ if TYPE_CHECKING:
         EventRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
     from ludamus.pacts.printing import (
@@ -61,12 +61,6 @@ def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
     return PrintSessionDTO(title=item.session_title, presenter_name=item.presenter_name)
 
 
-def _is_complete(items: list[AgendaItemDTO]) -> bool:
-    # Complete = at least one scheduled session and nothing left unconfirmed;
-    # the printed grid is then the whole program rather than a partial view.
-    return bool(items) and all(item.session_confirmed for item in items)
-
-
 def _overlaps(item: AgendaItemDTO, start: datetime, end: datetime) -> bool:
     return item.start_time < end and item.end_time > start
 
@@ -75,12 +69,15 @@ def _entry_start(entry: DoorCardEntryDTO) -> datetime:
     return entry.start_time
 
 
-def _space_order(space: SpaceDTO) -> tuple[int, str]:
-    return (space.order, space.name)
+def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
+    return (space.programme_order, space.name, space.pk)
 
 
-def _session_list_order(item: AgendaItemDTO) -> tuple[datetime, str]:
-    return (item.start_time, item.space_name)
+def _session_list_order(
+    item: AgendaItemDTO, space_order: dict[int, tuple[int, str, int]]
+) -> tuple[datetime, tuple[int, str, int]]:
+    fallback = (len(space_order), item.space_name, item.space_id)
+    return (item.start_time, space_order.get(item.space_id, fallback))
 
 
 def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
@@ -96,18 +93,53 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
     return f"{spaces[0].name} - {spaces[-1].name}"
 
 
-def _timetable_rows_by_date(
-    items: Iterable[AgendaItemDTO], tz: tzinfo
-) -> dict[date, list[tuple[datetime, datetime]]]:
-    # Rows are the distinct (start, end) times of the scheduled sessions, so
-    # the grid prints real session times. Time slots are proposer availability
-    # windows, not display units (see mills/timeslots.py), so they play no
-    # part here.
-    rows: dict[date, set[tuple[datetime, datetime]]] = defaultdict(set)
-    for item in items:
-        day = item.start_time.astimezone(tz).date()
-        rows[day].add((item.start_time, item.end_time))
-    return {day: sorted(intervals) for day, intervals in rows.items()}
+def _timetable_page(
+    *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
+) -> PrintTimetablePageDTO | None:
+    # One sheet: the day's sessions in these rooms, or None when there are
+    # none. Rows are the stretches between the instants the programme
+    # changes, so a session is one tile spanning exactly the rows it covers —
+    # the shape of the event page's rooms view. Time slots are proposer
+    # availability windows, not display units (see mills/timeslots.py), so
+    # they play no part here. Instants are keyed as timestamps: on the night
+    # the clocks go back two datetimes an hour apart compare equal.
+    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
+    if not (items := [item for item in items if item.space_id in col]):
+        return None
+    instants = {
+        instant.timestamp(): instant
+        for item in items
+        for instant in (item.start_time, item.end_time)
+    }
+    keys = sorted(instants)
+    edges = [instants[key] for key in keys]
+    line = {key: index + 1 for index, key in enumerate(keys)}
+
+    def reading_order(item: AgendaItemDTO) -> tuple[int, int]:
+        # Down the rows, then across the columns: the visual order.
+        return (line[item.start_time.timestamp()], col[item.space_id])
+
+    return PrintTimetablePageDTO(
+        day=day,
+        space_names=[space.name for space in spaces],
+        rows=[
+            PrintTimetableRowDTO(start_time=start, end_time=end)
+            for start, end in pairwise(edges)
+        ],
+        tiles=[
+            PrintTimetableTileDTO(
+                session=_to_session(item),
+                start_time=item.start_time,
+                end_time=item.end_time,
+                col=col[item.space_id],
+                row=line[item.start_time.timestamp()],
+                span=line[item.end_time.timestamp()]
+                - line[item.start_time.timestamp()],
+            )
+            for item in sorted(items, key=reading_order)
+        ],
+        space_range_name=_space_range_name(spaces),
+    )
 
 
 class PrintMaterialsService:
@@ -116,13 +148,11 @@ class PrintMaterialsService:
         events: EventRepositoryProtocol,
         spaces: SpaceRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
-        time_slots: TimeSlotRepositoryProtocol,
         tracks: TrackRepositoryProtocol,
     ) -> None:
         self._events = events
         self._spaces = spaces
         self._agenda_items = agenda_items
-        self._time_slots = time_slots
         self._tracks = tracks
 
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]:
@@ -139,9 +169,7 @@ class PrintMaterialsService:
         items = self._agenda_items.list_by_event(query.event_pk)
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
-        items_by_space = self._group_by_space(
-            items, confirmed_only=query.confirmed_only
-        )
+        items_by_space = self._group_by_space(items)
 
         cards: list[DoorCardDTO] = []
         for space in spaces:
@@ -192,52 +220,18 @@ class PrintMaterialsService:
             all_items = [
                 item for item in all_items if _overlaps(item, *query.time_range)
             ]
-        grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
-        items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
-
-        # Rows are computed per page chunk so a page only lists the times of
-        # its own spaces' sessions; a chunk with nothing scheduled on a day
-        # produces no page for it.
-        chunked_rows = [
-            (
-                space_chunk,
-                _timetable_rows_by_date(
-                    [item for s in space_chunk for item in items_by_space[s.pk]],
-                    query.tz,
-                ),
-            )
-            for space_chunk in _space_chunks(spaces)
+        # One sheet per day and space chunk that holds anything.
+        space_pks = {space.pk for space in spaces}
+        by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
+        for item in all_items:
+            if item.space_id in space_pks:
+                by_day[item.start_time.astimezone(query.tz).date()].append(item)
+        pages = [
+            page
+            for day in sorted(by_day)
+            for chunk in _space_chunks(spaces)
+            if (page := _timetable_page(day=day, spaces=chunk, items=by_day[day]))
         ]
-
-        pages: list[PrintTimetablePageDTO] = []
-        all_days = sorted({day for _, by_date in chunked_rows for day in by_date})
-        for day in all_days:
-            for space_chunk, rows_by_date in chunked_rows:
-                if not (intervals := rows_by_date.get(day)):
-                    continue
-                rows: list[PrintTimetableRowDTO] = []
-                for row_start, row_end in intervals:
-                    cells: list[PrintTimetableCellDTO] = []
-                    for space in space_chunk:
-                        sessions = [
-                            _to_session(item)
-                            for item in items_by_space.get(space.pk, [])
-                            if item.start_time == row_start and item.end_time == row_end
-                        ]
-                        cells.append(PrintTimetableCellDTO(sessions=sessions))
-                    rows.append(
-                        PrintTimetableRowDTO(
-                            start_time=row_start, end_time=row_end, cells=cells
-                        )
-                    )
-                pages.append(
-                    PrintTimetablePageDTO(
-                        day=day,
-                        space_names=[space.name for space in space_chunk],
-                        rows=rows,
-                        space_range_name=_space_range_name(space_chunk),
-                    )
-                )
 
         return PrintTimetableDocumentDTO(
             event_name=event.name,
@@ -245,14 +239,10 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (space subtree, track, or time range) is a subset
-            # by construction, so it is never "the whole program"; completeness
-            # only applies unscoped.
-            is_complete=(
+            is_unscoped=(
                 query.scope_space_pks is None
                 and query.track_pk is None
                 and query.time_range is None
-                and _is_complete(all_items)
             ),
             pages=pages,
         )
@@ -270,7 +260,7 @@ class PrintMaterialsService:
         )
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
-        grouped = self._group_by_space(items, confirmed_only=query.confirmed_only)
+        grouped = self._group_by_space(items)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
         for space in spaces:
@@ -305,40 +295,32 @@ class PrintMaterialsService:
             spaces=space_dtos,
         )
 
-    def build_session_list(
-        self, event_pk: int, *, confirmed_only: bool = True
-    ) -> PrintSessionListDocumentDTO | None:
-        tracks = self._tracks.list_public_by_event(event_pk)
-        slots = self._time_slots.list_by_event(event_pk)
-        if len(tracks) != 1 or len(slots) != 1:
-            return None
-
-        event = self._events.read(event_pk)
-        slot = slots[0]
-        items: list[AgendaItemDTO] = [
-            item
-            for item in self._agenda_items.list_by_track(tracks[0].pk)
-            if _overlaps(item, slot.start_time, slot.end_time)
-            and (item.session_confirmed or not confirmed_only)
-        ]
-        sessions = [
-            PrintSessionListItemDTO(
-                title=item.session_title,
-                presenter_name=item.presenter_name,
-                description=item.session_description,
-                start_time=item.start_time,
-                end_time=item.end_time,
-                space_name=item.space_name,
-            )
-            for item in sorted(items, key=_session_list_order)
-        ]
+    def build_session_list(self, query: PrintQueryDTO) -> PrintSessionListDocumentDTO:
+        # Unscoped by design: a participant walks the whole venue.
+        event = self._events.read(query.event_pk)
+        items = self._agenda_items.list_by_event(query.event_pk)
+        space_order = {
+            space.pk: _space_order(space)
+            for space in self._spaces.list_by_event(query.event_pk)
+        }
         return PrintSessionListDocumentDTO(
             event_name=event.name,
             event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
-            scope_name=tracks[0].name,
-            sessions=sessions,
+            sessions=[
+                PrintSessionListItemDTO(
+                    title=item.session_title,
+                    presenter_name=item.presenter_name,
+                    description=item.session_description,
+                    start_time=item.start_time,
+                    end_time=item.end_time,
+                    space_name=item.space_name,
+                )
+                for item in sorted(
+                    items, key=partial(_session_list_order, space_order=space_order)
+                )
+            ],
         )
 
     def _scoped_spaces(
@@ -361,13 +343,9 @@ class PrintMaterialsService:
         return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
-    def _group_by_space(
-        items: list[AgendaItemDTO], *, confirmed_only: bool
-    ) -> dict[int, list[AgendaItemDTO]]:
+    def _group_by_space(items: list[AgendaItemDTO]) -> dict[int, list[AgendaItemDTO]]:
         items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
-            if confirmed_only and not item.session_confirmed:
-                continue
             items_by_space[item.space_id].append(item)
         for grouped in items_by_space.values():
             grouped.sort(key=lambda x: x.start_time)

@@ -56,10 +56,14 @@
                  data-active>
                 <!-- Host & location -->
                 <div class="flex items-center gap-3 mb-6 flex-wrap">
-                    <span class="shrink-0 relative" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
-                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
-                    </span>
+                    {# Paired with the card's own guard: both rows appear or neither #}
+                    {# does, or the card-to-modal morph is left with unmatched groups. #}
+                    {% if data.session.display_name %}
+                        <span class="shrink-0 relative" data-morph="avatar">
+                            {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
+                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
+                        </span>
+                    {% endif %}
                     {# flex-1 zeroes this group's flex basis so the outer row never #}
                     {# wraps it whole — a long room path breaks inside the group, #}
                     {# under the name, instead of orphaning the avatar on its own row. #}
@@ -68,7 +72,9 @@
                     {# the room wraps that same value becomes the row gap and pushes #}
                     {# a sub-label 12px off the name it belongs to. #}
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                        <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
+                        {% if data.session.display_name %}
+                            <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
+                        {% endif %}
                         {% if data.location_crumbs %}
                             {# The room sits beside a name that is still flying in from #}
                             {# the card, so at its final spot it reads as arriving alone. #}
@@ -82,7 +88,7 @@
                                 {% include "chronology/_session_location.html" with show_map_link=True %}
                             </span>
                         {% endif %}
-                        {% if data.presenter.pk %}
+                        {% if data.session.display_name and data.presenter.pk %}
                             {% with host=data.presenter %}
                                 {% if host.discord_username %}
                                     <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>

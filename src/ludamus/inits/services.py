@@ -285,7 +285,6 @@ class Services:
             self._repos.events,
             self._repos.spaces,
             self._repos.agenda_items,
-            self._repos.time_slots,
             self._repos.tracks,
         )
 

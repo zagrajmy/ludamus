@@ -29,7 +29,9 @@
   position: absolute;
   inset-inline: 0;
   top: -1px;
-  border-top: 2px solid var(--color-primary);
+  /* Translucent: the line crosses row text in the ledger and tiles in the
+     grid, and what it crosses should stay readable. The pill stays opaque. */
+  border-top: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
   content: "";
 }
 
