@@ -732,8 +732,8 @@ class SessionEditForm(forms.Form):
     facilitator_name = forms.CharField(
         max_length=255,
         strip=True,
-        label=_("Display Name"),
-        error_messages={"required": _("Display name is required.")},
+        label=_("Presenter name"),
+        error_messages={"required": _("Presenter name is required.")},
     )
     description = forms.CharField(
         required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
