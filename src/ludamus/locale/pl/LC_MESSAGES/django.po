@@ -8115,10 +8115,10 @@ msgstr ""
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
 "Cached name from the submission wizard. The canonical byline is the "
-"proposal's display name."
+"proposal's presenter name."
 msgstr ""
-"Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
-"wyświetlana zgłoszenia."
+"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa "
+"prowadzącego w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -8157,11 +8157,11 @@ msgstr "Edytuj twórcę programu"
 
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid ""
-"Cached name from the submission wizard — edit the proposal's display name to "
-"change the byline."
+"Cached name from the submission wizard — edit the proposal's presenter name "
+"to change the byline."
 msgstr ""
-"Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
-"zgłoszenia, aby zmienić byline."
+"Nazwa zapisana przez kreator zgłoszeń — aby zmienić podpis, edytuj nazwę "
+"prowadzącego w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
