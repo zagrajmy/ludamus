@@ -8,6 +8,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 
 from ._choices import grouped_choices
+from ._registry import register
 from .errors import render_errors, render_help_text
 from .label import render_label
 
@@ -126,4 +127,46 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         group_html,
         render_help_text(field),
         render_errors(field),
+    )
+
+
+@register.simple_tag
+def tessera_checkbox_toggle(
+    *,
+    label: str,
+    name: str = "",
+    value: str = "",
+    checked: bool = False,
+    hook_class: str = "",
+    **attrs: str,
+) -> str:
+    """Render a checkbox dressed as a soft toggle button.
+
+    The whole label is the hit target and the box stays visible, so a row of
+    these reads as options rather than more fields. ``id`` is required and is
+    the one extra attribute accepted. ``name`` is optional: a toggle that only
+    drives client-side behaviour submits nothing.
+
+    Returns:
+        HTML string of the toggle.
+
+    Usage:
+        {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
+    """
+    if not (element_id := attrs.pop("id", "")):
+        msg = "tessera_checkbox_toggle needs an id: the label points at it"
+        raise ValueError(msg)
+    if attrs:
+        msg = f"tessera_checkbox_toggle got unexpected attrs {attrs!r}"
+        raise ValueError(msg)
+    return render_to_string(
+        "components/checkbox-toggle.html",
+        {
+            "id": element_id,
+            "label": label,
+            "name": name,
+            "value": value,
+            "checked": checked,
+            "hook_class": hook_class,
+        },
     )

@@ -771,6 +771,7 @@ class Space(models.Model):
     location = models.CharField(max_length=255, blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
+    programme_order = models.PositiveIntegerField(default=0)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)

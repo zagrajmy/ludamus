@@ -241,6 +241,16 @@ urlpatterns = [
         name="space-reorder",
     ),
     path(
+        "event/<slug:slug>/venues/do/reorder-programme",
+        venues.ProgrammeSpaceReorderActionView.as_view(),
+        name="programme-space-reorder",
+    ),
+    path(
+        "event/<slug:slug>/venues/do/move-to-root",
+        venues.SpaceMoveToRootActionView.as_view(),
+        name="space-move-to-root",
+    ),
+    path(
         "event/<slug:slug>/cfp/time-slots/",
         time_slots.TimeSlotsPageView.as_view(),
         name="time-slots",

@@ -1109,3 +1109,51 @@ test.describe("Enrollment filter", () => {
     await expect(card(page, NEON)).toBeHidden();
   });
 });
+
+test.describe("Hide ended filter", () => {
+  const hideEnded = (page: Page) => page.getByRole("checkbox", { name: "Hide ended" });
+  // Every session row is an article carrying its end time; hidden ones stay
+  // in the set, since hiding them is what the test watches for.
+  const rows = (page: Page) =>
+    page.getByRole("article", { includeHidden: true }).locator("[data-session-end]");
+
+  test("hides what is over and keeps narrowing as the clock passes the rest", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const first = rows(page).first();
+    const ends = scheduleMoment(await first.getAttribute("data-session-end"));
+    await page.clock.install({ time: new Date(ends.timestamp + 60_000) });
+    await page.goto(DENSE_EVENT_URL);
+    await expect(first).toHaveAttribute("data-ended", "");
+    const laterCount = await rows(page).locator(":scope:not([data-ended])").count();
+    expect(laterCount).toBeGreaterThan(0);
+
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+    await hideEnded(page).check();
+
+    await expect(first).toBeHidden();
+    await expect(rows(page).locator(":scope:not([data-ended])").first()).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("hide-ended")).toBe("1");
+
+    // A page left open keeps the promise: the next session to end drops out
+    // on its own, without another click.
+    const upcoming = rows(page).locator(":scope:not([data-ended])").first();
+    const nextEnd = scheduleMoment(await upcoming.getAttribute("data-session-end"));
+    // Pinned by id: once it ends it stops matching the "not ended" locator.
+    const next = page.locator(
+      `[data-session-id="${await upcoming.getAttribute("data-session-id")}"]`,
+    );
+    await page.clock.runFor(nextEnd.timestamp - ends.timestamp);
+    await expect(next).toHaveAttribute("data-ended", "");
+    await expect(next).toBeHidden();
+  });
+
+  test("a shared link arrives with the box ticked and the chip clears it", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?hide-ended=1`);
+
+    await expect(hideEnded(page)).toBeChecked();
+    await page.getByRole("button", { name: "Remove filter" }).click();
+
+    await expect(hideEnded(page)).not.toBeChecked();
+    await expect.poll(() => new URL(page.url()).searchParams.get("hide-ended")).toBeNull();
+  });
+});

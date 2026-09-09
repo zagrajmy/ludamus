@@ -129,6 +129,25 @@ const ageFilterEntry = (
   param,
 });
 
+interface FlagFilter {
+  el: HTMLInputElement;
+  /** Card passes while the box is ticked. */
+  matches: (card: HTMLElement) => boolean;
+  param: string;
+}
+
+// The template renders a flag only when the schedule has something for it to
+// narrow (no enrollment box on an event of drop-ins), so a missing one is
+// simply not a filter on this page.
+const flagFilter = (
+  id: string,
+  param: string,
+  matches: FlagFilter["matches"],
+): FlagFilter | null => {
+  const el = document.querySelector<HTMLInputElement>(`#${id}`);
+  return el ? { el, matches, param } : null;
+};
+
 const selectFilter = (
   el: HTMLSelectElement,
   param: string,
@@ -216,7 +235,6 @@ const initSessionFilters = (): void => {
   const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
-  const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -378,11 +396,19 @@ const initSessionFilters = (): void => {
     }
   }
 
-  // One entry per value-holding filter control, in panel order. Mirroring,
-  // matching, clearing, chips, and listeners all loop over this list, so a
-  // new filter is one entry here plus its option population above. The search
-  // box and the enrollment checkbox stay outside: neither is a value filter
-  // over one card key (search is tokenized, enrollment is a flag).
+  // One entry per filter control, in panel order: the yes/no flags, then the
+  // value-holding controls. Mirroring, matching, clearing, chips, and
+  // listeners all loop over these lists, so a new filter is one entry here
+  // (plus its option population above). The search box stays outside: it is
+  // tokenized, not a value over one card key.
+  const flagFilters = [
+    flagFilter(
+      "enrollment-filter",
+      "enrollment",
+      (card) => card.dataset.takesEnrollment === "true",
+    ),
+    flagFilter("hide-ended-filter", "hide-ended", (card) => !Object.hasOwn(card.dataset, "ended")),
+  ].filter((f) => f !== null);
   const cardFilters: CardFilter[] = [
     selectFilter(statusFilter, "status", (card, value) => {
       const flag = STATUS_CARD_FLAGS[value];
@@ -490,13 +516,13 @@ const initSessionFilters = (): void => {
   };
 
   mirrorInput("q", sessionFilter);
-  if (enrollmentFilter) {
+  for (const f of flagFilters) {
     mirror(
-      "enrollment",
+      f.param,
       flagParam,
-      () => enrollmentFilter.checked,
+      () => f.el.checked,
       (value) => {
-        enrollmentFilter.checked = value;
+        f.el.checked = value;
       },
     );
   }
@@ -565,7 +591,7 @@ const initSessionFilters = (): void => {
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
-    const enrollmentOnly = enrollmentFilter?.checked ?? false;
+    const activeFlags = flagFilters.filter((f) => f.el.checked);
     const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
 
     for (const card of sessionCards) {
@@ -575,7 +601,7 @@ const initSessionFilters = (): void => {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
-      if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
+      for (const f of activeFlags) show &&= f.matches(card);
       for (const f of activeFilters) show &&= f.matches(card, f.el.value);
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
@@ -606,7 +632,7 @@ const initSessionFilters = (): void => {
 
   function clearAllFilters(): void {
     sessionFilter.value = "";
-    if (enrollmentFilter) enrollmentFilter.checked = false;
+    for (const f of flagFilters) f.el.checked = false;
     for (const f of cardFilters) {
       f.el.value = "";
       syncControl(f.el);
@@ -632,13 +658,15 @@ const initSessionFilters = (): void => {
 
   function updateFilterUI(): void {
     const chips: FilterChip[] = [];
-    if (enrollmentFilter?.checked) {
+    for (const f of flagFilters) {
+      if (!f.el.checked) continue;
       chips.push({
         clear: () => {
-          enrollmentFilter.checked = false;
+          f.el.checked = false;
           filterSessions();
         },
-        label: filterChipsBar.dataset.enrollmentLabel ?? "",
+        // The chip says what the box says: one string, read off its label.
+        label: f.el.labels?.[0]?.textContent?.trim() ?? "",
       });
     }
     for (const f of cardFilters) {
@@ -698,35 +726,33 @@ const initSessionFilters = (): void => {
   }
 
   sessionFilter.addEventListener("input", filterSessions);
-  enrollmentFilter?.addEventListener("change", filterSessions);
+  for (const f of flagFilters) f.el.addEventListener("change", filterSessions);
+  // schedule-now.ts marks sessions ended as the clock passes them, and both
+  // the hide-ended flag and the status select read that mark.
+  document.addEventListener("schedule:ended", filterSessions, {
+    signal: documentListeners.signal,
+  });
   document.addEventListener(
     "click",
     (event) => {
       if (!isUnmodifiedLeftClick(event)) return;
-      const target = event.target as Element;
-      if (target.closest("[data-apply-enrollment]")) {
-        if (!enrollmentFilter) return;
-        event.preventDefault();
-        if (!enrollmentFilter.checked) {
-          enrollmentFilter.checked = true;
-          filterSessions();
-        }
-        byId("schedule-region").scrollIntoView();
-        return;
-      }
-      const spaceLink = target.closest<HTMLAnchorElement>("a[data-apply-space]");
-      if (!spaceLink) return;
-      const space = new URL(spaceLink.href).searchParams.get("space");
-      if (!space) return;
-      if (![...spaceFilter.options].some((option) => option.value === space)) return;
+      const link = (event.target as Element).closest<HTMLAnchorElement>("a[href]");
+      if (!link) return;
+      const hrefUrl = new URL(link.href);
+      if (hrefUrl.origin !== globalThis.location.origin) return;
+      if (hrefUrl.pathname !== globalThis.location.pathname) return;
+      const names = [...hrefUrl.searchParams.keys()];
+      if (names.length === 0 || names.some((name) => !mirrored.has(name))) return;
       event.preventDefault();
-      spaceLink.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
-      if (spaceFilter.value !== space) {
-        spaceFilter.value = space;
-        syncControl(spaceFilter);
-        filterSessions();
+      for (const name of names) {
+        const entry = mirrored.get(name);
+        if (!entry) continue;
+        entry.applyRaw(hrefUrl.searchParams.get(name));
       }
-      byId("schedule-region").scrollIntoView();
+      link.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
+      filterSessions();
+      const scrollId = hrefUrl.hash.slice(1);
+      if (scrollId) document.getElementById(scrollId)?.scrollIntoView();
     },
     { signal: documentListeners.signal },
   );
