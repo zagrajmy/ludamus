@@ -85,7 +85,7 @@ def _session_list_document(*, event, sessions):
 def _one_hour_list_item(*, event, session, space):
     return PrintSessionListItemDTO(
         title=session.title,
-        presenter_name=session.display_name,
+        presenter_name=session.facilitator_name,
         description=session.description,
         start_time=event.start_time,
         end_time=event.start_time + timedelta(hours=1),
@@ -102,7 +102,7 @@ def _one_hour_page(*, event, session, space):
         tiles=[
             PrintTimetableTileDTO(
                 session=PrintSessionDTO(
-                    title=session.title, presenter_name=session.display_name
+                    title=session.title, presenter_name=session.facilitator_name
                 ),
                 start_time=event.start_time,
                 end_time=end,
@@ -131,7 +131,7 @@ def _area_schedule_document(*, event, session, space, scope_name=None):
                 sessions=[
                     AreaScheduleSessionDTO(
                         title=session.title,
-                        presenter_name=session.display_name,
+                        presenter_name=session.facilitator_name,
                         description=session.description,
                         start_time=event.start_time,
                         end_time=event.start_time + timedelta(hours=1),
