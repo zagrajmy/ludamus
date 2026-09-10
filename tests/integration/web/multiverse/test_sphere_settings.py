@@ -37,6 +37,7 @@ GIF_BYTES = (
 GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {
     "form": ANY,
     "needs_disable_confirmation": False,
+    "lost_logo_upload": False,
 }
 
 PAGE_DATA = {"encounters_policy": "everyone"}
