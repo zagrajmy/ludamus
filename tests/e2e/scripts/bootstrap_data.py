@@ -53,11 +53,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.legacy import (
-    EncountersPolicy,
-    NotificationKind,
-    SessionParticipationStatus,
-)
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
