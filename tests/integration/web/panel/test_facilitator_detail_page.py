@@ -159,7 +159,7 @@ class TestFacilitatorDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Attached Session",
             slug="attached-session",
             participants_limit=4,
@@ -198,7 +198,7 @@ class TestFacilitatorDetailPageView:
                     SessionListItemDTO(
                         category_name="RPG",
                         creation_time=session.creation_time,
-                        display_name="Host",
+                        facilitator_name="Host",
                         is_scheduled=False,
                         pk=session.pk,
                         status=SessionStatus.PENDING,
@@ -219,7 +219,7 @@ class TestFacilitatorDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Dead Session",
             slug="dead-session",
             participants_limit=4,
@@ -247,7 +247,7 @@ class TestFacilitatorDetailPageView:
                     SessionListItemDTO(
                         category_name="RPG",
                         creation_time=session.creation_time,
-                        display_name="Host",
+                        facilitator_name="Host",
                         is_deleted=True,
                         is_scheduled=False,
                         pk=session.pk,
