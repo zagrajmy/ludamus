@@ -59,7 +59,7 @@ class TestTimeSlotDeleteActionView:
             slug="test",
             category=category,
             presenter=host,
-            display_name=host.username,
+            facilitator_name=host.username,
             status="pending",
             participants_limit=10,
         )
