@@ -76,7 +76,6 @@ class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
     """Shared base for the two views that render the encounter form."""
 
     request: AuthenticatedRootRequest
-    needs_create_rights = True
 
     @staticmethod
     def _form(
@@ -89,6 +88,11 @@ class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
 
 
 class EncounterCreatePageView(_EncounterFormPageView):
+    # Only creating is policy-gated. Editing asks about ownership instead,
+    # and `read_owned` already answers that — a member who made an encounter
+    # keeps it when the sphere narrows to managers.
+    needs_create_rights = True
+
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
             request, "notice_board/create.html", {"form": self._form()}
