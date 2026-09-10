@@ -37,7 +37,7 @@ class FeedEvent:
 
 @dataclass(frozen=True)
 class FeedEncounter:
-    encounter: EncounterIndexItem
+    entry: EncounterIndexItem
     kind: ClassVar[Literal["encounter"]] = "encounter"
 
 
@@ -51,10 +51,7 @@ def _merge(
     # came from rather than being copied onto the wrapper, where it could drift.
     dated: list[tuple[datetime, FeedItem]] = [
         (event.start_time, FeedEvent(event=event)) for event in events
-    ] + [
-        (item.encounter.start_time, FeedEncounter(encounter=item))
-        for item in encounters
-    ]
+    ] + [(item.encounter.start_time, FeedEncounter(entry=item)) for item in encounters]
     dated.sort(key=itemgetter(0), reverse=newest_first)
     return [item for _, item in dated]
 

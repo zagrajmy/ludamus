@@ -22,7 +22,7 @@ public_urlpatterns: list[URLPattern | URLResolver] = [
 authenticated_urlpatterns: list[URLPattern | URLResolver] = [
     # The encounters index was folded into the events feed; the URL was
     # public. Exact match, so the routes below still win.
-    path("", RedirectView.as_view(pattern_name="web:events", permanent=True)),
+    path("", RedirectView.as_view(pattern_name="web:events")),
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),
     path(

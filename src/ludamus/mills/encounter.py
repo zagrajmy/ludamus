@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         EncounterRSVPRepositoryProtocol,
         SphereRepositoryProtocol,
     )
+    from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -42,21 +43,21 @@ class EncounterService(EncounterServiceProtocol):
         rsvps: EncounterRSVPRepositoryProtocol,
         users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        sites: SitesServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
         self._rsvps = rsvps
         self._users = users
         self._spheres = spheres
-        self._policies: dict[int, EncountersPolicy] = {}
+        # Read through the sites service, not the repository: every encounter
+        # route asks for the policy twice — once at the view's gate, once in
+        # the method the view then calls — and that service already memoises
+        # the current sphere for the request.
+        self._sites = sites
 
     def _policy(self, sphere_id: int) -> EncountersPolicy:
-        # Memoised because the service is built per request and every
-        # encounter route asks twice: once at the view's gate, once in the
-        # method the view then calls.
-        if sphere_id not in self._policies:
-            self._policies[sphere_id] = self._spheres.read(sphere_id).encounters_policy
-        return self._policies[sphere_id]
+        return self._sites.read(sphere_id).encounters_policy
 
     def enabled(self, sphere_id: int) -> bool:
         return self._policy(sphere_id) is not EncountersPolicy.NONE
@@ -87,7 +88,9 @@ class EncounterService(EncounterServiceProtocol):
                 user_id=user_id,
             ),
             past=self._index_items(
-                self._encounters.list_visible_past(sphere_id, user_id, PAST_FEED_LIMIT),
+                self._encounters.list_visible_past(
+                    sphere_id, user_id, limit=PAST_FEED_LIMIT
+                ),
                 user_id=user_id,
             ),
         )
@@ -149,9 +152,10 @@ class EncounterService(EncounterServiceProtocol):
         return self._encounters.read_by_share_code(share_code, sphere_id)
 
     def create(self, data: EncounterData) -> EncounterDTO:
-        # Enforced here and not only by the view's gate: the sphere's policy
-        # is what decides the feature exists, and every caller goes through
-        # this method.
+        # Creating is the one thing the policy decides, so it is checked here
+        # too rather than only at the view's gate. Editing, deleting and
+        # RSVPing ask about ownership or an invitation instead, and the
+        # methods below answer that.
         if not self.can_create(sphere_id=data["sphere_id"], user_id=data["creator_id"]):
             raise NotFoundError
         return self._encounters.create(data)
