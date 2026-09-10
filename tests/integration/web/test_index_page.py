@@ -11,6 +11,7 @@ from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
+from ludamus.mills.encounter import PAST_FEED_LIMIT
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
@@ -45,7 +46,7 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
 
 
 def _expected_feed_event(event, **kwargs):
-    return FeedEvent(event=_expected_event_info(event, **kwargs))
+    return FeedEvent(entry=_expected_event_info(event, **kwargs))
 
 
 class TestIndexRedirectView:
@@ -171,7 +172,7 @@ class TestEventsPageView:
                 "announcements": [],
                 "can_create_encounter": False,
                 "past": [],
-                "upcoming": [FeedEvent(event=expected)],
+                "upcoming": [FeedEvent(entry=expected)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -686,6 +687,28 @@ class TestEventsPageFeed:
             ),
             template_name=["index.html"],
         )
+
+    def test_the_past_section_stops_at_one_cut_across_both_kinds(self, client, sphere):
+        now = datetime.now(UTC)
+        for days in range(1, PAST_FEED_LIMIT + 2):
+            EncounterFactory(
+                sphere=sphere,
+                is_public=True,
+                start_time=now - timedelta(days=days),
+                end_time=now - timedelta(days=days) + timedelta(hours=1),
+            )
+        EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=365),
+            end_time=now - timedelta(days=364),
+            publication_time=now - timedelta(days=366),
+        )
+
+        response = client.get(self.URL)
+
+        past = response.context_data["past"]
+        assert len(past) == PAST_FEED_LIMIT
+        assert all(item.kind == "encounter" for item in past)
 
     def test_encounters_are_absent_while_the_sphere_runs_none(self, client, sphere):
         EncounterFactory(

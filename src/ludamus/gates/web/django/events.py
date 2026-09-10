@@ -17,6 +17,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     split_events,
 )
+from ludamus.mills.encounter import PAST_FEED_LIMIT
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 # against the payload it ships with.
 @dataclass(frozen=True)
 class FeedEvent:
-    event: EventInfo
+    entry: EventInfo
     kind: ClassVar[Literal["event"]] = "event"
 
 
@@ -50,7 +51,7 @@ def _merge(
     # Sorted as (when, what) pairs so the start time stays on the payload it
     # came from rather than being copied onto the wrapper, where it could drift.
     dated: list[tuple[datetime, FeedItem]] = [
-        (event.start_time, FeedEvent(event=event)) for event in events
+        (event.start_time, FeedEvent(entry=event)) for event in events
     ] + [(item.encounter.start_time, FeedEncounter(entry=item)) for item in encounters]
     dated.sort(key=itemgetter(0), reverse=newest_first)
     return [item for _, item in dated]
@@ -81,9 +82,12 @@ class EventsPageView(TemplateView):
         context["upcoming"] = _merge(
             events=events.upcoming, encounters=encounters.upcoming, newest_first=False
         )
+        # Cut after the merge, not only in the encounter query: capping one
+        # side alone leaves a hole, where an event older than the last
+        # encounter shown renders while the encounters between them do not.
         context["past"] = _merge(
             events=events.past, encounters=encounters.past, newest_first=True
-        )
+        )[:PAST_FEED_LIMIT]
         context["can_create_encounter"] = (
             user_id is not None
             and self.request.services.encounters.can_create(

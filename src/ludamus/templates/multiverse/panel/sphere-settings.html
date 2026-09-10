@@ -54,6 +54,9 @@
                                     <p class="text-sm opacity-80 mt-1">
                                         {% translate "Turning them off hides them from everyone. Save again to confirm." %}
                                     </p>
+                                    {% if lost_logo_upload %}
+                                        <p class="text-sm opacity-80 mt-1">{% translate "Nothing was saved, so pick your logo file again." %}</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
