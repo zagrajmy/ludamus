@@ -42,7 +42,8 @@ REPORT
 
 Keep all five headings in order; optional answers may be empty. Do not include
 secrets or private transcripts. Read existing reports before recording another
-occurrence. Local logging needs no GitHub token and does not publish issues.
+occurrence; add dated evidence to the existing report when the cause is the
+same. Local logging needs no GitHub token and does not publish issues.
 
 ## Resolve
 
@@ -60,7 +61,8 @@ documentation or tooling rather than keeping a resolved report as instructions.
 `mise run lint:frog` checks that every report parses; it also runs in `lint` and
 CI. A malformed report fails validation instead of producing a partial list.
 
-Imported papercuts retain their original date and wording. Historical
+Imported papercuts retain their original date and wording. Confirmed duplicates
+share one report with dated occurrences and source links. Historical
 observations are not claims that each failure still reproduces today: uncertain
 entries remain until verified resolved. Import metadata links each tracked note
 to its original source in Git history. Some legacy notes concern the development
