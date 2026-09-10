@@ -193,8 +193,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         access = panel_access(request)
         panel_user = access.granted
         # A comms member reads this page and changes nothing by opening it:
-        # the printed-materials signal and the unconfirmed sessions are the
-        # organizers' business.
+        # the printed-materials signal is the organizers' business.
         manages_event = access.allows(Capability.PANEL_WRITE)
         if not published and not panel_user:
             raise Http404
@@ -216,10 +215,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         descriptions = request.GET.get("descriptions") == "1"
         if requested_material == LEGACY_DESCRIPTIONS_MATERIAL:
             requested_material, descriptions = TIMETABLE, True
-        # Only sphere managers may pull unconfirmed sessions onto paper; for
-        # everyone else the param is ignored, not an error.
-        unconfirmed = manages_event and request.GET.get("unconfirmed") == "1"
-        confirmed_only = not unconfirmed
 
         service = request.services.print_materials
         tracks = service.list_tracks(event.pk)
@@ -247,7 +242,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 scope_space_pks=print_scope.space_pks,
                 track_pk=print_scope.track_pk,
                 scope_name=print_scope.name,
-                confirmed_only=confirmed_only,
                 time_range=resolved_range.window,
             ),
         )
@@ -275,9 +269,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
                 "show_range_controls": material_spec.show_range_controls,
-                "show_unconfirmed_control": manages_event,
                 "descriptions": descriptions,
-                "unconfirmed": unconfirmed,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -286,8 +278,8 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 "range_hours": resolved_range.hours,
             },
         )
-        # A manager's page differs from the public one (extra materials, the
-        # unconfirmed toggle), so it must never land in a shared cache.
+        # The navbar carries the viewer's identity, so an authenticated response
+        # is never shareable; only the anonymous one may sit in a shared cache.
         if published and not panel_user:
             patch_cache_control(response, public=True, max_age=300)
         else:

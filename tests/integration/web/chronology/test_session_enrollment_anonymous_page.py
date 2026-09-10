@@ -58,7 +58,7 @@ def _expected_session_dto(agenda_item, enrollment_config) -> AnonymousSessionCon
         eligible_windows=eligible_windows,
         allows_anonymous_enrollment=True,
         title=session.title,
-        display_name=session.display_name,
+        facilitator_name=session.facilitator_name,
         description=session.description,
         min_age=session.min_age,
         enrolled_count=session.enrolled_count,

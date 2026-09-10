@@ -3,10 +3,9 @@
 Assembles the printable materials of the public ``/print`` page (per-room-and-day
 door cards, a printed timetable, description-rich per-area time-range pages, and
 the participants' session list)
-from scheduled agenda items. Queries default to confirmed sessions only;
-``confirmed_only=False`` (the sphere managers' toggle) also includes the
-unconfirmed ones. The timetable draws an idle room as an empty column; door cards
-are participant-facing and list only rooms and hours that actually hold a session.
+from scheduled agenda items. The timetable draws an idle room as an empty
+column; door cards are participant-facing and list only rooms and hours that
+actually hold a session.
 """
 
 from __future__ import annotations
@@ -60,12 +59,6 @@ MAX_TIMETABLE_SPACES_PER_PAGE = 4
 
 def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
     return PrintSessionDTO(title=item.session_title, presenter_name=item.presenter_name)
-
-
-def _is_complete(items: list[AgendaItemDTO]) -> bool:
-    # Complete = at least one scheduled session and nothing left unconfirmed;
-    # the printed grid is then the whole program rather than a partial view.
-    return bool(items) and all(item.session_confirmed for item in items)
 
 
 def _overlaps(item: AgendaItemDTO, start: datetime, end: datetime) -> bool:
@@ -176,9 +169,7 @@ class PrintMaterialsService:
         items = self._agenda_items.list_by_event(query.event_pk)
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
-        items_by_space = self._group_by_space(
-            items, confirmed_only=query.confirmed_only
-        )
+        items_by_space = self._group_by_space(items)
 
         cards: list[DoorCardDTO] = []
         for space in spaces:
@@ -233,9 +224,7 @@ class PrintMaterialsService:
         space_pks = {space.pk for space in spaces}
         by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
         for item in all_items:
-            if item.space_id in space_pks and (
-                item.session_confirmed or not query.confirmed_only
-            ):
+            if item.space_id in space_pks:
                 by_day[item.start_time.astimezone(query.tz).date()].append(item)
         pages = [
             page
@@ -250,14 +239,10 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (space subtree, track, or time range) is a subset
-            # by construction, so it is never "the whole program"; completeness
-            # only applies unscoped.
-            is_complete=(
+            is_unscoped=(
                 query.scope_space_pks is None
                 and query.track_pk is None
                 and query.time_range is None
-                and _is_complete(all_items)
             ),
             pages=pages,
         )
@@ -275,7 +260,7 @@ class PrintMaterialsService:
         )
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
-        grouped = self._group_by_space(items, confirmed_only=query.confirmed_only)
+        grouped = self._group_by_space(items)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
         for space in spaces:
@@ -313,11 +298,7 @@ class PrintMaterialsService:
     def build_session_list(self, query: PrintQueryDTO) -> PrintSessionListDocumentDTO:
         # Unscoped by design: a participant walks the whole venue.
         event = self._events.read(query.event_pk)
-        items = [
-            item
-            for item in self._agenda_items.list_by_event(query.event_pk)
-            if item.session_confirmed or not query.confirmed_only
-        ]
+        items = self._agenda_items.list_by_event(query.event_pk)
         space_order = {
             space.pk: _space_order(space)
             for space in self._spaces.list_by_event(query.event_pk)
@@ -362,13 +343,9 @@ class PrintMaterialsService:
         return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
-    def _group_by_space(
-        items: list[AgendaItemDTO], *, confirmed_only: bool
-    ) -> dict[int, list[AgendaItemDTO]]:
+    def _group_by_space(items: list[AgendaItemDTO]) -> dict[int, list[AgendaItemDTO]]:
         items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
-            if confirmed_only and not item.session_confirmed:
-                continue
             items_by_space[item.space_id].append(item)
         for grouped in items_by_space.values():
             grouped.sort(key=lambda x: x.start_time)
