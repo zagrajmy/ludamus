@@ -255,6 +255,29 @@
                             </div>
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">tessera_combobox multiple=True</code>
+                            <form class="w-full max-w-xs" aria-label="{% translate "Multiple fruit" %}">
+                                <label for="t-combobox-multiple" class="sr-only">{% translate "Multiple fruit" %}</label>
+                                {% tessera_combobox id="t-combobox-multiple" name="fruit" multiple=True %}
+                                    <option value="apple" selected>{% translate "Apple" %}</option>
+                                    <option value="apricot">{% translate "Apricot" %}</option>
+                                    <option value="cherry" selected>{% translate "Cherry" %}</option>
+                                {% endtessera_combobox %}
+                            </form>
+                        </div>
+                        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">tessera_combobox multiple=True, disabled option</code>
+                            <form class="w-full max-w-xs"
+                                  aria-label="{% translate "Fruit with disabled options" %}">
+                                <label for="t-combobox-disabled-options" class="sr-only">{% translate "Fruit with disabled options" %}</label>
+                                {% tessera_combobox id="t-combobox-disabled-options" name="fruit" multiple=True %}
+                                    <option value="apple" selected disabled>{% translate "Apple" %}</option>
+                                    <option value="apricot">{% translate "Apricot" %}</option>
+                                    <option value="cherry" selected>{% translate "Cherry" %}</option>
+                                {% endtessera_combobox %}
+                            </form>
+                        </div>
+                        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
                             {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
                         </div>

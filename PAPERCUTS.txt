@@ -529,6 +529,38 @@ If you fix a papercut, remove it.
 - 2026-09-08: Chip-color verification on an isolated port required updating the
   seeded django_site domain. The e2e wrapper tried registry downloads despite
   installed browser tools; used the installed Playwright runner directly.
+- 2026-09-09: Applying the older event-filter PR hit conflicts with newer
+  bookmark and ended-session flags; preserved current flags while adapting
+  multi-value matching.
+- 2026-09-09: messages requires development secrets in a fresh worktree; using
+  ENV=test supplies the committed test configuration for catalog extraction.
+  Browser tests also need a rebuild after client edits; prep had captured an
+  earlier revision.
+- 2026-09-09: ENV=test still lacked SUPPORT_EMAIL for varlock; supplied a test
+  address to run messages. Gettext fuzzy-matched new search labels to host copy,
+  requiring explicit Polish corrections.
+- 2026-09-09: The e2e server watcher uses GNU stat -c, so on macOS it misses
+  rebuilt manifests and keeps serving stale asset names. Restarted the server
+  explicitly after rebuilding.
+- 2026-09-09: Another worktree took over port 8000 while this browser run and
+  server were killed (exit 137). Moved this worktree to port 8017 and reran
+  against an explicit E2E_BASE_URL to isolate verification.
+- 2026-09-09: Using port 8017 also requires changing the local seeded
+  django_site domain; ROOT_DOMAIN alone produces Sphere.DoesNotExist. Updated
+  only this worktree’s disposable SQLite seed.
+- 2026-09-09: The installed Playwright version had Chromium and Firefox but no
+  matching WebKit executable. Installed only the pinned WebKit browser before
+  Safari verification.
+- 2026-09-10: PR review: tsc --noEmit --incremental false fails because the
+  client is a composite project. Use --tsBuildInfoFile pointing into /tmp for a
+  typecheck without checkout artifacts.
+- 2026-09-10: PR review browser check: the existing e2e seed uses localhost:8017
+  but .env.e2e sets ROOT_DOMAIN=localhost:8000, causing Sphere.DoesNotExist on
+  GET. Match ROOT_DOMAIN to the isolated server and existing seed rather than
+  modifying the database.
+- 2026-09-10: GitHub attachment verification: urllib HEAD followed the new gh
+  --attach asset redirect to a 403, while curl GET returned both PNGs
+  successfully. Verify uploaded screenshots with GET, not HEAD.
 - 2026-09-09: Running a focused panel.spec.ts E2E grep skipped prerequisites:
   first the auth state was absent, then a category name initialized by an earlier
   test stayed empty. The failed run also left :8000 occupied before prep.
