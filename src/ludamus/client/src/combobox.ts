@@ -2,15 +2,6 @@
 // pattern with list autocomplete:
 // https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
 //
-// Nothing here puts an option in the page. The server writes the <select> and
-// its options inside a <noscript>, which the parser keeps as text when
-// scripting is on, and this module reads that text for its data — so a list
-// that runs to the hundreds costs one text node instead of hundreds of
-// elements, and a scriptless browser still gets the real control. What ships
-// as DOM is a hidden input holding the value (so forms post and `change`
-// listeners keep working, as they did with the select) plus a pooled window
-// of a dozen option rows.
-//
 // DOM focus never enters the list: the input keeps it and aria-activedescendant
 // names the active option, as the pattern requires.
 
@@ -91,33 +82,23 @@ const toRow = (label: string, value: string): Row => ({
   value,
 });
 
-/**
- * The options, as the JSON the tag wrote beside the <noscript> fallback.
- *
- * The options exist twice in the markup and neither copy is an element the
- * page pays for: the <noscript> is text unless scripting is off, and this is
- * a data block. Reading the noscript instead would mean parsing DOM text as
- * HTML, which is the shape of an XSS sink whatever the text; the tag resolves
- * `selected` and `disabled` server-side so this stays plain data.
- */
+interface Option {
+  disabled: boolean;
+  label: string;
+  value: string;
+}
+
 const parseSource = (
   source: HTMLElement,
-): { disabled: boolean; label: string; rows: Row[]; value: string } => {
-  const parsed: unknown = JSON.parse(source.textContent || "{}");
-  const payload = (parsed ?? {}) as {
-    disabled?: unknown;
-    label?: unknown;
-    rows?: unknown;
-    value?: unknown;
+): { disabled: boolean; rows: Row[]; selected: Option[] } => {
+  const payload = JSON.parse(source.textContent ?? "") as {
+    disabled: boolean;
+    rows: [string, string][];
+    selected: Option[];
   };
-  const rows = Array.isArray(payload.rows)
-    ? (payload.rows as [string, string][]).map(([value, label]) => toRow(label, value))
-    : [];
   return {
-    disabled: payload.disabled === true,
-    label: typeof payload.label === "string" ? payload.label : "",
-    rows,
-    value: typeof payload.value === "string" ? payload.value : "",
+    ...payload,
+    rows: payload.rows.map(([value, label]) => toRow(label, value)),
   };
 };
 
@@ -138,7 +119,6 @@ const upgrade = (root: HTMLElement): void => {
   if (parsed.disabled) return;
   // NOTE: htmx parses noscript content as elements, creating duplicate control IDs.
   root.querySelector("noscript")?.remove();
-  value.value ||= parsed.value;
   // Only now the select is out of the picture, so the field posts once.
   const name = value.dataset.comboboxName ?? "";
   value.name = multiple ? "" : name;
@@ -152,6 +132,7 @@ const upgrade = (root: HTMLElement): void => {
   const optionTemplate = requireEl<HTMLTemplateElement>(root, OPTION_TEMPLATE);
 
   let rows: Row[] = [];
+  let options = new Map<string, Option>();
   let shown: Row[] = [];
   let activeIndex = -1;
 
@@ -167,15 +148,18 @@ const upgrade = (root: HTMLElement): void => {
   if (multiple && name) root.append(submittedValues);
   const writeSelectedValues = (values: string[]): void => {
     value.value = multiple ? (values.length > 0 ? JSON.stringify(values) : "") : (values[0] ?? "");
+    value.disabled = !multiple && options.get(value.value)?.disabled === true;
     if (multiple && name) {
       submittedValues.replaceChildren(
-        ...values.map((selected) => {
-          const field = document.createElement("input");
-          field.type = "hidden";
-          field.name = name;
-          field.value = selected;
-          return field;
-        }),
+        ...values
+          .filter((selected) => !options.get(selected)?.disabled)
+          .map((selected) => {
+            const field = document.createElement("input");
+            field.type = "hidden";
+            field.name = name;
+            field.value = selected;
+            return field;
+          }),
       );
     }
   };
@@ -329,23 +313,11 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const isOpen = (): boolean => input.getAttribute("aria-expanded") === "true";
-  // Rows first, then the option the server had chosen. That one may be
-  // disabled — a placeholder like "Choose a fruit…" is the common case — and a
-  // disabled option is never a row, so looking only there would blank the
-  // field the moment it renders.
-  // No truthiness guard on `wanted`: the empty string is the placeholder's own
-  // value, and guarding it out blanked the one case this fallback exists for.
-  const labelOf = (wanted: string): string =>
-    rows.find((row) => row.value === wanted)?.label ??
-    (wanted === parsed.value ? parsed.label : "");
-
   const selectedLabel = (): string =>
-    multiple
-      ? selectedValues()
-          .map((selected) => labelOf(selected))
-          .filter(Boolean)
-          .join(", ")
-      : labelOf(value.value);
+    selectedValues()
+      .map((selected) => options.get(selected)?.label ?? "")
+      .filter(Boolean)
+      .join(", ");
 
   /**
    * Take a new option list. Whatever the page built is appended to whatever
@@ -357,6 +329,8 @@ const upgrade = (root: HTMLElement): void => {
     pool = [];
     windowStart = 0;
     rows = [...parsed.rows, ...supplied];
+    options = new Map(parsed.selected.map((option) => [option.value, option]));
+    for (const row of rows) options.set(row.value, { ...row, disabled: false });
   };
 
   /** One more pooled option element, appended in window order. */
@@ -693,6 +667,11 @@ const upgrade = (root: HTMLElement): void => {
     input.select();
   });
 
+  toggle.addEventListener("pointerdown", (event) => {
+    // NOTE: Focus must stay on the input; blur would close before click toggles.
+    event.preventDefault();
+  });
+
   toggle.addEventListener("click", () => {
     if (isOpen()) {
       close();
@@ -759,9 +738,7 @@ const upgrade = (root: HTMLElement): void => {
     if (supplied) syncOptions(supplied);
     // A value naming no option is no value. The <select> this stands in for
     // dropped one the same way, so a stale deep link cannot filter to nothing.
-    writeSelectedValues(
-      selectedValues().filter((selected) => rows.some((row) => row.value === selected)),
-    );
+    writeSelectedValues(selectedValues().filter((selected) => options.has(selected)));
     input.value = selectedLabel();
     if (isOpen()) {
       applyFilter("");
@@ -791,7 +768,9 @@ const upgrade = (root: HTMLElement): void => {
   }
 
   syncOptions([]);
-  writeSelectedValues(selectedValues());
+  writeSelectedValues(
+    value.value ? selectedValues() : parsed.selected.map((option) => option.value),
+  );
   input.value = selectedLabel();
   shell.hidden = false;
   // From here the popover attribute hides it; the attribute would fight it.

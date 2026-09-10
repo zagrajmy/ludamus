@@ -6261,6 +6261,10 @@ msgid "Cherry"
 msgstr "Wiśnia"
 
 #: src/ludamus/templates/design.html
+msgid "Fruit with disabled options"
+msgstr "Owoce z wyłączonymi opcjami"
+
+#: src/ludamus/templates/design.html
 msgid "Coral table"
 msgstr "Koralowy stół"
 

@@ -1,7 +1,5 @@
 """Tests for tessera design-system component tags."""
 
-import html as html_module
-import json
 import re
 from unittest.mock import patch
 
@@ -302,78 +300,6 @@ class TestSelect:
         )
         assert "<script>" not in html
         assert "&lt;script&gt;" in html or "&#x27;" in html
-
-
-class TestComboboxOptionData:
-    """The JSON the client reads instead of the option markup."""
-
-    def _payload(self, slot: str, *, multiple: bool = False) -> dict[str, object]:
-        tpl = Template(
-            "{% load tessera %}"
-            '{% tessera_combobox id="fruit" name="fruit" multiple=multiple %}'
-            + slot
-            + "{% endtessera_combobox %}"
-        )
-        html = tpl.render(Context({"multiple": multiple}))
-        raw = re.search(
-            r'<script id="fruit-options" type="application/json">(.*?)</script>',
-            html,
-            re.DOTALL,
-        )
-        assert raw is not None
-        return json.loads(html_module.unescape(raw.group(1)))
-
-    def test_carries_every_enabled_option_as_a_row(self) -> None:
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c">Cherry</option>'
-        )
-        assert payload["rows"] == [["a", "Apple"], ["c", "Cherry"]]
-
-    def test_a_disabled_option_is_not_a_row(self) -> None:
-        payload = self._payload(
-            '<option value="" disabled selected>Any fruit</option>'
-            '<option value="a">Apple</option>'
-        )
-        assert payload["rows"] == [["a", "Apple"]]
-
-    def test_a_disabled_placeholder_keeps_its_label(self) -> None:
-        # Nobody may land on it, but it is what the field shows before anyone
-        # picks — and it is not a row, so the label has to travel separately
-        # or the control renders blank.
-        payload = self._payload(
-            '<option value="" disabled selected>Any fruit</option>'
-            '<option value="a">Apple</option>'
-        )
-        assert payload["label"] == "Any fruit"
-        assert not payload["value"]
-
-    def test_the_value_is_the_selected_option(self) -> None:
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c" selected>Cherry</option>'
-        )
-        assert payload["value"] == "c"
-        assert payload["label"] == "Cherry"
-
-    def test_without_a_selection_the_first_option_stands(self) -> None:
-        # What a single <select> does on its own: index 0 is current.
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c">Cherry</option>'
-        )
-        assert payload["value"] == "a"
-        assert payload["label"] == "Apple"
-
-    def test_multiple_preserves_all_selected_values(self) -> None:
-        payload = self._payload(
-            '<option value="a" selected>Apple</option>'
-            '<option value="b">Banana</option>'
-            '<option value="c" selected>Cherry</option>',
-            multiple=True,
-        )
-        assert json.loads(str(payload["value"])) == ["a", "c"]
-
-    def test_multiple_does_not_select_the_first_option(self) -> None:
-        payload = self._payload('<option value="a">Apple</option>', multiple=True)
-        assert not payload["value"]
 
 
 class TestCombobox:

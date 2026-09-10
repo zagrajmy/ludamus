@@ -551,3 +551,10 @@ If you fix a papercut, remove it.
 - 2026-09-09: The installed Playwright version had Chromium and Firefox but no
   matching WebKit executable. Installed only the pinned WebKit browser before
   Safari verification.
+- 2026-09-10: PR review: tsc --noEmit --incremental false fails because the
+  client is a composite project. Use --tsBuildInfoFile pointing into /tmp for a
+  typecheck without checkout artifacts.
+- 2026-09-10: PR review browser check: the existing e2e seed uses localhost:8017
+  but .env.e2e sets ROOT_DOMAIN=localhost:8000, causing Sphere.DoesNotExist on
+  GET. Match ROOT_DOMAIN to the isolated server and existing seed rather than
+  modifying the database.

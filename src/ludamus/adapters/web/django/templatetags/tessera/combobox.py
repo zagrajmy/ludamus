@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import TYPE_CHECKING, TypedDict
@@ -26,13 +25,18 @@ class _Option:
     value: str
 
 
+class _SelectedOption(TypedDict):
+    disabled: bool
+    label: str
+    value: str
+
+
 class _ComboboxOptions(TypedDict):
     """What the browser is handed in place of the option markup."""
 
     disabled: bool
-    label: str
-    rows: list[list[str]]
-    value: str
+    rows: list[tuple[str, str]]
+    selected: list[_SelectedOption]
 
 
 class _OptionReader(HTMLParser):
@@ -80,30 +84,19 @@ def _read_options(*, slot: str, disabled: bool, multiple: bool) -> _ComboboxOpti
     reader.close()
     options = reader.options
 
-    # A single select's value is the option marked selected, or failing that
-    # the first one — the browser picks index 0 on its own, and reading the
-    # parsed <select> used to give us that for free.
-    chosen = next((o for o in options if o.selected), None)
-    if chosen is None and options and not multiple:
-        chosen = options[0]
-
-    selected = [o.value for o in options if o.selected]
+    selected = [option for option in options if option.selected]
+    if not multiple:
+        selected = selected[:1] or options[:1]
 
     return {
         "disabled": disabled,
-        # The chosen option's label travels on its own, because a disabled one
-        # never reaches `rows` and the client looks labels up there. A
-        # disabled placeholder ("Choose a fruit…") is the ordinary case: it is
-        # what the field shows before anyone picks, and it must not show blank.
-        "label": chosen.label if chosen else "",
-        # A disabled option is not a row anyone can land on, but it can still
-        # be the one showing, so it counts for the value and label above.
-        "rows": [[o.value, o.label] for o in options if not o.disabled],
-        "value": (
-            json.dumps(selected)
-            if multiple and selected
-            else chosen.value if chosen else ""
-        ),
+        "rows": [
+            (option.value, option.label) for option in options if not option.disabled
+        ],
+        "selected": [
+            {"value": option.value, "label": option.label, "disabled": option.disabled}
+            for option in selected
+        ],
     }
 
 
