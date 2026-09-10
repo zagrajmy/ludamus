@@ -10,7 +10,7 @@
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
-        {% include "panel/parts/header-crumbs.html" %}
+        {% include "panel/parts/header-crumbs.html" with back_url=back_url back_label=back_label %}
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}

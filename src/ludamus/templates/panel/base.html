@@ -307,7 +307,9 @@ the sphere.{% endcomment %}
                             {% block page_title_adornment %}
                             {% endblock page_title_adornment %}
                         </div>
-                        <p class="mt-1 text-foreground-muted text-sm lg:text-base truncate text-box-trim-start">
+                        {# The subtitle is a breadcrumb trail on detail pages, so it wraps #}
+                        {# rather than truncating: an ellipsis would eat the back link. #}
+                        <p class="mt-1 text-foreground-muted text-sm lg:text-base text-box-trim-start text-pretty">
                             {% block page_subtitle %}
                                 {% if current_event %}{{ current_event.name }}{% endif %}
                             {% endblock page_subtitle %}
@@ -346,14 +348,9 @@ the sphere.{% endcomment %}
             {% endif %}
             {% comment %}A tab shell put straight in here is flush with the
             panel chrome, so its own border would double the chrome's edge.
-            Pages that inset their shell — inside a `p-3 sm:p-4` wrapper,
-            say — keep it.
-
-            NOTE: the space before the block is load-bearing. Without it an
-            override runs onto the class before it and yields `flex-colp-4`;
-            the one override there was survived only because its body happened
-            to start on an indented line.{% endcomment %}
-            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0 {% block content_shell_class %}{% endblock %}">
+            Pages that inset their shell — inside a `.panel-bleed` wrapper,
+            say — keep it.{% endcomment %}
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0">
                 {% block content %}
                 {% endblock content %}
             </div>
