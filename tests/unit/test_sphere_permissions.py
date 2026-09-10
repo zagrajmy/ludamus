@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.multiverse import SpherePanelService
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import Capability, SphereRole, SphereSettingsOutcome
 
 
@@ -112,3 +112,18 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert outcome is SphereSettingsOutcome.SAVED
         spheres.update.assert_called_once()
+
+
+class TestSpherePanelServiceUpdateLogo:
+    def test_writes_only_the_logo(self, service, spheres):
+        upload = MagicMock()
+
+        service.update_logo(3, upload)
+
+        spheres.update.assert_called_once_with(3, {"logo": upload})
+
+    def test_clears_the_logo_without_reading_the_sphere(self, service, spheres):
+        service.update_logo(3, "")
+
+        spheres.update.assert_called_once_with(3, {"logo": ""})
+        spheres.read.assert_not_called()

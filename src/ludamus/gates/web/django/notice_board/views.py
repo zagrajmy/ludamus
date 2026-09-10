@@ -26,8 +26,7 @@ from ludamus.mills import (
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 from ludamus.pacts.encounter import RSVPOutcome
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 from .forms import EncounterForm
 

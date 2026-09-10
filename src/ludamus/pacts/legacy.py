@@ -1,17 +1,11 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
-from typing import (
-    TYPE_CHECKING,
-    Literal,
-    NotRequired,
-    Protocol,
-    TypedDict,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 
@@ -24,7 +18,12 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.encounter import (
+        EncounterRepositoryProtocol,
+        EncounterRSVPRepositoryProtocol,
+    )
     from ludamus.pacts.event import FacilitatorListItemDTO
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import (
@@ -51,29 +50,6 @@ class DateTimeRangeProtocol(Protocol):
 
     start_time: datetime
     end_time: datetime
-
-
-@runtime_checkable
-class UploadedFileProtocol(Protocol):
-    name: str | None
-
-    def read(self, size: int = -1) -> bytes: ...
-
-
-def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
-    # Boundary parser: recover a typed upload from the untyped form-data value
-    # (a file on upload, "" / False / None otherwise), so callers narrow once
-    # here instead of casting.
-    return value if isinstance(value, UploadedFileProtocol) else None
-
-
-def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
-    # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new value, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored file untouched.
-    if uploaded := parse_uploaded_file(raw):
-        return uploaded
-    return "" if raw is False else None
 
 
 class FacilitatorDTO(BaseModel):
@@ -300,14 +276,6 @@ class NotificationKind(StrEnum):
     PRINTABLES_READY = auto()
 
 
-class EncountersPolicy(StrEnum):
-    """Who may create encounters in a sphere. NONE turns the feature off."""
-
-    NONE = "none"
-    MANAGERS = "managers"
-    EVERYONE = "everyone"
-
-
 class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -531,77 +499,6 @@ class EventListItemDTO(BaseModel):
     session_count: int
     slug: str
     start_time: datetime
-
-
-class EncounterDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    creation_time: datetime
-    creator_id: int
-    description: str
-    end_time: datetime | None
-    game: str
-    is_public: bool = False
-    max_participants: int
-    pk: int
-    place: str
-    share_code: str
-    sphere_id: int
-    start_time: datetime
-    title: str
-    header_image_url: str = ""
-    header_image_original_name: str = ""
-
-
-class EncounterRSVPDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    creation_time: datetime
-    encounter_id: int
-    ip_address: str
-    pk: int
-    user_id: int
-
-
-class EncounterData(TypedDict, total=False):
-    creator_id: int
-    description: str
-    end_time: datetime | None
-    game: str
-    header_image: UploadedFileProtocol | str
-    is_public: bool
-    max_participants: int
-    place: str
-    share_code: str
-    sphere_id: int
-    start_time: datetime
-    title: str
-
-
-@dataclass
-class EncounterDetailResult:  # pylint: disable=too-many-instance-attributes
-    encounter: EncounterDTO
-    creator: UserDTO
-    rsvps: list[EncounterRSVPDTO]
-    rsvp_count: int
-    is_full: bool
-    spots_remaining: int | None
-    is_creator: bool
-    user_has_rsvpd: bool
-
-
-@dataclass
-class EncounterIndexItem:
-    encounter: EncounterDTO
-    rsvp_count: int
-    is_mine: bool
-    organizer_name: str
-
-
-@dataclass
-class EncounterFeed:
-    upcoming: list[EncounterIndexItem]
-    past: list[EncounterIndexItem]
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -1309,48 +1206,6 @@ class EnrollmentConfigRepositoryProtocol(Protocol):
     def read_domain_config(
         enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None: ...
-
-
-class EncounterRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(data: EncounterData) -> EncounterDTO: ...
-    @staticmethod
-    def exists_for_sphere(sphere_id: int) -> bool: ...
-    @staticmethod
-    def read(pk: int, sphere_id: int) -> EncounterDTO: ...
-    @staticmethod
-    def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
-    @staticmethod
-    def list_visible_upcoming(
-        sphere_id: int, user_id: int | None
-    ) -> list[EncounterDTO]: ...
-    @staticmethod
-    def list_visible_past(
-        sphere_id: int, user_id: int | None, limit: int
-    ) -> list[EncounterDTO]: ...
-    @staticmethod
-    def update(pk: int, data: EncounterData) -> None: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-
-
-class EncounterRSVPRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(
-        encounter_id: int, ip_address: str, user_id: int
-    ) -> EncounterRSVPDTO: ...
-    @staticmethod
-    def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
-    @staticmethod
-    def count_by_encounter(encounter_id: int) -> int: ...
-    @staticmethod
-    def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
-    @staticmethod
-    def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
-    @staticmethod
-    def user_has_rsvpd(encounter_id: int, user_id: int) -> bool: ...
-    @staticmethod
-    def delete_by_user(encounter_id: int, user_id: int) -> None: ...
 
 
 class FacilitatorRepositoryProtocol(Protocol):

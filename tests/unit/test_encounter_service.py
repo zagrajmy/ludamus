@@ -6,8 +6,11 @@ import pytest
 from ludamus.mills.encounter import PAST_FEED_LIMIT, EncounterService
 from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import (
+    EncounterDetailContextDTO,
+    EncountersPolicy,
+    RSVPOutcome,
+)
 from ludamus.pacts.multiverse import SphereRole
 
 CREATOR_ID = 10

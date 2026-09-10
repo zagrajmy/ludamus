@@ -25,8 +25,8 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus

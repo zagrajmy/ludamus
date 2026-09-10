@@ -24,8 +24,9 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
-from ludamus.pacts.legacy import EncountersPolicy, PromotionMode
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:

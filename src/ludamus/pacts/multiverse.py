@@ -14,12 +14,9 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        EncountersPolicy,
-        EventDTO,
-        SphereDTO,
-        UploadedFileProtocol,
-    )
+    from ludamus.pacts.encounter import EncountersPolicy
+    from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.legacy import EventDTO, SphereDTO
 
 
 class SphereRole(StrEnum):
@@ -185,6 +182,7 @@ class SpherePanelServiceProtocol(Protocol):
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...
+    def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None: ...
 
 
 class SitesServiceProtocol(Protocol):

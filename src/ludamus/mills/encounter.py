@@ -5,26 +5,24 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import (
     EncounterDetailContextDTO,
-    EncounterServiceProtocol,
-    RSVPOutcome,
-)
-from ludamus.pacts.legacy import (
     EncounterFeed,
     EncounterIndexItem,
+    EncounterServiceProtocol,
     EncountersPolicy,
-    NotFoundError,
+    RSVPOutcome,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.encounter import (
         EncounterData,
         EncounterDTO,
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
-        SphereRepositoryProtocol,
     )
+    from ludamus.pacts.legacy import SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -182,7 +180,7 @@ class EncounterService(EncounterServiceProtocol):
         # does not serialize concurrent signups: two requests can both pass
         # the capacity check and overshoot max_participants. Full enforcement
         # needs a row lock (select_for_update) on the encounter, which needs
-        # a repo method in pacts/legacy.py — held by open PRs.
+        # a repo method in pacts/encounter.py — held by open PRs.
         with self._transaction.atomic():
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
             rsvp_count = self._rsvps.count_by_encounter(encounter.pk)

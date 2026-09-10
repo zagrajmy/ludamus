@@ -16,8 +16,8 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import EncountersPolicy, resolve_uploaded_file_field
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 if TYPE_CHECKING:

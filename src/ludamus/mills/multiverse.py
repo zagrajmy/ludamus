@@ -7,19 +7,19 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import SphereAccessDTO, SphereSettingsOutcome
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
+    from ludamus.pacts.encounter import EncounterRepositoryProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
-        EncounterRepositoryProtocol,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
         SphereUpdateData,
-        UploadedFileProtocol,
     )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
@@ -180,6 +180,11 @@ class SpherePanelService:
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
             self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
+
+    def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
+        data: SphereUpdateData = {"logo": logo}
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
 
 
 class SitesService:

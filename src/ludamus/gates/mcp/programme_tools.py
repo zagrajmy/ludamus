@@ -926,14 +926,8 @@ class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
     @staticmethod
     def handle(call: ToolCall[ImageUploadInput]) -> str:
         sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
         upload = call.data.validated_upload(validate_uploaded_logo)
-        call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            encounters_policy=sphere.encounters_policy,
-            logo=upload,
-        )
+        call.services.sphere_panel.update_logo(sphere_id, upload)
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
 
 

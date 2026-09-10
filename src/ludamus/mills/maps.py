@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.pacts import SpaceDTO, SpaceRepositoryProtocol
-    from ludamus.pacts.legacy import UploadedFileProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.maps import EventMapRecordDTO, EventMapRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
