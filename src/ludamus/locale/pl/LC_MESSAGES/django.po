@@ -1003,13 +1003,10 @@ msgid "Category deleted successfully."
 msgstr "Kategoria została usunięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposals.html
 msgid "Display Name"
 msgstr "Nazwa wyświetlana"
 
@@ -1070,6 +1067,16 @@ msgstr "Przypisany do"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Title"
 msgstr "Tytuł"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Presenter name"
+msgstr "Nazwa prowadzącego"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
@@ -2771,11 +2778,6 @@ msgid "0 = no age restriction"
 msgstr "0 = brak ograniczenia wiekowego"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/templates/event/propose/parts/review.html
-msgid "Presenter name"
-msgstr "Nazwa prowadzącego"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -3239,8 +3241,8 @@ msgid "Title is required."
 msgstr "Tytuł jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Display name is required."
-msgstr "Nazwa wyświetlana jest wymagana."
+msgid "Presenter name is required."
+msgstr "Nazwa prowadzącego jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
@@ -3336,6 +3338,10 @@ msgstr ""
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Display name is required."
+msgstr "Nazwa wyświetlana jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Assign me as organizer"
@@ -8189,10 +8195,10 @@ msgstr ""
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
 "Cached name from the submission wizard. The canonical byline is the "
-"proposal's display name."
+"proposal's presenter name."
 msgstr ""
-"Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
-"wyświetlana zgłoszenia."
+"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa "
+"prowadzącego w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -8231,11 +8237,11 @@ msgstr "Edytuj twórcę programu"
 
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid ""
-"Cached name from the submission wizard — edit the proposal's display name to "
-"change the byline."
+"Cached name from the submission wizard — edit the proposal's presenter name "
+"to change the byline."
 msgstr ""
-"Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
-"zgłoszenia, aby zmienić byline."
+"Nazwa zapisana przez kreator zgłoszeń — aby zmienić podpis, edytuj nazwę "
+"prowadzącego w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"

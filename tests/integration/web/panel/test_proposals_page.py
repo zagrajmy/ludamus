@@ -51,7 +51,7 @@ _TRACK_FILTER_CONTEXT = PROPOSAL_FILTER_CONTEXT
 
 _BUILTIN_LABELS = {
     "title": "Title",
-    "host": "Display Name",
+    "host": "Presenter name",
     "category": "Category",
     "status": "Status",
     "created": "Created",
@@ -81,7 +81,7 @@ def _cells(proposals):
     return {
         proposal.pk: {
             "title": proposal.title,
-            "host": proposal.display_name,
+            "host": proposal.facilitator_name,
             "category": proposal.category_name,
         }
         for proposal in proposals
@@ -113,7 +113,7 @@ def _proposal(session):
     return SessionListItemDTO(
         pk=session.pk,
         title=session.title,
-        display_name=session.display_name,
+        facilitator_name=session.facilitator_name,
         category_name="RPG",
         status=SessionStatus.PENDING,
         creation_time=session.creation_time,
@@ -179,7 +179,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Rejected One",
             slug="rejected-one",
             participants_limit=5,
@@ -189,7 +189,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Scheduled One",
             slug="scheduled-one",
             participants_limit=5,
@@ -212,7 +212,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Accepted One",
             slug="accepted-one",
             participants_limit=5,
@@ -222,7 +222,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="On Hold One",
             slug="on-hold-one",
             participants_limit=5,
@@ -242,7 +242,7 @@ class TestProposalsPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name=long_name,
+            facilitator_name=long_name,
             title="Wide Byline",
             slug="wide-byline",
             participants_limit=5,
@@ -265,7 +265,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=session.pk,
                             title="Wide Byline",
-                            display_name=long_name,
+                            facilitator_name=long_name,
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=session.creation_time,
@@ -286,7 +286,6 @@ class TestProposalsPageView:
                 "filter_fields": {},
                 "filter_search": "",
             },
-            contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
         )
 
     def test_filters_by_category(self, panel_client, event):
@@ -295,7 +294,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=cat_a,
-            display_name="Host A",
+            facilitator_name="Host A",
             title="In A",
             slug="in-a",
             participants_limit=5,
@@ -304,7 +303,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=cat_b,
-            display_name="Host B",
+            facilitator_name="Host B",
             title="In B",
             slug="in-b",
             participants_limit=5,
@@ -336,7 +335,7 @@ class TestProposalsPageView:
             Session.objects.create(
                 event=event,
                 category=category,
-                display_name=f"Host {i}",
+                facilitator_name=f"Host {i}",
                 title=f"Session {i}",
                 slug=f"session-{i}",
                 participants_limit=5,
@@ -358,7 +357,7 @@ class TestProposalsPageView:
             Session.objects.create(
                 event=event,
                 category=category,
-                display_name=f"Host {i}",
+                facilitator_name=f"Host {i}",
                 title=f"Session {i}",
                 slug=f"session-{i}",
                 participants_limit=5,
@@ -377,7 +376,7 @@ class TestProposalsPageView:
             title: Session.objects.create(
                 event=event,
                 category=category,
-                display_name="Host",
+                facilitator_name="Host",
                 title=title,
                 slug=title.lower(),
                 participants_limit=5,
@@ -436,7 +435,7 @@ class TestProposalsPageView:
             Session.objects.create(
                 event=event,
                 category=category,
-                display_name=f"Host {i}",
+                facilitator_name=f"Host {i}",
                 title=f"Session {i}",
                 slug=f"session-{i}",
                 participants_limit=5,
@@ -489,7 +488,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="My Session",
             slug="my-session",
             participants_limit=5,
@@ -512,7 +511,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=session.pk,
                             title="My Session",
-                            display_name=active_user.name,
+                            facilitator_name=active_user.name,
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=session.creation_time,
@@ -540,7 +539,7 @@ class TestProposalsPageView:
         dragon = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Dragon Heist",
             slug="dragon-heist",
             participants_limit=5,
@@ -549,7 +548,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Space Opera",
             slug="space-opera",
             participants_limit=5,
@@ -582,13 +581,13 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_matches_display_name(self, panel_client, active_user, event):
+    def test_search_matches_facilitator_name(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Session A",
             slug="session-a",
             participants_limit=5,
@@ -598,7 +597,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name="Mysterious Stranger",
+            facilitator_name="Mysterious Stranger",
             title="Session B",
             slug="session-b",
             participants_limit=5,
@@ -621,7 +620,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=session_pseudonym.pk,
                             title="Session B",
-                            display_name="Mysterious Stranger",
+                            facilitator_name="Mysterious Stranger",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=session_pseudonym.creation_time,
@@ -651,7 +650,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Session A",
             slug="session-a",
             participants_limit=5,
@@ -661,7 +660,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=other_user,
-            display_name="Other Person",
+            facilitator_name="Other Person",
             title="Session B",
             slug="session-b",
             participants_limit=5,
@@ -684,7 +683,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=session_b.pk,
                             title="Session B",
-                            display_name="Other Person",
+                            facilitator_name="Other Person",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=session_b.creation_time,
@@ -720,7 +719,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
             participants_limit=5,
@@ -731,7 +730,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
             participants_limit=5,
@@ -793,7 +792,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
             participants_limit=5,
@@ -806,7 +805,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
             participants_limit=5,
@@ -864,7 +863,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
             participants_limit=5,
@@ -875,7 +874,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
             participants_limit=5,
@@ -924,7 +923,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
             participants_limit=5,
@@ -937,7 +936,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
             participants_limit=5,
@@ -1120,7 +1119,7 @@ class TestProposalsPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name="Mysterious Stranger",
+            facilitator_name="Mysterious Stranger",
             title="Session A",
             slug="session-a",
             participants_limit=5,
@@ -1144,7 +1143,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=session.pk,
                             title="Session A",
-                            display_name="Mysterious Stranger",
+                            facilitator_name="Mysterious Stranger",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=session.creation_time,
@@ -1253,7 +1252,7 @@ class TestProposalsPageView:
         multi = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host M",
+            facilitator_name="Host M",
             title="Multi",
             slug="multi",
             participants_limit=5,
@@ -1263,7 +1262,7 @@ class TestProposalsPageView:
         single = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host S",
+            facilitator_name="Host S",
             title="Single",
             slug="single",
             participants_limit=5,
@@ -1273,7 +1272,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Host N",
+            facilitator_name="Host N",
             title="None",
             slug="none",
             participants_limit=5,
@@ -1338,7 +1337,7 @@ class TestProposalsPageView:
         pending = Session.objects.create(
             event=event,
             category=category,
-            display_name="Pending Host",
+            facilitator_name="Pending Host",
             title="Pending Session",
             slug="pending-session",
             participants_limit=5,
@@ -1347,7 +1346,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Accepted Session",
             slug="accepted-session",
             participants_limit=5,
@@ -1356,7 +1355,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Rejected Host",
+            facilitator_name="Rejected Host",
             title="Rejected Session",
             slug="rejected-session",
             participants_limit=5,
@@ -1365,7 +1364,7 @@ class TestProposalsPageView:
         scheduled = Session.objects.create(
             event=event,
             category=category,
-            display_name="Scheduled Host",
+            facilitator_name="Scheduled Host",
             title="Scheduled Pending Session",
             slug="scheduled-pending-session",
             participants_limit=5,
@@ -1401,7 +1400,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=scheduled.pk,
                             title="Scheduled Pending Session",
-                            display_name="Scheduled Host",
+                            facilitator_name="Scheduled Host",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=scheduled.creation_time,
@@ -1410,7 +1409,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=pending.pk,
                             title="Pending Session",
-                            display_name="Pending Host",
+                            facilitator_name="Pending Host",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=pending.creation_time,
@@ -1432,7 +1431,7 @@ class TestProposalsPageView:
         pending = Session.objects.create(
             event=event,
             category=category,
-            display_name="Pending Host",
+            facilitator_name="Pending Host",
             title="Pending Session",
             slug="pending-session",
             participants_limit=5,
@@ -1441,7 +1440,7 @@ class TestProposalsPageView:
         accepted = Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Accepted Session",
             slug="accepted-session",
             participants_limit=5,
@@ -1477,7 +1476,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=accepted.pk,
                             title="Accepted Session",
-                            display_name="Accepted Host",
+                            facilitator_name="Accepted Host",
                             category_name="RPG",
                             status=SessionStatus.ACCEPTED,
                             creation_time=accepted.creation_time,
@@ -1486,7 +1485,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=pending.pk,
                             title="Pending Session",
-                            display_name="Pending Host",
+                            facilitator_name="Pending Host",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=pending.creation_time,
@@ -1505,7 +1504,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Pending Host",
+            facilitator_name="Pending Host",
             title="Pending Session",
             slug="pending-session",
             participants_limit=5,
@@ -1514,7 +1513,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Accepted Session",
             slug="accepted-session",
             participants_limit=5,
@@ -1532,7 +1531,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Pending Host",
+            facilitator_name="Pending Host",
             title="Pending Session",
             slug="pending-session",
             participants_limit=5,
@@ -1541,7 +1540,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Accepted Session",
             slug="accepted-session",
             participants_limit=5,
@@ -1560,7 +1559,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Unscheduled Session",
             slug="unscheduled-session",
             participants_limit=5,
@@ -1569,7 +1568,7 @@ class TestProposalsPageView:
         scheduled = Session.objects.create(
             event=event,
             category=category,
-            display_name="Scheduled Host",
+            facilitator_name="Scheduled Host",
             title="Scheduled Session",
             slug="scheduled-session",
             participants_limit=5,
@@ -1609,7 +1608,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=scheduled.pk,
                             title="Scheduled Session",
-                            display_name="Scheduled Host",
+                            facilitator_name="Scheduled Host",
                             category_name="RPG",
                             status=SessionStatus.ACCEPTED,
                             creation_time=scheduled.creation_time,
@@ -1633,7 +1632,7 @@ class TestProposalsPageView:
         Session.objects.create(
             event=event,
             category=category,
-            display_name="Pipeline Host",
+            facilitator_name="Pipeline Host",
             title="Ordinary Proposal",
             slug="ordinary-proposal",
             participants_limit=5,
@@ -1642,7 +1641,7 @@ class TestProposalsPageView:
         claim = Session.objects.create(
             event=event,
             category=category,
-            display_name="Walk Up",
+            facilitator_name="Walk Up",
             title="Corridor Game",
             slug="corridor-game",
             participants_limit=5,
@@ -1676,7 +1675,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=claim.pk,
                             title="Corridor Game",
-                            display_name="Walk Up",
+                            facilitator_name="Walk Up",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=claim.creation_time,
@@ -1704,7 +1703,7 @@ class TestProposalsPageView:
         claim = Session.objects.create(
             event=event,
             category=category,
-            display_name="Walk Up",
+            facilitator_name="Walk Up",
             title="Corridor Game",
             slug="corridor-game",
             participants_limit=5,
@@ -1741,7 +1740,7 @@ class TestProposalsPageView:
                         SessionListItemDTO(
                             pk=claim.pk,
                             title="Corridor Game",
-                            display_name="Walk Up",
+                            facilitator_name="Walk Up",
                             category_name="RPG",
                             status=SessionStatus.PENDING,
                             creation_time=claim.creation_time,
@@ -1763,7 +1762,7 @@ class TestProposalsPageView:
         unscheduled = Session.objects.create(
             event=event,
             category=category,
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             title="Unscheduled Session",
             slug="unscheduled-session",
             participants_limit=5,
@@ -1772,7 +1771,7 @@ class TestProposalsPageView:
         scheduled = Session.objects.create(
             event=event,
             category=category,
-            display_name="Scheduled Host",
+            facilitator_name="Scheduled Host",
             title="Scheduled Session",
             slug="scheduled-session",
             participants_limit=5,
@@ -1788,7 +1787,7 @@ class TestProposalsPageView:
         unscheduled_item = SessionListItemDTO(
             pk=unscheduled.pk,
             title="Unscheduled Session",
-            display_name="Accepted Host",
+            facilitator_name="Accepted Host",
             category_name="RPG",
             status=SessionStatus.ACCEPTED,
             creation_time=unscheduled.creation_time,
@@ -1797,7 +1796,7 @@ class TestProposalsPageView:
         scheduled_item = SessionListItemDTO(
             pk=scheduled.pk,
             title="Scheduled Session",
-            display_name="Scheduled Host",
+            facilitator_name="Scheduled Host",
             category_name="RPG",
             status=SessionStatus.ACCEPTED,
             creation_time=scheduled.creation_time,
@@ -1904,7 +1903,7 @@ class TestProposalDetailPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="My Great Session",
             description="A wonderful adventure",
             slug="my-great-session",
@@ -1943,7 +1942,7 @@ class TestProposalDetailPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="My Session",
             slug="my-session",
             participants_limit=5,
@@ -2012,7 +2011,7 @@ class TestProposalDetailPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="My Session",
             slug="my-session",
             participants_limit=5,

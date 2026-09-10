@@ -2,7 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.gates.web.django.templatetags.cfp_tags import cfp_status, field_value_list
+from ludamus.gates.web.django.templatetags.cfp_tags import (
+    cfp_status,
+    content_field_label,
+    field_value_list,
+)
 from ludamus.pacts import SessionFieldValueDTO
 from ludamus.pacts.legacy import ProposalCategoryDTO
 
@@ -47,6 +51,16 @@ def _field(value):
     return SessionFieldValueDTO(
         field_name="Game type", field_question="Game type", value=value
     )
+
+
+@pytest.mark.parametrize(
+    ("field_key", "expected"),
+    (("display_name", "Display name"), ("facilitator_name", "Presenter name")),
+)
+def test_content_field_labels_distinguish_facilitators_from_session_bylines(
+    field_key, expected
+):
+    assert content_field_label(field_key) == expected
 
 
 class TestFieldValueList:

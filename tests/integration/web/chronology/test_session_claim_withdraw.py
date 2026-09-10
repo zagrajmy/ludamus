@@ -31,7 +31,7 @@ class TestSessionClaimWithdrawActionView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name="Walk Up",
+            facilitator_name="Walk Up",
             title="Corridor Game",
             slug="corridor-game",
             participants_limit=5,
