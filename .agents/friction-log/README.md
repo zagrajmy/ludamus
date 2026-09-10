@@ -70,16 +70,27 @@ environment; new reports should concern this repository or its dependencies.
 
 ## Automation
 
-This repository uses the Frog GitHub App, not Action-only mode. The App reports
-issues; [the reconciliation workflow](../../.github/workflows/friction-log.yml)
-uses OIDC to fetch their state and updates one `frog/sync` PR. It runs on
-default-branch pushes, authenticated App signals, a daily schedule, or manual
-dispatch. Humans review and merge the PR; no automatic approval is configured.
+This repository runs Frog in Action-only mode.
+[The workflow](../../.github/workflows/friction-log.yml) uses the repository's
+own `GITHUB_TOKEN` to file pending reports as issues, reconcile them against
+issue state, and accumulate the result in one `frog/sync` pull request. It runs
+on default-branch pushes, issues closing or reopening, a daily schedule, or
+manual dispatch. Humans review and merge the pull request; no automatic approval
+is configured.
 
-The App must have access to this repository. Under Settings → Actions → General,
-enable **Allow GitHub Actions to create and approve pull requests**: App mode
-still uses the workflow token to create the sync PR. GitHub may require a user
-with write access to approve that PR's workflow runs.
+Action-only reports this repository only. Entries carrying `target:` stay
+deferred, pull requests get no Frog comment, and reports cannot be filed from a
+fork.
+
+Under Settings → Actions → General, enable **Allow GitHub Actions to create and
+approve pull requests**, which the workflow needs to open the sync pull request.
+GitHub may require a user with write access to approve that pull request's
+workflow runs.
+
+`maxPerRun` in [config.json](config.json) caps issues filed per run. Keep it
+above the number of pending reports: the Action preserves the existing sync
+branch untouched whenever a run defers anything, so a ceiling below the backlog
+stops the pull request from ever updating.
 
 The workflow action and CLI version are both pinned; update them deliberately.
 Inbound reports from other repositories are disabled. Do not run `publish` or
