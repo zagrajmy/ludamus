@@ -35,7 +35,7 @@
                     {% for col in available %}
                         {% if col not in selected %}<option value="{{ col }}">{{ col }}</option>{% endif %}
                     {% endfor %}
-                {% endselect %}
+                {% end_select %}
                 <button type="button"
                         data-column-keys-add
                         class="btn btn-secondary inline-flex items-center">

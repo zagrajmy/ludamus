@@ -43,13 +43,13 @@ class TabsNode(template.Node):
 
 @register.tag("tabs")
 def do_tabs(parser: Parser, token: Token) -> TabsNode:
-    """Parse ``{% tabs %}...{% endtabs %}``.
+    """Parse ``{% tabs %}...{% end_tabs %}``.
 
     Returns:
         A TabsNode that renders a themed ``<nav>`` wrapping its body.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endtabs",))
+    nodelist = parser.parse(("end_tabs",))
     parser.delete_first_token()
     return TabsNode(nodelist, attrs)
 
@@ -96,7 +96,7 @@ _MIN_TAB_BITS = 2
 
 @register.tag("tab")
 def do_tab(parser: Parser, token: Token) -> TabNode:
-    """Parse ``{% tab "key" ... %} label {% endtab %}``.
+    """Parse ``{% tab "key" ... %} label {% end_tab %}``.
 
     Returns:
         A TabNode that renders a themed ``<a>`` tab trigger.
@@ -116,6 +116,6 @@ def do_tab(parser: Parser, token: Token) -> TabNode:
         k, _, v = bit.partition("=")
         attrs[k] = parser.compile_filter(v)
 
-    nodelist = parser.parse(("endtab",))
+    nodelist = parser.parse(("end_tab",))
     parser.delete_first_token()
     return TabNode(nodelist, key, attrs)

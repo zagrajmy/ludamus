@@ -8,15 +8,15 @@ Usage:
 
     {% select id="color" name="color" required=True %}
         <option value="">Pick one...</option>
-    {% endselect %}
+    {% end_select %}
 
     {% tessera_combobox id="host" name="host" %}
         <option value="">Everyone</option>
-    {% endtessera_combobox %}
+    {% end_tessera_combobox %}
 
     {% tabs %}
-        {% tab "home" icon="home" href="/home/" active=True %}Home{% endtab %}
-    {% endtabs %}
+        {% tab "home" icon="home" href="/home/" active=True %}Home{% end_tab %}
+    {% end_tabs %}
 
     {% tessera_form form %}
     {% tessera_field form.name %}

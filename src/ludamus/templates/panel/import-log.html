@@ -156,12 +156,12 @@
                     <p class="text-sm text-foreground-muted">{% translate "No entries match the current filter." %}</p>
                 {% endif %}
             {% endif %}
-        {% endtab_shell_body %}
+        {% end_tab_shell_body %}
     {% else %}
         {% tab_shell_body %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
             </div>
-        {% endtab_shell_body %}
+        {% end_tab_shell_body %}
     {% endif %}
 {% endblock content %}

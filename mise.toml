@@ -71,6 +71,9 @@ includes = ["tasks.toml", "python_tasks.toml"]
 
 [tasks."format:djlint"]
 description = "Lint Django templates and reformat them, CSS and JS included"
+# scripts on PYTHONPATH: .djlint_rules.yaml registers T038U by module name, and
+# djlint imports it with plain importlib.
+env = { PYTHONPATH = "src:scripts" }
 run = "djlint src --lint --reformat --format-css --format-js --profile=django"
 
 [tasks."format:oxfmt"]
@@ -89,6 +92,7 @@ run = "ast-grep scan --error src tests"
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
+env = { PYTHONPATH = "src:scripts" }
 run = "djlint src --quiet --lint --check --format-css --format-js --profile=django"
 
 [tasks."lint:impeccable"]

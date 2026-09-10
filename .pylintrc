@@ -25,7 +25,10 @@ clear-cache-post-run=no
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code.
-extension-pkg-allow-list=lxml
+# djlint ships its rules as mypyc-compiled extension modules, so pylint cannot
+# see their names without importing them; scripts/djlint_underscore_end.py
+# imports several.
+extension-pkg-allow-list=lxml,djlint
 
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
