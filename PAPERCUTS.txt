@@ -558,3 +558,6 @@ If you fix a papercut, remove it.
   but .env.e2e sets ROOT_DOMAIN=localhost:8000, causing Sphere.DoesNotExist on
   GET. Match ROOT_DOMAIN to the isolated server and existing seed rather than
   modifying the database.
+- 2026-09-10: GitHub attachment verification: urllib HEAD followed the new gh
+  --attach asset redirect to a 403, while curl GET returned both PNGs
+  successfully. Verify uploaded screenshots with GET, not HEAD.
