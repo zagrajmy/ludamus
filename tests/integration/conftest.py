@@ -29,6 +29,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     TimeSlot,
 )
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
@@ -119,6 +120,8 @@ class SphereFactory(DjangoModelFactory):
 
     name = Faker("company")
     site = SubFactory(SiteFactory)
+    # A sphere that runs encounters, since most tests that touch them want one.
+    encounters_policy = EncountersPolicy.EVERYONE
 
 
 class EventFactory(DjangoModelFactory):
@@ -437,7 +440,8 @@ def sphere_fixture(settings, db):  # ruff:ignore[unused-function-argument]
     # survived a prior transactional test's flush) must reuse it rather than
     # insert a duplicate and trip `UNIQUE constraint failed: sphere.site_id`.
     sphere, __ = Sphere.objects.update_or_create(
-        site=site, defaults={"name": site.name}
+        site=site,
+        defaults={"name": site.name, "encounters_policy": EncountersPolicy.EVERYONE},
     )
     return sphere
 

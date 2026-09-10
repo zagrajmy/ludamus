@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts.legacy import UploadedFileProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
 
 
 class MapTreeNodeDTO(BaseModel):
