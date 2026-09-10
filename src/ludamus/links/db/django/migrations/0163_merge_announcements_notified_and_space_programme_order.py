@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("db_main", "0159_stamp_announcements_notified"),
-        ("db_main", "0161_space_programme_order"),
+        ("db_main", "0162_rename_session_facilitator_name"),
     ]
 
     operations = []
