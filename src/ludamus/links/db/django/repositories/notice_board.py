@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, QuerySet
 
 from ludamus.links.db.django.models import Encounter, EncounterRSVP
 from ludamus.links.db.django.repositories.storage import (
@@ -48,44 +48,32 @@ class EncounterRepository(EncounterRepositoryProtocol):
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
 
+    # What a given visitor may see of a sphere's encounters: the listed ones,
+    # plus the ones they organise or hold an RSVP to. An anonymous visitor has
+    # neither, so they see the listed ones alone.
     @staticmethod
-    def list_upcoming_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]:
-        now = datetime.now(tz=UTC)
-        encounters = Encounter.objects.filter(
-            sphere_id=sphere_id, creator_id=creator_id, start_time__gte=now
-        ).order_by("start_time")
-        return [EncounterDTO.model_validate(e) for e in encounters]
+    def _visible(sphere_id: int, user_id: int | None) -> QuerySet[Encounter]:
+        visible = Q(is_public=True)
+        if user_id is not None:
+            visible |= Q(creator_id=user_id) | Q(rsvps__user_id=user_id)
+        return Encounter.objects.filter(visible, sphere_id=sphere_id).distinct()
 
     @staticmethod
-    def list_upcoming_rsvpd(sphere_id: int, user_id: int) -> list[EncounterDTO]:
-        now = datetime.now(tz=UTC)
+    def list_visible_upcoming(
+        sphere_id: int, user_id: int | None
+    ) -> list[EncounterDTO]:
         encounters = (
-            Encounter.objects.filter(
-                sphere_id=sphere_id, rsvps__user_id=user_id, start_time__gte=now
-            )
-            .exclude(creator_id=user_id)
+            EncounterRepository._visible(sphere_id, user_id)
+            .filter(start_time__gte=datetime.now(tz=UTC))
             .order_by("start_time")
         )
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
-    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]:
-        now = datetime.now(tz=UTC)
-        encounters = Encounter.objects.filter(
-            sphere_id=sphere_id, is_public=True, start_time__gte=now
-        ).order_by("start_time")
-        return [EncounterDTO.model_validate(e) for e in encounters]
-
-    @staticmethod
-    def list_past(sphere_id: int, user_id: int) -> list[EncounterDTO]:
-        now = datetime.now(tz=UTC)
+    def list_visible_past(sphere_id: int, user_id: int | None) -> list[EncounterDTO]:
         encounters = (
-            Encounter.objects.filter(
-                Q(creator_id=user_id) | Q(rsvps__user_id=user_id),
-                sphere_id=sphere_id,
-                start_time__lt=now,
-            )
-            .distinct()
+            EncounterRepository._visible(sphere_id, user_id)
+            .filter(start_time__lt=datetime.now(tz=UTC))
             .order_by("-start_time")
         )
         return [EncounterDTO.model_validate(e) for e in encounters]

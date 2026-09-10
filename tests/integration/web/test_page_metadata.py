@@ -68,7 +68,7 @@ def _get_ok(client, url, template_name, **extra):
 
 class TestPageTitle:
     def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
-        response = _get_ok(client, reverse("web:events"), ["index.html"])
+        response = _get_ok(client, reverse("web:index"), ["index.html"])
 
         assert _title(response) == f"Events • {sphere.name}"
 
@@ -82,7 +82,7 @@ class TestPageTitle:
     ):
         response = _get_ok(
             client,
-            reverse("web:events"),
+            reverse("web:index"),
             ["index.html"],
             HTTP_HOST=non_root_sphere.site.domain,
         )
@@ -156,7 +156,7 @@ class TestLinkPreviewTitle:
 
 class TestMetaDescription:
     def test_brand_domain_pitches_the_product(self, client):
-        response = _get_ok(client, reverse("web:events"), ["index.html"])
+        response = _get_ok(client, reverse("web:index"), ["index.html"])
 
         assert _descriptions(response) == [PRODUCT_PITCH] * 3
 
@@ -168,7 +168,7 @@ class TestMetaDescription:
     def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
         response = _get_ok(
             client,
-            reverse("web:events"),
+            reverse("web:index"),
             ["index.html"],
             HTTP_HOST=non_root_sphere.site.domain,
         )
