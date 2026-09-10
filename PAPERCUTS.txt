@@ -561,3 +561,9 @@ If you fix a papercut, remove it.
 - 2026-09-10: GitHub attachment verification: urllib HEAD followed the new gh
   --attach asset redirect to a 403, while curl GET returned both PNGs
   successfully. Verify uploaded screenshots with GET, not HEAD.
+- 2026-09-09: Running a focused panel.spec.ts E2E grep skipped prerequisites:
+  first the auth state was absent, then a category name initialized by an earlier
+  test stayed empty. The failed run also left :8000 occupied before prep.
+- 2026-09-09: Running targeted pytest directly, then with `ENV=test`, failed
+  because test secrets come from the mise task's `.env.test` file; pytest-django
+  misleadingly reported that it could not find the Django project.

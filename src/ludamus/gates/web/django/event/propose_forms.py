@@ -81,7 +81,7 @@ def build_session_details_form(
             initial=0,
             help_text=_("0 = no age restriction"),
         ),
-        "display_name": forms.CharField(label=_("Presenter name"), max_length=255),
+        "facilitator_name": forms.CharField(label=_("Presenter name"), max_length=255),
     }
 
     if choices := duration_choices(durations):
