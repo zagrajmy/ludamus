@@ -41,7 +41,8 @@ are structurally unreachable from it. Old tokens that omit `event_id` fail
 auth.
 
 The organizer tier provides programme verbs for spaces, time slots, tracks,
-and sessions, with writes scoped to one event per token and sphere-wide reads.
+sessions, and venue maps, with writes scoped to one event per token and
+sphere-wide reads.
 
 ## Architecture
 
@@ -95,6 +96,24 @@ idempotent. Retrying an identical assignment is a no-op.
 
 The [POLCON 2026 programme sync runbook](polcon26-programme-sync.md) documents
 one monitored spreadsheet import, including dry-run review and retry limits.
+
+## Konwencik styles
+
+Organizer tokens can read and patch their event's existing Konwencik exports:
+
+- `get_konwencik_settings` takes no arguments. It returns integration IDs,
+  current settings, and named track/category/session-field IDs; `[]` when no
+  export is configured. Connection credentials and sheet configuration are
+  not returned.
+- `update_konwencik_styles` takes `integration_id`, optional `track_colors`
+  (`{"42": "#203b50"}`), and optional `category_icons`
+  (`{"17": "fa.gamepad"}`). Keys are primary keys from the read tool.
+  Only supplied entries change; an empty string removes that override.
+  Foreign IDs and internal tracks reject the whole patch.
+
+Updates preserve unmentioned styles, override fields, sync settings, and the
+export lock. Neither tool starts an export; an enabled automatic sync picks up
+the styles on its next run. No integration creation or sync-toggle tool.
 
 ## Adding a tool
 

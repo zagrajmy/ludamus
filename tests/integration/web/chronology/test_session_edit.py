@@ -288,7 +288,11 @@ class TestSessionEditViewPost:
         assert owned_session.cover_image_url.startswith("/media/sessions/")
 
     def test_post_replacing_cover_deletes_previous_file(
-        self, authenticated_client, event, owned_session
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
     ):
         owned_session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -298,17 +302,25 @@ class TestSessionEditViewPost:
         old_name = owned_session.cover_image.name
         new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
-        authenticated_client.post(
-            _url(event, owned_session),
-            data=self._data(cover_image=new_image),
-            headers={"hx-request": "true"},
-        )
+        # The old blob goes only once the row change is committed.
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(cover_image=new_image),
+                headers={"hx-request": "true"},
+            )
 
         owned_session.refresh_from_db()
         assert owned_session.cover_image.name != old_name
         assert not storage.exists(old_name)
 
-    def test_post_clears_cover_image(self, authenticated_client, event, owned_session):
+    def test_post_clears_cover_image(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
+    ):
         owned_session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
         )
@@ -316,11 +328,12 @@ class TestSessionEditViewPost:
         storage = owned_session.cover_image.storage
         old_name = owned_session.cover_image.name
 
-        authenticated_client.post(
-            _url(event, owned_session),
-            data=self._data(**{"cover_image-clear": "on"}),
-            headers={"hx-request": "true"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(**{"cover_image-clear": "on"}),
+                headers={"hx-request": "true"},
+            )
 
         owned_session.refresh_from_db()
         assert not owned_session.cover_image

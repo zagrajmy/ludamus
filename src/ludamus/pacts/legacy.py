@@ -241,6 +241,7 @@ class LocationData(TypedDict):
     parent_name: str
     path: str
     sort_path: tuple[tuple[int, str, int], ...]
+    programme_order: int
 
 
 # A session that is not on the agenda has no space to describe. Shared, so
@@ -252,6 +253,7 @@ NO_LOCATION: LocationData = {
     "parent_name": "",
     "path": "",
     "sort_path": (),
+    "programme_order": 0,
 }
 
 
@@ -323,6 +325,7 @@ class SpaceDTO(BaseModel):
     modification_time: datetime
     name: str
     order: int
+    programme_order: int = 0
     pk: int
     slug: str
 
@@ -692,6 +695,19 @@ class FieldUsageSummary:
     field: OrganizerFieldDTO
     required_count: int
     optional_count: int
+
+    @property
+    def is_used(self) -> bool:
+        """Whether any category asks for this field.
+
+        The same question `delete_session_field` answers with
+        `has_requirements`, from counts the page already has — so the list can
+        say Delete is unavailable without another query.
+
+        Returns:
+            True when at least one category requires or offers the field.
+        """
+        return bool(self.required_count or self.optional_count)
 
 
 class PersonalFieldRequirementDTO(BaseModel):
@@ -1256,6 +1272,8 @@ class TimeSlotRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def has_proposals(pk: int) -> bool: ...
+    @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
     @staticmethod
     def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod

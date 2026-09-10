@@ -3,16 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.http import Http404, HttpResponse
+from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import panel_access
-from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.calendar import CalendarEntry, ics_document
-from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
@@ -38,14 +36,7 @@ class EventICSView(EventsPageRequiredMixin, View):
 
     @staticmethod
     def get(request: RootRequest, slug: str) -> HttpResponse:
-        try:
-            event = request.services.events.read_by_slug(
-                request.context.current_sphere_id, slug
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-        if not is_event_published(event) and not panel_access(request).granted:
-            raise Http404
+        event = read_public_event(request, slug)
 
         entry = event_calendar_entry(event, request=request)
         response = HttpResponse(
