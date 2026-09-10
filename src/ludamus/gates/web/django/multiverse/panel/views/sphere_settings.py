@@ -61,17 +61,33 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             ],
         )
         if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
-            return self._render(form, needs_confirmation=True)
+            # Nothing was written, and a file input cannot be repopulated, so
+            # a logo picked in the same save is gone from the re-rendered
+            # form. Say so rather than letting the next save drop it.
+            return self._render(
+                form,
+                needs_confirmation=True,
+                lost_logo_upload="logo" in self.request.FILES,
+            )
 
         messages.success(self.request, _("Sphere settings saved successfully."))
         return redirect("multiverse:panel:sphere-settings")
 
     def _render(
-        self, form: SphereSettingsForm, *, needs_confirmation: bool
+        self,
+        form: SphereSettingsForm,
+        *,
+        needs_confirmation: bool,
+        lost_logo_upload: bool = False,
     ) -> HttpResponse:
         base = sphere_settings_context(self.request, active_tab="general")
         return TemplateResponse(
             self.request,
             "multiverse/panel/sphere-settings.html",
-            base | {"form": form, "needs_disable_confirmation": needs_confirmation},
+            base
+            | {
+                "form": form,
+                "needs_disable_confirmation": needs_confirmation,
+                "lost_logo_upload": lost_logo_upload,
+            },
         )
