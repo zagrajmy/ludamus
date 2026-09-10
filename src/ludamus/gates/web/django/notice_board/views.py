@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import random
-from dataclasses import dataclass
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib import messages
@@ -13,14 +10,12 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
 from django.views.decorators.cache import cache_control
-from django.views.generic.base import TemplateView, View
+from django.views.generic.base import View
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
 from ludamus.gates.web.django.meta import encounter_description
-from ludamus.gates.web.django.sphere.pages import SpherePageRequiredMixin
 from ludamus.mills import (
     generate_ics_content,
     generate_share_code,
@@ -29,14 +24,7 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.qr import qr_svg
-from ludamus.pacts import (
-    EncounterData,
-    EncounterDTO,
-    EncounterIndexItem,
-    EncounterIndexResult,
-    NotFoundError,
-    SpherePage,
-)
+from ludamus.pacts import EncounterData, EncounterDTO, EncountersPolicy, NotFoundError
 from ludamus.pacts.encounter import RSVPOutcome
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
@@ -47,161 +35,32 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from django.core.files.uploadedfile import UploadedFile
-    from django.http import QueryDict
+    from django.http import HttpRequest, QueryDict
+    from django.http.response import HttpResponseBase
     from django.utils.datastructures import MultiValueDict
-    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
 
-    type _LazyStr = str | _StrPromise
 
+class _RequireEncountersEnabled(View):
+    """404 every encounter route while the sphere has encounters turned off.
 
-@dataclass(frozen=True)
-class _SampleEncounter:
-    title: _LazyStr
-    game: str
-    date: _LazyStr
-    place: _LazyStr
-    rsvp_count: int
-    max_participants: int
+    Enforced at dispatch, not only in the UI: a sphere that does not run
+    encounters must 404 on direct URL access. Keep this mixin leftmost in the
+    MRO so the 404 wins over LoginRequiredMixin's login redirect — a redirect
+    would leak that the route exists.
+    """
 
-
-_SAMPLE_ENCOUNTERS: tuple[_SampleEncounter, ...] = (
-    _SampleEncounter(
-        title=gettext_lazy("Friday Gloomhaven"),
-        game="Gloomhaven",
-        date=gettext_lazy("Friday, 7:00 PM"),
-        place=gettext_lazy("Mike's place"),
-        rsvp_count=3,
-        max_participants=4,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("D&D One-Shot"),
-        game="Dungeons & Dragons",
-        date=gettext_lazy("Sunday, 4:00 PM"),
-        place=gettext_lazy("Community center"),
-        rsvp_count=4,
-        max_participants=5,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Call of Cthulhu Night"),
-        game="Call of Cthulhu",
-        date=gettext_lazy("Saturday, 7:00 PM"),
-        place=gettext_lazy("The Game Room"),
-        rsvp_count=3,
-        max_participants=5,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Pathfinder Campaign"),
-        game="Pathfinder 2e",
-        date=gettext_lazy("Thursday, 6:30 PM"),
-        place=gettext_lazy("Anna's apartment"),
-        rsvp_count=4,
-        max_participants=6,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Blades in the Dark"),
-        game="Blades in the Dark",
-        date=gettext_lazy("Wednesday, 8:00 PM"),
-        place=gettext_lazy("Kate's house"),
-        rsvp_count=3,
-        max_participants=4,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Space Cowboys"),
-        game="Fate Core",
-        date=gettext_lazy("Friday, 6:00 PM"),
-        place=gettext_lazy("Tom's place"),
-        rsvp_count=3,
-        max_participants=5,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Savage Worlds Oneshot"),
-        game="Savage Worlds",
-        date=gettext_lazy("Saturday, 2:00 PM"),
-        place=gettext_lazy("Board Game Café"),
-        rsvp_count=2,
-        max_participants=4,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Catan Tournament"),
-        game="Catan",
-        date=gettext_lazy("Sunday, 1:00 PM"),
-        place=gettext_lazy("Geek Hideout"),
-        rsvp_count=5,
-        max_participants=6,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Terraforming Mars Night"),
-        game="Terraforming Mars",
-        date=gettext_lazy("Tuesday, 6:00 PM"),
-        place=gettext_lazy("Library game room"),
-        rsvp_count=3,
-        max_participants=4,
-    ),
-    _SampleEncounter(
-        title=gettext_lazy("Root & Lost Ruins"),
-        game="Root",
-        date=gettext_lazy("Saturday, 3:00 PM"),
-        place=gettext_lazy("Dave's garage"),
-        rsvp_count=3,
-        max_participants=4,
-    ),
-)
-
-SAMPLE_COUNT = 3
-
-
-class _RequireEncountersEnabled(SpherePageRequiredMixin):
-    required_sphere_page = SpherePage.ENCOUNTERS
-    reachable_via_timeline = True
-
-
-class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
-    request: RootRequest
-    template_name = "notice_board/index.html"
-    reachable_via_timeline = False
-
-    @cached_property
-    def _index(self) -> EncounterIndexResult:
-        return self.request.services.encounters.build_index(
-            sphere_id=self.request.context.current_sphere_id,
-            user_id=cast("int", self.request.context.current_user_id),
+    def dispatch(
+        self, request: HttpRequest, *args: object, **kwargs: object
+    ) -> HttpResponseBase:
+        root_request = cast("RootRequest", request)
+        sphere = root_request.services.sites.read(
+            root_request.context.current_sphere_id
         )
-
-    @cached_property
-    def _public(self) -> list[EncounterIndexItem]:
-        # Only a signed-in feed has personal lists to subtract from the public
-        # one, so an anonymous visitor reads the plain sphere feed.
-        if self.request.user.is_authenticated:
-            return self._index.public
-        return self.request.services.encounters.list_public_upcoming(
-            sphere_id=self.request.context.current_sphere_id
-        )
-
-    def get_template_names(self) -> list[str]:
-        if self.request.user.is_authenticated:
-            return [self.template_name]
-        # The marketing landing survives only while the sphere has nothing
-        # public to show a logged-out visitor.
-        if self._public:
-            return ["notice_board/public_index.html"]
-        return ["notice_board/landing.html"]
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        if not self.request.user.is_authenticated:
-            if self._public:
-                context["public_encounters"] = self._public
-            else:
-                context["sample_encounters"] = random.sample(
-                    _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
-                )
-            return context
-        context["upcoming_encounters"] = self._index.upcoming
-        context["past_encounters"] = self._index.past
-        context["public_encounters"] = self._public
-        return context
+        if sphere.encounters_policy is EncountersPolicy.NONE:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
 
 
 class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
@@ -209,23 +68,29 @@ class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View
 
     request: AuthenticatedRootRequest
 
+    def dispatch(
+        self, request: HttpRequest, *args: object, **kwargs: object
+    ) -> HttpResponseBase:
+        # A sphere that only lets its managers run encounters must 404 the
+        # form for everyone else, not just hide the button. An anonymous
+        # visitor falls through to LoginRequiredMixin instead.
+        if self.request.user.is_authenticated and not (
+            self.request.services.encounters.can_create(
+                sphere_id=self.request.context.current_sphere_id,
+                user_id=self.request.context.current_user_id,
+            )
+        ):
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
+
+    @staticmethod
     def _form(
-        self,
         data: QueryDict | None = None,
         files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
         *,
         initial: dict[str, Any] | None = None,
     ) -> EncounterForm:
-        form = EncounterForm(data, files, initial=initial)
-        # The policy decides whether the field is rendered and bound at all.
-        # The service enforces it again on write, so a forged flag never gets
-        # through.
-        if not self.request.services.encounters.can_set_public(
-            sphere_id=self.request.context.current_sphere_id,
-            user_id=self.request.context.current_user_id,
-        ):
-            del form.fields["is_public"]
-        return form
+        return EncounterForm(data, files, initial=initial)
 
 
 class EncounterCreatePageView(_EncounterFormPageView):
@@ -358,12 +223,8 @@ class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, V
         except NotFoundError as exc:
             raise Http404 from exc
         messages.success(request, _("Encounter deleted."))
-        # The deleted encounter's detail page is gone, so land on a feed that
-        # exists: the encounters index, or the timeline when that page is off.
-        sphere = request.services.sites.read(request.context.current_sphere_id)
-        if SpherePage.ENCOUNTERS in sphere.enabled_pages:
-            return redirect(reverse("web:notice-board:index"))
-        return redirect(reverse("web:timeline"))
+        # The deleted encounter's detail page is gone, so land on the feed.
+        return redirect(reverse("web:events"))
 
 
 class EncounterDetailPageView(_RequireEncountersEnabled, View):

@@ -19,7 +19,6 @@ public_urlpatterns: list[URLPattern | URLResolver] = [
 ]
 
 authenticated_urlpatterns: list[URLPattern | URLResolver] = [
-    path("", views.EncountersIndexPageView.as_view(), name="index"),
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),
     path(

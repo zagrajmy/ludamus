@@ -931,9 +931,7 @@ class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
         call.services.sphere_panel.update_settings(
             sphere_id,
             allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            enabled_pages=sphere.enabled_pages,
-            default_page=sphere.default_page,
-            encounter_public_policy=sphere.encounter_public_policy,
+            encounters_policy=sphere.encounters_policy,
             logo=upload,
         )
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)

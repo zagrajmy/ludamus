@@ -7,14 +7,13 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import SpherePage
-from ludamus.pacts.multiverse import DefaultPageDisabledError, SphereAccessDTO
+from ludamus.pacts.multiverse import SphereAccessDTO
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
-        EncounterPublicPolicy,
         EncounterRepositoryProtocol,
+        EncountersPolicy,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
@@ -147,39 +146,21 @@ class SpherePanelService:
     def read(self, sphere_id: int) -> SphereDTO:
         return self._spheres.read(sphere_id)
 
-    def pages_with_content(self, sphere_id: int) -> set[SpherePage]:
-        """Pages whose view would hide existing content if disabled."""
-        pages: set[SpherePage] = set()
-        if self._events.exists_for_sphere(sphere_id):
-            pages.add(SpherePage.EVENTS)
-        if self._encounters.exists_for_sphere(sphere_id):
-            pages.add(SpherePage.ENCOUNTERS)
-        if pages:
-            # The timeline shows published events and public encounters, so any
-            # content at all makes disabling it worth a warning.
-            pages.add(SpherePage.TIMELINE)
-        return pages
+    def has_encounters(self, sphere_id: int) -> bool:
+        """Whether turning encounters off would hide existing content."""
+        return self._encounters.exists_for_sphere(sphere_id)
 
     def update_settings(
         self,
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
-        enabled_pages: list[SpherePage],
-        default_page: SpherePage,
-        encounter_public_policy: EncounterPublicPolicy,
+        encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None:
-        # The homepage redirect sends visitors to default_page, so a disabled
-        # one strands them on a 404. Enforced here rather than only in the
-        # panel form, so every caller of the service is covered.
-        if default_page not in enabled_pages:
-            raise DefaultPageDisabledError
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
-            "enabled_pages": [page.value for page in enabled_pages],
-            "default_page": default_page.value,
-            "encounter_public_policy": encounter_public_policy.value,
+            "encounters_policy": encounters_policy.value,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:

@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.multiverse import SpherePanelService
-from ludamus.pacts.legacy import EncounterPublicPolicy, SpherePage
-from ludamus.pacts.multiverse import Capability, DefaultPageDisabledError, SphereRole
+from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.multiverse import Capability, SphereRole
 
 
 @pytest.fixture(name="spheres")
@@ -61,69 +61,32 @@ class TestSpherePanelServiceAccess:
         spheres.manager_role.assert_called_once_with(3, "boss")
 
 
-class TestSpherePanelServicePagesWithContent:
-    @pytest.mark.parametrize(
-        ("has_events", "has_encounters", "expected"),
-        (
-            (False, False, set()),
-            (True, False, {SpherePage.EVENTS, SpherePage.TIMELINE}),
-            (False, True, {SpherePage.ENCOUNTERS, SpherePage.TIMELINE}),
-            (
-                True,
-                True,
-                {SpherePage.EVENTS, SpherePage.ENCOUNTERS, SpherePage.TIMELINE},
-            ),
-        ),
-    )
-    def test_reports_pages_backed_by_rows(
-        self, service, events, encounters, has_events, has_encounters, expected
-    ):
-        events.exists_for_sphere.return_value = has_events
-        encounters.exists_for_sphere.return_value = has_encounters
+class TestSpherePanelServiceHasEncounters:
+    @pytest.mark.parametrize("exists", (True, False))
+    def test_reports_whether_rows_back_the_feature(self, service, encounters, exists):
+        encounters.exists_for_sphere.return_value = exists
 
-        assert service.pages_with_content(3) == expected
+        assert service.has_encounters(3) is exists
 
 
 class TestSpherePanelServiceUpdateSettings:
-    def test_writes_pages_and_policy(self, service, spheres):
+    def test_writes_the_policy(self, service, spheres):
         service.update_settings(
             3,
             allow_facilitator_session_edit=True,
-            enabled_pages=[SpherePage.ENCOUNTERS],
-            default_page=SpherePage.ENCOUNTERS,
-            encounter_public_policy=EncounterPublicPolicy.MANAGERS,
+            encounters_policy=EncountersPolicy.MANAGERS,
         )
 
         spheres.update.assert_called_once_with(
-            3,
-            {
-                "allow_facilitator_session_edit": True,
-                "enabled_pages": ["encounters"],
-                "default_page": "encounters",
-                "encounter_public_policy": "managers",
-            },
+            3, {"allow_facilitator_session_edit": True, "encounters_policy": "managers"}
         )
 
     def test_logo_included_only_when_given(self, service, spheres):
         service.update_settings(
             3,
             allow_facilitator_session_edit=False,
-            enabled_pages=[SpherePage.EVENTS],
-            default_page=SpherePage.EVENTS,
-            encounter_public_policy=EncounterPublicPolicy.DISABLED,
+            encounters_policy=EncountersPolicy.NONE,
             logo="",
         )
 
         assert not spheres.update.call_args.args[1]["logo"]
-
-    def test_default_page_outside_enabled_pages_is_refused(self, service, spheres):
-        with pytest.raises(DefaultPageDisabledError):
-            service.update_settings(
-                3,
-                allow_facilitator_session_edit=False,
-                enabled_pages=[SpherePage.EVENTS],
-                default_page=SpherePage.ENCOUNTERS,
-                encounter_public_policy=EncounterPublicPolicy.DISABLED,
-            )
-
-        spheres.update.assert_not_called()

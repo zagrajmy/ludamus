@@ -100,8 +100,10 @@ class TestForeignSphereEncounter:
             start_time=start_time,
         )
 
-        response = client.get(reverse("web:notice-board:index"))
+        response = client.get(reverse("web:events"))
 
         assert [
-            item.encounter.pk for item in response.context_data["public_encounters"]
+            item.encounter.encounter.pk
+            for item in response.context_data["upcoming"]
+            if item.kind == "encounter"
         ] == [mine.pk]

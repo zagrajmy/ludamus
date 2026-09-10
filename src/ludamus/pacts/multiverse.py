@@ -15,10 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
-        EncounterPublicPolicy,
+        EncountersPolicy,
         EventDTO,
         SphereDTO,
-        SpherePage,
         UploadedFileProtocol,
     )
 
@@ -54,10 +53,6 @@ class DuplicateConnectionDisplayNameError(Exception):
 
 class ConnectionInUseError(Exception):
     pass
-
-
-class DefaultPageDisabledError(Exception):
-    """A sphere's default page was not among the pages it keeps enabled."""
 
 
 class AnnouncementDTO(BaseModel):
@@ -174,15 +169,13 @@ class SpherePanelServiceProtocol(Protocol):
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
-    def pages_with_content(self, sphere_id: int) -> set[SpherePage]: ...
+    def has_encounters(self, sphere_id: int) -> bool: ...
     def update_settings(
         self,
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
-        enabled_pages: list[SpherePage],
-        default_page: SpherePage,
-        encounter_public_policy: EncounterPublicPolicy,
+        encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None: ...
 
