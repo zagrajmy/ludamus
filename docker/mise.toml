@@ -28,6 +28,21 @@ run = "aube install --filter ./src/ludamus/client --frozen-lockfile --no-optiona
 [tasks.build-frontend]
 run = "aubr -C src/ludamus/client build"
 
+# Stamp chunk ids into the built JS and push the matching source maps to
+# PostHog so captured exceptions resolve to TypeScript frames. Requires
+# POSTHOG_CLI_TOKEN + POSTHOG_CLI_ENV_ID in the environment; the Dockerfile
+# guards the call and skips it when either is absent. The CLI is pinned:
+# this step runs with the API token in scope during the prod image build,
+# so it never floats to latest-published.
+[tasks.posthog-sourcemaps]
+run = """
+set -eu
+cli='@posthog/cli@0.13.0'
+host='https://eu.posthog.com'
+npx -y "$cli" --host "$host" sourcemap inject --directory src/ludamus/static/vite
+npx -y "$cli" --host "$host" sourcemap upload --directory src/ludamus/static/vite
+"""
+
 # Coolify runs a single web container: migrations/collectstatic happen at
 # start instead of one-shot compose services. ponytail: single instance;
 # move migrate to a pre-deploy command if replicas ever appear.

@@ -144,6 +144,9 @@ celerybeat.pid
 # .env.local; bootstrap traps its exit and the usual signals, so one is left
 # behind only by SIGKILL or another signal it does not trap.
 .env*.local
+# BuildKit secret file for the PostHog CLI, sourced by docker/Dockerfile's
+# guarded source-map-upload step — never committed.
+.posthog_cli_token
 .env*.local.tmp
 .venv
 env/

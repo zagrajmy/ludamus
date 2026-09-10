@@ -1,0 +1,31 @@
+name: Goblin scaffolding typecheck
+
+# agents/goblin-zagrajmy ships one verifiable claim — typecheck-clean — and
+# this path-filtered job is what makes the claim checked rather than
+# remembered. Same shape as verification-image.yml: fires only when the
+# scaffolding (or this workflow) changes. Retire it when Act I wires the
+# extension into a real build.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - agents/goblin-zagrajmy/**
+      - .github/workflows/goblin-typecheck.yml
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned to the repo's TypeScript (package.json) so npx can't float.
+      - name: Typecheck
+        run: npx -y -p typescript@5.9.3 tsc -p agents/goblin-zagrajmy

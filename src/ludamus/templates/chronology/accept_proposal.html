@@ -31,6 +31,7 @@
                         <div class="font-medium text-foreground">{{ session.display_name }}</div>
                         {% if session.contact_email %}
                             <a href="mailto:{{ session.contact_email }}"
+                               data-ph-block
                                class="text-sm text-primary hover:underline truncate">{{ session.contact_email }}</a>
                         {% endif %}
                     </div>

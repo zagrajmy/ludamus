@@ -35,7 +35,7 @@
                             {% elif user_has_rsvpd %}
                                 {% translate "You're attending this encounter" %}
                             {% else %}
-                                {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
+                                <span data-ph-mask>{{ creator.full_name|default:creator.name }}</span> {% translate "invites you to an encounter" %}
                             {% endif %}
                         </p>
                         <h1 class="text-2xl font-bold text-white drop-shadow-lg mt-1">
@@ -54,7 +54,7 @@
                         {% elif user_has_rsvpd %}
                             {% translate "You're attending this encounter" %}
                         {% else %}
-                            {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
+                            <span data-ph-mask>{{ creator.full_name|default:creator.name }}</span> {% translate "invites you to an encounter" %}
                         {% endif %}
                     </p>
                     <h1 class="text-2xl font-bold text-foreground mt-1">
@@ -161,7 +161,7 @@
                             {% for attendee in attendees %}
                                 <li class="flex items-center gap-2 text-sm">
                                     {% include "components/avatar.html" with user=attendee size="size-6" %}
-                                    <span class="text-foreground">{{ attendee.full_name|default:attendee.name }}</span>
+                                    <span class="text-foreground" data-ph-mask>{{ attendee.full_name|default:attendee.name }}</span>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -183,7 +183,7 @@
                     <div class="flex items-center gap-3">
                         {% include "components/avatar.html" with user=creator size="size-10" %}
                         <div>
-                            <div class="font-medium text-foreground">{{ creator.full_name|default:creator.name }}</div>
+                            <div class="font-medium text-foreground" data-ph-mask>{{ creator.full_name|default:creator.name }}</div>
                             {% if creator.discord_username %}
                                 <div class="mt-1">
                                     {% include "crowd/user/parts/discord_username.html" with discord_username=creator.discord_username %}

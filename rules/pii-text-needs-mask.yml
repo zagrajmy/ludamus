@@ -1,0 +1,25 @@
+id: pii-text-needs-mask
+language: html
+severity: error
+rule:
+  kind: text
+  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|contact_email\s*[|}]|name_value\s*[|}])'
+  not:
+    inside:
+      stopBy: end
+      kind: element
+      has:
+        kind: start_tag
+        has:
+          kind: attribute
+          regex: 'data-ph-(mask|block)'
+message: |
+  A rendered name or email needs session-replay masking.
+  PostHog session replay records every text node; {{ ...full_name }} /
+  {{ ...email }} interpolations must sit inside an element carrying
+  data-ph-mask (masks the text) or data-ph-block (excludes the element
+  entirely). Put the attribute on the interpolation's own element or any
+  ancestor:
+    <span class="font-medium" data-ph-mask>{{ user.full_name }}</span>
+  Content that is public by choice (e.g. a session's display_name chosen for
+  the programme) is not covered by this rule and needs no attribute.

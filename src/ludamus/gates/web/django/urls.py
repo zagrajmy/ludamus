@@ -59,6 +59,12 @@ urlpatterns: list[URLResolver | URLPattern] = [
         "multiverse/",
         include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
     ),
+    # Same "crowd/" prefix as the legacy namespace on purpose: URLs keep their
+    # shape while pages migrate from web:crowd:* to user:* one at a time.
+    path(
+        "crowd/",
+        include(("ludamus.gates.web.django.user.urls", "user"), namespace="user"),
+    ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     path("admin/", admin.site.urls),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
