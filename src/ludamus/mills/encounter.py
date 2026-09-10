@@ -171,6 +171,14 @@ class EncounterService(EncounterServiceProtocol):
     ) -> EncounterDTO:
         with self._transaction.atomic():
             self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
+            if "is_public" in data and not self.can_create(
+                sphere_id=sphere_id, user_id=user_id
+            ):
+                # Owning an encounter is enough to edit it, but not to list
+                # it: publishing is what the sphere's policy governs. The key
+                # is dropped rather than forced false, so a sphere narrowing
+                # to managers never silently unpublishes what is already out.
+                data = _without_public_flag(data)
             self._encounters.update(pk, data)
             return self._encounters.read(pk, sphere_id)
 
@@ -205,3 +213,11 @@ class EncounterService(EncounterServiceProtocol):
     def cancel_rsvp(self, *, share_code: str, sphere_id: int, user_id: int) -> None:
         encounter = self._encounters.read_by_share_code(share_code, sphere_id)
         self._rsvps.delete_by_user(encounter.pk, user_id)
+
+
+def _without_public_flag(data: EncounterData) -> EncounterData:
+    # A copy, not a `del`: the caller built this dict and keeps using it, so a
+    # mill reaching back into it would be an argument side effect.
+    filtered = data.copy()
+    filtered.pop("is_public", None)
+    return filtered
