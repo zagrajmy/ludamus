@@ -9969,8 +9969,7 @@ msgstr "Nowa przestrzeń najwyższego poziomu"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Could not save the new order. Reloading the page."
-msgstr ""
-"Nie udało się zapisać nowej kolejności. Strona zostanie odświeżona."
+msgstr "Nie udało się zapisać nowej kolejności. Strona zostanie odświeżona."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Could not move the space to the top level. Reloading the page."
