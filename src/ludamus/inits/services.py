@@ -497,6 +497,7 @@ class Services:
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
+            sites=self.sites,
         )
 
     @cached_property

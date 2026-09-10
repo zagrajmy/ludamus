@@ -103,7 +103,7 @@ class TestForeignSphereEncounter:
         response = client.get(reverse("web:events"))
 
         assert [
-            item.encounter.encounter.pk
+            item.entry.encounter.pk
             for item in response.context_data["upcoming"]
             if item.kind == "encounter"
         ] == [mine.pk]

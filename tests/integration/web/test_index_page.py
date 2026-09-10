@@ -522,7 +522,7 @@ def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
 
 def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
     return FeedEncounter(
-        encounter=EncounterIndexItem(
+        entry=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
             rsvp_count=rsvp_count,
             is_mine=is_mine,

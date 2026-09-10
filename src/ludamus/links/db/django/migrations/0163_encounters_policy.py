@@ -12,31 +12,35 @@ def fold_pages_into_policy(apps, schema_editor):
     # publicly. The events feed is now the only page, and `encounters_policy`
     # decides who may create encounters for it.
     #
-    # Encounters were reachable from the encounters page *or* the timeline —
-    # every encounter route was `reachable_via_timeline`, and the timeline
-    # itself carried the create button. Reading `enabled_pages` alone would
-    # 404 live share links on every timeline-only sphere, so both count.
+    # So the question each sphere is asked is "who could reach the create
+    # form before?", which the two old settings answered together:
     #
-    # `disabled` maps to `everyone`: it never stopped anyone from creating an
-    # encounter, only from listing one publicly, and "encounters, but none of
-    # them listed" is not a state the new setting can hold. Preserving who may
-    # create costs a wider publish surface; landing on `managers` instead
-    # would take the feature away from everyone who had it. The log records
-    # each sphere so it can be dialled back from the panel.
+    #   - The encounters page carried an unconditional create button, so
+    #     every member could, whatever the publish policy said.
+    #   - The timeline carried one too, but only for whoever the publish
+    #     policy let publish — nobody, under `disabled`.
+    #   - With neither page, there was no feed to create for.
+    #
+    # A sphere nobody could create in still keeps `managers` while rows
+    # exist: every encounter route was reachable from the timeline, so `none`
+    # would 404 share links that are live today.
     sphere_model = apps.get_model("db_main", "Sphere")
     for sphere in sphere_model.objects.iterator():
         pages = sphere.enabled_pages
-        if "encounters" not in pages and "timeline" not in pages:
-            policy = "none"
-        elif sphere.encounters_policy == "managers":
+        old_policy = sphere.encounters_policy
+        if "encounters" in pages:
+            policy = "everyone"
+        elif "timeline" in pages and old_policy != "disabled":
+            policy = old_policy
+        elif sphere.encounters.exists():
             policy = "managers"
         else:
-            policy = "everyone"
+            policy = "none"
         logger.info(
             "0163: sphere %s pages %r + policy %r -> %r",
             sphere.pk,
-            sphere.enabled_pages,
-            sphere.encounters_policy,
+            pages,
+            old_policy,
             policy,
         )
         sphere.encounters_policy = policy
