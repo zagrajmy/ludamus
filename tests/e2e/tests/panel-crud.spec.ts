@@ -87,7 +87,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("checkbox", { name: facilitator, exact: true }).check();
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
     await page.getByLabel("Title").fill(PROPOSAL_TITLE);
-    await page.getByLabel("Display Name").fill(facilitator);
+    await page.getByLabel("Presenter name").fill(facilitator);
     await page.getByRole("button", { name: "Create" }).click();
 
     // Lands on the new proposal's detail page: pending, with our title.

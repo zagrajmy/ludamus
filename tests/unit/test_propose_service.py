@@ -117,7 +117,10 @@ class TestSubmit:
             _event(),
             {
                 "category_id": 1,
-                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "session_data": {
+                    "title": "Test Session",
+                    "facilitator_name": "Anon Host",
+                },
             },
             user_id=None,
             user_slug=None,
@@ -144,7 +147,7 @@ class TestSubmit:
                 "category_id": 1,
                 "session_data": {
                     "title": "Test Session",
-                    "display_name": "Anon Host",
+                    "facilitator_name": "Anon Host",
                     "session_system": "D&D",
                     "session_notes": "   ",
                 },
@@ -176,7 +179,10 @@ class TestSubmit:
             _event(),
             {
                 "category_id": 1,
-                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "session_data": {
+                    "title": "Test Session",
+                    "facilitator_name": "Anon Host",
+                },
                 "track_pks": [OWN_TRACK_PK, FOREIGN_TRACK_PK],
             },
             user_id=None,
@@ -193,7 +199,10 @@ class TestSubmit:
             _event(),
             {
                 "category_id": 1,
-                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "session_data": {
+                    "title": "Test Session",
+                    "facilitator_name": "Anon Host",
+                },
                 "track_pks": [FOREIGN_TRACK_PK],
             },
             user_id=None,
@@ -209,7 +218,7 @@ class TestSubmit:
                 "category_id": 1,
                 "session_data": {
                     "title": "Test Session",
-                    "display_name": "Anon Host",
+                    "facilitator_name": "Anon Host",
                     "session_players": 4,
                 },
             },
