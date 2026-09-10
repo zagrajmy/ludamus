@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -24,7 +24,7 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.qr import qr_svg
-from ludamus.pacts import EncounterData, EncounterDTO, EncountersPolicy, NotFoundError
+from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 from ludamus.pacts.encounter import RSVPOutcome
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
@@ -42,46 +42,41 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
 
 
-class _RequireEncountersEnabled(View):
-    """404 every encounter route while the sphere has encounters turned off.
+class _EncounterGate(View):
+    """404 every encounter route the sphere's policy does not serve.
 
     Enforced at dispatch, not only in the UI: a sphere that does not run
-    encounters must 404 on direct URL access. Keep this mixin leftmost in the
-    MRO so the 404 wins over LoginRequiredMixin's login redirect — a redirect
-    would leak that the route exists.
+    encounters must 404 on direct URL access, and one that leaves them to its
+    managers must 404 the form for everyone else. Keep this mixin leftmost in
+    the MRO so the 404 wins over LoginRequiredMixin's login redirect — a
+    redirect would leak that the route exists. An anonymous visitor is asked
+    to sign in first; whether they may create is only knowable afterwards.
     """
+
+    needs_create_rights: ClassVar[bool] = False
 
     def dispatch(
         self, request: HttpRequest, *args: object, **kwargs: object
     ) -> HttpResponseBase:
         root_request = cast("RootRequest", request)
-        sphere = root_request.services.sites.read(
-            root_request.context.current_sphere_id
+        encounters = root_request.services.encounters
+        sphere_id = root_request.context.current_sphere_id
+        user_id = root_request.context.current_user_id
+        allowed = (
+            encounters.can_create(sphere_id=sphere_id, user_id=user_id)
+            if self.needs_create_rights and user_id is not None
+            else encounters.enabled(sphere_id)
         )
-        if sphere.encounters_policy is EncountersPolicy.NONE:
+        if not allowed:
             raise Http404
         return super().dispatch(request, *args, **kwargs)
 
 
-class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
     """Shared base for the two views that render the encounter form."""
 
     request: AuthenticatedRootRequest
-
-    def dispatch(
-        self, request: HttpRequest, *args: object, **kwargs: object
-    ) -> HttpResponseBase:
-        # A sphere that only lets its managers run encounters must 404 the
-        # form for everyone else, not just hide the button. An anonymous
-        # visitor falls through to LoginRequiredMixin instead.
-        if self.request.user.is_authenticated and not (
-            self.request.services.encounters.can_create(
-                sphere_id=self.request.context.current_sphere_id,
-                user_id=self.request.context.current_user_id,
-            )
-        ):
-            raise Http404
-        return super().dispatch(request, *args, **kwargs)
+    needs_create_rights = True
 
     @staticmethod
     def _form(
@@ -118,10 +113,12 @@ class EncounterCreatePageView(_EncounterFormPageView):
         )
         if form.cleaned_data.get("header_image"):
             data["header_image"] = form.cleaned_data["header_image"]
-        if "is_public" in form.cleaned_data:
-            data["is_public"] = form.cleaned_data["is_public"]
+        data["is_public"] = form.cleaned_data["is_public"]
 
-        encounter = self.request.services.encounters.create(data)
+        try:
+            encounter = self.request.services.encounters.create(data)
+        except NotFoundError as exc:
+            raise Http404 from exc
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -189,8 +186,7 @@ class EncounterEditPageView(_EncounterFormPageView):
         header = resolve_uploaded_file_field(form.cleaned_data.get("header_image"))
         if header is not None:
             data["header_image"] = header
-        if "is_public" in form.cleaned_data:
-            data["is_public"] = form.cleaned_data["is_public"]
+        data["is_public"] = form.cleaned_data["is_public"]
 
         try:
             encounter = request.services.encounters.update_owned(
@@ -210,7 +206,7 @@ class EncounterEditPageView(_EncounterFormPageView):
         )
 
 
-class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+class EncounterDeleteActionView(_EncounterGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
@@ -227,7 +223,7 @@ class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, V
         return redirect(reverse("web:events"))
 
 
-class EncounterDetailPageView(_RequireEncountersEnabled, View):
+class EncounterDetailPageView(_EncounterGate, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> TemplateResponse:
@@ -281,7 +277,7 @@ class EncounterDetailPageView(_RequireEncountersEnabled, View):
         )
 
 
-class EncounterRSVPActionView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+class EncounterRSVPActionView(_EncounterGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
@@ -313,9 +309,7 @@ class EncounterRSVPActionView(_RequireEncountersEnabled, LoginRequiredMixin, Vie
         )
 
 
-class EncounterCancelRSVPActionView(
-    _RequireEncountersEnabled, LoginRequiredMixin, View
-):
+class EncounterCancelRSVPActionView(_EncounterGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
@@ -337,7 +331,7 @@ class EncounterCancelRSVPActionView(
 
 
 @method_decorator(cache_control(public=True, max_age=86400), name="get")
-class EncounterQrView(_RequireEncountersEnabled, View):
+class EncounterQrView(_EncounterGate, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
@@ -357,7 +351,7 @@ class EncounterQrView(_RequireEncountersEnabled, View):
 
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
-class EncounterIcsView(_RequireEncountersEnabled, View):
+class EncounterIcsView(_EncounterGate, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:

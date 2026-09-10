@@ -77,12 +77,8 @@ chronology_urls = [
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="web:events"), name="index"),
     path("events/", EventsPageView.as_view(), name="events"),
-    # The timeline and the encounters index were folded into the events feed;
-    # both URLs were public.
+    # The timeline was folded into the events feed; the URL was public.
     path("timeline/", RedirectView.as_view(pattern_name="web:events", permanent=True)),
-    path(
-        "encounters/", RedirectView.as_view(pattern_name="web:events", permanent=True)
-    ),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),

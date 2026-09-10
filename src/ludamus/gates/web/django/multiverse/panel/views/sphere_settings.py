@@ -18,6 +18,7 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import EncountersPolicy, resolve_uploaded_file_field
+from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -48,25 +49,20 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             # picker, and a toast would throw all of it away.
             return self._render(form, needs_confirmation=False)
 
-        sphere_id = self.request.context.current_sphere_id
-        service = self.request.services.sphere_panel
-        policy = EncountersPolicy(form.cleaned_data["encounters_policy"])
-        turning_off = (
-            policy is EncountersPolicy.NONE
-            and service.read(sphere_id).encounters_policy is not EncountersPolicy.NONE
-            and service.has_encounters(sphere_id)
-        )
-        if turning_off and not form.cleaned_data["confirmed_encounters_disable"]:
-            return self._render(form, needs_confirmation=True)
-
-        service.update_settings(
-            sphere_id,
+        outcome = self.request.services.sphere_panel.update_settings(
+            self.request.context.current_sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
-            encounters_policy=policy,
+            encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
+            confirmed_encounters_disable=form.cleaned_data[
+                "confirmed_encounters_disable"
+            ],
         )
+        if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
+            return self._render(form, needs_confirmation=True)
+
         messages.success(self.request, _("Sphere settings saved successfully."))
         return redirect("multiverse:panel:sphere-settings")
 

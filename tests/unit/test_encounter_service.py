@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills.encounter import EncounterService
+from ludamus.mills.encounter import PAST_FEED_LIMIT, EncounterService
 from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
@@ -124,7 +124,9 @@ class TestEncounterService:
         # One batched lookup per bucket, not one per encounter.
         assert rsvps.count_by_encounters.call_count == FEED_LIST_COUNT
         encounters.list_visible_upcoming.assert_called_once_with(SPHERE_ID, CREATOR_ID)
-        encounters.list_visible_past.assert_called_once_with(SPHERE_ID, CREATOR_ID)
+        encounters.list_visible_past.assert_called_once_with(
+            SPHERE_ID, CREATOR_ID, PAST_FEED_LIMIT
+        )
 
     def test_list_feed_falls_back_when_the_creator_is_gone(
         self, service, encounters, rsvps, users

@@ -76,7 +76,7 @@ def test_list_visible_past_orders_most_recent_first(sphere, active_user):
     )
     EncounterFactory(sphere=sphere, start_time=now + timedelta(days=1))
 
-    result = EncounterRepository.list_visible_past(sphere.pk, active_user.pk)
+    result = EncounterRepository.list_visible_past(sphere.pk, active_user.pk, 10)
 
     assert [encounter.pk for encounter in result] == [recent.pk, older.pk]
 

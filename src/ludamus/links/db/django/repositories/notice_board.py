@@ -58,23 +58,33 @@ class EncounterRepository(EncounterRepositoryProtocol):
             visible |= Q(creator_id=user_id) | Q(rsvps__user_id=user_id)
         return Encounter.objects.filter(visible, sphere_id=sphere_id).distinct()
 
+    # "Past" means ended, matching how the events feed splits its own items —
+    # the two sit in one grid. An encounter with no end time ends when it
+    # starts, since nothing says how long it runs.
+    @staticmethod
+    def _ended() -> Q:
+        now = datetime.now(tz=UTC)
+        return Q(end_time__lt=now) | Q(end_time__isnull=True, start_time__lt=now)
+
     @staticmethod
     def list_visible_upcoming(
         sphere_id: int, user_id: int | None
     ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)
-            .filter(start_time__gte=datetime.now(tz=UTC))
+            .exclude(EncounterRepository._ended())
             .order_by("start_time")
         )
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
-    def list_visible_past(sphere_id: int, user_id: int | None) -> list[EncounterDTO]:
+    def list_visible_past(
+        sphere_id: int, user_id: int | None, limit: int
+    ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)
-            .filter(start_time__lt=datetime.now(tz=UTC))
-            .order_by("-start_time")
+            .filter(EncounterRepository._ended())
+            .order_by("-start_time")[:limit]
         )
         return [EncounterDTO.model_validate(e) for e in encounters]
 

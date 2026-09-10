@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from operator import itemgetter
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from django.utils.decorators import method_decorator
@@ -30,14 +31,12 @@ if TYPE_CHECKING:
 # against the payload it ships with.
 @dataclass(frozen=True)
 class FeedEvent:
-    start_time: datetime
     event: EventInfo
     kind: ClassVar[Literal["event"]] = "event"
 
 
 @dataclass(frozen=True)
 class FeedEncounter:
-    start_time: datetime
     encounter: EncounterIndexItem
     kind: ClassVar[Literal["encounter"]] = "encounter"
 
@@ -46,16 +45,18 @@ type FeedItem = FeedEvent | FeedEncounter
 
 
 def _merge(
-    events: list[EventInfo], encounters: list[EncounterIndexItem], *, newest_first: bool
+    *, events: list[EventInfo], encounters: list[EncounterIndexItem], newest_first: bool
 ) -> list[FeedItem]:
-    items: list[FeedItem] = [
-        FeedEvent(start_time=event.start_time, event=event) for event in events
+    # Sorted as (when, what) pairs so the start time stays on the payload it
+    # came from rather than being copied onto the wrapper, where it could drift.
+    dated: list[tuple[datetime, FeedItem]] = [
+        (event.start_time, FeedEvent(event=event)) for event in events
     ] + [
-        FeedEncounter(start_time=item.encounter.start_time, encounter=item)
+        (item.encounter.start_time, FeedEncounter(encounter=item))
         for item in encounters
     ]
-    items.sort(key=lambda item: item.start_time, reverse=newest_first)
-    return items
+    dated.sort(key=itemgetter(0), reverse=newest_first)
+    return [item for _, item in dated]
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
@@ -81,9 +82,11 @@ class EventsPageView(TemplateView):
             sphere_id=sphere_id, user_id=user_id
         )
         context["upcoming"] = _merge(
-            events.upcoming, encounters.upcoming, newest_first=False
+            events=events.upcoming, encounters=encounters.upcoming, newest_first=False
         )
-        context["past"] = _merge(events.past, encounters.past, newest_first=True)
+        context["past"] = _merge(
+            events=events.past, encounters=encounters.past, newest_first=True
+        )
         context["can_create_encounter"] = (
             user_id is not None
             and self.request.services.encounters.can_create(

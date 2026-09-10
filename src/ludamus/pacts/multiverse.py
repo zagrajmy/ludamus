@@ -8,7 +8,7 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,6 +53,13 @@ class DuplicateConnectionDisplayNameError(Exception):
 
 class ConnectionInUseError(Exception):
     pass
+
+
+class SphereSettingsOutcome(StrEnum):
+    """What a sphere-settings save did."""
+
+    SAVED = auto()
+    NEEDS_CONFIRMATION = auto()
 
 
 class AnnouncementDTO(BaseModel):
@@ -169,7 +176,6 @@ class SpherePanelServiceProtocol(Protocol):
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
-    def has_encounters(self, sphere_id: int) -> bool: ...
     def update_settings(
         self,
         sphere_id: int,
@@ -177,7 +183,8 @@ class SpherePanelServiceProtocol(Protocol):
         allow_facilitator_session_edit: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
-    ) -> None: ...
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome: ...
 
 
 class SitesServiceProtocol(Protocol):
