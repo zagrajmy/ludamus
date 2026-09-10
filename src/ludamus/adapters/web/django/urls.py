@@ -18,7 +18,6 @@ from ludamus.gates.web.django.notice_board.urls import (
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
-from ludamus.gates.web.django.timeline import TimelinePageView
 
 from . import views
 
@@ -77,8 +76,10 @@ chronology_urls = [
 
 urlpatterns = [
     path("", index_page, name="index"),
-    path("events/", views.EventsPageView.as_view(), name="events"),
-    path("timeline/", TimelinePageView.as_view(), name="timeline"),
+    # The feed lives at the sphere root now. /events/ and /timeline/ were
+    # public, so they redirect rather than 404.
+    path("events/", RedirectView.as_view(pattern_name="web:index")),
+    path("timeline/", RedirectView.as_view(pattern_name="web:index")),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),

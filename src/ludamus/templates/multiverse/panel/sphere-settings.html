@@ -42,30 +42,22 @@
                             <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
                         </span>
                     </label>
-                    <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Pages" %}</h2>
-                    <div class="mt-4">{% tessera_field form.enabled_pages %}</div>
-                    <div class="mt-6">{% tessera_field form.default_page %}</div>
                     <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Encounters" %}</h2>
-                    <div class="mt-4">{% tessera_field form.encounter_public_policy %}</div>
+                    <div class="mt-4">{% tessera_field form.encounters_policy %}</div>
                     <div class="mt-6">{% tessera_field form.logo %}</div>
                     {% if needs_disable_confirmation %}
                         <div class="alert backdrop-blur-lg alert-warning mt-6" role="alert">
                             <div class="flex items-start gap-3">
                                 <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
                                 <div>
-                                    <p class="text-sm font-medium">
-                                        {% translate "You are disabling a page that has content:" %}
-                                        {{ disable_warning_pages|join:", " }}
-                                    </p>
+                                    <p class="text-sm font-medium">{% translate "This sphere already has encounters." %}</p>
                                     <p class="text-sm opacity-80 mt-1">
-                                        {% translate "Visitors will no longer be able to open it. Save again to confirm." %}
+                                        {% translate "Turning them off hides them from everyone. Save again to confirm." %}
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <input type="hidden"
-                               name="confirmed_page_disable"
-                               value="{{ confirmed_page_disable }}">
+                        <input type="hidden" name="confirmed_encounters_disable" value="1">
                     {% endif %}
                     <div class="mt-6">
                         <button type="submit" class="btn btn-primary">

@@ -6,8 +6,8 @@ import pytest
 from django.urls import reverse
 from django.utils.csp import CSP
 
-from ludamus.adapters.web.django.views import EventsPageView
 from ludamus.edges.settings import CSP_POLICY
+from ludamus.gates.web.django.events import EventsPageView
 from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
 
@@ -39,7 +39,7 @@ def enforced_header_fixture(client, settings, non_root_sphere) -> str:
 
     response = client.get(reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain)
 
-    assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+    assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
     assert REPORT_ONLY_HEADER not in response.headers
     return response.headers[ENFORCE_HEADER]
 
@@ -68,32 +68,26 @@ class TestCSPEnforceHeader:
             reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
         )
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
         assert REPORT_ONLY_HEADER not in response.headers
         assert ENFORCE_HEADER not in response.headers
 
 
 class TestCSPNonce:
-    # web:events actually renders base.html (unlike the index redirect), so
+    # web:index actually renders base.html (unlike the index redirect), so
     # its first inline script (the FOUC-prevention script) forces the CSP
     # nonce to materialize.
-    URL = reverse("web:events")
+    URL = reverse("web:index")
 
     def test_nonce_in_header_matches_nonce_rendered_in_page(self, client, settings):
         settings.SECURE_CSP = CSP_POLICY
 
         response = client.get(self.URL)
 
+        # The page's own context is asserted in test_index_page; this one is
+        # about the nonce the rendered base.html carries.
         assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
-                "view": ANY,
-            },
-            template_name=["index.html"],
+            response, HTTPStatus.OK, context_data=ANY, template_name=["index.html"]
         )
         _assert_body_nonce_matches_header(response)
 
@@ -138,7 +132,7 @@ class TestCSP500PageNonce:
         monkeypatch.setattr("secrets.randbelow", lambda _n: 0)
         client.raise_request_exception = False
 
-        response = client.get(reverse("web:events"))
+        response = client.get(reverse("web:index"))
 
         assert_response(
             response,

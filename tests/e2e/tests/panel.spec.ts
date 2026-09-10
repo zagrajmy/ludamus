@@ -86,7 +86,7 @@ test("panel redirects to home with message when sphere has no events", async ({ 
   // Visit panel — should redirect to index (then to /events/)
   await page.goto(`${emptyBase}/panel/`);
   await expect(page).toHaveURL(`${emptyBase}/events/`);
-  await expect(page.getByText("No events available")).toBeVisible();
+  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();
 });

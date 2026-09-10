@@ -300,18 +300,10 @@ class NotificationKind(StrEnum):
     PRINTABLES_READY = auto()
 
 
-class SpherePage(StrEnum):
-    EVENTS = "events"
-    ENCOUNTERS = "encounters"
-    TIMELINE = "timeline"
+class EncountersPolicy(StrEnum):
+    """Who may create encounters in a sphere. NONE turns the feature off."""
 
-    @classmethod
-    def all_values(cls) -> list[str]:
-        return [p.value for p in cls]
-
-
-class EncounterPublicPolicy(StrEnum):
-    DISABLED = "disabled"
+    NONE = "none"
     MANAGERS = "managers"
     EVERYONE = "everyone"
 
@@ -453,9 +445,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
-    default_page: SpherePage
-    enabled_pages: list[SpherePage]
-    encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
+    encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
     pk: SphereId
     site: SiteDTO
@@ -465,9 +455,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
-    default_page: str
-    enabled_pages: list[str]
-    encounter_public_policy: str
+    encounters_policy: str
     logo: UploadedFileProtocol | str
 
 
@@ -611,10 +599,9 @@ class EncounterIndexItem:
 
 
 @dataclass
-class EncounterIndexResult:
+class EncounterFeed:
     upcoming: list[EncounterIndexItem]
     past: list[EncounterIndexItem]
-    public: list[EncounterIndexItem]
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -1078,8 +1065,6 @@ class AgendaItemRepositoryProtocol(Protocol):
 
 class EventRepositoryProtocol(Protocol):
     @staticmethod
-    def exists_for_sphere(sphere_id: int) -> bool: ...
-    @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
     def list_for_events_page(
@@ -1336,15 +1321,13 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
-    def list_upcoming_by_creator(
-        sphere_id: int, creator_id: int
+    def list_visible_upcoming(
+        sphere_id: int, user_id: int | None
     ) -> list[EncounterDTO]: ...
     @staticmethod
-    def list_upcoming_rsvpd(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
-    @staticmethod
-    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]: ...
-    @staticmethod
-    def list_past(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
+    def list_visible_past(
+        sphere_id: int, user_id: int | None
+    ) -> list[EncounterDTO]: ...
     @staticmethod
     def update(pk: int, data: EncounterData) -> None: ...
     @staticmethod
