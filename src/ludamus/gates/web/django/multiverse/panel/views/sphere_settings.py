@@ -61,13 +61,16 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             ],
         )
         if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
-            # Nothing was written, and a file input cannot be repopulated, so
-            # a logo picked in the same save is gone from the re-rendered
-            # form. Say so rather than letting the next save drop it.
+            # Nothing was written, and neither a file input nor the clear
+            # box survives the re-render, so a logo change made in the same
+            # save is gone from the form. Say so rather than letting the
+            # confirming save quietly keep the old one.
             return self._render(
                 form,
                 needs_confirmation=True,
-                lost_logo_upload="logo" in self.request.FILES,
+                lost_logo_change=(
+                    "logo" in self.request.FILES or "logo-clear" in self.request.POST
+                ),
             )
 
         messages.success(self.request, _("Sphere settings saved successfully."))
@@ -78,7 +81,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form: SphereSettingsForm,
         *,
         needs_confirmation: bool,
-        lost_logo_upload: bool = False,
+        lost_logo_change: bool = False,
     ) -> HttpResponse:
         base = sphere_settings_context(self.request, active_tab="general")
         return TemplateResponse(
@@ -88,6 +91,6 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             | {
                 "form": form,
                 "needs_disable_confirmation": needs_confirmation,
-                "lost_logo_upload": lost_logo_upload,
+                "lost_logo_change": lost_logo_change,
             },
         )

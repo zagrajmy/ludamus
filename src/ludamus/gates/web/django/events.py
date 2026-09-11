@@ -17,7 +17,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     split_events,
 )
-from ludamus.mills.encounter import PAST_FEED_LIMIT
+from ludamus.pacts.encounter import PAST_FEED_LIMIT
 
 if TYPE_CHECKING:
     from datetime import datetime
