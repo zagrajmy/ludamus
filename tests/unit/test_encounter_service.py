@@ -3,10 +3,14 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills.encounter import PAST_FEED_LIMIT, EncounterService
+from ludamus.mills.encounter import EncounterService
 from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
+from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
+    EncounterDetailContextDTO,
+    RSVPOutcome,
+)
 from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.multiverse import SphereRole
 

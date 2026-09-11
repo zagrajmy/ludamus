@@ -4,6 +4,7 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
     EncounterServiceProtocol,
     RSVPOutcome,
@@ -27,11 +28,6 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
-
-
-# The feed renders every past encounter as a card, and a sphere accumulates
-# them without bound. A few grid rows is what anyone scrolls back through.
-PAST_FEED_LIMIT = 24
 
 
 class EncounterService(EncounterServiceProtocol):
