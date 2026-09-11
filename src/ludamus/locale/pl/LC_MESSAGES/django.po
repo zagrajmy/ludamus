@@ -6942,39 +6942,6 @@ msgstr ""
 "Zagrajmy jest open source (AGPL) — Twoje dane i proces nie są zakładnikiem "
 "dostawcy."
 
-#: src/ludamus/templates/landing/org_objections.html
-msgid "Organizers' words"
-msgstr "Słowa organizatorów"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "This spot is waiting for organizers who have shipped a programme"
-msgstr "To miejsce czeka na organizatorów, którzy dowieźli program"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "What did Zagrajmy replace for you?"
-msgstr "Co Zagrajmy u Ciebie zastąpiło?"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "name · role · event"
-msgstr "imię · rola · wydarzenie"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "Which step saved the most time?"
-msgstr "Który krok oszczędził najwięcej czasu?"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "What changed for attendees?"
-msgstr "Co się zmieniło dla uczestników?"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid ""
-"We are collecting quote permissions from organizers of real events. This "
-"section is waiting for their words, and we would rather wait than invent "
-"opinions."
-msgstr ""
-"Zbieramy zgody na cytaty od organizatorów prawdziwych wydarzeń. Ta sekcja "
-"czeka na ich słowa i wolimy poczekać, niż wymyślać opinie."
-
 #: src/ludamus/templates/landing/org_pitch.html
 msgid "Who is it for"
 msgstr "Dla kogo"
@@ -11238,6 +11205,32 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Organizers' words"
+#~ msgstr "Słowa organizatorów"
+
+#~ msgid "This spot is waiting for organizers who have shipped a programme"
+#~ msgstr "To miejsce czeka na organizatorów, którzy dowieźli program"
+
+#~ msgid "What did Zagrajmy replace for you?"
+#~ msgstr "Co Zagrajmy u Ciebie zastąpiło?"
+
+#~ msgid "name · role · event"
+#~ msgstr "imię · rola · wydarzenie"
+
+#~ msgid "Which step saved the most time?"
+#~ msgstr "Który krok oszczędził najwięcej czasu?"
+
+#~ msgid "What changed for attendees?"
+#~ msgstr "Co się zmieniło dla uczestników?"
+
+#~ msgid ""
+#~ "We are collecting quote permissions from organizers of real events. This "
+#~ "section is waiting for their words, and we would rather wait than invent "
+#~ "opinions."
+#~ msgstr ""
+#~ "Zbieramy zgody na cytaty od organizatorów prawdziwych wydarzeń. Ta sekcja "
+#~ "czeka na ich słowa i wolimy poczekać, niż wymyślać opinie."
 
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
