@@ -1,0 +1,11 @@
+{% comment %}The header subtitle doubles as the breadcrumb trail: the event, the
+list this page came from, and the page's own title in the heading above it. A
+detail page therefore needs no second trail in its body. Every caller passes
+`back_url` and `back_label` explicitly, so the trail's inputs are visible at
+the include rather than inherited from whatever the view happened to put in
+the context.{% endcomment %}
+<a href="{% url 'panel:event-index' slug=current_event.slug %}"
+   class="underline underline-offset-3 decoration-foreground-muted/50 hover:text-foreground hover:decoration-foreground/50">{{ current_event.name }}</a>
+<span aria-hidden="true">·</span>
+<a href="{{ back_url }}"
+   class="underline underline-offset-3 decoration-foreground-muted/50 hover:text-foreground hover:decoration-foreground/50">{{ back_label }}</a>

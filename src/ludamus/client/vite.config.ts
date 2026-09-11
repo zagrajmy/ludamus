@@ -1,9 +1,20 @@
 import tailwindcss from "@tailwindcss/vite";
-import { resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
+const fontAwesomeDir = dirname(
+  fileURLToPath(import.meta.resolve("@fortawesome/fontawesome-free/package.json")),
+);
+const konwencikIconStyles = Object.fromEntries(
+  ["regular", "brands", "solid"].flatMap((style) =>
+    readdirSync(resolve(fontAwesomeDir, "svgs", style))
+      .filter((file) => file.endsWith(".svg"))
+      .map((file) => [file.slice(0, -4), style]),
+  ),
+);
 
 // Vite's default HTML hot-update sends {type:"full-reload", path:"<file>"}.
 // The Vite client (client.mjs case "full-reload") only reloads when that
@@ -40,6 +51,7 @@ export default defineConfig({
         avatar: resolve(rootDir, "src/avatar.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
+        "color-field": resolve(rootDir, "src/color-field.ts"),
         combobox: resolve(rootDir, "src/combobox.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
@@ -55,6 +67,7 @@ export default defineConfig({
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
+        "konwencik-preview": resolve(rootDir, "src/konwencik-preview.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "multiselect-filter": resolve(rootDir, "src/multiselect-filter.ts"),
@@ -62,6 +75,7 @@ export default defineConfig({
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
+        "programme-space-order": resolve(rootDir, "src/programme-space-order.ts"),
         prologue: resolve(rootDir, "src/prologue.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
@@ -77,9 +91,13 @@ export default defineConfig({
         "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
+        "write-in-chips": resolve(rootDir, "src/write-in-chips.ts"),
       },
     },
     sourcemap: true,
+  },
+  define: {
+    __KONWENCIK_ICON_STYLES__: JSON.stringify(konwencikIconStyles),
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

@@ -7,6 +7,32 @@ import { DENSE_EVENT_URL } from "./helpers/urls";
 const MOBILE_WIDTH = 375;
 
 test.describe("Event filter panel", () => {
+  test("uses available height before making the dropdown scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await page.goto("/event/autumn-open/");
+    const trigger = page.getByRole("button", { name: "Filters", exact: true });
+    await trigger.click();
+    await page.getByRole("combobox", { name: "Host", exact: true }).evaluate((input) => {
+      const body = input.closest<HTMLElement>(".filter-panel-body");
+      if (body) body.style.minHeight = "640px";
+    });
+    const dimensions = () =>
+      trigger.evaluate((button) => {
+        const panel = document.getElementById(button.getAttribute("aria-controls") ?? "");
+        if (!panel) throw new Error("Missing filter panel");
+        return {
+          height: panel.clientHeight,
+          overflow: panel.scrollHeight - panel.clientHeight,
+          bottom: panel.getBoundingClientRect().bottom,
+        };
+      });
+    await expect.poll(async () => (await dimensions()).height).toBeGreaterThanOrEqual(640);
+    await expect.poll(async () => (await dimensions()).overflow).toBe(0);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await expect.poll(async () => (await dimensions()).bottom).toBeLessThanOrEqual(584);
+    await expect.poll(async () => (await dimensions()).overflow).toBeGreaterThan(0);
+  });
+
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: MOBILE_WIDTH, height: 812 },
@@ -279,12 +305,10 @@ test.describe("Event filter panel", () => {
 
   test("the track filter offers the tracks the schedule uses", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
-
-    // Track and category options are rendered by the server like every other
-    // filter's; the client only drops the ones no session carries.
-    const trackFilter = page.locator("#tag-filter-__track");
-    await expect(trackFilter.locator("option")).toHaveText([
-      "All tracks",
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+    await page.getByRole("combobox", { name: "Track", exact: true }).click();
+    const options = page.getByRole("listbox", { name: "Track", exact: true }).getByRole("option");
+    await expect(options).toHaveText([
       "Contests",
       "Cosplay",
       "Miniature Painting",
@@ -292,13 +316,11 @@ test.describe("Event filter panel", () => {
       "RPG",
       "Workshops",
     ]);
-
-    const shown = page.locator(".session:visible");
+    const shown = page.getByRole("link", { name: /^Open details for / });
     const total = await shown.count();
-    await trackFilter.selectOption("Cosplay");
-
+    await options.getByText("Cosplay", { exact: true }).click();
     await expect(shown).not.toHaveCount(total);
-    await expect(shown.first()).toContainText("Cosplay");
+    await expect(shown.first()).toHaveAccessibleName(/Cosplay/);
   });
 
   test("offers a field's used choices only, never a written-in value", async ({ page }) => {
@@ -343,7 +365,6 @@ test.describe("Event filter panel", () => {
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     await hostFilter.click();
     await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
       "Alex Morgan",
       "Priya Chen",
       "Radek Włodarczyk",
@@ -373,36 +394,28 @@ test.describe("Event filter panel", () => {
 
     await hostFilter.press("Enter");
     await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
+    await expect(hostFilter).toHaveAttribute("aria-expanded", "true");
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
     await expect(card("Mega Strategy Lab")).toBeHidden();
   });
 
-  test("the host chip names the committed host, not the query that found it", async ({ page }) => {
+  test("the host chips name every committed host, not the search query", async ({ page }) => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const chip = page.locator("#active-filter-chips .filter-chip").first();
     const hostFilter = page.getByRole("combobox", { name: "Host" });
-
-    // The chip reads the combobox's visible input, so a commit that fires its
-    // change event before writing that input labels the chip with whatever the
-    // box still held — here the query, "chen".
-    await hostFilter.fill("chen");
-    await hostFilter.press("Enter");
-    await expect(chip).toHaveText(/^Priya Chen/);
-
-    await hostFilter.fill("morgan");
-    await hostFilter.press("Enter");
-    await expect(chip).toHaveText(/^Alex Morgan/);
-
-    // Clicking a row takes the same path, and with nothing typed the box holds
-    // the previous pick — so the same ordering bug labels the chip with the
-    // host being replaced.
-    await hostFilter.click();
+    for (const [query, host] of [
+      ["chen", "Priya Chen"],
+      ["morgan", "Alex Morgan"],
+    ]) {
+      await hostFilter.fill(query);
+      await hostFilter.press("Enter");
+      await expect(
+        page.getByRole("button", { name: `Remove filter: ${host}`, exact: true }),
+      ).toBeVisible();
+    }
     await page.getByRole("option", { name: "Radek Włodarczyk" }).click();
-    await expect(chip).toHaveText(/^Radek Włodarczyk/);
+    await expect(page.getByRole("button", { name: /^Remove filter: / })).toHaveCount(3);
   });
 
   test("the host combobox says when nothing matches, and Escape restores the pick", async ({
@@ -474,7 +487,7 @@ test.describe("Event filter panel", () => {
     await expect(hostFilter).toHaveValue("Priya Chen");
 
     await page.getByRole("button", { name: "Clear all" }).click();
-    await expect(hostFilter).toHaveValue("All hosts");
+    await expect(hostFilter).toHaveValue("");
 
     // "Clear all" sits in the chips bar, outside the panel, so pressing it
     // counts as a click outside and shuts the panel behind you.
@@ -485,7 +498,6 @@ test.describe("Event filter panel", () => {
     // wrote would empty it, and then drop the value naming a host as stale.
     await hostFilter.click();
     await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
       "Alex Morgan",
       "Priya Chen",
       "Radek Włodarczyk",
@@ -503,12 +515,11 @@ test.describe("Event filter panel", () => {
     // The chip's own X takes the same path clear-all does, one filter at a
     // time — and, like it, sits outside the panel and closes it.
     await page.locator("#active-filter-chips").getByRole("button").first().click();
-    await expect(hostFilter).toHaveValue("All hosts");
+    await expect(hostFilter).toHaveValue("");
 
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await hostFilter.click();
     await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
       "Alex Morgan",
       "Priya Chen",
       "Radek Włodarczyk",
@@ -538,7 +549,7 @@ test.describe("Event filter panel", () => {
     await hostFilter.click();
     await hostFilter.fill("morgan");
     await hostFilter.press("Enter");
-    await expect(hostFilter).toHaveValue("Alex Morgan");
+    await expect(hostFilter).toHaveValue("Priya Chen, Alex Morgan");
     await expect(hostFilter).not.toBeFocused();
 
     await context.close();
@@ -570,7 +581,7 @@ test.describe("Event filter panel", () => {
     await hostFilter.press("Enter");
 
     await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
+    await expect(hostFilter).toHaveAttribute("aria-expanded", "true");
   });
 
   test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {
@@ -792,7 +803,9 @@ test.describe("Filter state in the URL", () => {
       const a = document.createElement("a");
       a.href = "?q=mega#schedule-region";
       a.textContent = "find mega";
-      document.body.append(a);
+      // Into the scroller, where page content lives: the app-shell body is a
+      // clipped viewport box, so a link appended to it lands past the clip.
+      document.querySelector("main")!.append(a);
     });
 
     const searchNavs: string[] = [];
@@ -889,66 +902,48 @@ test.describe("Rooms view filtering", () => {
 test.describe("Room filter", () => {
   const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/";
 
-  test("groups the rooms under their parent space, in panel order", async ({ page }) => {
+  test("names each room with its parent space, in panel order", async ({ page }) => {
     await page.goto(denseEventUrl);
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const spaceFilter = page.locator("#space-filter");
-    await expect(page.locator("#space-filter-group")).toBeVisible();
-
-    // Panel order, not the alphabet: the tables come before the tents, and
-    // "Cosplay Forum" — first alphabetically — is neither. The venue's own
-    // option opens each group, so it is not one of the rooms being ordered.
-    const options = await spaceFilter
-      .locator('optgroup option:not([value^="venue:"])')
-      .allInnerTexts();
-    expect(options.slice(0, 3)).toEqual(["Miniature Painting", "RPG Table 1", "RPG Table 2"]);
-    await expect(spaceFilter.locator("optgroup").first()).toHaveAttribute("label", "Default Area");
+    await page.getByRole("combobox", { name: "Location" }).click();
+    const options = page.getByRole("listbox", { name: "Location" }).getByRole("option");
+    await expect(options.first()).toHaveText("Default Area — all rooms");
+    expect((await options.allTextContents()).slice(1, 4).map((text) => text.trim())).toEqual([
+      "Default Area — Miniature Painting",
+      "Default Area — RPG Table 1",
+      "Default Area — RPG Table 2",
+    ]);
   });
 
   test("narrows the list to every room of the chosen venue", async ({ page }) => {
     await page.goto(denseEventUrl);
+    const expected = await page.getByRole("link", { name: /^Open details for / }).allTextContents();
+    expect(expected.length).toBeGreaterThan(1);
+    await expect(
+      page.getByRole("article").filter({ hasText: "RPG Table 1 ·" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("article").filter({ hasText: "RPG Table 2 ·" }).first(),
+    ).toBeVisible();
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const venue = await page
-      .locator('#space-filter option[value^="venue:"]')
-      .first()
-      .getAttribute("value");
-    if (!venue) throw new Error("location filter has no venue option");
-    const venueId = venue.replace("venue:", "");
-    const spacesOf = (selector: string) =>
-      page
-        .locator(selector)
-        .evaluateAll((nodes) =>
-          [...new Set(nodes.map((node) => (node as HTMLElement).dataset.space))].sort(),
-        );
-    const rooms = await spacesOf(`.session[data-venue="${venueId}"]`);
-    expect(rooms.length).toBeGreaterThan(1);
-
-    await page.locator("#space-filter").selectOption(venue);
-
-    const visible = page.locator(".session-wrapper:not([hidden])");
-    await expect.poll(() => visible.count()).toBeGreaterThan(0);
-    for (const card of await visible.locator(".session").all())
-      await expect(card).toHaveAttribute("data-venue", venueId);
-    expect(await spacesOf(".session-wrapper:not([hidden]) .session")).toEqual(rooms);
+    await page.getByRole("combobox", { name: "Location" }).click();
+    await page.getByRole("option", { name: "Default Area — all rooms", exact: true }).click();
+    await expect(page.getByRole("link", { name: /^Open details for / })).toHaveText(expected);
   });
 
   test("narrows the list to the chosen room", async ({ page }) => {
-    await page.goto(denseEventUrl);
+    await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const total = await page.locator(".session-wrapper").count();
-    const room = await page
-      .locator('#space-filter option:not([value^="venue:"])')
-      .nth(1)
-      .getAttribute("value");
-    if (!room) throw new Error("room filter has no options");
-    await page.locator("#space-filter").selectOption(room);
-
-    const visible = page.locator(".session-wrapper:not([hidden])");
-    await expect.poll(() => visible.count()).toBeLessThan(total);
-    for (const card of await visible.locator(".session").all())
-      await expect(card).toHaveAttribute("data-space", room);
+    await page.getByRole("combobox", { name: "Location" }).click();
+    await page.getByRole("option", { name: "Main Hall — East Wing", exact: true }).click();
+    await expect(
+      page.getByRole("link", { name: "Open details for Mega Strategy Lab" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole("link", { name: "Open details for Przygoda w Mieście Neonów" }),
+    ).toBeHidden();
   });
 });

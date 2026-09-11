@@ -376,6 +376,9 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     if has_maps
                     else None
                 ),
+                "print_url": reverse(
+                    "web:chronology:event-print", kwargs={"slug": self.object.slug}
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
@@ -668,7 +671,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     presenter_dto, gravatar_url=self.request.di.gravatar_url
                 )
             else:
-                presenter_name = session.display_name or ""
+                presenter_name = session.facilitator_name or ""
                 presenter = UserInfo(
                     avatar_url=None,
                     discord_username="",

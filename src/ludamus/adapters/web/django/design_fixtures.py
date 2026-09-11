@@ -49,6 +49,7 @@ def _mock_venue_and_space() -> LocationData:
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
         "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
+        "programme_order": 0,
     }
 
 
@@ -151,7 +152,7 @@ def mock_session_data() -> SessionData:
             modification_time=creation,
             participants_limit=6,
             pk=1,
-            display_name="Alex Designer",
+            facilitator_name="Alex Designer",
             slug="design-session",
             title="Design System Session Card",
             category_id=17,
@@ -288,7 +289,7 @@ def mock_session_data_ended() -> SessionData:
             modification_time=creation,
             participants_limit=6,
             pk=2,
-            display_name=data.presenter.full_name,
+            facilitator_name=data.presenter.full_name,
             slug="design-session-ended",
             title="Ended Session (Design Preview)",
             category_id=17,

@@ -10,17 +10,29 @@ from ludamus.pacts import (
     ContentChangeLogData,
     ContentChangeLogDTO,
     ContentChangeLogRepositoryProtocol,
+    ContentFieldChange,
     NotFoundError,
 )
 
 _SELECT_RELATED = ("session", "user")
 
 
+def _canonical_changes(changes: list[ContentFieldChange]) -> list[ContentFieldChange]:
+    canonical = []
+    for change in changes:
+        canonical_change = change
+        if change["field"] == "display_name" and change["field_id"] is None:
+            canonical_change = change.copy()
+            canonical_change["field"] = "facilitator_name"
+        canonical.append(canonical_change)
+    return canonical
+
+
 def _to_dto(log: ContentChangeLog) -> ContentChangeLogDTO:
     return ContentChangeLogDTO.model_validate(
         {
             **base_log_fields(log),
-            "changes": log.changes,
+            "changes": _canonical_changes(log.changes),
             "creation_time": log.creation_time,
         }
     )

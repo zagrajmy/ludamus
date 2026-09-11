@@ -135,7 +135,7 @@ def main() -> None:
         slug="timetable-overflow-demo",
         defaults={
             "title": "Overflow Demo Game",
-            "display_name": "Casey Rivers",
+            "facilitator_name": "Casey Rivers",
             "description": "Intentionally over-capacity to surface a room conflict.",
             "duration": "PT2H",
             "participants_limit": 24,
@@ -179,7 +179,7 @@ def main() -> None:
         slug="timetable-foreign-booking",
         defaults={
             "title": "Board Game Night",
-            "display_name": "Casey Rivers",
+            "facilitator_name": "Casey Rivers",
             "description": "Booked by the other track, in a shared room.",
             "duration": "PT1H",
             "participants_limit": 4,
@@ -220,7 +220,7 @@ def main() -> None:
         slug="timetable-misplaced-demo",
         defaults={
             "title": "Misplaced Demo Game",
-            "display_name": "Cleo Vance",
+            "facilitator_name": "Cleo Vance",
             "description": "Scheduled outside the day it asked for.",
             "duration": "PT1H",
             "participants_limit": 6,
@@ -255,7 +255,7 @@ def main() -> None:
         slug="timetable-rpg-intro",
         defaults={
             "title": "RPG Introduction",
-            "display_name": "Alice Morgan",
+            "facilitator_name": "Alice Morgan",
             "description": "A beginner RPG session.",
             "duration": "PT1H",
             "participants_limit": 6,
@@ -274,7 +274,7 @@ def main() -> None:
         slug="timetable-dungeon-crawl",
         defaults={
             "title": "Dungeon Crawl",
-            "display_name": "Alice Morgan",
+            "facilitator_name": "Alice Morgan",
             "description": "A dangerous dungeon adventure.",
             "duration": "PT2H",
             "participants_limit": 4,
@@ -293,7 +293,7 @@ def main() -> None:
         slug="timetable-storytelling",
         defaults={
             "title": "Storytelling Workshop",
-            "display_name": "Bob Chen",
+            "facilitator_name": "Bob Chen",
             "description": "Collaborative narrative building.",
             "duration": "PT1H30M",
             "participants_limit": 8,
@@ -312,7 +312,7 @@ def main() -> None:
         slug="timetable-all-days",
         defaults={
             "title": "All Days Workshop",
-            "display_name": "Bob Chen",
+            "facilitator_name": "Bob Chen",
             "description": "A movable session for the multi-day schedule test.",
             "duration": "PT1H",
             "participants_limit": 8,

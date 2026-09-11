@@ -22,7 +22,7 @@ Every part needed to do this already exists:
   export precedent — connection, decrypt, build rows, write, report a count.
 - `agenda_items.list_by_event` returns `AgendaItemDTO`s already carrying
   space name and id, session title and description, `presenter_name` (the
-  session's `display_name`), category name, session id, start and end.
+  session's `facilitator_name`), category name, session id, start and end.
 - `spaces.list_by_event` returns `SpaceDTO` with `pk`, `name` and
   `parent_id`; `sessions.list_field_values_for_sessions(session_ids,
   field_ids)` gives the dynamic answers, keyed on field pk.
@@ -76,7 +76,7 @@ feeds three of them is.
 | `end` | agenda item end, `%H:%M` | — |
 | `title` | `Session.title` | — |
 | `description` | `Session.description` | — |
-| `speaker` | `Session.display_name` | — |
+| `speaker` | `Session.facilitator_name` | — |
 | `room` | `{leaf} ({immediate parent})`, e.g. `RPG 1 (Piętro 1)`; a root space has no parentheses | — |
 | `room_position` | always empty | — |
 | `block` | name of the session's first public track | — |

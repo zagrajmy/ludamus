@@ -143,7 +143,7 @@ class TestGuildMarkOnCards:
     def test_a_presenter_less_session_is_left_alone(self, client, event, agenda_item):
         session = agenda_item.session
         session.presenter = None
-        session.display_name = "Someone Offline"
+        session.facilitator_name = "Someone Offline"
         session.save()
 
         response = client.get(_url(event))
@@ -160,7 +160,7 @@ class TestGuildMarkOnCards:
     ):
         session = agenda_item.session
         session.presenter = None
-        session.display_name = "Imported"
+        session.facilitator_name = "Imported"
         session.save()
         facilitator = Facilitator.objects.create(
             event=event,

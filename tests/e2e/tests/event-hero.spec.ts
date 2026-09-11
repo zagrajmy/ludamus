@@ -1,12 +1,15 @@
 import { expect, test } from "./helpers/fixtures";
 
+// One hero for every size of event: the program CTAs, the sessions count on
+// the facts rail, and no participant tally.
 test.describe("Small event hero", () => {
-  test("keeps session stats and has no program CTAs", async ({ page }) => {
+  test("gets the same program CTAs as a big one", async ({ page }) => {
     await page.goto("/event/autumn-open/");
     const hero = page.locator("[data-event-hero]");
-    await expect(hero.getByRole("link", { name: "View the program" })).toHaveCount(0);
-    await expect(hero.getByRole("link", { name: "Sign up for sessions" })).toHaveCount(0);
-    await expect(hero.getByText("Players", { exact: true })).toBeVisible();
+    await expect(hero.getByRole("link", { name: "View the program" })).toBeVisible();
+    await expect(hero.getByRole("link", { name: "Sign up for sessions" })).toBeVisible();
+    await expect(hero.getByText("Players", { exact: true })).toHaveCount(0);
+    await expect(hero.getByText(/\d+\s+Sessions?/)).toBeVisible();
   });
 });
 

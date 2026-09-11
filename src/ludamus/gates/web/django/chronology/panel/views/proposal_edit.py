@@ -300,7 +300,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
         duration = _duration_initial(session.duration, category)
         initial: dict[str, Any] = {
             "title": session.title,
-            "display_name": session.display_name,
+            "facilitator_name": session.facilitator_name,
             "description": session.description,
             "contact_email": session.contact_email,
             "participants_limit": session.participants_limit,
@@ -705,7 +705,7 @@ class ProposalFormPageView(_ProposalFormBase):
             event_id=current_event.pk,
             contact_email=form.cleaned_data.get("contact_email") or "",
             description=form.cleaned_data.get("description") or "",
-            display_name=form.cleaned_data["display_name"],
+            facilitator_name=form.cleaned_data["facilitator_name"],
             duration=form.cleaned_data.get("duration") or "",
             min_age=form.cleaned_data.get("min_age") or 0,
             participants_limit=form.cleaned_data.get("participants_limit") or 0,
@@ -785,7 +785,7 @@ class ProposalFormPageView(_ProposalFormBase):
         update_data: SessionUpdateData = {
             "category_id": int(form.cleaned_data["category_id"]),
             "title": form.cleaned_data["title"],
-            "display_name": form.cleaned_data["display_name"],
+            "facilitator_name": form.cleaned_data["facilitator_name"],
             "description": form.cleaned_data.get("description") or "",
             "contact_email": form.cleaned_data.get("contact_email") or "",
             "participants_limit": form.cleaned_data.get("participants_limit") or 0,

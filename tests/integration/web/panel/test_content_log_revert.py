@@ -30,7 +30,7 @@ def _make_session(proposal_category):
         category=proposal_category,
         status="pending",
         title="Original title",
-        display_name="Original host",
+        facilitator_name="Original host",
         description="",
         contact_email="",
         duration="",
@@ -61,7 +61,7 @@ def _edit(client, event, session, *, title, extra=None):
         data={
             "category_id": session.category_id,
             "title": title,
-            "display_name": "Original host",
+            "facilitator_name": "Original host",
             "participants_limit": 5,
             "min_age": 0,
             **(extra or {}),
@@ -140,6 +140,34 @@ class TestContentLogRevertActionView:
         assert session.title == "Original title"
         value = SessionFieldValue.objects.get(session=session, field=field)
         assert not value.value
+
+    def test_revert_restores_legacy_display_name_change(self, panel_client, event):
+        session = _make_session(ProposalCategoryFactory(event=event))
+        session.facilitator_name = "Current host"
+        session.save(update_fields=("facilitator_name",))
+        log = ContentChangeLog.objects.create(
+            event=event,
+            session=session,
+            changes=[
+                {
+                    "field": "display_name",
+                    "field_id": None,
+                    "old": "Original host",
+                    "new": "Current host",
+                }
+            ],
+        )
+
+        response = panel_client.post(self.get_url(event, log.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Change reverted.")],
+            url=self.get_log_url(event),
+        )
+        session.refresh_from_db()
+        assert session.facilitator_name == "Original host"
 
     def test_revert_writes_its_own_log_row(
         self, panel_client, active_user, event, proposal_category

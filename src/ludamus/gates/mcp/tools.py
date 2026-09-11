@@ -15,6 +15,10 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.inputs import EmptyInput, NonBlankName, require_aware_datetime
+from ludamus.gates.mcp.konwencik_tools import (
+    OrganizerGetKonwencikSettingsTool,
+    OrganizerUpdateKonwencikStylesTool,
+)
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
@@ -393,6 +397,8 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
         *programme_tools(),
+        OrganizerGetKonwencikSettingsTool(),
+        OrganizerUpdateKonwencikStylesTool(),
         OrganizerListAnnouncementsTool(),
     )
 

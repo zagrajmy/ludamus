@@ -570,7 +570,7 @@ class TestOrganizerProgrammeTools:
         )
         assert [item["pk"] for item in listed] == [session["pk"]]
 
-    def test_create_session_defaults_display_name_to_title(
+    def test_create_session_defaults_facilitator_name_to_title(
         self, client, org_token, programme
     ):
         session = call_org_json(
@@ -584,9 +584,9 @@ class TestOrganizerProgrammeTools:
             },
         )
 
-        assert session["display_name"] == "Wprowadzenie"
+        assert session["facilitator_name"] == "Wprowadzenie"
 
-    def test_create_session_keeps_explicit_blank_display_name(
+    def test_create_session_keeps_explicit_blank_facilitator_name(
         self, client, org_token, programme
     ):
         session = call_org_json(
@@ -597,11 +597,11 @@ class TestOrganizerProgrammeTools:
                 "source_row_id": "bf25-row-1",
                 "title": "Wprowadzenie",
                 "category_id": programme["category"]["pk"],
-                "display_name": "",
+                "facilitator_name": "",
             },
         )
 
-        assert not session["display_name"]
+        assert not session["facilitator_name"]
 
     def test_assign_session_places_it_in_a_space(
         self, client, org_token, event, programme
@@ -1072,55 +1072,58 @@ class TestOrganizerUpdateSessionTool:
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
             status="accepted",
-            display_name="Wprowadzenie",
+            facilitator_name="Wprowadzenie",
         )
 
         updated = call_org_json(
             client,
             org_token,
             "update_session",
-            {"pk": session.pk, "display_name": "Jan Kowalski, Anna Nowak"},
+            {"pk": session.pk, "facilitator_name": "Jan Kowalski, Anna Nowak"},
         )
 
         session.refresh_from_db()
-        assert session.display_name == "Jan Kowalski, Anna Nowak"
+        assert session.facilitator_name == "Jan Kowalski, Anna Nowak"
         assert updated["pk"] == session.pk
-        assert updated["display_name"] == "Jan Kowalski, Anna Nowak"
+        assert updated["facilitator_name"] == "Jan Kowalski, Anna Nowak"
 
     def test_empty_string_clears_the_host_line(self, client, org_token, event):
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
             status="accepted",
-            display_name="Jan Kowalski",
+            facilitator_name="Jan Kowalski",
         )
 
         updated = call_org_json(
-            client, org_token, "update_session", {"pk": session.pk, "display_name": ""}
+            client,
+            org_token,
+            "update_session",
+            {"pk": session.pk, "facilitator_name": ""},
         )
 
         session.refresh_from_db()
-        assert not session.display_name
-        assert not updated["display_name"]
+        assert not session.facilitator_name
+        assert not updated["facilitator_name"]
 
     def test_rejects_foreign_session(self, client, org_token, sphere):
         foreign = SessionFactory(
             category=ProposalCategoryFactory(event=EventFactory(sphere=sphere)),
             status="accepted",
-            display_name="Elsewhere",
+            facilitator_name="Elsewhere",
         )
 
         response = call_org_tool(
             client,
             org_token,
             "update_session",
-            {"pk": foreign.pk, "display_name": "Hacked"},
+            {"pk": foreign.pk, "facilitator_name": "Hacked"},
         )
 
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
         foreign.refresh_from_db()
-        assert foreign.display_name == "Elsewhere"
+        assert foreign.facilitator_name == "Elsewhere"
 
 
 @pytest.mark.django_db

@@ -141,6 +141,7 @@ def location_data(space: Space) -> LocationData:
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
         sort_path=sort_path,
+        programme_order=space.programme_order,
     )
 
 

@@ -200,7 +200,7 @@ class TestAgendaItem:
             str(
                 AgendaItem(
                     session_confirmed=True,
-                    session=Session(title=title, display_name=name),
+                    session=Session(title=title, facilitator_name=name),
                 )
             )
             == f"{title} by {name} (True)"

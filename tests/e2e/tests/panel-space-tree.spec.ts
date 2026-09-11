@@ -11,17 +11,16 @@ function venueNode(page: Page, name: string) {
   });
 }
 
-function disclosureToggle(page: Page, name: string) {
+function disclosureHandle(page: Page, name: string) {
   return venueNode(page, auroraName).getByRole("button", {
-    name: `Toggle children of ${name}`,
+    name: `Reorder or toggle ${name} — arrow keys reorder; Enter or Space toggles children`,
     exact: true,
   });
 }
 
 function dragHandle(page: Page, name: string) {
   return venueNode(page, auroraName).getByRole("button", {
-    name: `Reorder ${name} — use the arrow keys`,
-    exact: true,
+    name: new RegExp(`^Reorder(?: or toggle)? ${name} —`),
   });
 }
 
@@ -42,18 +41,19 @@ test.describe("Venue tree handles", () => {
     await page.goto("/panel/event/frostfire-con/venues/");
   });
 
-  test("a disclosure toggle collapses only its children and preserves nested state", async ({
-    page,
-  }) => {
+  test("the branch border and drag handle fold only their own children", async ({ page }) => {
     const aurora = venueNode(page, auroraName);
-    const auroraToggle = disclosureToggle(page, auroraName);
-    const northToggle = disclosureToggle(page, "North Wing");
+    const auroraToggle = disclosureHandle(page, auroraName);
+    const northToggle = disclosureHandle(page, "North Wing");
     const gallery = aurora.getByText("Frost Gallery", { exact: true });
     const lounge = aurora.getByText("Hearth Lounge", { exact: true });
 
+    await expect(page.getByRole("button", { name: /^Toggle children of/ })).toHaveCount(0);
     await expect(auroraToggle).toHaveAttribute("aria-expanded", "true");
     await expect(gallery).toBeVisible();
-    await northToggle.click();
+    const northChildrenId = await northToggle.getAttribute("aria-controls");
+    expect(northChildrenId).not.toBeNull();
+    await page.locator(`#${northChildrenId}`).click({ position: { x: 2, y: 2 } });
     await expect(northToggle).toHaveAttribute("aria-expanded", "false");
     await expect(gallery).toBeHidden();
     await expect(lounge).toBeVisible();
@@ -62,7 +62,9 @@ test.describe("Venue tree handles", () => {
     await expect(auroraToggle).toHaveAttribute("aria-expanded", "false");
     await expect(lounge).toBeHidden();
     await expect(page.getByText(auroraName, { exact: true })).toBeVisible();
-    await expect(page.getByText(glacierName, { exact: true })).toBeVisible();
+    await expect(
+      venueNode(page, glacierName).getByText(glacierName, { exact: true }),
+    ).toBeVisible();
     await expect(auroraToggle).toBeFocused();
 
     await auroraToggle.click();
@@ -73,7 +75,7 @@ test.describe("Venue tree handles", () => {
   });
 
   test("Enter and Space toggle children without changing sibling order", async ({ page }) => {
-    const toggle = disclosureToggle(page, auroraName);
+    const toggle = disclosureHandle(page, auroraName);
     const aurora = venueNode(page, auroraName);
     const galleryLink = aurora.getByRole("link", { name: "Edit Frost Gallery", exact: true });
     const orderBefore = await aurora.getByRole("listitem").allTextContents();
@@ -95,7 +97,7 @@ test.describe("Venue tree handles", () => {
   });
 
   test("leaf drag handles and secondary clicks do not collapse the tree", async ({ page }) => {
-    const toggle = disclosureToggle(page, auroraName);
+    const toggle = disclosureHandle(page, auroraName);
     await toggle.click({ button: "right" });
     await page.keyboard.press("Escape");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -113,12 +115,41 @@ test.describe("Venue tree handles", () => {
   });
 
   for (const interaction of ["keyboard", "drag"] as const) {
+    test(`${interaction} moves a nested venue to the top level`, async ({ page }) => {
+      let movedSpaceId: number | undefined;
+      let siblingReorders = 0;
+      await page.route("**/venues/do/reorder", async (route) => {
+        siblingReorders += 1;
+        await route.fulfill({ json: { success: true } });
+      });
+      await page.route("**/venues/do/move-to-root", async (route) => {
+        movedSpaceId = (await route.request().postDataJSON()).space_id;
+        await route.fulfill({ json: { success: true } });
+      });
+      const handle = dragHandle(page, "North Wing");
+
+      if (interaction === "keyboard") {
+        await handle.focus();
+        await handle.press("ArrowLeft");
+      } else {
+        await handle.dragTo(
+          page.getByText(
+            "Drop a nested space here to move it to the top level. Keyboard: focus its handle and press Left Arrow.",
+            { exact: true },
+          ),
+        );
+      }
+
+      await expect.poll(() => movedSpaceId).toBeGreaterThan(0);
+      expect(siblingReorders).toBe(0);
+    });
+
     test(`${interaction} reorders a collapsed venue without toggling it`, async ({ page }) => {
       // NOTE: endpoint persistence is covered in panel.spec.ts; keep this gesture check from mutating shared fixtures.
       await page.route("**/venues/do/reorder", (route) =>
         route.fulfill({ json: { success: true } }),
       );
-      const toggle = disclosureToggle(page, "North Wing");
+      const toggle = disclosureHandle(page, "North Wing");
       const handle = dragHandle(page, "North Wing");
       const siblingNames = venueNode(page, auroraName).getByText(/^(Hearth Lounge|North Wing)$/);
       const originalOrder = await siblingNames.allTextContents();

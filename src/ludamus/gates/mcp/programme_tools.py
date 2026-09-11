@@ -502,7 +502,7 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("duration must be a positive ISO-8601 duration")
         return normalized
 
-    display_name: str | None = Field(
+    facilitator_name: str | None = Field(
         default=None,
         description=(
             "Host line shown under the title (e.g. presenter names); "
@@ -540,8 +540,10 @@ def _create_session(
                     "event_id": event.pk,
                     "contact_email": "",
                     "description": data.description,
-                    "display_name": (
-                        title if data.display_name is None else data.display_name
+                    "facilitator_name": (
+                        title
+                        if data.facilitator_name is None
+                        else data.facilitator_name
                     ),
                     "duration": data.duration,
                     "min_age": data.min_age,
@@ -572,7 +574,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _CreateSessionInput
-    audit_redacted_keys = frozenset({"display_name", "description"})
+    audit_redacted_keys = frozenset({"facilitator_name", "description"})
 
     @staticmethod
     def handle(call: ToolCall[_CreateSessionInput]) -> str:
@@ -759,7 +761,7 @@ class _SetEventImageInput(ImageUploadInput):
 
 class _UpdateSessionInput(BaseModel):
     pk: int = Field(description="Session primary key (see list_sessions)")
-    display_name: str = Field(
+    facilitator_name: str = Field(
         description="Host line shown under the title; empty string clears it"
     )
 
@@ -772,15 +774,15 @@ class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _UpdateSessionInput
-    audit_redacted_keys = frozenset({"display_name"})
+    audit_redacted_keys = frozenset({"facilitator_name"})
 
     @staticmethod
     def handle(call: ToolCall[_UpdateSessionInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        call.services.proposal_panel.set_session_display_name(
+        call.services.proposal_panel.set_session_facilitator_name(
             event_id=event.pk,
             session_id=call.data.pk,
-            display_name=call.data.display_name,
+            facilitator_name=call.data.facilitator_name,
         )
         session = call.services.proposal_panel.read_proposal(
             event_id=event.pk, proposal_id=call.data.pk

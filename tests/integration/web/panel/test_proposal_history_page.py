@@ -26,7 +26,7 @@ def _make_session(event, *, title, slug):
     return Session.objects.create(
         event=event,
         category=category,
-        display_name="Host",
+        facilitator_name="Host",
         title=title,
         slug=slug,
         participants_limit=5,

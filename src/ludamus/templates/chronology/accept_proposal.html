@@ -28,7 +28,7 @@
                 <div class="flex items-center gap-3 mb-6 flex-wrap">
                     <span class="shrink-0">{% include "components/avatar.html" with user=presenter size="size-9" %}</span>
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                        <div class="font-medium text-foreground">{{ session.display_name }}</div>
+                        <div class="font-medium text-foreground">{{ session.facilitator_name }}</div>
                         {% if session.contact_email %}
                             <a href="mailto:{{ session.contact_email }}"
                                class="text-sm text-primary hover:underline truncate">{{ session.contact_email }}</a>

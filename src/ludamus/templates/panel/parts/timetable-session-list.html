@@ -19,7 +19,7 @@
                  hx-target="#left-pane"
                  hx-swap="outerHTML">
                 <div class="text-sm font-medium text-foreground truncate">{{ session.title }}</div>
-                <div class="text-xs text-foreground-secondary truncate">{{ session.display_name }}</div>
+                <div class="text-xs text-foreground-secondary truncate">{{ session.facilitator_name }}</div>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-xs text-foreground-muted">{{ session.duration_minutes }} min</span>
                     {% if session.participants_limit %}

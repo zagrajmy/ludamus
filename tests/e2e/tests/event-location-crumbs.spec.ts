@@ -37,8 +37,12 @@ test.describe("Location breadcrumbs", () => {
 
     await card.getByRole("link", { name: "Main Hall" }).click();
 
-    await expect.poll(() => new URL(page.url()).searchParams.get("space")).toBe(`venue:${venue}`);
-    await expect(page.locator("#space-filter")).toHaveValue(`venue:${venue}`);
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("space"))
+      .toBe(JSON.stringify([`venue:${venue}`]));
+    await expect(
+      page.getByRole("button", { name: "Remove filter: Main Hall — all rooms" }),
+    ).toBeVisible();
     await expect(page.locator("#schedule-region")).toBeInViewport();
     expect(spaceNavs).toEqual([]);
 
@@ -66,9 +70,13 @@ test.describe("Location breadcrumbs", () => {
     await dialog.getByRole("link", { name: "East Wing" }).click();
 
     await expect(dialog).toBeHidden();
-    await expect.poll(() => new URL(page.url()).searchParams.get("space")).toBe(space);
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("space"))
+      .toBe(JSON.stringify([space]));
     await expect.poll(() => new URL(page.url()).searchParams.get("session")).toBeNull();
-    await expect(page.locator("#space-filter")).toHaveValue(space);
+    await expect(
+      page.getByRole("button", { name: "Remove filter: Main Hall — East Wing" }),
+    ).toBeVisible();
 
     const visible = page.locator(".session-wrapper:not([hidden])");
     await expect.poll(() => visible.count()).toBeGreaterThan(0);

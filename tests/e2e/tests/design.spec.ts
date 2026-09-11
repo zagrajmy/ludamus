@@ -342,14 +342,11 @@ test.describe("Design system page", () => {
     await page.goto("/design/");
     const combobox = await upgradedCombobox(page, "Fruit");
 
-    // The options a person can pick from are data, not nodes: the <noscript>
-    // the server wrote them into holds text and no elements at all.
     expect(
-      await page.evaluate(() => {
-        const source = document.querySelector("[data-combobox-source]");
-        return { elements: source?.children.length, text: (source?.textContent ?? "").length };
-      }),
-    ).toEqual({ elements: 0, text: expect.any(Number) });
+      await combobox.evaluate(
+        (input) => input.closest("[data-combobox]")?.querySelectorAll("select, option").length,
+      ),
+    ).toBe(0);
 
     await combobox.click();
     await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
