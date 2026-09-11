@@ -9,6 +9,7 @@ from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
 from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.specs.encounter import ENCOUNTER_RSVP_THROTTLE_SECONDS
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -58,7 +59,6 @@ def _rsvp(pk=1, *, encounter_id=1, user_id=OTHER_USER_ID):
     return EncounterRSVPDTO(
         creation_time=START_TIME - timedelta(days=1),
         encounter_id=encounter_id,
-        ip_address="10.0.0.1",
         pk=pk,
         user_id=user_id,
     )
@@ -92,13 +92,20 @@ class TestEncounterService:
         return collaborators.spheres
 
     @pytest.fixture
-    def service(self, transaction, encounters, rsvps, users, spheres):
+    def cache(self, collaborators):
+        cache = collaborators.cache
+        cache.get.return_value = None
+        return cache
+
+    @pytest.fixture
+    def service(self, transaction, encounters, rsvps, users, spheres, cache):
         return EncounterService(
             transaction=transaction,
             encounters=encounters,
             rsvps=rsvps,
             users=users,
             spheres=spheres,
+            cache=cache,
         )
 
     def test_build_index_merges_mine_and_rsvpd_sorted(
@@ -389,7 +396,6 @@ class TestEncounterService:
         encounter = _encounter(1, max_participants=4)
         encounters.read_by_share_code.return_value = encounter
         rsvps.count_by_encounter.return_value = 1
-        rsvps.recent_rsvp_exists.return_value = False
         rsvps.user_has_rsvpd.return_value = False
 
         outcome = service.rsvp(
@@ -400,7 +406,7 @@ class TestEncounterService:
         )
 
         assert outcome == RSVPOutcome.CREATED
-        assert rsvps.create.call_args == call(encounter.pk, "10.0.0.1", OTHER_USER_ID)
+        assert rsvps.create.call_args == call(encounter.pk, OTHER_USER_ID)
         # Every read the capacity, throttle and duplicate checks depend on has
         # to run between entering and exiting the transaction, or the checks
         # race the insert. Moving any of them out reorders this list.
@@ -409,7 +415,8 @@ class TestEncounterService:
             "transaction.atomic().__enter__",
             "encounters.read_by_share_code",
             "rsvps.count_by_encounter",
-            "rsvps.recent_rsvp_exists",
+            "cache.get",
+            "cache.set",
             "rsvps.user_has_rsvpd",
             "rsvps.create",
             "transaction.atomic().__exit__",
@@ -430,10 +437,10 @@ class TestEncounterService:
         assert outcome == RSVPOutcome.FULL
         rsvps.create.assert_not_called()
 
-    def test_rsvp_throttles_recent_ip(self, service, encounters, rsvps):
+    def test_rsvp_throttles_recent_ip(self, service, encounters, rsvps, cache):
         encounters.read_by_share_code.return_value = _encounter(1)
         rsvps.count_by_encounter.return_value = 0
-        rsvps.recent_rsvp_exists.return_value = True
+        cache.get.return_value = 1
 
         outcome = service.rsvp(
             share_code="CODE1",
@@ -443,14 +450,34 @@ class TestEncounterService:
         )
 
         assert outcome == RSVPOutcome.THROTTLED
-        rsvps.recent_rsvp_exists.assert_called_once_with("10.0.0.1")
+        cache.set.assert_not_called()
         rsvps.create.assert_not_called()
+
+    def test_rsvp_reserves_the_window_without_storing_the_address(
+        self, service, encounters, rsvps, cache
+    ):
+        encounters.read_by_share_code.return_value = _encounter(1)
+        rsvps.count_by_encounter.return_value = 0
+        rsvps.user_has_rsvpd.return_value = False
+
+        service.rsvp(
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            user_id=OTHER_USER_ID,
+            ip_address="10.0.0.1",
+        )
+
+        key = cache.set.call_args.args[0]
+        assert "10.0.0.1" not in key
+        assert cache.set.call_args.kwargs == {
+            "timeout": ENCOUNTER_RSVP_THROTTLE_SECONDS
+        }
+        assert cache.get.call_args.args[0] == key
 
     def test_rsvp_rejects_duplicate_signup(self, service, encounters, rsvps):
         encounter = _encounter(1)
         encounters.read_by_share_code.return_value = encounter
         rsvps.count_by_encounter.return_value = 0
-        rsvps.recent_rsvp_exists.return_value = False
         rsvps.user_has_rsvpd.return_value = True
 
         outcome = service.rsvp(
