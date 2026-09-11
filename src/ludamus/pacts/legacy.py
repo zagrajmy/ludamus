@@ -162,7 +162,7 @@ class UnscheduledSessionDTO(BaseModel):
 
     pk: int
     title: str
-    display_name: str
+    facilitator_name: str
     category_name: str
     category_pk: int | None
     duration_minutes: int
@@ -183,7 +183,7 @@ class SessionListItemDTO(BaseModel):
 
     category_name: str
     creation_time: datetime
-    display_name: str
+    facilitator_name: str
     is_scheduled: bool
     pk: int
     status: "SessionStatus"
@@ -226,7 +226,7 @@ class SessionDTO(BaseModel):
     participants_limit: int
     pk: int
     presenter_id: int | None
-    display_name: str
+    facilitator_name: str
     slug: str
     status: SessionStatus
     title: str
@@ -241,6 +241,7 @@ class LocationData(TypedDict):
     parent_name: str
     path: str
     sort_path: tuple[tuple[int, str, int], ...]
+    programme_order: int
 
 
 # A session that is not on the agenda has no space to describe. Shared, so
@@ -252,6 +253,7 @@ NO_LOCATION: LocationData = {
     "parent_name": "",
     "path": "",
     "sort_path": (),
+    "programme_order": 0,
 }
 
 
@@ -323,6 +325,7 @@ class SpaceDTO(BaseModel):
     modification_time: datetime
     name: str
     order: int
+    programme_order: int = 0
     pk: int
     slug: str
 
@@ -403,7 +406,7 @@ class SessionData(TypedDict, total=False):
     min_age: int
     participants_limit: int
     presenter_id: int | None
-    display_name: str
+    facilitator_name: str
     slug: str
     status: SessionStatus
     title: str
@@ -414,7 +417,7 @@ class SessionUpdateData(TypedDict, total=False):
     contact_email: str
     cover_image: UploadedFileProtocol | str
     description: str
-    display_name: str
+    facilitator_name: str
     duration: str
     min_age: int
     participants_limit: int

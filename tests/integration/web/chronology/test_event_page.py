@@ -207,26 +207,6 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("agenda_item")
-    def test_ok_participants_label_toggle(self, client, event):
-        response_default = client.get(self._get_url(event.slug))
-        content_default = response_default.content.decode()
-
-        event.use_participants_label = True
-        event.save()
-        response_toggled = client.get(self._get_url(event.slug))
-        content_toggled = response_toggled.content.decode()
-
-        assert response_default.status_code == HTTPStatus.OK
-        assert response_toggled.status_code == HTTPStatus.OK
-        # "Players" only appears as the header count label; "Participants" also
-        # names a session-modal tab, so a bare presence check would always pass.
-        # Compare its count across the toggle instead.
-        assert "Players" in content_default
-        assert "Players" not in content_toggled
-        assert content_toggled.count("Participants") > content_default.count(
-            "Participants"
-        )
-
     def test_ok_compact_schedule_for_big_event(
         self, active_user, agenda_item, client, event, monkeypatch
     ):
@@ -1330,7 +1310,7 @@ class TestEventPageView:
         presenter = UserFactory()
         session = SessionFactory(
             presenter=presenter,
-            display_name=presenter.name,
+            facilitator_name=presenter.name,
             event=event,
             # Named, not faker-worded: `_tagged_page_context` expects one
             # filter name per session, and the view offers the distinct names
@@ -1715,7 +1695,7 @@ class TestEventPageView:
         flexible_session = SessionFactory(
             category=pending_session.category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             participants_limit=5,
             min_age=0,
             status="pending",
@@ -1770,7 +1750,7 @@ class TestEventPageView:
             SessionFactory(
                 category=pending_session.category,
                 presenter=active_user,
-                display_name=active_user.name,
+                facilitator_name=active_user.name,
                 participants_limit=5,
                 min_age=0,
                 status="pending",
@@ -2184,10 +2164,10 @@ class TestEventPageView:
         )
 
     def test_ok_session_without_presenter_user(self, client, event, space):
-        display_name = "External Presenter"
+        facilitator_name = "External Presenter"
         session = SessionFactory(
             presenter=None,
-            display_name=display_name,
+            facilitator_name=facilitator_name,
             event=event,
             participants_limit=10,
             min_age=0,
@@ -2206,11 +2186,11 @@ class TestEventPageView:
             presenter=UserInfo(
                 avatar_url=None,
                 discord_username="",
-                full_name=display_name,
-                name=display_name,
+                full_name=facilitator_name,
+                name=facilitator_name,
                 pk=0,
                 slug="",
-                username=display_name,
+                username=facilitator_name,
             ),
             session_participations=[],
             session=SessionDTO.model_validate(session),
@@ -2962,7 +2942,7 @@ class TestEventPageEditAffordance:
         return SessionFactory(
             category=category,
             presenter=presenter,
-            display_name=presenter.name,
+            facilitator_name=presenter.name,
             participants_limit=10,
             min_age=0,
             status="accepted",

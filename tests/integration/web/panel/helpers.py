@@ -526,7 +526,7 @@ def make_proposal(event, **kwargs):
             "event": event,
             "category": category,
             "presenter": None,
-            "display_name": "Test Host",
+            "facilitator_name": "Test Host",
             "title": "Test Session",
             "slug": "test-session",
             "participants_limit": 5,

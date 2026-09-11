@@ -2658,7 +2658,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2731,7 +2731,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2775,7 +2775,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2810,7 +2810,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2847,7 +2847,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2881,7 +2881,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=None,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2925,7 +2925,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
@@ -2972,7 +2972,7 @@ class TestEventImportApplyFieldLayoutView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Talk",
             slug="talk",
             participants_limit=4,
