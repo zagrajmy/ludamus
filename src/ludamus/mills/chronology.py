@@ -263,7 +263,7 @@ class ProposalAcceptanceService:
                 session_id,
                 {
                     "status": SessionStatus.ACCEPTED,
-                    "display_name": session.display_name,
+                    "facilitator_name": session.facilitator_name,
                 },
             )
             self._agenda_items.create(
@@ -324,9 +324,13 @@ def _text_comparisons(
     comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
     if "title" in update:
         comparisons.append(("title", old_session.title, update["title"]))
-    if "display_name" in update:
+    if "facilitator_name" in update:
         comparisons.append(
-            ("display_name", old_session.display_name, update["display_name"])
+            (
+                "facilitator_name",
+                old_session.facilitator_name,
+                update["facilitator_name"],
+            )
         )
     if "description" in update:
         comparisons.append(
@@ -384,8 +388,8 @@ def _inverse_text_update(
         return False
     if field == "title":
         update["title"] = old
-    elif field == "display_name":
-        update["display_name"] = old
+    elif field == "facilitator_name":
+        update["facilitator_name"] = old
     elif field == "description":
         update["description"] = old
     elif field == "contact_email":
@@ -769,7 +773,7 @@ class SessionSelfEditService:
 
         update: SessionUpdateData = {
             "title": _str("title"),
-            "display_name": _str("display_name"),
+            "facilitator_name": _str("facilitator_name"),
             "description": _str("description"),
             "contact_email": _str("contact_email"),
             "participants_limit": _int("participants_limit"),
