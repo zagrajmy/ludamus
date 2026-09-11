@@ -37,7 +37,7 @@ GIF_BYTES = (
 GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {
     "form": ANY,
     "needs_disable_confirmation": False,
-    "lost_logo_upload": False,
+    "lost_logo_change": False,
 }
 
 PAGE_DATA = {"encounters_policy": "everyone"}
@@ -353,6 +353,32 @@ class TestSphereSettingsPageView:
         )
         sphere.refresh_from_db()
         assert sphere.encounters_policy == "everyone"
+
+    @pytest.mark.parametrize(
+        "logo_change",
+        (
+            {"logo": SimpleUploadedFile("brand.png", PNG_BYTES, "image/png")},
+            {"logo-clear": "on"},
+        ),
+        ids=("upload", "clear"),
+    )
+    def test_post_losing_a_logo_change_to_the_confirmation_says_so(
+        self, authenticated_client, active_user, sphere, logo_change
+    ):
+        sphere.managers.add(active_user)
+        EncounterFactory(sphere=sphere)
+
+        response = authenticated_client.post(
+            self.url, data={"encounters_policy": "none"} | logo_change
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=SETTINGS_TEMPLATE,
+            context_data=GENERAL_PANEL_CONTEXT
+            | {"needs_disable_confirmation": True, "lost_logo_change": True},
+        )
 
     def test_post_turning_encounters_off_confirmed_saves(
         self, authenticated_client, active_user, sphere

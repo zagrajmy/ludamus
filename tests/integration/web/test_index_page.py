@@ -11,8 +11,8 @@ from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
-from ludamus.mills.encounter import PAST_FEED_LIMIT
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
+from ludamus.pacts.encounter import PAST_FEED_LIMIT
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -706,6 +706,9 @@ class TestEventsPageFeed:
 
         response = client.get(self.URL)
 
+        assert_response(
+            response, HTTPStatus.OK, context_data=ANY, template_name=["index.html"]
+        )
         past = response.context_data["past"]
         assert len(past) == PAST_FEED_LIMIT
         assert all(item.kind == "encounter" for item in past)

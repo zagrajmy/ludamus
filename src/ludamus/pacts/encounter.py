@@ -6,6 +6,10 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import EncounterData, EncounterDTO, EncounterFeed
 
+# How far back the feed reads. Enforced twice — the repository stops
+# fetching, the page stops rendering — so both halves cut at the same row.
+PAST_FEED_LIMIT = 24
+
 
 class EncounterDetailContextDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -6549,8 +6549,8 @@ msgstr ""
 "Wyłączenie ich ukryje je przed wszystkimi. Zapisz ponownie, aby potwierdzić."
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
-msgid "Nothing was saved, so pick your logo file again."
-msgstr "Nic nie zostało zapisane, więc wybierz plik z logo jeszcze raz."
+msgid "Nothing was saved, so set the logo again."
+msgstr "Nic nie zostało zapisane, więc ustaw logo jeszcze raz."
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 msgid "Save anyway"
