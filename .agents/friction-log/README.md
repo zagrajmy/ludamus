@@ -78,6 +78,11 @@ on default-branch pushes, issues closing or reopening, a daily schedule, or
 manual dispatch. Humans review and merge the pull request; no automatic approval
 is configured.
 
+The Frog GitHub App must not be installed on this repository. Frog trusts a
+single issue author: the App files as `frog-fm[bot]`, the Action as
+`github-actions[bot]`, and each one discards the other's issues, clearing their
+links and refiling every entry.
+
 Action-only reports this repository only. Entries carrying `target:` stay
 deferred, pull requests get no Frog comment, and reports cannot be filed from a
 fork.

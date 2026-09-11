@@ -1,4 +1,4 @@
 {
   "$schema": "https://unpkg.com/frog/schema.json",
-  "maxPerRun": 200
+  "maxPerRun": 1000
 }
