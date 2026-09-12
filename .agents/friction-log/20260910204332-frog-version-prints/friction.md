@@ -1,6 +1,7 @@
 ---
 title: 'Frog --version prints help instead of its installed version'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1276'
 ---
 
 ## Expected Behavior

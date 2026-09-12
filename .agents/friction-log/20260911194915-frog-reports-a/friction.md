@@ -1,6 +1,7 @@
 ---
 title: 'Frog reports a GitHub rate limit as a missing issues permission'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1285'
 ---
 
 ## Expected Behavior
