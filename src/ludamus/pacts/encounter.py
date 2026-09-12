@@ -4,12 +4,11 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import (
-    EncounterData,
-    EncounterDTO,
-    EncounterIndexItem,
-    EncounterIndexResult,
-)
+from ludamus.pacts.legacy import EncounterData, EncounterDTO, EncounterFeed
+
+# How far back the feed reads. Enforced twice — the repository stops
+# fetching, the page stops rendering — so both halves cut at the same row.
+PAST_FEED_LIMIT = 24
 
 
 class EncounterDetailContextDTO(BaseModel):
@@ -42,9 +41,9 @@ class RSVPOutcome(StrEnum):
 
 
 class EncounterServiceProtocol(Protocol):
-    def build_index(self, *, sphere_id: int, user_id: int) -> EncounterIndexResult: ...
-    def list_public_upcoming(self, *, sphere_id: int) -> list[EncounterIndexItem]: ...
-    def can_set_public(self, *, sphere_id: int, user_id: int) -> bool: ...
+    def enabled(self, sphere_id: int) -> bool: ...
+    def list_feed(self, *, sphere_id: int, user_id: int | None) -> EncounterFeed: ...
+    def can_create(self, *, sphere_id: int, user_id: int) -> bool: ...
     def build_detail(
         self, *, share_code: str, sphere_id: int, current_user_id: int | None
     ) -> EncounterDetailContextDTO: ...

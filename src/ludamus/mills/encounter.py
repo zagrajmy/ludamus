@@ -4,14 +4,15 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
     EncounterServiceProtocol,
     RSVPOutcome,
 )
 from ludamus.pacts.legacy import (
+    EncounterFeed,
     EncounterIndexItem,
-    EncounterIndexResult,
-    EncounterPublicPolicy,
+    EncountersPolicy,
     NotFoundError,
 )
 from ludamus.pacts.multiverse import SphereRole
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
         EncounterRSVPRepositoryProtocol,
         SphereRepositoryProtocol,
     )
+    from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -37,48 +39,55 @@ class EncounterService(EncounterServiceProtocol):
         rsvps: EncounterRSVPRepositoryProtocol,
         users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        sites: SitesServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
         self._rsvps = rsvps
         self._users = users
         self._spheres = spheres
+        # Read through the sites service, not the repository: every encounter
+        # route asks for the policy twice — once at the view's gate, once in
+        # the method the view then calls — and that service already memoises
+        # the current sphere for the request.
+        self._sites = sites
 
-    def can_set_public(self, *, sphere_id: int, user_id: int) -> bool:
-        policy = self._spheres.read(sphere_id).encounter_public_policy
-        if policy is EncounterPublicPolicy.EVERYONE:
+    def _policy(self, sphere_id: int) -> EncountersPolicy:
+        return self._sites.read(sphere_id).encounters_policy
+
+    def enabled(self, sphere_id: int) -> bool:
+        return self._policy(sphere_id) is not EncountersPolicy.NONE
+
+    def can_create(self, *, sphere_id: int, user_id: int) -> bool:
+        policy = self._policy(sphere_id)
+        if policy is EncountersPolicy.EVERYONE:
             return True
-        if policy is EncounterPublicPolicy.MANAGERS:
+        if policy is EncountersPolicy.MANAGERS:
             user = self._users.read_by_id(user_id)
             role = self._spheres.manager_role(sphere_id, user.slug)
             return role is SphereRole.MANAGER
         return False
 
-    def list_public_upcoming(self, *, sphere_id: int) -> list[EncounterIndexItem]:
-        """List the sphere's public feed, which reads the same for everyone."""
-        return self._index_items(
-            self._encounters.list_public_upcoming(sphere_id), user_id=None
-        )
+    def list_feed(self, *, sphere_id: int, user_id: int | None) -> EncounterFeed:
+        """List what this visitor may see of the sphere's encounters.
 
-    def build_index(self, *, sphere_id: int, user_id: int) -> EncounterIndexResult:
-        all_public = self._encounters.list_public_upcoming(sphere_id)
-        mine = self._encounters.list_upcoming_by_creator(sphere_id, user_id)
-        my_ids = {encounter.pk for encounter in mine}
-        rsvpd = [
-            encounter
-            for encounter in self._encounters.list_upcoming_rsvpd(sphere_id, user_id)
-            if encounter.pk not in my_ids
-        ]
-        upcoming = self._index_items([*mine, *rsvpd], user_id=user_id)
-        upcoming.sort(key=lambda item: item.encounter.start_time)
-        personal_ids = {item.encounter.pk for item in upcoming}
-        return EncounterIndexResult(
-            upcoming=upcoming,
-            past=self._index_items(
-                self._encounters.list_past(sphere_id, user_id), user_id=user_id
+        Returns:
+            The listed encounters plus, for a signed-in visitor, the ones they
+            organise or hold an RSVP to — upcoming soonest-first, past
+            most-recent-first.
+        """
+        if not self.enabled(sphere_id):
+            return EncounterFeed(upcoming=[], past=[])
+        return EncounterFeed(
+            upcoming=self._index_items(
+                self._encounters.list_visible_upcoming(sphere_id, user_id),
+                user_id=user_id,
             ),
-            public=self._index_items(
-                [e for e in all_public if e.pk not in personal_ids], user_id=user_id
+            past=self._index_items(
+                self._encounters.list_visible_past(
+                    sphere_id, user_id, limit=PAST_FEED_LIMIT
+                ),
+                user_id=user_id,
             ),
         )
 
@@ -86,7 +95,7 @@ class EncounterService(EncounterServiceProtocol):
         self, encounters: list[EncounterDTO], *, user_id: int | None
     ) -> list[EncounterIndexItem]:
         # Both lookups are batched: the public feed is rendered for anonymous
-        # visitors on every sphere with a timeline, so a query per card here
+        # visitors on every sphere's events feed, so a query per card here
         # would be the page's cost.
         rsvp_counts = self._rsvps.count_by_encounters([e.pk for e in encounters])
         names = self._creator_names(
@@ -139,12 +148,12 @@ class EncounterService(EncounterServiceProtocol):
         return self._encounters.read_by_share_code(share_code, sphere_id)
 
     def create(self, data: EncounterData) -> EncounterDTO:
-        # The public flag is policy-gated; a forged form value from someone
-        # the sphere policy doesn't cover is dropped, not an error.
-        if "is_public" in data and not self.can_set_public(
-            sphere_id=data["sphere_id"], user_id=data["creator_id"]
-        ):
-            data = _without_public_flag(data)
+        # Creating is the one thing the policy decides, so it is checked here
+        # too rather than only at the view's gate. Editing, deleting and
+        # RSVPing ask about ownership or an invitation instead, and the
+        # methods below answer that.
+        if not self.can_create(sphere_id=data["sphere_id"], user_id=data["creator_id"]):
+            raise NotFoundError
         return self._encounters.create(data)
 
     def read_owned(self, *, pk: int, sphere_id: int, user_id: int) -> EncounterDTO:
@@ -158,11 +167,13 @@ class EncounterService(EncounterServiceProtocol):
     ) -> EncounterDTO:
         with self._transaction.atomic():
             self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            # Dropping the key preserves the stored flag, so a policy flip to
-            # "disabled" never silently unpublishes existing encounters.
-            if "is_public" in data and not self.can_set_public(
+            if "is_public" in data and not self.can_create(
                 sphere_id=sphere_id, user_id=user_id
             ):
+                # Owning an encounter is enough to edit it, but not to list
+                # it: publishing is what the sphere's policy governs. The key
+                # is dropped rather than forced false, so a sphere narrowing
+                # to managers never silently unpublishes what is already out.
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             return self._encounters.read(pk, sphere_id)

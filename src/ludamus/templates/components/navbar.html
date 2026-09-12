@@ -10,7 +10,7 @@
                     {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
                     <span class="sr-only sm:hidden">zagrajmy</span>
                     {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
-                    <span class="flex items-center gap-2 text-xl font-semibold tracking-tight{% if not current_sphere.logo_url and current_sphere.enabled_pages|length > 1 %} max-sm:hidden{% endif %}">
+                    <span class="flex items-center gap-2 text-xl font-semibold tracking-tight">
                         <span class="text-foreground-muted" aria-hidden="true">/</span>
                         {% if current_sphere.logo_url %}
                             <img src="{{ current_sphere.logo_url }}"
@@ -19,12 +19,9 @@
                                  height="24"
                                  class="h-6 w-[35px] rounded object-contain">
                         {% endif %}
-                        <span class="{% if current_sphere.logo_url or current_sphere.enabled_pages|length > 1 %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
+                        <span class="{% if current_sphere.logo_url %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
                     </span>
                 </a>
-                {% if current_sphere.enabled_pages|length > 1 %}
-                    {% include "components/navbar_pages.html" %}
-                {% endif %}
             </div>
             <div class="flex items-center gap-2 -translate-y-px">
                 {% if request.user.is_authenticated %}
