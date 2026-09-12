@@ -134,7 +134,16 @@ base = "tingle.builtins.mypy.overrides"
 base = "tingle.builtins.python.any_used"
 name = "type-any"
 ranges = ["python-src"]
-ignore_lines = ['^from ', '^\s+Any,$']
+# TemplateResponseMixin.render_to_response is stubbed by django-stubs as
+# `(self, context: dict[str, Any], **response_kwargs: Any) -> _T`; an
+# override must match that exact signature to satisfy Liskov, so this one
+# line's two Any uses are not optional. Same treatment as the admin-class
+# exemption on type-ignore-comment above.
+ignore_lines = [
+    '^from ',
+    '^\s+Any,$',
+    '^\s+self, context: dict\[str, Any\], \*\*response_kwargs: Any$',
+]
 
 [[metrics]]
 name = "type-object"
