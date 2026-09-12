@@ -11,6 +11,7 @@ from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
+from ludamus.gates.web.django.landing import index_page
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -75,7 +76,7 @@ chronology_urls = [
 ]
 
 urlpatterns = [
-    path("", views.IndexRedirectView.as_view(), name="index"),
+    path("", index_page, name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
     path("timeline/", TimelinePageView.as_view(), name="timeline"),
     path(

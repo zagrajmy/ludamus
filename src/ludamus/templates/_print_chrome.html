@@ -1,0 +1,50 @@
+{% comment %}
+    Print support for public pages: hide the interactive chrome and, for
+    dark-mode visitors, print with the light palette (dark text instead of
+    light text on unprinted white).
+{% endcomment %}
+<style media="print">
+    @page {
+        margin: 1.2cm;
+    }
+
+    nav,
+    footer,
+    .flash-region {
+        display: none !important;
+    }
+
+    html.dark {
+        color-scheme: light;
+        --color-background: #f0f1f3;
+        --color-bg-secondary: #fdfcfb;
+        --color-bg-tertiary: #f7f5f3;
+        --color-foreground: #252220;
+        --color-foreground-secondary: #5c534a;
+        --color-foreground-muted: #737373;
+        --color-foreground-inverse: #ffffff;
+        --color-border: #e4ddd6;
+        --color-primary: #f85a3c;
+        --color-primary-hover: #e53e20;
+        --color-primary-light: #fef5f3;
+        --color-secondary: #14b89b;
+        --color-secondary-hover: #0d947e;
+        --color-secondary-light: #f0fdfa;
+        --color-success: #2cb65b;
+        --color-success-light: #dcfce7;
+        --color-success-bg: #f0fdf4;
+        --color-success-text: #166534;
+        --color-warning: #f59e0b;
+        --color-warning-light: #fef3c7;
+        --color-warning-bg: #fffbeb;
+        --color-warning-text: #92400e;
+        --color-danger: #ef4444;
+        --color-danger-light: #fee2e2;
+        --color-danger-bg: #fef2f2;
+        --color-danger-text: #991b1b;
+        --color-info: #3b82f6;
+        --color-info-light: #dbeafe;
+        --color-info-bg: #eff6ff;
+        --color-info-text: #1e40af;
+    }
+</style>

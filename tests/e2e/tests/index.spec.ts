@@ -2,7 +2,7 @@ import { expect, test } from "./helpers/fixtures";
 
 test.describe("Event index", () => {
   test("lists upcoming and past events and links to event detail", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/events/");
 
     await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
     const upcomingCard = page.getByRole("link", { name: /Autumn Open Playtest/ });

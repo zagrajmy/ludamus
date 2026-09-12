@@ -93,7 +93,6 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SpherePage,
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
@@ -192,20 +191,6 @@ class StagingEmailInboxView(View):
             "staging_email_inbox.html",
             {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
         )
-
-
-class IndexRedirectView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        sphere = self.request.services.sites.read(
-            self.request.context.current_sphere_id
-        )
-        if sphere.default_page == SpherePage.ENCOUNTERS:
-            return redirect("web:notice-board:index")
-        if sphere.default_page == SpherePage.TIMELINE:
-            return redirect("web:timeline")
-        return redirect("web:events")
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
