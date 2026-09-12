@@ -73,10 +73,10 @@ class _ListByEvent:
     def __init__(self, rows):
         self._rows = rows
 
-    def list_by_event(self, _event_pk):
+    def list_by_event(self, _event_pk, *, public_only=False):
         return list(self._rows)
 
-    def list_by_track(self, _track_pk):
+    def list_by_track(self, _track_pk, *, public_only=False):
         return list(self._rows)
 
 
