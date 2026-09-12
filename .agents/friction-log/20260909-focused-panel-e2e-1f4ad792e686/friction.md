@@ -6,6 +6,7 @@ context:
   source: 'PAPERCUTS.txt'
   source_commit: '51c7d71cd'
   source_line: 564
+issue: 'zagrajmy/ludamus#1267'
 ---
 
 ## Expected Behavior
