@@ -748,7 +748,7 @@ class TestSessionEnrollPageView:
     @pytest.mark.usefixtures("enrollment_config")
     def test_post__error_conflict(self, active_user, agenda_item, authenticated_client):
         other_session = SessionFactory(
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             event=agenda_item.session.event,
             participants_limit=10,
         )
@@ -1988,7 +1988,7 @@ class TestSessionEnrollPageView:
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         other_session = SessionFactory(
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             event=agenda_item.session.event,
             participants_limit=10,
         )

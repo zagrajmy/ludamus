@@ -180,7 +180,7 @@ class SessionFactory(DjangoModelFactory):
     slug = Sequence(lambda n: f"session-{n}")
     description = Faker("text")
     presenter = SubFactory(UserFactory)
-    display_name = Faker("name")
+    facilitator_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
     event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
@@ -399,7 +399,7 @@ def session_fixture(active_user, event):
         event=event,
         category=None,
         presenter=active_user,
-        display_name=active_user.full_name,
+        facilitator_name=active_user.full_name,
         participants_limit=10,
         min_age=0,
     )
@@ -415,7 +415,7 @@ def pending_session_fixture(proposal_category, active_user):
     return SessionFactory(
         category=proposal_category,
         presenter=active_user,
-        display_name=active_user.name,
+        facilitator_name=active_user.name,
         participants_limit=10,
         min_age=0,
         status="pending",
