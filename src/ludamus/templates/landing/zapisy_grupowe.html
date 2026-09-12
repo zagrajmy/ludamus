@@ -368,106 +368,112 @@
                 {% endblocktranslate %}
             </p>
         </div>
-        <div class="min-w-0 max-w-[470px] w-full mx-auto">
-            {# Participants-tab replica: deliberately a light "screenshot" in both themes #}
-            <div class="p1-anim bg-[#fdfcfb] border border-[#e4ddd6] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_-18px_rgba(61,55,50,0.25)] overflow-hidden"
+        {% comment %}
+            The card grows and shrinks by ~120px as rows fold through the loop,
+            which would walk the rest of the page up and down. The column
+            reserves the tallest frame once and centres the card in it, so the
+            motion stays inside this box.
+        {% endcomment %}
+        <div class="min-w-0 max-w-[470px] w-full mx-auto flex flex-col justify-center min-h-[49rem]">
+            {# Participants-tab replica: follows the theme, because the tab it copies does. #}
+            <div class="p1-anim bg-bg-secondary border border-border rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_-18px_rgba(61,55,50,0.25)] overflow-hidden"
                  aria-hidden="true">
-                <div class="flex items-center justify-between gap-4 px-[1.125rem] py-[0.875rem] border-b border-[#e4ddd6]">
-                    <span class="font-semibold text-[0.9375rem] text-[#252220]">{% translate "Board game prototyping workshop" %}</span>
-                    <span class="text-[#737373] text-[1.125rem] leading-none">×</span>
+                <div class="flex items-center justify-between gap-4 px-[1.125rem] py-[0.875rem] border-b border-border">
+                    <span class="font-semibold text-[0.9375rem] text-foreground">{% translate "Board game prototyping workshop" %}</span>
+                    <span class="text-foreground-muted text-[1.125rem] leading-none">×</span>
                 </div>
-                <div class="flex gap-1 px-3 border-b border-[#e4ddd6] text-[0.8125rem] font-medium">
+                <div class="flex gap-1 px-3 border-b border-border text-[0.8125rem] font-medium">
                     {# ludamus-disable:no-negative-margin -- tab underline sits on the bar border #}
-                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-[#737373] border-b-2 border-transparent -mb-px">
+                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-foreground-muted border-b-2 border-transparent -mb-px">
                         <svg class="w-3.5 h-3.5 flex-none" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" />
                         </svg>
                         {% translate "Info" %}
                     </span>
                     {# ludamus-disable:no-negative-margin -- tab underline sits on the bar border #}
-                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-[#e53e20] font-semibold border-b-2 border-[#f85a3c] -mb-px">
+                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-primary-hover font-semibold border-b-2 border-primary -mb-px">
                         <svg class="w-3.5 h-3.5 flex-none" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM1.49 15.326a.78.78 0 0 1-.358-.442 3 3 0 0 1 4.308-3.516 6.484 6.484 0 0 0-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 0 1-2.07-.655ZM16.44 15.98a4.97 4.97 0 0 0 2.07-.654.78.78 0 0 0 .357-.442 3 3 0 0 0-4.308-3.517 6.484 6.484 0 0 1 1.907 3.96 2.32 2.32 0 0 1-.026.654ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM5.304 16.19a.844.844 0 0 1-.277-.71 5 5 0 0 1 9.947 0 .843.843 0 0 1-.277.71A6.975 6.975 0 0 1 10 18a6.974 6.974 0 0 1-4.696-1.81Z" />
                         </svg>
                         {% translate "Participants" %}
-                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-[#f0ece8] text-[#5c534a]"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>
-                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-[#fef3c7] text-[#92400e]"><span class="p1-old">+3</span><span class="p1-new">+1</span></span>
+                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-bg-tertiary text-foreground-secondary"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>
+                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-warning-bg text-warning-text"><span class="p1-old">+3</span><span class="p1-new">+1</span></span>
                     </span>
                 </div>
                 <div class="px-[1.125rem] pt-4 pb-[1.125rem]">
-                    <p class="mb-2 text-[0.8125rem] font-semibold text-[#5c534a] tabular-nums">
+                    <p class="mb-2 text-[0.8125rem] font-semibold text-foreground-secondary tabular-nums">
                         {% translate "Enrolled" context "landing group demo" %} (<span class="p1-swap"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>/8)
                     </p>
                     <div class="p1-fold p1-out p1-out1">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#eff6ff] text-[#1e40af]">MA</span>Marek
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-info-bg text-info-text">MA</span>Marek
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">ZO</span>Zosia
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-secondary-light text-secondary-hover">ZO</span>Zosia
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdf4] text-[#166534]">KU</span>Kuba
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-success-bg text-success-text">KU</span>Kuba
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#fef5f3] text-[#9a3412]">HA</span>Hania
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-primary-light text-primary-hover">HA</span>Hania
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0ece8] text-[#5c534a]">TO</span>Tomek
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-bg-tertiary text-foreground-secondary">TO</span>Tomek
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#eff6ff] text-[#1e40af]">AN</span>Ania
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-info-bg text-info-text">AN</span>Ania
                         </div>
                     </div>
                     <div class="p1-fold p1-out p1-out2">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">WO</span>Wojtek
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-secondary-light text-secondary-hover">WO</span>Wojtek
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#fef5f3] text-[#9a3412]">MA</span>Magda
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-primary-light text-primary-hover">MA</span>Magda
                         </div>
                     </div>
                     <div class="p1-fold p1-in">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdf4] text-[#166534]">AL</span>Ala
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-success-bg text-success-text">AL</span>Ala
                         </div>
                     </div>
                     <div class="p1-fold p1-in">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">OL</span>Ola
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-secondary-light text-secondary-hover">OL</span>Ola
                         </div>
                     </div>
-                    <p class="mt-4 mb-2 text-[0.8125rem] font-semibold text-[#5c534a] tabular-nums">{% translate "Waiting list" %}</p>
+                    <p class="mt-4 mb-2 text-[0.8125rem] font-semibold text-foreground-secondary tabular-nums">{% translate "Waiting list" %}</p>
                     <div class="p1-groupfold p1-out p1-grpout">
-                        <div class="relative border border-[#5eead4] bg-[#f0fdfa]/55 rounded-[0.8125rem] p-[0.3125rem] mt-[0.375rem]">
-                            <span class="absolute -top-[0.5625rem] right-[0.625rem] text-[0.65rem] font-semibold tracking-[0.03em] text-[#0f766e] bg-[#f0fdfa] border border-[#5eead4] rounded-full px-[0.4375rem] leading-4">{% translate "group" %}</span>
+                        <div class="p1-group relative border border-secondary bg-secondary-light/55 rounded-[0.8125rem] p-[0.3125rem] mt-[0.625rem]">
+                            <span class="absolute -top-[0.5625rem] right-[0.625rem] inline-flex h-[1.125rem] items-center text-[0.65rem]/none font-semibold tracking-[0.03em] text-box-trim-both text-secondary-hover bg-secondary-light border border-secondary rounded-full px-[0.4375rem]">{% translate "group" %}</span>
                             <div class="p1-fold">
-                                <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] grid place-items-center text-xs font-bold tabular-nums">1</span>Ala<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
+                                <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-warning-bg border border-warning-light text-warning-text grid place-items-center text-xs font-bold tabular-nums">1</span>Ala<span class="ml-auto text-xs font-normal text-foreground-muted tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
                                 </div>
                             </div>
                             <div class="p1-fold">
-                                <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] grid place-items-center text-xs font-bold tabular-nums">2</span>Ola<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
+                                <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-warning-bg border border-warning-light text-warning-text grid place-items-center text-xs font-bold tabular-nums">2</span>Ola<span class="ml-auto text-xs font-normal text-foreground-muted tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
-                            <span class="p1-swap w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] place-items-center text-xs font-bold tabular-nums"><span class="p1-old">3</span><span class="p1-new">1</span></span>
-                            Basia<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 15:02" %}</span>
+                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
+                            <span class="p1-swap w-6 h-6 flex-none rounded-[0.4375rem] bg-warning-bg border border-warning-light text-warning-text place-items-center text-xs font-bold tabular-nums"><span class="p1-old">3</span><span class="p1-new">1</span></span>
+                            Basia<span class="ml-auto text-xs font-normal text-foreground-muted tabular-nums whitespace-nowrap">{% translate "4 Jul, 15:02" %}</span>
                         </div>
                     </div>
                 </div>

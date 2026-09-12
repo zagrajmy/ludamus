@@ -2,12 +2,11 @@
 <section class="pt-10 pb-[4.5rem] max-[30rem]:pt-6 group-has-[#aud-gracz:checked]/aud:hidden"
          aria-labelledby="landing-hero-heading">
     <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <p class="ld d1 inline-block text-[0.8rem] font-semibold tracking-[0.09em] uppercase text-primary-hover bg-primary-light border border-primary-light px-[0.8rem] py-[0.3rem] rounded-full">
-                {% translate "For conference and meetup organizers" %}
-            </p>
-            {% include "landing/_aud_switch.html" %}
-        </div>
+        {% comment %}
+            Floated so it sits on the h1's first line at desktop width instead
+            of stacking a near-empty row above it.
+        {% endcomment %}
+        <div class="ld d1 mb-6 flex justify-end lg:float-right lg:mb-0 lg:ml-8">{% include "landing/_aud_switch.html" %}</div>
         <h1 id="landing-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
             {% translate "Event organization" %}

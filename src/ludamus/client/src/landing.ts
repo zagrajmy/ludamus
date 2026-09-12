@@ -22,6 +22,18 @@ if (org && gracz) {
 
 const steps = [...document.querySelectorAll<HTMLInputElement>('input[name="landing-krok"]')];
 const scena = document.querySelector(".sc");
+
+// 1-6 jump straight to an act. Bound to the section, not to `.sc`: the radios
+// are `.sc`'s siblings, so a keypress on one never reaches it. Scoped there
+// rather than to the document so digits stay typeable everywhere else.
+document.getElementById("scena")?.addEventListener("keydown", (event) => {
+  const { key } = event as KeyboardEvent;
+  const step = steps[Number(key) - 1];
+  if (!step || !/^[1-9]$/.test(key)) return;
+  event.preventDefault();
+  step.checked = true;
+  step.dispatchEvent(new Event("change", { bubbles: true }));
+});
 if (scena && steps.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
   let timer = 0;
   const advance = () => {

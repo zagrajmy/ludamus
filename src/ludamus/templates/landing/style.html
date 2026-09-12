@@ -6,11 +6,19 @@ landing templates; this file keeps only what utilities cannot express:
 - the spreadsheet-caricature artwork,
 - the Scena step machine (radio-driven positional states for the chip cast).
 Colors reference the theme-aware tessera variables so dark mode keeps working;
-the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
+the print artifacts (printouts, door card, step-6 stage) stay paper in both
+themes — newsprint rather than white once the page around them is dark.
 {% endcomment %}
 <style>
     .landing {
         --ease: cubic-bezier(0.23, 1, 0.32, 1);
+        /* Print artifacts stay paper in both themes, but pure white against
+           the dark page is a glare step rather than a sheet of paper. */
+        --paper: #fff;
+    }
+
+    .dark .landing {
+        --paper: #f2efeb;
     }
 
     /* page-load choreography (skipped entirely under reduced motion) */
@@ -357,10 +365,18 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         height: 8%;
         display: flex;
         align-items: center;
-        gap: 0.7rem;
+        gap: 0.4rem;
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.45s, visibility 0s linear 0.45s;
+        filter: blur(1px);
+        /* The strips cross-fade in place, so without the blur you read two
+           overlapping sets of pills rather than one changing. Named
+           properties, not `all`: `visibility` needs its own zero-length
+           delayed step. */
+        transition:
+            opacity 0.28s var(--ease),
+            filter 0.28s var(--ease),
+            visibility 0s linear 0.28s;
         pointer-events: none;
     }
 
@@ -372,6 +388,7 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
     #k6:checked~.sc .ctx6 {
         opacity: 1;
         visibility: visible;
+        filter: blur(0);
         transition-delay: 0s;
     }
 
@@ -760,7 +777,7 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
 
     /* step 6 — print sheet (always a light "paper" artifact) */
     #k6:checked~.sc .stage {
-        background: #fff;
+        background: var(--paper);
         border-color: #c9bfb3;
     }
 
@@ -770,7 +787,7 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
 
     #k6:checked~.sc .ctx6 span {
         color: #3d3732;
-        background: #fff;
+        background: var(--paper);
         border-color: #a69a8c;
     }
 
@@ -778,7 +795,7 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         filter: grayscale(1);
         box-shadow: none;
         border-color: #a69a8c;
-        background: #fff;
+        background: var(--paper);
     }
 
     #k6:checked~.sc .chip .ct {
@@ -804,7 +821,7 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         bottom: 5%;
         width: 31%;
         padding: 0.9rem 1rem;
-        background: #fff;
+        background: var(--paper);
         border: 1.5px solid #3d3732;
         border-radius: 0.55rem;
         opacity: 0;
