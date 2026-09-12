@@ -11,7 +11,6 @@ themes — newsprint rather than white once the page around them is dark.
 {% endcomment %}
 <style>
     .landing {
-        --ease: cubic-bezier(0.23, 1, 0.32, 1);
         /* Print artifacts stay paper in both themes, but pure white against
            the dark page is a glare step rather than a sheet of paper. */
         --paper: #fff;
@@ -19,13 +18,17 @@ themes — newsprint rather than white once the page around them is dark.
 
     .dark .landing {
         --paper: #f2efeb;
+        /* Step 6 keeps its cards on paper but leaves the sheet behind them
+           dark, so the stage chrome has to read against the page instead. */
+        --stage-paper: var(--color-background);
+        --stage-ink: var(--color-foreground);
     }
 
     /* page-load choreography (skipped entirely under reduced motion) */
     @media (prefers-reduced-motion: no-preference) {
         .landing .ld {
             opacity: 0;
-            animation: landingLdIn 0.85s var(--ease) forwards;
+            animation: landingLdIn 0.85s var(--ease-out) forwards;
         }
 
         .landing .d0 {
@@ -127,7 +130,7 @@ themes — newsprint rather than white once the page around them is dark.
         .landing .strike-big path {
             stroke-dasharray: 640;
             stroke-dashoffset: 640;
-            animation: landingStrike 0.7s var(--ease) 0.45s forwards;
+            animation: landingStrike 0.7s var(--ease-out) 0.45s forwards;
         }
     }
 
@@ -374,8 +377,8 @@ themes — newsprint rather than white once the page around them is dark.
            properties, not `all`: `visibility` needs its own zero-length
            delayed step. */
         transition:
-            opacity 0.28s var(--ease),
-            filter 0.28s var(--ease),
+            opacity 0.28s var(--ease-out),
+            filter 0.28s var(--ease-out),
             visibility 0s linear 0.28s;
         pointer-events: none;
     }
@@ -478,10 +481,14 @@ themes — newsprint rather than white once the page around them is dark.
     /* conflict marker (step 3 only) */
     .landing .cellwarn {
         position: absolute;
-        left: 38.6%;
+        /* Hugs the two chips it frames (39.66% wide 28.5%) with an even
+           half-percent on each side. z-index lifts it — and its label —
+           over the chips, which come later in the DOM. */
+        left: 39.16%;
         top: 70.6%;
-        width: 30.6%;
+        width: 29.5%;
         height: 22.4%;
+        z-index: 2;
         border: 2px dashed var(--color-danger);
         border-radius: 1rem;
         opacity: 0;
@@ -507,9 +514,9 @@ themes — newsprint rather than white once the page around them is dark.
         border: 1px solid var(--color-border);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         overflow: hidden;
-        transition: left 0.65s var(--ease), top 0.65s var(--ease),
-            width 0.65s var(--ease), height 0.65s var(--ease),
-            transform 0.65s var(--ease), background-color 0.45s, border-color 0.45s,
+        transition: left 0.65s var(--ease-out), top 0.65s var(--ease-out),
+            width 0.65s var(--ease-out), height 0.65s var(--ease-out),
+            transform 0.65s var(--ease-out), background-color 0.45s, border-color 0.45s,
             filter 0.45s, box-shadow 0.45s;
     }
 
@@ -775,44 +782,46 @@ themes — newsprint rather than white once the page around them is dark.
         border-color: var(--color-warning-light);
     }
 
-    /* step 6 — print sheet (always a light "paper" artifact) */
+    /* step 6 — the printed cards are paper; the stage stays the page behind
+       them, so dark mode reads as white sheets on black rather than one
+       full-bleed glare panel. */
     #k6:checked~.sc .stage {
-        background: var(--paper);
-        border-color: #c9bfb3;
+        background: var(--stage-paper, var(--paper));
+        border-color: var(--color-warm-400);
     }
 
     #k6:checked~.sc .ctx6 {
-        color: #252220;
+        color: var(--stage-ink, #252220);
     }
 
     #k6:checked~.sc .ctx6 span {
-        color: #3d3732;
-        background: var(--paper);
-        border-color: #a69a8c;
+        color: var(--stage-ink, #3d3732);
+        background: var(--stage-paper, var(--paper));
+        border-color: var(--color-warm-500);
     }
 
     #k6:checked~.sc .chip {
         filter: grayscale(1);
         box-shadow: none;
-        border-color: #a69a8c;
+        border-color: var(--color-warm-500);
         background: var(--paper);
     }
 
     #k6:checked~.sc .chip .ct {
-        color: #252220;
+        color: var(--color-warm-900);
     }
 
     #k6:checked~.sc .chip .ca {
-        color: #5c534a;
+        color: var(--color-warm-700);
     }
 
     #k6:checked~.sc .scaffold .rh,
     #k6:checked~.sc .scaffold .tl {
-        color: #3d3732;
+        color: var(--stage-ink, #3d3732);
     }
 
     #k6:checked~.sc .scaffold .gl {
-        background: #c9bfb3;
+        background: var(--color-warm-400);
     }
 
     .landing .doorcard {
@@ -822,11 +831,11 @@ themes — newsprint rather than white once the page around them is dark.
         width: 31%;
         padding: 0.9rem 1rem;
         background: var(--paper);
-        border: 1.5px solid #3d3732;
+        border: 1.5px solid var(--color-warm-800);
         border-radius: 0.55rem;
         opacity: 0;
         transform: rotate(3deg) translateY(16px);
-        transition: opacity 0.5s 0.35s, transform 0.6s 0.35s var(--ease);
+        transition: opacity 0.5s 0.35s, transform 0.6s 0.35s var(--ease-out);
         pointer-events: none;
         box-shadow: 0 10px 24px rgba(37, 34, 32, 0.14);
     }
@@ -835,7 +844,7 @@ themes — newsprint rather than white once the page around them is dark.
         content: "";
         position: absolute;
         inset: 0.35rem;
-        border: 1px dashed #a69a8c;
+        border: 1px dashed var(--color-warm-500);
         border-radius: 0.35rem;
         pointer-events: none;
     }

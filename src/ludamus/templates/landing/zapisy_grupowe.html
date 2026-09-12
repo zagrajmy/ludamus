@@ -352,7 +352,7 @@
             }
         }
     </style>
-    <div class="max-w-6xl mx-auto px-5 py-[4.5rem] grid grid-cols-1 min-[920px]:grid-cols-[5fr_6fr] gap-11 min-[920px]:gap-16 items-center">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-[4.5rem] grid grid-cols-1 min-[920px]:grid-cols-[5fr_6fr] gap-11 min-[920px]:gap-16 items-center">
         <div class="min-w-0">
             <p class="mb-3 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase text-secondary-hover">
                 {% translate "Enrollment and waiting lists" %}
@@ -374,12 +374,12 @@
             reserves the tallest frame once and centres the card in it, so the
             motion stays inside this box.
         {% endcomment %}
-        <div class="min-w-0 max-w-[470px] w-full mx-auto flex flex-col justify-center min-h-[49rem]">
+        <div class="min-w-0 max-w-[470px] w-full mx-auto flex flex-col justify-center min-h-[38rem]">
             {# Participants-tab replica: follows the theme, because the tab it copies does. #}
             <div class="p1-anim bg-bg-secondary border border-border rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_-18px_rgba(61,55,50,0.25)] overflow-hidden"
                  aria-hidden="true">
                 <div class="flex items-center justify-between gap-4 px-[1.125rem] py-[0.875rem] border-b border-border">
-                    <span class="font-semibold text-[0.9375rem] text-foreground">{% translate "Board game prototyping workshop" %}</span>
+                    <span class="font-semibold text-[0.9375rem] text-foreground">{% translate "Call of Cthulhu: a one-shot" %}</span>
                     <span class="text-foreground-muted text-[1.125rem] leading-none">×</span>
                 </div>
                 <div class="flex gap-1 px-3 border-b border-border text-[0.8125rem] font-medium">
@@ -396,13 +396,13 @@
                             <path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM1.49 15.326a.78.78 0 0 1-.358-.442 3 3 0 0 1 4.308-3.516 6.484 6.484 0 0 0-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 0 1-2.07-.655ZM16.44 15.98a4.97 4.97 0 0 0 2.07-.654.78.78 0 0 0 .357-.442 3 3 0 0 0-4.308-3.517 6.484 6.484 0 0 1 1.907 3.96 2.32 2.32 0 0 1-.026.654ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM5.304 16.19a.844.844 0 0 1-.277-.71 5 5 0 0 1 9.947 0 .843.843 0 0 1-.277.71A6.975 6.975 0 0 1 10 18a6.974 6.974 0 0 1-4.696-1.81Z" />
                         </svg>
                         {% translate "Participants" %}
-                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-bg-tertiary text-foreground-secondary"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>
+                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-bg-tertiary text-foreground-secondary"><span class="p1-n8">4</span><span class="p1-n7">3</span><span class="p1-n6">2</span></span>
                         <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-warning-bg text-warning-text"><span class="p1-old">+3</span><span class="p1-new">+1</span></span>
                     </span>
                 </div>
                 <div class="px-[1.125rem] pt-4 pb-[1.125rem]">
                     <p class="mb-2 text-[0.8125rem] font-semibold text-foreground-secondary tabular-nums">
-                        {% translate "Enrolled" context "landing group demo" %} (<span class="p1-swap"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>/8)
+                        {% translate "Enrolled" context "landing group demo" %} (<span class="p1-swap"><span class="p1-n8">4</span><span class="p1-n7">3</span><span class="p1-n6">2</span></span>/4)
                     </p>
                     <div class="p1-fold p1-out p1-out1">
                         <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
@@ -419,29 +419,9 @@
                             <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-success-bg text-success-text">KU</span>Kuba
                         </div>
                     </div>
-                    <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
-                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-primary-light text-primary-hover">HA</span>Hania
-                        </div>
-                    </div>
-                    <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
-                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-bg-tertiary text-foreground-secondary">TO</span>Tomek
-                        </div>
-                    </div>
-                    <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
-                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-info-bg text-info-text">AN</span>Ania
-                        </div>
-                    </div>
                     <div class="p1-fold p1-out p1-out2">
                         <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
                             <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-secondary-light text-secondary-hover">WO</span>Wojtek
-                        </div>
-                    </div>
-                    <div class="p1-fold">
-                        <div class="flex items-center gap-[0.5625rem] bg-bg-tertiary rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-foreground">
-                            <span class="w-6 h-6 flex-none rounded-full border border-bg-secondary grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-primary-light text-primary-hover">MA</span>Magda
                         </div>
                     </div>
                     <div class="p1-fold p1-in">

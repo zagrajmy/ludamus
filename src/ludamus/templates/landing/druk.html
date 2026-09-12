@@ -1,7 +1,7 @@
 {% load i18n %}
 <section class="py-[clamp(3.5rem,8vh,6rem)] bg-bg-tertiary border-y border-border group-has-[#aud-gracz:checked]/aud:hidden"
          aria-labelledby="pr-heading">
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)] grid grid-cols-[minmax(0,26rem)_minmax(0,1fr)] gap-12 items-center max-[56rem]:grid-cols-1">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 grid grid-cols-[minmax(0,26rem)_minmax(0,1fr)] gap-12 items-center max-[56rem]:grid-cols-1">
         <div>
             <p class="text-[0.78rem] font-bold tracking-[0.12em] uppercase text-primary-hover mb-2">
                 {% translate "Print" context "landing walkthrough step" %}
@@ -13,9 +13,9 @@
             <p class="mt-4 text-foreground-secondary">
                 {% translate "The full schedule, the day plan, and the door cards for every room are plain pages in the browser. You open, print, hang. A change in the programme means a fresh printout instead of an evening of assembling files." %}
             </p>
-            <p class="mt-[1.4rem] inline-flex items-center gap-[0.7rem]">
+            <p class="mt-[1.4rem] inline-flex items-center gap-2">
                 <span class="inline-flex items-center gap-[0.4rem] border border-border rounded-lg bg-bg-secondary px-[0.8rem] py-[0.45rem] font-semibold text-[0.9rem]"
-                      aria-hidden="true">🖨 {% translate "Print" %}</span><span class="text-[0.85rem] text-foreground-muted">{% translate "or Ctrl+P (⌘P on a Mac)" %}</span>
+                      aria-hidden="true"><span>🖨</span> {% translate "Print" %}</span><span class="text-[0.85rem] text-foreground-muted">{% translate "or Ctrl+P (⌘P on a Mac)" %}</span>
             </p>
         </div>
         {% translate "Sample printouts: the Saturday schedule in A4 and a door card for the Workshop room." as t_papers %}

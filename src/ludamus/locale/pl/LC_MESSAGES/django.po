@@ -6550,7 +6550,6 @@ msgstr "Sala B"
 #: src/ludamus/templates/landing/druk.html
 #: src/ludamus/templates/landing/org_hero.html
 #: src/ludamus/templates/landing/scena.html
-#: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid "Board game prototyping workshop"
 msgstr "Warsztat prototypowania gier planszowych"
 
@@ -7317,6 +7316,10 @@ msgstr ""
 "Kiedy zabraknie miejsc, cała grupa trafia na listę oczekujących, a miejsca "
 "przydzielamy w kolejności zgłoszeń. Grupa wchodzi dopiero wtedy, gdy zmieści "
 "się w całości, <strong>zawsze w swojej kolejności</strong>."
+
+#: src/ludamus/templates/landing/zapisy_grupowe.html
+msgid "Call of Cthulhu: a one-shot"
+msgstr "Zew Cthulhu: one-shot"
 
 #: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid "Info"

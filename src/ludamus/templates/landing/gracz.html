@@ -1,7 +1,7 @@
 {% load i18n %}
 <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-10 pb-[4.5rem] max-[30rem]:pt-6"
          aria-labelledby="g-hero-heading">
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         <div class="ld d1 mb-6 flex justify-end lg:float-right lg:mb-0 lg:ml-8">{% include "landing/_aud_switch.html" %}</div>
         <h1 id="g-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
@@ -29,7 +29,7 @@
         .g-slot {
             display: grid;
             grid-template-rows: 1fr;
-            animation: gSlot 12s var(--ease) infinite;
+            animation: gSlot 12s var(--ease-out) infinite;
         }
 
         .g-slot>div {
@@ -56,7 +56,7 @@
         }
 
         .g-new {
-            animation: gNewcard 12s var(--ease) infinite;
+            animation: gNewcard 12s var(--ease-out) infinite;
         }
 
         @keyframes gNewcard {
@@ -84,7 +84,7 @@
             display: flex;
             flex-direction: column;
             transform: translateY(-2.5em);
-            animation: gCount 12s var(--ease) infinite;
+            animation: gCount 12s var(--ease-out) infinite;
         }
 
         .g-tickstrip span {
@@ -110,7 +110,7 @@
         }
 
         .g-a2 {
-            animation: gPop2 12s var(--ease) infinite;
+            animation: gPop2 12s var(--ease-out) infinite;
         }
 
         @keyframes gPop2 {
@@ -129,7 +129,7 @@
         }
 
         .g-a3 {
-            animation: gPop3 12s var(--ease) infinite;
+            animation: gPop3 12s var(--ease-out) infinite;
         }
 
         @keyframes gPop3 {
@@ -147,7 +147,7 @@
             }
         }
     </style>
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)] grid grid-cols-[minmax(0,6fr)_minmax(0,5fr)] gap-12 items-center max-[900px]:grid-cols-1 max-[900px]:gap-8">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 grid grid-cols-[minmax(0,6fr)_minmax(0,5fr)] gap-12 items-center max-[900px]:grid-cols-1 max-[900px]:gap-8">
         <div>
             <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
                 {% translate "Open Encounters" %}
@@ -431,29 +431,29 @@
 {% include "landing/spotkanie.html" %}
 <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-16 pb-4"
          aria-labelledby="g-final-heading">
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
-        <div class="reveal bg-[#252220] text-[#fdfcfb] rounded-3xl px-8 py-14 text-center [&_:focus-visible]:outline-[#fdfcfb] print:bg-transparent print:border print:border-border print:text-foreground">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+        <div class="reveal bg-warm-900 text-warm-50 rounded-3xl px-8 py-14 text-center [&_:focus-visible]:outline-[#fdfcfb] print:bg-transparent print:border print:border-border print:text-foreground">
             <h2 id="g-final-heading"
-                class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-[#fdfcfb] print:text-foreground">
+                class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-warm-50 print:text-foreground">
                 {% translate "Who is laying out a board today?" %}
             </h2>
-            <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem] print:text-foreground-secondary">
+            <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:text-foreground-secondary">
                 {% translate "Run an Encounter and send friends the link. It will take you less time than setting up the board." %}
             </p>
             <div class="mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
                 <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
                    href="{% url 'web:notice-board:index' %}">{% translate "Run an Encounter" %}</a>
             </div>
-            <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem] print:hidden">
+            <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:hidden">
                 {% translate "Organizing a conference or a meetup?" %} <a href="#"
-    class="font-semibold underline underline-offset-[3px] cursor-pointer hover:text-[#fdfcfb]">{% translate "See the organizer page" %}</a>.
+    class="font-semibold underline underline-offset-[3px] cursor-pointer hover:text-warm-50">{% translate "See the organizer page" %}</a>.
             </p>
         </div>
     </div>
 </section>
 <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-12 pb-16"
          aria-labelledby="g-conventions-heading">
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
             {% translate "Conventions" %}
         </p>

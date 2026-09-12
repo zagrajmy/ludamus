@@ -3,7 +3,7 @@
 <section class="pt-[clamp(2.5rem,6vh,4.5rem)] pb-[clamp(3.5rem,8vh,6rem)] group-has-[#aud-gracz:checked]/aud:hidden"
          id="scena"
          aria-labelledby="scena-heading">
-    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         <h2 id="scena-heading"
             class="reveal font-extrabold text-[clamp(1.8rem,4vw,2.9rem)] tracking-[-0.03em] leading-[1.08] max-w-[24ch]">
             {% translate "One event, six acts. The same programme cards play in every one." %}
@@ -11,7 +11,11 @@
         <p class="reveal mt-3 text-foreground-secondary max-w-[52ch] text-[1.05rem]">
             {% translate "Seven programme items of Board Game Days 2026 travel before your eyes from loose proposals to a printout on the room door. Pick an act." %}
         </p>
-        <fieldset>
+        {% comment %}
+            min-w-0: a fieldset defaults to min-width:min-content, so the
+            40rem stage inside would stop the section shrinking on a phone.
+        {% endcomment %}
+        <fieldset class="min-w-0">
             <legend class="sr-only">{% translate "Pick an act." %}</legend>
             <input class="sr-only" type="radio" name="landing-krok" id="k1" checked>
             <input class="sr-only" type="radio" name="landing-krok" id="k2">
@@ -73,7 +77,7 @@
                             <span class="tl tl3">15:00</span>
                         </div>
                         <div class="cellwarn" aria-hidden="true">
-                            <span class="absolute -top-[0.85rem] left-[0.8rem] bg-danger-bg text-danger-text border border-danger-light text-[0.66rem] font-bold tracking-[0.05em] uppercase px-[0.55rem] py-[0.1rem] rounded-full">{% translate "Room conflict" %}</span>
+                            <span class="absolute -top-[0.7rem] left-[0.7rem] z-10 inline-flex h-[1.1rem] items-center bg-danger-bg text-danger-text border border-danger-light text-[0.58rem]/none font-bold tracking-[0.05em] uppercase text-box-trim-both px-[0.45rem] rounded-full">{% translate "Room conflict" %}</span>
                         </div>
                         <!-- the travelling cast -->
                         <article class="chip cA">
@@ -115,11 +119,11 @@
                         </article>
                         <!-- print-state door card -->
                         <aside class="doorcard" aria-hidden="true">
-                            <span class="text-[0.68rem] font-extrabold tracking-[0.16em] uppercase text-[#5c534a]">{% translate "Workshop room" %}</span>
-                            <p class="font-extrabold text-[0.95rem] leading-[1.15] tracking-[-0.02em] mt-[0.3rem] text-[#252220]">
+                            <span class="text-[0.68rem] font-extrabold tracking-[0.16em] uppercase text-warm-700">{% translate "Workshop room" %}</span>
+                            <p class="font-extrabold text-[0.95rem] leading-[1.15] tracking-[-0.02em] mt-[0.3rem] text-warm-900">
                                 {% translate "Board game prototyping workshop" %}
                             </p>
-                            <p class="text-[0.7rem] font-semibold text-[#5c534a] mt-[0.35rem]">{% translate "Saturday · 12:00 · run by Radowit" %}</p>
+                            <p class="text-[0.7rem] font-semibold text-warm-700 mt-[0.35rem]">{% translate "Saturday · 12:00 · run by Radowit" %}</p>
                         </aside>
                     </div>
                 </div>
