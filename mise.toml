@@ -22,6 +22,7 @@ enter = "poetry install"
 python = "3.14"
 node = "26.7.0"
 "pipx:poetry" = "2.4.1"
+"npm:frog" = "1.1.0"
 "npm:@ast-grep/cli" = { version = "0.45.1", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.23.2"
 # Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
@@ -94,6 +95,11 @@ run = "djlint src --quiet --lint --check --format-css --format-js --profile=djan
 [tasks."lint:impeccable"]
 run = "python scripts/impeccable_lint.py"
 
+[tasks."lint:frog"]
+description = "Validate all Frog friction reports"
+dir = "{{ config_root }}"
+run = "frog list"
+
 [tasks."lint:hk"]
 description = "Run every hk linter on all files (incl. djlint, oxfmt, oxlint via aube)"
 run = "hk check --all"
@@ -105,6 +111,7 @@ depends = [
     { task = "lint:hk" },
     { task = "lint:ast-grep" },
     { task = "lint:impeccable" },
+    { task = "lint:frog" },
 ]
 
 ## Dependencies
@@ -413,30 +420,8 @@ description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
 
-[tasks.papercut]
-description = "Append a friction note to PAPERCUTS.txt (e.g. mise run papercut -- ran shots, server wasn't up, no clear error)"
+[tasks.frog]
+description = "Manage friction reports with Frog (list, log, resolve)"
 dir = "{{ config_root }}"
-usage = '''
-arg "<note>" var=#true help="One or two sentences: what you were doing -> what got in the way"
-'''
-run = '''
-set -eu
-[ -n "${usage_note:-}" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
-# usage passes the variadic note as a shell-quoted join, so apostrophes arrive
-# as '\'' sequences — shlex.split undoes that. textwrap keeps the log
-# readable with the same hanging indent as hand-written entries.
-python - <<'EOF'
-import datetime
-import os
-import shlex
-import textwrap
-
-note = " ".join(shlex.split(os.environ["usage_note"])).strip()
-entry = textwrap.fill(
-    f"- {datetime.date.today():%Y-%m-%d}: {note}", width=80, subsequent_indent="  "
-)
-with open("PAPERCUTS.txt", "a", encoding="utf-8") as file:
-    file.write(entry + "\n")
-EOF
-echo "logged to PAPERCUTS.txt"
-'''
+run = "frog"
+raw_args = true
