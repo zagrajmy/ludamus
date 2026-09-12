@@ -36,7 +36,30 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
       - name: Report and reconcile frictions
+        id: frog
         uses: wevm/frog/action@702c4eadefe175a208290a99c36e7f4ac1390e53
         with:
           version: '1.1.0'
           issue-author: github-actions[bot]
+      - name: Start the sync pull request's checks
+        if: >-
+          steps.frog.outputs.created != '0' ||
+          steps.frog.outputs.updated != '0' ||
+          steps.frog.outputs.removed != '0' ||
+          steps.frog.outputs.reopened != '0' ||
+          steps.frog.outputs.cleared != '0'
+        env:
+          GH_TOKEN: ${{ secrets.FROG_SYNC_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # A GITHUB_TOKEN push raises no pull_request event, so the required
+          # checks never start. Reopening under a PAT raises one.
+          if [ -z "${GH_TOKEN}" ]; then
+            echo '::warning::FROG_SYNC_TOKEN is unset; the sync pull request will have no checks.'
+            exit 0
+          fi
+          pr="$(gh pr list --head frog/sync --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr" ]; then exit 0; fi
+          gh pr close "$pr"
+          gh pr reopen "$pr"
