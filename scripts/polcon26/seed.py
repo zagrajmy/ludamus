@@ -187,7 +187,11 @@ def ensure_time_slots(
         for row in rows
     }
     for start, end in expected:
-        if (start.astimezone(UTC), end.astimezone(UTC)) not in existing:
+        start_utc, end_utc = start.astimezone(UTC), end.astimezone(UTC)
+        if not any(
+            slot_start <= start_utc and slot_end >= end_utc
+            for slot_start, slot_end in existing
+        ):
             client.call(
                 "create_time_slot",
                 {"start_time": start.isoformat(), "end_time": end.isoformat()},
