@@ -59,6 +59,9 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
+    # Parley
+    PARLEY_AGENT_HOST=(str, ""),
+    PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
@@ -659,6 +662,20 @@ LOGGING = {
         },
     },
 }
+
+# Parley
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST")
+PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+if PARLEY_AGENT_HOST:
+    PARLEY_IS_LOCAL = PARLEY_AGENT_HOST.startswith(("localhost", "127.0.0.1"))
+    PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
+    PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
+    CSP_POLICY["connect-src"].extend(
+        [
+            f"{PARLEY_HTTP_SCHEME}://{PARLEY_AGENT_HOST}",
+            f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
+        ]
+    )
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor

@@ -118,8 +118,6 @@ class ConnectionsService:
 
 
 class SpherePanelService:
-    """Read-side context loader for the multiverse sphere panel."""
-
     def __init__(
         self,
         transaction: TransactionProtocol,
@@ -165,6 +163,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         enabled_pages: list[SpherePage],
         default_page: SpherePage,
         encounter_public_policy: EncounterPublicPolicy,
@@ -177,6 +176,7 @@ class SpherePanelService:
             raise DefaultPageDisabledError
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "parley_enabled": parley_enabled,
             "enabled_pages": [page.value for page in enabled_pages],
             "default_page": default_page.value,
             "encounter_public_policy": encounter_public_policy.value,

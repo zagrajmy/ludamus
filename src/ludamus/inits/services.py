@@ -16,7 +16,11 @@ from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
+from ludamus.links.encryption import (
+    FernetDecryptor,
+    FernetEncryptor,
+    JwtCapabilitySigner,
+)
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
@@ -68,6 +72,7 @@ from ludamus.mills.notifications import NotificationsService
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
+from ludamus.mills.parley import ParleyService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -120,6 +125,16 @@ class Services:
     def __init__(self) -> None:
         self._repos = Repositories()
         self._transaction = DjangoTransaction()
+
+    @cached_property
+    def parley(self) -> ParleyService:
+        signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        agent_host: str = settings.PARLEY_AGENT_HOST
+        return ParleyService(
+            repository=self._repos.parley,
+            signer=JwtCapabilitySigner(signing_private_key),
+            agent_host=agent_host,
+        )
 
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:

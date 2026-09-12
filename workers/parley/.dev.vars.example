@@ -1,0 +1,2 @@
+PARLEY_PUBLIC_KEY="replace with the Django signing public key"
+PARLEY_INTERNAL_SECRET="replace with a random shared secret"

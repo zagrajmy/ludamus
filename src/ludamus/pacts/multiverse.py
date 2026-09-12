@@ -180,6 +180,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         enabled_pages: list[SpherePage],
         default_page: SpherePage,
         encounter_public_policy: EncounterPublicPolicy,

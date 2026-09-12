@@ -89,6 +89,7 @@ class TestSpherePanelServiceUpdateSettings:
         service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            parley_enabled=False,
             enabled_pages=[SpherePage.ENCOUNTERS],
             default_page=SpherePage.ENCOUNTERS,
             encounter_public_policy=EncounterPublicPolicy.MANAGERS,
@@ -98,6 +99,7 @@ class TestSpherePanelServiceUpdateSettings:
             3,
             {
                 "allow_facilitator_session_edit": True,
+                "parley_enabled": False,
                 "enabled_pages": ["encounters"],
                 "default_page": "encounters",
                 "encounter_public_policy": "managers",
@@ -108,6 +110,7 @@ class TestSpherePanelServiceUpdateSettings:
         service.update_settings(
             3,
             allow_facilitator_session_edit=False,
+            parley_enabled=False,
             enabled_pages=[SpherePage.EVENTS],
             default_page=SpherePage.EVENTS,
             encounter_public_policy=EncounterPublicPolicy.DISABLED,
@@ -121,6 +124,7 @@ class TestSpherePanelServiceUpdateSettings:
             service.update_settings(
                 3,
                 allow_facilitator_session_edit=False,
+                parley_enabled=False,
                 enabled_pages=[SpherePage.EVENTS],
                 default_page=SpherePage.ENCOUNTERS,
                 encounter_public_policy=EncounterPublicPolicy.DISABLED,
