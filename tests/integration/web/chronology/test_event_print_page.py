@@ -297,6 +297,7 @@ class TestPublicEventPrintView:
                 pages=[
                     _one_hour_page(event=event, session=public_session, space=space)
                 ],
+                is_unscoped=True,
             ),
         )
 
