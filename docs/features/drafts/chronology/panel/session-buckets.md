@@ -24,20 +24,25 @@ themes without me checking contrast.
 As an organiser, I want to set the order of buckets, so that they appear in
 the order sessions travel through them.
 
-As an organiser, I want to mark a bucket as ready to plan, so that only
-sessions that reach it can be put on the timetable.
+As an organiser, I want to rename, recolour and reorder a bucket after
+sessions are already in it, so that I can adjust the workflow mid-event.
 
-As an organiser, I want to rename, recolour, reorder and re-flag a bucket
-after sessions are already in it, so that I can adjust the workflow
-mid-event.
-
-## Which bucket receives new sessions
+## What the order means
 
 As an organiser, I want new proposals and imported sessions to land in the
 first bucket in my order, so that there is one obvious inbox.
 
-As an organiser, I want the bucket list to tell me that the first bucket is
-the inbox, so that I do not discover it by surprise after reordering.
+As an organiser, I want only sessions in the last bucket in my order to be
+placeable on the timetable, so that the workflow ends where planning
+begins, without me ticking a second setting per bucket.
+
+As an organiser, I want the bucket list to say which bucket receives new
+sessions and which one is ready to plan, so that I do not discover the
+rules by surprise after reordering.
+
+As an organiser of an event that needs no acceptance step, I want a single
+bucket to be both the inbox and the ready-to-plan bucket, so that sessions
+can be planned the moment they are proposed.
 
 ## Guard rails
 
@@ -47,9 +52,10 @@ still holds sessions, so that no session is left without a bucket.
 As an organiser, I want to be refused when I try to delete the last bucket
 of an event, so that new proposals always have somewhere to land.
 
-As an organiser, I want to be refused when I try to remove the ready-to-plan
-mark from a bucket that holds sessions on the timetable, so that nothing on
-the timetable ends up in a bucket that forbids planning.
+As an organiser, I want to be refused when a reorder would leave a session
+that is already on the timetable outside the ready-to-plan bucket, and told
+how many, so that the timetable never holds a session my workflow has not
+cleared.
 
 As an organiser, I want two buckets in one event to never share a name, so
 that my team cannot confuse them.
@@ -60,8 +66,8 @@ another event's buckets, so that events stay isolated from each other.
 ## Starting point
 
 As an organiser creating an event, I want it to start with four standard
-buckets: pending, accepted, on hold and rejected, with accepted marked
-ready to plan, so that I can work immediately without configuring anything.
+buckets — pending, on hold, rejected and accepted, in that order — so that
+I can work immediately without configuring anything.
 
 As an organiser of an existing event, I want those same four buckets to
 appear already configured, so that the change costs me nothing on the day

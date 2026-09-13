@@ -1,5 +1,12 @@
 # Session buckets replace the status enum
 
+**Nobody has asked for this.** No organizer has named a workflow step the
+four statuses cannot express. It is written down so the shape is ready when
+one does; until then it stays on the shelf. The bugs the current design
+carries do not wait for it — they ship in
+[session state fixes](session-state-fixes.md), which is independent of
+everything here.
+
 ## Where we are
 
 A session's state is three things wearing one word:
@@ -30,42 +37,27 @@ rules that bind them:
 - Unassign keeps `accepted`; soft-delete of a placed session unassigns *and*
   resets to `pending`.
 - Public visibility (`public_scheduled_sessions`) is placement plus public
-  track. Status is never consulted.
+  track. Status is consulted in one other public place: the accept page
+  refuses a proposal that is not `pending`
+  (`gates/web/django/chronology/views.py`, `ProposalAcceptPageView._load`).
+  That page goes — see "The public accept page" below.
 
-## What's wrong because of it
+## What a bug fix cannot cure
 
 **The enum is a bucket pretending to be a state machine.** Any status may
 move to any other. The only real rule is "placed ⇒ accepted". Yet the four
-names are hard-coded into the enum, two badge templates, the filter select,
-the proposal-detail button block, the confirmations grouping constants, and
-the `count_by_track` aggregate. An organizer who wants a fifth step (say
+names are hard-coded into the enum, the badge template, the filter select,
+the proposal-detail button block, the confirmations grouping constants,
+`EventPanelSettings.proposal_columns` (the `"status"` column key) and the
+`count_by_track` aggregate. An organizer who wants a fifth step (say
 "copy-edited") cannot have one.
-
-**The UI derives a fifth status.** `_proposal_status_badge.html` renders
-`accepted AND is_scheduled` as "Scheduled". The proposals filter select lists
-"Scheduled" as an option next to real statuses, and
-`ProposalPanelService.list_context` makes picking a real status *exclude*
-placed sessions so the backlog looks right. Placement is a filter sitting in
-a status control — the type error CLAUDE.md warns about. It also leaks:
-`proposals.html` passes `is_scheduled=False` literally,
-`facilitator-detail.html` passes nothing, so the same session badges
-differently on three pages.
 
 **"Confirmed" means three things.** `SessionParticipationStatus.CONFIRMED` is
 a seat. `AgendaItem.session_confirmed` is the facilitator's agreement to a
 slot. The confirmations tab calls the second one "confirmed program items".
 Users read "confirmed" as "accepted". The field also lives on `AgendaItem`, so
-every DTO that wants it joins through the agenda item and every write
-(`assign_session`, `revert_change`, `accept_session`) re-decides the default —
-and they disagree: `accept_session` hard-codes `True`, ignoring
-`auto_confirm_sessions`.
-
-**Two badge maps disagree.** `on_hold` is info-blue in
-`_proposal_status_badge.html` and neutral-grey in
-`confirmation-status-badge.html`. Neither is a tessera tag.
-
-**`get_category_stats.accepted_count`** counts `~Q(status=pending)`, so on-hold
-and rejected proposals inflate the CFP page's "accepted" figure.
+every reader that has a session in hand has to join to the agenda item to
+learn whether its schedule is confirmed.
 
 ## Shape of the fix
 
@@ -73,7 +65,7 @@ Three axes, three fields, one display component.
 
 | Axis | Storage | Who sets it |
 | --- | --- | --- |
-| Bucket(s) | `Session.buckets` M2M → `SessionBucket` | organizer, freely |
+| Bucket | `Session.bucket` FK → `SessionBucket`, mandatory | organizer, freely |
 | Planned | `AgendaItem` exists (unchanged) | timetable |
 | Schedule confirmed | `Session.schedule_confirmed` bool | organizer, after talking to the facilitator |
 
@@ -87,26 +79,32 @@ plain `order` number field.
 
 ```text
 SessionBucket
-  event          FK Event, related_name="session_buckets"
-  name           CharField(255)
-  slug           SlugField
-  order          PositiveIntegerField(default=0)
-  icon           CharField(50, blank)          # heroicons name, as SessionField.icon
-  color          CharField(choices=BucketColor) # semantic token, see below
-  can_be_planned BooleanField(default=False)
-  Meta: ordering ["order", "name"]; unique (event, slug); unique (Lower(name), event)
+  event   FK Event, related_name="session_buckets"
+  name    CharField(255)
+  order   PositiveIntegerField(default=0)
+  icon    CharField(50, blank)           # heroicons name, as SessionField.icon
+  color   CharField(choices=BucketColor) # semantic token, see below
+  Meta: ordering ["order", "name"]; unique (Lower(name), event)
 ```
 
-- **Default bucket** is the one with the lowest `order`. New proposals, imports
-  and restores land there. No `is_default` flag: one fewer field, and the list
-  page says "first bucket receives new proposals". If an organizer sorts
-  "Rejected" first they get what they asked for. A per-category default
-  (nullable `ProposalCategory.default_bucket`, falling back to lowest order)
-  is deliberately not built: category is already a filter on the inbox, and
-  a bucket is a workflow step, not a kind. Add the FK the day a CFP needs a
-  different first step.
-- **`can_be_planned`** is a checkbox on the bucket form, next to icon and
-  colour.
+**Order carries the workflow.** Two rules, no flags:
+
+- The **lowest-order** bucket is the inbox. New proposals, imports and
+  restores land there. Its sessions are the unprocessed ones.
+- The **highest-order** bucket is the one whose sessions may go on the
+  timetable.
+
+An event with one bucket therefore has an inbox that is also ready to plan:
+a programme needing no acceptance step is plannable the moment it is
+proposed, and nothing counts as unprocessed. No `is_default` flag, no
+`can_be_planned` checkbox, no third state to explain — the list page says
+which end is which, and reordering is how an organizer changes it.
+
+A per-category inbox (nullable `ProposalCategory.default_bucket`) is
+deliberately not built: category is already a filter on the inbox, and a
+bucket is a workflow step, not a kind. Add the FK the day a CFP needs a
+different first step.
+
 - **Colour** is a choice of semantic tokens (`success`, `info`, `warning`,
   `danger`, `neutral`, plus two or three accents), rendered through a class
   map. No hex input: nothing in the design system takes a free colour, dark
@@ -116,76 +114,117 @@ SessionBucket
 - **Order** is a number field on the form and a column in the list. Drag
   reorder (the `SpaceReorderActionView` + `space-tree.ts` pattern) can come
   later if organizers ask.
-- **Delete** is refused while any session sits in the bucket, and refused for
-  the last bucket of an event. Both surface as a flash, matching
-  `TrackDeleteActionView`.
+- **Address** is the pk, everywhere: `<int:pk>` in the panel URLs (as
+  `cfp/time-slots/` and `discounts/` already do), `bucket_pk` in the list
+  filter, `bucket_id` on the MCP surface. No slug, so renaming a bucket is
+  just a rename and nothing carries a stale label. The reverse migration
+  maps back to the enum by order position (0 → pending, last → accepted,
+  anything else → pending), which is exact for an untouched seeded set and
+  best-effort for a workflow the organizer has already rebuilt.
+- **Guards**, each a flash matching `TrackDeleteActionView`:
+  - delete is refused while any session sits in the bucket;
+  - delete is refused for the last bucket of an event;
+  - a reorder is refused when it would leave a placed session outside the
+    highest-order bucket, naming the count. (This replaces the un-flag
+    guard: with plannability derived from order, reordering is the only way
+    to take it away.)
 - **Seeding.** Every event gets four buckets at creation and in the data
-  migration, matching today's labels and `django.po` translations:
+  migration, matching today's labels and `django.po` translations. Accepted
+  sorts last because the last bucket is the plannable one:
 
-  | order | name (pl) | icon | color | can_be_planned |
-  | --- | --- | --- | --- | --- |
-  | 0 | Oczekujące | inbox | warning | no |
-  | 1 | Zaakceptowane | check-circle | success | yes |
-  | 2 | Rezerwa | pause-circle | info | no |
-  | 3 | Odrzucone | x-circle | danger | no |
+  | order | name (pl) | icon | color |
+  | --- | --- | --- | --- |
+  | 0 | Oczekujące | inbox | warning |
+  | 1 | Rezerwa | pause-circle | info |
+  | 2 | Odrzucone | x-circle | danger |
+  | 3 | Zaakceptowane | check-circle | success |
 
-  Slugs stay `pending` / `accepted` / `on_hold` / `rejected` so the reverse
-  migration can map back to the enum. Event creation seeds them through
-  `gettext` under the request language; the migration seeds Polish, which is
-  what production shows today.
+  Event creation seeds them through `gettext` under the request language; the
+  migration seeds Polish, which is what production shows today.
 
-### `Session.buckets`
+  **Known gap:** creation paths that build an `Event` without going through
+  the create flow — admin, factories, fixtures — get no buckets, exactly as
+  they get no `EventSettings`, `EventPanelSettings` or
+  `EventProposalSettings` today. With a mandatory FK a bucketless event
+  cannot take a session at all, so this plan does not paper over it here;
+  seeded/templated/cloned event configuration is its own feature and fixes
+  every one of them at once.
 
-Always an M2M. The single-bucket mode is a service rule, not a schema shape:
-with `Event.multi_bucket_sessions` off, `set_buckets` replaces the set and
-the UI is a kanban (one column per bucket, a card sits in exactly one); with
-it on, `toggle_bucket` adds or removes and the UI is a checklist. A schema
-with both an FK and an M2M would need every reader to check the flag before
-picking a column. One M2M means one query path and turning the setting on
-later is free.
+### `Session.bucket`
 
-Turning the setting **off** while sessions hold several buckets: refuse with
-a message naming the count, same as bucket delete. Offer nothing cleverer
-until someone needs it.
+One FK, `on_delete=PROTECT`, not nullable. A session is in exactly one
+bucket, always:
+
+- the delete guard is a database constraint rather than a service rule;
+- "placed ⇒ plannable" is one join and needs no `distinct()`;
+- counts per bucket are a plain `GROUP BY`;
+- a session with no bucket — invisible to the inbox, to every filter and to
+  every board column — is unrepresentable, so nothing has to sweep for one.
+
+A session in several buckets (a checklist rather than a pipeline) is not
+built. Should one ever be asked for, it arrives as its own plan carrying its
+own FK → M2M migration, and pays for the reader cost it adds.
+
+`SessionRepository.create` resolves the bucket: callers may pass
+`bucket_id`, and when they don't, the repository writes the event's
+lowest-order bucket. That is the single owner of the default, so none of the
+five creation paths (propose wizard, panel create, import engine, MCP
+`create_session`, restore) can forget it. `SessionData.status` becomes an
+optional `bucket_id` key.
+
+The MCP surface uses that same default. `create_accepted_session` becomes
+`create_session(bucket_id=None)` landing in the inbox like everything else;
+a caller building finished programme names the plannable bucket it read from
+`list_buckets`. One default in the system, not two.
 
 ### The one invariant
 
-> A placed session holds at least one bucket with `can_be_planned`.
+> A placed session sits in the plannable (highest-order) bucket.
 
 This replaces both `SESSION_NOT_ACCEPTED` and `ProposalScheduledError`:
 
-- `assign_session` (and `revert_change` for an UNASSIGN) checks the session
-  holds a plannable bucket; the rejection reason is renamed
-  `SESSION_NOT_PLANNABLE`, the 422 text becomes "Only sessions in a bucket
-  marked as ready to plan can be placed on the schedule."
-- `set_buckets` / `toggle_bucket` refuse to remove the last plannable bucket
-  from a placed session (`SessionPlacedError`, same copy as today's
-  `ProposalScheduledError`). Disabled buttons in `proposal-detail.html`
-  mirror it as they do now.
-- Unassign leaves buckets alone (as today). Soft-delete leaves buckets alone
+- `assign_session` (and `revert_change` for an UNASSIGN) checks the session's
+  bucket is the plannable one; the rejection reason is renamed
+  `SESSION_NOT_PLANNABLE`, the 422 text becomes "Only sessions in the last
+  bucket can be placed on the schedule."
+- `set_bucket` refuses to move a placed session out of the plannable bucket
+  (`SessionPlacedError`, same copy as today's `ProposalScheduledError`).
+  Disabled buttons in `proposal-detail.html` mirror it as they do now.
+- The bucket reorder guard above keeps the invariant true when the order,
+  rather than the session, is what moves.
+- Unassign leaves the bucket alone (as today). Soft-delete leaves it alone
   too — today it resets to `pending`, but a restored session reappearing
-  unplaced in its plannable bucket is what the timetable's backlog pane is
-  for, and one less write is one less rule to explain.
+  unplaced in its bucket is what the timetable's backlog pane is for, and one
+  less write is one less rule to explain.
 - Public visibility stays "placed AND public track". The invariant makes
   "placed" imply "plannable", so the public page needs no bucket join.
 
-Bucket `can_be_planned` never changes a session's placement: unticking it
-on a bucket that holds placed sessions is refused with the count, like delete.
+### The public accept page
+
+`ProposalAcceptPageView` (`gates/web/django/chronology/views.py`,
+`chronology/accept_proposal.html`, `ProposalAcceptanceService`) is deleted in
+this redesign, together with its `status != PENDING` guard — the one public
+read of the enum. Accepting a proposal into a slot is panel work and the
+panel does it; keeping a second acceptance path would mean teaching it the
+bucket rules too. Its route, template, service, protocol and DI entry go with
+it.
 
 ### `Session.schedule_confirmed`
 
-Move the bool from `AgendaItem` to `Session`, renamed. Semantics as before,
-made explicit in one place:
+Move the bool from `AgendaItem` to `Session`, renamed. It is a deliberate
+denormalization: a session then carries everything its state display needs,
+and no reader that holds a session has to fetch the agenda item to find out
+whether the schedule is confirmed. Semantics as before, made explicit in one
+place:
 
 - `assign_session`: `event.auto_confirm_sessions and not is_move`.
 - `unassign_session`, `revert_change`: set `False`.
-- `accept_session`: use `event.auto_confirm_sessions` — the current
-  hard-coded `True` is the bug that lets placing stand in for confirming.
 - `SessionConfirmationService.set_session_confirmed` and
   `EventConfirmationsService.set_confirmed` write it by session pk instead of
   agenda-item pk; the `agenda_item_pk` parameters and
-  `ConfirmationSessionDTO.agenda_item_pk` become `session_pk`. A session that
-  is not placed cannot be confirmed (service rule, 422).
+  `ConfirmationSessionDTO.agenda_item_pk` become `session_pk`. Both services
+  keep the event and facilitator scoping they do today. A session that is not
+  placed cannot be confirmed (service rule, 422).
 
 Labels: "Schedule confirmed" / pl "Termin potwierdzony". The settings heading
 "Schedule confirmation" already exists; the `auto_confirm_sessions` flag keeps
@@ -197,137 +236,159 @@ confirmations dashboard "when" for free. Not doing it: every reader today is a
 
 ### One display component
 
-`components/session_state.html` (an include, like the badges it replaces,
-until a third page needs Python logic) takes `buckets`, `is_scheduled`,
-`schedule_confirmed` and renders three slots:
+A tessera tag, `{% session_state session %}`
+(`adapters/web/django/templatetags/tessera/session_state.py`), taking the
+session DTO and nothing else. Nine call sites is well past the bar for a tag,
+and one argument means the contract is checked in Python instead of by
+grepping templates for a slot a caller forgot — which is exactly how the
+current badge ended up rendering the same session three ways.
 
-1. **Bucket chips** — icon + name in the bucket's colour. In multi-bucket
-   mode with more than one bucket, icons only, each with `title`/`aria-label`.
+It reads `bucket`, `is_scheduled` and `schedule_confirmed` off the DTO and
+renders three slots:
+
+1. **Bucket chip** — icon + name in the bucket's colour.
 2. **Planned** — calendar icon, muted when unplaced, `aria-label`
    "On the timetable" / "Not on the timetable".
 3. **Schedule confirmed** — check-badge icon, success when confirmed, hidden
    when unplaced (nothing to confirm).
 
-`compact=True` drops the bucket names. It replaces `_proposal_status_badge.html`,
-`parts/confirmation-status-badge.html`, the lock icon on
+`compact=True` drops the bucket name. It replaces
+`_proposal_status_badge.html`, the lock icon on
 `timetable-session-card.html`, and the confirmed line on
 `timetable-session-detail.html`. Consumers: proposals table cell, proposal
 detail, facilitator detail, deleted proposals, timetable card and detail
-pane, confirmation cards, timetable overview pills, MCP `list_sessions`.
+pane, confirmation cards, timetable overview pills. MCP `list_sessions`
+renders no template; it reads `SessionBucketDTO` off the session DTO.
 
 ### Filters
 
 Three controls, one kind each:
 
-- **Bucket** — select (single mode) or multi-select (multi mode), options
-  from the event's buckets, plus "All".
+- **Bucket** — select, options from the event's buckets in order, plus "All".
 - **Planned** — `all` / `planned` / `unplanned`.
 - **Schedule confirmed** — `all` / `confirmed` / `unconfirmed`.
 
-The default view stays the inbox: default bucket, unplanned. The
-"Scheduled" pseudo-status, `SCHEDULED_FILTER`, and the
-real-status-excludes-placed rule in `ProposalPanelService.list_context` go.
-`SessionListFilters.status` becomes `bucket_pks: list[int]`, `scheduled`
-stays, `confirmed: bool | None` is new.
+The default view stays the inbox: lowest-order bucket, unplanned.
+`SessionListFilters.status` becomes `bucket_pk: int | None`; `scheduled` and
+`confirmed: bool | None` are the other two. The "Scheduled" pseudo-status and
+the real-status-excludes-placed rule are already gone by then — they are
+defect 5 of [session state fixes](session-state-fixes.md).
 
-### Kanban and checklist
+### Board
 
-Kanban (single mode): columns are buckets in `order`, cards are the same
-`_proposal_cell.html` rows, a card carries a "Move to…" select posting to
-the existing bulk endpoint with one id. Drag between columns is a later
-addition; the select makes the page keyboard-complete on day one.
+Columns are the event's buckets in `order`, cards are the same
+`_proposal_cell.html` rows, a card carries a "Move to…" select posting to the
+existing bulk endpoint with one id. One bucket per session means one card in
+one column, so a move is a move and a column count is a count. Drag between
+columns is a later addition; the select makes the page keyboard-complete on
+day one. An empty column says it is empty.
 
-Checklist (multi mode): proposal detail shows one checkbox per bucket,
-`hx-post` on change, replacing the four action buttons. The list page gets
-the multi-select filter.
-
-The list/table view stays for both modes. The kanban is a `view=board`
-switcher segment next to the table, in the sense of the CLAUDE.md rule: it
-switches layout of the same set.
+The board is a `view=board` switcher segment next to the table, in the sense
+of the CLAUDE.md rule: it switches layout of the same set. The last view used
+is remembered per event in `EventPanelSettings`, which already stores that
+page's columns.
 
 ### Things that change shape
 
-- `SessionStatus` enum is deleted. `Session.status` column dropped by the
-  data migration after backfill. `AgendaItemDTO.session_status` (never read)
-  goes with it.
-- `SessionDTO.status`, `SessionListItemDTO.status` → `buckets:
-  list[SessionBucketDTO]` (pk, name, slug, icon, color, can_be_planned).
-- `ProposalStatusService.mark_*` → `SessionBucketService.set_buckets` /
-  `toggle_bucket`; the four action views collapse to one
-  `ProposalBucketActionView` taking `bucket` (and `on` for multi mode); bulk
-  view likewise.
-- `create_accepted_session` (MCP) → `create_session(bucket_slug=None)`
-  defaulting to the first plannable bucket, since that is what the callers
-  mean.
+- `SessionStatus` enum is deleted. `Session.status` column dropped after the
+  cutover. `AgendaItemDTO.session_status` (never read) goes with it.
+- `SessionDTO.status`, `SessionListItemDTO.status` → `bucket:
+  SessionBucketDTO` (pk, name, icon, color, order, is_plannable).
+- `ProposalStatusService.mark_*` → `SessionBucketService.set_bucket`; the four
+  action views collapse to one `ProposalBucketActionView` taking `bucket`;
+  bulk view likewise.
+- `EventPanelSettings.proposal_columns`: the `"status"` key becomes
+  `"bucket"`, migrated in place.
 - `count_by_track` / `TrackProgressDTO` / `timetable-overview.html` pills:
-  counts per bucket in bucket order, plus planned. The progress
-  denominator today is the "active pool" (`pending + accepted`); it becomes
-  **sessions in the default bucket or any plannable bucket**. That is the
-  same set for the seeded buckets and the only nuance the redesign
-  hard-codes; say so in the PR.
+  counts per bucket in bucket order, plus planned. The progress denominator
+  today is the "active pool" (`pending + accepted`); it becomes **sessions in
+  the plannable bucket**, which is the same set for the seeded buckets and
+  needs no notion of which bucket is the inbox.
+- `review_inbox_proposals` (`repositories/sessions.py`, the public event
+  page's review block, and `own_pending_proposals` built on it): today
+  `status=PENDING AND agenda_item__isnull`. It becomes **unplaced sessions in
+  the lowest-order bucket** — the unprocessed ones. On a one-bucket event
+  inbox and plannable coincide and the block shows nothing, which is right:
+  there is no review step to show.
 - `specs/confirmations.py` (`SCHEDULED_STATUS`, `STATUS_ORDER`,
   `COUNTED_UNPLACED`) is deleted. Confirmation facilitator cards list placed
-  sessions as rows, and unplaced sessions as rows with their bucket chips
-  instead of a status group. `unplaced_count` / `pending_count` roll-ups go;
-  the chips carry the information.
-- `get_category_stats.accepted_count` counts sessions in plannable buckets.
+  sessions as rows, and unplaced sessions as rows with their bucket chip
+  instead of a status group. `ConfirmationFacilitatorGroupDTO.unplaced_count`
+  and `.pending_count` (`mills/event.py`) become one count per bucket: with
+  organizer-defined buckets "pending" is no longer a thing the code can name,
+  and the bucket an organizer named is more informative than a roll-up.
+- `get_category_stats.accepted_count` counts sessions in the plannable
+  bucket. (Its `~Q(pending)` bug is fixed before this, in the fixes plan.)
 - Django admin: `SessionBucket` registered, `Session.list_filter` by
-  `buckets`.
+  `bucket`.
 - `docs/agents/architecture.md`: add `SessionBucket` to the `event` noun's
   model row.
 
 ## Steps
 
 One feature file per step, under `docs/features/drafts/chronology/panel/`.
-Each step is demoable through the UI. Steps 1 and 3 change a column that
-running code writes, so each is two releases: **expand** (add the new
-field, backfill, switch every read and write to it) and **contract** (re-run
-the backfill for rows written during the rollout, drop the old field). The
-expand release leaves the old column in place with its default, so it can be
-rolled back without losing data; the contract release's reverse migration
-re-adds the column and maps it back by slug.
+Each step is demoable through the UI on its own page.
+
+Two columns move under running code (`session_confirmed`, `status`). Those
+releases **write both** the old and the new column for as long as the old one
+exists, so any release in the sequence can be rolled back and read current
+data. Everything else is one release with a reversible migration, the shape
+migration 0150 already has.
 
 1. **Rename confirmed** — `schedule-confirmation.md`.
-   - Expand: add `Session.schedule_confirmed`, backfill from
-     `AgendaItem.session_confirmed`, rewire the two services, three writers,
-     repo aggregates, DTOs, the two toggle views, templates and copy. Fix
-     `accept_session` to honour `auto_confirm_sessions`.
-   - Contract: re-backfill, drop `AgendaItem.session_confirmed`.
-   Independent of buckets, smallest, fixes a live bug.
+   1. Add `Session.schedule_confirmed`, backfill from
+      `AgendaItem.session_confirmed`, write both columns everywhere the old
+      one is written.
+   2. Switch every read to the new column: repo aggregates, DTOs, the two
+      confirmation services (`agenda_item_pk` → `session_pk`), the two toggle
+      views, templates and copy.
+   3. Stop writing `AgendaItem.session_confirmed`, re-backfill, drop it.
+
+   Independent of buckets.
 2. **Buckets exist** — `session-buckets.md`. `SessionBucket` model, seed
    migration for existing events, seeding on event create, panel CRUD page
    with sidebar entry `panel:session-buckets` under the proposals group,
-   `active_nav` key, icon preview, order field, delete and un-flag guards.
-   No session touches it yet. One release.
-3. **Cutover** — `session-state.md`.
-   - Expand: `Session.buckets` M2M, backfill from `status` by seeded slug,
-     replace every read, write, guard, filter and badge with the bucket
-     versions and the new state component, add the planned and confirmed
-     filters. `status` stays in the schema with its default and is no longer
-     written.
-   - Contract: re-backfill any session without a bucket into the default
-     bucket, drop `status`, delete `SessionStatus` and
-     `AgendaItemDTO.session_status`.
-   The expand release is the big PR; it is mechanical once steps 1 and 2
-   are in.
-4. **Multi-bucket** — `multi-bucket-sessions.md`. `Event.multi_bucket_sessions`
-   on the general settings tab (same trace as `auto_confirm_sessions`),
-   `toggle_bucket`, checklist on proposal detail, multi-select filter,
-   off-switch guard. One release.
-5. **Board view** — `proposals-board.md`. Kanban switcher segment on the
-   proposals page with the "Move to…" select per card. One release.
+   `active_nav` key, icon preview, order field, delete and reorder guards. No
+   session touches it yet. One release.
+3. **Cutover** — `session-state.md`, one release per surface. Every release
+   keeps writing `status` alongside the bucket, and every surface not yet
+   moved keeps reading `status`, so each one is demoable and revertible on
+   its own:
+   1. `Session.bucket` FK, backfill from `status` by seeded position,
+      `SessionBucketService.set_bucket`, dual writes. Nothing reads the
+      bucket yet.
+   2. Proposals list and detail: the `session_state` tag, the bucket action
+      and bulk-move views, the three filters, the `proposal_columns` key.
+   3. Timetable: the assign invariant and `SESSION_NOT_PLANNABLE`, session
+      card and detail pane, overview pills and `count_by_track`.
+   4. Confirmations: per-bucket counts, bucket chips on facilitator cards,
+      `specs/confirmations.py` deleted.
+   5. The rest: CFP `accepted_count`, MCP `create_session` / `list_sessions`,
+      Django admin, the public event page's review block, and deletion of the
+      public accept page.
+   6. Contract: stop writing `status`, re-backfill anything written during
+      the sequence, drop the column, delete `SessionStatus` and
+      `AgendaItemDTO.session_status`.
+4. **Board view** — `proposals-board.md`. Kanban switcher segment on the
+   proposals page, "Move to…" select per card, empty-column message, last
+   view remembered in `EventPanelSettings`. One release.
 
 ## Testing
 
-- `mills`: unit tests for `SessionBucketService` (set/toggle, last-plannable
-  guard, delete guards, off-switch guard), the assign invariant, confirmed
-  defaults on assign/move/unassign/accept.
-- `links`: bucket repo, backfill and reverse migration tests (the
-  `test_migration_0150_track_names.py` shape).
+- `mills`: unit tests for `SessionBucketService.set_bucket` (placed-session
+  guard), the assign invariant, the reorder guard, the bucket delete guards,
+  and the confirmed defaults on assign/move/unassign.
+- `links`: bucket repo; `SessionRepository.create` defaulting to the
+  lowest-order bucket, including when it is not the plannable one; backfill
+  and reverse migration tests (the `test_migration_0150_track_names.py`
+  shape).
 - `gates`: page tests for the CRUD pages and the action views with the
   `assert_login_required` / `assert_not_a_manager` / `assert_event_not_found`
-  ladder and full `context_data`; foreign bucket pk → 404 with no write.
-- `tests/e2e`: the state component's three slots on the proposals table,
-  detail, and timetable card; the kanban move.
+  ladder and full `context_data`; foreign bucket pk → 404 with no write. The
+  existing foreign-event and foreign-facilitator confirmation tests post
+  `agenda_item_pk` today and must be rewired to post `session_pk` while
+  still asserting the same 404 and no write.
+- `tests/e2e`: the state tag's three slots on the proposals table, detail,
+  and timetable card; the board move.
 - Existing surface: 20 source files and 14 test files import
   `SessionStatus`; 23 test files touch `session_confirmed`.

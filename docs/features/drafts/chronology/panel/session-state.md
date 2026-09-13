@@ -36,24 +36,20 @@ were refused because they are on the timetable, and how many no longer
 exist, so that I know exactly what happened.
 
 As an organiser, I want a session placed on the timetable to be refused a
-move out of every ready-to-plan bucket, so that nothing on the timetable
-sits in a bucket that forbids planning.
+move out of the ready-to-plan bucket, so that nothing on the timetable sits
+in a bucket that forbids planning.
 
 As an organiser, I want to be refused when I try to put a session on the
-timetable while it is not in a ready-to-plan bucket, so that the timetable
-only ever holds sessions my workflow has cleared.
+timetable while it is not in the ready-to-plan bucket, so that the
+timetable only ever holds sessions my workflow has cleared.
 
 As an organiser, I want a session taken off the timetable, deleted, or
 restored to keep its bucket, so that its place in my workflow does not
 change behind my back.
 
-As a reviewer accepting a proposal straight into a slot, I want the
-session to land in the first ready-to-plan bucket, so that the shortcut
-and the long way produce the same state.
-
 As a maintainer creating sessions through the programme tools, I want them
-to land in the first ready-to-plan bucket unless I name another, so that
-bulk-created programme is ready to place.
+to land in the inbox bucket unless I name another, so that every way of
+creating a session agrees on where it starts.
 
 ## Finding sessions
 
@@ -82,13 +78,21 @@ As an organiser, I want the timetable overview to count sessions per
 bucket and per track, in bucket order, so that I can see how far each
 track is through the workflow.
 
-As an organiser, I want the confirmation tracking pages to list a
-facilitator's sessions that are not on the timetable with their bucket, so
-that I can tell them where each stands when I write.
+As an organiser, I want track progress measured against the sessions in
+the ready-to-plan bucket, so that the figure means "how much of what can
+be planned is planned" whatever buckets I invented.
+
+As an organiser, I want the confirmation tracking pages to count a
+facilitator's unplaced sessions per bucket rather than calling them
+pending, so that I see which step each one is waiting at.
 
 As an organiser, I want the call-for-proposals overview to count as
-accepted only sessions in a ready-to-plan bucket, so that rejected and
+accepted only sessions in the ready-to-plan bucket, so that rejected and
 on-hold proposals no longer inflate the figure.
+
+As an organiser, I want the public review block on the event page to list
+the sessions sitting in the inbox that are not yet on the timetable, so
+that it shows what still needs processing and nothing else.
 
 As a participant, I want the public programme to keep showing exactly the
 sessions on the timetable in public tracks, so that the redesign changes
@@ -100,6 +104,10 @@ As an organiser of an existing event, I want every session to appear in
 the bucket matching its former status the day this lands, so that nothing
 visibly changes until I change it.
 
-As an operator, I want the switch from statuses to buckets to happen in
-two releases, the second removing what the first replaced, so that a
-release can be rolled back without losing data.
+As an operator, I want each release of the switch to keep writing the old
+status alongside the new bucket until the old column is dropped, so that
+any release in the sequence can be rolled back and still read current
+data.
+
+As an operator, I want the switch to move one surface at a time, so that
+each release can be checked on its own page before the next one starts.

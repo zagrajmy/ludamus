@@ -21,10 +21,6 @@ timetable.
 
 ## When it is set and cleared
 
-As an organiser, I want accepting a proposal straight into a slot to follow
-the event's automatic-confirmation setting, so that placing a session never
-counts as the facilitator agreeing to it unless I chose that.
-
 As an organiser, I want moving a placed session to a different time or
 place to clear its schedule confirmation, so that a facilitator's agreement
 to one slot is never carried over to another.
@@ -45,3 +41,7 @@ not reset.
 As an organiser, I want the confirmation tracking counts, per track and per
 organiser, to keep working unchanged, so that the renaming costs me
 nothing.
+
+As an operator, I want both the old and the new field written until the old
+one is dropped, so that rolling a release back never loses a confirmation
+recorded while it was live.
