@@ -296,7 +296,7 @@ class ImportEngine:
             "status": SessionStatus.PENDING,
             "title": builtins.title,
             "description": builtins.description,
-            "display_name": builtins.display_name,
+            "facilitator_name": builtins.display_name,
             "participants_limit": builtins.participants_limit,
             "slug": generate_unique_slug(
                 builtins.title,
@@ -447,8 +447,8 @@ class ImportEngine:
             update_data["title"] = builtins.title
         if builtins.description and not session.description:
             update_data["description"] = builtins.description
-        if builtins.display_name and not session.display_name:
-            update_data["display_name"] = builtins.display_name
+        if builtins.display_name and not session.facilitator_name:
+            update_data["facilitator_name"] = builtins.display_name
         if builtins.duration and not session.duration:
             update_data["duration"] = builtins.duration
         if builtins.contact_email and not session.contact_email:

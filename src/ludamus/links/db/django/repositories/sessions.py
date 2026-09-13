@@ -72,7 +72,7 @@ _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 # facilitator list. Anything else falls back to newest first.
 _SESSION_SORT_FIELDS = {
     "title": "title",
-    "host": "display_name",
+    "host": "facilitator_name",
     "category": "category__name",
     "status": "status",
     "created": "creation_time",
@@ -405,7 +405,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -432,7 +432,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -650,7 +650,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             encoded = json.dumps(search)[1:-1]
             qs = qs.filter(
                 Q(title__icontains=search)
-                | Q(display_name__icontains=search)
+                | Q(facilitator_name__icontains=search)
                 | Q(presenter__name__icontains=search)
                 | Q(field_values__value__icontains=search)
                 | Q(field_values__value__icontains=encoded)
@@ -688,7 +688,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -912,7 +912,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         if filters.search:
             qs = qs.filter(
                 Q(title__icontains=filters.search)
-                | Q(display_name__icontains=filters.search)
+                | Q(facilitator_name__icontains=filters.search)
             ).distinct()
         results: list[UnscheduledSessionDTO] = []
         has_more = False
@@ -930,7 +930,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 UnscheduledSessionDTO(
                     pk=s.pk,
                     title=s.title,
-                    display_name=s.display_name,
+                    facilitator_name=s.facilitator_name,
                     category_name=s.category.name if s.category else "",
                     category_pk=s.category_id,
                     duration_minutes=duration_minutes,

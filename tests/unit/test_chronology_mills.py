@@ -81,7 +81,12 @@ class TestContentEditRevert:
     def test_revert_builds_inverse_from_core_and_field_changes(self, service, repos):
         changes = [
             {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
-            {"field": "display_name", "field_id": None, "old": "Old host", "new": "H"},
+            {
+                "field": "facilitator_name",
+                "field_id": None,
+                "old": "Old host",
+                "new": "H",
+            },
             {"field": "description", "field_id": None, "old": "Old desc", "new": "D"},
             {"field": "contact_email", "field_id": None, "old": "a@b.co", "new": "x@y"},
             {"field": "duration", "field_id": None, "old": "01:00", "new": "02:00"},
@@ -105,7 +110,7 @@ class TestContentEditRevert:
             data=SessionContentEditData(
                 update={
                     "title": "Old title",
-                    "display_name": "Old host",
+                    "facilitator_name": "Old host",
                     "description": "Old desc",
                     "contact_email": "a@b.co",
                     "duration": "01:00",
@@ -494,7 +499,7 @@ def _session_dto(**overrides):
         "participants_limit": 0,
         "pk": _SESSION_PK,
         "presenter_id": None,
-        "display_name": "Alice",
+        "facilitator_name": "Alice",
         "slug": "s",
         "status": SessionStatus.PENDING,
         "title": "My Session",
@@ -638,7 +643,7 @@ class TestProposalAcceptanceService:
     def test_accept_session_updates_status_and_creates_agenda_item(
         self, service, sessions, agenda_items, transaction, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
@@ -655,7 +660,7 @@ class TestProposalAcceptanceService:
             7, _NOW, _NOW, exclude_session_pk=5
         )
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
         )
         agenda_items.create.assert_called_once_with(
             {
@@ -671,7 +676,7 @@ class TestProposalAcceptanceService:
     def test_accept_session_raises_on_space_time_conflict(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
@@ -696,7 +701,7 @@ class TestProposalAcceptanceService:
     def test_accept_session_allowed_for_superuser(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
@@ -708,7 +713,7 @@ class TestProposalAcceptanceService:
         )
 
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
         )
         spheres.manager_role.assert_not_called()
 

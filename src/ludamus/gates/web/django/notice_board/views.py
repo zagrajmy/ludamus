@@ -12,6 +12,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.decorators.cache import cache_control
@@ -280,7 +281,10 @@ class EncounterEditPageView(_EncounterFormPageView):
     def _format_dt(dt: datetime | None) -> str:
         if not dt:
             return ""
-        return dt.strftime("%Y-%m-%dT%H:%M")
+        # datetime-local is a wall clock, and the field parses it back in the
+        # current zone. Formatting the stored UTC value instead moves the
+        # encounter by the offset on every save.
+        return localtime(dt).strftime("%Y-%m-%dT%H:%M")
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
         encounter = self._get_encounter(pk)
