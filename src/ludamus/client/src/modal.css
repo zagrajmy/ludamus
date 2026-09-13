@@ -75,7 +75,14 @@
     }
   }
 
+  /* The backdrop is fixed to the layout viewport, which iOS Safari keeps at
+     the small viewport while its bottom bar is expanded — and for the
+     app-shell, which never scrolls the document, it stays expanded (see
+     .app-shell in index.css). The shell itself is 100lvh, so a backdrop of
+     the UA's default size stopped a bar's height short of the page's end and
+     the untinted strip showed through the translucent bar as a hard edge. */
   .modal::backdrop {
+    min-height: 100lvh;
     background-color: transparent;
     backdrop-filter: blur(0);
     transition:

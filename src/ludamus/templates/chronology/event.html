@@ -810,6 +810,9 @@
                 display: block;
                 position: fixed;
                 inset: 0;
+                /* Same reach as .modal::backdrop: past the small viewport,
+                   under iOS Safari's bar, to where the app-shell ends. */
+                min-height: 100lvh;
                 z-index: 59;
                 background-color: transparent;
                 backdrop-filter: blur(0);

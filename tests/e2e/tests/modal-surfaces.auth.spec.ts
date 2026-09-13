@@ -29,6 +29,14 @@ test.describe("Modal surfaces using page scroll lock", () => {
     await expectPageScrollLocked(page);
     await expectCappedToViewport(page, dialog);
 
+    // The backdrop reaches the large viewport's bottom, not the small one's;
+    // with no browser chrome here the two agree, so this only proves the rule
+    // is still read.
+    const backdropReach = await dialog.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el, "::backdrop").minHeight),
+    );
+    expect(backdropReach).toBe(await page.evaluate(() => window.innerHeight));
+
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
 
