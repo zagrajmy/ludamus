@@ -34,4 +34,31 @@ test.describe("Modal surfaces using page scroll lock", () => {
 
     await context.close();
   });
+
+  test("docks the session detail modal to the bottom edge on a phone", async ({ browser }) => {
+    const viewport = { width: 375, height: 700 };
+    const context = await browser.newContext({
+      storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
+      viewport,
+    });
+    const page = await context.newPage();
+
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab" });
+    await expect(dialog).toBeVisible();
+    await expectCappedToViewport(page, dialog);
+
+    // The sheet runs edge to edge and ends on the viewport's bottom edge; the
+    // open transition scales it in, so read the box once it has settled.
+    await expect
+      .poll(async () => {
+        const box = await dialog.boundingBox();
+        return box && { bottom: Math.round(box.y + box.height), width: Math.round(box.width) };
+      })
+      .toEqual({ bottom: viewport.height, width: viewport.width });
+
+    await context.close();
+  });
 });

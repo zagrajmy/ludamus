@@ -34,6 +34,21 @@
     @apply shadow-lg;
   }
 
+  /* NOTE: opt-in like .modal-capped, and after .modal, whose auto margins it
+     overrides. On a phone a dialog with a footer of actions docks to the
+     bottom edge as a sheet: the gap a centred dialog leaves under itself goes
+     to the content, and its actions land under the thumb. A phone here is
+     the viewport below Tailwind's `sm`. */
+  @media (width < 40rem) {
+    .modal-sheet {
+      width: 100%;
+      margin-bottom: 0;
+      border-bottom-width: 0;
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+  }
+
   .modal[open] {
     opacity: 1;
     pointer-events: auto;
