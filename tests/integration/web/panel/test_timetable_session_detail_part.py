@@ -62,7 +62,7 @@ class TestTimetableSessionDetailPartView:
             session_id=session.pk,
             session_title=session.title,
             session_description=session.description,
-            presenter_name=session.display_name,
+            presenter_name=session.facilitator_name,
             session_duration_minutes=60,
             session_status=session.status,
             category_name=session.category.name,

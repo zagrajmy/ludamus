@@ -64,7 +64,7 @@ class TestCFPDeleteActionView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.username,
+            facilitator_name=active_user.username,
             title="Test Proposal",
             slug="test-proposal",
             status="pending",

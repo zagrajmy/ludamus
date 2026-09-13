@@ -5,7 +5,7 @@ from ludamus.pacts import SessionDTO, SessionFieldValueDTO
 def _session(**overrides):
     base = {
         "title": "Old title",
-        "display_name": "Old host",
+        "facilitator_name": "Old host",
         "description": "old desc",
         "contact_email": "old@example.com",
         "participants_limit": 5,

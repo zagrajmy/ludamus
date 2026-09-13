@@ -25,13 +25,18 @@ class _Option:
     value: str
 
 
+class _SelectedOption(TypedDict):
+    disabled: bool
+    label: str
+    value: str
+
+
 class _ComboboxOptions(TypedDict):
     """What the browser is handed in place of the option markup."""
 
     disabled: bool
-    label: str
-    rows: list[list[str]]
-    value: str
+    rows: list[tuple[str, str]]
+    selected: list[_SelectedOption]
 
 
 class _OptionReader(HTMLParser):
@@ -72,38 +77,33 @@ class _OptionReader(HTMLParser):
             self._open = None
 
 
-def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
+def _read_options(*, slot: str, disabled: bool, multiple: bool) -> _ComboboxOptions:
     """Turn the slot's options into the data the browser gets, not markup."""
     reader = _OptionReader()
     reader.feed(slot)
     reader.close()
     options = reader.options
 
-    # A single select's value is the option marked selected, or failing that
-    # the first one — the browser picks index 0 on its own, and reading the
-    # parsed <select> used to give us that for free.
-    chosen = next((o for o in options if o.selected), None)
-    if chosen is None and options:
-        chosen = options[0]
+    selected = [option for option in options if option.selected]
+    if not multiple:
+        selected = selected[:1] or options[:1]
 
     return {
         "disabled": disabled,
-        # The chosen option's label travels on its own, because a disabled one
-        # never reaches `rows` and the client looks labels up there. A
-        # disabled placeholder ("Choose a fruit…") is the ordinary case: it is
-        # what the field shows before anyone picks, and it must not show blank.
-        "label": chosen.label if chosen else "",
-        # A disabled option is not a row anyone can land on, but it can still
-        # be the one showing, so it counts for the value and label above.
-        "rows": [[o.value, o.label] for o in options if not o.disabled],
-        "value": chosen.value if chosen else "",
+        "rows": [
+            (option.value, option.label) for option in options if not option.disabled
+        ],
+        "selected": [
+            {"value": option.value, "label": option.label, "disabled": option.disabled}
+            for option in selected
+        ],
     }
 
 
 class ComboboxNode(template.Node):
     """Renders a ``<select>`` the browser upgrades into an APG combobox."""
 
-    _BOOLEAN_ATTRS = ("required", "disabled")
+    _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
     _TEMPLATE = "components/combobox.html"
 
     def __init__(
@@ -133,6 +133,7 @@ class ComboboxNode(template.Node):
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
         slot = self.nodelist.render(context)
+        multiple = bool(resolved.get("multiple"))
 
         return render_to_string(
             self._TEMPLATE,
@@ -143,7 +144,12 @@ class ComboboxNode(template.Node):
                 "has_errors": has_errors,
                 "id": element_id,
                 "name": name,
-                "options": _read_options(slot, disabled=bool(resolved.get("disabled"))),
+                "multiple": multiple,
+                "options": _read_options(
+                    slot=slot,
+                    disabled=bool(resolved.get("disabled")),
+                    multiple=multiple,
+                ),
                 "options_id": f"{element_id}-options",
                 "placeholder": placeholder,
                 "slot": slot,

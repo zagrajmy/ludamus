@@ -59,7 +59,7 @@ class TestUpdate:
         service.update(
             5,
             10,
-            {"title": "T", "display_name": "D", "participants_limit": 4},
+            {"title": "T", "facilitator_name": "D", "participants_limit": 4},
             field_values,
         )
 
@@ -68,7 +68,7 @@ class TestUpdate:
             5,
             {
                 "title": "T",
-                "display_name": "D",
+                "facilitator_name": "D",
                 "description": "",
                 "contact_email": "",
                 "participants_limit": 4,
@@ -85,7 +85,7 @@ class TestUpdate:
         cover = _FakeUpload()
 
         service.update(
-            5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []
+            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": cover}, []
         )
 
         assert sessions.update.call_args.args[1]["cover_image"] is cover
@@ -96,14 +96,14 @@ class TestUpdate:
         )
 
         service.update(
-            5, 10, {"title": "T", "display_name": "D", "cover_image": False}, []
+            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": False}, []
         )
 
         sessions.update.assert_called_once_with(
             5,
             {
                 "title": "T",
-                "display_name": "D",
+                "facilitator_name": "D",
                 "description": "",
                 "contact_email": "",
                 "participants_limit": 0,
@@ -118,7 +118,7 @@ class TestUpdate:
             presenter_id=10, event_override=None, sphere_default=True
         )
 
-        service.update(5, 10, {"title": "T", "display_name": "D"}, [])
+        service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
 
         assert "cover_image" not in sessions.update.call_args.args[1]
 
@@ -135,7 +135,7 @@ class TestUpdate:
         )
 
         service.update(
-            5, 10, {"title": "T", "display_name": "D", "duration": "PT2H"}, []
+            5, 10, {"title": "T", "facilitator_name": "D", "duration": "PT2H"}, []
         )
 
         assert sessions.update.call_args.args[1]["duration"] == "PT2H"
@@ -149,6 +149,6 @@ class TestUpdate:
         )
 
         with pytest.raises(SessionEditNotAllowedError):
-            service.update(5, 10, {"title": "T", "display_name": "D"}, [])
+            service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
 
         sessions.update.assert_not_called()

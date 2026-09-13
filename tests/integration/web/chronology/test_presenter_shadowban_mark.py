@@ -141,7 +141,7 @@ class TestEventPage:
         # shadowban target.
         session = agenda_item.session
         session.presenter = None
-        session.display_name = "Someone Offline"
+        session.facilitator_name = "Someone Offline"
         session.save()
 
         response = authenticated_client.get(_event_url(event))

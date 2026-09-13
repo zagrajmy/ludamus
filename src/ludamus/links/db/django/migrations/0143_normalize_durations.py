@@ -41,7 +41,11 @@ def normalize_stored_durations(apps, schema_editor):
     # what a row said before. Deploy output is what "which sessions lost their
     # length?" gets answered from.
     sessions_changed = sessions_emptied = 0
-    for session in session_model.objects.exclude(duration="").iterator():
+    # SAFETY: .only() keeps this frozen historical model from selecting a
+    # field a later migration renames or drops (e.g. Session.display_name ->
+    # facilitator_name) — the real table only ever has the current columns.
+    sessions = session_model.objects.only("pk", "duration").exclude(duration="")
+    for session in sessions.iterator():
         if (normalized := _normalize(session.duration)) != session.duration:
             logger.info(
                 "0143: session %s duration %r -> %r",
