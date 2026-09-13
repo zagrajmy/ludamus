@@ -4937,8 +4937,8 @@ msgid "all rooms"
 msgstr "wszystkie sale"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "All locations"
-msgstr "Wszystkie lokalizacje"
+msgid "Search locations…"
+msgstr "Szukaj miejsc…"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Participant age"
@@ -4969,11 +4969,8 @@ msgid "All hours"
 msgstr "Wszystkie godziny"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable-confirmations.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "All tracks"
-msgstr "Wszystkie bloki"
+msgid "Search tracks…"
+msgstr "Szukaj bloków…"
 
 #: src/ludamus/templates/chronology/event.html
 msgctxt "participant filter"
@@ -4982,8 +4979,8 @@ msgstr "Rodzaj atrakcji"
 
 #: src/ludamus/templates/chronology/event.html
 msgctxt "participant filter"
-msgid "All categories"
-msgstr "Wszystkie rodzaje atrakcji"
+msgid "Search categories…"
+msgstr "Szukaj rodzajów atrakcji…"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -5004,10 +5001,6 @@ msgstr "Żaden prowadzący nie pasuje do wyszukiwania."
 #: src/ludamus/templates/chronology/event.html
 msgid "Show hosts"
 msgstr "Pokaż prowadzących"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "All hosts"
-msgstr "Wszyscy prowadzący"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/components/multiselect-filter.html
@@ -6452,6 +6445,26 @@ msgstr "Pokaż trwały komunikat błędu"
 #: src/ludamus/templates/design.html
 msgid "Dismiss all"
 msgstr "Zamknij wszystkie"
+
+#: src/ludamus/templates/design.html
+msgid "Multiple fruit"
+msgstr "Wiele owoców"
+
+#: src/ludamus/templates/design.html
+msgid "Apple"
+msgstr "Jabłko"
+
+#: src/ludamus/templates/design.html
+msgid "Apricot"
+msgstr "Morela"
+
+#: src/ludamus/templates/design.html
+msgid "Cherry"
+msgstr "Wiśnia"
+
+#: src/ludamus/templates/design.html
+msgid "Fruit with disabled options"
+msgstr "Owoce z wyłączonymi opcjami"
 
 #: src/ludamus/templates/design.html
 msgid "Coral table"
@@ -9879,6 +9892,12 @@ msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "All tracks"
+msgstr "Wszystkie bloki"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Multiple tracks"
 msgstr "Wiele bloków"
 
@@ -10480,6 +10499,16 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
+#~ msgctxt "participant filter"
+#~ msgid "All categories"
+#~ msgstr "Wszystkie rodzaje atrakcji"
+
+#~ msgid "All locations"
+#~ msgstr "Wszystkie lokalizacje"
+
+#~ msgid "All hosts"
+#~ msgstr "Wszyscy prowadzący"
+
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
@@ -10983,9 +11012,6 @@ msgstr ""
 
 #~ msgid "Create Session"
 #~ msgstr "Utwórz punkt programu"
-
-#~ msgid "Apply"
-#~ msgstr "Zastosuj"
 
 #~ msgid "comma separated"
 #~ msgstr "oddzielone przecinkami"
