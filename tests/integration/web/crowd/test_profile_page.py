@@ -9,6 +9,17 @@ from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.utils import assert_response
 
 
+def _expected_context(user):
+    return {
+        "object": UserDTO.model_validate(user),
+        "user": UserDTO.model_validate(user),
+        "form": ANY,
+        "view": ANY,
+        "confirmed_participations_count": 0,
+        "profile_active_tab": "profile",
+    }
+
+
 class TestProfilePageView:
     URL = reverse("web:crowd:profile")
 
@@ -18,14 +29,47 @@ class TestProfilePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_without_email(self, authenticated_client, active_user):
+        active_user.email = ""
+        active_user.email_verified = False
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_with_unverified_email(self, authenticated_client, active_user):
+        active_user.email_verified = False
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_with_pending_email(self, authenticated_client, active_user):
+        active_user.pending_email = "new@example.com"
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 
@@ -113,14 +157,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 
@@ -138,14 +175,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 

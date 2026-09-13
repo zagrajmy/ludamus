@@ -176,9 +176,7 @@
         {% include "components/confirm-dialog.html" %}
         {% block email_verification_banner %}
             {% if current_user and not current_user.email_verified and not request.COOKIES.hide_email_verification_banner %}
-                {% if current_user.pending_email or current_user.email %}
-                    {% include "components/email-verification-banner.html" %}
-                {% endif %}
+                {% include "components/email-verification-banner.html" %}
             {% endif %}
         {% endblock email_verification_banner %}
         {% if posthog_config %}

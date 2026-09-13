@@ -1,10 +1,11 @@
 from http import HTTPStatus
 
 from django.contrib import messages
+from django.core import signing
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, User
-from ludamus.links.email_tokens import DjangoEmailTokenCodec
+from ludamus.links.email_tokens import SIGNING_SALT, DjangoEmailTokenCodec
 from ludamus.pacts.crowd import EmailTokenPayload, EmailVerificationAction
 from tests.integration.utils import assert_response
 
@@ -50,6 +51,19 @@ class TestConfirmLink:
     def test_get_garbled_token_renders_invalid_page(self, client, active_user):
         _ = active_user
         response = client.get(_link_url("garbage"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"address_taken": False},
+            template_name="crowd/email/link_invalid.html",
+        )
+
+    def test_get_unparseable_payload_renders_invalid_page(self, client, active_user):
+        _ = active_user
+        token = signing.dumps({"act": "confirm"}, salt=SIGNING_SALT)
+
+        response = client.get(_link_url(token))
 
         assert_response(
             response,
