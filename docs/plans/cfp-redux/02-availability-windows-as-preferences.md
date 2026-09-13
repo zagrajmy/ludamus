@@ -12,9 +12,6 @@ depends: [01]
 As an organiser, I want to define the windows a proposer can say they are
 available in, so that I learn when people can run their sessions.
 
-As an organiser, I want windows to overlap freely, so that a two-hour and a
-four-hour rhythm can coexist for different kinds of sessions.
-
 As an organiser, I want every window offered to every proposer regardless
 of kind, so that I do not maintain a per-kind list.
 
@@ -39,5 +36,32 @@ that accepting and scheduling are two separate decisions.
 As an organiser, I want scheduling to happen only on the timetable, so that
 there is one place that puts sessions in rooms and times.
 
+As an organiser, I want a session I place to count as schedule-confirmed
+only when I have switched automatic confirmation on for the event, so that
+one setting decides what a placement means everywhere.
+
 As an organiser, I want a proposer's availability shown when I place their
 session, so that I honour their preference without looking it up.
+
+## What it touches
+
+- Migration: drop `TimeSlotRequirement`. The overlap constraint stays until
+  03 — while the timetable still derives its grid, its capacity and its
+  placement gate from slots, overlapping windows would double-count
+  capacity and widen the grid.
+- Wizard: `get_timeslot_requirements` becomes "list event slots"; the step
+  renders when there are two or more. The kind settings page loses its
+  time-slot block.
+- Delete the legacy accept page: `ProposalAcceptPageView`,
+  `chronology/accept_proposal.html`, `create_proposal_acceptance_form`,
+  `ProposalAcceptanceService.accept_session` and its context DTO,
+  `panel:proposal-accept`. The accept action in `proposal-actions.html`
+  becomes the status flip; placement stays with the timetable.
+- That deletion is also a decision about confirmation, and it is deliberate:
+  the accept page wrote `session_confirmed=True` unconditionally, while the
+  timetable writes `event.auto_confirm_sessions and not is_move`. After it
+  goes, `auto_confirm_sessions` is the only thing that decides, so an
+  organiser who accepted-with-placement and never set the flag sees those
+  sessions as unconfirmed in the confirmation sweep and on facilitator
+  cards. Events relying on the old behaviour switch the flag on; the release
+  notes say so.

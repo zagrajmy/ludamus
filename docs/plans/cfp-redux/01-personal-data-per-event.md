@@ -16,11 +16,18 @@ session.
 As an organiser, I want to mark a personal-data question as required, so
 that a proposal cannot be submitted without an answer.
 
+As an organiser, I want a question that was required for every kind to stay
+required, and one that was required for only some kinds to become optional,
+so that the switch to one setting never blocks a submission that used to go
+through.
+
 As an organiser, I want to set the order in which personal-data questions
 are asked, so that the form reads the way I planned it.
 
-As an organiser, I want a yes/no question to never be enforceable as
-required, so that a proposer is not forced to answer "yes".
+As an organiser, I want a yes/no question to be impossible to mark required
+— refused by the database, not only by the form — so that no import,
+migration or type change can leave one behind that forces a proposer to
+answer "yes".
 
 As an organiser, I want to see how many people have answered a question, so
 that I know what removing it would cost.
@@ -50,3 +57,37 @@ forced on me, so that I can record what I know and fill the rest later.
 
 As an organiser editing a proposal, I want the same optional treatment for
 each facilitator's details, so that I am not blocked by data I do not have.
+
+As a maintainer, I want one place that decides which questions are required
+for whom, so that "never required when someone records data on another
+person's behalf" is a rule with an owner rather than a habit repeated at
+every call site.
+
+## What it touches
+
+- Migration: `PersonalDataField.is_required` (default false), backfilled
+  with `all(is_required)` across that field's `PersonalDataFieldRequirement`
+  rows — the strict-to-optional direction, whose failure mode an organiser
+  fixes in two clicks, unlike a form that silently starts rejecting
+  submissions. `order` takes the maximum requirement order. The requirement
+  table is dropped.
+- `CheckConstraint` on `PersonalDataField`: not
+  (`field_type = checkbox` and `is_required`). The repository normalises
+  `is_required` to false when the type is checkbox on every write, so a type
+  change from text to checkbox cannot violate it. The form guard stays as
+  the message the organiser reads.
+- `PersonalDataFieldForm` and the create/edit pages gain "Required" and
+  order inputs; the per-kind selects disappear. The repository persists
+  `order`.
+- The kind settings page loses its "Host Data Fields" block.
+- One builder in `gates/web/django/dynamic_fields.py` takes the event's
+  fields and who is answering, and returns the `(field, is_required)` pairs:
+  the proposer gets each field's own flag, anyone recording data on someone
+  else's behalf gets false. It replaces `requirement_fields` and the five
+  sites that hardcode `[(field, False) for field in fields]`
+  (`proposal_edit` ×2, `facilitator_fields` ×2, `chronology/views`).
+- `ProposeSessionService.get_personal_requirements` takes the event, not the
+  kind. The wizard's personal step moves before the kind step.
+- Delete guard: refuse when `PersonalDataFieldValue` rows exist for the
+  field; the row-action reason says so. `FieldUsageSummary` counts values,
+  not kinds.
