@@ -389,6 +389,10 @@ sheet as a downloaded file.
    - `columns` is the facilitators `PanelColumnSet` — right for resolving
      keys, since the rows *are* facilitators and their personal-data fields are
      this event's.
+   - `export_cells` is the facilitators' discount mapping from Step 3 —
+     `discount_kind`, `discount_value`, `discount_note` — reused as-is. Without
+     it `export_columns` resolves none of the three fixed keys below and the
+     sheet comes out header-only.
    - `default_keys` is a fixed tuple — the facilitator display name plus the
      three discount keys from Step 3 — not the list's chosen. The discounts
      list has no stored columns, and falling through to `facilitator_panel`
@@ -434,8 +438,10 @@ the name, so a check that included it could never pass.
   `pl` entries. Terms: session → "punkt programu", facilitator → "twórca
   programu", proposal category → "rodzaj atrakcji" (participant-facing) /
   "kategoria" (panel). "Export" → "Eksport", "Download" → "Pobierz".
-- E2E: one Playwright spec per list asserting the Export tab renders and the
-  download starts — rendered-HTML assertions belong there, not in the Python
+- E2E: one Playwright spec per list asserting the export entry point renders
+  and the download starts — the Export tab for proposals and facilitators, the
+  existing "Export accreditation sheet" button for discounts, which has no tab
+  bar to put one in. Rendered-HTML assertions belong there, not in the Python
   tests.
 - `mise run papercut` anything that bit you.
 - `mise run check` (`tingle` included) before the commit. `odfpy` is a new
