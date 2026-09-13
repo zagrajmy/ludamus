@@ -17,7 +17,9 @@ class BaseUserForm(forms.Form):
 
     @property
     def user_data(self) -> UserData:
-        return cast("UserData", self.cleaned_data)
+        # A copy: callers pop and add keys before handing it to a service, and
+        # the form still has to render its own cleaned_data on a re-display.
+        return cast("UserData", dict(self.cleaned_data))
 
 
 class UserForm(BaseUserForm):

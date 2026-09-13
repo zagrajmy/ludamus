@@ -55,7 +55,6 @@ class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     recipient_id: UserId
-    recipient_email: str
     banned_user_id: UserId
     in_session: bool
 
@@ -72,7 +71,6 @@ class ShadowbanEventSignupDTO(BaseModel):
 
 class ShadowbanSignupNotification(BaseModel):
     recipient_user_id: UserId
-    recipient_email: str
     event_slug: str
     event_name: str
     session_title: str

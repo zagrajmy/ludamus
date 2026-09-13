@@ -107,6 +107,7 @@ class Auth0UserInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     email: str = ""
+    email_verified: bool = False
     family_name: str = ""
     given_name: str = ""
     name: str = ""
@@ -151,18 +152,21 @@ class Auth0UserInfo(BaseModel):
             username=self.username,
             password=password,
             email=self.email or "",
+            email_verified=bool(self.email and self.email_verified),
             avatar_url=self.picture or "",
             name=self.display_name or "",
         )
 
-    def to_update_data(self, user: UserDTO) -> UserData:
+    def to_update_data(self) -> UserData:
+        # A dumb projection of the claim; whether each value may be written
+        # is decided by CrowdAuthService.sync_identity against stored state.
         data: UserData = {}
-        if self.email and user.email != self.email:
+        if self.email:
             data["email"] = self.email
-        if self.picture and user.avatar_url != self.picture:
+            data["email_verified"] = self.email_verified
+        if self.picture:
             data["avatar_url"] = self.picture
-        display_name = self.display_name
-        if display_name and not (user.name or "").strip():
+        if display_name := self.display_name:
             data["name"] = display_name
         return data
 
@@ -196,7 +200,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             self.request.session.pop("anonymous_user_code", None)
             self.request.session.pop("anonymous_enrollment_active", None)
             self.request.session.pop("anonymous_event_id", None)
-        if update_data := userinfo.to_update_data(user):
+        if update_data := userinfo.to_update_data():
             user = self.request.services.crowd_auth.sync_identity(
                 user_slug=user.slug, data=update_data
             )
@@ -269,6 +273,14 @@ class Auth0LoginCallbackActionView(RedirectView):
                 _(
                     "You already have an account, so this profile can't be moved "
                     "into it. Ask the person who invited you to enroll you directly."
+                ),
+            )
+        if result.email_conflict:
+            messages.warning(
+                self.request,
+                _(
+                    "That email address already belongs to another account, "
+                    "so it was not set. Set a different one in your profile."
                 ),
             )
         return result.user

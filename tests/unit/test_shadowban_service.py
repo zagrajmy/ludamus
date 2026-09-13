@@ -70,12 +70,9 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _hit(recipient_id, email, banned_user_id, *, in_session=False):
+def _hit(recipient_id, banned_user_id, *, in_session=False):
     return ShadowbanHitDTO(
-        recipient_id=recipient_id,
-        recipient_email=email,
-        banned_user_id=banned_user_id,
-        in_session=in_session,
+        recipient_id=recipient_id, banned_user_id=banned_user_id, in_session=in_session
     )
 
 
@@ -146,7 +143,7 @@ def test_add_by_identifier_rejects_blank():
 
 
 def test_notify_signups_emails_presenter_about_banned_players():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -155,7 +152,6 @@ def test_notify_signups_emails_presenter_about_banned_players():
     assert len(notifier.signups) == 1
     notification = notifier.signups[0]
     assert notification.recipient_user_id == _PRESENTER_ID
-    assert notification.recipient_email == "gm@example.com"
     assert notification.event_slug == "con-2026"
     assert notification.player_names == ["Bob"]
     assert notification.session_player_names == []
@@ -163,10 +159,7 @@ def test_notify_signups_emails_presenter_about_banned_players():
 
 def test_notify_signups_discerns_signup_into_recipients_session():
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2, in_session=True),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2, in_session=True), _hit(_PRESENTER_ID, 3))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -182,10 +175,7 @@ def test_notify_signups_discerns_signup_into_recipients_session():
 
 def test_notify_signups_notifies_every_banner_in_the_event():
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_OTHER_PRESENTER_ID, "other@example.com", 3),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 3))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -199,12 +189,7 @@ def test_notify_signups_notifies_every_banner_in_the_event():
 
 
 def test_notify_signups_dedupes_repeated_user_id():
-    repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-        )
-    )
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -215,12 +200,7 @@ def test_notify_signups_dedupes_repeated_user_id():
 
 
 def test_notify_signups_reports_distinct_users_sharing_a_name():
-    repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
-        )
-    )
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 3)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -230,7 +210,7 @@ def test_notify_signups_reports_distinct_users_sharing_a_name():
 
 
 def test_notify_signups_skips_presenter_with_no_resolvable_names():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -250,7 +230,7 @@ def test_notify_signups_silent_when_no_banned_players():
 
 
 def test_notify_signups_silent_when_no_signups():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 

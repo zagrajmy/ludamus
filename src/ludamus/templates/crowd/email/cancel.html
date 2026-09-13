@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Cancel email change" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                {% icon "shield-exclamation" class="w-10 h-10 mx-auto text-warning" %}
+                <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "Cancel email change" %}</h1>
+                <p class="text-sm text-foreground-muted mt-2">
+                    {% blocktranslate %}Your account's email address is being changed to <strong>{{ address }}</strong>. If that was not you, cancel the change below.{% endblocktranslate %}
+                </p>
+                {# No action: the view serves GET and POST here, so the form self-posts and the token stays out of the markup. #}
+                <form method="post" class="mt-6">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-full">{% translate "Cancel the change" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

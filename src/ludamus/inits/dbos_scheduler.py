@@ -36,6 +36,7 @@ from dbos import DBOS
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_email_verification,
     build_konwencik_export,
     build_printables_reminder,
     build_waitlist_promotion,
@@ -51,6 +52,7 @@ _launch_lock = threading.Lock()
 # go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
+VERIFICATION_REMINDERS_SCHEDULE = "30 7 * * *"
 # One cadence for every event, not a per-event knob: the export is a full
 # rewrite, so re-running is free and nothing accumulates between ticks. The
 # sweep is already bounded by sync-on and event-not-long-finished.
@@ -97,6 +99,18 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+def _send_verification_reminders_step(now: datetime) -> None:
+    sent = build_email_verification().send_due_reminders(now=now)
+    logger.info("verification reminders: reminded %s user(s)", sent)
+
+
+@DBOS.scheduled(VERIFICATION_REMINDERS_SCHEDULE)
+@DBOS.workflow()
+def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
+    _send_verification_reminders_step(scheduled)
+
+
+@DBOS.step()
 def _export_konwencik_step(now: datetime) -> None:
     exported = build_konwencik_export().run_sweep(now=now)
     logger.info("konwencik export sweep: exported %s integration(s)", exported)
@@ -130,6 +144,7 @@ def _ensure_launched() -> None:
                 for w in (
                     expire_offers_sweep,
                     printables_reminders_tick,
+                    verification_reminders_tick,
                     konwencik_export_tick,
                 )
             ],

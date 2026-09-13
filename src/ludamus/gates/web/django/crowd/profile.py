@@ -24,7 +24,7 @@ from ludamus.gates.web.django.crowd.helpers import (
     build_parties_context,
     companion_edit_auto_id,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import ChangeRequestOutcome, UserDTO
 from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:
@@ -56,10 +56,12 @@ class ProfilePageView(
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form: UserForm) -> HttpResponse:
-        email = form.user_data.get("email", "").strip()
-        if email and self.request.services.profile.email_in_use(
-            email, exclude_slug=self.request.context.current_user_slug
-        ):
+        data = form.user_data
+        email = data.pop("email", "").strip()
+        outcome = self.request.services.email_verification.request_change(
+            user_slug=self.request.context.current_user_slug, new_address=email
+        )
+        if outcome == ChangeRequestOutcome.TAKEN:
             form.add_error(
                 "email",
                 _(
@@ -70,9 +72,19 @@ class ProfilePageView(
             return self.form_invalid(form)
 
         self.request.services.profile.update(
-            self.request.context.current_user_slug, form.user_data
+            self.request.context.current_user_slug, data
         )
-        messages.success(self.request, _("Profile updated successfully!"))
+        if outcome == ChangeRequestOutcome.REQUESTED:
+            messages.success(
+                self.request,
+                _(
+                    "Profile updated. We sent a confirmation link to %(email)s — "
+                    "the address changes once you confirm it."
+                )
+                % {"email": email},
+            )
+        else:
+            messages.success(self.request, _("Profile updated successfully!"))
         return super().form_valid(form)
 
     def form_invalid(self, form: forms.Form) -> HttpResponse:

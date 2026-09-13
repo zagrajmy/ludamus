@@ -16,6 +16,7 @@ def user_dto(**overrides) -> UserDTO:
         "date_joined": DEFAULT_JOINED,
         "discord_username": "",
         "email": "",
+        "email_verified": False,
         "full_name": "",
         "is_active": True,
         "is_authenticated": True,
