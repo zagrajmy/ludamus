@@ -36,6 +36,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import ImportRow
 
 
+# A convention day ends when people go to sleep, not at midnight: a session
+# that runs from Friday 22:00 into the small hours is Friday's programme, and
+# a reader at 02:00 is still living Friday. Every schedule layout, server- and
+# client-side alike, turns its days over at this hour.
+PROGRAMME_DAY_STARTS_AT_HOUR = 6
+
+
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"
@@ -325,7 +332,11 @@ class SessionCardStatsDTO(BaseModel):
     enrolled_count: int
     waiting_count: int
     is_full: bool
-    is_enrollment_available: bool
+    # The windows that can seat this session, by id — not whether enrollment
+    # is available, which is a question about a viewer. Intersecting these
+    # with the viewer's own open windows is the only way to that answer, so
+    # every reader has to state whose windows it means.
+    enrollment_window_ids: frozenset[int]
     effective_participants_limit: int
 
 

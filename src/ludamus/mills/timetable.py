@@ -7,7 +7,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
 from ludamus.mills.event import require_session_in_event, require_track_in_event
-from ludamus.mills.timeslots import SlotWindow, slot_windows_by_local_date
+from ludamus.mills.timeslots import Window, slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -161,9 +161,12 @@ def _leaves(walked: list[tuple[SpaceDTO, int]]) -> list[SpaceDTO]:
     return [node for node, _ in walked if node.pk not in parent_pks]
 
 
-def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
-    # For the callers that want only the bookable rooms and never the tree.
-    return _leaves(_walk_tree(nodes))
+def _programme_space_order(space: SpaceDTO) -> tuple[int, str, int]:
+    return (space.programme_order, space.name, space.pk)
+
+
+def _leaves_in_programme_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+    return sorted(_leaves(_walk_tree(nodes)), key=_programme_space_order)
 
 
 def _within_selected_spaces(
@@ -238,7 +241,7 @@ class TimetableService(TimetableServiceProtocol):
         walked = self._tree(event_pk)
         all_nodes = [node for node, _ in walked]
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
-        leaf_spaces = _leaves(walked)
+        leaf_spaces = sorted(_leaves(walked), key=_programme_space_order)
         if track_pk is not None:
             track_space_pks = set(self._repos.tracks.list_space_pks(track_pk))
             leaf_spaces = [
@@ -377,7 +380,7 @@ class TimetableService(TimetableServiceProtocol):
 
     @staticmethod
     def _shared_day_span(
-        days: list[date], windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
+        days: list[date], windows_by_date: dict[date, list[Window]], tz: tzinfo
     ) -> tuple[int, int]:
         # One span for every rendered day, so 16:00 sits on the same row
         # whether its day opens at 16:00 or at 10:00. Windows are already
@@ -419,7 +422,7 @@ class TimetableService(TimetableServiceProtocol):
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         leaf_pks = {
             space.pk
-            for space in _leaves_in_tree_order(
+            for space in _leaves_in_programme_order(
                 self._repos.spaces.list_by_event(event_pk)
             )
         }
@@ -973,7 +976,7 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
     ) -> HeatmapDTO:
         # Only leaf spaces are bookable rooms; a venue or area column would be
         # permanently empty.
-        spaces = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
+        spaces = _leaves_in_programme_order(self._repos.spaces.list_by_event(event_pk))
         all_items = self._repos.agenda_items.list_by_event(event_pk)
         if conflicts is None:
             conflicts = self.get_all_conflicts(event_pk)
@@ -1086,7 +1089,7 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
         # Capacity = one program slot per room: every room is bookable for the
         # whole of each event time slot. Scheduled = hours already occupied by
         # placed agenda items in those rooms. Hours-to-fill is the remainder.
-        rooms = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
+        rooms = _leaves_in_programme_order(self._repos.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 
         slots = self._repos.time_slots.list_by_event(event_pk)

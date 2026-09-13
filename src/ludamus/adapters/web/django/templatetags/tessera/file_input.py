@@ -45,6 +45,8 @@ def render_file_input(field: BoundField) -> str:
             "initial_url": initial_url,
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
-            "contain": attrs.get("data-fit") == "contain",
+            "contain": getattr(field.field.widget, "fit", "cover") == "contain",
+            "crop": getattr(field.field.widget, "crop", None),
+            "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
         },
     )

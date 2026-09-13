@@ -67,6 +67,18 @@ ORGANIZER_TOOL_NAMES = [
     "create_sessions",
     "assign_session",
     "assign_sessions",
+    "update_session",
+    "update_space",
+    "update_event",
+    "set_event_image",
+    "set_sphere_logo",
+    "list_maps",
+    "create_map",
+    "update_map",
+    "set_map_spaces",
+    "delete_map",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
     "list_announcements",
 ]
 
@@ -121,7 +133,7 @@ def test_invalid_arguments_message_hides_input_values():
 def test_sanitize_audit_arguments_redacts_sensitive_fields():
     arguments = {
         "event_id": 1,
-        "display_name": "Alice",
+        "facilitator_name": "Alice",
         "description": "Secret plot",
         "title": "Workshop",
     }
@@ -132,7 +144,7 @@ def test_sanitize_audit_arguments_redacts_sensitive_fields():
 
     assert redacted == {
         "event_id": 1,
-        "display_name": "[redacted]",
+        "facilitator_name": "[redacted]",
         "description": "[redacted]",
         "title": "Workshop",
     }
@@ -143,13 +155,13 @@ def test_sanitize_batch_audit_arguments_keeps_only_correlation_keys():
         "sessions": [
             {
                 "source_row_id": "row-1",
-                "display_name": "Alice",
+                "facilitator_name": "Alice",
                 "description": "Secret plot",
                 "title": "Workshop",
             },
             {
                 "source_row_id": "row-2",
-                "display_name": "Bob",
+                "facilitator_name": "Bob",
                 "description": "Another secret",
                 "title": "Panel",
             },

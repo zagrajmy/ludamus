@@ -1,5 +1,7 @@
+from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import ANY
+from zoneinfo import ZoneInfo
 
 from django.contrib.messages import constants
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -7,7 +9,11 @@ from django.urls import reverse
 
 from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import PNG_BYTES, EncounterFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    FormInitialMatcher,
+    assert_response,
+    assert_response_404,
+)
 
 
 class TestEncounterEditPageView:
@@ -83,7 +89,9 @@ class TestEncounterEditPageView:
             ),
         )
 
-    def test_removes_header_image(self, authenticated_client, user, sphere):
+    def test_removes_header_image(
+        self, authenticated_client, user, sphere, django_capture_on_commit_callbacks
+    ):
         encounter = EncounterFactory(creator=user, sphere=sphere)
         encounter.header_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
@@ -92,15 +100,16 @@ class TestEncounterEditPageView:
         storage = encounter.header_image.storage
         old_name = encounter.header_image.name
 
-        response = authenticated_client.post(
-            self._url(encounter.pk),
-            {
-                "title": encounter.title,
-                "start_time": "2026-06-01T14:00",
-                "max_participants": 5,
-                "header_image-clear": "on",
-            },
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                self._url(encounter.pk),
+                {
+                    "title": encounter.title,
+                    "start_time": "2026-06-01T14:00",
+                    "max_participants": 5,
+                    "header_image-clear": "on",
+                },
+            )
 
         assert_response(
             response,
@@ -151,6 +160,28 @@ class TestEncounterEditPageView:
             HTTPStatus.OK,
             context_data={
                 "form": ANY,
+                "encounter": EncounterDTO.model_validate(encounter),
+            },
+            template_name="notice_board/edit.html",
+        )
+
+    def test_ok_get_prefills_local_wall_clock(self, authenticated_client, user, sphere):
+        encounter = EncounterFactory(
+            creator=user,
+            sphere=sphere,
+            start_time=datetime(2026, 6, 1, 18, 0, tzinfo=ZoneInfo("Europe/Warsaw")),
+            end_time=datetime(2026, 6, 1, 21, 0, tzinfo=ZoneInfo("Europe/Warsaw")),
+        )
+
+        response = authenticated_client.get(self._url(encounter.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormInitialMatcher(
+                    start_time="2026-06-01T18:00", end_time="2026-06-01T21:00"
+                ),
                 "encounter": EncounterDTO.model_validate(encounter),
             },
             template_name="notice_board/edit.html",

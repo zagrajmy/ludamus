@@ -15,6 +15,7 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | --- | --- | --- |
 | A whole form | `{% tessera_form form %}` | Renders labels, fields, help text, and errors. `layout="horizontal"` available. Use this before composing fields by hand. |
 | One field | `{% tessera_field form.name %}` | Dispatches to the right renderer (input/textarea/select/checkbox/file) by field type. |
+| Hex color | `{% tessera_field form.color %}` with `TextInput(attrs={"type": "color"})` | Text value plus synchronized native picker. Empty stays unset; the text field works without JavaScript. |
 | Form-level errors | `{% tessera_errors form %}` | Non-field errors as an alert. |
 | Action / link button | `{% tessera_button "Save" %}` | `href=` makes it a link; `variant="primary"/"secondary"/"danger"`, `size=`, `icon=`, `disabled`, `full_width_mobile`. The raw classes are `.btn .btn-primary` etc. |
 | Icon | `{% icon "calendar" %}` | Heroicons. `variant="outline"/"solid"/"mini"/"micro"`, `class="w-5 h-5"`. |

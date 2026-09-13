@@ -567,7 +567,7 @@ class TestFacilitatorMergeConfirm:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Jan Wysocki",
+            facilitator_name="Jan Wysocki",
             title="Dragon Heist",
             slug="dragon-heist",
             participants_limit=5,

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import string
+from dataclasses import replace
 from datetime import UTC, datetime
 from secrets import choice as _secret_choice
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
 import markdown as _md
 import nh3
 
+from ludamus.mills.calendar import CalendarEntry, ics_document
+from ludamus.mills.calendar import google_calendar_url as google_calendar_link
+from ludamus.mills.calendar import outlook_calendar_url as outlook_calendar_link
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 
 _BASE62_CHARS = string.ascii_letters + string.digits
@@ -53,68 +56,35 @@ def render_markdown(text: str) -> str:
     )
 
 
-def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
-    def _ics_dt(dt: datetime) -> str:
-        utc = dt.astimezone(UTC)
-        return utc.strftime("%Y%m%dT%H%M%SZ")
-
-    lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//Ludamus//Encounters//EN",
-        "BEGIN:VEVENT",
-        f"DTSTART:{_ics_dt(encounter.start_time)}",
-    ]
-    if encounter.end_time:
-        lines.append(f"DTEND:{_ics_dt(encounter.end_time)}")
-    lines.append(f"SUMMARY:{encounter.title}")
-    if encounter.place:
-        lines.append(f"LOCATION:{encounter.place}")
-    if encounter.description:
-        escaped = encounter.description.replace("\\", "\\\\").replace("\n", "\\n")
-        lines.append(f"DESCRIPTION:{escaped}")
-    lines.extend(
-        [
-            f"URL:{url}",
-            f"UID:{encounter.share_code}@ludamus",
-            "END:VEVENT",
-            "END:VCALENDAR",
-        ]
+def _entry(encounter: EncounterDTO, url: str) -> CalendarEntry:
+    return CalendarEntry(
+        uid=f"{encounter.share_code}@ludamus",
+        title=encounter.title,
+        start=encounter.start_time,
+        end=encounter.end_time,
+        url=url,
+        location=encounter.place or "",
+        description=encounter.description or "",
     )
-    return "\r\n".join(lines)
 
 
-def _gcal_dt(dt: datetime) -> str:
-    return dt.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
+    return ics_document(_entry(encounter, url), stamped_at=datetime.now(tz=UTC))
+
+
+def _dated_entry(encounter: EncounterDTO, url: str) -> CalendarEntry:
+    entry = _entry(encounter, url)
+    if entry.end:
+        return entry
+    return replace(entry, end=entry.start + ENCOUNTER_DEFAULT_DURATION)
 
 
 def google_calendar_url(encounter: EncounterDTO, url: str) -> str:
-    end = encounter.end_time or (encounter.start_time + ENCOUNTER_DEFAULT_DURATION)
-    params = {
-        "action": "TEMPLATE",
-        "text": encounter.title,
-        "dates": f"{_gcal_dt(encounter.start_time)}/{_gcal_dt(end)}",
-        "details": (
-            f"{encounter.description}\n\n{url}" if encounter.description else url
-        ),
-    }
-    if encounter.place:
-        params["location"] = encounter.place
-    return f"https://calendar.google.com/calendar/render?{urlencode(params)}"
+    return google_calendar_link(_dated_entry(encounter, url))
 
 
 def outlook_calendar_url(encounter: EncounterDTO, url: str) -> str:
-    end = encounter.end_time or (encounter.start_time + ENCOUNTER_DEFAULT_DURATION)
-    params = {
-        "rru": "addevent",
-        "subject": encounter.title,
-        "startdt": encounter.start_time.astimezone(UTC).isoformat(),
-        "enddt": end.astimezone(UTC).isoformat(),
-        "body": f"{encounter.description}\n\n{url}" if encounter.description else url,
-    }
-    if encounter.place:
-        params["location"] = encounter.place
-    return f"https://outlook.live.com/calendar/0/action/compose?{urlencode(params)}"
+    return outlook_calendar_link(_dated_entry(encounter, url))
 
 
 if TYPE_CHECKING:

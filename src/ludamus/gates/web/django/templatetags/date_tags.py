@@ -47,7 +47,10 @@ def _format_date_range(start: datetime, end: datetime) -> str:
     )
 
 
-@register.filter
+# Without expects_localtime the filter is handed the raw UTC value while the
+# built-in date/time filters beside it get the local one, so the same instant
+# can be printed with one day's date and the next day's hour.
+@register.filter(expects_localtime=True)
 def short_date(value: datetime) -> str:
     return date_format(value, format=f"D {_short_spec(with_year=False)}")
 

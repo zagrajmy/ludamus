@@ -76,7 +76,7 @@ class TestMcpToolCallAudit:
                 "params": {
                     "name": "create_session",
                     "arguments": {
-                        "display_name": "Alice",
+                        "facilitator_name": "Alice",
                         "description": "secret plot",
                         "title": "Workshop",
                     },
@@ -85,7 +85,7 @@ class TestMcpToolCallAudit:
         )
 
         assert _tools_call_record(caplog).args[-1] == {
-            "display_name": "[redacted]",
+            "facilitator_name": "[redacted]",
             "description": "[redacted]",
             "title": "Workshop",
         }

@@ -91,6 +91,23 @@ const getLinkableByModalId = (id: string): { paramName: string; paramValue: stri
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
+// iPadOS reports itself as a Mac, hence the touch-point check behind the UA
+// match. navigator.platform is deprecated but still the one signal iPadOS
+// leaves; when it goes, that branch quietly stops matching iPads and nothing
+// else breaks.
+const isAppleTouchDevice = (): boolean =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+// Whether a modal closes with no view transition at all. Apple touch devices
+// do, in every layout: measured on the live 880-session schedule in WebKit,
+// the transition's capture alone held every tap for about a second before the
+// dialog even closed, where Chromium takes a frame — and a reader closing a
+// session is usually reaching for the search box next. Only the close: the
+// open morph runs on the same engine, but nobody is tapping the page while a
+// modal opens, so its cost buys the animation without taking anything.
+const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
+
 interface ViewTransition {
   finished: Promise<void>;
 }
@@ -99,13 +116,24 @@ interface ViewTransitionDocument {
   startViewTransition?: (callback: () => void) => ViewTransition;
 }
 
+// Held on <html> for a transition's lifetime: it opts the root out of the
+// capture (modal.css), which is what keeps the page under a modal animation
+// tappable — the root's snapshot would otherwise stand in for every element on
+// it, and a snapshot takes no taps.
+const ROOT_PAGE_LIVE = "vt-page-live";
+
 const startViewTransition = (callback: () => void): ViewTransition | null => {
   const doc = document as Document & ViewTransitionDocument;
   if (!doc.startViewTransition) {
     callback();
     return null;
   }
-  return doc.startViewTransition(callback);
+  document.documentElement.classList.add(ROOT_PAGE_LIVE);
+  const transition = doc.startViewTransition(callback);
+  void transition.finished
+    .catch(() => null)
+    .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
+  return transition;
 };
 
 const isSkippedTransitionError = (error: unknown): boolean =>
@@ -120,10 +148,6 @@ const ignoreSkippedTransition = (error: unknown): void => {
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-suppressed";
-// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
-// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
-const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
-const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -162,10 +186,6 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   setSubMorph(root, active);
 };
 
-const setRootMorph = (className: string, active: boolean): void => {
-  document.documentElement.classList.toggle(className, active);
-};
-
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
@@ -180,12 +200,9 @@ const morphTransition = (steps: {
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
+// The plain exit: the dialog's own snapshot animates out (modal.css). Whether
+// to animate at all is the caller's call, decided once in closeModal.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
-  if (!dialog.open) return;
-  if (prefersReducedMotion()) {
-    dialog.close();
-    return;
-  }
   startViewTransition(() => {
     dialog.close();
   })?.finished.catch((error) => {
@@ -243,11 +260,9 @@ const openModal = async (
       openingModals.add(id);
       morphPromise = morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_OPEN, true);
           setMorph(card, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -285,14 +300,13 @@ const closeModal = (
   const dialog = getDialog(id);
   if (dialog.open) {
     const card = sessionCardForModal(id);
-    if (animate && canMorph(card)) {
+    const animated = animate && !closesWithoutTransition();
+    if (animated && canMorph(card)) {
       morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, true);
           setContainerMorph(dialog, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {
@@ -303,7 +317,8 @@ const closeModal = (
         },
       });
     } else {
-      dismissDialog(dialog);
+      if (animated) dismissDialog(dialog);
+      else dialog.close();
       releaseSessionCard(id);
     }
   }

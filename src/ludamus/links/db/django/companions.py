@@ -18,6 +18,10 @@ def active_companions(leader_slug: str) -> QuerySet[User]:
     return User.objects.filter(user_type=UserType.CONNECTED, manager__slug=leader_slug)
 
 
+def companions_of(manager_pk: int) -> QuerySet[User]:
+    return User.objects.filter(user_type=UserType.CONNECTED, manager_id=manager_pk)
+
+
 def sponsors_by_member(users: Iterable[User]) -> dict[int, User]:
     companion_ids = [u.pk for u in users if u.user_type == UserType.CONNECTED]
     if not companion_ids:

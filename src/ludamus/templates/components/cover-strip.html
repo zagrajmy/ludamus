@@ -1,0 +1,19 @@
+{% comment %}
+The strip a cover image fills at the top of a card: the session card's own
+cover, and the enrolment page's, which falls back to the event's cover when a
+session has none.
+
+One component because that fallback is what makes this the widest crop *any*
+cover meets, and so the box both dropzone guides take their height from
+(components/file-dropzone.html). Changing h-40 moves the guide people upload
+against.
+
+Variables:
+  url          the image to show; the caller decides which cover wins
+  extra_class  layout classes from the caller (flex behaviour)
+{% endcomment %}
+<img src="{{ url }}"
+     alt=""
+     width="640"
+     height="360"
+     class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover {{ extra_class }}">

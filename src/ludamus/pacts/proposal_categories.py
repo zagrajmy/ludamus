@@ -8,6 +8,9 @@ from ludamus.pacts.legacy import CategoryStats, ProposalCategoryDTO
 class ProposalCategoriesPageDTO(BaseModel):
     categories: list[ProposalCategoryDTO]
     stats: dict[int, CategoryStats]
+    # Categories `delete_by_slug` would refuse, so the list can say so where the
+    # Delete button would be instead of taking the click.
+    undeletable_pks: frozenset[int]
 
 
 class ProposalCategoriesRepositoryProtocol(Protocol):
@@ -18,6 +21,8 @@ class ProposalCategoriesRepositoryProtocol(Protocol):
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]: ...
     @staticmethod
     def has_proposals(pk: int) -> bool: ...
+    @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
     @staticmethod
     def list_by_event(event_id: int) -> list[ProposalCategoryDTO]: ...
     @staticmethod

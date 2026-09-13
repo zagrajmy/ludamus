@@ -70,11 +70,11 @@ const init = (root: HTMLElement): void => {
     });
   }
 
-  root.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key === "Escape" && isOpen()) {
-      close();
-      button.focus();
-    }
+  document.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || !isOpen()) return;
+    const hadFocus = root.contains(document.activeElement);
+    close(true);
+    if (hadFocus) button.focus();
   });
 
   document.addEventListener("click", (event: MouseEvent) => {

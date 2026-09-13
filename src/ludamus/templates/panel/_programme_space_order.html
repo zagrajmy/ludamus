@@ -1,0 +1,61 @@
+{% load i18n %}
+{% load django_vite %}
+{% load tessera %}
+{% if programme_spaces %}
+    {% translate "Could not save the programme order. Reloading the page." as t_programme_order_error %}
+    <div>
+        {% if programme_spaces|length > 1 %}
+            <p class="mb-4 text-sm text-foreground-muted">
+                {% translate "Drag scheduled rooms into the order participants should see across the timetable. This does not change their physical nesting." %}
+            </p>
+        {% endif %}
+        {% translate "Programme room order" as t_programme_room_order %}
+        {% translate "__name__ moved to position __position__ of __count__." as t_programme_moved %}
+        <ul {% if programme_spaces|length > 1 %}id="programme-space-list" data-reorder-url="{% url 'panel:programme-space-reorder' slug=current_event.slug %}" data-csrf="{{ csrf_token }}" data-reorder-error="{{ t_programme_order_error }}" data-moved-status="{{ t_programme_moved }}"{% endif %}
+            class="divide-y divide-border"
+            aria-label="{{ t_programme_room_order }}">
+            {% for row in programme_spaces %}
+                <li class="programme-space-node flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    {% if programme_spaces|length > 1 %}draggable="true"{% endif %}
+                    data-space-id="{{ row.space.pk }}"
+                    data-space-name="{{ row.space.name }}"
+                    aria-posinset="{{ forloop.counter }}"
+                    aria-setsize="{{ programme_spaces|length }}">
+                    {% if programme_spaces|length > 1 %}
+                        <button type="button"
+                                class="programme-drag-handle icon-btn shrink-0 cursor-move text-foreground-muted"
+                                aria-label="{% blocktranslate with name=row.space.name %}Reorder {{ name }} in the programme — use the arrow keys{% endblocktranslate %}">
+                            {% icon "bars-3" class="size-4" %}
+                        </button>
+                    {% else %}
+                        {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted" variant="mini" %}
+                    {% endif %}
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-medium text-foreground"
+                           title="{{ row.space.path }}">{{ row.space.path }}</p>
+                        {% if row.tracks %}
+                            <div class="mt-1 flex flex-wrap gap-1">
+                                {% for track in row.tracks %}
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ track.classes }}">{{ track.name }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if programme_spaces|length > 1 %}
+            <p id="programme-space-status" class="sr-only" aria-live="polite"></p>
+        {% endif %}
+    </div>
+    {% if programme_spaces|length > 1 %}
+        {% vite_asset 'src/programme-space-order.ts' %}
+    {% endif %}
+{% else %}
+    <div class="py-8 text-center">
+        <div class="mb-4">{% icon "calendar-days" class="mx-auto size-12 text-foreground-muted" %}</div>
+        <p class="text-foreground-muted">
+            {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." %}
+        </p>
+    </div>
+{% endif %}

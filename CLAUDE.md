@@ -56,11 +56,12 @@ grow on net — paying debt in one offsets taking it on in another. Read the
 added occurrences it prints and remove what you can. A justified addition is
 fine; say so in the PR. Don't game a counter to keep a number flat.
 
-## Papercuts
+## Friction (Frog)
 
-Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
-it now: `mise run papercut -- <note>`. One or two sentences, what you did → what
-got in the way.
+Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha.
+Check `mise run frog -- list`, then log it with `mise run frog -- log`.
+One or two sentences: what you did → what got in the way.
+[Usage and resolution](.agents/friction-log/README.md).
 
 ## Architecture
 
@@ -126,7 +127,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
   flags.
 
-- **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
+- **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
+  event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
 - **track** → "blok" or "blok programowy"
 - **facilitator** → "twórca programu"
 - **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides

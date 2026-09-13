@@ -1,0 +1,24 @@
+---
+name: Toolchain
+description: >-
+  Install the mise toolchain (python, node, hk, actionlint, ast-grep, ...) and
+  restore the cached Poetry virtualenv. Includes the .venv cache; do not add a
+  second one alongside it.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'mise.toml') }}
+        restore-keys: |
+          venv-${{ runner.os }}-
+    - uses: jdx/mise-action@v2
+    - run: mise install
+      shell: bash
+    - name: Drop stale virtualenv
+      run: .venv/bin/python --version || rm -rf .venv
+      shell: bash
+    - run: mise exec -- poetry install
+      shell: bash

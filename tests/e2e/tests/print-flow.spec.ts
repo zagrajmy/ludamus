@@ -114,16 +114,6 @@ test.describe("Print page for managers", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("the unconfirmed-sessions toggle applies itself to the URL", async ({ page }) => {
-    await page.goto(printUrl);
-
-    const box = page.getByLabel("Include unconfirmed sessions");
-    await box.check();
-
-    await expect(page).toHaveURL(/unconfirmed=1/);
-    await expect(page.getByLabel("Include unconfirmed sessions")).toBeChecked();
-  });
-
   test("panel links lead to the canonical print page", async ({ page }) => {
     await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/");
 

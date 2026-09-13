@@ -168,7 +168,7 @@ class TestTimetableSessionListPartView:
                     UnscheduledSessionDTO(
                         pk=hers.pk,
                         title=hers.title,
-                        display_name=hers.display_name,
+                        facilitator_name=hers.facilitator_name,
                         category_name=proposal_category.name,
                         category_pk=proposal_category.pk,
                         duration_minutes=0,
@@ -284,7 +284,7 @@ class TestTimetableSessionListPartView:
                     UnscheduledSessionDTO(
                         pk=session.pk,
                         title=session.title,
-                        display_name=session.display_name,
+                        facilitator_name=session.facilitator_name,
                         category_name=proposal_category.name,
                         category_pk=proposal_category.pk,
                         duration_minutes=0,

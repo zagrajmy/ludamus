@@ -11,6 +11,7 @@ from ludamus.links.db.django.models import (
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
+    ENROLLMENT_OPEN,
     event_page_context,
     masked_card,
     session_card,
@@ -52,6 +53,7 @@ class TestEventBanFakeFull:
                 event,
                 url=_event_url(event.slug),
                 event_banned=True,
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
@@ -77,6 +79,7 @@ class TestEventBanFakeFull:
             context_data=event_page_context(
                 event,
                 url=_event_url(event.slug),
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],

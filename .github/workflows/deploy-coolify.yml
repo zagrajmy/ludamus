@@ -85,6 +85,7 @@ jobs:
           SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
+          MEDIA_URL: ${{ vars.MEDIA_URL }}
           GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
           GS_LOCATION: ${{ vars.GS_LOCATION }}
           # Per-environment, and the seam a second PostHog project would use:

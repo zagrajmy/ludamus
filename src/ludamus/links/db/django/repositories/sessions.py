@@ -72,7 +72,7 @@ _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 # facilitator list. Anything else falls back to newest first.
 _SESSION_SORT_FIELDS = {
     "title": "title",
-    "host": "display_name",
+    "host": "facilitator_name",
     "category": "category__name",
     "status": "status",
     "created": "creation_time",
@@ -405,7 +405,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -432,7 +432,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -444,9 +444,13 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
+        # Through the session's own event FK, not its category: category is
+        # nullable, so the category join raised NotFoundError — a 500 on the
+        # accept page — for a proposal that has no category but does have an
+        # event. Same reasoning as review_inbox_proposals above.
         try:
             event = Event.objects.select_related("proposal_settings").get(
-                proposal_categories__sessions__id=session_id
+                event_sessions__id=session_id
             )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -458,8 +462,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # immediate parent's name so the picker can render optgroups.
         spaces = (
             Space.objects.filter(
-                event__proposal_categories__sessions__id=session_id,
-                children__isnull=True,
+                event__event_sessions__id=session_id, children__isnull=True
             )
             .select_related("parent")
             .order_by("order", "name")
@@ -476,15 +479,15 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
         time_slots = TimeSlot.objects.filter(
-            event__proposal_categories__sessions__id=session_id
-        )
+            event__event_sessions__id=session_id
+        ).order_by("start_time")
         return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
 
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
         try:
             time_slot = TimeSlot.objects.get(
-                id=time_slot_id, event__proposal_categories__sessions__id=session_id
+                id=time_slot_id, event__event_sessions__id=session_id
             )
         except TimeSlot.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -647,7 +650,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             encoded = json.dumps(search)[1:-1]
             qs = qs.filter(
                 Q(title__icontains=search)
-                | Q(display_name__icontains=search)
+                | Q(facilitator_name__icontains=search)
                 | Q(presenter__name__icontains=search)
                 | Q(field_values__value__icontains=search)
                 | Q(field_values__value__icontains=encoded)
@@ -685,7 +688,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             SessionListItemDTO(
                 pk=s.pk,
                 title=s.title,
-                display_name=s.display_name,
+                facilitator_name=s.facilitator_name,
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
@@ -909,7 +912,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         if filters.search:
             qs = qs.filter(
                 Q(title__icontains=filters.search)
-                | Q(display_name__icontains=filters.search)
+                | Q(facilitator_name__icontains=filters.search)
             ).distinct()
         results: list[UnscheduledSessionDTO] = []
         has_more = False
@@ -927,7 +930,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 UnscheduledSessionDTO(
                     pk=s.pk,
                     title=s.title,
-                    display_name=s.display_name,
+                    facilitator_name=s.facilitator_name,
                     category_name=s.category.name if s.category else "",
                     category_pk=s.category_id,
                     duration_minutes=duration_minutes,

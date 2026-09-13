@@ -1,13 +1,16 @@
 """Tests for tessera design-system component tags."""
 
-import html as html_module
-import json
 import re
 from unittest.mock import patch
 
 import pytest
 from django.template import Context, Template, TemplateSyntaxError
 from heroicons import IconDoesNotExist
+
+from ludamus.adapters.web.django.templatetags.tessera.button import (
+    SIZE_CLASSES,
+    VARIANT_CLASSES,
+)
 
 
 class TestIcon:
@@ -299,66 +302,21 @@ class TestSelect:
         assert "&lt;script&gt;" in html or "&#x27;" in html
 
 
-class TestComboboxOptionData:
-    """The JSON the client reads instead of the option markup."""
-
-    def _payload(self, slot: str) -> dict[str, object]:
-        tpl = Template(
-            "{% load tessera %}"
-            '{% tessera_combobox id="fruit" name="fruit" %}'
-            + slot
-            + "{% endtessera_combobox %}"
-        )
-        html = tpl.render(Context())
-        raw = re.search(
-            r'<script id="fruit-options" type="application/json">(.*?)</script>',
-            html,
-            re.DOTALL,
-        )
-        assert raw is not None
-        return json.loads(html_module.unescape(raw.group(1)))
-
-    def test_carries_every_enabled_option_as_a_row(self) -> None:
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c">Cherry</option>'
-        )
-        assert payload["rows"] == [["a", "Apple"], ["c", "Cherry"]]
-
-    def test_a_disabled_option_is_not_a_row(self) -> None:
-        payload = self._payload(
-            '<option value="" disabled selected>Any fruit</option>'
-            '<option value="a">Apple</option>'
-        )
-        assert payload["rows"] == [["a", "Apple"]]
-
-    def test_a_disabled_placeholder_keeps_its_label(self) -> None:
-        # Nobody may land on it, but it is what the field shows before anyone
-        # picks — and it is not a row, so the label has to travel separately
-        # or the control renders blank.
-        payload = self._payload(
-            '<option value="" disabled selected>Any fruit</option>'
-            '<option value="a">Apple</option>'
-        )
-        assert payload["label"] == "Any fruit"
-        assert not payload["value"]
-
-    def test_the_value_is_the_selected_option(self) -> None:
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c" selected>Cherry</option>'
-        )
-        assert payload["value"] == "c"
-        assert payload["label"] == "Cherry"
-
-    def test_without_a_selection_the_first_option_stands(self) -> None:
-        # What a single <select> does on its own: index 0 is current.
-        payload = self._payload(
-            '<option value="a">Apple</option><option value="c">Cherry</option>'
-        )
-        assert payload["value"] == "a"
-        assert payload["label"] == "Apple"
-
-
 class TestCombobox:
+    @pytest.mark.parametrize("multiple", (True, False))
+    def test_multiple_is_a_boolean_on_the_native_select(
+        self, *, multiple: bool
+    ) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="fruit" multiple=multiple %}'
+            '<option value="a">Apple</option>{% endtessera_combobox %}'
+        )
+        html = tpl.render(Context({"multiple": multiple}))
+        select = re.search(r"<select\b[^>]*>", html)
+        assert select is not None
+        assert bool(re.search(r"\bmultiple(?:[\s=>])", select.group())) is multiple
+        assert ('aria-multiselectable="true"' in html) is multiple
+
     def test_the_hidden_input_posts_under_the_given_name(self) -> None:
         # The upgraded control is what a form submits, and it takes its name
         # from this attribute. Empty here means the field silently never posts.
@@ -719,6 +677,52 @@ class TestIconToggle:
         assert "<script>alert(1)" not in html
 
 
+class TestCheckboxToggle:
+    def _render(self, extra: str = "") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_checkbox_toggle id="hide-ended" label="Hide ended" '
+            + extra
+            + " %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_visible_checkbox_in_label(self) -> None:
+        html = self._render().strip()
+        assert html.startswith("<label")
+        assert 'type="checkbox"' in html
+        assert 'id="hide-ended"' in html
+        assert "sr-only" not in html
+        assert "Hide ended" in html
+        assert " checked" not in html
+
+    def test_checked_and_named_when_asked(self) -> None:
+        html = self._render('name="flags" value="ended" checked=True')
+        assert 'name="flags"' in html
+        assert 'value="ended"' in html
+        assert " checked" in html
+
+    def test_submits_nothing_without_a_name(self) -> None:
+        assert "name=" not in self._render()
+
+    def test_escapes_label(self) -> None:
+        tpl = Template("{% load tessera %}{% tessera_checkbox_toggle id=i label=lbl %}")
+        html = tpl.render(Context({"i": "x", "lbl": "<script>alert(1)</script>"}))
+        assert "<script>alert(1)" not in html
+
+    def test_rejects_a_missing_id(self) -> None:
+        tpl = Template('{% load tessera %}{% tessera_checkbox_toggle label="x" %}')
+        with pytest.raises(ValueError, match="needs an id"):
+            tpl.render(Context())
+
+    def test_rejects_unknown_attrs(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_checkbox_toggle id="a" label="x" size="lg" %}'
+        )
+        with pytest.raises(ValueError, match="unexpected attrs"):
+            tpl.render(Context())
+
+
 class TestSwitcher:
     def _render(self, *, selected: str = "light") -> str:
         tpl = Template(
@@ -781,4 +785,140 @@ class TestSwitcher:
         with pytest.raises(TemplateSyntaxError, match="must be used inside"):
             Template(
                 '{% load tessera %}{% tessera_segment "a" %}A{% endtessera_segment %}'
+            ).render(Context())
+
+
+# The external row carries its own icon plus the exit arrow.
+EXTERNAL_ROW_ICONS = 2
+
+
+class TestActionDropdown:
+    BASE = (
+        "{% load tessera %}"
+        '{% tessera_action_dropdown id="cal-menu" label="Add to calendar" %}'
+        "<span>trigger</span>"
+        "{% action_dropdown_menu %}"
+        '{% tessera_action_dropdown_item "Google" href="https://g.example"'
+        ' icon="calendar-days" external=True %}'
+        '{% tessera_action_dropdown_item "Download" href="/f.ics" %}'
+        "{% endtessera_action_dropdown %}"
+    )
+
+    def test_wires_trigger_and_panel_to_the_menu_behavior(self) -> None:
+        html = Template(self.BASE).render(Context())
+
+        assert "data-menu-hover" in html
+        assert 'aria-controls="cal-menu"' in html
+        assert 'aria-expanded="false"' in html
+        assert "aria-haspopup" not in html
+        assert '<span class="sr-only">Add to calendar</span>' in html
+        assert "<span>trigger</span>" in html
+
+    def test_secondary_trigger_wears_the_button_look(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" trigger_variant="secondary" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Plain" href="/x" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+        trigger = html.split("</button>")[0]
+
+        assert VARIANT_CLASSES["secondary"] in trigger
+        assert SIZE_CLASSES["md"] in trigger
+        assert "rounded-lg" not in trigger
+
+    def test_unknown_trigger_variant_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="trigger_variant must be one of"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" trigger_variant="ghost" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Plain" href="/x" %}'
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    def test_hover_false_leaves_a_click_only_menu(self) -> None:
+        html = Template(
+            self.BASE.replace('label="Add to calendar"', "hover=False")
+        ).render(Context())
+
+        assert "data-menu-hover" not in html
+        assert "sr-only" not in html
+
+    def test_external_item_opens_a_new_tab_and_marks_the_exit(self) -> None:
+        html = Template(self.BASE).render(Context())
+
+        assert 'href="https://g.example"' in html
+        assert 'target="_blank" rel="noopener"' in html
+        assert html.count('target="_blank"') == 1
+        assert html.count("<svg") == EXTERNAL_ROW_ICONS
+        assert "<svg" not in html.split('href="/f.ics"')[1]
+
+    def test_item_extra_attrs_and_iconless_rows_render(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" align="end" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Plain" href="/x" data_kind="plain" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+
+        assert 'data-kind="plain"' in html
+        assert "<svg" not in html.split("</button>")[1]
+        assert "right-0" in html
+
+    def test_form_item_submits_an_associated_form(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Hold" form="hold-form" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+
+        assert '<button type="submit" form="hold-form"' in html
+        assert "Hold" in html
+
+    def test_form_item_cannot_be_external(self) -> None:
+        with pytest.raises(
+            TemplateSyntaxError, match="external is only valid with href"
+        ):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Hold" form="hold-form"'
+                " external=True %}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    @pytest.mark.parametrize(
+        "item",
+        (
+            '{% tessera_action_dropdown_item "Missing" %}',
+            '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}',
+        ),
+    )
+    def test_item_requires_exactly_one_destination(self, item: str) -> None:
+        with pytest.raises(TemplateSyntaxError, match="exactly one of href or form"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                f"{{% action_dropdown_menu %}}{item}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    def test_missing_id_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="needs an id"):
+            Template(
+                "{% load tessera %}{% tessera_action_dropdown %}t"
+                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    def test_unknown_align_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="align must be one of"):
+            Template(
+                '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
+                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
             ).render(Context())

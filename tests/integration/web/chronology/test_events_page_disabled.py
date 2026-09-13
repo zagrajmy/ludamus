@@ -43,6 +43,13 @@ class TestEventPagesWithGroupDisabled:
 
         assert_response_404(response)
 
+    def test_event_ics_404(self, client, event):
+        response = client.get(
+            reverse("web:chronology:event-ics", kwargs={"slug": event.slug})
+        )
+
+        assert_response_404(response)
+
     def test_session_enrollment_404(self, authenticated_client, event, session):
         response = authenticated_client.get(
             reverse(

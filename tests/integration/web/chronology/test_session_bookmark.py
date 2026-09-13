@@ -23,6 +23,7 @@ from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
+    programme_day_of,
     session_card,
 )
 
@@ -171,21 +172,25 @@ class TestEventPageBookmarkCounts:
                     rows=[
                         RoomLaneRow(
                             day=0,
-                            day_start=hour_start,
-                            hour=hour_start,
-                            hour_end=hour_start + timedelta(hours=1),
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start,
+                            window=(hour_start, hour_start + timedelta(hours=1)),
                             starting_tiles=[room_tile],
                         ),
                         RoomLaneRow(
                             day=0,
-                            day_start=hour_start,
-                            hour=hour_start + timedelta(hours=1),
-                            hour_end=hour_start + timedelta(hours=2),
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start + timedelta(hours=1),
+                            window=(
+                                hour_start + timedelta(hours=1),
+                                hour_start + timedelta(hours=2),
+                            ),
                         ),
                     ],
                     spans=[2],
                     lane_indices=[0],
                     lane_counts=[1],
+                    row_lengths=[60],
                 ),
                 sessions=[card],
                 has_enrollable_sessions=True,

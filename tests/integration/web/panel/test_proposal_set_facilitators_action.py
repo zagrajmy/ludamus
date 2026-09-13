@@ -29,7 +29,7 @@ def _base_context(event):
 
 
 def _make_session(event, **kwargs):
-    defaults = {"display_name": "Host", "participants_limit": 0}
+    defaults = {"facilitator_name": "Host", "participants_limit": 0}
     return make_proposal(event, **(defaults | kwargs))
 
 

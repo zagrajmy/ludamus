@@ -84,6 +84,12 @@ class UserRepository(UserRepositoryProtocol):
 
         return query.exists()
 
+    @staticmethod
+    def slug_exists(slug: str) -> bool:
+        # NOTE: the slug is unique table-wide, so this ignores user_type; a
+        # CONNECTED or ANONYMOUS row can own a slug an ACTIVE insert wants.
+        return User.objects.filter(slug=slug).exists()
+
 
 class CompanionRepository(CompanionRepositoryProtocol):
     @staticmethod

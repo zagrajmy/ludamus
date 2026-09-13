@@ -34,8 +34,11 @@ include = ["tests/**/*.py"]
 [ranges.python-tests-int]
 include = ["tests/integration/**/*.py"]
 
+# Django templates only: the static HTML under src/ludamus/static/ (the og-card
+# source, the viewport probe) cannot use the template tags these metrics push
+# towards.
 [ranges.templates]
-include = ["src/**/*.html"]
+include = ["src/ludamus/templates/**/*.html"]
 
 # A branch may take on debt in one metric if it pays off as much elsewhere.
 [check]

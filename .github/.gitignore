@@ -1,5 +1,9 @@
 *
 !workflows/
 !workflows/*.yml
+!actions/
+!actions/**
+!ISSUE_TEMPLATE/
+!ISSUE_TEMPLATE/friction.yml
 !dependabot.yml
 !CODEOWNERS

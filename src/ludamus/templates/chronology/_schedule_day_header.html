@@ -6,7 +6,7 @@
 {# fill reaches the row's edges instead of stopping at the text. #}
 <h3 class="mb-2 border-b border-border pb-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
     {% if day_count > 1 %}
-        {% include "components/day-fold-toggle.html" with day_start=day.day_start extra_class="flex w-full" only %}
+        {% include "components/day-fold-toggle.html" with day_start=day.day_start controls=controls extra_class="flex w-full" only %}
     {% else %}
         <span class="flex items-baseline gap-2 px-2 pb-1">
             {{ day.day_start|date:"l" }}

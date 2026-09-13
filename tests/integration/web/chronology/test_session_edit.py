@@ -48,7 +48,7 @@ def owned_session_fixture(event, active_user):
     return SessionFactory(
         category=category,
         presenter=active_user,
-        display_name=active_user.name,
+        facilitator_name=active_user.name,
         participants_limit=10,
         min_age=0,
         status="accepted",
@@ -182,7 +182,7 @@ class TestSessionEditViewGet:
 class TestSessionEditViewPost:
     @staticmethod
     def _data(**overrides):
-        data = {"title": "Updated title", "display_name": "Updated name"}
+        data = {"title": "Updated title", "facilitator_name": "Updated name"}
         data.update(overrides)
         return data
 
@@ -209,7 +209,7 @@ class TestSessionEditViewPost:
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
-        assert owned_session.display_name == "Updated name"
+        assert owned_session.facilitator_name == "Updated name"
 
     def test_htmx_post_composes_duration_from_the_steppers(
         self, authenticated_client, event, owned_session
@@ -288,7 +288,11 @@ class TestSessionEditViewPost:
         assert owned_session.cover_image_url.startswith("/media/sessions/")
 
     def test_post_replacing_cover_deletes_previous_file(
-        self, authenticated_client, event, owned_session
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
     ):
         owned_session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -298,17 +302,25 @@ class TestSessionEditViewPost:
         old_name = owned_session.cover_image.name
         new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
-        authenticated_client.post(
-            _url(event, owned_session),
-            data=self._data(cover_image=new_image),
-            headers={"hx-request": "true"},
-        )
+        # The old blob goes only once the row change is committed.
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(cover_image=new_image),
+                headers={"hx-request": "true"},
+            )
 
         owned_session.refresh_from_db()
         assert owned_session.cover_image.name != old_name
         assert not storage.exists(old_name)
 
-    def test_post_clears_cover_image(self, authenticated_client, event, owned_session):
+    def test_post_clears_cover_image(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
+    ):
         owned_session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
         )
@@ -316,11 +328,12 @@ class TestSessionEditViewPost:
         storage = owned_session.cover_image.storage
         old_name = owned_session.cover_image.name
 
-        authenticated_client.post(
-            _url(event, owned_session),
-            data=self._data(**{"cover_image-clear": "on"}),
-            headers={"hx-request": "true"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(**{"cover_image-clear": "on"}),
+                headers={"hx-request": "true"},
+            )
 
         owned_session.refresh_from_db()
         assert not owned_session.cover_image
@@ -363,7 +376,7 @@ class TestSessionEditViewPost:
 
         response = authenticated_client.post(
             url,
-            data={"title": "", "display_name": "Name", "participants_limit": "-1"},
+            data={"title": "", "facilitator_name": "Name", "participants_limit": "-1"},
             headers={"hx-request": "true"},
         )
 
@@ -398,7 +411,7 @@ class TestSessionEditViewPost:
 
         response = authenticated_client.post(
             url,
-            data={"title": "", "display_name": "Name"},
+            data={"title": "", "facilitator_name": "Name"},
             headers={"hx-request": "true"},
         )
 

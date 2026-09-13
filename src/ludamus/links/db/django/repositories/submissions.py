@@ -219,6 +219,17 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return Session.objects.filter(category_id=pk).exists()
 
     @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]:
+        # The same rule `has_proposals` answers per category, for a whole list
+        # in one query — the panel needs it per row, and per-row queries are an
+        # N+1.
+        return frozenset(
+            Session.objects.filter(category__event_id=event_id)
+            .values_list("category_id", flat=True)
+            .distinct()
+        )
+
+    @staticmethod
     def list_by_event(event_id: int) -> list[ProposalCategoryDTO]:
         categories = ProposalCategory.objects.filter(event_id=event_id).order_by("name")
         return [ProposalCategoryDTO.model_validate(c) for c in categories]

@@ -2,8 +2,9 @@
 
 Read-only document shapes for the printable materials on the public
 ``/print`` page: a timetable grid, per-room-and-day door cards, per-space
-descriptions pages, and a session list. Rendered as print-styled HTML pages
-in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
+descriptions pages, and the participants' session list. Rendered as
+print-styled HTML pages in the web gate (browser Save-as-PDF); assembled by
+`mills.printing`.
 """
 
 from __future__ import annotations
@@ -35,9 +36,6 @@ class PrintQueryDTO:
     scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
-    # Confirmed-only is the safe default: unconfirmed sessions reach paper
-    # only when a caller deliberately asks for them.
-    confirmed_only: bool = True
     # None means the whole event; the mills default to the event bounds.
     time_range: tuple[datetime, datetime] | None = None
 
@@ -66,22 +64,44 @@ class DoorCardsDocumentDTO(BaseModel):
     cards: list[DoorCardDTO]
 
 
-class PrintTimetableCellDTO(BaseModel):
-    # Empty list marks a slot with no session in this space (a visible gap).
-    sessions: list[PrintSessionDTO]
-
-
+# The grid the page draws, rooms across and time down like the event page's
+# rooms view: a row is a stretch of the day's axis between two instants at
+# which the programme changes, and a tile is one session starting on a row
+# and spanning every row it covers. Rows and columns are 1-based.
 class PrintTimetableRowDTO(BaseModel):
     start_time: datetime
     end_time: datetime
-    cells: list[PrintTimetableCellDTO]
+
+    @property
+    def minutes(self) -> int:
+        # Instants, not wall clock: on the night the clocks go back, two equal
+        # local times with different folds are an hour apart.
+        elapsed = self.end_time.timestamp() - self.start_time.timestamp()
+        # A grid track of zero would swallow the row.
+        return max(1, round(elapsed / 60))
+
+
+class PrintTimetableTileDTO(BaseModel):
+    session: PrintSessionDTO
+    start_time: datetime
+    end_time: datetime
+    col: int
+    row: int
+    span: int
 
 
 class PrintTimetablePageDTO(BaseModel):
     day: date
     space_names: list[str]
     rows: list[PrintTimetableRowDTO]
+    tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None
+
+    @property
+    def spans(self) -> list[int]:
+        # The distinct tile heights: the template serves one rule per span
+        # length it actually uses, as _room_lanes.html does.
+        return sorted({tile.span for tile in self.tiles})
 
 
 class PrintTimetableDocumentDTO(BaseModel):
@@ -91,10 +111,10 @@ class PrintTimetableDocumentDTO(BaseModel):
     event_end: datetime
     # Venue or area name when the document is scoped; None for the whole event.
     scope_name: str | None = None
-    # True when every scheduled session is confirmed (nothing pending) and at
-    # least one is scheduled — i.e. the printed grid is the whole program. Drives
-    # the public print page's QR label: a partial program points people online.
-    is_complete: bool = False
+    # False when the print is narrowed to a space subtree, a track or a time
+    # range. Drives the QR label: such a sheet is a subset by construction, so
+    # it points the reader at the full schedule online.
+    is_unscoped: bool = False
     pages: list[PrintTimetablePageDTO]
 
 
@@ -134,12 +154,13 @@ class PrintSessionListItemDTO(BaseModel):
     space_name: str
 
 
+# The participants' program: every session of the event in time order, with
+# the room — what one carries around the venue.
 class PrintSessionListDocumentDTO(BaseModel):
     event_name: str
     event_description: str
     event_start: datetime
     event_end: datetime
-    scope_name: str | None = None
     sessions: list[PrintSessionListItemDTO]
 
 
@@ -194,5 +215,5 @@ class PrintMaterialsServiceProtocol(Protocol):
     def build_timetable(self, query: PrintQueryDTO) -> PrintTimetableDocumentDTO: ...
     def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
-        self, event_pk: int, *, confirmed_only: bool = True
-    ) -> PrintSessionListDocumentDTO | None: ...
+        self, query: PrintQueryDTO
+    ) -> PrintSessionListDocumentDTO: ...

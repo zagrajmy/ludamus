@@ -1,0 +1,25 @@
+{% load i18n tessera cfp_tags %}
+{# Answers to the event's session fields, each under its own field name. #}
+{# Extracted from the session modal so a proposal reads the same wherever it #}
+{# is shown. Args: field_values (list of SessionFieldValueDTO). #}
+<div class="space-y-4">
+    {% for fv in field_values %}
+        <div>
+            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
+                {% if fv.field_icon %}
+                    {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
+                {% endif %}
+                {{ fv.field_name }}
+            </h4>
+            {% if fv.field_type == "select" and not fv.allow_custom %}
+                <div class="flex flex-wrap gap-1.5">
+                    {% for val in fv|field_value_list %}
+                        <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>

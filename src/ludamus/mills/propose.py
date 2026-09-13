@@ -155,26 +155,28 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
 
         if user_id is not None and user_slug is not None:
             current_user = self._repos.users.read(user_slug)
-            default_display_name = current_user.name
+            default_facilitator_name = current_user.name
             presenter_id = current_user.pk
         else:
-            default_display_name = ""
+            default_facilitator_name = ""
             presenter_id = None
 
-        display_name = str(session_data.get("display_name", default_display_name))
+        facilitator_name = str(
+            session_data.get("facilitator_name", default_facilitator_name)
+        )
         slug = self._generate_unique_slug(
             title, lambda s: self._repos.sessions.slug_exists(event.pk, s)
         )
 
         with self._transaction.atomic():
             facilitator = self._find_or_create_facilitator(
-                event=event, display_name=display_name, user_id=user_id
+                event=event, display_name=facilitator_name, user_id=user_id
             )
 
             create_data = SessionData(
                 event_id=event.pk,
                 presenter_id=presenter_id,
-                display_name=display_name,
+                facilitator_name=facilitator_name,
                 category_id=category_id,
                 title=title,
                 slug=slug,

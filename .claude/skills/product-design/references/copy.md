@@ -34,7 +34,7 @@ is a real translation bug, not a nuance.
 
 | English | Polish | Note |
 | --- | --- | --- |
-| session | **punkt programu** | except "RPG session" → **sesja RPG** |
+| session | **punkt programu** | except "RPG session" → **sesja RPG**; event-hero CTA "Sign up for sessions" → **Zapisz się na sesje** |
 | track | **blok** / **blok programowy** | |
 | facilitator | **twórca programu** | |
 | time slot | **przedział czasowy** | do **not** use "blok czasowy" — collides with *track* |

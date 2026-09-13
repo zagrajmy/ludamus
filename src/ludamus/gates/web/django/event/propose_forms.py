@@ -5,15 +5,12 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.uploads import validate_uploaded_image
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.forms import (
-    STORAGE_LIMIT_VALIDATOR,
-    cover_image_field,
-    validate_uploaded_image,
-)
+from ludamus.gates.web.django.forms import STORAGE_LIMIT_VALIDATOR, cover_image_field
 from ludamus.pacts.durations import duration_choices
 
 if TYPE_CHECKING:
@@ -84,7 +81,7 @@ def build_session_details_form(
             initial=0,
             help_text=_("0 = no age restriction"),
         ),
-        "display_name": forms.CharField(label=_("Presenter name"), max_length=255),
+        "facilitator_name": forms.CharField(label=_("Presenter name"), max_length=255),
     }
 
     if choices := duration_choices(durations):
@@ -104,7 +101,7 @@ def build_session_details_form(
 
 
 class SessionCoverImageForm(forms.Form):
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="top-and-bottom")
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

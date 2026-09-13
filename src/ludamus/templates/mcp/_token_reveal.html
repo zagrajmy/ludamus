@@ -4,5 +4,5 @@
 <p class="text-foreground-muted mb-2">
     {% blocktranslate %}Connect an MCP client with the token as a Bearer header, for example:{% endblocktranslate %}
 </p>
-<pre class="p-4 rounded-lg bg-bg-secondary border border-border text-sm break-all whitespace-pre-wrap mb-4"><code>claude mcp add --transport http zagrajmy {{ endpoint_url }} \
-  --header "Authorization: Bearer &lt;token&gt;"</code></pre>
+<pre class="p-4 rounded-lg bg-bg-secondary border border-border text-sm break-all whitespace-pre-wrap mb-4"><code>claude mcp add --transport http {{ current_sphere.name|slugify|default:current_sphere.site.domain|slugify }} {{ endpoint_url }} \
+  --header "Authorization: Bearer {{ token }}"</code></pre>
