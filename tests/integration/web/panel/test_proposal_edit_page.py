@@ -83,7 +83,7 @@ def _make_session(event, **kwargs):
         "event": event,
         "category": category,
         "presenter": None,
-        "display_name": "Test Host",
+        "facilitator_name": "Test Host",
         "title": "Test Session",
         "slug": "test-session",
         "participants_limit": 5,
@@ -321,7 +321,9 @@ class TestProposalEditPageView:
         session = _make_session(event)
         url = self.get_url(event, session.pk)
 
-        response = client.post(url, data={"title": "New Title", "display_name": "Host"})
+        response = client.post(
+            url, data={"title": "New Title", "facilitator_name": "Host"}
+        )
 
         assert_login_required(response, url)
 
@@ -330,7 +332,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
-            data={"title": "New Title", "display_name": "Host"},
+            data={"title": "New Title", "facilitator_name": "Host"},
         )
 
         assert_not_a_manager(response)
@@ -357,7 +359,7 @@ class TestProposalEditPageView:
 
         response = panel_client.post(
             self.get_url(event, session.pk),
-            data={"title": "Updated", "display_name": "Host"},
+            data={"title": "Updated", "facilitator_name": "Host"},
         )
 
         assert_proposal_not_found(response, event)
@@ -372,7 +374,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated Title",
-                "display_name": "New Host",
+                "facilitator_name": "New Host",
                 "description": "Updated description",
                 "contact_email": "",
                 "participants_limit": new_limit,
@@ -393,7 +395,7 @@ class TestProposalEditPageView:
         )
         session.refresh_from_db()
         assert session.title == "Updated Title"
-        assert session.display_name == "New Host"
+        assert session.facilitator_name == "New Host"
         assert session.description == "Updated description"
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
@@ -411,7 +413,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated Title",
-                "display_name": "New Host",
+                "facilitator_name": "New Host",
                 "description": "Updated description",
                 "contact_email": "",
                 "participants_limit": 10,
@@ -444,7 +446,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated Title",
-                "display_name": "New Host",
+                "facilitator_name": "New Host",
                 "description": "Updated description",
                 "contact_email": "",
                 "participants_limit": 10,
@@ -480,7 +482,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated Title",
-                "display_name": "New Host",
+                "facilitator_name": "New Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -530,7 +532,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": new_category.pk,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -561,7 +563,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": foreign_category.pk,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -621,7 +623,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": bounded.pk,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "description": "d",
                 "contact_email": "",
                 "participants_limit": LIMIT_ABOVE_CATEGORY_MAX,
@@ -653,7 +655,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "description": "d",
                 "contact_email": "",
                 "participants_limit": OVER_COLUMN_WIDTH,
@@ -714,7 +716,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": bounded.pk,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "description": "d",
                 "contact_email": "",
                 "participants_limit": LIMIT_BELOW_CATEGORY_MIN,
@@ -754,7 +756,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "description": "d",
                 "contact_email": "",
                 "participants_limit": raised_limit,
@@ -789,7 +791,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated Title",
-                "display_name": "New Host",
+                "facilitator_name": "New Host",
                 "cover_image": image,
             },
         )
@@ -824,7 +826,7 @@ class TestProposalEditPageView:
                 data={
                     "category_id": session.category_id,
                     "title": "Updated Title",
-                    "display_name": "New Host",
+                    "facilitator_name": "New Host",
                     "cover_image-clear": "on",
                 },
             )
@@ -853,7 +855,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "facilitators_submitted": "1",
@@ -877,7 +879,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "facilitators_submitted": "1",
@@ -898,7 +900,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "tracks_submitted": "1",
@@ -921,7 +923,7 @@ class TestProposalEditPageView:
             data={
                 # Missing title → form invalid, triggers the re-render path.
                 "category_id": session.category_id,
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "tracks_submitted": "1",
@@ -945,7 +947,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "tracks_submitted": "1",
@@ -969,7 +971,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title only",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -990,7 +992,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "time_slots_submitted": "1",
@@ -1014,7 +1016,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "time_slots_submitted": "1",
@@ -1040,7 +1042,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "time_slots_submitted": "1",
@@ -1065,7 +1067,7 @@ class TestProposalEditPageView:
             data={
                 # Missing title → form invalid, triggers the re-render path.
                 "category_id": session.category_id,
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "time_slots_submitted": "1",
@@ -1120,7 +1122,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title only",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -1228,7 +1230,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1265,7 +1267,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1300,7 +1302,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1344,7 +1346,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1479,7 +1481,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "New title",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1580,7 +1582,7 @@ class TestProposalEditPageView:
             data={
                 # Missing title → form invalid, triggers the re-render path.
                 "category_id": session.category_id,
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1632,7 +1634,7 @@ class TestProposalEditPageView:
             data={
                 # Missing title → form invalid, triggers the re-render path.
                 "category_id": session.category_id,
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1694,7 +1696,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
@@ -1711,7 +1713,7 @@ class TestProposalEditPageView:
         session = _make_session(event)
 
         response = panel_client.post(
-            self.get_url(event, session.pk), data={"title": "", "display_name": ""}
+            self.get_url(event, session.pk), data={"title": "", "facilitator_name": ""}
         )
 
         assert_response(
@@ -1762,7 +1764,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_adult": "true",
@@ -1789,7 +1791,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "   ",
@@ -1822,7 +1824,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "",
@@ -1859,7 +1861,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_genres": ["horror", "comedy"],
@@ -1889,7 +1891,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "",
@@ -2030,7 +2032,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title only",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -2055,7 +2057,7 @@ class TestProposalEditPageView:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title only",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -2193,7 +2195,7 @@ class TestProposalEditPageView:
             self.get_url(event, session.pk),
             data={
                 "title": "",
-                "display_name": "",
+                "facilitator_name": "",
                 "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
             },
@@ -2364,7 +2366,7 @@ class TestProposalEditOrphanValues:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "Pathfinder",
@@ -2382,7 +2384,7 @@ class TestProposalEditOrphanValues:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "Pathfinder",
@@ -2405,7 +2407,7 @@ class TestProposalEditOrphanValues:
             data={
                 "category_id": session.category_id,
                 "title": "Updated",
-                "display_name": "Host",
+                "facilitator_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "Pathfinder",
@@ -2426,7 +2428,7 @@ class TestProposalEditOrphanValues:
             data={
                 "category_id": session.category_id,
                 "title": "Test Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "",

@@ -89,7 +89,7 @@ class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         return SessionEditForm(
             initial={
                 "title": ctx.session.title,
-                "display_name": ctx.session.display_name,
+                "facilitator_name": ctx.session.facilitator_name,
                 "description": ctx.session.description,
                 "contact_email": ctx.session.contact_email,
                 "participants_limit": ctx.session.participants_limit,

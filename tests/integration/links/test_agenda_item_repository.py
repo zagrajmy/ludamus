@@ -45,7 +45,7 @@ class TestAgendaItemRepositoryRead:
         assert dto.start_time == agenda_item.start_time
         assert dto.end_time == agenda_item.end_time
         assert dto.session_title == session.title
-        assert dto.presenter_name == session.display_name
+        assert dto.presenter_name == session.facilitator_name
         assert dto.session_status == SessionStatus(session.status)
 
     def test_read_populates_duration_minutes(self, agenda_item):

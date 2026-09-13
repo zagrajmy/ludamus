@@ -56,11 +56,12 @@ grow on net — paying debt in one offsets taking it on in another. Read the
 added occurrences it prints and remove what you can. A justified addition is
 fine; say so in the PR. Don't game a counter to keep a number flat.
 
-## Papercuts
+## Friction (Frog)
 
-Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
-it now: `mise run papercut -- <note>`. One or two sentences, what you did → what
-got in the way.
+Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha.
+Check `mise run frog -- list`, then log it with `mise run frog -- log`.
+One or two sentences: what you did → what got in the way.
+[Usage and resolution](.agents/friction-log/README.md).
 
 ## Architecture
 
