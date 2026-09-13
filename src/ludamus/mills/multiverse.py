@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         SphereListItemDTO,
         SphereRole,
     )
+    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -41,9 +42,11 @@ class AnnouncementsService:
         self,
         transaction: TransactionProtocol,
         announcements: AnnouncementsRepositoryProtocol,
+        fanout: AnnouncementFanoutSchedulerProtocol,
     ) -> None:
         self._transaction = transaction
         self._announcements = announcements
+        self._fanout = fanout
 
     def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]:
         return self._announcements.list_for_sphere(sphere_id)
@@ -56,13 +59,24 @@ class AnnouncementsService:
 
     def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
         with self._transaction.atomic():
-            return self._announcements.create(sphere_id, data)
+            announcement = self._announcements.create(sphere_id, data)
+        self._schedule_fanout(announcement)
+        return announcement
 
     def update(
         self, sphere_id: int, pk: int, data: AnnouncementData
     ) -> AnnouncementDTO:
         with self._transaction.atomic():
-            return self._announcements.update(sphere_id, pk, data)
+            announcement = self._announcements.update(sphere_id, pk, data)
+        self._schedule_fanout(announcement)
+        return announcement
+
+    def _schedule_fanout(self, announcement: AnnouncementDTO) -> None:
+        # Published and never notified — whether just created that way or a
+        # draft flipped by an edit. The fanout itself re-checks and stamps
+        # notified_at atomically, so a duplicate schedule is harmless.
+        if announcement.is_published and announcement.notified_at is None:
+            self._fanout.schedule_fanout(announcement_id=announcement.pk)
 
     def delete(self, sphere_id: int, pk: int) -> None:
         with self._transaction.atomic():

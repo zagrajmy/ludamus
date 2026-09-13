@@ -1,11 +1,18 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Announcement
+from ludamus.inits.builders import build_announcement_fanout
+from ludamus.links.db.django.models import (
+    Announcement,
+    Notification,
+    NotificationSubscription,
+)
 from ludamus.pacts.multiverse import AnnouncementDTO
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
@@ -335,3 +342,79 @@ class TestAnnouncementDeletePageView:
             url="/multiverse/panel/announcements/",
         )
         assert Announcement.objects.filter(pk=announcement.pk).exists()
+
+
+ACTIVE_SUBSCRIBERS = 2
+
+
+class TestAnnouncementFanout:
+    # Full loop with the cron-mode scheduler: the panel publish records intent
+    # (log only) and the sweep — here driven directly — delivers the bell rows.
+    create_url = reverse("multiverse:panel:announcement-create")
+
+    @pytest.fixture(autouse=True)
+    def _cron_scheduler(self, settings):
+        settings.SCHEDULER_MODE = "cron"
+
+    def _edit_url(self, pk):
+        return reverse("multiverse:panel:announcement-edit", kwargs={"pk": pk})
+
+    def test_publishing_notifies_each_active_subscriber_once(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        subscriber = UserFactory(username="subscriber")
+        muted = UserFactory(username="muted")
+        NotificationSubscription.objects.create(
+            user=subscriber, sphere=sphere, source="visit"
+        )
+        NotificationSubscription.objects.create(
+            user=muted, sphere=sphere, muted=True, source="visit"
+        )
+
+        authenticated_client.post(
+            self.create_url,
+            data={"title": "Hello", "content": "Body", "is_published": "on"},
+        )
+        # Two active subscribers: the seeded one plus the posting manager,
+        # auto-subscribed by the visit middleware on their own request.
+        assert build_announcement_fanout().fanout_due() == ACTIVE_SUBSCRIBERS
+
+        notification = Notification.objects.get(recipient=subscriber)
+        assert notification.kind == "announcement"
+        assert notification.title == "Hello"
+        assert notification.body == "Body"
+        assert not notification.url
+        assert not Notification.objects.filter(recipient=muted).exists()
+        # Republishing the same announcement stays silent.
+        announcement = Announcement.objects.get(sphere=sphere, title="Hello")
+        for is_published in ({}, {"is_published": "on"}):
+            authenticated_client.post(
+                self._edit_url(announcement.pk),
+                data={"title": "Hello", "content": "Body", **is_published},
+            )
+        assert build_announcement_fanout().fanout_due() == 0
+        assert Notification.objects.filter(recipient=subscriber).count() == 1
+
+    def test_draft_stays_silent_until_published(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        subscriber = UserFactory(username="subscriber")
+        NotificationSubscription.objects.create(
+            user=subscriber, sphere=sphere, source="visit"
+        )
+
+        authenticated_client.post(
+            self.create_url, data={"title": "Hello", "content": "Body"}
+        )
+        assert build_announcement_fanout().fanout_due() == 0
+
+        announcement = Announcement.objects.get(sphere=sphere)
+        authenticated_client.post(
+            self._edit_url(announcement.pk),
+            data={"title": "Hello", "content": "Body", "is_published": "on"},
+        )
+        # The seeded subscriber plus the auto-subscribed posting manager.
+        assert build_announcement_fanout().fanout_due() == ACTIVE_SUBSCRIBERS
+        assert Notification.objects.filter(recipient=subscriber).count() == 1

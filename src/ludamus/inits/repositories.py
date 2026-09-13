@@ -20,7 +20,11 @@ from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.notifications import (
+    AnnouncementFanoutRepository,
+    NotificationReadRepository,
+    NotificationSubscriptionRepository,
+)
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
@@ -145,6 +149,14 @@ class Repositories:
     @cached_property
     def notifications(self) -> NotificationReadRepository:
         return NotificationReadRepository()
+
+    @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionRepository:
+        return NotificationSubscriptionRepository()
+
+    @cached_property
+    def announcement_fanout(self) -> AnnouncementFanoutRepository:
+        return AnnouncementFanoutRepository()
 
     @cached_property
     def printables_reminders(self) -> PrintablesReminderRepository:

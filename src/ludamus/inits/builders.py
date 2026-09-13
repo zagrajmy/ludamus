@@ -20,6 +20,7 @@ from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
+from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.printing import PrintablesReminderService
 from ludamus.pacts.konwencik import KonwencikScheduleRepos
 
@@ -43,6 +44,12 @@ def build_printables_reminder() -> PrintablesReminderService:
         transaction=DjangoTransaction(),
         reminders=Repositories().printables_reminders,
         notifier=DjangoUserNotifier(),
+    )
+
+
+def build_announcement_fanout() -> AnnouncementFanoutService:
+    return AnnouncementFanoutService(
+        DjangoTransaction(), Repositories().announcement_fanout
     )
 
 
