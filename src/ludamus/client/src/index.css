@@ -12,6 +12,7 @@
 @import "./room-lanes.css";
 @import "./schedule-fold.css";
 @import "./schedule-now.css";
+@import "./event-print.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -822,6 +823,18 @@ select:not([multiple]):not([size]) {
   background-position: right 0.5rem center;
   background-size: 1rem;
   padding-right: 2rem;
+}
+
+/* The card's link is a full-bleed overlay (.session-link); every other
+   control inside the card sits above it so it stays clickable. */
+.session :is(button, input, select, textarea, [role="button"]),
+.session a:not(.session-link) {
+  position: relative;
+  z-index: 20;
+}
+
+.time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
+  filter: grayscale(50%) brightness(0.95);
 }
 
 .session:has(.session-tags-more:hover) {

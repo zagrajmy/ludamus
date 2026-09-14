@@ -130,6 +130,161 @@
   .filter-chips-clear:hover {
     color: var(--color-primary);
   }
+
+  /* The event page's filter popover (chronology/event.html). The same
+     .filter-panel as the organizer's inline disclosure above, but hung off
+     its toggle: these outrank the base rules by the wrapper's extra class,
+     so the panel is a positioned dropdown here and stays a grid-row reveal
+     everywhere else. */
+  .filters-popover-wrapper .filter-toggle-anchor {
+    anchor-name: --filter-trigger;
+  }
+
+  .filters-popover-wrapper .filter-panel {
+    position: absolute;
+    position-anchor: --filter-trigger;
+    top: anchor(bottom);
+    right: anchor(right);
+    width: 28rem;
+    max-width: calc(100vw - 2rem);
+    margin-top: 4px;
+    display: block;
+    min-width: 0;
+    max-height: var(--filter-panel-room, calc(100dvh - 2rem));
+    overflow-y: auto;
+    z-index: 50;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-elevated);
+    opacity: 0;
+    pointer-events: none;
+    filter: none;
+    transform: scale(0.9) translateY(-16px);
+    transform-origin: top right;
+    transition:
+      opacity 0.35s var(--ease-spring-a-bit),
+      transform 0.35s var(--ease-spring-a-bit);
+    padding: 0.75rem;
+    padding-top: 0;
+  }
+
+  @supports not (anchor-name: --filter-trigger) {
+    .filters-popover-wrapper .filter-panel {
+      top: 100%;
+      right: 0;
+      left: auto;
+      width: 28rem;
+      max-width: calc(100vw - 2rem);
+      position-anchor: unset;
+    }
+  }
+
+  .filters-popover-wrapper .filter-panel.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .filters-popover-wrapper .filter-panel,
+    .filters-popover-wrapper .filter-panel.is-open {
+      transform: none;
+      transition: opacity 0.15s linear;
+    }
+  }
+
+  .filter-panel-body {
+    padding-top: 0.875rem;
+  }
+
+  /* The sheet's own chrome; the panel is a dropdown at every other width,
+     where the trigger and the page around it are the way out. */
+  .filter-sheet-header,
+  .filter-sheet-footer,
+  .filter-sheet-backdrop {
+    display: none;
+  }
+
+  /* On narrow screens the right-anchored popover has nowhere good to go: it
+     overflows the left edge (the app-shell reserves a scrollbar gutter that
+     pulls the anchor inward), and anchoring its top to a trigger low on the
+     page drops it past the bottom of a short viewport, out of reach. So it
+     stops being a dropdown and becomes a dialog, sized and dressed like the
+     session modal — centred, sized to its content, and stopping short of the
+     edges, because the schedule behind it is the thing these filters are
+     being chosen against. */
+  @media (max-width: 30rem) {
+    .filters-popover-wrapper .filter-panel {
+      position: fixed;
+      /* inset + auto margins is how .modal centres; height:fit-content keeps
+         a short filter set from becoming a full-height slab. */
+      inset: 0;
+      margin: auto;
+      height: fit-content;
+      width: calc(100% - 1rem);
+      max-width: none;
+      max-height: var(--modal-max-h);
+      /* Over the sticky navbar, which shares the panel's z-index and would
+         otherwise sit on top of the dialog. */
+      z-index: 60;
+      position-anchor: unset;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: var(--shadow-elevated);
+      transform-origin: center;
+      transform: scale(0.9) translateY(16px);
+    }
+
+    /* The body scrolls, not the dialog: the header and the Apply button have
+       to stay put while a long filter list moves under them. */
+    .filter-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 1rem 1.5rem;
+    }
+
+    .filter-sheet-header,
+    .filter-sheet-footer {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .filter-sheet-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 59;
+      background-color: transparent;
+      backdrop-filter: blur(0);
+      pointer-events: none;
+      transition:
+        background-color 0.2s var(--ease-out),
+        backdrop-filter 0.2s var(--ease-out);
+    }
+
+    .filter-panel.is-open ~ .filter-sheet-backdrop {
+      background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+      backdrop-filter: blur(var(--modal-backdrop-blur, 4px));
+      pointer-events: auto;
+    }
+  }
+}
+
+/* The same lock index.css gives the session modal, and on the same element:
+   .app-shell is overflow:hidden, so .app-scroll is the only thing that
+   scrolls and the document never does. Keyed on aria-modal because that
+   attribute is already the answer to "is this a dialog right now" — it is
+   set at the phone breakpoint and removed at every other, so the dropdown
+   leaves the schedule scrollable under it. Unlayered, like the modal's lock:
+   .app-scroll's own overflow-y is unlayered and a layered rule could not
+   take it back. */
+body:has(#filter-panel[aria-modal="true"]) .app-scroll {
+  overflow: hidden;
 }
 
 @keyframes filter-chip-in {
