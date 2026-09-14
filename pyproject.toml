@@ -73,7 +73,7 @@ pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
 ruff = "^0.16.0"
 types-authlib = "^1.7.2.20260724"
-types-requests = "^2.32.4.20250809"
+types-requests = "^2.33.0.20260906"
 
 # BLACK
 diff-cover = "^10.4.1"
