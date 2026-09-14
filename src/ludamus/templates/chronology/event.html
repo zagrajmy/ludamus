@@ -471,7 +471,7 @@
                         {# closes. Sibling, not ::backdrop: the panel is a div, not a #}
                         {# <dialog>, and promoting it to one would take the filters out #}
                         {# of the page's tab order at every other width. #}
-                        <div class="filter-sheet-backdrop" data-filter-backdrop></div>
+                        <div class="filter-sheet-backdrop viewport-cover" data-filter-backdrop></div>
                     </div>
                     {# The switcher exists for the rooms grid, which renders from #}
                     {# schedule_days — only the compact layout builds those, so a #}
@@ -808,11 +808,6 @@
 
             .filter-sheet-backdrop {
                 display: block;
-                position: fixed;
-                inset: 0;
-                /* Same reach as .modal::backdrop: past the small viewport,
-                   under iOS Safari's bar, to where the app-shell ends. */
-                min-height: 100lvh;
                 z-index: 59;
                 background-color: transparent;
                 backdrop-filter: blur(0);

@@ -233,7 +233,7 @@ body {
    below reserves the only one, for the only scroller there is.
 
    The shell takes the large viewport rather than 100dvh because iOS Safari
-   draws its floating bottom bar over the last 100lvh - 100dvh of the layout
+   draws its floating bottom bar over the last 100lvh - 100dvh of the large
    viewport instead of shrinking it, and only retracts the bar for a document
    scroll — which a shell this shape never has, so on a phone it never
    retracts (iOS 18.7, measured: 100dvh 736, 100lvh 836). At 100dvh the shell
@@ -243,6 +243,18 @@ body {
   height: 100vh;
   height: 100lvh;
   overflow: hidden;
+}
+
+/* Anything that covers the viewport over this shell: a dialog's ::backdrop, a
+   sheet's scrim, the panel's sidebar overlay. NOTE: iOS Safari sizes a fixed
+   box to the small viewport while its bar is out, so `inset: 0` alone stops a
+   bar's height short of the shell above and the untinted strip shows through
+   the translucent bar. The height is over-constrained on purpose: `bottom`
+   yields to it, and where the two viewports agree nothing changes. */
+@utility viewport-cover {
+  position: fixed;
+  inset: 0;
+  min-height: 100lvh;
 }
 
 .app-scroll {
