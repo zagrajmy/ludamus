@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.utils.html import format_html, format_html_join
 
+from .clsx import clsx
 from .icon import icon as render_icon
 
 SIZE_CLASSES = {
@@ -53,17 +54,13 @@ def render_button(
     """
     if full_width_mobile is None:
         full_width_mobile = href is None
-    classes = [
+    class_str = clsx(
         VARIANT_CLASSES.get(variant, VARIANT_CLASSES["primary"]),
         SIZE_CLASSES.get(size, SIZE_CLASSES["md"]),
-    ]
-    if full_width_mobile:
-        classes.append("max-md:w-full")
-    if disabled:
-        classes.append("opacity-50 cursor-not-allowed")
-    if extra_class:
-        classes.append(extra_class)
-    class_str = " ".join(classes)
+        full_width_mobile and "max-md:w-full",
+        disabled and "opacity-50 cursor-not-allowed",
+        extra_class,
+    )
 
     icon_html = (
         render_icon(

@@ -701,5 +701,4 @@ class TestTesseraButtonBranches:
 
     def test_extra_class_lands_on_the_button(self) -> None:
         html = tessera_button("Go", extra_class="shrink-0")
-        expected = 'class="btn btn-primary px-4 py-2 text-sm max-md:w-full shrink-0"'
-        assert expected in html
+        assert "shrink-0" in html

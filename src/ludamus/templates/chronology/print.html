@@ -165,8 +165,8 @@
                      tabindex="0"
                      class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
                     {# NOTE: relative so the sr-only table heads (absolutely positioned) #}
-                    {# are measured against the sheet, not the page scroller, which #}
-                    {# they would otherwise widen sideways on a phone. #}
+                    {# are measured against the sheet, not the page scroller, which a #}
+                    {# sheet lying past the viewport would otherwise widen sideways. #}
                     {% with sheet_class="relative box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-0 print:w-auto print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
                         {% if timetable %}
                             {% for page in timetable.pages %}
