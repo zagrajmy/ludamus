@@ -35,11 +35,11 @@
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <nav class="flex flex-wrap gap-2"
                          aria-label="{% translate "Status filter" %}">
-                        <a class="btn btn-tertiary text-sm {% if log_status == 'all' %}font-semibold underline{% endif %}"
+                        <a class="btn text-sm {% if log_status == 'all' %}font-semibold underline{% endif %}"
                            href="{{ log_filter_urls.all }}">{% translate "All" %}</a>
-                        <a class="btn btn-tertiary text-sm {% if log_status == 'skipped' %}font-semibold underline{% endif %}"
+                        <a class="btn text-sm {% if log_status == 'skipped' %}font-semibold underline{% endif %}"
                            href="{{ log_filter_urls.skipped }}">{% translate "Errors" %}</a>
-                        <a class="btn btn-tertiary text-sm {% if log_status == 'success' %}font-semibold underline{% endif %}"
+                        <a class="btn text-sm {% if log_status == 'success' %}font-semibold underline{% endif %}"
                            href="{{ log_filter_urls.success }}">{% translate "Successes" %}</a>
                     </nav>
                     <form method="get" class="flex items-center gap-2">
@@ -50,7 +50,7 @@
                                type="search"
                                value="{{ log_search }}"
                                placeholder="{% translate "Search title or display name" %}"
-                               class="form-control text-sm">
+                               class="text-sm">
                         <button type="submit" class="btn btn-secondary text-sm">{% translate "Search" %}</button>
                         {% if log_search %}
                             <a class="text-sm text-foreground-muted underline"
@@ -130,7 +130,7 @@
                                         </div>
                                         {% if entry.session_id %}
                                             <div class="flex flex-wrap items-center gap-2 shrink-0">
-                                                <a class="btn btn-tertiary inline-flex items-center"
+                                                <a class="btn inline-flex items-center"
                                                    href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=entry.session_id %}">
                                                     {% translate "View proposal" %}
                                                 </a>
