@@ -145,7 +145,7 @@ class TestProposalCreatePageView:
                 "Alice",
                 'id="facilitator-search"',
                 (
-                    "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
+                    "flex items-center gap-2 text-sm py-3 rounded-md"
                     " hover:bg-foreground/5 hidden"
                 ),
             ],
