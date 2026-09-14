@@ -6,7 +6,7 @@
 {# duration · age · availability, and the bookmark. Carries the same data-* #}
 {# contract as _session_card.html so session-filters and the detail modal #}
 {# work unchanged. #}
-<article class="session-wrapper min-w-0">
+<article class="min-w-0" data-session-wrapper>
     <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary dark:has-[a:hover]:bg-bg-tertiary/50 max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} data-ended:opacity-65 data-ended:has-[a:hover]:opacity-100"
          data-no-morph
          {% include "chronology/_session_data_attrs.html" %}>

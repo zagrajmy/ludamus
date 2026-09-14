@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load tessera %}
 {# Bookmark toggle shared by the ledger row and the room-lane tile. The #}
-{# structure — .bookmark-toggle, .bookmark-icon-outline/solid, .bookmark-count, #}
+{# structure — data-bookmark-toggle, data-bookmark-icon, data-bookmark-count, #}
 {# aria-pressed, the coral classes — is a contract with session-bookmarks.ts; #}
 {# keep the two layouts identical by editing only this file. Sits above the #}
 {# stretched row/tile link (z-20 + pointer-events-auto) so a tap toggles the #}
@@ -15,18 +15,20 @@
     <span class="bookmark-affordance {{ wrapper_class }}">
         {% if current_user %}
             <button type="button"
-                    class="bookmark-toggle before:inset-0 before:-inset-y-2.5 before:absolute before:bg-transparent icon-btn icon-btn-clear relative z-20 shrink-0 self-center border border-transparent hover:border-border hover:bg-bg-tertiary gap-0.75 pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
+                    data-bookmark-toggle
+                    class="before:inset-0 before:-inset-y-2.5 before:absolute before:bg-transparent icon-btn icon-btn-clear relative z-20 shrink-0 self-center border border-transparent hover:border-border hover:bg-bg-tertiary gap-0.75 pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
                     data-session-id="{{ data.session.pk }}"
                     aria-pressed="{% if data.user_bookmarked %}true{% else %}false{% endif %}">
                 {% if data.user_bookmarked %}
-                    {% icon "bookmark" class="bookmark-icon-outline size-4 hidden" variant="outline" %}
-                    {% icon "bookmark" class="bookmark-icon-solid size-4" variant="solid" %}
+                    {% icon "bookmark" class="size-4 hidden" variant="outline" data_bookmark_icon="outline" %}
+                    {% icon "bookmark" class="size-4" variant="solid" data_bookmark_icon="solid" %}
                 {% else %}
-                    {% icon "bookmark" class="bookmark-icon-outline size-4" variant="outline" %}
-                    {% icon "bookmark" class="bookmark-icon-solid size-4 hidden" variant="solid" %}
+                    {% icon "bookmark" class="size-4" variant="outline" data_bookmark_icon="outline" %}
+                    {% icon "bookmark" class="size-4 hidden" variant="solid" data_bookmark_icon="solid" %}
                 {% endif %}
                 <span class="sr-only">{% translate "Bookmark session" %}</span>
-                <span class="bookmark-count text-xs tabular-nums {% if not data.bookmark_count %}hidden{% endif %}">{{ data.bookmark_count }}</span>
+                <span data-bookmark-count
+                      class="text-xs tabular-nums {% if not data.bookmark_count %}hidden{% endif %}">{{ data.bookmark_count }}</span>
             </button>
         {% else %}
             <span class="relative z-20 inline-flex shrink-0 items-center self-center gap-0.75 p-1.5 text-xs text-foreground-secondary">

@@ -182,7 +182,8 @@
                                 {% endif %}
                             </div>
                             {% for tile in row.starting_tiles %}
-                                <div class="room-lanes-cell justify-self-start p-0.5"
+                                <div class="justify-self-start p-0.5"
+                                     data-room-lanes-cell
                                      data-tile-col="{{ tile.col }}"
                                      data-tile-row="{{ forloop.parentloop.counter }}"
                                      data-tile-span="{{ tile.row_span }}"
