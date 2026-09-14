@@ -35,13 +35,14 @@
         </div>
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
             {# A plan can run to several pages — a site plan beside its legend. #}
-            {# They wrap as one group, each page as wide as the row allows. #}
-            <div class="flex min-w-0 flex-wrap gap-4 self-start">
+            {# They wrap as one group, each page as wide as the row allows. On a #}
+            {# phone the pictures run edge to edge (see the breakout utility). #}
+            <div class="flex min-w-0 flex-wrap gap-4 self-start max-sm:breakout">
                 {% for page in event_map.pages %}
                     <a href="{{ page.image_url }}"
                        target="_blank"
                        rel="noopener"
-                       class="block min-w-64 grow basis-80 rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) overflow-hidden">
+                       class="block min-w-64 grow basis-80 overflow-hidden bg-bg-secondary sm:rounded-3xl sm:shadow-(--shadow-elevated)">
                         {% if event_map.pages|length > 1 %}
                             {% blocktranslate asvar page_alt with name=event_map.name number=forloop.counter %}{{ name }}, page {{ number }}{% endblocktranslate %}
                         {% else %}
