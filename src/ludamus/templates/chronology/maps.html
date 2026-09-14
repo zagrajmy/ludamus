@@ -9,8 +9,6 @@
 {% block body %}
     {% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
     {% include "chronology/decorative_background_blobs.html" %}
-    {# The breadcrumb takes the whole row and the button shares the title's, #}
-    {# so neither has to wrap on a phone. #}
     <div class="relative mb-6 sm:mb-8">
         <a href="{{ schedule_url }}"
            class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-foreground">
@@ -27,9 +25,7 @@
                 {# action's URL, and a bare "?add-map=1" would then resolve to that #}
                 {# path and make the modal script intercept the retry as a reopen. #}
                 {% translate "Add map" as t_add_map %}
-                <div class="shrink-0">
-                    {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
-                </div>
+                {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" extra_class="shrink-0" aria_controls="add-map-modal" aria_haspopup="dialog" %}
             {% endif %}
         </div>
     </div>

@@ -35,8 +35,7 @@
         </div>
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
             {# A plan can run to several pages — a site plan beside its legend. #}
-            {# They wrap as one group, each page as wide as the row allows. On a #}
-            {# phone the pictures run edge to edge (see the breakout utility). #}
+            {# They wrap as one group, each page as wide as the row allows. #}
             <div class="flex min-w-0 flex-wrap gap-4 self-start max-sm:breakout">
                 {% for page in event_map.pages %}
                     <a href="{{ page.image_url }}"

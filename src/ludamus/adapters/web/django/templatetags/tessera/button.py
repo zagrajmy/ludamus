@@ -29,6 +29,7 @@ def render_button(
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
+    extra_class: str = "",
     **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
@@ -40,6 +41,9 @@ def render_button(
     form-submit buttons that should stretch on mobile but rarely desired for
     link buttons in toolbars. Defaults to ``href is None``: form-submit
     buttons stretch, link buttons don't.
+
+    ``extra_class`` is for page layout around the button (``shrink-0``,
+    ``ml-auto``), never for its look.
 
     Extra keyword arguments render as escaped HTML attributes; underscores
     become hyphens.
@@ -57,6 +61,8 @@ def render_button(
         classes.append("max-md:w-full")
     if disabled:
         classes.append("opacity-50 cursor-not-allowed")
+    if extra_class:
+        classes.append(extra_class)
     class_str = " ".join(classes)
 
     icon_html = (

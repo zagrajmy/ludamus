@@ -206,11 +206,11 @@
   margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
 }
 
-/* Text over a photo: darkens the bottom edge and fades up the whole box. A
-   three-stop gradient bands where its stops meet; these stops trace a
-   smoothstep curve, so the scrim holds dark under the text and eases out to
-   nothing without an edge to see. Apply it to the caption's box and give
-   that box height above the text. */
+/* Scrim for text over a photo. A three-stop gradient bands where its stops
+   meet; these trace alpha = 0.9 × (1 − smoothstep(x)) at 10% steps, so the
+   scrim holds dark under the text and eases out with no edge to see. Apply
+   it to the caption's box and give that box room above the text: padding
+   (pt-28) or a height with the text pushed to the bottom (h-3/4 justify-end). */
 @utility scrim-t {
   background-image: linear-gradient(
     to top,
