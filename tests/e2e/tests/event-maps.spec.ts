@@ -88,6 +88,22 @@ test.describe("Event maps", () => {
     await expect(card.getByRole("link", { name: "Edit Ground floor" })).toBeVisible();
     await expect(card.getByRole("button", { name: "Delete Ground floor" })).toBeVisible();
 
+    // On a phone the breadcrumb and the Add map control each keep to one
+    // line, and a plan runs edge to edge like the event cover does.
+    await page.setViewportSize({ width: 390, height: 900 });
+    const crumb = await page.getByRole("link", { name: "Retro Mini Jam" }).boundingBox();
+    const addMap = await page.getByRole("link", { name: "Add map" }).first().boundingBox();
+    const plan = card.getByRole("link", { name: "Ground floor, page 1" });
+    const planBox = await plan.boundingBox();
+    const main = await page.locator("main").boundingBox();
+    if (!crumb || !addMap || !planBox || !main) throw new Error("maps header has no box");
+    expect(crumb.height).toBeLessThan(28);
+    expect(addMap.height).toBeLessThan(44);
+    expect(Math.abs(planBox.x - main.x)).toBeLessThan(1);
+    expect(Math.abs(planBox.width - main.width)).toBeLessThan(1);
+    await expect(plan).toHaveCSS("border-top-left-radius", "0px");
+    await page.setViewportSize({ width: 1280, height: 900 });
+
     // Attaching a room draws it in its venue's tree; the room links into the
     // schedule filtered to it, the venue above it stays plain text.
     await card.getByRole("link", { name: "Attach venue" }).click();
