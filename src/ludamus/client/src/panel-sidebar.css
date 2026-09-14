@@ -1,0 +1,49 @@
+/* Panel chrome and sidebar states (panel/base.html, panel/parts/sidebar-*.html).
+
+   The fold state is not here: `data-folded` on <html> is the `folded:` variant
+   in index.css, and the markup spells it out with `lg:folded:*` utilities.
+
+   Everything below overrides a Tailwind utility on the same element —
+   `max-w-7xl` on the site chrome, `flex` on a category body — so it lives in
+   `@layer utilities`, where a later same-layer rule wins; in `components` the
+   utility would win and the override would silently do nothing. */
+@layer utilities {
+  .panel-shell .app-scroll > nav {
+    position: static;
+  }
+
+  .panel-shell .app-scroll > nav > .max-w-7xl,
+  .panel-shell .app-scroll > footer > .max-w-7xl {
+    max-width: none;
+  }
+
+  @media (width >= 64rem) {
+    .panel-shell .app-scroll > nav > .max-w-7xl,
+    .panel-shell .app-scroll > footer > .max-w-7xl {
+      padding-inline: 16px;
+    }
+  }
+
+  .sidebar-cat-chevron {
+    transition: transform 0.15s ease;
+  }
+
+  /* `catc-<key>` on <html> is a category's collapsed marker; the head script in
+     panel/base.html restores it before paint and panel-chrome.ts toggles it.
+     One pair per PanelCat member; TestSidebarCoverage checks none is missing. */
+  html.catc-program [data-cat="program"] .sidebar-cat-body,
+  html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
+  html.catc-live [data-cat="live"] .sidebar-cat-body,
+  html.catc-settings [data-cat="settings"] .sidebar-cat-body,
+  html.catc-sphere [data-cat="sphere"] .sidebar-cat-body {
+    display: none;
+  }
+
+  html.catc-program [data-cat="program"] .sidebar-cat-chevron,
+  html.catc-schedule [data-cat="schedule"] .sidebar-cat-chevron,
+  html.catc-live [data-cat="live"] .sidebar-cat-chevron,
+  html.catc-settings [data-cat="settings"] .sidebar-cat-chevron,
+  html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
+    transform: rotate(-90deg);
+  }
+}

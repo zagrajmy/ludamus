@@ -12,6 +12,7 @@
 @import "./room-lanes.css";
 @import "./schedule-fold.css";
 @import "./schedule-now.css";
+@import "./panel-sidebar.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -50,6 +51,9 @@
 @source "../../**/*.{html,py,js}";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
+   on <html> before paint and panel-chrome.ts toggles it. */
+@custom-variant folded (:root[data-folded] &);
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;
@@ -226,6 +230,14 @@
     rgb(0 0 0 / 0.025) 90%,
     rgb(0 0 0 / 0) 100%
   );
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @utility text-box-trim-start {

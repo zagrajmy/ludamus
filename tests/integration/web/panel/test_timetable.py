@@ -804,7 +804,7 @@ class TestPanelBaseHeader:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(event),
-            contains='<span class="sidebar-label">Schedule</span>',
+            contains='title="Schedule"',
             not_contains="Harmonogram",
         )
 
