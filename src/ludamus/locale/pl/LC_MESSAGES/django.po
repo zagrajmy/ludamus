@@ -6955,6 +6955,14 @@ msgstr ""
 msgid "Zagrajmy is open source (AGPL), so you can run it yourself."
 msgstr "Zagrajmy jest open source (AGPL), więc możesz go uruchomić u siebie."
 
+#: src/ludamus/templates/landing/org_objections.html
+msgid "Organizers' words"
+msgstr "Słowa organizatorów"
+
+#: src/ludamus/templates/landing/org_objections.html
+msgid "From the people who shipped a programme with it"
+msgstr "Od osób, które dowiozły z nim program"
+
 #: src/ludamus/templates/landing/org_pitch.html
 msgid "Who is it for"
 msgstr "Dla kogo"
@@ -11255,9 +11263,6 @@ msgstr ""
 #~ msgstr ""
 #~ "Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
 #~ "zgłoszenia, aby zmienić byline."
-
-#~ msgid "Organizers' words"
-#~ msgstr "Słowa organizatorów"
 
 #~ msgid "This spot is waiting for organizers who have shipped a programme"
 #~ msgstr "To miejsce czeka na organizatorów, którzy dowieźli program"
