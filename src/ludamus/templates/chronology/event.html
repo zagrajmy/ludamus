@@ -60,7 +60,7 @@
                     {# and wraps under it when narrow. #}
                     <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
                         <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{{ event.name }}</h1>
-                        <span class="contents print:hidden">{% include "chronology/_event_status_pills.html" %}</span>
+                        {% include "chronology/_event_status_pills.html" with extra_class="print:hidden" %}
                     </div>
                     {% if event.description %}
                         <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
@@ -521,9 +521,7 @@
     </div>
     <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
-        <div class="print:hidden">
-            {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
-        </div>
+        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True extra_class="print:hidden" %}
     {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
@@ -547,9 +545,7 @@
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
     {% if pending_review_visible and pending_sessions %}
-        <div class="print:hidden">
-            {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
-        </div>
+        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view extra_class="print:hidden" %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
