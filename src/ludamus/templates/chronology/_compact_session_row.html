@@ -45,8 +45,10 @@
             {# The only state the partial renders nothing for, so the separator #}
             {# cannot outlive the label it separates. #}
             {% if data.availability != "no-enrollment" %}
-                ·
-                {% include "chronology/_session_availability.html" %}
+                <span class="print:hidden">
+                    ·
+                    {% include "chronology/_session_availability.html" %}
+                </span>
             {% endif %}
         </span>
         {# On mobile the toggle leaves the flex flow and pins to the row's #}
