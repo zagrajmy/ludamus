@@ -12,7 +12,7 @@
 {# callers position it via wrapper_class and pad for it with #}
 {# has-[.bookmark-affordance] variants instead of re-deriving visibility. #}
 {% if current_user or data.bookmark_count %}
-    <span class="bookmark-affordance {{ wrapper_class }}">
+    <span class="bookmark-affordance print:hidden {{ wrapper_class }}">
         {% if current_user %}
             <button type="button"
                     class="bookmark-toggle before:inset-0 before:-inset-y-2.5 before:absolute before:bg-transparent icon-btn icon-btn-clear relative z-20 shrink-0 self-center border border-transparent hover:border-border hover:bg-bg-tertiary gap-0.75 pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"

@@ -91,7 +91,7 @@
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}"
+    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground print:bg-white{% endblock body_class %}"
           data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}"
           data-flash-region-label="{% translate "Notifications" %}"
           data-flash-dismiss-label="{% translate "Dismiss" %}">
@@ -140,7 +140,7 @@
                     </main>
                 {% endblock main_region %}
                 {% block site_footer %}
-                    <footer class="border-t py-6 bg-bg-secondary border-border">
+                    <footer class="border-t py-6 bg-bg-secondary border-border print:hidden">
                         <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 panel:max-w-none lg:panel:px-4">
                             <div class="flex justify-end items-center gap-2 mb-4">
                                 {% include "components/sound_switcher.html" %}

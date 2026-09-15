@@ -37,14 +37,14 @@
     {# breakout rather than a hand-counted margin: the cover runs to the screen #}
     {# edges on a phone, and the utility measures the scroller instead of #}
     {# restating main's gutter. #}
-    <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated)"
+    <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated) print:mb-4 print:shadow-none print:bg-transparent"
          data-event-hero>
         {% if event.cover_image_url %}
             {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
             {# and components/file-dropzone.html draws the width of its "edges" #}
             {# guide from it. Changing these heights moves the guide people upload #}
             {# against. #}
-            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl"
+            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl print:hidden"
                  style="background-image: url('{{ event.cover_image_url }}')"
                  data-event-cover>
                 {# On the gutter the body below keeps. #}
@@ -53,14 +53,14 @@
                 </div>
             </div>
         {% endif %}
-        <div class="px-4 py-6 sm:p-8">
+        <div class="px-4 py-6 sm:p-8 print:p-0">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1 grid gap-y-5 lg:grid-cols-[1fr_auto] lg:gap-x-8">
                     {# Status is an attribute of the name: the chip sits beside it #}
                     {# and wraps under it when narrow. #}
                     <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
                         <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{{ event.name }}</h1>
-                        {% include "chronology/_event_status_pills.html" %}
+                        {% include "chronology/_event_status_pills.html" with extra_class="print:hidden" %}
                     </div>
                     {% if event.description %}
                         <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
@@ -139,7 +139,7 @@
                     {# nowrap is what makes "fit" mean the label rather than #}
                     {# its longest word; stretched rather than centred, since #}
                     {# only .btn-secondary carries a border. #}
-                    <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44 lg:row-start-3">
+                    <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44 lg:row-start-3 print:hidden">
                         {% translate "View the program" as t_view_program %}
                         {% tessera_button t_view_program href="#schedule-region" size="lg" %}
                         {% if has_enrollable_sessions and not event.is_ended %}
@@ -162,14 +162,14 @@
         {# and it sits there for weeks — and a box per notice pushed the #}
         {# schedule off the first screen of the page people came to read the #}
         {# schedule on. #}
-        <p class="mb-3 flex gap-1.5 text-sm text-info-text">
+        <p class="mb-3 flex gap-1.5 text-sm text-info-text print:hidden">
             {% icon "information-circle" class="size-4 shrink-0 mt-0.5" variant="mini" %}
             <span>{{ notice|linebreaksbr }}</span>
         </p>
     {% endfor %}
     <!-- Enrollment Summary Banner -->
     {% if current_user and user_enrolled_sessions %}
-        <div class="mb-6 bg-gradient-to-r from-coral-400 to-coral-500 rounded-2xl p-[2px]">
+        <div class="mb-6 bg-gradient-to-r from-coral-400 to-coral-500 rounded-2xl p-[2px] print:hidden">
             <div class="rounded-2xl p-5 bg-bg-secondary">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div class="w-12 h-12 bg-coral-100 dark:bg-coral-900/30 rounded-xl flex items-center justify-center shrink-0">
@@ -204,7 +204,8 @@
     {% endif %}
     <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
-        <div class="alert backdrop-blur-lg alert-warning mb-4" role="alert">
+        <div class="alert backdrop-blur-lg alert-warning mb-4 print:hidden"
+             role="alert">
             <div class="flex">
                 <div class="shrink-0">{% icon "eye-slash" class="w-5 h-5" %}</div>
                 <div class="grow ml-3">
@@ -278,7 +279,7 @@
             </div>
             {% if event.is_proposal_active %}
                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
-                   class="btn btn-primary text-sm">
+                   class="btn btn-primary text-sm print:hidden">
                     {% icon "plus" class="w-4 h-4" variant="mini" %} {% translate "Propose Session" %}
                 </a>
             {% endif %}
@@ -287,7 +288,7 @@
             <!-- Filter Controls -->
             {% translate "Only with enrollment" as t_enrollment_only %}
             {% translate "Hide ended" as t_hide_ended %}
-            <div class="mb-3">
+            <div class="mb-3 print:hidden">
                 {# The search field sets the row height; the Filters button and #}
                 {# the view tabs stretch to it (h-full, and a flex wrapper for #}
                 {# the tab strip) instead of each landing on whatever its own #}
@@ -520,11 +521,11 @@
     </div>
     <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
-        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
+        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True extra_class="print:hidden" %}
     {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
-        <div class="mt-12 text-center">
+        <div class="mt-12 text-center print:hidden">
             <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">
                     {% icon "plus" class="w-8 h-8 text-coral-500" %}
@@ -544,14 +545,14 @@
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
     {% if pending_review_visible and pending_sessions %}
-        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
+        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view extra_class="print:hidden" %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
     <div id="session-modals"
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
-    <div class="mt-8">
+    <div class="mt-8 print:hidden">
         {% if "events" in current_sphere.enabled_pages %}
             <a href="{% url 'web:events' %}" class="btn btn-secondary">
                 {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
@@ -563,88 +564,16 @@
         {% endif %}
     </div>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
-    {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
-    {# which JS cannot intercept — it collapses the page to a clean pointer plus #}
-    {# a minimal schedule so the chrome never prints. #}
+    {# event-print.ts). File→Print and the toolbar cannot be intercepted, so #}
+    {# the page itself prints: chrome and controls carry print:hidden, and #}
+    {# this line points at the richer print-ready version. #}
     <a id="event-print-link" data-event-print href="{{ print_url }}" hidden>{% translate "Print-ready schedule" %}</a>
-    <div class="event-print-pointer" aria-hidden="true">
-        <h1>{{ event.name }}</h1>
-        <p class="pointer-note">
-            {% blocktranslate %}A print-ready schedule is available at:{% endblocktranslate %}
-            <br>
-            <strong>{{ request.scheme }}://{{ request.get_host }}{{ print_url }}</strong>
-        </p>
-        {% for hour, items in hour_data.items %}
-            <div class="pointer-row">
-                <span class="pointer-time">{{ hour|time:"H:i" }}</span>
-                {% for item in items %}<span class="pointer-session">{{ item.session.title }}</span>{% endfor %}
-            </div>
-        {% endfor %}
-    </div>
+    <p class="hidden print:block mt-8 text-xs text-foreground-muted"
+       aria-hidden="true">
+        {% blocktranslate %}A print-ready schedule is available at:{% endblocktranslate %}
+        <strong>{{ request.scheme }}://{{ request.get_host }}{{ print_url }}</strong>
+    </p>
 {% endblock body %}
-{% block extra_head %}
-    <style>
-        /* Print pointer: hidden on screen; the @media print rule below reveals it
-           and hides the page chrome, so File->Print / the toolbar never print the
-           interactive UI. The Ctrl/Cmd+P gesture is handled separately by JS. */
-        .event-print-pointer {
-            display: none;
-        }
-
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-
-            .event-print-pointer,
-            .event-print-pointer * {
-                visibility: visible;
-            }
-
-            .event-print-pointer {
-                display: block;
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                font-family: sans-serif;
-                color: #111827;
-            }
-
-            .event-print-pointer h1 {
-                font-size: 18pt;
-                font-weight: 700;
-                margin: 0 0 4mm 0;
-            }
-
-            .event-print-pointer .pointer-note {
-                font-size: 11pt;
-                margin: 0 0 6mm 0;
-            }
-
-            .event-print-pointer .pointer-row {
-                font-size: 9pt;
-                margin-bottom: 1mm;
-            }
-
-            .event-print-pointer .pointer-time {
-                display: inline-block;
-                width: 16mm;
-                font-variant-numeric: tabular-nums;
-                color: #6b7280;
-            }
-
-            .event-print-pointer .pointer-session::after {
-                content: " · ";
-                color: #6b7280;
-            }
-
-            .event-print-pointer .pointer-session:last-child::after {
-                content: "";
-            }
-        }
-    </style>
-{% endblock extra_head %}
 {% block extra_scripts %}
     {% vite_asset 'src/modal.ts' %}
     {% vite_asset 'src/tabs.ts' %}
