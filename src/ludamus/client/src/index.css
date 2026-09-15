@@ -54,6 +54,7 @@
 /* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
    on <html> before paint and panel-chrome.ts toggles it. */
 @custom-variant folded (:root[data-folded] &);
+@custom-variant panel (.panel-shell &);
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;

@@ -20,7 +20,7 @@ Variables:
             class="lg:folded:hidden flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
             data-action="toggle-category">
         <span>{{ label }}</span>
-        <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+        <span class="sidebar-cat-chevron transition-transform duration-150">{% icon "chevron-down" class="w-4 h-4" %}</span>
     </button>
     <div id="sidebar-cat-{{ key }}"
          class="sidebar-cat-body flex flex-col gap-0.5">{{ links }}</div>
