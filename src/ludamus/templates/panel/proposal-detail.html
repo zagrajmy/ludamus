@@ -52,7 +52,7 @@
                                     Imported via {{ name }} on {{ at }}
                                 {% endblocktranslate %}
                             </p>
-                            <a class="btn text-sm"
+                            <a class="btn btn-secondary text-sm"
                                href="{% url 'panel:import-log' slug=current_event.slug pk=import_log_integration.pk %}?focus={{ import_log_entry.pk }}">{% translate "View import log" %}</a>
                         </div>
                     </div>
