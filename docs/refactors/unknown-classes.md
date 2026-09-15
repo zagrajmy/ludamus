@@ -1,6 +1,6 @@
 # 9. Unknown classes (every `class` token means something)
 
-**Status:** 🟢 active — six PRs fanned out, one per bucket below.
+**Status:** 🟢 active — seven PRs fanned out, one per bucket below.
 
 An audit ran a Tailwind-aware linter (`@shadcn/lint`, via a throwaway shim that
 rewrote every `class="…"` in `src/ludamus/templates` into a `cn("…")` call)
@@ -37,14 +37,15 @@ category palette on purpose, and the amber warning blocks map onto the
 
 | Bucket | Cure | Branch |
 | ------ | ---- | ------ |
-| `chronology/event.html`, `_room_lanes.html`, `print.html` `<style>` blocks (filter sheet, print pointer, room lanes, timetable grid, `session-link`) | 1 | `claude/unknown-classes-chronology-styles` |
+| `chronology/event.html` `<style>` block: filter popover and sheet, `.session` overlay rules (the `_room_lanes.html` and `print.html` blocks are data-driven grid placement and stay inline; the print pointer moves to the branch below) | 1 | `claude/unknown-classes-chronology-styles` |
+| `event.html` print pointer (`event-print-pointer`, `pointer-*`): the page prints itself with granular `print:` variants, the pointer and its styles go | 3 | `claude/unknown-classes-event-print` |
 | `panel/base.html` sidebar `<style>` block, `sidebar-*` classes, `panel-main` | 1 (+2 for hook-only classes) | `claude/unknown-classes-panel-sidebar` |
 | `btn-tertiary`, `icon-btn-danger`, `icon-btn-primary`, and tokens with no CSS anywhere (`form-control`, `cancel-link`, `item-*`, `theme-switcher`, …) | 3 | `claude/unknown-classes-dead-variants` |
 | `panel/parts/import-recipe-row.html` + `import-recipe.ts` hooks (`recipe-*`, `ts-*`, `ent-*`, `ov-*`) | 2 | `claude/unknown-classes-import-recipe-hooks` |
 | `panel/cfp-edit.html` inline scripts, columns chooser, space tree, facilitator picker, bulk action button hooks | 2 | `claude/unknown-classes-panel-editor-hooks` |
 | `notice_board/detail.html` inline script (calendar, share, RSVP menus) and chronology hooks (`session-wrapper`, `bookmark-*`, `waiting-*`) | 2 | `claude/unknown-classes-notice-board-hooks` |
 
-Anchors that Python or tests grep for (`tab-shell`, `tab-nav`, `sidebar-cat`,
+Anchors that Python or tests grep for (`tab-shell`, `tab-nav`, `sidebar-cat-body`,
 `session-tags-cloud`, `bookmark-toggle`, …) stay until every reader moves in
 the same PR; a rename that leaves a test pointing at the old token is worse
 than the unknown class.
