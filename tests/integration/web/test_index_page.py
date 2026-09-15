@@ -46,12 +46,8 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
     )
 
 
-def _feed_item(info):
-    return FeedEvent(start_time=info.start_time, event=info)
-
-
 def _expected_feed_event(event, **kwargs):
-    return _feed_item(_expected_event_info(event, **kwargs))
+    return FeedEvent(event=_expected_event_info(event, **kwargs))
 
 
 class TestIndexRedirectView:
@@ -211,7 +207,7 @@ class TestEventsPageView:
                 "announcements": [],
                 "can_create_encounter": False,
                 "past": [],
-                "upcoming": [_feed_item(expected)],
+                "upcoming": [FeedEvent(event=expected)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -550,15 +546,24 @@ class TestEventsPageView:
         )
 
 
+def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
+    return {
+        "announcements": [],
+        "can_create_encounter": can_create_encounter,
+        "past": list(past),
+        "upcoming": list(upcoming),
+        "view": ANY,
+    }
+
+
 def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
     return FeedEncounter(
-        start_time=encounter.start_time,
         encounter=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
             rsvp_count=rsvp_count,
             is_mine=is_mine,
             organizer_name=organizer_name,
-        ),
+        )
     )
 
 
@@ -608,7 +613,31 @@ class TestEventsPageFeed:
 
         response = client.get(self.URL)
 
-        assert response.context_data["upcoming"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(),
+            template_name=["index.html"],
+        )
+
+    def test_private_encounter_is_hidden_from_an_uninvited_signed_in_visitor(
+        self, authenticated_client, sphere
+    ):
+        EncounterFactory(
+            sphere=sphere,
+            creator=UserFactory(username="host", name="Host"),
+            is_public=False,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(can_create_encounter=True),
+            template_name=["index.html"],
+        )
 
     def test_own_private_encounter_is_listed_for_its_organizer(
         self, authenticated_client, sphere, active_user
@@ -623,9 +652,17 @@ class TestEventsPageFeed:
         response = authenticated_client.get(self.URL)
 
         encounter.refresh_from_db()
-        assert response.context_data["upcoming"] == [
-            _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                can_create_encounter=True,
+                upcoming=[
+                    _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
+                ],
+            ),
+            template_name=["index.html"],
+        )
 
     def test_invited_encounter_is_listed_for_the_attendee(
         self, authenticated_client, sphere, active_user
@@ -641,9 +678,19 @@ class TestEventsPageFeed:
         response = authenticated_client.get(self.URL)
 
         encounter.refresh_from_db()
-        assert response.context_data["upcoming"] == [
-            _expected_feed_encounter(encounter, organizer_name="Host", rsvp_count=1)
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                can_create_encounter=True,
+                upcoming=[
+                    _expected_feed_encounter(
+                        encounter, organizer_name="Host", rsvp_count=1
+                    )
+                ],
+            ),
+            template_name=["index.html"],
+        )
 
     def test_past_encounters_join_past_events(self, client, sphere):
         now = datetime.now(UTC)
@@ -664,10 +711,17 @@ class TestEventsPageFeed:
         response = client.get(self.URL)
 
         encounter.refresh_from_db()
-        assert response.context_data["past"] == [
-            _expected_feed_encounter(encounter, organizer_name="Host"),
-            _expected_feed_event(past_event),
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                past=[
+                    _expected_feed_encounter(encounter, organizer_name="Host"),
+                    _expected_feed_event(past_event),
+                ]
+            ),
+            template_name=["index.html"],
+        )
 
     def test_encounters_are_absent_while_the_sphere_runs_none(self, client, sphere):
         EncounterFactory(
@@ -680,5 +734,9 @@ class TestEventsPageFeed:
 
         response = client.get(self.URL)
 
-        assert response.context_data["upcoming"] == []
-        assert response.context_data["can_create_encounter"] is False
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(),
+            template_name=["index.html"],
+        )

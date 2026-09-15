@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+# The feed renders every past encounter as a card, and a sphere accumulates
+# them without bound. A few grid rows is what anyone scrolls back through.
+PAST_FEED_LIMIT = 24
+
+
 class EncounterService(EncounterServiceProtocol):
     def __init__(
         self,
@@ -43,9 +48,21 @@ class EncounterService(EncounterServiceProtocol):
         self._rsvps = rsvps
         self._users = users
         self._spheres = spheres
+        self._policies: dict[int, EncountersPolicy] = {}
+
+    def _policy(self, sphere_id: int) -> EncountersPolicy:
+        # Memoised because the service is built per request and every
+        # encounter route asks twice: once at the view's gate, once in the
+        # method the view then calls.
+        if sphere_id not in self._policies:
+            self._policies[sphere_id] = self._spheres.read(sphere_id).encounters_policy
+        return self._policies[sphere_id]
+
+    def enabled(self, sphere_id: int) -> bool:
+        return self._policy(sphere_id) is not EncountersPolicy.NONE
 
     def can_create(self, *, sphere_id: int, user_id: int) -> bool:
-        policy = self._spheres.read(sphere_id).encounters_policy
+        policy = self._policy(sphere_id)
         if policy is EncountersPolicy.EVERYONE:
             return True
         if policy is EncountersPolicy.MANAGERS:
@@ -62,7 +79,7 @@ class EncounterService(EncounterServiceProtocol):
             organise or hold an RSVP to — upcoming soonest-first, past
             most-recent-first.
         """
-        if self._spheres.read(sphere_id).encounters_policy is EncountersPolicy.NONE:
+        if not self.enabled(sphere_id):
             return EncounterFeed(upcoming=[], past=[])
         return EncounterFeed(
             upcoming=self._index_items(
@@ -70,7 +87,8 @@ class EncounterService(EncounterServiceProtocol):
                 user_id=user_id,
             ),
             past=self._index_items(
-                self._encounters.list_visible_past(sphere_id, user_id), user_id=user_id
+                self._encounters.list_visible_past(sphere_id, user_id, PAST_FEED_LIMIT),
+                user_id=user_id,
             ),
         )
 
