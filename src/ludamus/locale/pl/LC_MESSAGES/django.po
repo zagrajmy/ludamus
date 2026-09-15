@@ -6287,7 +6287,7 @@ msgstr ""
 msgid "Events"
 msgstr "Wydarzenia"
 
-#: src/ludamus/templates/index.html
+#: src/ludamus/templates/index.html src/ludamus/templates/landing_page.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements"

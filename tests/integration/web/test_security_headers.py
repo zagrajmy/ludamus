@@ -100,8 +100,10 @@ class TestCSPNonce:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
+                "encounters": [],
             },
             template_name=["landing_page.html"],
         )

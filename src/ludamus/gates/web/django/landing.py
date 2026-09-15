@@ -11,26 +11,49 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
 
+# How many open encounters the landing lists before sending you to the feed.
+LANDING_ENCOUNTERS = 4
+
 
 def index_page(request: RootRequest) -> HttpResponse:
-    """Serve the sphere root: the feed, or the pitch when there is no feed.
+    """Serve the sphere root: the pitch on zagrajmy.net, the feed elsewhere.
 
     Returns:
-        The landing page for a visitor who has not signed in on the root
-        sphere — they came looking for the product, not for a programme —
-        and the events feed for everyone else. A signed-in visitor always
-        gets the feed, which is why no private encounter of theirs ever
-        lands on the marketing page.
+        The landing page on the root sphere, signed in or not — the brand
+        runs no programme of its own, so its root is the pitch — and the
+        events feed on every other sphere, whose root is its programme.
     """
     context = request.context
-    if (
-        context.current_sphere_id != context.root_sphere_id
-        or request.user.is_authenticated
-    ):
+    if context.current_sphere_id != context.root_sphere_id:
         return EventsPageView.as_view()(request)
+    return landing_page(request)
+
+
+def landing_page(request: RootRequest) -> HttpResponse:
+    """Render the pitch, with the live evidence behind it.
+
+    Returns:
+        The landing page: the brand's own announcements, the conventions that
+        run on Zagrajmy, and the open encounters the copy claims are already
+        happening.
+    """
+    context = request.context
     landing = request.services.landing
+    # The pitch claims people are already playing; this is that claim's
+    # evidence. A signed-in visitor also sees the ones they organise or hold
+    # an RSVP to, the same as anywhere else.
+    encounters = request.services.encounters.list_feed(
+        sphere_id=context.current_sphere_id, user_id=context.current_user_id
+    )
     return TemplateResponse(
         request,
         ["landing_page.html"],
-        {"stats": landing.stats(), "conventions": landing.conventions()},
+        {
+            "announcements": request.services.announcements.list_published(
+                context.current_sphere_id
+            ),
+            "stats": landing.stats(),
+            "conventions": landing.conventions(),
+            "encounters": encounters.upcoming[:LANDING_ENCOUNTERS],
+        },
     )
