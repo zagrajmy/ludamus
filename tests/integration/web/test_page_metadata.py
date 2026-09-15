@@ -67,8 +67,8 @@ def _get_ok(client, url, template_name, **extra):
 
 
 class TestPageTitle:
-    def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
-        response = _get_ok(client, reverse("web:index"), ["index.html"])
+    def test_root_sphere_title_omits_the_brand_tail(self, authenticated_client, sphere):
+        response = _get_ok(authenticated_client, reverse("web:index"), ["index.html"])
 
         assert _title(response) == f"Events • {sphere.name}"
 
@@ -155,8 +155,8 @@ class TestLinkPreviewTitle:
 
 
 class TestMetaDescription:
-    def test_brand_domain_pitches_the_product(self, client):
-        response = _get_ok(client, reverse("web:index"), ["index.html"])
+    def test_brand_domain_pitches_the_product(self, authenticated_client):
+        response = _get_ok(authenticated_client, reverse("web:index"), ["index.html"])
 
         assert _descriptions(response) == [PRODUCT_PITCH] * 3
 

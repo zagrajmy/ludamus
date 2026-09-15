@@ -19,7 +19,7 @@ test.use({ storageState: path.join(__dirname, "..", ".auth-state-notified.json")
 
 test.describe("Notification overlay and list page", () => {
   test("the bell's View all link opens the full notification list", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await page.getByRole("button", { name: /Notifications/ }).click();
     await page.getByRole("link", { name: "View all" }).click();
@@ -46,7 +46,7 @@ test.describe("Notification overlay and list page", () => {
   });
 
   test("the overlay opens over whatever page the bell was clicked from", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await page.getByRole("button", { name: /Notifications/ }).click();
     await page.getByRole("link", { name: new RegExp(contentTitle) }).click();

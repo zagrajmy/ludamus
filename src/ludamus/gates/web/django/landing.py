@@ -13,15 +13,20 @@ if TYPE_CHECKING:
 
 
 def index_page(request: RootRequest) -> HttpResponse:
-    """Serve the sphere root: the pitch on zagrajmy.net, the feed elsewhere.
+    """Serve the sphere root: the feed, or the pitch when there is no feed.
 
     Returns:
-        The landing page for the root sphere, whose visitors are looking for
-        the product rather than for a programme, and the events feed for
-        every other sphere, whose root is its programme.
+        The landing page for a visitor who has not signed in on the root
+        sphere — they came looking for the product, not for a programme —
+        and the events feed for everyone else. A signed-in visitor always
+        gets the feed, which is why no private encounter of theirs ever
+        lands on the marketing page.
     """
     context = request.context
-    if context.current_sphere_id != context.root_sphere_id:
+    if (
+        context.current_sphere_id != context.root_sphere_id
+        or request.user.is_authenticated
+    ):
         return EventsPageView.as_view()(request)
     landing = request.services.landing
     return TemplateResponse(
