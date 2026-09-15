@@ -4,6 +4,7 @@
 <div class="relative"
      data-menu
      {% if hover %}data-menu-hover{% endif %}
+     {% if not animate %}data-menu-static{% endif %}
      {{ attrs }}>
     <button type="button"
             data-menu-button

@@ -60,6 +60,7 @@ class ActionDropdownNode(template.Node):
             msg = f"tessera_action_dropdown align must be one of {options}"
             raise template.TemplateSyntaxError(msg)
         hover = bool(resolved.pop("hover", True))
+        animate = bool(resolved.pop("animate", True))
         label = str(resolved.pop("label", "") or "")
         variant = str(resolved.pop("trigger_variant", "plain"))
         if variant not in _TRIGGER_VARIANTS:
@@ -75,6 +76,7 @@ class ActionDropdownNode(template.Node):
             self._TEMPLATE,
             {
                 "align_class": _ALIGN_CLASSES[align],
+                "animate": animate,
                 "attrs": format_tag_attrs(resolved),
                 "hover": hover,
                 "id": element_id,
@@ -93,6 +95,8 @@ def do_action_dropdown(parser: Parser, token: Token) -> ActionDropdownNode:
     ``trigger_variant`` picks the trigger's look from the button system:
     ``plain`` is a bare trigger, ``secondary`` wears the secondary button.
     ``trigger_class`` adds layout on top of it, never a look of its own.
+    ``animate=False`` opens and closes the menu in place; its items then sit
+    where they will stay from the first frame.
 
     Returns:
         An ActionDropdownNode rendering the trigger button plus its menu.

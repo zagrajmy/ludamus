@@ -846,6 +846,14 @@ class TestActionDropdown:
         assert "data-menu-hover" not in html
         assert "sr-only" not in html
 
+    def test_animate_false_marks_the_menu_static(self) -> None:
+        html = Template(
+            self.BASE.replace('label="Add to calendar"', "animate=False")
+        ).render(Context())
+
+        assert "data-menu-static" in html
+        assert "data-menu-static" not in Template(self.BASE).render(Context())
+
     def test_external_item_opens_a_new_tab_and_marks_the_exit(self) -> None:
         html = Template(self.BASE).render(Context())
 

@@ -1,7 +1,7 @@
 {% load i18n tessera %}
 {% translate "Download .ics" as t_ics %}
 {% url 'web:notice-board:encounter-ics' share_code=encounter.share_code as ics_url %}
-{% tessera_action_dropdown id=menu_id hover=False trigger_variant="secondary" trigger_class="w-full" %}
+{% tessera_action_dropdown id=menu_id hover=False animate=False trigger_variant="secondary" trigger_class="w-full" %}
     {% icon "calendar" class="h-4 w-4" variant="mini" %}
     {% translate "Add to calendar" %}
     {% action_dropdown_menu %}
