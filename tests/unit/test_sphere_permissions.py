@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.multiverse import SpherePanelService
 from ludamus.pacts.legacy import EncountersPolicy
-from ludamus.pacts.multiverse import Capability, SphereRole
+from ludamus.pacts.multiverse import Capability, SphereRole, SphereSettingsOutcome
 
 
 @pytest.fixture(name="spheres")
@@ -61,22 +61,15 @@ class TestSpherePanelServiceAccess:
         spheres.manager_role.assert_called_once_with(3, "boss")
 
 
-class TestSpherePanelServiceHasEncounters:
-    @pytest.mark.parametrize("exists", (True, False))
-    def test_reports_whether_rows_back_the_feature(self, service, encounters, exists):
-        encounters.exists_for_sphere.return_value = exists
-
-        assert service.has_encounters(3) is exists
-
-
 class TestSpherePanelServiceUpdateSettings:
     def test_writes_the_policy(self, service, spheres):
-        service.update_settings(
+        outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
             encounters_policy=EncountersPolicy.MANAGERS,
         )
 
+        assert outcome is SphereSettingsOutcome.SAVED
         spheres.update.assert_called_once_with(
             3, {"allow_facilitator_session_edit": True, "encounters_policy": "managers"}
         )
@@ -85,8 +78,37 @@ class TestSpherePanelServiceUpdateSettings:
         service.update_settings(
             3,
             allow_facilitator_session_edit=False,
-            encounters_policy=EncountersPolicy.NONE,
+            encounters_policy=EncountersPolicy.EVERYONE,
             logo="",
         )
 
         assert not spheres.update.call_args.args[1]["logo"]
+
+    def test_refuses_to_hide_existing_encounters_unconfirmed(
+        self, service, spheres, encounters
+    ):
+        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
+        encounters.exists_for_sphere.return_value = True
+
+        outcome = service.update_settings(
+            3,
+            allow_facilitator_session_edit=True,
+            encounters_policy=EncountersPolicy.NONE,
+        )
+
+        assert outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION
+        spheres.update.assert_not_called()
+
+    def test_hides_them_once_confirmed(self, service, spheres, encounters):
+        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
+        encounters.exists_for_sphere.return_value = True
+
+        outcome = service.update_settings(
+            3,
+            allow_facilitator_session_edit=True,
+            encounters_policy=EncountersPolicy.NONE,
+            confirmed_encounters_disable=True,
+        )
+
+        assert outcome is SphereSettingsOutcome.SAVED
+        spheres.update.assert_called_once()

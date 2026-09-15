@@ -7,13 +7,13 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.multiverse import SphereAccessDTO
+from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.multiverse import SphereAccessDTO, SphereSettingsOutcome
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EncounterRepositoryProtocol,
-        EncountersPolicy,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
@@ -146,10 +146,6 @@ class SpherePanelService:
     def read(self, sphere_id: int) -> SphereDTO:
         return self._spheres.read(sphere_id)
 
-    def has_encounters(self, sphere_id: int) -> bool:
-        """Whether turning encounters off would hide existing content."""
-        return self._encounters.exists_for_sphere(sphere_id)
-
     def update_settings(
         self,
         sphere_id: int,
@@ -157,7 +153,15 @@ class SpherePanelService:
         allow_facilitator_session_edit: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
-    ) -> None:
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome:
+        """Save the sphere's settings, refusing an unconfirmed hide.
+
+        Returns:
+            NEEDS_CONFIRMATION when the save would turn encounters off while
+            the sphere still has some — nothing is written, and the caller is
+            expected to warn and ask again. SAVED otherwise.
+        """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
             "encounters_policy": encounters_policy.value,
@@ -166,7 +170,16 @@ class SpherePanelService:
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():
+            if (
+                not confirmed_encounters_disable
+                and encounters_policy is EncountersPolicy.NONE
+                and self._spheres.read(sphere_id).encounters_policy
+                is not EncountersPolicy.NONE
+                and self._encounters.exists_for_sphere(sphere_id)
+            ):
+                return SphereSettingsOutcome.NEEDS_CONFIRMATION
             self._spheres.update(sphere_id, data)
+            return SphereSettingsOutcome.SAVED
 
 
 class SitesService:
@@ -181,8 +194,8 @@ class SitesService:
 
     def read(self, sphere_id: int) -> SphereDTO:
         # Memoised because the service is built per request and the current
-        # sphere is read several times in one: the page-gate mixin, the sites
-        # context processor and the homepage redirect all want it.
+        # sphere is read several times in one: the sites context processor,
+        # the panel's access checks and the pages that render its name.
         if sphere_id not in self._read_cache:
             self._read_cache[sphere_id] = self._spheres.read(sphere_id)
         return self._read_cache[sphere_id]

@@ -42,9 +42,9 @@
                             <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
                         </span>
                     </label>
+                    <div class="mt-6">{% tessera_field form.logo %}</div>
                     <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Encounters" %}</h2>
                     <div class="mt-4">{% tessera_field form.encounters_policy %}</div>
-                    <div class="mt-6">{% tessera_field form.logo %}</div>
                     {% if needs_disable_confirmation %}
                         <div class="alert backdrop-blur-lg alert-warning mt-6" role="alert">
                             <div class="flex items-start gap-3">
@@ -57,7 +57,14 @@
                                 </div>
                             </div>
                         </div>
-                        <input type="hidden" name="confirmed_encounters_disable" value="1">
+                        {% comment %}
+                            Literal "1", not the bound value: the POST that raised
+                            this warning left the field unchecked, so re-rendering
+                            it would hand the same unconfirmed answer back.
+                        {% endcomment %}
+                        <input type="hidden"
+                               name="{{ form.confirmed_encounters_disable.html_name }}"
+                               value="1">
                     {% endif %}
                     <div class="mt-6">
                         <button type="submit" class="btn btn-primary">
