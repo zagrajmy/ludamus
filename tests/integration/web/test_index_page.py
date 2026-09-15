@@ -21,7 +21,6 @@ from tests.integration.conftest import (
     EncounterFactory,
     EncounterRSVPFactory,
     EventFactory,
-    ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
@@ -61,29 +60,10 @@ class TestIndexRedirectView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
-            },
-            template_name=["landing_page.html"],
-        )
-
-    def test_landing_stats_count_every_event_and_live_session(self, client, sphere):
-        event = EventFactory(sphere=sphere)
-        category = ProposalCategoryFactory(event=event)
-        SessionFactory(category=category)
-        SessionFactory(category=category)
-        unpublished_event = EventFactory(sphere=sphere, publication_time=None)
-        unpublished_category = ProposalCategoryFactory(event=unpublished_event)
-        SessionFactory(category=unpublished_category)
-
-        response = client.get(self.URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=2, sessions=3),
-                "conventions": [],
+                "encounters": [],
             },
             template_name=["landing_page.html"],
         )
@@ -824,4 +804,23 @@ class TestEventsPageFeed:
             HTTPStatus.OK,
             context_data=_feed_context(),
             template_name=["index.html"],
+        )
+
+
+class TestLandingPageView:
+    URL = reverse("web:landing")
+
+    def test_serves_the_pitch_on_the_root_sphere(self, client):
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+            },
+            template_name=["landing_page.html"],
         )

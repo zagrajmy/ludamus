@@ -23,10 +23,10 @@ test.describe("Landing", () => {
     await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
   });
 
-  test("keeps the plain event listing on /events/", async ({ page }) => {
-    await page.goto("/");
+  test("keeps the plain feed on a sphere domain", async ({ page }) => {
+    await page.goto("http://foreign.localhost:8000/");
 
-    await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
   });
 });

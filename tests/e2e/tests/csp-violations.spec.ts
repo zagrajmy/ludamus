@@ -37,7 +37,8 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
   test("public event list", async ({ page }) => {
     await installCspViolationCollector(page);
 
-    await page.goto("/");
+    // A sphere's root is its feed; the brand domain's root is the pitch.
+    await page.goto("http://foreign.localhost:8000/");
     await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
 
     await assertNoCspViolations(page);
