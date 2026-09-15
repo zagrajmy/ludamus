@@ -2,19 +2,22 @@
    is routed to the print-ready page by event-print.ts; File->Print and the
    toolbar cannot be intercepted, so on paper the page collapses to this
    pointer plus a minimal schedule and the interactive chrome never prints.
-   NOTE: index.css imports this file outside any layer on purpose: `body *`
+   Bundled for every page but keyed on the pointer's own presence: the
+   chrome hider must not reach the print page, whose sheets are the thing
+   being printed.
+   NOTE: index.css imports this file outside any layer on purpose: the hider
    has to outrank every visibility utility on the chrome it hides. */
 .event-print-pointer {
   display: none;
 }
 
 @media print {
-  body * {
+  body:has(.event-print-pointer) * {
     visibility: hidden;
   }
 
-  .event-print-pointer,
-  .event-print-pointer * {
+  body:has(.event-print-pointer) .event-print-pointer,
+  body:has(.event-print-pointer) .event-print-pointer * {
     visibility: visible;
   }
 
