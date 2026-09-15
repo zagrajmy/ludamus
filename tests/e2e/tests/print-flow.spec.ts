@@ -59,6 +59,21 @@ test.describe("Print page controls", () => {
     expect(await preview.getByRole("group").count()).toBeGreaterThan(0);
   });
 
+  // The sheets scroll sideways inside their own region; the page never does.
+  // An absolutely positioned sr-only table head once escaped that region and
+  // dragged the whole page half a sheet to the right on a phone.
+  test("the page does not scroll sideways on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto(`${printUrl}?material=session-list`);
+    const preview = page.getByRole("region", { name: "Print preview" });
+    expect(await preview.getByRole("group").count()).toBeGreaterThan(1);
+
+    const overflow = await page
+      .locator("#app-scroll")
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBe(0);
+  });
+
   test("legacy timetable-descriptions URLs map to the checkbox", async ({ page }) => {
     await page.goto(`${printUrl}?material=timetable-descriptions`);
 
