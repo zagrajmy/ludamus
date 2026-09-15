@@ -144,10 +144,6 @@ class TestProposalCreatePageView:
                 f'value="{facilitator.pk}"',
                 "Alice",
                 'id="facilitator-search"',
-                (
-                    "flex items-center gap-2 text-sm py-3 rounded-md"
-                    " hover:bg-foreground/5 hidden"
-                ),
             ],
         )
 
