@@ -1,0 +1,47 @@
+{% load i18n %}
+{% load tessera %}
+<section class="pt-16 pb-4 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="final-heading">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+        {# the closing card stays dark in both themes, deliberately #}
+        {# [&_code] keeps the copy chip readable on the always-dark card in the light theme #}
+        <div class="reveal bg-warm-900 text-warm-50 rounded-3xl px-6 py-10 text-left sm:px-8 sm:py-14 sm:text-center [&_:focus-visible]:outline-[#fdfcfb] [&_code]:text-warm-50 print:bg-transparent print:border print:border-border print:text-foreground print:[&_code]:text-foreground">
+            <h2 id="final-heading"
+                class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-warm-50 print:text-foreground">
+                {% translate "Have an event to run?" %}
+            </h2>
+            <p class="mt-4 sm:mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:text-foreground-secondary">
+                {% translate "Write to us. We will map your process into Zagrajmy and prepare a first version of your event to click through." %}
+            </p>
+            {% comment %}
+                items-stretch, and a transparent border on the primary to match
+                btn-secondary's 1px: the two then share one box by construction
+                rather than by hand-tuned padding. Only colours are overridden
+                below — the card is dark in both themes, so the themed
+                btn-secondary would read wrong on it in the light one.
+            {% endcomment %}
+            <div class="mt-[2.2rem] flex flex-wrap items-stretch gap-3 sm:justify-center sm:gap-4">
+                <a class="btn btn-primary border border-transparent [--shade:rgba(0,0,0,0.5)]"
+                   href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
+                {% translate "Copy the address" as copy_address_label %}
+                {% tessera_copy "kontakt@zagrajmy.net" class="w-auto! border-warm-700 bg-warm-800 text-warm-50 hover:bg-[#4a433d] print:bg-transparent print:border-border print:text-foreground" %}
+                    <code class="text-[0.9375rem] text-box-trim-both">kontakt@zagrajmy.net</code>
+                    {% icon "clipboard" variant="outline" class="size-4 text-warm-500" %}
+                    <span class="sr-only">{{ copy_address_label }}</span>
+                {% endtessera_copy %}
+            </div>
+            <p class="mt-4 text-[0.95rem] text-warm-500 flex items-start gap-1.5 max-w-[34rem] sm:justify-center sm:mx-auto print:text-foreground-secondary">
+                <svg class="flex-none mt-[0.2rem]"
+                     width="16"
+                     height="16"
+                     viewBox="0 0 16 16"
+                     fill="none"
+                     aria-hidden="true">
+                    <path d="M8 1.5 13.5 4v4c0 3.2-2.3 5.7-5.5 6.5C4.8 13.7 2.5 11.2 2.5 8V4L8 1.5Z" stroke="#2dd4b3" stroke-width="1.5" stroke-linejoin="round" />
+                    <path d="m5.8 8 1.6 1.6 2.8-3" stroke="#2dd4b3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                {% translate "We reply with a concrete plan for setting up your event. No commitment." %}
+            </p>
+        </div>
+    </div>
+</section>

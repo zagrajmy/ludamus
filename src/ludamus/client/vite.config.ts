@@ -68,6 +68,7 @@ export default defineConfig({
         index: resolve(rootDir, "src/index.css"),
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         "konwencik-preview": resolve(rootDir, "src/konwencik-preview.ts"),
+        landing: resolve(rootDir, "src/landing.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "multiselect-filter": resolve(rootDir, "src/multiselect-filter.ts"),
