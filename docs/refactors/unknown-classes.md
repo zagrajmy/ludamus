@@ -54,9 +54,15 @@ than the unknown class.
 Nothing is checked in for this: the linter needs oxlint 1.80+ while the repo
 pins 1.70, and adding `@shadcn/lint` as a dependency was rejected because it
 cannot read templates. The audit runs from a scratch directory outside the
-repo. Save the two files below into it, then run the commands that follow.
-Line and column numbers in the report match the template because each
-`class` attribute is emitted at its own position.
+repo:
+
+```sh
+mkdir audit && cd audit
+```
+
+Save the two files below into that directory, then run the commands that
+follow. Line and column numbers in the report match the template because
+each `class` attribute is emitted at its own position.
 
 `.oxlintrc.json`:
 
@@ -93,10 +99,9 @@ for (const f of globSync("**/*.html", { cwd: root })) {
 }
 ```
 
-With both files in the scratch directory:
+With both files in `audit/`:
 
 ```sh
-mkdir audit && cd audit
 npm init -y
 npm install -D @shadcn/lint@0.1.0 oxlint@1.83.0 \
   tailwindcss@4.1.16 @tailwindcss/typography@0.5.19 @hasparus/tailwind@1.1.8
