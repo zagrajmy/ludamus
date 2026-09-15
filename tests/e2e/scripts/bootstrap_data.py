@@ -347,6 +347,9 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         password="e2e-waiter-123",
         name="E2E Waiter",
         slug="e2e-waiter",
+        # Promotion mail is suppressed for unverified addresses; this scenario
+        # exists to exercise that delivery, not to re-test verification gating.
+        email_verified=True,
     )
     SessionParticipation.objects.create(
         session=session,

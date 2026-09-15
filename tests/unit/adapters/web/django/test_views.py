@@ -46,23 +46,24 @@ class TestAuth0UserInfoDisplayName:
 
 
 class TestAuth0UserInfoToUpdateData:
-    def test_email_changed(self):
-        user = _make_user_dto(email="old@example.com")
-        info = Auth0UserInfo(sub="x", email="new@example.com")
-        data = info.to_update_data(user)
-        assert data["email"] == "new@example.com"
+    def test_projects_email_with_verified_flag(self):
+        info = Auth0UserInfo(sub="x", email="new@example.com", email_verified=True)
+        data = info.to_update_data()
+        assert data == {"email": "new@example.com", "email_verified": True}
 
-    def test_avatar_changed(self):
-        user = _make_user_dto(avatar_url="https://example.com/old.png")
+    def test_projects_avatar(self):
         info = Auth0UserInfo(sub="x", picture="https://example.com/new.png")
-        data = info.to_update_data(user)
-        assert data["avatar_url"] == "https://example.com/new.png"
+        data = info.to_update_data()
+        assert data == {"avatar_url": "https://example.com/new.png"}
 
-    def test_name_populated_when_empty(self):
-        user = _make_user_dto(name="")
+    def test_projects_name(self):
         info = Auth0UserInfo(sub="x", name="New Name")
-        data = info.to_update_data(user)
-        assert data["name"] == "New Name"
+        data = info.to_update_data()
+        assert data == {"name": "New Name"}
+
+    def test_empty_claim_projects_nothing(self):
+        info = Auth0UserInfo(sub="x")
+        assert not info.to_update_data()
 
 
 class TestUserInfoFromUserDto:

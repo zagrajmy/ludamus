@@ -11,6 +11,7 @@ class CompleteUserFactory(DjangoModelFactory):
         model = User
 
     email = factory.Sequence(lambda n: f"user{n}@example.com")
+    email_verified = True
     name = factory.Faker("name")
     password = factory.LazyFunction(lambda: make_password(None))
     user_type = UserType.ACTIVE

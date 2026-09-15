@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Link no longer works" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                {% icon "clock" class="w-10 h-10 mx-auto text-foreground-muted" %}
+                <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "This link no longer works" %}</h1>
+                <p class="text-sm text-foreground-muted mt-2">
+                    {% if address_taken %}
+                        {% translate "That email address has been taken by another account in the meantime. Choose a different address in your profile." %}
+                    {% else %}
+                        {% translate "The link has expired or was already used. You can request a fresh one from your profile." %}
+                    {% endif %}
+                </p>
+                <a href="{% url 'web:crowd:profile' %}"
+                   class="btn btn-primary w-full mt-6">{% translate "Go to your profile" %}</a>
+            </div>
+        </div>
+    </div>
+{% endblock body %}
