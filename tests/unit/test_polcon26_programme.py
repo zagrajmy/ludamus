@@ -2,12 +2,14 @@ import zipfile
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
+from scripts.polcon26.seed import ensure_time_slots
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -309,6 +311,26 @@ def test_extract_programme_rejects_merge_across_a_hidden_column() -> None:
         )
 
 
+def test_extract_programme_rejects_merge_across_a_column_without_a_time_header() -> (
+    None
+):
+    regular = _sheet_with_one_room()
+    cells = dict(regular.cells)
+    del cells["D3"]
+    crossing = replace(
+        regular,
+        cells=cells,
+        merges=tuple(
+            "C4:E4" if merge == "C4:D4" else merge for merge in regular.merges
+        ),
+    )
+
+    with pytest.raises(ValueError, match="scheduled title is not merged"):
+        sync.extract_programme(
+            {"Piątek": regular, "Sobota": crossing, "Niedziela": regular}
+        )
+
+
 def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}
@@ -332,6 +354,23 @@ def test_extract_programme_gives_each_row_a_unique_source_row_id() -> None:
     )
 
 
+def test_ensure_time_slots_reuses_a_covering_slot() -> None:
+    items = _extract_saturday()
+    start = min(item.start for item in items)
+    end = max(item.end for item in items)
+    client = Mock(spec=McpClient)
+    client.call_list.return_value = [
+        {
+            "start_time": (start - timedelta(hours=1)).isoformat(),
+            "end_time": (end + timedelta(hours=1)).isoformat(),
+        }
+    ]
+
+    ensure_time_slots(client=client, event_id=24, items=items)
+
+    client.call.assert_not_called()
+
+
 def test_single_lane_room_keeps_its_plain_name() -> None:
     items = _extract_saturday()
 
@@ -351,6 +390,38 @@ def test_shared_room_splits_into_numbered_lanes() -> None:
     rooms = {item.room for item in items}
     assert rooms == {"Sala 5 — stanowisko 1", "Sala 5 — stanowisko 2"}
     assert {item.leaf_name for item in items} == {"Stanowisko 1", "Stanowisko 2"}
+
+
+def test_eger_threads_become_named_lanes_under_one_room() -> None:
+    cells: dict[str, object] = {"C3": "0.5", "D3": "0.510416666666667"}
+    merges = []
+    for lane_index, row in enumerate((4, 7, 10), start=1):
+        cells |= {
+            f"A{row}": f"Warsztatowa Eger (aula G w A–20) Nitka {lane_index}",
+            f"B{row}": "Tytuł",
+            f"B{row + 1}": "Prowadzący",
+            f"B{row + 2}": "Opis",
+            f"C{row}": f"Warsztat {lane_index}",
+        }
+        merges.extend((f"A{row}:A{row + 2}", f"C{row}:D{row}"))
+    sheet = wb.SheetData(cells=cells, merges=tuple(merges))
+
+    items = sync.extract_programme(
+        {
+            "Piątek": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+            "Sobota": sheet,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    assert {item.physical_room for item in items} == {"Warsztatowa Eger, Aula G"}
+    assert {item.room for item in items} == {
+        "Warsztatowa Eger, Aula G — Nitka 1",
+        "Warsztatowa Eger, Aula G — Nitka 2",
+        "Warsztatowa Eger, Aula G — Nitka 3",
+    }
+    assert {item.leaf_name for item in items} == {"Nitka 1", "Nitka 2", "Nitka 3"}
+    assert {item.building for item in items} == {"A-20"}
 
 
 def test_validate_items_rejects_overlapping_programme_in_one_room() -> None:
