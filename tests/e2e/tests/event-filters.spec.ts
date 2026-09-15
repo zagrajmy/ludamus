@@ -51,7 +51,7 @@ test.describe("Event filter panel", () => {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
 
-    // Not the width alone: the sheet's own inline <style> reads --modal-max-h,
+    // Not the width alone: the sheet rule in filters.css reads --modal-max-h,
     // the one consumer of that token carrying no .modal class.
     await expectCappedToViewport(page, panel);
 
