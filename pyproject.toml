@@ -323,6 +323,16 @@ allowed-confusables = ["–", "×"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
+"scripts/mint_mcp_tokens.py" = ["PLC0415"]
+".cursor/skills/**" = ["T201", "S404", "S603", "S607", "PLC0415"]
+".cursor/skills/verify-ludamus/control_ludamus.py" = [
+    "T201",
+    "S404",
+    "S603",
+    "S607",
+    "PLC0415",
+    "S310",
+]
 # Standalone Django seed script: imports must follow django.setup(), and it
 # prints a summary line when run directly.
 "tests/e2e/scripts/*.py" = [

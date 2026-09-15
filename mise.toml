@@ -56,7 +56,7 @@ TEST_PATHS = "tests"
 # and vulture have no gitignore awareness, so `.claude` cost pylint minutes per
 # run and made `mise run lint` fail outright on vulture findings from worktree
 # site-packages. Everything tracked under `.claude` lives in these two dirs.
-SCRIPT_PATHS = "scripts .claude/hooks .claude/skills"
+SCRIPT_PATHS = "scripts .claude/hooks .claude/skills .cursor/skills"
 TOML_PATHS = "*.toml .taplo.toml docker/*.toml"
 
 [bootstrap.packages]

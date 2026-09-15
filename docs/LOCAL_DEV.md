@@ -2,9 +2,46 @@
 
 ```bash
 poetry install      # in a fresh worktree, populate the mise-managed .venv
-mise run start       # dev server on :8000 (Django + client watch)
-mise run bootstrap   # seed a local sphere, admin user, and demo event
+mise run start       # portless origin on :1355 (Django behind it)
+mise run bootstrap   # seed a local sphere, admin user, demo event, MCP tokens
 ```
+
+## Portless
+
+`mise run start` wraps Django with portless. The public origin is
+`http://<name>.localhost:1355` (`PORTLESS_URL`, also written onto
+`Site.domain` / `ROOT_DOMAIN`). Django still binds an app port behind that
+proxy, often not 8000. `mise run start -- --no-portless` is
+`http://localhost:8000`.
+
+`:1355` is one listen port for every worktree. A dead Django behind a live
+portless proxy 404s every hostname and sets `X-Portless: 1`. Probe
+`/healthz/` on the Site domain. Do not kill by process name.
+
+## MCP tokens (local agents)
+
+`mise run bootstrap` and `mise run mcp-token` write gitignored
+`.local/mcp-tokens.json`. That file has a maintainer token for an active
+superuser (`admin` if present) and organizer tokens for `autumn-open` /
+`sunhaven-festival` when those events exist, otherwise the first event.
+Remint after `SECRET_KEY` changes.
+
+```bash
+mise run mcp-token
+python -c 'import json; print(json.load(open(".local/mcp-tokens.json"))["maintainer"]["token"])'
+```
+
+Point an MCP client at the live origin doctor reports. Do not hardcode
+`:8000`.
+
+```bash
+base="$(mise run control-ludamus -- base-url)"
+token="$(python -c 'import json; print(json.load(open(".local/mcp-tokens.json"))["maintainer"]["token"])')"
+claude mcp add --transport http zagrajmy "$base/mcp/" \
+  --header "Authorization: Bearer $token"
+```
+
+Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
 ## Logging in locally (auth0-simulator)
 
