@@ -183,6 +183,7 @@ def tessera_button(
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
+    extra_class: str = "",
     **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
@@ -196,6 +197,7 @@ def tessera_button(
         {% tessera_button "New Venue" href=url icon="plus" %}
         {% tessera_button "Save" full_width_mobile=False %}
         {% tessera_button "Reject" disabled=True title=why_disabled %}
+        {% tessera_button "Add map" href=url extra_class="shrink-0" %}
     """
     return render_button(
         text,
@@ -206,5 +208,6 @@ def tessera_button(
         disabled=disabled,
         icon=icon,
         full_width_mobile=full_width_mobile,
+        extra_class=extra_class,
         **attrs,
     )
