@@ -194,10 +194,6 @@
     }
   }
 
-  .filter-panel-body {
-    padding-top: 0.875rem;
-  }
-
   /* The sheet's own chrome; the panel is a dropdown at every other width,
      where the trigger and the page around it are the way out. */
   .filter-sheet-header,
@@ -236,16 +232,6 @@
       box-shadow: var(--shadow-elevated);
       transform-origin: center;
       transform: scale(0.9) translateY(16px);
-    }
-
-    /* The body scrolls, not the dialog: the header and the Apply button have
-       to stay put while a long filter list moves under them. */
-    .filter-panel-body {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      padding: 1rem 1.5rem;
     }
 
     .filter-sheet-header,

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
@@ -335,7 +334,7 @@
                                 {% tessera_icon_button icon="x-mark" label=t_close_filters id="filter-close" %}
                             </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
-                                <div class="filter-panel-body flex flex-wrap gap-3 grow">
+                                <div class="filter-panel-body flex flex-wrap gap-3 grow pt-3.5 max-[30rem]:flex-auto max-[30rem]:min-h-0 max-[30rem]:overflow-y-auto max-[30rem]:overscroll-contain max-[30rem]:px-6 max-[30rem]:py-4">
                                     {# The flags share one row: each narrows the set by a yes/no #}
                                     {# the cards already carry, so they read as one group. #}
                                     <div class="w-full flex flex-wrap gap-2">
@@ -584,10 +583,14 @@
     </div>
 {% endblock body %}
 {% block extra_head %}
-    {# NOTE: page-scoped on purpose: bundled, this would blank every page on #}
-    {# paper, the print page's own sheets included. The pointer's layout and #}
-    {# type live in event-print.css. #}
-    <style{% nonce %}>
+    <style>
+        /* Print pointer: hidden on screen; the @media print rule below reveals it
+           and hides the page chrome, so File->Print / the toolbar never print the
+           interactive UI. The Ctrl/Cmd+P gesture is handled separately by JS. */
+        .event-print-pointer {
+            display: none;
+        }
+
         @media print {
             body * {
                 visibility: hidden;
@@ -596,6 +599,48 @@
             .event-print-pointer,
             .event-print-pointer * {
                 visibility: visible;
+            }
+
+            .event-print-pointer {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                font-family: sans-serif;
+                color: #111827;
+            }
+
+            .event-print-pointer h1 {
+                font-size: 18pt;
+                font-weight: 700;
+                margin: 0 0 4mm 0;
+            }
+
+            .event-print-pointer .pointer-note {
+                font-size: 11pt;
+                margin: 0 0 6mm 0;
+            }
+
+            .event-print-pointer .pointer-row {
+                font-size: 9pt;
+                margin-bottom: 1mm;
+            }
+
+            .event-print-pointer .pointer-time {
+                display: inline-block;
+                width: 16mm;
+                font-variant-numeric: tabular-nums;
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session::after {
+                content: " · ";
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session:last-child::after {
+                content: "";
             }
         }
     </style>
