@@ -54,18 +54,9 @@ than the unknown class.
 Nothing is checked in for this: the linter needs oxlint 1.80+ while the repo
 pins 1.70, and adding `@shadcn/lint` as a dependency was rejected because it
 cannot read templates. The audit runs from a scratch directory outside the
-repo, with the extractor below. Line and column numbers in the report match
-the template because each `class` attribute is emitted at its own position.
-
-```sh
-mkdir audit && cd audit
-npm init -y
-npm install -D @shadcn/lint@0.1.0 oxlint@1.83.0 \
-  tailwindcss@4.1.16 @tailwindcss/typography@0.5.19 @hasparus/tailwind@1.1.8
-cp -r /path/to/ludamus/src/ludamus/client/src src   # index.css must be reachable
-node extract.mjs /path/to/ludamus/src/ludamus/templates virt
-npx oxlint virt --format unix
-```
+repo. Save the two files below into it, then run the commands that follow.
+Line and column numbers in the report match the template because each
+`class` attribute is emitted at its own position.
 
 `.oxlintrc.json`:
 
@@ -100,6 +91,18 @@ for (const f of globSync("**/*.html", { cwd: root })) {
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, lines.join("\n"));
 }
+```
+
+With both files in the scratch directory:
+
+```sh
+mkdir audit && cd audit
+npm init -y
+npm install -D @shadcn/lint@0.1.0 oxlint@1.83.0 \
+  tailwindcss@4.1.16 @tailwindcss/typography@0.5.19 @hasparus/tailwind@1.1.8
+cp -r /path/to/ludamus/src/ludamus/client/src src   # index.css must be reachable
+node extract.mjs /path/to/ludamus/src/ludamus/templates virt
+npx oxlint virt --format unix
 ```
 
 Django tags are blanked to spaces first so quotes inside `{% if x == "y" %}`
