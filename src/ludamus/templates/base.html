@@ -171,11 +171,19 @@
                     </footer>
                 {% endblock site_footer %}
             {% endblock body_content %}
+            {% comment %}
+                Last child of #app-scroll on purpose: the card floats via a
+                sticky host, so scrolling over it chains into this scroller —
+                a fixed card outside it was a scroll dead zone (the document
+                itself never scrolls).
+            {% endcomment %}
+            {% if posthog_config %}
+                {% include "components/consent-banner.html" %}
+            {% endif %}
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
         {% if posthog_config %}
-            {% include "components/consent-banner.html" %}
             {{ posthog_config|json_script:"posthog-config" }}
         {% endif %}
         <!-- Scripts -->

@@ -1,0 +1,33 @@
+id: pii-attribute-needs-block
+language: html
+severity: error
+rule:
+  kind: attribute
+  # Two ways a value reaches an attribute: a direct {{ ... }} interpolation,
+  # or a {% blocktranslate with x=user.full_name %} binding. A bare mention
+  # inside an {% if %} condition renders nothing and is not matched.
+  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|contact_email\s*[|}]|name_value)|with [^%]*=[^%]*(full_name|contact_email|\.email\b)'
+  all:
+    - not:
+        # Input values are masked at capture by maskAllInputs; the field name
+        # itself ("contact_email") is not personal data.
+        regex: '^(value|name|for|id|aria-describedby)='
+    - not:
+        inside:
+          stopBy: end
+          kind: element
+          has:
+            kind: start_tag
+            has:
+              kind: attribute
+              regex: 'data-ph-block'
+message: |
+  A name or email in an attribute value needs data-ph-block on the element.
+  Session replay records attribute values verbatim — maskTextSelector only
+  masks text nodes — so aria-labels, data-confirm copy, data-copy payloads,
+  and mailto: hrefs that interpolate a person's name or email leak into
+  recordings unless the whole element is excluded:
+    <a href="mailto:{{ proposal.contact_email }}" data-ph-block ...>
+  Prefer keeping PII out of attributes entirely (aria-labelledby pointing at
+  a masked text node beats a generated aria-label); block the element when
+  the attribute is unavoidable.

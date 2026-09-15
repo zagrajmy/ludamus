@@ -24,7 +24,7 @@
                         <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
                             <div class="flex items-center gap-3">
                                 {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
-                                <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                                <span class="font-medium text-foreground" data-ph-mask>{{ participation.user.full_name }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 {% if participation.user.discord_username %}
@@ -50,7 +50,7 @@
                         <div class="flex items-center gap-3">
                             <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"
                                   data-position-label="{% translate "Waiting list position" %}"></span>
-                            <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                            <span class="font-medium text-foreground" data-ph-mask>{{ participation.user.full_name }}</span>
                         </div>
                         <div class="flex items-center gap-2">
                             {% if participation.user.pk == current_user.pk %}
