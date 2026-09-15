@@ -1,8 +1,7 @@
 // Accessible disclosure menus: click/keyboard operable with a live
 // aria-expanded, Esc to close, and click-outside to dismiss. Menus opting into
 // data-menu-hover also open on hover-capable devices; their markup bridges the
-// trigger-to-panel gap with a safe pointer corridor. Menus marked
-// data-menu-static open and close in place, with no entrance or exit motion.
+// trigger-to-panel gap with a safe pointer corridor.
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
@@ -13,10 +12,8 @@ const init = (root: HTMLElement): void => {
   const surface = panel?.querySelector<HTMLElement>("[data-menu-surface]");
   if (!button || !panel || !surface) return;
   const isOpen = (): boolean => button.getAttribute("aria-expanded") === "true";
-  const motion = !Object.hasOwn(root.dataset, "menuStatic");
 
-  const setOpen = (open: boolean, requestedAnimate = false): void => {
-    const animate = requestedAnimate && motion;
+  const setOpen = (open: boolean, animate = false): void => {
     button.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) {
       panel.hidden = false;

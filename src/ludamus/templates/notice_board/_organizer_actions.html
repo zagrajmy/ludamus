@@ -1,7 +1,7 @@
 {% load i18n tessera %}
 <div class="card">
     <div class="card-body space-y-2">
-        {% tessera_action_dropdown id=share_menu_id hover=False animate=False trigger_variant="secondary" trigger_class="w-full" %}
+        {% tessera_action_dropdown id=share_menu_id hover=False trigger_variant="secondary" trigger_class="w-full" %}
             {% icon "share" class="h-4 w-4" variant="mini" %}
             {% translate "Share" %}
             {% action_dropdown_menu %}
