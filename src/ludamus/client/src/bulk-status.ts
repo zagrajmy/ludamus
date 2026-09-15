@@ -12,7 +12,7 @@ const update = (): void => {
   const checked = document.querySelectorAll(".bulk-row-checkbox:checked").length;
   const count = document.getElementById("bulk-selected-count");
   if (count) count.textContent = String(checked);
-  for (const button of document.querySelectorAll<HTMLButtonElement>(".bulk-action-btn")) {
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-bulk-action]")) {
     button.disabled = checked === 0;
   }
   const selectAll = document.getElementById("bulk-select-all");
