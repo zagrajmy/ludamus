@@ -552,15 +552,9 @@
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8">
-        {% if "events" in current_sphere.enabled_pages %}
-            <a href="{% url 'web:events' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
-            </a>
-        {% else %}
-            <a href="{% url 'web:timeline' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Timeline" %}
-            </a>
-        {% endif %}
+        <a href="{% url 'web:events' %}" class="btn btn-secondary">
+            {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
+        </a>
     </div>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
