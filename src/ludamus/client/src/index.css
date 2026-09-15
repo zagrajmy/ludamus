@@ -824,6 +824,18 @@ select:not([multiple]):not([size]) {
   padding-right: 2rem;
 }
 
+/* The card's link is a full-bleed overlay (.session-link); every other
+   control inside the card sits above it so it stays clickable. */
+.session :is(button, input, select, textarea, [role="button"]),
+.session a:not(.session-link) {
+  position: relative;
+  z-index: 20;
+}
+
+.time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
+  filter: grayscale(50%) brightness(0.95);
+}
+
 .session:has(.session-tags-more:hover) {
   z-index: 30;
 }
