@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
@@ -336,7 +335,7 @@
                                 {% tessera_icon_button icon="x-mark" label=t_close_filters id="filter-close" %}
                             </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
-                                <div class="filter-panel-body flex flex-wrap gap-3 grow">
+                                <div class="filter-panel-body flex flex-wrap gap-3 grow pt-3.5 max-[30rem]:flex-auto max-[30rem]:min-h-0 max-[30rem]:overflow-y-auto max-[30rem]:overscroll-contain max-[30rem]:px-6 max-[30rem]:py-4">
                                     {# The flags share one row: each narrows the set by a yes/no #}
                                     {# the cards already carry, so they read as one group. #}
                                     <div class="w-full flex flex-wrap gap-2">
