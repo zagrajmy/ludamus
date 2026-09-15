@@ -37,7 +37,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
   test("public event list", async ({ page }) => {
     await installCspViolationCollector(page);
 
-    await page.goto("/events/");
+    await page.goto("/");
     await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
 
     await assertNoCspViolations(page);

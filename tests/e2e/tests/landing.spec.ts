@@ -24,7 +24,7 @@ test.describe("Landing", () => {
   });
 
   test("keeps the plain event listing on /events/", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();

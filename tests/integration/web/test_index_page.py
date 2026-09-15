@@ -88,14 +88,48 @@ class TestIndexRedirectView:
             template_name=["landing_page.html"],
         )
 
-    def test_redirects_to_events_on_sphere_domain(self, client, non_root_sphere):
+    def test_serves_the_feed_on_a_sphere_domain(self, client, non_root_sphere):
         response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(),
+            template_name=["index.html"],
+        )
 
 
 class TestEventsPageView:
     URL = reverse("web:index")
+
+    @pytest.fixture(autouse=True)
+    def _on_a_sphere_domain(self, client, non_root_sphere):
+        # The root sphere's front door is the landing; a feed needs a non_root_sphere.
+        client.defaults["HTTP_HOST"] = non_root_sphere.site.domain
+
+    @pytest.fixture(name="event")
+    def event_fixture(self, non_root_sphere):
+        now = datetime.now(UTC)
+        midnight = (now + timedelta(days=7)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        return EventFactory(
+            sphere=non_root_sphere,
+            start_time=midnight,
+            end_time=midnight + timedelta(hours=23, minutes=59, seconds=59),
+            proposal_start_time=now - timedelta(days=10),
+            proposal_end_time=now - timedelta(days=3),
+        )
+
+    @pytest.fixture(name="panel_access_user", params=["manager", "superuser"])
+    def panel_access_user_fixture(self, request, active_user, non_root_sphere):
+        # Panel access has to be on the sphere being served, not the root one.
+        if request.param == "manager":
+            non_root_sphere.managers.add(active_user)
+        else:
+            active_user.is_superuser = True
+            active_user.save()
+        return active_user
 
     def test_ok(self, client):
         response = client.get(self.URL)
@@ -132,8 +166,8 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_session_count_counts_scheduled_sessions(self, client, sphere):
-        event = EventFactory(sphere=sphere)
+    def test_session_count_counts_scheduled_sessions(self, client, non_root_sphere):
+        event = EventFactory(sphere=non_root_sphere)
         space = SpaceFactory(event=event)
         AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
         AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
@@ -154,8 +188,8 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_session_count_matches_public_schedule(self, client, sphere):
-        event = EventFactory(sphere=sphere)
+    def test_session_count_matches_public_schedule(self, client, non_root_sphere):
+        event = EventFactory(sphere=non_root_sphere)
         space = SpaceFactory(event=event)
         public_track = Track.objects.create(
             event=event, name="Main Hall", slug="main", is_public=True
@@ -214,12 +248,12 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_ok_with_same_day_event(self, client, sphere, faker):
+    def test_ok_with_same_day_event(self, client, non_root_sphere, faker):
         """Cover line 17 in date_tags.py: same-day formatting."""
         day = faker.date_time_between(start_date="+7d", end_date="+30d", tzinfo=UTC)
         start = day.replace(hour=10, minute=0, second=0, microsecond=0)
         end = day.replace(hour=18, minute=0, second=0, microsecond=0)
-        event = EventFactory(sphere=sphere, start_time=start, end_time=end)
+        event = EventFactory(sphere=non_root_sphere, start_time=start, end_time=end)
 
         response = client.get(self.URL)
 
@@ -236,12 +270,12 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_ok_with_multi_month_event(self, client, sphere, faker):
+    def test_ok_with_multi_month_event(self, client, non_root_sphere, faker):
         """Cover lines 31-41 in date_tags.py: different months, same year."""
         base = faker.date_time_between("+1y")
         start = datetime(base.year, 3, 15, 10, 0, tzinfo=UTC)
         end = datetime(base.year, 4, 20, 18, 0, tzinfo=UTC)
-        event = EventFactory(sphere=sphere, start_time=start, end_time=end)
+        event = EventFactory(sphere=non_root_sphere, start_time=start, end_time=end)
 
         response = client.get(self.URL)
 
@@ -258,12 +292,12 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_ok_with_multi_year_event(self, client, sphere):
+    def test_ok_with_multi_year_event(self, client, non_root_sphere):
         """Cover lines 42-47 in date_tags.py: different years."""
         now = datetime.now(UTC)
         start = datetime(now.year + 1, 12, 28, 10, 0, tzinfo=UTC)
         end = datetime(now.year + 2, 1, 3, 18, 0, tzinfo=UTC)
-        event = EventFactory(sphere=sphere, start_time=start, end_time=end)
+        event = EventFactory(sphere=non_root_sphere, start_time=start, end_time=end)
 
         response = client.get(self.URL)
 
@@ -280,15 +314,15 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_upcoming_events_sorted_soonest_first(self, client, sphere):
+    def test_upcoming_events_sorted_soonest_first(self, client, non_root_sphere):
         now = datetime.now(UTC)
         far = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now + timedelta(days=30),
             end_time=now + timedelta(days=31),
         )
         soon = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now + timedelta(days=2),
             end_time=now + timedelta(days=3),
         )
@@ -311,16 +345,16 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_past_events_sorted_most_recent_first(self, client, sphere):
+    def test_past_events_sorted_most_recent_first(self, client, non_root_sphere):
         now = datetime.now(UTC)
         older = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=30),
             end_time=now - timedelta(days=29),
             publication_time=now - timedelta(days=31),
         )
         recent = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=3),
             end_time=now - timedelta(days=2),
             publication_time=now - timedelta(days=4),
@@ -344,26 +378,26 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_mixed_buckets_each_sorted_independently(self, client, sphere):
+    def test_mixed_buckets_each_sorted_independently(self, client, non_root_sphere):
         now = datetime.now(UTC)
         far = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now + timedelta(days=30),
             end_time=now + timedelta(days=31),
         )
         soon = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now + timedelta(days=2),
             end_time=now + timedelta(days=3),
         )
         recent = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=3),
             end_time=now - timedelta(days=2),
             publication_time=now - timedelta(days=4),
         )
         older = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=30),
             end_time=now - timedelta(days=29),
             publication_time=now - timedelta(days=31),
@@ -425,9 +459,9 @@ class TestEventsPageView:
             not_contains='href="/panel/"',
         )
 
-    def test_published_announcement_shown(self, client, sphere):
+    def test_published_announcement_shown(self, client, non_root_sphere):
         announcement = Announcement.objects.create(
-            sphere=sphere, title="Welcome", content="Hello there"
+            sphere=non_root_sphere, title="Welcome", content="Hello there"
         )
 
         response = client.get(self.URL)
@@ -446,9 +480,9 @@ class TestEventsPageView:
             contains=["Welcome", "Hello there"],
         )
 
-    def test_draft_announcement_hidden(self, client, sphere):
+    def test_draft_announcement_hidden(self, client, non_root_sphere):
         Announcement.objects.create(
-            sphere=sphere, title="Secret", content="body", is_published=False
+            sphere=non_root_sphere, title="Secret", content="body", is_published=False
         )
 
         response = client.get(self.URL)
@@ -467,10 +501,8 @@ class TestEventsPageView:
             not_contains="Secret",
         )
 
-    def test_announcement_scoped_to_current_sphere(self, client, non_root_sphere):
-        Announcement.objects.create(
-            sphere=non_root_sphere, title="Elsewhere", content="body"
-        )
+    def test_announcement_scoped_to_current_sphere(self, client, sphere):
+        Announcement.objects.create(sphere=sphere, title="Elsewhere", content="body")
 
         response = client.get(self.URL)
 
@@ -487,8 +519,8 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_unpublished_event_hidden_for_anonymous(self, client, sphere):
-        EventFactory(sphere=sphere, publication_time=None)
+    def test_unpublished_event_hidden_for_anonymous(self, client, non_root_sphere):
+        EventFactory(sphere=non_root_sphere, publication_time=None)
 
         response = client.get(self.URL)
 
@@ -506,9 +538,9 @@ class TestEventsPageView:
         )
 
     def test_unpublished_event_hidden_for_regular_user(
-        self, authenticated_client, sphere
+        self, authenticated_client, non_root_sphere
     ):
-        EventFactory(sphere=sphere, publication_time=None)
+        EventFactory(sphere=non_root_sphere, publication_time=None)
 
         response = authenticated_client.get(self.URL)
 
@@ -527,9 +559,9 @@ class TestEventsPageView:
 
     @pytest.mark.usefixtures("panel_access_user")
     def test_unpublished_event_visible_for_manager_and_superuser(
-        self, authenticated_client, sphere
+        self, authenticated_client, non_root_sphere
     ):
-        event = EventFactory(sphere=sphere, publication_time=None)
+        event = EventFactory(sphere=non_root_sphere, publication_time=None)
 
         response = authenticated_client.get(self.URL)
 
@@ -571,16 +603,37 @@ def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine
 class TestEventsPageFeed:
     URL = reverse("web:index")
 
-    def test_merges_events_and_public_encounters_chronologically(self, client, sphere):
+    @pytest.fixture(autouse=True)
+    def _on_a_sphere_domain(self, client, non_root_sphere):
+        # The root sphere's front door is the landing; a feed needs a non_root_sphere.
+        client.defaults["HTTP_HOST"] = non_root_sphere.site.domain
+
+    @pytest.fixture(name="event")
+    def event_fixture(self, non_root_sphere):
+        now = datetime.now(UTC)
+        midnight = (now + timedelta(days=7)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        return EventFactory(
+            sphere=non_root_sphere,
+            start_time=midnight,
+            end_time=midnight + timedelta(hours=23, minutes=59, seconds=59),
+            proposal_start_time=now - timedelta(days=10),
+            proposal_end_time=now - timedelta(days=3),
+        )
+
+    def test_merges_events_and_public_encounters_chronologically(
+        self, client, non_root_sphere
+    ):
         now = datetime.now(UTC)
         event = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now + timedelta(days=5),
             end_time=now + timedelta(days=6),
         )
         creator = UserFactory(username="pub_organizer", name="Pub Organizer")
         encounter = EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             creator=creator,
             is_public=True,
             start_time=now + timedelta(days=2),
@@ -605,9 +658,11 @@ class TestEventsPageFeed:
             template_name=["index.html"],
         )
 
-    def test_private_encounter_is_hidden_from_other_visitors(self, client, sphere):
+    def test_private_encounter_is_hidden_from_other_visitors(
+        self, client, non_root_sphere
+    ):
         EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             is_public=False,
             start_time=datetime.now(UTC) + timedelta(days=2),
         )
@@ -622,10 +677,10 @@ class TestEventsPageFeed:
         )
 
     def test_private_encounter_is_hidden_from_an_uninvited_signed_in_visitor(
-        self, authenticated_client, sphere
+        self, authenticated_client, non_root_sphere
     ):
         EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             creator=UserFactory(username="host", name="Host"),
             is_public=False,
             start_time=datetime.now(UTC) + timedelta(days=2),
@@ -641,10 +696,10 @@ class TestEventsPageFeed:
         )
 
     def test_own_private_encounter_is_listed_for_its_organizer(
-        self, authenticated_client, sphere, active_user
+        self, authenticated_client, non_root_sphere, active_user
     ):
         encounter = EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             creator=active_user,
             is_public=False,
             start_time=datetime.now(UTC) + timedelta(days=2),
@@ -666,10 +721,10 @@ class TestEventsPageFeed:
         )
 
     def test_invited_encounter_is_listed_for_the_attendee(
-        self, authenticated_client, sphere, active_user
+        self, authenticated_client, non_root_sphere, active_user
     ):
         encounter = EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             creator=UserFactory(username="host", name="Host"),
             is_public=False,
             start_time=datetime.now(UTC) + timedelta(days=2),
@@ -693,16 +748,16 @@ class TestEventsPageFeed:
             template_name=["index.html"],
         )
 
-    def test_past_encounters_join_past_events(self, client, sphere):
+    def test_past_encounters_join_past_events(self, client, non_root_sphere):
         now = datetime.now(UTC)
         past_event = EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=5),
             end_time=now - timedelta(days=4),
             publication_time=now - timedelta(days=6),
         )
         encounter = EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             creator=UserFactory(username="host", name="Host"),
             is_public=True,
             start_time=now - timedelta(days=1),
@@ -724,17 +779,19 @@ class TestEventsPageFeed:
             template_name=["index.html"],
         )
 
-    def test_the_past_section_stops_at_one_cut_across_both_kinds(self, client, sphere):
+    def test_the_past_section_stops_at_one_cut_across_both_kinds(
+        self, client, non_root_sphere
+    ):
         now = datetime.now(UTC)
         for days in range(1, PAST_FEED_LIMIT + 2):
             EncounterFactory(
-                sphere=sphere,
+                sphere=non_root_sphere,
                 is_public=True,
                 start_time=now - timedelta(days=days),
                 end_time=now - timedelta(days=days) + timedelta(hours=1),
             )
         EventFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             start_time=now - timedelta(days=365),
             end_time=now - timedelta(days=364),
             publication_time=now - timedelta(days=366),
@@ -749,14 +806,16 @@ class TestEventsPageFeed:
         assert len(past) == PAST_FEED_LIMIT
         assert all(item.kind == "encounter" for item in past)
 
-    def test_encounters_are_absent_while_the_sphere_runs_none(self, client, sphere):
+    def test_encounters_are_absent_while_the_sphere_runs_none(
+        self, client, non_root_sphere
+    ):
         EncounterFactory(
-            sphere=sphere,
+            sphere=non_root_sphere,
             is_public=True,
             start_time=datetime.now(UTC) + timedelta(days=2),
         )
-        sphere.encounters_policy = "none"
-        sphere.save()
+        non_root_sphere.encounters_policy = "none"
+        non_root_sphere.save()
 
         response = client.get(self.URL)
 

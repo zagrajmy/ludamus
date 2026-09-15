@@ -6474,8 +6474,8 @@ msgstr ""
 "i klikasz „Będę”. Reszta to już granie."
 
 #: src/ludamus/templates/landing/gracz.html
-msgid "See open Encounters at zagrajmy.net/encounters"
-msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
+msgid "See open Encounters on the events page"
+msgstr ""
 
 #: src/ludamus/templates/landing/gracz.html
 msgid ""
@@ -11020,6 +11020,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "See open Encounters at zagrajmy.net/encounters"
+#~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
 
 #~ msgid "Enabled pages"
 #~ msgstr "Włączone strony"

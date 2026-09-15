@@ -1544,7 +1544,7 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
 
     // Published announcement shows on the public landing page
-    await page.goto("/events/");
+    await page.goto("/");
     await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText(content)).toBeVisible();

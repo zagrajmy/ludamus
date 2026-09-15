@@ -14,7 +14,7 @@
             {% endblocktranslate %}
         </p>
         <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
-            <a class="btn btn-primary" href="{% url 'web:notice-board:index' %}">{% translate "Run an Encounter" %}</a>
+            <a class="btn btn-primary" href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
             <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
@@ -164,7 +164,7 @@
             </p>
             <p class="reveal mt-[1.6rem] text-[0.95rem]">
                 <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-                   href="{% url 'web:notice-board:index' %}">{% translate "See open Encounters at zagrajmy.net/encounters" %}</a>
+                   href="{% url 'web:index' %}">{% translate "See open Encounters on the events page" %}</a>
             </p>
         </div>
         <div class="max-w-[420px] justify-self-end w-full max-[900px]:justify-self-start">
@@ -442,7 +442,7 @@
             </p>
             <div class="mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
                 <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
-                   href="{% url 'web:notice-board:index' %}">{% translate "Run an Encounter" %}</a>
+                   href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
             </div>
             <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:hidden">
                 {% translate "Organizing a conference or a meetup?" %} <a href="#"
