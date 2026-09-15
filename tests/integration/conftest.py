@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
+from django.core.cache import cache
 from django.urls import get_resolver
 from django.utils.timezone import localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
@@ -236,7 +237,6 @@ class EncounterRSVPFactory(DjangoModelFactory):
 
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
-    ip_address = Faker("ipv4")
 
 
 class AgendaItemFactory(DjangoModelFactory):
@@ -474,6 +474,13 @@ def encounter_with_rsvps(sphere):
     EncounterRSVPFactory(encounter=encounter)
     EncounterRSVPFactory(encounter=encounter)
     return encounter
+
+
+@pytest.fixture(autouse=True)
+def _empty_cache():
+    # LocMemCache lives for the whole process, so a rate limit reserved by one
+    # test would still be held when the next one runs.
+    cache.clear()
 
 
 @pytest.fixture(autouse=True)
