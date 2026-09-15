@@ -19,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    accreditation_filter,
     facilitator_detail_tab_urls,
     facilitator_tab_urls,
     format_field_value,
@@ -92,33 +93,35 @@ def _merge_error_message(reason: MergeErrorReason) -> str:
     return str(messages_by_reason[reason])
 
 
+def read_facilitator_query(request: PanelRequest) -> FacilitatorListQuery:
+    # The one reader of the list's filters: the list and its export both go
+    # through here, so a filter cannot apply to one and not the other.
+    organizer = request.GET.get("organizer", "").strip()
+    return FacilitatorListQuery(
+        search=request.GET.get("search", "").strip(),
+        accreditation=accreditation_filter(request).value,
+        organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
+        current_user_id=request.context.current_user_id,
+        sort=request.GET.get("sort", "").strip() or "name",
+        raw_field_filters={
+            int(key.removeprefix("field_")): request.GET.get(key, "")
+            for key in request.GET
+            if key.startswith("field_") and key.removeprefix("field_").isdigit()
+        },
+    )
+
+
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
     """List facilitators for an event."""
 
     request: PanelRequest
-
-    def _read_query(self) -> FacilitatorListQuery:
-        accreditation = self.request.GET.get("accreditation", "").strip()
-        organizer = self.request.GET.get("organizer", "").strip()
-        return FacilitatorListQuery(
-            search=self.request.GET.get("search", "").strip(),
-            accreditation=(accreditation if accreditation in AccreditationType else ""),
-            organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
-            current_user_id=self.request.context.current_user_id,
-            sort=self.request.GET.get("sort", "").strip() or "name",
-            raw_field_filters={
-                int(key.removeprefix("field_")): self.request.GET.get(key, "")
-                for key in self.request.GET
-                if key.startswith("field_") and key.removeprefix("field_").isdigit()
-            },
-        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        query = self._read_query()
+        query = read_facilitator_query(self.request)
         list_context = self.request.services.facilitator_panel.list_context(
             event_id=current_event.pk, query=query
         )
@@ -158,9 +161,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             or query.organizer
             or list_context.field_filters
         )
-        context["accreditation_types"] = [
-            (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
-        ]
+        context["accreditation_types"] = accreditation_filter(self.request).options
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 

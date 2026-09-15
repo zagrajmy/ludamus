@@ -72,6 +72,7 @@ def _tab_urls(event):
         "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": event.slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
     }
 

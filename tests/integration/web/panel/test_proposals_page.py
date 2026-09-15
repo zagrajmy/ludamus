@@ -90,6 +90,7 @@ def _list_chrome(event, proposals=()):
         "tab_urls": {
             "list": reverse("panel:proposals", kwargs={"slug": event.slug}),
             "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
+            "export": reverse("panel:proposal-export", kwargs={"slug": event.slug}),
         },
         "columns": _DEFAULT_COLUMNS,
         "proposals": list(proposals),

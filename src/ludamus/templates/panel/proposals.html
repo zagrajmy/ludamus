@@ -22,6 +22,11 @@
         {% url 'panel:content-log' slug=current_event.slug as log_url %}
         {% translate "Activity Log" as t_log %}
         {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
+        {% url 'panel:proposal-export' slug=current_event.slug as export_url %}
+        {% translate "Export" as t_export %}
+        {% with export_href=export_url|add:"?"|add:request.GET.urlencode %}
+            {% tessera_button t_export href=export_href variant="secondary" icon="arrow-down-tray" %}
+        {% endwith %}
     {% endif %}
     {% if all_tracks %}
         <form method="get"

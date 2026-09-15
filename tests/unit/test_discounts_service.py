@@ -211,6 +211,12 @@ class TestDiscountsService:
             DiscountRosterEntryDTO(facilitator=_list_item(pk=2), discount=None),
         ]
 
+    def test_list_facilitator_schedule_reads_the_placed_program(self):
+        row = FacilitatorScheduleRow(facilitator_id=1, session_count=2, minutes=90)
+        service = _service(schedule=FakeSchedule(rows=[row]))
+
+        assert service.list_facilitator_schedule(1) == [row]
+
     def test_read_scoped_returns_discount_from_current_event(self):
         pk = 7
         repo = FakeRepo(items=[_dto(pk, event_id=1)])
