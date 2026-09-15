@@ -236,6 +236,48 @@
   text-box: trim-both cap alphabetic;
 }
 
+/* A strip of labelled icon buttons that goes icon-only below sm: the glyph
+   carries the action and the text beside it gets the width back. The label
+   is `.btn-label` (tessera_button and hand-written buttons both mark it) and
+   goes sr-only rather than hidden, so the button keeps its accessible name.
+   Decided here, once, for the panel header and the session modal's footer.
+
+   The first two rules hang off the same `:has(> svg)`, and must keep doing
+   so. A button with no icon has nothing to fall back on, so hiding its
+   label leaves a blank pill. The same guard covers `{% icon %}` returning
+   "" for a missing icon in production.
+
+   `min-height` covers every button: an iconless one keeps its label and
+   its own width, but `py-2` alone leaves it 38px — under the tap-target
+   floor and 6px shy of the squares beside it. A minimum rather than a
+   height so it never argues with `size-11` over the icon buttons.
+
+   `w-auto` is deliberately max-md, not max-sm: `tessera_button` stretches
+   every form-submit button by `max-md:w-full`, right in a body form and
+   never right in a strip. A utility rather than a component so the
+   descendant selector outranks that one within the same layer. */
+@utility btn-strip-compact {
+  @media (width < 40rem) {
+    .btn:has(> svg) .btn-label {
+      @apply sr-only;
+    }
+
+    .btn:has(> svg) {
+      @apply size-11 p-0;
+    }
+
+    .btn {
+      @apply min-h-11;
+    }
+  }
+
+  @media (width < 48rem) {
+    .btn {
+      @apply w-auto;
+    }
+  }
+}
+
 *,
 *::before,
 *::after {

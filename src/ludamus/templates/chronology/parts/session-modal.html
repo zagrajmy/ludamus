@@ -1,6 +1,6 @@
 {% load i18n tessera cfp_tags date_tags markdown_tags %}
 <dialog id="session-{{ data.session.pk }}"
-        class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
+        class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)] max-sm:w-full max-sm:mb-0 max-sm:rounded-b-none max-sm:border-b-0"
         aria-labelledby="session-{{ data.session.pk }}-title"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
@@ -194,7 +194,7 @@
         <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
              data-morph="footer"
              data-session-footer="{{ data.session.pk }}">
-            <div>
+            <div class="btn-strip-compact">
                 {% if data.can_edit %}
                     <button type="button"
                             class="btn btn-secondary text-sm"
@@ -202,7 +202,8 @@
                             hx-get="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
                             hx-target="#session-{{ data.session.pk }}-editform"
                             hx-swap="innerHTML">
-                        {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
+                        {% icon "pencil-square" class="w-4 h-4" variant="mini" %}
+                        <span class="btn-label">{% translate "Edit session" %}</span>
                     </button>
                 {% endif %}
             </div>
