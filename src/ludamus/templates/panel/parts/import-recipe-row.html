@@ -163,8 +163,7 @@
          class="mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "track" and row.selected != "category" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         {% for ent in row.option_entities %}
-            <div
-                 class="rounded-lg border border-border bg-bg-tertiary p-3"
+            <div class="rounded-lg border border-border bg-bg-tertiary p-3"
                  data-slug-scope>
                 <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ent.option }}</p>
                 <input type="hidden"
@@ -186,8 +185,7 @@
                 </div>
             </div>
         {% endfor %}
-        <div
-             class="rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
+        <div class="rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
              data-slug-scope>
             <p class="mb-2 text-xs font-medium text-foreground-secondary">{% translate "Catch-all for custom answers" %}</p>
             <div class="flex items-center gap-2">
@@ -215,8 +213,7 @@
         {% translate "Hours" as hours_label %}
         {% translate "Minutes" as minutes_label %}
         {% for dur in row.option_durations %}
-            <fieldset
-                      class="rounded-lg border border-border bg-bg-tertiary p-3">
+            <fieldset class="rounded-lg border border-border bg-bg-tertiary p-3">
                 <legend class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</legend>
                 <input type="hidden"
                        name="droption_{{ row.index }}"
