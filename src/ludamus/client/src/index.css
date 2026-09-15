@@ -206,6 +206,28 @@
   margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
 }
 
+/* Scrim for text over a photo. A three-stop gradient bands where its stops
+   meet; these trace alpha = 0.9 × (1 − smoothstep(x)) at 10% steps, so the
+   scrim holds dark under the text and eases out with no edge to see. Apply
+   it to the caption's box and give that box room above the text: padding
+   (pt-28) or a height with the text pushed to the bottom (h-3/4 justify-end). */
+@utility scrim-t {
+  background-image: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.9) 0%,
+    rgb(0 0 0 / 0.875) 10%,
+    rgb(0 0 0 / 0.806) 20%,
+    rgb(0 0 0 / 0.706) 30%,
+    rgb(0 0 0 / 0.583) 40%,
+    rgb(0 0 0 / 0.45) 50%,
+    rgb(0 0 0 / 0.317) 60%,
+    rgb(0 0 0 / 0.194) 70%,
+    rgb(0 0 0 / 0.094) 80%,
+    rgb(0 0 0 / 0.025) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
 @utility text-box-trim-start {
   text-box: trim-start cap alphabetic;
 }

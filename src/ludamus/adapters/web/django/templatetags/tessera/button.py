@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.utils.html import format_html, format_html_join
 
+from .clsx import clsx
 from .icon import icon as render_icon
 
 SIZE_CLASSES = {
@@ -29,6 +30,7 @@ def render_button(
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
+    extra_class: str = "",
     **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
@@ -41,6 +43,9 @@ def render_button(
     link buttons in toolbars. Defaults to ``href is None``: form-submit
     buttons stretch, link buttons don't.
 
+    ``extra_class`` is for page layout around the button (``shrink-0``,
+    ``ml-auto``), never for its look.
+
     Extra keyword arguments render as escaped HTML attributes; underscores
     become hyphens.
 
@@ -49,15 +54,13 @@ def render_button(
     """
     if full_width_mobile is None:
         full_width_mobile = href is None
-    classes = [
+    class_str = clsx(
         VARIANT_CLASSES.get(variant, VARIANT_CLASSES["primary"]),
         SIZE_CLASSES.get(size, SIZE_CLASSES["md"]),
-    ]
-    if full_width_mobile:
-        classes.append("max-md:w-full")
-    if disabled:
-        classes.append("opacity-50 cursor-not-allowed")
-    class_str = " ".join(classes)
+        full_width_mobile and "max-md:w-full",
+        disabled and "opacity-50 cursor-not-allowed",
+        extra_class,
+    )
 
     icon_html = (
         render_icon(
