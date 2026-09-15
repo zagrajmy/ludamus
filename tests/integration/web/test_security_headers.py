@@ -105,7 +105,10 @@ class TestCSPNonce:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"stats": LandingStatsDTO(events=0, sessions=0)},
+            context_data={
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+            },
             template_name=["landing_page.html"],
         )
         _assert_body_nonce_matches_header(response)

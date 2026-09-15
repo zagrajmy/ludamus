@@ -51,13 +51,14 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"stats": LandingStatsDTO(events=0, sessions=0)},
+            context_data={
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+            },
             template_name=["landing_page.html"],
         )
 
-    def test_landing_stats_count_published_events_and_their_sessions(
-        self, client, sphere
-    ):
+    def test_landing_stats_count_every_event_and_live_session(self, client, sphere):
         event = EventFactory(sphere=sphere)
         category = ProposalCategoryFactory(event=event)
         SessionFactory(category=category)
@@ -71,7 +72,10 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"stats": LandingStatsDTO(events=1, sessions=2)},
+            context_data={
+                "stats": LandingStatsDTO(events=2, sessions=3),
+                "conventions": [],
+            },
             template_name=["landing_page.html"],
         )
 

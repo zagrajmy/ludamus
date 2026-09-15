@@ -209,26 +209,6 @@ themes — newsprint rather than white once the page around them is dark.
         font-weight: 600;
     }
 
-    .landing .sheet col.c-a {
-        width: 30%;
-    }
-
-    .landing .sheet col.c-b {
-        width: 11%;
-    }
-
-    .landing .sheet col.c-c {
-        width: 23%;
-    }
-
-    .landing .sheet col.c-d {
-        width: 26%;
-    }
-
-    .landing .sheet col.c-e {
-        width: 10%;
-    }
-
     .landing .sheet .err {
         background: var(--color-danger-bg);
         color: var(--color-danger-text);
@@ -560,18 +540,6 @@ themes — newsprint rather than white once the page around them is dark.
         transition: font-size 0.3s;
     }
 
-    .landing .badge {
-        display: none;
-    }
-
-    .landing .cap {
-        display: none;
-    }
-
-    .landing .wl {
-        display: none;
-    }
-
     .landing .warnDot {
         display: none;
     }
@@ -723,10 +691,6 @@ themes — newsprint rather than white once the page around them is dark.
         top: 55%;
     }
 
-    #k2:checked~.sc .badge {
-        display: inline-flex;
-    }
-
     /* step 3 — the grid, with a live conflict in Room B / 15:00 */
     #k3:checked~.sc .cF {
         height: 9.5%;
@@ -769,14 +733,6 @@ themes — newsprint rather than white once the page around them is dark.
     }
 
     /* step 5 — enrollment */
-    #k5:checked~.sc .cap {
-        display: inline-flex;
-    }
-
-    #k5:checked~.sc .wl {
-        display: inline;
-    }
-
     #k5:checked~.sc .cD {
         background: var(--color-warning-bg);
         border-color: var(--color-warning-light);
@@ -855,19 +811,6 @@ themes — newsprint rather than white once the page around them is dark.
     }
 
     /* step descriptions */
-    .landing .opis {
-        display: none;
-    }
-
-    #k1:checked~.sc .opis1,
-    #k2:checked~.sc .opis2,
-    #k3:checked~.sc .opis3,
-    #k4:checked~.sc .opis4,
-    #k5:checked~.sc .opis5,
-    #k6:checked~.sc .opis6 {
-        display: block;
-    }
-
     /* Once the load choreography has played, switching the audience view must
        not replay it: display:none -> block restarts CSS animations, so
        landing.ts latches .ld-done after the last delay+duration. */

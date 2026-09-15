@@ -1,14 +1,52 @@
-from datetime import UTC, datetime
+from django.conf import settings
+from django.db.models import OuterRef, Subquery
 
-from ludamus.links.db.django.models import Event, Session
-from ludamus.pacts.event import LandingStatsDTO, LandingStatsRepositoryProtocol
+from ludamus.links.db.django.models import Event, Session, Sphere
+from ludamus.pacts.event import (
+    LandingConventionDTO,
+    LandingStatsDTO,
+    LandingStatsRepositoryProtocol,
+)
 
 
 class LandingStatsRepository(LandingStatsRepositoryProtocol):
     @staticmethod
     def count_landing_stats() -> LandingStatsDTO:
-        now = datetime.now(tz=UTC)
+        # Everything a sphere has put into Zagrajmy, drafts included — the
+        # claim is about work the tool holds, not about what is published.
+        # Soft-deleted sessions are excluded: `objects` is the alive manager.
         return LandingStatsDTO(
-            events=Event.objects.filter(publication_time__lte=now).count(),
-            sessions=Session.objects.filter(event__publication_time__lte=now).count(),
+            events=Event.objects.count(), sessions=Session.objects.count()
         )
+
+    @staticmethod
+    def list_conventions(limit: int) -> list[LandingConventionDTO]:
+        """List spheres that run events, newest first, with their cover art.
+
+        Returns:
+            Up to ``limit`` conventions, each carrying its newest event's
+            cover image. The root sphere is the landing itself, so it is not
+            one of its own conventions.
+        """
+        newest = Event.objects.filter(sphere=OuterRef("pk")).order_by("-start_time")
+        spheres = (
+            Sphere.objects.select_related("site")
+            .exclude(site_id=settings.SITE_ID)
+            .annotate(
+                cover=Subquery(newest.values("cover_image")[:1]),
+                newest_start=Subquery(newest.values("start_time")[:1]),
+            )
+            .filter(newest_start__isnull=False)
+            .order_by("-newest_start")[:limit]
+        )
+        # The URL comes from the model's own property rather than from the
+        # storage directly, so it cannot drift from how an Event renders its
+        # cover anywhere else.
+        return [
+            LandingConventionDTO(
+                name=sphere.name,
+                domain=sphere.site.domain,
+                cover_image_url=Event(cover_image=sphere.cover).cover_image_url,
+            )
+            for sphere in spheres
+        ]

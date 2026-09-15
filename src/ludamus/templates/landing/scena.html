@@ -15,7 +15,7 @@
             min-w-0: a fieldset defaults to min-width:min-content, so the
             40rem stage inside would stop the section shrinking on a phone.
         {% endcomment %}
-        <fieldset class="min-w-0">
+        <fieldset class="group/krok min-w-0">
             <legend class="sr-only">{% translate "Pick an act." %}</legend>
             <input class="sr-only" type="radio" name="landing-krok" id="k1" checked>
             <input class="sr-only" type="radio" name="landing-krok" id="k2">
@@ -82,38 +82,38 @@
                         <!-- the travelling cast -->
                         <article class="chip cA">
                             <span class="ct">{% translate "Opening talk" %}</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                         </article>
                         <article class="chip cB">
                             <span class="ct">{% translate "Self-publishing: a survival guide" %}</span>
                             <span class="ca text-[0.66rem] font-medium text-foreground-muted">Piotrek</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                         </article>
                         <article class="chip cC">
                             <span class="ct">{% translate "Two decades of convention mishaps" %}</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "On hold" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "On hold" %}</span>
                         </article>
                         <article class="chip cD">
                             <span class="ct">{% translate "Board game prototyping workshop" %}</span>
                             <span class="ca text-[0.66rem] font-medium text-foreground-muted">Radowit</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
-                            <span class="cap text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
-                            <span class="wl text-[0.6rem] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
+                            <span class="hidden group-has-[#k5:checked]/krok:inline text-[0.6rem] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
                         </article>
                         <article class="chip cE">
                             <span class="ct">{% translate "Painting miniatures for beginners" %}</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
-                            <span class="cap text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "3 spots free" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "3 spots free" %}</span>
                         </article>
                         <article class="chip cF">
                             <span class="ct">{% translate "Publisher Q&A" %}</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                             <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
                                   aria-hidden="true">!</span>
                         </article>
                         <article class="chip cG">
                             <span class="ct">{% translate "Community meetup" %}</span>
-                            <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-info-bg text-info-text border-info-light">{% translate "New" context "landing scena status" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-info-bg text-info-text border-info-light">{% translate "New" context "landing scena status" %}</span>
                             <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
                                   aria-hidden="true">!</span>
                         </article>
@@ -131,7 +131,7 @@
                     {% translate "Swipe the grid sideways to see all the rooms." %}
                 </p>
                 <div class="mt-[1.4rem] min-h-[6.5rem]">
-                    <div class="opis opis1 max-w-[56ch]">
+                    <div class="hidden group-has-[#k1:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">01</b>{% translate "Proposals" %}
                         </h3>
@@ -139,7 +139,7 @@
                             {% translate "Programme creators send proposals through a form with your questions. Every proposal lands straight in the event inbox." %}
                         </p>
                     </div>
-                    <div class="opis opis2 max-w-[56ch]">
+                    <div class="hidden group-has-[#k2:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">02</b>{% translate "Review" context "landing walkthrough step" %}
                         </h3>
@@ -147,7 +147,7 @@
                             {% translate "You review proposals and set statuses: accepted, on hold, new. The whole team works on the same programme state." %}
                         </p>
                     </div>
-                    <div class="opis opis3 max-w-[56ch]">
+                    <div class="hidden group-has-[#k3:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">03</b>{% translate "Schedule" %}
                         </h3>
@@ -155,7 +155,7 @@
                             {% translate "You build the grid from tracks, rooms, and time slots. Two programme items in Room B at 15:00? Zagrajmy highlights the conflict before attendees see it." %}
                         </p>
                     </div>
-                    <div class="opis opis4 max-w-[56ch]">
+                    <div class="hidden group-has-[#k4:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">04</b>{% translate "Publish" context "landing walkthrough step" %}
                         </h3>
@@ -163,7 +163,7 @@
                             {% translate "You move the community meetup to the free workshop room and publish the event page. Attendees see the current programme at one address." %}
                         </p>
                     </div>
-                    <div class="opis opis5 max-w-[56ch]">
+                    <div class="hidden group-has-[#k5:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">05</b>{% translate "Enrollment" %}
                         </h3>
@@ -171,7 +171,7 @@
                             {% translate "You open enrollment with seat limits. A full workshop runs a waiting list, and free spots are visible right away." %}
                         </p>
                     </div>
-                    <div class="opis opis6 max-w-[56ch]">
+                    <div class="hidden group-has-[#k6:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
                             <b class="text-primary-hover tabular-nums mr-[0.4rem]">06</b>{% translate "Print" context "landing walkthrough step" %}
                         </h3>
