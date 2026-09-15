@@ -26,7 +26,7 @@
  *     </div><button data-ts-add>…</button></div>
  *   </div>
  *   <div data-recipe-entities data-row="0">
- *     <div data-ent-option data-slug-scope>
+ *     <div data-slug-scope>
  *       <input data-recipe-name><input data-recipe-slug>
  *     </div>…
  *   </div>
