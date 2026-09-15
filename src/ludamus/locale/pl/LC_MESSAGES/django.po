@@ -6763,10 +6763,12 @@ msgid "Copy the address"
 msgstr "Skopiuj adres"
 
 #: src/ludamus/templates/landing/org_final.html
-msgid "We reply with a concrete plan for setting up your event. No commitment."
+msgid ""
+"We reply with a concrete plan for your event, and asking commits you to "
+"nothing."
 msgstr ""
-"Odpowiadamy z konkretnym planem ustawienia Twojego wydarzenia. Bez "
-"zobowiązań."
+"Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
+"niczego Cię nie zobowiązuje."
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "Event organization"
@@ -6865,8 +6867,8 @@ msgid "see email 12.02!!"
 msgstr "patrz mail 12.02!!"
 
 #: src/ludamus/templates/landing/org_hero.html
-msgid "After — in Zagrajmy"
-msgstr "Po — w Zagrajmy"
+msgid "After: in Zagrajmy"
+msgstr "Po: w Zagrajmy"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "Sat–Sun, 14–15 March"
@@ -6929,13 +6931,13 @@ msgstr "A jeśli robię mały meetup?"
 
 #: src/ludamus/templates/landing/org_objections.html
 msgid ""
-"A meetup gets the full kit from day one: the event page, enrollment, and "
-"seat limits. Setup is one short call, and when you grow into speaker "
-"proposals and a room grid, the same process grows with you."
+"A meetup gets the event page and enrollment with seat limits right away. "
+"Setup is one short call, and when you grow into speaker proposals and a room "
+"grid, you add them to a setup that already works."
 msgstr ""
-"Meetup dostaje komplet od pierwszego dnia: stronę wydarzenia, zapisy i "
-"limity miejsc. Ustawienie to jedna krótka rozmowa, a kiedy urośniesz do "
-"zgłoszeń prelegentów i siatki sal, ten sam proces rośnie razem z Tobą."
+"Meetup dostaje od razu stronę wydarzenia i zapisy z limitami miejsc. "
+"Ustawienie to jedna krótka rozmowa, a kiedy urośniesz do zgłoszeń "
+"prelegentów i siatki sal, dokładasz je do tego, co już działa."
 
 #: src/ludamus/templates/landing/org_objections.html
 msgid "How much does it cost?"
@@ -7235,11 +7237,12 @@ msgstr ""
 
 #: src/ludamus/templates/landing/spotkanie.html
 msgid ""
-"A preview of an encounter page: Brass: Birmingham on Thursday — tiles with "
-"the game, time, place, and free seats, a participant list, a countdown of 2 "
-"days, 7 hours and 58 minutes left until the encounter, and a link to share."
+"A preview of an encounter page: Brass: Birmingham on Thursday, with tiles "
+"with the game, time, place, and free seats, a participant list, a countdown "
+"of 2 days, 7 hours and 58 minutes left until the encounter, and a link to "
+"share."
 msgstr ""
-"Podgląd strony spotkania: Brass: Birmingham na czwartek — kafelki z grą, "
+"Podgląd strony spotkania: Brass: Birmingham na czwartek, z kafelkami z grą, "
 "terminem, miejscem i wolnymi miejscami, lista uczestników, odliczanie 2 dni, "
 "7 godzin i 58 minut do spotkania, i link do udostępnienia."
 
