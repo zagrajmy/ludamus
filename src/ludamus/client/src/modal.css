@@ -76,6 +76,8 @@
   }
 
   .modal::backdrop {
+    @apply viewport-cover;
+
     background-color: transparent;
     backdrop-filter: blur(0);
     transition:
