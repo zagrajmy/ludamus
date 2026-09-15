@@ -227,6 +227,32 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+class ParleyReport(models.Model):
+    sphere = models.ForeignKey(
+        "Sphere", on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    room_id = models.CharField(max_length=64)
+    message_id = models.PositiveBigIntegerField()
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_report"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("reporter", "room_id", "message_id"),
+                name="parley_report_unique_reporter_message",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Parley report {self.pk} for {self.room_id}:{self.message_id}"
+
+
 class Party(models.Model):
     # The group that enrolls together. See RFC 0001.
     name = models.CharField(max_length=255, blank=True, default="")
@@ -317,6 +343,7 @@ class Sphere(models.Model):
         default=SpherePage.EVENTS,
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    parley_enabled = models.BooleanField(default=False)
     encounter_public_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncounterPublicPolicy],
