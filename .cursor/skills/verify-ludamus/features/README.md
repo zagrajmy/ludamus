@@ -15,9 +15,10 @@ drive recipe.
   example `http://polcon26.localhost:8000`), which may not be SITE_ID Local
   root.
 - Seed: `mise run bootstrap` for `autumn-open`, `enroll-states`,
-  `sunhaven-festival`. Doctor's `organizer_events` lists what this DB has.
-  A POLCON import will not have the demo slugs. Unpublished events 302 to
-  `/events/`. MCP `list_events` shows `is_published`.
+  `sunhaven-festival`. `mise run mcp-token` writes an organizer token for
+  every event. Doctor's `organizer_events` lists them. A POLCON import will
+  not have the demo slugs. Unpublished events 302 to `/events/`. MCP
+  `list_events` shows `is_published`.
 - MCP tokens in `.local/mcp-tokens.json` (`mise run mcp-token`) if you need
   to inspect programme data. Not required for anonymous UI.
 - Never drive a stale portless proxy (`X-Portless: 1` and a 404). Never drive

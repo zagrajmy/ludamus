@@ -22,9 +22,8 @@ portless proxy 404s every hostname and sets `X-Portless: 1`. Probe
 
 `mise run bootstrap` and `mise run mcp-token` write gitignored
 `.local/mcp-tokens.json`. That file has a maintainer token for an active
-superuser (`admin` if present) and organizer tokens for `autumn-open` /
-`sunhaven-festival` when those events exist, otherwise the first event.
-Remint after `SECRET_KEY` changes.
+superuser (`admin` if present) and an organizer token for every event.
+`--event <slug>` mints one organizer token. Remint after `SECRET_KEY` changes.
 
 ```bash
 mise run mcp-token

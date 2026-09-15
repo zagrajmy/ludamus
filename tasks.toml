@@ -167,17 +167,17 @@ aubr varlock django-admin downloadvendor
 aubr varlock python tests/e2e/scripts/bootstrap_data.py
 aubr varlock python tests/e2e/scripts/bootstrap_facilitators.py
 aubr varlock python tests/e2e/scripts/bootstrap_timetable.py
-aubr varlock python scripts/mint_mcp_tokens.py
+aubr varlock python -m scripts.mint_mcp_tokens
 """
 
 [mcp-token]
 description = "Mint maintainer and organizer MCP tokens into .local/mcp-tokens.json"
-run = "aubr varlock python scripts/mint_mcp_tokens.py"
+run = "aubr varlock python -m scripts.mint_mcp_tokens"
 raw_args = true
 
 [control-ludamus]
 description = "Drive the local ludamus instance for agent verification (doctor, open, screenshot, mcp)"
-run = "aubr varlock python .cursor/skills/verify-ludamus/control_ludamus.py"
+run = "aubr varlock python -m scripts.control_ludamus"
 raw_args = true
 
 [env-show]

@@ -26,14 +26,14 @@ binds an app port behind that proxy. `mise run start -- --no-portless` is
 mise run control-ludamus -- launch
 ```
 
-Launch attaches when `/healthz/` is ok and writes
-`.local/verify-ludamus-run.json` with `mode: attach`. If nothing is healthy,
-it does not start another server. Portless `:1355` is one listen port for
+Launch attaches when `GET {origin}/healthz/` is ok. If Site.domain is not
+healthy, it does not start another server and it does not invent a
+`base_url` from `:8000` or `:1355`. Portless `:1355` is one listen port for
 every worktree. Run `mise run start` yourself, then launch again.
 
 Ready means `GET {base}/healthz/` returns `{"status":"ok"}`. Doctor prints
-`base_url`. `mise run start` also runs Vite. A bare `runserver` serves HTML
-without CSS.
+`base_url` equal to Site.domain. `mise run start` also runs Vite. A bare
+`runserver` serves HTML without CSS.
 
 Do not run `mise run kill`, `mise run test:e2e:kill`, or `pkill portless`.
 Those match by port or process name and will take the user's session. A
@@ -113,9 +113,8 @@ them in place.
 mise run control-ludamus -- cleanup
 ```
 
-Removes only a run this skill started (`mode: started`). Attach mode leaves
-the server running. Evidence stays. Never kill by process name or by
-`:8000` / `:1355`.
+No-op. This skill never starts a server, so it never kills one. Evidence
+stays. Never kill by process name or by `:8000` / `:1355`.
 
 ## Helpers
 

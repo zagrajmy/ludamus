@@ -4,38 +4,43 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
-import sys
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts.django_boot import boot_django
+from scripts.mcp_token_file import TokenFile, write_token_file
+
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from django.contrib.auth.models import AbstractBaseUser
 
     from ludamus.links.db.django.models import User
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPO_ROOT / ".local" / "mcp-tokens.json"
-PREFERRED_EVENT_SLUGS = ("autumn-open", "sunhaven-festival")
 MAINTAINER_PATH = "/mcp/"
 ORGANIZER_PATH = "/mcp/organizer/"
 
 
-def _setup_django() -> None:
-    src = REPO_ROOT / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ludamus.edges.settings")
-    import django
+def _auth() -> ModuleType:
+    boot_django()
+    return import_module("django.contrib.auth")
 
-    django.setup()
+
+def _models() -> ModuleType:
+    boot_django()
+    return import_module("ludamus.links.db.django.models")
+
+
+def _tokens() -> ModuleType:
+    boot_django()
+    return import_module("ludamus.gates.web.django.mcp.tokens")
 
 
 def _superuser() -> User:
-    from django.contrib.auth import get_user_model
-
-    user_model = get_user_model()
+    user_model = _auth().get_user_model()
     named = user_model.objects.filter(
         username="admin", is_active=True, is_superuser=True
     ).first()
@@ -52,53 +57,41 @@ def _superuser() -> User:
 
 
 def _events(*, slug: str | None) -> list[tuple[int, str, int]]:
-    from ludamus.links.db.django.models import Event
-
-    qs = Event.objects.order_by("pk").values_list("pk", "slug", "sphere_id")
+    qs = _models().Event.objects.order_by("pk").values_list("pk", "slug", "sphere_id")
     if slug is not None:
-        row = qs.filter(slug=slug).first()
-        if row is None:
+        if (row := qs.filter(slug=slug).first()) is None:
             message = f"No event with slug {slug!r}."
             raise SystemExit(message)
         return [row]
-    preferred = list(qs.filter(slug__in=PREFERRED_EVENT_SLUGS))
-    if preferred:
-        return preferred
-    fallback = qs.first()
-    return [fallback] if fallback is not None else []
+    return list(qs)
 
 
 def _organizer_user(*, sphere_id: int, superuser: AbstractBaseUser) -> AbstractBaseUser:
-    from django.contrib.auth import get_user_model
-
-    from ludamus.links.db.django.models import SphereMembership
-
-    user_model = get_user_model()
+    user_model = _auth().get_user_model()
     manager = user_model.objects.filter(username="e2e-manager", is_active=True).first()
     if (
         manager is not None
-        and SphereMembership.objects.filter(
-            sphere_id=sphere_id, user_id=manager.pk
-        ).exists()
+        and _models()
+        .SphereMembership.objects.filter(sphere_id=sphere_id, user_id=manager.pk)
+        .exists()
     ):
         return manager
     return superuser
 
 
-def build_payload(*, event_slug: str | None = None) -> dict[str, object]:
-    from ludamus.gates.web.django.mcp.tokens import mint_organizer_token, mint_token
-
+def build_payload(*, event_slug: str | None = None) -> TokenFile:
+    tokens = _tokens()
     superuser = _superuser()
-    organizer_events: dict[str, object] = {}
+    organizer = {}
     for event_id, slug, sphere_id in _events(slug=event_slug):
         actor = _organizer_user(sphere_id=sphere_id, superuser=superuser)
-        organizer_events[slug] = {
+        organizer[slug] = {
             "username": actor.get_username(),
             "user_id": actor.pk,
             "sphere_id": sphere_id,
             "event_id": event_id,
             "path": ORGANIZER_PATH,
-            "token": mint_organizer_token(
+            "token": tokens.mint_organizer_token(
                 user_id=actor.pk, sphere_id=sphere_id, event_id=event_id
             ),
         }
@@ -108,29 +101,18 @@ def build_payload(*, event_slug: str | None = None) -> dict[str, object]:
             "username": superuser.get_username(),
             "user_id": superuser.pk,
             "path": MAINTAINER_PATH,
-            "token": mint_token(superuser.pk),
+            "token": tokens.mint_token(superuser.pk),
         },
-        "organizer": organizer_events,
+        "organizer": organizer,
     }
 
 
-def write_payload(*, payload: dict[str, object], output: Path) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    output.chmod(0o600)
-
-
-def _summarize(payload: dict[str, object], *, output: Path) -> str:
-    maintainer = payload["maintainer"]
-    organizer = payload["organizer"]
-    if not isinstance(maintainer, dict) or not isinstance(organizer, dict):
-        raise TypeError("payload must contain maintainer and organizer objects")
+def _summarize(payload: TokenFile, *, output: Path) -> str:
     event_bits = [
-        f"{slug} ({row['username']})"
-        for slug, row in organizer.items()
-        if isinstance(row, dict)
+        f"{slug} ({row['username']})" for slug, row in payload["organizer"].items()
     ]
     events_line = ", ".join(event_bits) if event_bits else "(none — create an event)"
+    maintainer = payload["maintainer"]
     return (
         f"Wrote {output}\n"
         f"maintainer: {maintainer['username']} → {MAINTAINER_PATH}\n"
@@ -156,10 +138,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Mint an organizer token for this slug only",
     )
     args = parser.parse_args(argv)
-    _setup_django()
     payload = build_payload(event_slug=args.event_slug)
     output = args.output if args.output.is_absolute() else REPO_ROOT / args.output
-    write_payload(payload=payload, output=output)
+    write_token_file(payload=payload, output=output)
     print(_summarize(payload, output=output))
     return 0
 
