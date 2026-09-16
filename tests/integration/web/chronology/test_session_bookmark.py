@@ -124,7 +124,7 @@ class TestEventPageBookmarkCounts:
             ),
             template_name=["chronology/event.html"],
             contains="Bookmarked by 2 people",
-            not_contains=["bookmark-toggle", "Bookmarked by 0"],
+            not_contains=["data-bookmark-toggle", "Bookmarked by 0"],
         )
 
     def test_anonymous_rooms_view_shows_count_badge(self, agenda_item, client, event):
@@ -223,7 +223,7 @@ class TestEventPageBookmarkCounts:
             ),
             session_card(other, presenter=other.session.presenter),
         ]
-        # The class strings are the .bookmark-count contract with
+        # The class strings are the data-bookmark-count contract with
         # session-bookmarks.ts: a visible "3" on the bookmarked session and a
         # hidden "0" inside the other session's toggle button.
         assert_response(

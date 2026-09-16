@@ -1,7 +1,6 @@
 {% extends "base.html" %}
-{% load csp_tags %}
 {% load i18n tessera date_tags %}
-{% load meta_tags %}
+{% load meta_tags django_vite %}
 {% block title %}
     {{ encounter.title }}
 {% endblock title %}
@@ -121,14 +120,14 @@
             </div>
             {# RSVP form or organizer actions — mobile only #}
             <div class="lg:hidden">
-                {% include "notice_board/_rsvp_inline.html" %}
+                {% include "notice_board/_rsvp_inline.html" with calendar_menu_id="rsvp-calendar-menu-mobile" %}
                 {% if is_creator %}
-                    {% include "notice_board/_organizer_actions.html" %}
+                    {% include "notice_board/_organizer_actions.html" with share_menu_id="share-menu-mobile" %}
                 {% endif %}
             </div>
             {# Calendar button — mobile only, for authenticated non-attendees and creators #}
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="lg:hidden">{% include "notice_board/_calendar_inline.html" %}</div>
+                <div class="lg:hidden">{% include "notice_board/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}</div>
             {% endif %}
             {# Description #}
             {% if description_html %}
@@ -140,14 +139,16 @@
         <div class="space-y-4">
             {# RSVP form or organizer actions — desktop only, top of sidebar #}
             <div class="hidden lg:block">
-                {% include "notice_board/_rsvp_inline.html" %}
+                {% include "notice_board/_rsvp_inline.html" with calendar_menu_id="rsvp-calendar-menu-desktop" %}
                 {% if is_creator %}
-                    {% include "notice_board/_organizer_actions.html" %}
+                    {% include "notice_board/_organizer_actions.html" with share_menu_id="share-menu-desktop" %}
                 {% endif %}
             </div>
             {# Calendar button — desktop only, for authenticated non-attendees and creators #}
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="hidden lg:block">{% include "notice_board/_calendar_inline.html" %}</div>
+                <div class="hidden lg:block">
+                    {% include "notice_board/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}
+                </div>
             {% endif %}
             {# Participants list #}
             <div class="card">
@@ -225,7 +226,7 @@
             </div>
             {# QR modal + share data (organizer only) #}
             {% if is_creator %}
-                <dialog id="qr-modal" class="modal rounded-2xl p-6">
+                <dialog id="qr-modal" class="modal rounded-2xl p-6" data-qr-dialog>
                     <img src="{% url 'web:notice-board:encounter-qr' share_code=encounter.share_code %}"
                          alt="QR Code"
                          width="240"
@@ -235,124 +236,7 @@
             {% endif %}
         </div>
     </div>
-    <script{% nonce %}>
-        (function() {
-            var el = document.getElementById('encounter-countdown');
-            if (!el) return;
-            var startTime = new Date(el.dataset.startTime).getTime();
-            var startedText = el.dataset.startedText;
-            var daysEl = document.getElementById('cd-days');
-            var hoursEl = document.getElementById('cd-hours');
-            var minutesEl = document.getElementById('cd-minutes');
-            var secondsEl = document.getElementById('cd-seconds');
-
-            function pad(n) {
-                return n < 10 ? '0' + n : '' + n;
-            }
-
-            function update() {
-                var now = Date.now();
-                var diff = startTime - now;
-                if (diff <= 0) {
-                    el.className = 'text-center text-sm text-foreground-secondary';
-                    el.textContent = startedText;
-                    return;
-                }
-                daysEl.textContent = pad(Math.floor(diff / 86400000));
-                hoursEl.textContent = pad(Math.floor((diff % 86400000) / 3600000));
-                minutesEl.textContent = pad(Math.floor((diff % 3600000) / 60000));
-                secondsEl.textContent = pad(Math.floor((diff % 60000) / 1000));
-                requestAnimationFrame(update);
-            }
-            update();
-        })();
-
-        function closeAllMenus() {
-            document.querySelectorAll('.share-menu, .calendar-menu').forEach(function(m) {
-                m.classList.add('hidden');
-            });
-        }
-
-        document.querySelectorAll('.share-toggle-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var menu = btn.closest('.share-menu-wrapper').querySelector('.share-menu');
-                var isHidden = menu.classList.contains('hidden');
-                closeAllMenus();
-                if (isHidden) menu.classList.remove('hidden');
-            });
-        });
-        document.querySelectorAll('.calendar-toggle-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var menu = btn.closest('.calendar-menu-wrapper').querySelector('.calendar-menu');
-                var isHidden = menu.classList.contains('hidden');
-                closeAllMenus();
-                if (isHidden) menu.classList.remove('hidden');
-            });
-        });
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.share-menu-wrapper') && !e.target.closest('.calendar-menu-wrapper')) {
-                closeAllMenus();
-            }
-        });
-        (function() {
-            // Copying itself is handled by copy.ts ([data-copy]); the share menu
-            // stays open so the "Copied!" popover is visible, and click-outside
-            // still closes it.
-            document.querySelectorAll('.show-qr-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    document.getElementById('qr-modal').showModal();
-                    closeAllMenus();
-                });
-            });
-            var qrModal = document.getElementById('qr-modal');
-            if (qrModal) {
-                qrModal.addEventListener('click', function(e) {
-                    if (e.target === qrModal) qrModal.close();
-                });
-            }
-        })();
-        (function() {
-            function collapseSavePrompt(card) {
-                var prompt = card.querySelector('.rsvp-save-prompt');
-                var done = card.querySelector('.rsvp-save-done');
-                if (prompt) prompt.classList.add('hidden');
-                if (done) done.classList.remove('hidden');
-            }
-            document.querySelectorAll('.rsvp-restore-prompt').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var card = btn.closest('.card');
-                    var prompt = card.querySelector('.rsvp-save-prompt');
-                    var done = card.querySelector('.rsvp-save-done');
-                    if (done) done.classList.add('hidden');
-                    if (prompt) prompt.classList.remove('hidden');
-                });
-            });
-            // Copying is handled by copy.ts, which reveals the popover only on a
-            // successful write and hides it again when the feedback is done.
-            // Collapse the save prompt at that hide — so never on a failed copy,
-            // and without duplicating copy.ts's timing here. One observer per
-            // popover, attached up front like the other prompt wiring, so
-            // repeated clicks can't stack observers (#476). data-show only ever
-            // mutates on success, and its removal marks the feedback's end.
-            document.querySelectorAll('.rsvp-save-prompt [data-copy] [data-copy-popover]').forEach(function(popover) {
-                var card = popover.closest('.card');
-                new MutationObserver(function() {
-                    if (popover.dataset.show === undefined) {
-                        collapseSavePrompt(card);
-                    }
-                }).observe(popover, {
-                    attributes: true,
-                    attributeFilter: ['data-show']
-                });
-            });
-            document.querySelectorAll('.calendar-menu a').forEach(function(link) {
-                link.addEventListener('click', function() {
-                    closeAllMenus();
-                    setTimeout(function() {
-                        collapseSavePrompt(link.closest('.card'));
-                    }, 300);
-                });
-            });
-        })();
-    </script>
 {% endblock body %}
+{% block extra_scripts %}
+    {% vite_asset 'src/encounter-detail.ts' %}
+{% endblock extra_scripts %}

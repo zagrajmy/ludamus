@@ -1,4 +1,4 @@
-// Config rides on the .compact-schedule root: data-csrf and
+// Config rides on the [data-compact-schedule] root: data-csrf and
 // data-bookmark-url-template (a reverse()d URL with a `0` id placeholder).
 
 const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
@@ -9,7 +9,7 @@ const bookmarkUrl = (template: string, sessionId: string): string =>
   template.replace(/0\/bookmark\/?$/, `${sessionId}/bookmark/`);
 
 const bookmarkButtons = (sessionId: string): HTMLElement[] =>
-  [...document.querySelectorAll<HTMLElement>(".bookmark-toggle")].filter(
+  [...document.querySelectorAll<HTMLElement>("[data-bookmark-toggle]")].filter(
     (button) => button.dataset.sessionId === sessionId,
   );
 
@@ -17,7 +17,7 @@ const bookmarkButtons = (sessionId: string): HTMLElement[] =>
 // optimistic ±1 guess, the server's fresh total, or the exact pre-flip number
 // on revert.
 const paint = (button: HTMLElement, bookmarked: boolean, count: number): void => {
-  const countEl = button.querySelector<HTMLElement>(".bookmark-count");
+  const countEl = button.querySelector<HTMLElement>("[data-bookmark-count]");
   if (countEl) {
     countEl.textContent = String(count);
     countEl.classList.toggle("hidden", count === 0);
@@ -25,8 +25,8 @@ const paint = (button: HTMLElement, bookmarked: boolean, count: number): void =>
   button.setAttribute("aria-pressed", String(bookmarked));
   button.classList.toggle(BOOKMARKED_COLOR[0], bookmarked);
   button.classList.toggle(BOOKMARKED_COLOR[1], bookmarked);
-  button.querySelector(".bookmark-icon-outline")?.classList.toggle("hidden", bookmarked);
-  button.querySelector(".bookmark-icon-solid")?.classList.toggle("hidden", !bookmarked);
+  button.querySelector("[data-bookmark-icon=outline]")?.classList.toggle("hidden", bookmarked);
+  button.querySelector("[data-bookmark-icon=solid]")?.classList.toggle("hidden", !bookmarked);
   const card = button.closest<HTMLElement>(".session");
   if (card) card.dataset.bookmarked = String(bookmarked);
 };
@@ -42,13 +42,13 @@ const paintSession = (sessionId: string, bookmarked: boolean, count: number): vo
 const inFlight = new Set<string>();
 
 const toggleBookmark = async (button: HTMLElement): Promise<void> => {
-  const root = button.closest<HTMLElement>(".compact-schedule");
+  const root = button.closest<HTMLElement>("[data-compact-schedule]");
   const { sessionId } = button.dataset;
   const template = root?.dataset.bookmarkUrlTemplate;
   if (!root || !sessionId || !template || inFlight.has(sessionId)) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
-  const previousCount = Number(button.querySelector(".bookmark-count")?.textContent ?? 0);
+  const previousCount = Number(button.querySelector("[data-bookmark-count]")?.textContent ?? 0);
   inFlight.add(sessionId);
   paintSession(sessionId, !previous, previousCount + (previous ? -1 : 1));
   try {
@@ -79,6 +79,6 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
 };
 
 document.addEventListener("click", (event) => {
-  const button = (event.target as Element | null)?.closest<HTMLElement>(".bookmark-toggle");
+  const button = (event.target as Element | null)?.closest<HTMLElement>("[data-bookmark-toggle]");
   if (button) void toggleBookmark(button);
 });
