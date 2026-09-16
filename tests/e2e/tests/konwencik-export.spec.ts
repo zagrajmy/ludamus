@@ -155,7 +155,20 @@ test.describe("Konwencik export", () => {
 
   for (const width of [390, 768, 1440]) {
     test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
+      // Firefox occasionally wedges its driver connection for a fresh page
+      // right after `beforeEach`'s login — the same class of hang worked
+      // around in sound.spec.ts's reload fix. setViewportSize has no timeout
+      // option of its own, so race it against one and retry as a unit
+      // instead of burning the whole 120s test timeout on one stuck call.
+      await expect(async () => {
+        await Promise.race([
+          page.setViewportSize({ width, height: 900 }),
+          new Promise<never>((_resolve, reject) =>
+            setTimeout(() => reject(new Error("setViewportSize timed out")), 20_000),
+          ),
+        ]);
+      }).toPass({ timeout: 60_000 });
+
       await page.goto("/panel/event/konwencik-preview/export/");
       await expect(page.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
