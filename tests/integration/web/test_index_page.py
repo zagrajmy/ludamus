@@ -68,6 +68,18 @@ class TestIndexRedirectView:
             template_name=["landing_page.html"],
         )
 
+    def test_serves_the_dashboard_to_a_signed_in_member(self, authenticated_client):
+        # zagrajmy.net runs no programme, so once you are signed in its root
+        # is your own activity rather than the pitch you already read.
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": ANY, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
+
     def test_serves_the_feed_on_a_sphere_domain(self, client, non_root_sphere):
         response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 

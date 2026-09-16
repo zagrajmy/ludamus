@@ -1,6 +1,7 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
@@ -83,6 +84,17 @@ urlpatterns = [
     # public, so they redirect rather than 404.
     path("events/", RedirectView.as_view(pattern_name="web:index")),
     path("timeline/", RedirectView.as_view(pattern_name="web:index")),
+    path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
+    path(
+        "dashboard/spheres/<int:pk>/do/subscribe",
+        dashboard_gate.SphereSubscribeActionView.as_view(),
+        name="sphere-subscribe",
+    ),
+    path(
+        "dashboard/spheres/<int:pk>/do/unsubscribe",
+        dashboard_gate.SphereUnsubscribeActionView.as_view(),
+        name="sphere-unsubscribe",
+    ),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),

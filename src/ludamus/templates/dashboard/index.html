@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Your dashboard" %}
+{% endblock title %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <h1 class="mb-8 text-3xl font-bold tracking-tight text-foreground">{% translate "Your dashboard" %}</h1>
+    <div class="grid items-start gap-8 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <aside aria-labelledby="dashboard-agenda-heading">
+            <h2 id="dashboard-agenda-heading"
+                class="mb-4 text-xl font-bold text-foreground">{% translate "Coming up" %}</h2>
+            {% if dashboard.agenda %}
+                <div class="grid gap-3">
+                    {% for card in dashboard.agenda %}
+                        {% include "dashboard/_card.html" %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-sm text-foreground-muted">
+                    {% translate "Nothing yet. Sign up for a session or an encounter and it will wait for you here." %}
+                </p>
+            {% endif %}
+        </aside>
+        <div>
+            <section aria-labelledby="dashboard-for-you-heading">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 id="dashboard-for-you-heading"
+                        class="text-xl font-bold text-foreground">{% translate "For you" %}</h2>
+                    {% if can_create_encounter %}
+                        {% include "components/create_encounter_button.html" %}
+                    {% endif %}
+                </div>
+                {% if dashboard.open_encounters %}
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {% for card in dashboard.open_encounters %}
+                            {% include "dashboard/_card.html" %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm text-foreground-muted">
+                        {% translate "No open encounters right now. Start one and people will find it here." %}
+                    </p>
+                {% endif %}
+            </section>
+            {% if dashboard.sphere_feed %}
+                <section class="mt-12" aria-labelledby="dashboard-spheres-heading">
+                    <h2 id="dashboard-spheres-heading"
+                        class="mb-4 text-xl font-bold text-foreground">{% translate "In your spheres" %}</h2>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {% for card in dashboard.sphere_feed %}
+                            {% include "dashboard/_card.html" %}
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+            {% if dashboard.discover %}
+                <section class="mt-12" aria-labelledby="dashboard-discover-heading">
+                    <h2 id="dashboard-discover-heading"
+                        class="mb-4 text-xl font-bold text-foreground">{% translate "Spheres to discover" %}</h2>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {% for sphere in dashboard.discover %}
+                            {% include "dashboard/_sphere.html" %}
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+        </div>
+    </div>
+{% endblock body %}

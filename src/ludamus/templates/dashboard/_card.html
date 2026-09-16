@@ -1,0 +1,24 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    One dated thing on the dashboard. `card` is a DashboardCardDTO, which
+    carries an absolute URL — these rows come from every sphere at once, so a
+    relative link would point at whichever domain is rendering.
+{% endcomment %}
+<a href="{{ card.url }}"
+   class="card flex flex-col overflow-hidden hover:bg-bg-tertiary transition-colors">
+    {% if card.cover_url %}
+        <div class="min-h-28 bg-cover bg-center rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
+             style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ card.cover_url }}')">
+        </div>
+    {% endif %}
+    <div class="flex flex-col gap-1 p-4">
+        <h3 class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>
+        <p class="text-sm text-foreground-secondary tabular-nums">{{ card.start_time|date:"j E, H:i" }}</p>
+        <p class="text-xs text-foreground-muted">
+            {{ card.origin_name }}
+            {% if card.place %}· {{ card.place }}{% endif %}
+        </p>
+        {% include "dashboard/_role.html" %}
+    </div>
+</a>
