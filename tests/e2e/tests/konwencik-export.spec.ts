@@ -154,27 +154,37 @@ test.describe("Konwencik export", () => {
   }
 
   for (const width of [390, 768, 1440]) {
-    test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
+    test(`preview fits and stays accessible at ${width}px`, async ({ page, context }) => {
       // Firefox occasionally wedges its driver connection for a fresh page
       // right after `beforeEach`'s login — the same class of hang worked
       // around in sound.spec.ts's reload fix. setViewportSize has no timeout
-      // option of its own, so race it against one and retry as a unit
-      // instead of burning the whole 120s test timeout on one stuck call.
+      // option of its own, and a wedged call can't be safely retried on the
+      // same connection (a stale in-flight request could still land after a
+      // later retry succeeds), so give up on the page and retry against a
+      // fresh one in the same, already-authenticated context instead.
+      let activePage = page;
       await expect(async () => {
-        await Promise.race([
-          page.setViewportSize({ width, height: 900 }),
-          new Promise<never>((_resolve, reject) =>
-            setTimeout(() => reject(new Error("setViewportSize timed out")), 20_000),
-          ),
-        ]);
+        const stalePage = activePage;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = await Promise.race([
+          stalePage.setViewportSize({ width, height: 900 }).then(() => false),
+          new Promise<true>((resolve) => {
+            timeoutId = setTimeout(() => resolve(true), 20_000);
+          }),
+        ]).finally(() => clearTimeout(timeoutId));
+
+        if (timedOut) {
+          activePage = await context.newPage();
+          throw new Error("setViewportSize timed out");
+        }
       }).toPass({ timeout: 60_000 });
 
-      await page.goto("/panel/event/konwencik-preview/export/");
-      await expect(page.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await analyzePageAccessibility(page, { include: "main" });
+      await activePage.goto("/panel/event/konwencik-preview/export/");
+      await expect(activePage.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
+      expect(
+        await activePage.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      await analyzePageAccessibility(activePage, { include: "main" });
     });
   }
 });
