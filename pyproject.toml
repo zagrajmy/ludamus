@@ -330,6 +330,14 @@ allowed-confusables = ["–", "×"]
     "module-import-not-at-top-of-file",
     "print",
 ]
+# `pytest-fixture-autouse` (preview) flags `autouse=True`, but these two
+# conftest.py files exist specifically to apply cross-cutting setup — DB
+# access, English locale, tmp media root, template/N+1 error detection,
+# sphere/site bootstrap, PostHog stubbing — to every test under their
+# directory. No `pytest.mark.usefixtures` scoping replaces that: the mark
+# only reaches tests declared in the same module, never a whole tree. Ruff's
+# own docs for the rule name conftest.py as the one legitimate use.
+"**/conftest.py" = ["pytest-fixture-autouse"]
 
 [tool.ruff.lint.pylint]
 max-public-methods = 12
