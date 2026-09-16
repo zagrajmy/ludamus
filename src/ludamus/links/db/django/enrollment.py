@@ -483,7 +483,7 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
                 event.get_eligible_enrollment_configs(session)
             ),
             title=session.title,
-            display_name=session.display_name,
+            facilitator_name=session.facilitator_name,
             description=session.description,
             min_age=session.min_age,
             enrolled_count=session.enrolled_count,

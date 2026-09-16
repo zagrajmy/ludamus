@@ -9,8 +9,9 @@
 {# accessible name interpolates the title per card, and blocktranslate #}
 {# cannot take its message from a variable. #}
 {# Variables: cards (list[SessionData]), event #}
-{# Optional: is_own (author's own proposals), wizard_mark (superuser note) #}
-<div class="mt-12 time-slot-section"
+{# Optional: is_own (author's own proposals), wizard_mark (superuser note), #}
+{# extra_class (page layout) #}
+<div class="mt-12 time-slot-section {{ extra_class|default:'' }}"
      data-time-slot="{% if is_own %}own-proposals{% else %}pending-proposals{% endif %}">
     {# h2, not h3: this section is a sibling of the schedule region, whose own #}
     {# label is an h2, and every card title inside is an h3. At h3 the section #}

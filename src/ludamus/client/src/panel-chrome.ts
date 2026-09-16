@@ -51,9 +51,7 @@ const toggleCategory = (el: HTMLElement): void => {
 // `type="module"`, which is deferred, so the DOM is parsed — waiting for
 // DOMContentLoaded would only widen the window in which the attribute lies.
 const syncCategoryHeaders = (): void => {
-  for (const header of document.querySelectorAll<HTMLElement>(
-    '.sidebar-cat-header[data-action="toggle-category"]',
-  )) {
+  for (const header of document.querySelectorAll<HTMLElement>('[data-action="toggle-category"]')) {
     const cat = categoryOf(header);
     if (cat) setExpanded(header, cat);
   }
