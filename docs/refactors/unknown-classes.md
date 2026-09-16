@@ -1,6 +1,7 @@
 # 9. Unknown classes (every `class` token means something)
 
-**Status:** ✅ done — seven PRs landed, one per bucket below (plus #1306, a follow-up that dropped three unread `data-*` attributes #1296 had left behind).
+**Status:** ✅ done — seven PRs landed, one per bucket below, plus #1306, a
+follow-up that dropped three unread `data-*` attributes #1296 had left behind.
 
 An audit ran a Tailwind-aware linter (`@shadcn/lint`, via a throwaway shim that
 rewrote every `class="…"` in `src/ludamus/templates` into a `cn("…")` call)
