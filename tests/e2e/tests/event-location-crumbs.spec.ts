@@ -46,7 +46,7 @@ test.describe("Location breadcrumbs", () => {
     await expect(page.locator("#schedule-region")).toBeInViewport();
     expect(spaceNavs).toEqual([]);
 
-    const visible = page.locator(".session-wrapper:not([hidden])");
+    const visible = page.locator("[data-session-wrapper]:not([hidden])");
     await expect.poll(() => visible.count()).toBeGreaterThan(0);
     for (const session of await visible.locator(".session").all())
       await expect(session).toHaveAttribute("data-venue", venue);
@@ -78,7 +78,7 @@ test.describe("Location breadcrumbs", () => {
       page.getByRole("button", { name: "Remove filter: Main Hall — East Wing" }),
     ).toBeVisible();
 
-    const visible = page.locator(".session-wrapper:not([hidden])");
+    const visible = page.locator("[data-session-wrapper]:not([hidden])");
     await expect.poll(() => visible.count()).toBeGreaterThan(0);
     for (const session of await visible.locator(".session").all())
       await expect(session).toHaveAttribute("data-space", space);
