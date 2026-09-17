@@ -6278,6 +6278,10 @@ msgid "Download"
 msgstr "Pobierz"
 
 #: src/ludamus/templates/design.html
+msgid "Open at full size"
+msgstr "Otwórz w pełnym rozmiarze"
+
+#: src/ludamus/templates/design.html
 msgid ""
 "Link preview card: the zagrajmy wordmark over a painted cylindrical space "
 "colony"

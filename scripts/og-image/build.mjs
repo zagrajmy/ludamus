@@ -5,6 +5,10 @@
 // The card page owns the markup, the painting, and the font; this only renders
 // it. Loaded over file://, so the card is a build input and never a served
 // asset -- /design/ and every unfurl read this task's output instead.
+//
+// NOTE: the render is not reproducible across environments -- an unedited card
+// still writes a different-sized JPEG here than the committed one. Check the
+// diff before committing an image you did not mean to change.
 
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";

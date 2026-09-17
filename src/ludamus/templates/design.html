@@ -442,14 +442,18 @@
                                                         <code class="text-xs text-foreground-muted">scripts/og-image/card/</code>
                                                         <code class="text-xs text-foreground-muted">mise run og-image</code>
                                                     </div>
-                                                    {# NOTE: the card source is a build input loaded over file://, never served, so the panel shows the task's output -- the same file unfurls fetch. #}
-                                                    <a href="{% static 'og-image.jpg' %}" class="w-full max-w-2xl">
+                                                    {# NOTE: the card source is a build input loaded over file:// and #}
+                                                    {# never served, so the panel shows the task's output instead — #}
+                                                    {# the same file every unfurl fetches. #}
+                                                    <a href="{% static 'og-image.jpg' %}"
+                                                       title="{% translate 'Open at full size' %}"
+                                                       class="w-full max-w-2xl">
                                                         <img src="{% static 'og-image.jpg' %}"
                                                              alt="{% translate 'Link preview card: the zagrajmy wordmark over a painted cylindrical space colony' %}"
                                                              width="1200"
                                                              height="630"
                                                              loading="lazy"
-                                                             class="w-full rounded-lg border border-border">
+                                                             class="w-full rounded-lg border border-border transition-colors hover:border-primary">
                                                     </a>
                                                 </div>
                                                 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
