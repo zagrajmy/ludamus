@@ -142,6 +142,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return category.pk
 
     _SIMPLE_UPDATE_FIELDS = (
+        "asks_available_days",
         "description",
         "start_time",
         "end_time",
