@@ -33,9 +33,9 @@ class DjangoEmailTokenCodec(EmailTokenCodecProtocol):
     @staticmethod
     def loads(token: str) -> EmailTokenPayload | None:
         try:
-            # signing.loads is typed Any; the payload is parsed right here at
-            # the boundary, so the untyped value never travels further.
-            raw: object = signing.loads(
+            # signing.loads is typed Any; annotating the shape `dumps` wrote
+            # stops it there instead of letting it travel further untyped.
+            raw: dict[str, str | int] = signing.loads(
                 token, salt=SIGNING_SALT, max_age=EMAIL_LINK_MAX_AGE
             )
         except signing.BadSignature:
