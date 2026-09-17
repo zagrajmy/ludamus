@@ -98,8 +98,8 @@
             {% else %}
                 <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
             {% endif %}
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/filter-autosubmit.ts' %}

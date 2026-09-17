@@ -34,7 +34,7 @@
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
             {% if not is_root_sphere %}• Zagrajmy{% endif %}
-        {% enddocument_title %}
+        {% end_document_title %}
         <title>{{ document_title }}</title>
         <meta name="description"
               content="{% block meta_description %}{{ default_description }}{% endblock meta_description %}">
