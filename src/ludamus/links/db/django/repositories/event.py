@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db.models import OuterRef, Subquery
+from django.utils import timezone
 
 from ludamus.links.db.django.models import Event, Session, Sphere
 from ludamus.pacts.event import (
@@ -28,7 +29,14 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
             cover image. The root sphere is the landing itself, so it is not
             one of its own conventions.
         """
-        newest = Event.objects.filter(sphere=OuterRef("pk")).order_by("-start_time")
+        # Same predicate as Event.is_published: a draft or not-yet-published
+        # event must not surface its cover art or domain on the public
+        # landing page just because it exists.
+        newest = Event.objects.filter(
+            sphere=OuterRef("pk"),
+            publication_time__isnull=False,
+            publication_time__lte=timezone.now(),
+        ).order_by("-start_time")
         spheres = (
             Sphere.objects.select_related("site")
             .exclude(site_id=settings.SITE_ID)

@@ -64,6 +64,26 @@ class TestIndexRedirectView:
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
+                "encounters_enabled": True,
+            },
+            template_name=["landing_page.html"],
+        )
+
+    def test_landing_hides_the_create_cta_when_encounters_are_off(self, client, sphere):
+        sphere.encounters_policy = "none"
+        sphere.save()
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": False,
             },
             template_name=["landing_page.html"],
         )
@@ -821,6 +841,7 @@ class TestLandingPageView:
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
+                "encounters_enabled": True,
             },
             template_name=["landing_page.html"],
         )

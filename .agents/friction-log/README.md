@@ -89,6 +89,15 @@ fork.
 
 Under Settings → Actions → General, enable **Allow GitHub Actions to create and
 approve pull requests**, which the workflow needs to open the sync pull request.
+
+A push made with `GITHUB_TOKEN` raises no `pull_request` event, so nothing
+starts the sync pull request's required checks and it stays blocked. The
+workflow reopens it under `FROG_SYNC_TOKEN`, a fine-grained token holding only
+pull-request write on this repository. Without that secret the step warns and
+the pull request needs a manual close and reopen before it can merge. The token
+must not be handed to Frog itself: one token covers issues, pushes, and pull
+requests, so Frog would file issues under its owner instead of
+`github-actions[bot]`, and every existing link would be cleared and refiled.
 GitHub may require a user with write access to approve that pull request's
 workflow runs.
 
