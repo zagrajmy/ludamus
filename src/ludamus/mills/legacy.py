@@ -89,10 +89,7 @@ def outlook_calendar_url(encounter: EncounterDTO, url: str) -> str:
 
 if TYPE_CHECKING:
 
-    from ludamus.pacts import (
-        EncounterDTO,
-        UnitOfWorkProtocol,
-    )
+    from ludamus.pacts import EncounterDTO, UnitOfWorkProtocol
 
 
 class PanelService:

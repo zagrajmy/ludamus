@@ -51,18 +51,21 @@ def open_hours_event_fixture(sphere):
     )
 
 
-def _open_grid(*, day_start, total_minutes, **overrides):
+def _open_grid(*, spaces, day_start, total_minutes, **overrides):
     # An event that opens after midnight and closes before it leaves hours on
     # both sides, so both show-more controls are live.
     return grid_with(
-        day_start=day_start, total_minutes=total_minutes, **overrides
+        spaces=spaces, day_start=day_start, total_minutes=total_minutes, **overrides
     ).model_copy(update={"can_extend_before": True, "can_extend_after": True})
 
 
-def _event_grid(event, **overrides):
+def _event_grid(event, *, spaces, **overrides):
     # Every day of the event, over the clock window the event itself opens.
     return _open_grid(
-        day_start=event_day_start(event), total_minutes=OPEN_MINUTES, **overrides
+        spaces=spaces,
+        day_start=event_day_start(event),
+        total_minutes=OPEN_MINUTES,
+        **overrides,
     )
 
 

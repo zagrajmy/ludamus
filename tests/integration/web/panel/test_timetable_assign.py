@@ -47,11 +47,14 @@ def open_hours_event_fixture(sphere):
     )
 
 
-def _event_grid(event, **overrides):
+def _event_grid(event, *, spaces, **overrides):
     # Every day of the event, over the clock window the event itself opens --
     # which leaves hours on both sides for the show-more controls.
     return grid_with(
-        day_start=event_day_start(event), total_minutes=OPEN_MINUTES, **overrides
+        spaces=spaces,
+        day_start=event_day_start(event),
+        total_minutes=OPEN_MINUTES,
+        **overrides,
     ).model_copy(update={"can_extend_before": True, "can_extend_after": True})
 
 

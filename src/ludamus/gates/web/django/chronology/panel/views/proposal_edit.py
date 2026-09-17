@@ -445,7 +445,9 @@ class ProposalFormPageView(_ProposalFormBase):
             return None
         offered = set(self._event_days(event))
         raw = self.request.POST.getlist("available_days")
-        return sorted({day for day in map(_as_day, raw) if day in offered})
+        return sorted(
+            {day for day in (_as_day(value) for value in raw) if day in offered}
+        )
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
@@ -619,9 +621,7 @@ class ProposalFormPageView(_ProposalFormBase):
         )
         submitted_days = self._collect_available_days(current_event)
         stored_days = (
-            sessions.read_available_days(proposal_id)
-            if proposal_id is not None
-            else []
+            sessions.read_available_days(proposal_id) if proposal_id is not None else []
         )
         context["all_available_days"] = self._event_days(current_event)
         context["selected_available_days"] = (

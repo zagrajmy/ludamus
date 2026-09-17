@@ -176,8 +176,7 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
         )
         .prefetch_related(
             Prefetch(
-                "available_days",
-                queryset=SessionAvailableDay.objects.order_by("day"),
+                "available_days", queryset=SessionAvailableDay.objects.order_by("day")
             )
         )
         .order_by("-creation_time")

@@ -123,7 +123,9 @@
                 <div data-day-rows class="space-y-2">
                     {% for day in od.days %}
                         <div data-day-row class="flex items-center gap-2">
-                            <input type="hidden" name="dayoption_{{ row.index }}" value="{{ od.option }}">
+                            <input type="hidden"
+                                   name="dayoption_{{ row.index }}"
+                                   value="{{ od.option }}">
                             <input type="date"
                                    name="dayvalue_{{ row.index }}"
                                    value="{{ day }}"

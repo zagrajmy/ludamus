@@ -11,10 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import (
-    MIDNIGHT,
-    event_opening_hours,
-)
+from ludamus.mills.timeslots import MIDNIGHT, event_opening_hours
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,

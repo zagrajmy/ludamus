@@ -31,11 +31,7 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     SpaceTimeConflictError,
 )
-from ludamus.pacts.durations import (
-    MINUTES_PER_HOUR,
-    duration_minutes,
-    parse_duration,
-)
+from ludamus.pacts.durations import MINUTES_PER_HOUR, duration_minutes, parse_duration
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import is_empty_answer
@@ -252,9 +248,7 @@ class ProposalAcceptanceService:
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
-        end_time = start_time + timedelta(
-            minutes=duration_minutes(session.duration)
-        )
+        end_time = start_time + timedelta(minutes=duration_minutes(session.duration))
         with self._transaction.atomic():
             event = self._sessions.read_event(session_id)
             # Accepting on to a time the event does not cover yet moves the
@@ -263,10 +257,7 @@ class ProposalAcceptanceService:
                 events=self._events, event=event, start=start_time, end=end_time
             )
             if self._agenda_items.list_overlapping_in_space(
-                space_id,
-                start_time,
-                end_time,
-                exclude_session_pk=session_id,
+                space_id, start_time, end_time, exclude_session_pk=session_id
             ):
                 raise SpaceTimeConflictError
             # The session already has a unique slug from proposal creation;

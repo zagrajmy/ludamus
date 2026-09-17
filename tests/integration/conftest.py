@@ -23,11 +23,11 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ProposalCategory,
     Session,
+    SessionAvailableDay,
     SessionParticipation,
     SessionParticipationStatus,
     Space,
     Sphere,
-    SessionAvailableDay,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory

@@ -23,10 +23,7 @@ from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_rast
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.event import (
-    EventPublicationInvalidError,
-    FacilitatorListItemDTO,
-)
+from ludamus.pacts.event import EventPublicationInvalidError, FacilitatorListItemDTO
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,

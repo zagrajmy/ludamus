@@ -24,9 +24,7 @@ def carry_preferences_to_days(apps, schema_editor):
             end = localtime(slot.end_time).date()
             days.add(start)
             days.add(end)
-        rows.extend(
-            day_model(session_id=session.pk, day=day) for day in sorted(days)
-        )
+        rows.extend(day_model(session_id=session.pk, day=day) for day in sorted(days))
     day_model.objects.bulk_create(rows, batch_size=500)
 
     # A category that wired any slot was asking the availability question.
