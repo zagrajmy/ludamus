@@ -931,17 +931,8 @@ test.describe("Backoffice Panel", () => {
       await page.getByLabel("Subscribe to newsletter?").check();
       await page.getByRole("button", { name: /Continue/ }).click();
 
-      // Step 3: Days
-      await expect(
-        page.locator("#wizard-content").getByRole("heading", {
-          name: "Days you could host",
-        }),
-      ).toBeVisible();
-
-      // Offer the day the event opens.
-      const dayLabels = page.locator('label:has(input[name="available_days"])');
-      await dayLabels.nth(0).click();
-      await page.getByRole("button", { name: /Continue/ }).click();
+      // frostfire-con runs for one day, so there is no day to choose and the
+      // wizard does not stop to ask: it goes straight on to the details.
 
       // Step 4: Session Details
       await expect(
@@ -1018,10 +1009,6 @@ test.describe("Backoffice Panel", () => {
         .locator(`select[name="personal_${slugify(experienceName)}"]`)
         .selectOption("Advanced");
       await page.getByLabel("Subscribe to newsletter?").check();
-      await page.getByRole("button", { name: /Continue/ }).click();
-
-      const dayLabels = page.locator('label:has(input[name="available_days"])');
-      await dayLabels.nth(0).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       await expect(
