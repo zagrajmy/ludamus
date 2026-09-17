@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import (
     DiscountRule,
@@ -14,14 +15,14 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
+    SessionAvailableDay,
     SphereMembership,
-    TimeSlot,
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.multiverse import SphereRole
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EventFactory, SessionFactory
 
 
 class TestEventIsPublished:
@@ -65,57 +66,33 @@ class TestSphereClean:
         assert "default_page" in exc_info.value.message_dict
 
 
-class TestTimeSlot:
-    def test_validate_unique_ok(self, event, faker):
-        TimeSlot.objects.create(
-            event=event,
-            start_time=faker.date_time_between("+1h", "+2h"),
-            end_time=faker.date_time_between("+3h", "+4h"),
-        )
-        TimeSlot(
-            event=event,
-            start_time=faker.date_time_between("+5h", "+6h"),
-            end_time=faker.date_time_between("+7h", "+8h"),
+class TestSessionAvailableDay:
+    @staticmethod
+    def _day(event):
+        return localtime(event.start_time).date()
+
+    def test_validate_unique_ok_for_another_day(self, event, session):
+        day = self._day(event)
+        SessionAvailableDay.objects.create(session=session, day=day)
+
+        SessionAvailableDay(session=session, day=day + timedelta(days=1)).full_clean()
+
+    def test_validate_unique_ok_for_another_session(self, event, session):
+        day = self._day(event)
+        SessionAvailableDay.objects.create(session=session, day=day)
+
+        SessionAvailableDay(
+            session=SessionFactory(event=event, category=None), day=day
         ).full_clean()
 
-    def test_validate_unique_error_start_inside(self, event, faker):
-        TimeSlot.objects.create(
-            event=event,
-            start_time=faker.date_time_between("+3h", "+4h"),
-            end_time=faker.date_time_between("+7h", "+8h"),
-        )
-        with pytest.raises(ValidationError):
-            TimeSlot(
-                event=event,
-                start_time=faker.date_time_between("+1h", "+2h"),
-                end_time=faker.date_time_between("+5h", "+6h"),
-            ).full_clean()
+    def test_validate_unique_error_for_the_same_day_twice(self, event, session):
+        # One offer, one answer per day: a duplicate would double-count the
+        # session on every day-major read.
+        day = self._day(event)
+        SessionAvailableDay.objects.create(session=session, day=day)
 
-    def test_validate_unique_error_end_inside(self, event, faker):
-        TimeSlot.objects.create(
-            event=event,
-            start_time=faker.date_time_between("+3h", "+4h"),
-            end_time=faker.date_time_between("+7h", "+8h"),
-        )
         with pytest.raises(ValidationError):
-            TimeSlot(
-                event=event,
-                start_time=faker.date_time_between("+5h", "+6h"),
-                end_time=faker.date_time_between("+9h", "+10h"),
-            ).full_clean()
-
-    def test_validate_unique_error_contains(self, event, faker):
-        TimeSlot.objects.create(
-            event=event,
-            start_time=faker.date_time_between("+1h", "+2h"),
-            end_time=faker.date_time_between("+7h", "+8h"),
-        )
-        with pytest.raises(ValidationError):
-            TimeSlot(
-                event=event,
-                start_time=faker.date_time_between("+3h", "+4h"),
-                end_time=faker.date_time_between("+5h", "+6h"),
-            ).full_clean()
+            SessionAvailableDay(session=session, day=day).full_clean()
 
 
 class TestModelStringRepresentations:

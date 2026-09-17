@@ -7,19 +7,27 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
+from django.utils.timezone import localtime
 
-from ludamus.gates.web.django.chronology.forms import slot_label
 from ludamus.links.db.django.models import (
     AgendaItem,
     Session,
     SessionField,
     SessionFieldValue,
     Space,
-    TimeSlot,
 )
-from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
+from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.crowd import UserDTO
+from tests.integration.conftest import SessionAvailableDayFactory
 from tests.integration.utils import assert_response
+
+POSTED_START = "%Y-%m-%dT%H:%M"
+
+
+def _wall_clock(event):
+    # What a `datetime-local` input posts: the event's opening as a local wall
+    # clock, with no offset for the browser to send.
+    return localtime(event.start_time)
 
 
 def _has_option(content: str, value: int, label: str) -> bool:
@@ -60,7 +68,7 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_ok(self, event, pending_session, manager_client, time_slot):
+    def test_get_ok(self, event, pending_session, manager_client):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -73,19 +81,21 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_shows_preferred_time_slots(
-        self, event, pending_session, manager_client, time_slot
+    def test_get_shows_the_days_the_facilitator_offered(
+        self, event, pending_session, manager_client
     ):
-        pending_session.time_slots.add(time_slot)
+        # The reviewer picks a start time; the days the author said they could
+        # run on come along so that choice is not made blind.
+        day = localtime(event.start_time).date()
+        SessionAvailableDayFactory(session=pending_session, day=day)
 
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -99,85 +109,14 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [day],
                 "field_values": [],
-                "preferred_time_slot_ids": [time_slot.pk],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
-        assert "Preferred Time Slots" in response.content.decode()
 
     @pytest.mark.usefixtures("space")
-    def test_get_renders_select_for_multiple_time_slots(
-        self, event, pending_session, manager_client, time_slot
-    ):
-        # A second slot means there's a real choice, so the tessera select
-        # renders instead of the single-slot collapse.
-        TimeSlot.objects.create(
-            event=event,
-            start_time=time_slot.end_time,
-            end_time=time_slot.end_time + timedelta(hours=2),
-        )
-
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert "<select" in content
-        assert 'name="time_slot"' in content
-
-    @pytest.mark.usefixtures("event", "space")
-    def test_get_carries_a_single_time_slot_and_names_it(
-        self, pending_session, manager_client, time_slot
-    ):
-        # A lone slot is a foregone choice: the form carries it and the page
-        # stops asking. It still has to say *when*, or the organizer confirms
-        # a booking against a time nothing on the page names.
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert (
-            f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
-        )
-        assert (
-            slot_label(
-                TimeSlotDTO(
-                    pk=time_slot.pk,
-                    start_time=time_slot.start_time,
-                    end_time=time_slot.end_time,
-                )
-            )
-            in content
-        )
-
-    @pytest.mark.usefixtures("space")
-    def test_get_groups_preferred_time_slots_in_picker(
-        self, event, pending_session, manager_client, time_slot
-    ):
-        # A second slot forces the select; the preferred one is floated into its
-        # own optgroup instead of being flagged with a footnote.
-        TimeSlot.objects.create(
-            event=event,
-            start_time=time_slot.end_time,
-            end_time=time_slot.end_time + timedelta(hours=2),
-        )
-        pending_session.time_slots.add(time_slot)
-
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert '<optgroup label="Preferred by the facilitator">' in content
-
-    @pytest.mark.usefixtures("space", "time_slot")
     def test_get_renders_host_avatar(self, pending_session, manager_client):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -189,7 +128,7 @@ class TestProposalAcceptPageView:
         initials = pending_session.presenter.full_name[:2].upper()
         assert f">{initials}</span>" in response.content.decode()
 
-    @pytest.mark.usefixtures("space", "time_slot")
+    @pytest.mark.usefixtures("space")
     def test_get_renders_proposal_detail_rows(self, pending_session, manager_client):
         pending_session.description = "A haunted manor one-shot."
         pending_session.save()
@@ -204,7 +143,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_without_presenter_still_renders(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         pending_session.presenter = None
         pending_session.save()
@@ -221,15 +160,14 @@ class TestProposalAcceptPageView:
                 "presenter": None,
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("event", "time_slot")
+    @pytest.mark.usefixtures("event")
     def test_get_carries_a_single_space_and_names_it(
         self, pending_session, space, manager_client
     ):
@@ -248,7 +186,6 @@ class TestProposalAcceptPageView:
         assert "<optgroup" not in content
         assert space.name in content
 
-    @pytest.mark.usefixtures("time_slot")
     def test_get_groups_leaf_spaces_under_their_parent(
         self, event, pending_session, manager_client
     ):
@@ -273,9 +210,7 @@ class TestProposalAcceptPageView:
         assert _has_option(content, second.id, "Room B")
         assert not _has_option(content, parent.id, "Main Hall")
 
-    def test_get_ok_without_spaces(
-        self, event, pending_session, manager_client, time_slot
-    ):
+    def test_get_ok_without_spaces(self, event, pending_session, manager_client):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -288,39 +223,16 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": "spaces",
             },
             template_name="chronology/accept_proposal.html",
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_ok_without_time_slots(self, event, pending_session, manager_client):
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
-                "form": ANY,
-                "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [],
-                "field_values": [],
-                "preferred_time_slot_ids": [],
-                "schedule_blocker": "time_slots",
-            },
-            template_name="chronology/accept_proposal.html",
-        )
-
-    @pytest.mark.usefixtures("space", "time_slot")
     def test_get_ok_for_a_proposal_without_a_category(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         # Regression: the page's reads joined through Session.category, which is
         # nullable, so a category-less proposal 500'd instead of rendering.
@@ -337,9 +249,8 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
@@ -347,7 +258,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_when_the_proposal_sets_length_and_minimum_age(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         # The details grid only draws the length and minimum-age tiles when the
         # proposal carries them, and the default fixture leaves both empty. How
@@ -368,9 +279,8 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
@@ -437,7 +347,7 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_post_invalid_form(self, event, pending_session, manager_client, time_slot):
+    def test_post_invalid_form(self, event, pending_session, manager_client):
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -450,20 +360,19 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
 
-    def test_post_ok(
-        self, active_user, event, pending_session, space, manager_client, time_slot
-    ):
+    def test_post_ok(self, active_user, event, pending_session, space, manager_client):
+        start = _wall_clock(event)
+
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
-            data={"space": space.id, "time_slot": time_slot.id},
+            data={"space": space.id, "start_time": start.strftime(POSTED_START)},
         )
 
         assert_response(
@@ -486,11 +395,12 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.space == space
         assert session.agenda_item.session == session
         assert session.agenda_item.session_confirmed
-        assert session.agenda_item.start_time == time_slot.start_time
-        assert session.agenda_item.end_time == time_slot.end_time
+        assert session.agenda_item.start_time == start
+        # The end follows from the proposal's own length, nothing the form asks.
+        assert session.agenda_item.end_time == start + timedelta(hours=1)
 
     def test_post_preserves_unique_slug(
-        self, event, pending_session, space, manager_client, manager_user, time_slot
+        self, event, pending_session, space, manager_client, manager_user
     ):
         # Regression: accepting a proposal must not regenerate the slug, which
         # dropped the uniqueness suffix and collided with an existing session.
@@ -507,7 +417,10 @@ class TestProposalAcceptPageView:
 
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
-            data={"space": space.id, "time_slot": time_slot.id},
+            data={
+                "space": space.id,
+                "start_time": _wall_clock(event).strftime(POSTED_START),
+            },
         )
 
         assert_response(
@@ -529,11 +442,14 @@ class TestProposalAcceptPageView:
         assert session.slug == f"{base_slug}-4"
 
     def test_post_wrong_permissions(
-        self, event, pending_session, space, authenticated_client, time_slot
+        self, event, pending_session, space, authenticated_client
     ):
         response = authenticated_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
-            data={"space": space.id, "time_slot": time_slot.id},
+            data={
+                "space": space.id,
+                "start_time": _wall_clock(event).strftime(POSTED_START),
+            },
         )
 
         assert_response(
@@ -549,12 +465,13 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_post_invalid_space_id(
-        self, event, pending_session, manager_client, time_slot
-    ):
+    def test_post_invalid_space_id(self, event, pending_session, manager_client):
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
-            data={"space": 99999, "time_slot": time_slot.id},
+            data={
+                "space": 99999,
+                "start_time": _wall_clock(event).strftime(POSTED_START),
+            },
         )
 
         assert_response(
@@ -565,16 +482,15 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
 
     def test_post_ok_conflict(
-        self, manager_user, event, pending_session, space, manager_client, time_slot
+        self, manager_user, event, pending_session, space, manager_client
     ):
         other_session = Session.objects.create(
             event=event,
@@ -586,13 +502,16 @@ class TestProposalAcceptPageView:
         AgendaItem.objects.create(
             session=other_session,
             space=space,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            start_time=_wall_clock(event),
+            end_time=_wall_clock(event) + timedelta(hours=1),
         )
 
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
-            data={"space": space.id, "time_slot": time_slot.id},
+            data={
+                "space": space.id,
+                "start_time": _wall_clock(event).strftime(POSTED_START),
+            },
         )
 
         assert_response(
@@ -603,9 +522,8 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
@@ -613,7 +531,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_select_field_values(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         """Public select field values are shown in context."""
         session_field = SessionField.objects.create(
@@ -642,7 +560,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,
@@ -656,7 +574,6 @@ class TestProposalAcceptPageView:
                         value=["RPG"],
                     )
                 ],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
@@ -664,7 +581,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_text_field_in_field_values(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         """Text field values appear in field_values context."""
         session_field = SessionField.objects.create(
@@ -691,7 +608,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,
@@ -705,7 +622,6 @@ class TestProposalAcceptPageView:
                         value="D&D 5e",
                     )
                 ],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
@@ -713,7 +629,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_boolean_select_field_in_field_values(
-        self, event, pending_session, manager_client, time_slot
+        self, event, pending_session, manager_client
     ):
         """Public select field with a boolean value appears in field_values."""
         session_field = SessionField.objects.create(
@@ -740,7 +656,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "available_days": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,
@@ -754,7 +670,6 @@ class TestProposalAcceptPageView:
                         value=True,
                     )
                 ],
-                "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",

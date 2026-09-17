@@ -55,9 +55,9 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
+    SessionAvailableDayFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_rendered, assert_response
@@ -117,9 +117,10 @@ def _field_dto(field):
     )
 
 
-# Hour offsets from the event start for the proposal that names preferred
-# slots: three of them, so the card shows the earliest and counts the rest.
-_PREFERRED_SLOT_OFFSETS = (0, 2, 4)
+# Day offsets from the event start for the proposal that names the days its
+# author could host on: three of them, so the card shows the earliest and
+# counts the rest.
+_OFFERED_DAY_OFFSETS = (0, 1, 2)
 
 # The review queue the query-count guard grows to, from one proposal.
 _PROPOSALS_IN_QUEUE = 5
@@ -1676,7 +1677,7 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_superuser_sees_preferred_slots_earliest_first(
+    def test_ok_superuser_sees_offered_days_earliest_first(
         self, authenticated_client, event, active_user, pending_session
     ):
         active_user.is_staff = True
@@ -1685,13 +1686,13 @@ class TestEventPageView:
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
         # Added latest-first, so a card that echoed insertion order would fail.
-        slots = [
-            TimeSlotFactory(
-                event=event, start_time=event.start_time + timedelta(hours=offset)
-            )
-            for offset in reversed(_PREFERRED_SLOT_OFFSETS)
+        opening = timezone.localtime(event.start_time).date()
+        days = [
+            SessionAvailableDayFactory(
+                session=pending_session, day=opening + timedelta(days=offset)
+            ).day
+            for offset in reversed(_OFFERED_DAY_OFFSETS)
         ]
-        pending_session.time_slots.add(*slots)
         flexible_session = SessionFactory(
             category=pending_session.category,
             presenter=active_user,
@@ -1707,10 +1708,7 @@ class TestEventPageView:
             flexible_session, presenter=active_user, can_edit=True
         )
         expected_pending = proposal_card(
-            pending_session,
-            presenter=active_user,
-            can_edit=True,
-            slots=sorted(slots, key=lambda slot: slot.start_time),
+            pending_session, presenter=active_user, can_edit=True, days=sorted(days)
         )
         assert_response(
             response,
