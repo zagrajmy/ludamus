@@ -4,14 +4,8 @@
     {{ event.name }} • {% translate "Print" %}
 {% endblock title %}
 {% block body_class %}
-    app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
+    app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:p-0
 {% endblock body_class %}
-{% block site_navbar %}
-    <div class="print:hidden">{% include "components/navbar.html" %}</div>
-{% endblock site_navbar %}
-{% block site_footer %}
-    <div class="print:hidden">{{ block.super }}</div>
-{% endblock site_footer %}
 {% block extra_head %}
     <style>
         @page {

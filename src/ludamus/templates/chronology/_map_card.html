@@ -25,7 +25,7 @@
                           data-confirm="{% translate "Delete this map? Sessions will stop linking to it." %}">
                         {% csrf_token %}
                         {% blocktranslate asvar t_delete_map with name=event_map.name %}Delete {{ name }}{% endblocktranslate %}
-                        <button type="submit" class="icon-btn icon-btn-danger">
+                        <button type="submit" class="icon-btn">
                             {% icon "trash" class="size-4" variant="mini" %}
                             <span class="sr-only">{{ t_delete_map }}</span>
                         </button>
