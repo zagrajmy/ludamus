@@ -1,20 +1,11 @@
 {% load i18n tessera %}
-<div class="relative calendar-menu-wrapper">
-    <button type="button"
-            class="btn btn-secondary text-sm w-full calendar-toggle-btn">
-        {% icon "calendar" class="h-4 w-4" variant="mini" %}
-        {% translate "Add to calendar" %}
-    </button>
-    <div class="calendar-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-(--shadow-dropdown) z-10">
-        <a href="{{ google_calendar_url }}"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="block px-3 py-2 text-sm text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-t-lg">Google Calendar</a>
-        <a href="{{ outlook_calendar_url }}"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="block px-3 py-2 text-sm text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary">Outlook</a>
-        <a href="{% url 'web:notice-board:encounter-ics' share_code=encounter.share_code %}"
-           class="block px-3 py-2 text-sm text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-b-lg">{% translate "Download .ics" %}</a>
-    </div>
-</div>
+{% translate "Download .ics" as t_ics %}
+{% url 'web:notice-board:encounter-ics' share_code=encounter.share_code as ics_url %}
+{% tessera_action_dropdown id=menu_id hover=False trigger_variant="secondary" trigger_class="w-full" %}
+    {% icon "calendar" class="h-4 w-4" variant="mini" %}
+    {% translate "Add to calendar" %}
+    {% action_dropdown_menu %}
+    {% tessera_action_dropdown_item "Google Calendar" href=google_calendar_url icon="calendar-days" external=True %}
+    {% tessera_action_dropdown_item "Outlook" href=outlook_calendar_url icon="calendar-days" external=True %}
+    {% tessera_action_dropdown_item t_ics href=ics_url icon="arrow-down-tray" %}
+{% end_tessera_action_dropdown %}

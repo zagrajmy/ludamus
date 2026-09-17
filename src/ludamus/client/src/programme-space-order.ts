@@ -4,7 +4,7 @@ const rows = (): HTMLElement[] =>
   list
     ? [...list.children].filter(
         (element): element is HTMLElement =>
-          element instanceof HTMLElement && element.classList.contains("programme-space-node"),
+          element instanceof HTMLElement && Object.hasOwn(element.dataset, "programmeSpaceNode"),
       )
     : [];
 
@@ -30,7 +30,7 @@ const saveOrder = async (focusAfterSave?: HTMLElement): Promise<void> => {
   if (!list || saving) return;
   saving = true;
   list.setAttribute("aria-busy", "true");
-  for (const handle of list.querySelectorAll<HTMLButtonElement>(".programme-drag-handle")) {
+  for (const handle of list.querySelectorAll<HTMLButtonElement>("[data-programme-drag-handle]")) {
     handle.disabled = true;
   }
   try {
@@ -47,7 +47,7 @@ const saveOrder = async (focusAfterSave?: HTMLElement): Promise<void> => {
     if (!response.ok) throw new Error("Reorder failed");
     saving = false;
     list.removeAttribute("aria-busy");
-    for (const handle of list.querySelectorAll<HTMLButtonElement>(".programme-drag-handle")) {
+    for (const handle of list.querySelectorAll<HTMLButtonElement>("[data-programme-drag-handle]")) {
       handle.disabled = false;
     }
     focusAfterSave?.focus();
@@ -71,14 +71,16 @@ let dragged: HTMLElement | null = null;
 
 if (list) {
   list.addEventListener("dragstart", (event) => {
-    const row = (event.target as HTMLElement).closest<HTMLElement>(".programme-space-node");
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-programme-space-node]");
     if (!row || !rows().includes(row)) return;
     dragged = row;
     row.style.opacity = "0.5";
   });
   list.addEventListener("dragover", (event) => {
     if (!dragged) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>(".programme-space-node");
+    const target = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-programme-space-node]",
+    );
     if (!target || target === dragged || !rows().includes(target)) return;
     event.preventDefault();
     const rect = target.getBoundingClientRect();
@@ -95,8 +97,10 @@ if (list) {
   });
   list.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    const handle = (event.target as HTMLElement).closest<HTMLElement>(".programme-drag-handle");
-    const row = handle?.closest<HTMLElement>(".programme-space-node");
+    const handle = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-programme-drag-handle]",
+    );
+    const row = handle?.closest<HTMLElement>("[data-programme-space-node]");
     if (!handle || !row) return;
     event.preventDefault();
     moveRow(row, event.key === "ArrowUp" ? -1 : 1, handle);

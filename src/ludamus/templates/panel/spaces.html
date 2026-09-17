@@ -45,7 +45,7 @@
                             </div>
                         {% endif %}
                         <ul id="space-root-list"
-                            class="space-list"
+                            data-space-list
                             data-parent-pk=""
                             data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
                             data-move-to-root-url="{% url 'panel:space-move-to-root' slug=current_event.slug %}"
