@@ -28,6 +28,20 @@ test.describe("Design system page", () => {
     });
   });
 
+  // The panel shows the built og-image.jpg rather than the card source, so a
+  // typoed static name or a zero-byte build output only shows up here.
+  test("shows the link preview card as a decoded image", async ({ page }) => {
+    await page.goto("/design/");
+
+    const card = page.getByRole("img", { name: /link preview card/i });
+    await expect(card).toBeVisible();
+    // It loads lazily, and the panel sits well below the fold.
+    await card.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => card.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBe(1200);
+  });
+
   test("lets people exercise toast stacking and dismissal", async ({ page }) => {
     await page.goto("/design/");
 
