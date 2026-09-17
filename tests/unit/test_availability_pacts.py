@@ -8,6 +8,8 @@ import pytest
 from ludamus.pacts.availability import (
     AvailabilityDTO,
     DayPart,
+    availability_from_value,
+    availability_value,
     offered_parts_by_day,
     part_of,
     part_window,
@@ -194,3 +196,42 @@ class TestOfferedPartsByDay:
 
         assert len(answers) == _OFFERED_PAIRS_OVER_A_WEEKEND
         assert answers[0] == AvailabilityDTO(day=_FRIDAY, part=DayPart.AFTERNOON)
+
+
+class TestAvailabilityValue:
+    @pytest.mark.parametrize(
+        ("part", "expected"),
+        ((DayPart.MORNING, "2026-10-09:morning"), (DayPart.NIGHT, "2026-10-09:night")),
+    )
+    def test_joins_the_day_and_the_part(self, part: DayPart, expected: str) -> None:
+        assert availability_value(_FRIDAY, part) == expected
+
+    def test_round_trips_through_the_form(self) -> None:
+        offered = AvailabilityDTO(day=_SATURDAY, part=DayPart.EVENING)
+
+        assert (
+            availability_from_value(availability_value(offered.day, offered.part))
+            == offered
+        )
+
+
+class TestAvailabilityFromValue:
+    def test_reads_a_pair_a_form_sent(self) -> None:
+        assert availability_from_value("2026-10-11:afternoon") == AvailabilityDTO(
+            day=_SUNDAY, part=DayPart.AFTERNOON
+        )
+
+    @pytest.mark.parametrize(
+        "raw",
+        (
+            "",
+            "2026-10-09",
+            "2026-10-09:teatime",
+            "not-a-date:morning",
+            "2026-13-40:morning",
+            ":morning",
+            "morning",
+        ),
+    )
+    def test_refuses_text_that_does_not_spell_a_pair(self, raw: str) -> None:
+        assert availability_from_value(raw) is None
