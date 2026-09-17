@@ -20,7 +20,9 @@ mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise dev                # Django :8000 + Vite :5173
 ```
 
-After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
+After bootstrap, log in as `admin` / `admin` on the portless origin, or
+<http://localhost:8000/admin/> with `--no-portless`. MCP tokens are in
+`.local/mcp-tokens.json`. See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
 No Postgres or Docker needed: the app develops and serves on SQLite by default.
 Set `USE_POSTGRES=true` to opt into Postgres.
