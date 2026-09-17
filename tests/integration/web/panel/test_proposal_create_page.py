@@ -1,6 +1,6 @@
 """Integration tests for /panel/event/<slug>/proposals/create/ page."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -17,7 +17,6 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
     SessionFieldValue,
-    TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
@@ -26,7 +25,6 @@ from ludamus.pacts import (
     FieldAnswer,
     OrganizerFieldDTO,
     ProposalCategoryDTO,
-    TimeSlotDTO,
     TrackDTO,
 )
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
@@ -35,6 +33,7 @@ from tests.integration.utils import assert_login_required, assert_response, chec
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    day_range,
     facilitator_list_item_dto,
     panel_context,
 )
@@ -68,8 +67,8 @@ def _base_context(event):
         "assigned_facilitator_pks": set(),
         "all_tracks": [],
         "assigned_track_pks": set(),
-        "all_time_slots": [],
-        "assigned_time_slot_pks": set(),
+        "all_available_days": day_range(event),
+        "selected_available_days": [],
         "facilitator_personal_data": [],
     }
 
@@ -417,39 +416,12 @@ class TestProposalCreatePageView:
         )
         assert new_session.cover_image
 
-    def test_get_renders_time_slot_checkboxes(self, panel_client, event):
-        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-
-        response = panel_client.get(self.get_url(event))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/proposal-form.html",
-            context_data={
-                **_base_context(event),
-                **_fields_context(event),
-                "form": ANY,
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-            },
-            contains='name="time_slot_ids"',
-        )
-
-    def test_post_creates_session_with_preferred_time_slots(self, panel_client, event):
+    def test_post_creates_session_with_available_days(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day = day_range(event)[0]
 
         panel_client.post(
             self.get_url(event),
@@ -457,27 +429,22 @@ class TestProposalCreatePageView:
                 "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
-                "title": "Slotted Session",
+                "title": "Day Session",
                 "facilitator_name": "Test Host",
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "available_days_submitted": "1",
+                "available_days": [day.isoformat()],
             },
         )
 
-        new_session = Session.objects.get(title="Slotted Session")
-        assert list(new_session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        new_session = Session.objects.get(title="Day Session")
+        assert list(new_session.available_days.values_list("day", flat=True)) == [day]
 
-    def test_post_ignores_time_slot_from_other_event(self, panel_client, sphere, event):
+    def test_post_ignores_day_outside_the_event(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        other_event = EventFactory(sphere=sphere)
-        foreign_slot = TimeSlot.objects.create(
-            event=other_event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        outside_day = day_range(event)[-1] + timedelta(days=1)
 
         panel_client.post(
             self.get_url(event),
@@ -485,31 +452,27 @@ class TestProposalCreatePageView:
                 "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
-                "title": "Slotted Session",
+                "title": "Day Session",
                 "facilitator_name": "Test Host",
-                "time_slots_submitted": "1",
-                "time_slot_ids": [foreign_slot.pk],
+                "available_days_submitted": "1",
+                "available_days": [outside_day.isoformat()],
             },
         )
 
-        new_session = Session.objects.get(title="Slotted Session")
-        assert not new_session.time_slots.exists()
+        new_session = Session.objects.get(title="Day Session")
+        assert not new_session.available_days.exists()
 
-    def test_post_invalid_keeps_selected_time_slot_checked(self, panel_client, event):
+    def test_post_invalid_keeps_selected_day(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day = day_range(event)[0]
 
         response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
                 "facilitator_name": "Test Host",
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "available_days_submitted": "1",
+                "available_days": [day.isoformat()],
             },
         )
 
@@ -521,12 +484,9 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "selected_available_days": [day],
             },
         )
-        content = response.content.decode()
-        assert "checked" in checkbox_tag(content, "time_slot_ids", slot.pk)
 
     def test_get_renders_track_checkboxes(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")

@@ -3,6 +3,7 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
@@ -10,9 +11,9 @@ from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
+    SessionAvailableDayFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
 )
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -214,28 +215,24 @@ class TestTimetableSessionListPartView:
 
         assert response.status_code == HTTPStatus.OK
 
-    def test_date_filter_keeps_sessions_with_slot_on_that_date(
+    def test_date_filter_keeps_sessions_available_on_that_date(
         self, panel_client, event, proposal_category
     ):
-        slot_day_one = TimeSlotFactory(event=event)
-        slot_day_two = TimeSlotFactory(
-            event=event, start_time=event.start_time + timedelta(days=1)
-        )
+        day_one = localtime(event.start_time).date()
+        day_two = day_one + timedelta(days=1)
         on_day_one = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        on_day_one.time_slots.add(slot_day_one)
+        SessionAvailableDayFactory(session=on_day_one, day=day_one)
         on_day_two = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        on_day_two.time_slots.add(slot_day_two)
+        SessionAvailableDayFactory(session=on_day_two, day=day_two)
         anytime = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
 
-        response = panel_client.get(
-            self.get_url(event), {"date": slot_day_one.start_time.date().isoformat()}
-        )
+        response = panel_client.get(self.get_url(event), {"date": day_one.isoformat()})
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
@@ -249,10 +246,8 @@ class TestTimetableSessionListPartView:
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        session.time_slots.add(
-            TimeSlotFactory(
-                event=event, start_time=event.start_time + timedelta(days=1)
-            )
+        SessionAvailableDayFactory(
+            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
         )
 
         response = panel_client.get(self.get_url(event), {"date": "not-a-date"})
@@ -267,10 +262,8 @@ class TestTimetableSessionListPartView:
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        session.time_slots.add(
-            TimeSlotFactory(
-                event=event, start_time=event.start_time + timedelta(days=1)
-            )
+        SessionAvailableDayFactory(
+            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
         )
 
         response = panel_client.get(self.get_url(event), {"date": "all"})

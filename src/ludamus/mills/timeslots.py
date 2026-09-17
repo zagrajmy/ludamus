@@ -77,11 +77,16 @@ def _minutes_into_day(moment: datetime, day: date, tz: tzinfo) -> float:
     return (moment.astimezone(tz) - midnight).total_seconds() / 60
 
 
-def _clock_minutes(moment: datetime, tz: tzinfo) -> float:
+def _clock_minutes(moment: datetime, tz: tzinfo, *, closing: bool) -> float:
     local = moment.astimezone(tz)
+    minutes = local.hour * 60 + local.minute
     # Midnight closes the day it ends rather than opening the next one, so an
     # event finishing at 00:00 reads as 24:00 instead of collapsing the span.
-    return (local.hour * 60 + local.minute) or (24 * 60)
+    # An event that OPENS at midnight means 00:00, so only the closing edge
+    # gets the wrap.
+    if closing and minutes == 0:
+        return 24 * 60
+    return minutes
 
 
 def event_opening_hours(
@@ -102,7 +107,10 @@ def event_opening_hours(
     the extend arguments reach hours nothing occupies yet.
     """
     dates = _dates_between(MIDNIGHT.date_of(start, tz), MIDNIGHT.date_of(end, tz))
-    minutes = [_clock_minutes(start, tz), _clock_minutes(end, tz)]
+    minutes = [
+        _clock_minutes(start, tz, closing=False),
+        _clock_minutes(end, tz, closing=True),
+    ]
     seen = set(dates)
     for window_start, window_end in occupied:
         day = MIDNIGHT.date_of(window_start, tz)

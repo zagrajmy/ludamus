@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -64,10 +65,6 @@ class TestProposalPanelService:
         return MagicMock()
 
     @pytest.fixture
-    def time_slots(self):
-        return MagicMock()
-
-    @pytest.fixture
     def service(
         self,
         sessions,
@@ -76,7 +73,6 @@ class TestProposalPanelService:
         panel_settings,
         facilitators,
         tracks,
-        time_slots,
     ):
         return ProposalPanelService(
             _FakeTransaction(),
@@ -87,7 +83,6 @@ class TestProposalPanelService:
                 panel_settings=panel_settings,
                 facilitators=facilitators,
                 tracks=tracks,
-                time_slots=time_slots,
             ),
         )
 
@@ -196,8 +191,8 @@ class TestProposalPanelService:
         assert not result.sort
         assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
-    def test_create_writes_session_field_values_and_slots_together(
-        self, service, sessions, session_fields, facilitators, tracks, time_slots
+    def test_create_writes_session_field_values_and_days_together(
+        self, service, sessions, session_fields, facilitators, tracks
     ):
         sessions.slug_exists.return_value = False
         sessions.create.return_value = _NEW_PROPOSAL_ID
@@ -206,7 +201,6 @@ class TestProposalPanelService:
         ]
         facilitators.list_by_event.return_value = [SimpleNamespace(pk=7)]
         tracks.list_by_event.return_value = [SimpleNamespace(pk=4)]
-        time_slots.list_by_event.return_value = [SimpleNamespace(pk=9)]
 
         proposal_id = service.create_proposal(
             event_id=1,
@@ -216,7 +210,7 @@ class TestProposalPanelService:
                 facilitator_ids=[7],
                 field_values={3: "D&D 5e"},
                 track_ids=[4],
-                time_slot_ids=[9],
+                available_days=[date(2026, 6, 1)],
             ),
         )
 
@@ -234,8 +228,9 @@ class TestProposalPanelService:
             _NEW_PROPOSAL_ID,
             [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
         )
-        time_slots.list_by_event.assert_called_once_with(1)
-        sessions.set_time_slots.assert_called_once_with(_NEW_PROPOSAL_ID, [9])
+        sessions.set_available_days.assert_called_once_with(
+            _NEW_PROPOSAL_ID, [date(2026, 6, 1)]
+        )
         sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
 
     def test_create_rejects_foreign_event_id_in_draft(self, service, sessions):
@@ -273,7 +268,7 @@ class TestProposalPanelService:
         )
 
         sessions.save_field_values.assert_not_called()
-        sessions.set_time_slots.assert_not_called()
+        sessions.set_available_days.assert_not_called()
 
     def test_create_accepted_session_returns_existing_ident(self, service, sessions):
         sessions.find_id_by_ident.return_value = _EXISTING_SESSION_ID
