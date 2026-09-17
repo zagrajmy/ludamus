@@ -14,9 +14,7 @@ from ludamus.links.db.django.models import (
     SPACE_UNDELETABLE_REASON,
     AgendaItem,
     Event,
-    Session,
     Space,
-    TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories import slugs
@@ -25,8 +23,6 @@ from ludamus.pacts import (
     NotFoundError,
     SpaceDTO,
     SpaceRepositoryProtocol,
-    TimeSlotDTO,
-    TimeSlotRepositoryProtocol,
     TrackCreateData,
     TrackDTO,
     TrackListItemDTO,
@@ -45,7 +41,6 @@ from ludamus.pacts.venues import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from datetime import datetime
 
     from ludamus.links.db.django.models import User
 else:
@@ -397,79 +392,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         return (current if current is not None else -1) + 1
 
 
-class TimeSlotRepository(TimeSlotRepositoryProtocol):
-    @staticmethod
-    def create(event_id: int, start_time: datetime, end_time: datetime) -> TimeSlotDTO:
-        time_slot = TimeSlot.objects.create(
-            event_id=event_id, start_time=start_time, end_time=end_time
-        )
-        return TimeSlotDTO.model_validate(time_slot)
-
-    @staticmethod
-    def get_or_create(event_id: int, start_time: datetime, end_time: datetime) -> int:
-        # Reuse a window the event already has (deduped by exact start+end) so
-        # the importer can attach it without spawning duplicates on re-runs.
-        time_slot, _ = TimeSlot.objects.get_or_create(
-            event_id=event_id, start_time=start_time, end_time=end_time
-        )
-        return time_slot.pk
-
-    @staticmethod
-    def delete(pk: int) -> None:
-        try:
-            time_slot = TimeSlot.objects.get(pk=pk)
-        except TimeSlot.DoesNotExist:
-            return
-        time_slot.delete()
-
-    @staticmethod
-    def has_proposals(pk: int) -> bool:
-        return Session.objects.filter(time_slots=pk).exists()
-
-    @staticmethod
-    def pks_with_proposals(event_id: int) -> frozenset[int]:
-        # The same rule `has_proposals` answers per slot, for a whole list in
-        # one query — the panel needs it per row, and per-row queries are an N+1.
-        return frozenset(
-            Session.objects.filter(time_slots__event_id=event_id)
-            .values_list("time_slots__pk", flat=True)
-            .distinct()
-        )
-
-    @staticmethod
-    def list_by_event(event_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(event_id=event_id).order_by("start_time")
-        return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
-
-    @staticmethod
-    def read(pk: int) -> TimeSlotDTO:
-        try:
-            time_slot = TimeSlot.objects.get(pk=pk)
-        except TimeSlot.DoesNotExist as exc:
-            raise NotFoundError from exc
-        return TimeSlotDTO.model_validate(time_slot)
-
-    @staticmethod
-    def read_by_event(event_id: int, pk: int) -> TimeSlotDTO:
-        try:
-            time_slot = TimeSlot.objects.get(pk=pk, event_id=event_id)
-        except TimeSlot.DoesNotExist as exc:
-            raise NotFoundError from exc
-        return TimeSlotDTO.model_validate(time_slot)
-
-    @staticmethod
-    def update(pk: int, start_time: datetime, end_time: datetime) -> TimeSlotDTO:
-        try:
-            time_slot = TimeSlot.objects.get(pk=pk)
-        except TimeSlot.DoesNotExist as exc:
-            raise NotFoundError from exc
-        time_slot.start_time = start_time
-        time_slot.end_time = end_time
-        time_slot.save()
-        return TimeSlotDTO.model_validate(time_slot)
-
-
-# A functional index: both engines report it by its own name.
 _TRACK_UNIQUE_NAME_CONSTRAINT = "track_unique_name_per_event"
 
 

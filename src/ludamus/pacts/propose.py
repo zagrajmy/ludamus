@@ -19,7 +19,6 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionFieldRequirementDTO,
         SessionRepositoryProtocol,
-        TimeSlotRequirementDTO,
         TrackDTO,
         TrackRepositoryProtocol,
         UploadedFileProtocol,
@@ -56,9 +55,7 @@ class ProposeSessionServiceProtocol(Protocol):
     def get_session_requirements(
         self, category_id: int
     ) -> list[SessionFieldRequirementDTO]: ...
-    def get_timeslot_requirements(
-        self, category_id: int
-    ) -> list[TimeSlotRequirementDTO]: ...
+    def asks_available_days(self, category_id: int) -> bool: ...
     def get_public_tracks(self, event_id: int) -> list[TrackDTO]: ...
     def get_saved_personal_data(
         self, *, event_id: int, user_id: int | None

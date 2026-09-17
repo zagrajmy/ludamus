@@ -7,8 +7,8 @@
  *     until the operator types into the slug directly, OR the row is confirmed
  *     (slug stays locked); emptying the slug field unlocks auto-sync again.
  *     Applies to field setup + each entity row;
- *   - reveal the time-slot editor when the target is "Time slots", and let each
- *     option gain/drop window rows;
+ *   - reveal the available-days editor when the target is "Available days", and
+ *     let each option gain/drop day rows;
  *   - reveal the track/category entity editor for those targets.
  *
  * Markup (one per recipe row, keyed by a shared data-row):
@@ -20,10 +20,10 @@
  *     <select data-recipe-fieldtype data-row="0">…</select>
  *     <div data-recipe-options data-row="0">…</div>
  *   </div>
- *   <div data-recipe-timeslots data-row="0">
- *     <div data-ts-option><div data-ts-windows>
- *       <div data-ts-window>…<button data-ts-remove>…</div>
- *     </div><button data-ts-add>…</button></div>
+ *   <div data-recipe-days data-row="0">
+ *     <div data-day-option><div data-day-rows>
+ *       <div data-day-row>…<button data-day-remove>…</div>
+ *     </div><button data-day-add>…</button></div>
  *   </div>
  *   <div data-recipe-entities data-row="0">
  *     <div data-slug-scope>
@@ -35,7 +35,7 @@
 import slugifyLib from "slugify";
 
 const NEW_FIELD_TARGETS = new Set(["personal-field", "session-field"]);
-const TIME_SLOTS_TARGET = "session.time_slots";
+const AVAILABLE_DAYS_TARGET = "session.available_days";
 const DURATION_TARGET = "session.duration";
 const ENTITY_TARGETS = new Set(["category", "track"]);
 
@@ -68,9 +68,9 @@ function syncTarget(select: HTMLSelectElement): void {
     "is-open",
     NEW_FIELD_TARGETS.has(select.value),
   );
-  rowElement("[data-recipe-timeslots]", row)?.classList.toggle(
+  rowElement("[data-recipe-days]", row)?.classList.toggle(
     "hidden",
-    select.value !== TIME_SLOTS_TARGET,
+    select.value !== AVAILABLE_DAYS_TARGET,
   );
   rowElement("[data-recipe-entities]", row)?.classList.toggle(
     "hidden",
@@ -88,25 +88,25 @@ function syncFieldType(select: HTMLSelectElement): void {
   options?.classList.toggle("hidden", select.value === "text");
 }
 
-function addWindow(button: HTMLElement): void {
-  const windows = button.closest("[data-ts-option]")?.querySelector("[data-ts-windows]");
-  const last = windows?.querySelector<HTMLElement>("[data-ts-window]:last-child");
-  if (!windows || !last) return;
+function addDay(button: HTMLElement): void {
+  const days = button.closest("[data-day-option]")?.querySelector("[data-day-rows]");
+  const last = days?.querySelector<HTMLElement>("[data-day-row]:last-child");
+  if (!days || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
   for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
     if (input.type !== "hidden") input.value = "";
   }
-  windows.append(clone);
+  days.append(clone);
 }
 
-function removeWindow(button: HTMLElement): void {
-  const window_ = button.closest<HTMLElement>("[data-ts-window]");
-  const windows = window_?.parentElement;
-  if (!window_ || !windows) return;
-  if (windows.querySelectorAll("[data-ts-window]").length > 1) {
-    window_.remove();
+function removeDay(button: HTMLElement): void {
+  const day = button.closest<HTMLElement>("[data-day-row]");
+  const days = day?.parentElement;
+  if (!day || !days) return;
+  if (days.querySelectorAll("[data-day-row]").length > 1) {
+    day.remove();
   } else {
-    for (const input of window_.querySelectorAll<HTMLInputElement>("input")) {
+    for (const input of day.querySelectorAll<HTMLInputElement>("input")) {
       if (input.type !== "hidden") input.value = "";
     }
   }
@@ -154,16 +154,16 @@ document.addEventListener("input", (e) => {
 
 document.addEventListener("click", (e) => {
   if (!(e.target instanceof HTMLElement)) return;
-  const tsAdd = e.target.closest<HTMLElement>("[data-ts-add]");
-  if (tsAdd) {
+  const dayAdd = e.target.closest<HTMLElement>("[data-day-add]");
+  if (dayAdd) {
     e.preventDefault();
-    addWindow(tsAdd);
+    addDay(dayAdd);
     return;
   }
-  const tsRemove = e.target.closest<HTMLElement>("[data-ts-remove]");
-  if (tsRemove) {
+  const dayRemove = e.target.closest<HTMLElement>("[data-day-remove]");
+  if (dayRemove) {
     e.preventDefault();
-    removeWindow(tsRemove);
+    removeDay(dayRemove);
     return;
   }
   const ovAdd = e.target.closest<HTMLElement>("[data-ov-add]");

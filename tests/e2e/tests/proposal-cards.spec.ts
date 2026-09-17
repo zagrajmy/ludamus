@@ -54,16 +54,16 @@ test.describe("Proposal cards", () => {
     await expect(card).not.toContainText("seat");
   });
 
-  test("more slots than fit are named to assistive tech", async ({ page }) => {
+  test("more days than fit are named to assistive tech", async ({ page }) => {
     await page.goto(EVENT_URL);
 
     const card = page
       .locator('[data-time-slot="pending-proposals"] .session')
       .filter({ hasText: "Open Table Proposal" });
     await expect(card).toContainText("+2 more");
-    // The visible row has room for one slot; the rest are read out, because a
+    // The visible row has room for one day; the rest are read out, because a
     // title tooltip cannot fire under the card's pointer-events-none wrapper.
-    await expect(card.locator("[data-overflow-slots]")).toContainText("–");
+    await expect(card.locator("[data-overflow-days]")).not.toBeEmpty();
   });
 
   test("a proposal is not offered to the enrollment filters", async ({ page }) => {

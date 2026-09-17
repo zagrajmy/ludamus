@@ -16,7 +16,6 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
-    TimeSlotRequirement,
 )
 from ludamus.links.db.django.repositories import slugs
 from ludamus.pacts import (
@@ -40,8 +39,6 @@ from ludamus.pacts import (
     SessionFieldRequirementDTO,
     SessionFieldUpdateData,
     SessionStatus,
-    TimeSlotDTO,
-    TimeSlotRequirementDTO,
 )
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
@@ -235,6 +232,12 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return [ProposalCategoryDTO.model_validate(c) for c in categories]
 
     @staticmethod
+    def asks_available_days(category_id: int) -> bool:
+        return ProposalCategory.objects.filter(
+            pk=category_id, asks_available_days=True
+        ).exists()
+
+    @staticmethod
     def get_field_requirements(category_id: int) -> dict[int, bool]:
         """Get field requirements for a category.
 
@@ -379,53 +382,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
             )
 
     @staticmethod
-    def get_time_slot_requirements(category_id: int) -> dict[int, bool]:
-        """Get time slot requirements for a category.
-
-        Returns:
-            Dict mapping time_slot_id to is_required boolean.
-        """
-        requirements = TimeSlotRequirement.objects.filter(category_id=category_id)
-        return {req.time_slot_id: req.is_required for req in requirements}
-
-    @staticmethod
-    def get_time_slot_order(category_id: int) -> list[int]:
-        """Get ordered list of time slot IDs for a category.
-
-        Returns:
-            List of time slot IDs ordered by their order field.
-        """
-        requirements = TimeSlotRequirement.objects.filter(
-            category_id=category_id
-        ).order_by("order")
-        return [req.time_slot_id for req in requirements]
-
-    @staticmethod
-    def set_time_slot_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None:
-        """Set time slot requirements for a category.
-
-        Replaces all existing requirements with the provided ones.
-
-        Args:
-            category_id: The category to set requirements for.
-            requirements: Dict mapping time_slot_id to is_required boolean.
-            order: Optional list of time slot IDs defining the order.
-        """
-        TimeSlotRequirement.objects.filter(category_id=category_id).delete()
-
-        order_map = {ts_id: idx for idx, ts_id in enumerate(order or [])}
-
-        for time_slot_id, is_required in requirements.items():
-            TimeSlotRequirement.objects.create(
-                category_id=category_id,
-                time_slot_id=time_slot_id,
-                is_required=is_required,
-                order=order_map.get(time_slot_id, 0),
-            )
-
-    @staticmethod
     def read(pk: int, event_id: int) -> ProposalCategoryDTO:
         try:
             category = ProposalCategory.objects.get(pk=pk, event_id=event_id)
@@ -473,22 +429,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return [
             SessionFieldRequirementDTO(
                 field=_session_field_dto(req.field), is_required=req.is_required
-            )
-            for req in requirements
-        ]
-
-    @staticmethod
-    def list_time_slot_requirements(category_id: int) -> list[TimeSlotRequirementDTO]:
-        requirements = (
-            TimeSlotRequirement.objects.filter(category_id=category_id)
-            .select_related("time_slot")
-            .order_by("order", "time_slot__start_time")
-        )
-        return [
-            TimeSlotRequirementDTO(
-                time_slot=TimeSlotDTO.model_validate(req.time_slot),
-                time_slot_id=req.time_slot_id,
-                is_required=req.is_required,
             )
             for req in requirements
         ]

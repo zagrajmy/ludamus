@@ -56,7 +56,7 @@
                         data-assign-duration="{{ duration_minutes }}"
                         data-assign-back-url="{{ back_url }}"
                         data-assign-confirmed="{{ agenda_item.session_confirmed|yesno:'true,false' }}"
-                        data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Reassign" %}</button>
+                        data-assign-available-days="{{ available_days_json }}">{% translate "Reassign" %}</button>
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
                       hx-swap="none"
@@ -100,20 +100,18 @@
                     data-assign-duration="{{ duration_minutes }}"
                     data-assign-back-url="{{ back_url }}"
                     data-assign-confirmed="false"
-                    data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Assign" %}</button>
+                    data-assign-available-days="{{ available_days_json }}">{% translate "Assign" %}</button>
         {% endif %}
     </div>
-    <!-- Preferred time slots -->
-    {% if time_slots %}
+    <!-- Days the facilitator offered -->
+    {% if available_days %}
         <div class="mb-3">
             <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">
-                {% translate "Preferred slots" %}
+                {% translate "Offered days" %}
             </div>
             <div class="space-y-1">
-                {% for slot in time_slots %}
-                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">
-                        {{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
-                    </div>
+                {% for day in available_days %}
+                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">{{ day|date:"l, M j" }}</div>
                 {% endfor %}
             </div>
         </div>

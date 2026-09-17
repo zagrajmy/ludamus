@@ -42,10 +42,8 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
         session_field_order = self._repos.categories.get_session_field_order(
             category.pk
         )
-        time_slot_order = self._repos.categories.get_time_slot_order(category.pk)
         fields = list(self._repos.personal_fields.list_by_event(event_id))
         session_fields = list(self._repos.session_fields.list_by_event(event_id))
-        time_slots = list(self._repos.time_slots.list_by_event(event_id))
         return ProposalCategoryEditContextDTO(
             category=category,
             available_fields=_sort_by_order(fields, field_order),
@@ -60,11 +58,7 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
                 self._repos.categories.get_session_field_requirements(category.pk)
             ),
             session_field_order=session_field_order,
-            available_time_slots=_sort_by_order(time_slots, time_slot_order),
-            time_slot_requirements=(
-                self._repos.categories.get_time_slot_requirements(category.pk)
-            ),
-            time_slot_order=time_slot_order,
+            asks_available_days=category.asks_available_days,
             proposal_count=self._repos.sessions.count_by_category(category.pk),
         )
 
@@ -75,10 +69,8 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
             category = self._repos.categories.read_by_slug(event_id, category_slug)
             personal_fields = list(self._repos.personal_fields.list_by_event(event_id))
             session_fields = list(self._repos.session_fields.list_by_event(event_id))
-            time_slots = list(self._repos.time_slots.list_by_event(event_id))
             personal = data.personal_fields.scoped_to(personal_fields)
             session = data.session_fields.scoped_to(session_fields)
-            slots = data.time_slots.scoped_to(time_slots)
 
             category_data = ProposalCategoryData(
                 name=data.name,
@@ -88,6 +80,7 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
                 durations=data.durations,
                 min_participants_limit=data.min_participants_limit,
                 max_participants_limit=data.max_participants_limit,
+                asks_available_days=data.asks_available_days,
             )
             if data.promotion_mode is not None:
                 category_data["promotion_mode"] = data.promotion_mode
@@ -99,7 +92,4 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
             )
             self._repos.categories.set_session_field_requirements(
                 category.pk, session.requirements, session.order
-            )
-            self._repos.categories.set_time_slot_requirements(
-                category.pk, slots.requirements, slots.order
             )

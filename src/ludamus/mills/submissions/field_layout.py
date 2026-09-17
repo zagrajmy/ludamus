@@ -78,11 +78,8 @@ class ImportFieldLayoutService:
                     settings=settings,
                     row=row,
                 )
-                result.session_links_filled += self._fill_missing_time_slots(
-                    event_id=event_id,
-                    session_id=entry.session_id,
-                    settings=settings,
-                    row=row,
+                result.session_links_filled += self._fill_missing_available_days(
+                    session_id=entry.session_id, settings=settings, row=row
                 )
                 result.session_links_filled += self._fill_missing_tracks(
                     event_id=event_id,
@@ -198,29 +195,21 @@ class ImportFieldLayoutService:
         self._repos.sessions.update(session_id, {"category_id": category_id})
         return 1
 
-    def _fill_missing_time_slots(
-        self,
-        *,
-        event_id: int,
-        session_id: int,
-        settings: ImportSettings,
-        row: ImportRow,
+    def _fill_missing_available_days(
+        self, *, session_id: int, settings: ImportSettings, row: ImportRow
     ) -> int:
-        # Apply-field-layout extension for preferred time slots: only fill
-        # when the session has none yet and the row resolves at least one
-        # window.
-        if self._repos.sessions.read_preferred_time_slot_ids(session_id):
+        # Apply-field-layout extension for available days: only fill when the
+        # session has none yet and the row resolves at least one day.
+        if self._repos.sessions.read_available_days(session_id):
             return 0
         try:
-            ids = self._engine.time_slot_ids(
-                event_id=event_id, settings=settings, row=row
-            )
+            days = self._engine.available_days(settings=settings, row=row)
         except RowSkippedError:
             return 0
-        if not ids:
+        if not days:
             return 0
-        self._repos.sessions.set_time_slots(session_id, ids)
-        return len(ids)
+        self._repos.sessions.set_available_days(session_id, days)
+        return len(days)
 
     def _fill_missing_tracks(
         self,

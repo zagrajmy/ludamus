@@ -42,7 +42,6 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     Space,
-    TimeSlot,
     Track,
 )
 
@@ -58,16 +57,20 @@ CATEGORIES = ("RPG", "Board Games", "Workshops", "LARP")
 fake = Faker()
 
 
-def _slots(event: Event) -> list[TimeSlot]:
+type Window = tuple[datetime, datetime]
+
+
+def _windows(event: Event) -> list[Window]:
+    # The programme's own cells. Nothing stores them any more: the grid reads
+    # its hours off the event and whatever ends up scheduled here.
     local_tz = get_current_timezone()
     friday = (event.start_time.astimezone(local_tz)).date()
-    return TimeSlot.objects.bulk_create(
-        TimeSlot(
-            event=event,
-            start_time=datetime.combine(
+    return [
+        (
+            datetime.combine(
                 friday + timedelta(days=day_offset), time(hour), tzinfo=local_tz
             ),
-            end_time=datetime.combine(
+            datetime.combine(
                 friday + timedelta(days=day_offset),
                 time(hour + SLOT_HOURS),
                 tzinfo=local_tz,
@@ -75,7 +78,7 @@ def _slots(event: Event) -> list[TimeSlot]:
         )
         for day_offset, start_hour, end_hour in DAY_RANGES
         for hour in range(start_hour, end_hour, SLOT_HOURS)
-    )
+    ]
 
 
 def _spaces_and_tracks(event: Event) -> tuple[list[Space], dict[int, Track]]:
@@ -145,7 +148,7 @@ def main() -> None:
         },
     )
 
-    slots = _slots(event)
+    windows = _windows(event)
     spaces, tracks = _spaces_and_tracks(event)
 
     categories = [
@@ -160,7 +163,7 @@ def main() -> None:
         for name in CATEGORIES
     ]
 
-    cells = [(space, slot) for space in spaces for slot in slots]
+    cells = [(space, window) for space in spaces for window in windows]
     if len(cells) < TARGET_SESSIONS:
         msg = f"grid holds {len(cells)} cells, need {TARGET_SESSIONS}"
         raise SystemExit(msg)
@@ -189,23 +192,23 @@ def main() -> None:
             space=space,
             session=session,
             session_confirmed=True,
-            start_time=slot.start_time,
-            end_time=slot.end_time,
+            start_time=window[0],
+            end_time=window[1],
         )
-        for session, (space, slot) in zip(sessions, cells, strict=True)
+        for session, (space, window) in zip(sessions, cells, strict=True)
     )
 
     through = Session.tracks.through
     through.objects.bulk_create(
         through(session_id=session.pk, track_id=tracks[_building_of(space)].pk)
-        for session, (space, _slot) in zip(sessions, cells, strict=True)
+        for session, (space, _window) in zip(sessions, cells, strict=True)
     )
 
     scheduled = AgendaItem.objects.filter(session__event=event).count()
     assert scheduled == TARGET_SESSIONS, (scheduled, TARGET_SESSIONS)
     print(
         f"Seeded '{event.slug}': {scheduled} sessions across "
-        f"{len(spaces)} spaces and {len(slots)} time slots."
+        f"{len(spaces)} spaces and {len(windows)} programme hours."
     )
 
 

@@ -26,13 +26,11 @@ from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import (
     EventPublicationInvalidError,
     FacilitatorListItemDTO,
-    TimeSlotRejectedError,
 )
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
     SessionListItemDTO,
-    TimeSlotDTO,
     TrackListItemDTO,
 )
 from ludamus.pacts.mcp import ToolScope
@@ -59,7 +57,6 @@ if TYPE_CHECKING:
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
 _SPACE_LEAF_LIST = TypeAdapter(list["_SpaceLeaf"])
-_TIME_SLOT_LIST = TypeAdapter(list[TimeSlotDTO])
 _SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
 _FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
@@ -137,25 +134,6 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
             include_internal=call.data.include_internal,
         )
         return _SPACE_LEAF_LIST.dump_json(spaces, indent=2).decode()
-
-
-class OrganizerListTimeSlotsTool(Tool[EventIdInput]):
-    name = "list_time_slots"
-    description = (
-        "List an event's time slots: the day windows sessions can be placed in. "
-        "Returns each slot's pk and aware start/end times. Read-only; works for "
-        "any event in this token's sphere."
-    )
-    scope = ToolScope.ORGANIZER
-    input_model = EventIdInput
-
-    @staticmethod
-    def handle(call: ToolCall[EventIdInput]) -> str:
-        event = require_event(
-            services=call.services, actor=call.actor, event_id=call.data.event_id
-        )
-        slots = call.services.panel_time_slots.list_for_event(event.pk)
-        return _TIME_SLOT_LIST.dump_json(slots, indent=2).decode()
 
 
 class _TrackListItem(TrackListItemDTO):
@@ -301,33 +279,6 @@ _STARTS_BEFORE_PUBLICATION = (
     "start_time is before the event's publication_time; move the publication "
     "first (update_event)"
 )
-
-
-class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
-    name = "create_time_slot"
-    description = (
-        "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends and not overlap an existing slot; a "
-        "rejection names which rule failed. A window past the event dates "
-        "widens them, which the result reports as event_dates_widened."
-    )
-    scope = ToolScope.ORGANIZER
-    input_model = AwareDatetimeRange
-
-    @staticmethod
-    def handle(call: ToolCall[AwareDatetimeRange]) -> str:
-        event = token_event(services=call.services, actor=call.actor)
-        try:
-            saved = call.services.panel_time_slots.create(
-                event=event,
-                start_time=call.data.start_time,
-                end_time=call.data.end_time,
-            )
-        except TimeSlotRejectedError as error:
-            raise ToolError(str(error)) from error
-        except EventPublicationInvalidError as error:
-            raise ToolError(_STARTS_BEFORE_PUBLICATION) from error
-        return saved.model_dump_json(indent=2)
 
 
 class _CreateTrackInput(BaseModel):
@@ -960,13 +911,11 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
-        OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),
         OrganizerListProposalCategoriesTool(),
         OrganizerListSessionsTool(),
         OrganizerListFacilitatorsTool(),
         OrganizerCreateSpaceTool(),
-        OrganizerCreateTimeSlotTool(),
         OrganizerCreateTrackTool(),
         OrganizerCreateProposalCategoryTool(),
         OrganizerFindOrCreateFacilitatorTool(),

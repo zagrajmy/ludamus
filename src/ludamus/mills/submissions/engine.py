@@ -38,6 +38,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
+    AvailableDaySpec,
     FieldDefinition,
     ImportLogEntryCreateData,
     ImportLogStatus,
@@ -45,10 +46,11 @@ from ludamus.pacts.submissions import (
     ImportRow,
     ImportSettings,
     ProposalImportResult,
-    TimeSlotSpec,
 )
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
@@ -324,9 +326,7 @@ class ImportEngine:
         )
         session_id = self._repos.sessions.create(
             session_data,
-            time_slot_ids=self.time_slot_ids(
-                event_id=event_id, settings=settings, row=row
-            ),
+            available_days=self.available_days(settings=settings, row=row),
             track_ids=self.track_ids(event_id=event_id, settings=settings, row=row),
             facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
@@ -369,10 +369,9 @@ class ImportEngine:
             settings=settings,
             row=row,
         )
-        if not self._repos.sessions.read_preferred_time_slot_ids(session_id):
-            self._repos.sessions.set_time_slots(
-                session_id,
-                self.time_slot_ids(event_id=event_id, settings=settings, row=row),
+        if not self._repos.sessions.read_available_days(session_id):
+            self._repos.sessions.set_available_days(
+                session_id, self.available_days(settings=settings, row=row)
             )
         if not self._repos.sessions.read_track_ids(session_id):
             self._repos.sessions.set_session_tracks(
@@ -689,16 +688,15 @@ class ImportEngine:
         if entries:
             self._repos.personal_data_field_values.save(entries)
 
-    def time_slot_ids(
-        self, *, event_id: int, settings: ImportSettings, row: ImportRow
-    ) -> list[int]:
-        # For each `session.time_slots` question, the chosen options' windows
-        # are provisioned (deduped by start+end) and their ids collected. The
-        # response cell joins multi-select answers with ", "; options here are
-        # comma-free, so a comma split + exact match resolves them.
-        ids: list[int] = []
+    @staticmethod
+    def available_days(*, settings: ImportSettings, row: ImportRow) -> list[date]:
+        # For each `session.available_days` question, the chosen options name
+        # the days the facilitator offered. The response cell joins
+        # multi-select answers with ", "; options here are comma-free, so a
+        # comma split + exact match resolves them.
+        days: list[date] = []
         for header, target in settings.questions.items():
-            if target.to != "session.time_slots":
+            if target.to != "session.available_days":
                 continue
             chosen = {
                 part.strip()
@@ -707,16 +705,12 @@ class ImportEngine:
             for option, spec in target.values.items():
                 if option not in chosen:
                     continue
-                windows = spec if isinstance(spec, list) else [spec]
-                for window in windows:
-                    if not isinstance(window, TimeSlotSpec):
+                for offered in spec if isinstance(spec, list) else [spec]:
+                    if not isinstance(offered, AvailableDaySpec):
                         continue
-                    slot_id = self._repos.time_slots.get_or_create(
-                        event_id, window.start_time, window.end_time
-                    )
-                    if slot_id not in ids:
-                        ids.append(slot_id)
-        return ids
+                    if offered.day not in days:
+                        days.append(offered.day)
+        return sorted(days)
 
     def track_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

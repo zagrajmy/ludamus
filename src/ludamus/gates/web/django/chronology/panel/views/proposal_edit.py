@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
@@ -13,6 +14,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.text import slugify
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -43,6 +45,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.chronology import days_between
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
@@ -65,6 +68,13 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldRequirementDTO,
     )
+
+
+def _as_day(raw: str) -> date | None:
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -422,11 +432,20 @@ class ProposalFormPageView(_ProposalFormBase):
             plural="tracks", singular="track", valid={t.pk for t in tracks}
         )
 
-    def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
-        slots = self.request.di.uow.time_slots.list_by_event(event_pk)
-        return self._collect_ids(
-            plural="time_slots", singular="time_slot", valid={s.pk for s in slots}
+    @staticmethod
+    def _event_days(event: EventDTO) -> list[date]:
+        return days_between(
+            localtime(event.start_time).date(), localtime(event.end_time).date()
         )
+
+    def _collect_available_days(self, event: EventDTO) -> list[date] | None:
+        # Same sentinel contract as the id pickers: absent means "the picker
+        # was not on the page", present-but-empty means "cleared".
+        if self.request.POST.get("available_days_submitted") != "1":
+            return None
+        offered = set(self._event_days(event))
+        raw = self.request.POST.getlist("available_days")
+        return sorted({day for day in map(_as_day, raw) if day in offered})
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
@@ -598,16 +617,15 @@ class ProposalFormPageView(_ProposalFormBase):
                 sessions.read_track_ids(proposal_id) if proposal_id is not None else ()
             ),
         )
-        self._picker_context(
-            context,
-            plural="time_slots",
-            singular="time_slot",
-            all_items=self.request.di.uow.time_slots.list_by_event(event_pk),
-            stored=(
-                sessions.read_preferred_time_slot_ids(proposal_id)
-                if proposal_id is not None
-                else ()
-            ),
+        submitted_days = self._collect_available_days(current_event)
+        stored_days = (
+            sessions.read_available_days(proposal_id)
+            if proposal_id is not None
+            else []
+        )
+        context["all_available_days"] = self._event_days(current_event)
+        context["selected_available_days"] = (
+            submitted_days if submitted_days is not None else stored_days
         )
 
         context.update(self._field_context(current_event, prepared))
@@ -729,7 +747,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     else {}
                 ),
                 track_ids=self._collect_track_ids(current_event.pk) or [],
-                time_slot_ids=self._collect_time_slot_ids(current_event.pk) or [],
+                available_days=self._collect_available_days(current_event) or [],
             ),
         )
 
@@ -810,7 +828,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     ),
                     facilitator_ids=self._collect_facilitator_ids(current_event.pk),
                     track_ids=self._collect_track_ids(current_event.pk),
-                    time_slot_ids=self._collect_time_slot_ids(current_event.pk),
+                    available_days=self._collect_available_days(current_event),
                     remove_field_ids=remove_field_ids,
                 ),
             )

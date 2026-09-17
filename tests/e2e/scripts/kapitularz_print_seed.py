@@ -16,7 +16,6 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
-    TimeSlot,
     Track,
     User,
 )
@@ -221,7 +220,6 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     participants = _create_participants()
     session_specs = _session_specs()
 
-    _create_time_slots(event, session_specs)
     sessions = _create_sessions(event, tracks, facilitators, session_specs)
     _create_participations(sessions, participants)
     _create_touching_pair(event, spaces)
@@ -333,14 +331,6 @@ def _session_specs() -> list[SessionSpec]:
                 track_slug = weighted_tracks[len(specs) % len(weighted_tracks)]
                 specs.append(SessionSpec(day=day, hour=hour, track_slug=track_slug))
     return specs
-
-
-def _create_time_slots(event: Event, specs: list[SessionSpec]) -> None:
-    for day, hour in sorted({(spec.day, spec.hour) for spec in specs}):
-        start = event.start_time + timedelta(days=day, hours=hour - EVENT_START_HOUR)
-        TimeSlot.objects.create(
-            event=event, start_time=start, end_time=start + timedelta(hours=1)
-        )
 
 
 def _create_sessions(

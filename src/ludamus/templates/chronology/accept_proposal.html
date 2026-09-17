@@ -65,17 +65,15 @@
                     {% translate "Submitted" as submitted_label %}
                     {% include "components/_detail_tile.html" with label=submitted_label value=session.creation_time|date:"M j, Y" %}
                 </div>
-                {% if preferred_time_slot_ids %}
+                {% if available_days %}
                     <div class="mt-6">
                         <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
-                            {% icon "clock" class="w-4 h-4 inline mr-1" variant="mini" %}
-                            {% translate "Preferred Time Slots" %}
+                            {% icon "calendar-days" class="w-4 h-4 inline mr-1" variant="mini" %}
+                            {% translate "Days the facilitator offered" %}
                         </h4>
                         <div class="flex flex-wrap gap-1.5">
-                            {% for slot in time_slots %}
-                                {% if slot.pk in preferred_time_slot_ids %}
-                                    <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
-                                {% endif %}
+                            {% for day in available_days %}
+                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ day|date:"l, M j" }}</span>
                             {% endfor %}
                         </div>
                     </div>
@@ -91,15 +89,10 @@
                     {# a reviewer reading proposals should never be bounced back to #}
                     {# the event page over setup they can reach from right here. #}
                     <p class="text-sm text-foreground-muted">
-                        {% if schedule_blocker == "time_slots" %}
-                            {% translate "This event has no time slots yet, so nothing can go on the agenda. Add the time slots, then come back to accept this proposal." %}
-                        {% elif schedule_blocker == "spaces" %}
-                            {% translate "This event has no spaces yet, so nothing can go on the agenda. Add a space, then come back to accept this proposal." %}
-                        {% endif %}
+                        {% translate "This event has no spaces yet, so nothing can go on the agenda. Add a space, then come back to accept this proposal." %}
                     </p>
                 {% else %}
                     {% tessera_sole_choice form.space as sole_space %}
-                    {% tessera_sole_choice form.time_slot as sole_slot %}
                     {# The submit lives in the shared actions block below, tied back #}
                     {# by form=, so the "or / Back to event" tail is written once. #}
                     <form id="accept-proposal-form"
@@ -111,30 +104,20 @@
                         {# A field with one option asks nothing, so it renders as a #}
                         {# hidden value — the row below is where the organizer reads #}
                         {# what they are about to commit to. #}
-                        {% if sole_space or sole_slot %}
+                        {% if sole_space %}
                             <dl>
-                                {% if sole_space %}
-                                    {% translate "Space" as space_label %}
-                                    {% include "chronology/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}
-                                {% endif %}
-                                {% if sole_slot %}
-                                    {% translate "Time slot" as time_label %}
-                                    {% include "chronology/_accept_fact_row.html" with icon="clock" label=time_label value=sole_slot %}
-                                {% endif %}
+                                {% translate "Space" as space_label %}
+                                {% include "chronology/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}
                             </dl>
                         {% endif %}
                         {% tessera_field form.space %}
-                        {% tessera_field form.time_slot %}
+                        {% tessera_field form.start_time %}
                     </form>
                 {% endif %}
                 {# One actions block for every state: the primary action is whatever #}
                 {# this state can do, the way out is the same either way. #}
                 <div class="[&_.btn]:w-full space-y-3 pt-5">
-                    {% if schedule_blocker == "time_slots" %}
-                        {% url 'panel:time-slot-create' slug=event.slug as fix_url %}
-                        {% translate "Add time slots" as fix_label %}
-                        {% tessera_button fix_label href=fix_url icon="clock" full_width_mobile=True %}
-                    {% elif schedule_blocker == "spaces" %}
+                    {% if schedule_blocker == "spaces" %}
                         {% url 'panel:space-create' slug=event.slug as fix_url %}
                         {% translate "Add a space" as fix_label %}
                         {% tessera_button fix_label href=fix_url icon="map-pin" full_width_mobile=True %}

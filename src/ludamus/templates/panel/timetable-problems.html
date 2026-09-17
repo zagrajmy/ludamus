@@ -67,11 +67,9 @@
                                         <div class="text-xs text-warning mt-0.5">
                                             {% blocktranslate with start=violation.scheduled_start|date:"D, M j H:i" end=violation.scheduled_end|time:"H:i" %}Scheduled: {{ start }} – {{ end }}{% endblocktranslate %}
                                         </div>
-                                        <div class="text-xs text-foreground-muted mt-1">{% translate "Preferred slots:" %}</div>
+                                        <div class="text-xs text-foreground-muted mt-1">{% translate "Offered days:" %}</div>
                                         <ul class="text-xs text-foreground-muted ml-3 list-disc">
-                                            {% for slot in violation.preferred_slots %}
-                                                <li>{{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}</li>
-                                            {% endfor %}
+                                            {% for day in violation.available_days %}<li>{{ day|date:"l, M j" }}</li>{% endfor %}
                                         </ul>
                                         {% if violation.track_name %}
                                             <div class="text-xs text-foreground-muted mt-1">

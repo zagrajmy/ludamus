@@ -134,11 +134,11 @@
                     </div>
                 </div>
             {% endif %}
-            {% if all_time_slots %}
+            {% if all_available_days %}
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" name="time_slots_submitted" value="1">
-                        {% include "panel/parts/time-slot-picker.html" %}
+                        <input type="hidden" name="available_days_submitted" value="1">
+                        {% include "panel/parts/available-days-picker.html" %}
                     </div>
                 </div>
             {% endif %}

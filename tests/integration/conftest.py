@@ -27,7 +27,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     Space,
     Sphere,
-    TimeSlot,
+    SessionAvailableDay,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
@@ -163,13 +163,11 @@ class SpaceFactory(DjangoModelFactory):
     event = SubFactory(EventFactory)
 
 
-class TimeSlotFactory(DjangoModelFactory):
+class SessionAvailableDayFactory(DjangoModelFactory):
     class Meta:
-        model = TimeSlot
+        model = SessionAvailableDay
 
-    event = SubFactory(EventFactory)
-    start_time = LazyAttribute(lambda o: o.event.start_time)
-    end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
+    day = LazyAttribute(lambda o: localtime(o.session.event.start_time).date())
 
 
 class SessionFactory(DjangoModelFactory):
@@ -382,15 +380,6 @@ def enrollment_config_fixture(event):
 @pytest.fixture(name="space")
 def space_fixture(event):
     return SpaceFactory(event=event)
-
-
-@pytest.fixture
-def time_slot(event):
-    return TimeSlotFactory(
-        event=event,
-        start_time=event.start_time,
-        end_time=event.start_time + timedelta(hours=2),
-    )
 
 
 @pytest.fixture(name="session")

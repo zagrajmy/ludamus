@@ -8,7 +8,7 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from urllib.parse import urlencode
 
@@ -17,7 +17,6 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 from pydantic import ValidationError
@@ -41,6 +40,7 @@ from ludamus.pacts.durations import (
     InvalidDurationError,
 )
 from ludamus.pacts.submissions import (
+    AvailableDaySpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -48,7 +48,6 @@ from ludamus.pacts.submissions import (
     ImportSettings,
     QuestionTarget,
     QuestionValue,
-    TimeSlotSpec,
 )
 
 if TYPE_CHECKING:
@@ -64,20 +63,14 @@ SESSION_COLUMNS = (
     "participants_limit",
     "contact_email",
 )
-TIME_SLOTS_TARGET = "session.time_slots"
+AVAILABLE_DAYS_TARGET = "session.available_days"
 ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
-LOCAL_DT_FORMAT = "%Y-%m-%dT%H:%M"
 
 
-class Window(TypedDict):
-    start: str
-    end: str
-
-
-class OptionWindows(TypedDict):
+class OptionDays(TypedDict):
     option: str
-    windows: list[Window]
+    days: list[str]
 
 
 class OptionEntity(TypedDict):
@@ -102,7 +95,7 @@ class RecipeRow(TypedDict):
     is_multiple: bool
     allow_custom: bool
     options: str
-    option_windows: list[OptionWindows]
+    option_days: list[OptionDays]
     option_entities: list[OptionEntity]
     option_durations: list[OptionDuration]
     overrides: list[OverrideRow]
@@ -209,9 +202,9 @@ def _row(
         "allow_custom": setup.allow_custom,
         "options": "\n".join(setup.options),
         # Always built from the source options so the (hidden) editors are ready
-        # the moment the operator switches this row to "Time slots" or a
+        # the moment the operator switches this row to "Available days" or a
         # track/category target.
-        "option_windows": _option_windows(question, target),
+        "option_days": _option_days(question, target),
         "option_entities": _option_entities(question, target),
         "option_durations": option_durations(question, target),
         "overrides": _override_rows(target),
@@ -266,7 +259,7 @@ def _summary_row(
 
 
 _FIXED_MAPPING_LABELS = {
-    "session.time_slots": lambda: _("Time slots"),
+    AVAILABLE_DAYS_TARGET: lambda: _("Available days"),
     "track": lambda: _("Track"),
     "category": lambda: _("Category"),
     "facilitator.display_name": lambda: _("Facilitator — Display name"),
@@ -306,8 +299,8 @@ def _details_label(target: QuestionTarget | None, definitions: FieldDefinitions)
     if target is None or target.ignore or not target.to:
         return ""
     to = target.to
-    if to == "session.time_slots":
-        return _("%(count)d windows") % {"count": len(target.values)}
+    if to == AVAILABLE_DAYS_TARGET:
+        return _("%(count)d day mappings") % {"count": len(target.values)}
     if to == "session.duration":
         return _("%(count)d mappings") % {"count": len(target.values)}
     if to in ENTITY_TARGETS:
@@ -352,25 +345,20 @@ def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
     return setup.field_type, setup.is_multiple
 
 
-def _option_windows(
+def _option_days(
     question: SourceQuestion, target: QuestionTarget | None
-) -> list[OptionWindows]:
-    # One editable group per source option, pre-filled with its configured
-    # windows (local datetime-local strings) or a single blank window to fill.
+) -> list[OptionDays]:
+    # One editable group per source option, pre-filled with the event days it
+    # maps to (ISO strings) or a single blank row to fill.
     configured = target.values if target else {}
-    rows: list[OptionWindows] = []
+    rows: list[OptionDays] = []
     for option in question.options:
         spec = configured.get(option)
         specs = spec if isinstance(spec, list) else [spec] if spec else []
-        windows: list[Window] = [
-            {
-                "start": localtime(s.start_time).strftime(LOCAL_DT_FORMAT),
-                "end": localtime(s.end_time).strftime(LOCAL_DT_FORMAT),
-            }
-            for s in specs
-            if isinstance(s, TimeSlotSpec)
-        ] or [{"start": "", "end": ""}]
-        rows.append({"option": option, "windows": windows})
+        days: list[str] = [
+            s.day.isoformat() for s in specs if isinstance(s, AvailableDaySpec)
+        ] or [""]
+        rows.append({"option": option, "days": days})
     return rows
 
 
@@ -461,35 +449,27 @@ def _store_definition(
         )
 
 
-def _time_slot_values_from_post(
+def _available_day_values_from_post(
     post: QueryDict, index: int
 ) -> dict[str, QuestionValue]:
-    # The window rows submit parallel arrays (one entry per row); regroup them
-    # by option, dropping rows missing a start or end.
-    grouped: dict[str, list[TimeSlotSpec]] = {}
+    # The day rows submit parallel arrays (one entry per row); regroup them by
+    # option, dropping blank and unparsable days.
+    grouped: dict[str, list[AvailableDaySpec]] = {}
     rows = zip(
-        post.getlist(f"tsoption_{index}"),
-        post.getlist(f"tsstart_{index}"),
-        post.getlist(f"tsend_{index}"),
+        post.getlist(f"dayoption_{index}"),
+        post.getlist(f"dayvalue_{index}"),
         strict=False,
     )
-    tz = get_current_timezone()
-    for option, start, end in rows:
-        if not (option and start and end):
+    for option, raw_day in rows:
+        if not (option and raw_day):
             continue
         try:
-            start_dt = datetime.fromisoformat(start)
-            end_dt = datetime.fromisoformat(end)
+            day = date.fromisoformat(raw_day)
         except ValueError:
             continue
-        grouped.setdefault(option, []).append(
-            TimeSlotSpec(
-                start_time=make_aware(start_dt, tz), end_time=make_aware(end_dt, tz)
-            )
-        )
+        grouped.setdefault(option, []).append(AvailableDaySpec(day=day))
     result: dict[str, QuestionValue] = {
-        option: windows[0] if len(windows) == 1 else windows
-        for option, windows in grouped.items()
+        option: days[0] if len(days) == 1 else days for option, days in grouped.items()
     }
     return result
 
@@ -527,10 +507,10 @@ def _entity_map_from_post(
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
     overrides = _overrides_from_post(post, index)
-    if choice == TIME_SLOTS_TARGET:
+    if choice == AVAILABLE_DAYS_TARGET:
         return QuestionTarget(
             to=choice,
-            values=_time_slot_values_from_post(post, index),
+            values=_available_day_values_from_post(post, index),
             overrides=overrides,
         )
     if choice in ENTITY_TARGETS:
@@ -1185,7 +1165,7 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
                 "+%(added)d / -%(removed)d session fields, "
                 "+%(p_added)d / -%(p_removed)d personal entries, "
                 "filled %(builtins)d missing built-in fields, "
-                "linked %(links)d missing facilitators / time slots / tracks, "
+                "linked %(links)d missing facilitators / available days / tracks, "
                 "pruned %(pruned)d orphan field definitions."
             )
             % {

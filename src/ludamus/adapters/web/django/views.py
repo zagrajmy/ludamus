@@ -94,7 +94,6 @@ from ludamus.pacts import (
     SessionDTO,
     SessionFieldValueDTO,
     SpherePage,
-    TimeSlotDTO,
 )
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
@@ -726,14 +725,14 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     )
                     for sp in session.session_participations.all()
                 ],
-                # Only an unscheduled proposal has preferences worth reading;
-                # its queryset is the one that prefetches them.
-                preferred_time_slots=(
+                # Only an unscheduled proposal has availability worth reading;
+                # its queryset is the one that prefetches it.
+                available_days=(
                     []
                     if agenda_item
                     else [
-                        TimeSlotDTO.model_validate(slot)
-                        for slot in session.time_slots.all()
+                        available_day.day
+                        for available_day in session.available_days.all()
                     ]
                 ),
             )

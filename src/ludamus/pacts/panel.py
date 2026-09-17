@@ -1,5 +1,7 @@
 """Organizer panel DTOs and protocols for the proposals and facilitators lists."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
@@ -9,6 +11,8 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
@@ -26,7 +30,6 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
 
@@ -141,7 +144,7 @@ class ProposalDraft:
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
     track_ids: list[int] = field(default_factory=list)
-    time_slot_ids: list[int] = field(default_factory=list)
+    available_days: list[date] = field(default_factory=list)
 
 
 @dataclass
@@ -196,7 +199,6 @@ class ProposalPanelRepos:
     panel_settings: EventPanelSettingsRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     tracks: TrackRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
 
 
 class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):

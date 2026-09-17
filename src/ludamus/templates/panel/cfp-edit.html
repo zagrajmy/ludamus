@@ -368,46 +368,18 @@
                            class="text-sm text-primary hover:text-primary/80">{% translate "Configure session fields" %}</a>
                     </div>
                 {% endif %}
-                {% if available_time_slots %}
-                    <div class="card mt-6">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Time Slots" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-6">
-                                {% translate "Select which time slots are available for this category." %}
-                            </p>
-                            <input type="hidden"
-                                   name="time_slot_order"
-                                   id="time-slot-order"
-                                   value="{{ time_slot_order|join:',' }}">
-                            <div id="time-slots-list" class="space-y-2">
-                                {% for slot in available_time_slots %}
-                                    <div data-field-item
-                                         class="flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
-                                         data-field-id="{{ slot.pk }}"
-                                         data-original-index="{{ forloop.counter0 }}">
-                                        <span class="text-sm font-medium text-foreground-secondary flex-1">{{ slot.start_time|date:"D d M" }} · {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}</span>
-                                        <select name="time_slot_{{ slot.pk }}" data-field-select class="hidden">
-                                            <option value="none"
-                                                    {% if slot.pk not in time_slot_requirements %}selected{% endif %}>
-                                                {% translate "Not included" %}
-                                            </option>
-                                            <option value="required"
-                                                    {% if slot.pk in time_slot_requirements %}selected{% endif %}>
-                                                {% translate "Included" %}
-                                            </option>
-                                        </select>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Availability" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Ask proposers which event days they could run this on. The days come from the event's own dates, so there is nothing else to set up." %}
+                        </p>
+                        <label class="flex items-center gap-2 text-sm">
+                            {% include "components/checkbox-input.html" with name="asks_available_days" checked=asks_available_days only %}
+                            {% translate "Ask for available days" %}
+                        </label>
                     </div>
-                {% else %}
-                    <div class="bg-bg-tertiary rounded-xl border border-border p-6 mt-6 text-center">
-                        <p class="text-sm text-foreground-muted mb-2">{% translate "No time slots defined for this event." %}</p>
-                        <a href="{% url 'panel:time-slots' slug=current_event.slug %}"
-                           class="text-sm text-primary hover:text-primary/80">{% translate "Configure time slots" %}</a>
-                    </div>
-                {% endif %}
+                </div>
                 <script{% nonce %}>
                     window.__fieldPickerI18n = {
                         chosen: "{% translate 'Chosen' %}",
@@ -731,9 +703,6 @@
                         });
                         setupFieldPicker('session-fields-list', 'session-field-order', {
                             hasRequiredOptional: true
-                        });
-                        setupFieldPicker('time-slots-list', 'time-slot-order', {
-                            hasRequiredOptional: false
                         });
                     })();
                 </script>

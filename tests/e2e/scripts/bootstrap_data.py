@@ -27,7 +27,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.utils import timezone
-from django.utils.timezone import get_current_timezone
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -47,7 +47,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
-    TimeSlot,
+    SessionAvailableDay,
     Track,
     User,
 )
@@ -866,11 +866,6 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     )
     venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
     _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time + timedelta(hours=1),
-        end_time=event.start_time + timedelta(hours=3),
-    )
     category = ProposalCategory.objects.create(
         event=event,
         name="Showcase",
@@ -1169,11 +1164,6 @@ def main() -> None:
         max_participants_limit=6,
         durations=["PT1H"],
     )
-    proposal_slot = TimeSlot.objects.create(
-        event=upcoming_event,
-        start_time=upcoming_event.start_time + timedelta(hours=1),
-        end_time=upcoming_event.start_time + timedelta(hours=2),
-    )
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -1188,11 +1178,13 @@ def main() -> None:
         min_age=12,
         status=SessionStatus.PENDING,
     )
-    pending_session.time_slots.add(proposal_slot)
+    SessionAvailableDay.objects.create(
+        session=pending_session, day=localtime(upcoming_event.start_time).date()
+    )
 
     # A second proposal covering the card's other two arms: no participants
     # limit at all (which must render nothing, not "0 seats"), and more
-    # preferred slots than the meta row can name.
+    # offered days than the meta row can name.
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -1207,13 +1199,12 @@ def main() -> None:
         min_age=0,
         status=SessionStatus.PENDING,
     )
-    open_session.time_slots.set(
-        TimeSlot.objects.create(
-            event=upcoming_event,
-            start_time=upcoming_event.start_time + timedelta(hours=offset),
-            end_time=upcoming_event.start_time + timedelta(hours=offset + 1),
+    SessionAvailableDay.objects.bulk_create(
+        SessionAvailableDay(
+            session=open_session,
+            day=localtime(upcoming_event.start_time).date() + timedelta(days=offset),
         )
-        for offset in (3, 5, 7)
+        for offset in (0, 1, 2)
     )
 
     # Dedicated events for the mutating panel / cover-image specs, so they

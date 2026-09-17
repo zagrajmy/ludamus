@@ -1,15 +1,10 @@
 import { requestConfirm } from "./confirm";
 
-interface PreferredSlot {
-  end: string;
-  start: string;
-}
-
 interface Placement {
+  availableDays: string[];
   backUrl: string | null;
   confirmed: boolean;
   duration: number;
-  preferredSlots: PreferredSlot[];
   sessionPk: string;
 }
 
@@ -31,9 +26,6 @@ const dayGrids = (): NodeListOf<HTMLElement> =>
 
 const columns = (): NodeListOf<HTMLElement> =>
   document.querySelectorAll<HTMLElement>(".timetable-column");
-
-const columnsForDayGrid = (dayGrid: HTMLElement): NodeListOf<HTMLElement> =>
-  dayGrid.querySelectorAll<HTMLElement>(".timetable-column");
 
 const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
   col.closest<HTMLElement>(".timetable-day-grid");
@@ -108,63 +100,33 @@ function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): v
   if (guide.parentElement !== col) col.append(guide);
 }
 
-function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
+function parseAvailableDays(raw: string | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (s): s is PreferredSlot =>
-        typeof s === "object" &&
-        s !== null &&
-        typeof (s as PreferredSlot).start === "string" &&
-        typeof (s as PreferredSlot).end === "string",
-    );
+    return parsed.filter((day): day is string => typeof day === "string");
   } catch {
     return [];
   }
 }
 
-function clearPreferredSlotOverlays(): void {
-  for (const el of document.querySelectorAll<HTMLElement>(".timetable-preferred-slot")) el.remove();
+function clearAvailableDayOverlays(): void {
+  for (const el of document.querySelectorAll<HTMLElement>(".timetable-day-grid")) {
+    el.classList.remove("timetable-day-offered");
+  }
 }
 
-function renderPreferredSlotOverlays(): void {
-  clearPreferredSlotOverlays();
-  const slots = (armed ?? dragging)?.preferredSlots ?? [];
-  if (slots.length === 0) return;
-
+// Availability is per day now, so the hint is a whole day rather than a band
+// inside one. Marking the offered days leaves every other day droppable —
+// this is advice, not a rule.
+function renderAvailableDayOverlays(): void {
+  clearAvailableDayOverlays();
+  const days = (armed ?? dragging)?.availableDays ?? [];
+  if (days.length === 0) return;
   for (const cal of dayGrids()) {
-    const { eventStart } = cal.dataset;
-    if (!eventStart) continue;
-
-    const totalMinutes = Number(cal.dataset.totalMinutes);
-    if (!totalMinutes) continue;
-
-    const eventStartMs = new Date(eventStart).getTime();
-    const minutePx = pxPerMinute(cal);
-    const pxPerMs = minutePx / 60_000;
-    const totalHeightPx = totalMinutes * minutePx;
-
-    for (const slot of slots) {
-      const startMs = new Date(slot.start).getTime();
-      const endMs = new Date(slot.end).getTime();
-      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
-
-      const rawTop = (startMs - eventStartMs) * pxPerMs;
-      const rawBottom = (endMs - eventStartMs) * pxPerMs;
-      const top = Math.max(0, rawTop);
-      const bottom = Math.min(totalHeightPx, rawBottom);
-      if (bottom <= top) continue;
-
-      for (const col of columnsForDayGrid(cal)) {
-        const overlay = document.createElement("div");
-        overlay.className = "timetable-preferred-slot";
-        overlay.style.top = `calc(${top}px + 20px)`;
-        overlay.style.height = `${bottom - top}px`;
-        col.append(overlay);
-      }
-    }
+    const day = cal.dataset.timetableDay;
+    if (day && days.includes(day)) cal.classList.add("timetable-day-offered");
   }
 }
 
@@ -187,7 +149,7 @@ function enterAssignMode(placement: Placement): void {
   banner().classList.remove("hidden");
   markColumnsActive(true);
   markFiltersInert(true);
-  renderPreferredSlotOverlays();
+  renderAvailableDayOverlays();
 }
 
 function exitAssignMode(): void {
@@ -195,16 +157,16 @@ function exitAssignMode(): void {
   banner().classList.add("hidden");
   markColumnsActive(false);
   markFiltersInert(false);
-  clearPreferredSlotOverlays();
+  clearAvailableDayOverlays();
   hideHoverPreview();
 }
 
 function placementFromAssignButton(btn: HTMLElement): Placement {
   return {
+    availableDays: parseAvailableDays(btn.dataset.assignAvailableDays),
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
-    preferredSlots: parsePreferredSlots(btn.dataset.assignPreferredSlots),
     sessionPk: btn.dataset.assignSessionPk!,
   };
 }
@@ -212,10 +174,10 @@ function placementFromAssignButton(btn: HTMLElement): Placement {
 function placementFromDraggable(el: HTMLElement): Placement {
   const sessionPk = el.dataset.sessionPk!;
   return {
+    availableDays: armed?.sessionPk === sessionPk ? armed.availableDays : [],
     backUrl: armed?.sessionPk === sessionPk ? armed.backUrl : null,
     confirmed: el.dataset.confirmed === "true",
     duration: Number(el.dataset.duration) || 60,
-    preferredSlots: armed?.sessionPk === sessionPk ? armed.preferredSlots : [],
     sessionPk,
   };
 }
@@ -329,7 +291,7 @@ document.addEventListener("dragstart", (e) => {
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", dragging.sessionPk);
   markColumnsActive(true);
-  renderPreferredSlotOverlays();
+  renderAvailableDayOverlays();
 });
 
 document.addEventListener("dragover", (e) => {
@@ -359,10 +321,10 @@ document.addEventListener("dragend", () => {
   dragging = null;
   hideDropGuide();
   if (armed) {
-    renderPreferredSlotOverlays();
+    renderAvailableDayOverlays();
   } else {
     markColumnsActive(false);
-    clearPreferredSlotOverlays();
+    clearAvailableDayOverlays();
   }
 });
 
@@ -407,7 +369,7 @@ document.body.addEventListener("htmx:afterSwap", () => {
     banner().classList.remove("hidden");
     markColumnsActive(true);
     markFiltersInert(true);
-    renderPreferredSlotOverlays();
+    renderAvailableDayOverlays();
   }
 });
 

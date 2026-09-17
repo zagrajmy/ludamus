@@ -5,13 +5,14 @@ from datetime import timedelta
 
 import pytest
 from django.conf import settings
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import AgendaItem, Connection, Facilitator, Track
 from ludamus.links.encryption import FernetEncryptor
 from tests.integration.conftest import (
+    SessionAvailableDayFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
 )
 
@@ -127,16 +128,6 @@ def timetable_scale_data_fixture(event, proposal_category):
         )
         for index in range(SCALE_FACILITATORS)
     ]
-    # One slot per scheduled hour, so preferred-slot violations fire too.
-    slots = [
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=hour),
-            end_time=event.start_time + timedelta(hours=hour + 1),
-        )
-        for hour in range(SCALE_HOURS)
-    ]
-
     sessions = [
         SessionFactory(
             category=proposal_category,
@@ -149,7 +140,11 @@ def timetable_scale_data_fixture(event, proposal_category):
     for index, session in enumerate(sessions):
         # Facilitators are shared, so sessions clash across rooms as well.
         session.facilitators.add(facilitators[index % len(facilitators)])
-        session.time_slots.add(slots[index % len(slots)])
+        # Offer the day after the event opens, so every session scheduled on
+        # the opening day counts as a day violation and the page exercises it.
+        SessionAvailableDayFactory(
+            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
+        )
         session.tracks.add(tracks[index % len(tracks)])
 
     for index, session in enumerate(sessions[:SCALE_SCHEDULED]):

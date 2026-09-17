@@ -10,10 +10,11 @@ from django.utils.translation import ngettext
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
-from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
+from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
+    from datetime import date
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -140,10 +141,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # the avatar's warning badge, which decides the guild mark's corner. Set
     # from a pk, and a presenter-less session's stand-in pk 0 never matches.
     presenter_is_shadowbanned: bool = False
-    # Slots the author would accept, earliest first. Only ever populated for a
-    # pending proposal: a scheduled session states its real time via
-    # agenda_item, and reading the m2m for one would cost a query per card.
-    preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
+    # Days the author could run this on, earliest first. Only ever populated
+    # for a pending proposal: a scheduled session states its real time via
+    # agenda_item, and reading the days for one would cost a query per card.
+    available_days: list[date] = field(default_factory=list)
 
     @property
     def cloud_overflow(self) -> list[CloudPill]:
