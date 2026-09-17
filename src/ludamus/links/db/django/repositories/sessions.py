@@ -12,10 +12,10 @@ from ludamus.links.db.django.models import (
     Event,
     Facilitator,
     Session,
+    SessionAvailability,
     SessionFieldValue,
     SessionParticipationStatus,
     Space,
-    TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories.chronology import (
@@ -47,12 +47,12 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
     SpaceOptionDTO,
-    TimeSlotDTO,
     TrackDTO,
     TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     SessionModalDTO,
     SessionModalRepositoryProtocol,
@@ -176,7 +176,10 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
             )
         )
         .prefetch_related(
-            Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
+            Prefetch(
+                "availability",
+                queryset=SessionAvailability.objects.order_by("day", "part"),
+            )
         )
         .order_by("-creation_time")
     )
@@ -288,7 +291,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     def create(
         session_data: SessionData,
         *,
-        time_slot_ids: Iterable[int] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
@@ -296,8 +299,13 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # add(), not set(): the session is brand new, so there is nothing to
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.
-        if time_slot_ids:
-            session.time_slots.add(*time_slot_ids)
+        if offered := list(availability):
+            SessionAvailability.objects.bulk_create(
+                [
+                    SessionAvailability(session=session, day=item.day, part=item.part)
+                    for item in offered
+                ]
+            )
         if facilitator_pks := list(facilitator_ids):
             FacilitatorRepository.lock(facilitator_pks)
             session.facilitators.add(*facilitator_pks)
@@ -477,62 +485,34 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         ]
 
     @staticmethod
-    def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(
-            event__event_sessions__id=session_id
-        ).order_by("start_time")
-        return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
-
-    @staticmethod
-    def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
-        try:
-            time_slot = TimeSlot.objects.get(
-                id=time_slot_id, event__event_sessions__id=session_id
-            )
-        except TimeSlot.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return TimeSlotDTO.model_validate(time_slot)
-
-    @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
 
     @staticmethod
-    def read_preferred_time_slot_ids(session_id: int) -> list[int]:
-        return list(
-            TimeSlot.objects.filter(session__id=session_id).values_list("id", flat=True)
-        )
+    def read_availability(session_id: int) -> list[AvailabilityDTO]:
+        return [
+            AvailabilityDTO(day=day, part=DayPart(part))
+            for day, part in (
+                SessionAvailability.objects.filter(session_id=session_id)
+                .order_by("day", "part")
+                .values_list("day", "part")
+            )
+        ]
 
     @staticmethod
-    def read_preferred_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(session__id=session_id)
-        return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
-
-    @staticmethod
-    def read_preferred_time_slots_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[TimeSlotDTO]]:
+    ) -> dict[int, list[AvailabilityDTO]]:
         if not (ids := list(session_ids)):
             return {}
         rows = (
-            Session.time_slots.through.objects.filter(session_id__in=ids)
-            .select_related("timeslot")
-            .values(
-                "session_id",
-                "timeslot__id",
-                "timeslot__start_time",
-                "timeslot__end_time",
-            )
+            SessionAvailability.objects.filter(session_id__in=ids)
+            .order_by("day", "part")
+            .values_list("session_id", "day", "part")
         )
-        result: dict[int, list[TimeSlotDTO]] = {sid: [] for sid in ids}
-        for row in rows:
-            result[row["session_id"]].append(
-                TimeSlotDTO(
-                    pk=row["timeslot__id"],
-                    start_time=row["timeslot__start_time"],
-                    end_time=row["timeslot__end_time"],
-                )
-            )
+        result: dict[int, list[AvailabilityDTO]] = {sid: [] for sid in ids}
+        for session_id, day, part in rows:
+            result[session_id].append(AvailabilityDTO(day=day, part=DayPart(part)))
         return result
 
     @staticmethod
@@ -787,13 +767,26 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.tracks.set(track_pks)
 
     @staticmethod
-    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None:
-        try:
-            session = Session.objects.get(pk=session_id)
-        except Session.DoesNotExist as err:
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None:
+        if not Session.objects.filter(pk=session_id).exists():
             msg = f"Session with pk '{session_id}' not found"
-            raise NotFoundError(msg) from err
-        session.time_slots.set(time_slot_ids)
+            raise NotFoundError(msg)
+        wanted = {(item.day, str(item.part)) for item in offered}
+        existing = set(
+            SessionAvailability.objects.filter(session_id=session_id).values_list(
+                "day", "part"
+            )
+        )
+        for day, part in existing - wanted:
+            SessionAvailability.objects.filter(
+                session_id=session_id, day=day, part=part
+            ).delete()
+        SessionAvailability.objects.bulk_create(
+            [
+                SessionAvailability(session_id=session_id, day=day, part=part)
+                for day, part in sorted(wanted - existing)
+            ]
+        )
 
     @staticmethod
     def read_facilitators_by_sessions(
@@ -902,8 +895,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             qs = qs.filter(tracks__pk=filters.track_pk)
         if filters.available_on is not None:
             qs = qs.filter(
-                Q(time_slots__isnull=True)
-                | Q(time_slots__start_time__date=filters.available_on)
+                Q(availability__isnull=True) | Q(availability__day=filters.available_on)
             ).distinct()
         if filters.category_pk is not None:
             qs = qs.filter(category__pk=filters.category_pk)

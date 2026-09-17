@@ -19,7 +19,7 @@ if TYPE_CHECKING:
         ConflictDTO,
         HeatmapDTO,
         MultiselectOptionDTO,
-        PreferredSlotViolationDTO,
+        OfferedTimeViolationDTO,
         SessionPlacement,
         TimetableGridDTO,
         TimetableGridFilter,
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
         SessionRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
 
@@ -50,7 +49,6 @@ class TimetableRepos:
     sessions: SessionRepositoryProtocol
     agenda_items: AgendaItemRepositoryProtocol
     spaces: SpaceRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
 
@@ -95,10 +93,11 @@ class ConflictDetectionServiceProtocol(Protocol):
         track_pk: int | None,
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
-    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]: ...
-    def list_preferred_slot_violations(
-        self, event_pk: int, track_pk: int | None
-    ) -> list[PreferredSlotViolationDTO]: ...
+        tz: tzinfo,
+    ) -> tuple[list[ConflictDTO], list[OfferedTimeViolationDTO]]: ...
+    def list_offered_time_violations(
+        self, *, event_pk: int, track_pk: int | None, tz: tzinfo
+    ) -> list[OfferedTimeViolationDTO]: ...
 
 
 class TimetableOverviewServiceProtocol(Protocol):
@@ -110,4 +109,4 @@ class TimetableOverviewServiceProtocol(Protocol):
         self, event_pk: int, conflicts: list[ConflictDTO] | None = None
     ) -> dict[str, list[ConflictDTO]]: ...
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]: ...
-    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO: ...
+    def capacity_hours(self, *, event_pk: int, tz: tzinfo) -> CapacityHoursDTO: ...

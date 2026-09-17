@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.availability import AvailabilityDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
@@ -27,20 +28,12 @@ from ludamus.pacts.legacy import (
     SessionSelfEditContext,
     SpaceDTO,
     SpaceOptionDTO,
-    TimeSlotDTO,
 )
 from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
     from ludamus.pacts.submissions import ImportRow
-
-
-# A convention day ends when people go to sleep, not at midnight: a session
-# that runs from Friday 22:00 into the small hours is Friday's programme, and
-# a reader at 02:00 is still living Friday. Every schedule layout, server- and
-# client-side alike, turns its days over at this hour.
-PROGRAMME_DAY_STARTS_AT_HOUR = 6
 
 
 class IntegrationKind(StrEnum):
@@ -301,8 +294,10 @@ class ProposalAcceptContextDTO(BaseModel):
     event: EventDTO
     presenter: UserDTO | None
     space_options: list[SpaceOptionDTO]
-    time_slots: list[TimeSlotDTO]
-    preferred_time_slot_ids: list[int]
+    # When the facilitator said they could run it, so the picker can suggest
+    # a time instead of making the reviewer look it up on the proposal.
+    availability: list[AvailabilityDTO]
+    duration_minutes: int
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
 
@@ -316,7 +311,7 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         *,
         session_id: int,
         space_id: int,
-        time_slot_id: int,
+        start_time: datetime,
         user_slug: str,
         sphere_id: int,
     ) -> None: ...
@@ -483,6 +478,12 @@ class TimetableGridFilter(BaseModel):
     date_selection: DateSelection = "all"
     space_pks: set[int] = set()
     facilitator_pks: set[int] = set()
+    # Extra hours the organizer asked the grid to show beyond the event's own
+    # opening hours, so a session can be dropped into a time nothing occupies
+    # yet. Transient: dropping there widens the event, and the next render
+    # covers the hour on its own.
+    extend_before_hours: int = 0
+    extend_after_hours: int = 0
 
 
 class ConflictType(StrEnum):
@@ -530,6 +531,12 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
+    # What the show-earlier / show-later controls currently add, echoed so the
+    # template can offer the next step and the page can keep it in the URL.
+    extend_before_hours: int = 0
+    extend_after_hours: int = 0
+    can_extend_before: bool = False
+    can_extend_after: bool = False
     # 1-based positions of the rendered rooms among all of them, so the pager
     # can say "Rooms 6–10 of 11" rather than make the reader count pages.
     first_space_number: int
@@ -542,17 +549,12 @@ class TimetableGridDTO(BaseModel):
     conflicts: list[ConflictDTO] = []
 
 
-class PreferredSlotRangeDTO(BaseModel):
-    start_time: datetime
-    end_time: datetime
-
-
-class PreferredSlotViolationDTO(BaseModel):
+class OfferedTimeViolationDTO(BaseModel):
     session_pk: int
     session_title: str
     scheduled_start: datetime
     scheduled_end: datetime
-    preferred_slots: list[PreferredSlotRangeDTO]
+    availability: list[AvailabilityDTO]
     track_name: str | None = None
     manager_names: list[str] = []
 

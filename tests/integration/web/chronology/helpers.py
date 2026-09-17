@@ -32,7 +32,6 @@ from ludamus.pacts import (
     AgendaItemDTO,
     SessionDTO,
     SessionParticipationStatus,
-    TimeSlotDTO,
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import EnrollmentAccessDTO
@@ -88,13 +87,13 @@ def session_card(agenda_item, *, presenter, **overrides):
     return replace(card, **overrides)
 
 
-def proposal_card(session, *, presenter, slots=(), **overrides):
+def proposal_card(session, *, presenter, offered_times=(), **overrides):
     # A pending proposal's card: the same component as session_card, minus
     # everything an agenda item supplies — no time, no space, nothing to enroll
-    # in — plus the slots the author would accept.
-    # `slots` is stated by the caller, in the order the card should show them,
-    # rather than re-read from the session: an expectation that re-runs the
-    # production query cannot catch that query ordering wrongly.
+    # in — plus the times the author could host at.
+    # `offered_times` is stated by the caller, in the order the card should show
+    # them, rather than re-read from the session: an expectation that re-runs
+    # the production query cannot catch that query ordering wrongly.
     card = SessionData(
         agenda_item=None,
         category_name=session.category.name if session.category else "",
@@ -103,7 +102,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         is_enrollment_available=False,
         is_full=False,
         loc=NO_LOCATION,
-        preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
+        offered_times=list(offered_times),
         presenter=UserInfo.from_user_dto(
             UserDTO.model_validate(presenter), gravatar_url=gravatar_url
         ),

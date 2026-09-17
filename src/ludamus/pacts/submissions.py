@@ -6,14 +6,15 @@ context today, with the Session lifecycle and proposal import to follow.
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionFieldUpdateData,
         SessionRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
 
@@ -110,11 +110,12 @@ def _row_header_matches(key: str, header: str) -> bool:
     return suffix != key and _DUPLICATE_HEADER_SUFFIX.fullmatch(suffix) is not None
 
 
-class TimeSlotSpec(BaseModel):
-    # A provisioned time-slot window; the importer dedupes by (start, end).
-    to: Literal["time_slot"] = "time_slot"
-    start_time: datetime
-    end_time: datetime
+class AvailabilitySpec(BaseModel):
+    # When an answer says the facilitator could host: a programme day and the
+    # part of it, never a clock time.
+    to: Literal["availability"] = "availability"
+    day: date
+    part: DayPart
 
 
 class EntityRef(BaseModel):
@@ -132,19 +133,19 @@ class DurationSpec(BaseModel):
     iso: str
 
 
-# A choice option's mapped value: a time-slot window (or several), the
+# A choice option's mapped value: an event day (or several), the
 # track/category entity it resolves to, or an ISO duration.
-QuestionValue = TimeSlotSpec | list[TimeSlotSpec] | EntityRef | DurationSpec
+QuestionValue = AvailabilitySpec | list[AvailabilitySpec] | EntityRef | DurationSpec
 
 
 class QuestionTarget(BaseModel):
     # `to` is "session.<col>" (a built-in proposal field), "field.<slug>" (a new
     # session field), "personal.<slug>" (a new personal-data field),
-    # "session.time_slots" (provisioned windows), or "track"/"category"
+    # "session.availability" (parts of event days), or "track"/"category"
     # (provisioned entities); each provisioned by slug from
     # `ImportSettings.definitions`; `ignore` marks a question as deliberately
     # unmapped. `values` maps a choice option's text to its target value — for
-    # `session.time_slots`, one window or several; for "track"/"category", the
+    # `session.availability`, one entry or several; for "track"/"category", the
     # entity it resolves to. `overrides` substitutes the raw cell text before
     # any parsing or `values` lookup — used to clean up free-form answers like
     # "maybe 8, maybe 10" into "10" for a numeric target, or to fix typos in a
@@ -302,7 +303,6 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
@@ -431,7 +431,7 @@ class ProposalCategorySettingsData(BaseModel):
     offer_claim_window: timedelta | None
     personal_fields: RequirementSelectionDTO
     session_fields: RequirementSelectionDTO
-    time_slots: RequirementSelectionDTO
+    asks_availability: bool
 
 
 class ProposalCategoryEditContextDTO(BaseModel):
@@ -442,9 +442,7 @@ class ProposalCategoryEditContextDTO(BaseModel):
     available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
-    available_time_slots: list[TimeSlotDTO]
-    time_slot_requirements: dict[int, bool]
-    time_slot_order: list[int]
+    asks_availability: bool
     proposal_count: int
 
 
@@ -453,7 +451,6 @@ class ProposalCategorySettingsRepos:
     categories: ProposalCategoryRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
     sessions: SessionRepositoryProtocol
 
 

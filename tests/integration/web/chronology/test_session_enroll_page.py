@@ -34,7 +34,6 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
     sponsor_user,
 )
@@ -956,14 +955,12 @@ class TestSessionEnrollPageView:
     def test_post_time_conflict_skipped(authenticated_client, active_user, event):
         space1 = SpaceFactory(event=event)
         space2 = SpaceFactory(event=event)
-        time_slot = TimeSlotFactory(event=event)
+        start = event.start_time
+        end = start + timedelta(hours=2)
 
         session1 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session1,
-            space=space1,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session1, space=space1, start_time=start, end_time=end
         )
         SessionParticipation.objects.create(
             user=active_user,
@@ -973,10 +970,7 @@ class TestSessionEnrollPageView:
 
         session2 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session2,
-            space=space2,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session2, space=space2, start_time=start, end_time=end
         )
 
         with patch(

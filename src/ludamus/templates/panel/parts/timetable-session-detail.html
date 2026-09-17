@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load date_tags i18n %}
 {% load tessera %}
 <div id="left-pane" class="card w-full lg:w-72 flex-none p-3">
     <div class="flex items-center justify-between mb-3">
@@ -56,7 +56,7 @@
                         data-assign-duration="{{ duration_minutes }}"
                         data-assign-back-url="{{ back_url }}"
                         data-assign-confirmed="{{ agenda_item.session_confirmed|yesno:'true,false' }}"
-                        data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Reassign" %}</button>
+                        data-assign-availability="{{ availability_json }}">{% translate "Reassign" %}</button>
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
                       hx-swap="none"
@@ -100,20 +100,18 @@
                     data-assign-duration="{{ duration_minutes }}"
                     data-assign-back-url="{{ back_url }}"
                     data-assign-confirmed="false"
-                    data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Assign" %}</button>
+                    data-assign-availability="{{ availability_json }}">{% translate "Assign" %}</button>
         {% endif %}
     </div>
-    <!-- Preferred time slots -->
-    {% if time_slots %}
+    <!-- Days the facilitator offered -->
+    {% if availability %}
         <div class="mb-3">
             <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">
-                {% translate "Preferred slots" %}
+                {% translate "Offered times" %}
             </div>
             <div class="space-y-1">
-                {% for slot in time_slots %}
-                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">
-                        {{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
-                    </div>
+                {% for entry in availability %}
+                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</div>
                 {% endfor %}
             </div>
         </div>

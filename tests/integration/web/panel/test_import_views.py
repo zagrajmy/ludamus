@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import date
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib import messages
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
 from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
@@ -31,16 +30,16 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldValue,
-    TimeSlot,
     Track,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.pacts.submissions import (
+    AvailabilitySpec,
     EntityRef,
     ImportLogStatus,
     ImportSettings,
-    TimeSlotSpec,
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -302,9 +301,9 @@ class TestEventImportProposalView:
                 "is_multiple": False,
                 "allow_custom": True,
                 "options": "do 16\n18+",
-                "option_windows": [
-                    {"option": "do 16", "windows": [{"start": "", "end": ""}]},
-                    {"option": "18+", "windows": [{"start": "", "end": ""}]},
+                "option_times": [
+                    {"option": "do 16", "times": [{"day": "", "part": ""}]},
+                    {"option": "18+", "times": [{"day": "", "part": ""}]},
                 ],
                 "option_entities": [
                     {"option": "do 16", "name": "do 16", "slug": "do-16"},
@@ -322,7 +321,7 @@ class TestEventImportProposalView:
         # The source options reach the rendered setup textarea (not just context).
         assert "do 16\n18+" in response.content.decode()
 
-    def test_review_renders_time_slot_windows_for_a_checkbox_question(
+    def test_review_renders_availability_for_a_checkbox_question(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -332,12 +331,12 @@ class TestEventImportProposalView:
             {
                 "questions": {
                     "When": {
-                        "to": "session.time_slots",
+                        "to": "session.availability",
                         "values": {
                             "Fri": {
-                                "to": "time_slot",
-                                "start_time": "2025-09-19T16:00:00+02:00",
-                                "end_time": "2025-09-19T22:00:00+02:00",
+                                "to": "availability",
+                                "day": "2025-09-19",
+                                "part": "evening",
                             }
                         },
                     }
@@ -371,17 +370,11 @@ class TestEventImportProposalView:
             response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
-        fri_start = localtime(
-            datetime.fromisoformat("2025-09-19T16:00:00+02:00")
-        ).strftime("%Y-%m-%dT%H:%M")
-        fri_end = localtime(
-            datetime.fromisoformat("2025-09-19T22:00:00+02:00")
-        ).strftime("%Y-%m-%dT%H:%M")
         row = response.context_data["rows"][0]
-        assert row["selected"] == "session.time_slots"
-        assert row["option_windows"] == [
-            {"option": "Fri", "windows": [{"start": fri_start, "end": fri_end}]},
-            {"option": "Sat", "windows": [{"start": "", "end": ""}]},
+        assert row["selected"] == "session.availability"
+        assert row["option_times"] == [
+            {"option": "Fri", "times": [{"day": "2025-09-19", "part": "evening"}]},
+            {"option": "Sat", "times": [{"day": "", "part": ""}]},
         ]
 
     def test_review_renders_track_entities_for_a_choice_question(
@@ -911,7 +904,7 @@ class TestEventImportRowSaveView:
             messages=[(messages.SUCCESS, "Question saved.")],
         )
 
-    def test_post_saves_time_slot_windows_for_one_row(
+    def test_post_saves_availability_for_one_row(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -923,14 +916,10 @@ class TestEventImportRowSaveView:
             data={
                 "index": "0",
                 "question_0": "When",
-                "target_0": "session.time_slots",
-                "tsoption_0": ["Fri", "All", "All"],
-                "tsstart_0": [
-                    "2025-09-19T16:00",
-                    "2025-09-19T16:00",
-                    "2025-09-20T10:00",
-                ],
-                "tsend_0": ["2025-09-19T22:00", "2025-09-19T22:00", "2025-09-20T14:00"],
+                "target_0": "session.availability",
+                "timeoption_0": ["Fri", "All", "All"],
+                "timeday_0": ["2025-09-19", "2025-09-19", "2025-09-20"],
+                "timepart_0": ["evening", "morning", "evening"],
             },
         )
 
@@ -940,31 +929,21 @@ class TestEventImportRowSaveView:
             url=_tab_url(event, integration),
             messages=[(messages.SUCCESS, "Question saved.")],
         )
-        tz = get_current_timezone()
         integration.refresh_from_db()
         target = ImportSettings.model_validate_json(
             integration.settings_json
         ).questions["When"]
-        assert target.to == "session.time_slots"
+        assert target.to == "session.availability"
         assert target.confirmed is True
         assert target.values == {
-            "Fri": TimeSlotSpec(
-                start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
-                end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
-            ),
+            "Fri": AvailabilitySpec(day=date(2025, 9, 19), part=DayPart.EVENING),
             "All": [
-                TimeSlotSpec(
-                    start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
-                    end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
-                ),
-                TimeSlotSpec(
-                    start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
-                    end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
-                ),
+                AvailabilitySpec(day=date(2025, 9, 19), part=DayPart.MORNING),
+                AvailabilitySpec(day=date(2025, 9, 20), part=DayPart.EVENING),
             ],
         }
 
-    def test_post_skips_time_slot_rows_with_malformed_datetimes(
+    def test_post_skips_availability_rows_with_malformed_values(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -976,10 +955,10 @@ class TestEventImportRowSaveView:
             data={
                 "index": "0",
                 "question_0": "When",
-                "target_0": "session.time_slots",
-                "tsoption_0": ["Fri", "Sat"],
-                "tsstart_0": ["not-a-date", "2025-09-20T10:00"],
-                "tsend_0": ["2025-09-19T22:00", "2025-09-20T14:00"],
+                "target_0": "session.availability",
+                "timeoption_0": ["Fri", "Sun", "Sat"],
+                "timeday_0": ["not-a-date", "2025-09-21", "2025-09-20"],
+                "timepart_0": ["evening", "teatime", "evening"],
             },
         )
 
@@ -989,16 +968,12 @@ class TestEventImportRowSaveView:
             url=_tab_url(event, integration),
             messages=[(messages.SUCCESS, "Question saved.")],
         )
-        tz = get_current_timezone()
         integration.refresh_from_db()
         target = ImportSettings.model_validate_json(
             integration.settings_json
         ).questions["When"]
         assert target.values == {
-            "Sat": TimeSlotSpec(
-                start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
-                end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
-            )
+            "Sat": AvailabilitySpec(day=date(2025, 9, 20), part=DayPart.EVENING)
         }
 
     def test_post_saves_track_target_with_catchall(
@@ -1660,7 +1635,7 @@ class TestEventImportRunActionView:
         assert rows[0].value == "555-1234"
         assert rows[0].facilitator.display_name == "GM Bob"
 
-    def test_post_provisions_and_attaches_time_slots(
+    def test_post_attaches_availability(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -1671,12 +1646,12 @@ class TestEventImportRunActionView:
                 "questions": {
                     "Title": {"to": "session.title", "ignore": False},
                     "When": {
-                        "to": "session.time_slots",
+                        "to": "session.availability",
                         "values": {
                             "Fri": {
-                                "to": "time_slot",
-                                "start_time": "2025-09-19T16:00:00+02:00",
-                                "end_time": "2025-09-19T22:00:00+02:00",
+                                "to": "availability",
+                                "day": "2025-09-19",
+                                "part": "evening",
                             }
                         },
                     },
@@ -1695,12 +1670,9 @@ class TestEventImportRunActionView:
             panel_client.post(_run_url(event, integration))
 
         session = Session.objects.get(event=event, title="My Talk")
-        slots = list(session.time_slots.all())
-        assert len(slots) == 1
-        assert slots[0].start_time == datetime.fromisoformat(
-            "2025-09-19T16:00:00+02:00"
-        )
-        assert slots[0].end_time == datetime.fromisoformat("2025-09-19T22:00:00+02:00")
+        assert list(session.availability.values_list("day", "part")) == [
+            (date(2025, 9, 19), DayPart.EVENING.value)
+        ]
 
     def test_post_provisions_and_attaches_tracks(
         self, panel_client, event, connection_with_secret
@@ -2915,7 +2887,7 @@ class TestEventImportApplyFieldLayoutView:
         assert session.category is not None
         assert session.category.slug == "rpg"
 
-    def test_post_adds_preferred_time_slots_when_session_has_none(
+    def test_post_adds_availability_when_session_has_none(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -2939,16 +2911,13 @@ class TestEventImportApplyFieldLayoutView:
             title="Talk",
             session=session,
         )
-        slot_spec = TimeSlotSpec(
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day_spec = AvailabilitySpec(day=date(2026, 6, 19), part=DayPart.AFTERNOON)
         integration.settings_json = json.dumps(
             {
                 "questions": {
                     "Slots": {
-                        "to": "session.time_slots",
-                        "values": {"Saturday": slot_spec.model_dump(mode="json")},
+                        "to": "session.availability",
+                        "values": {"Saturday": day_spec.model_dump(mode="json")},
                     }
                 }
             }
@@ -2957,10 +2926,9 @@ class TestEventImportApplyFieldLayoutView:
 
         panel_client.post(_apply_field_layout_url(event, integration))
 
-        time_slots = list(session.time_slots.all())
-        assert len(time_slots) == 1
-        # The slot was provisioned on the event.
-        assert TimeSlot.objects.filter(event=event).count() == 1
+        assert list(session.availability.values_list("day", "part")) == [
+            (date(2026, 6, 19), DayPart.AFTERNOON.value)
+        ]
 
     def test_post_adds_tracks_when_session_has_none(
         self, panel_client, event, connection_with_secret
@@ -3036,12 +3004,12 @@ class TestImportSummaryLabels:
                         "values": {"30 min": {"to": "duration", "iso": "PT30M"}},
                     },
                     "Slots": {
-                        "to": "session.time_slots",
+                        "to": "session.availability",
                         "values": {
                             "Fri": {
-                                "to": "time_slot",
-                                "start_time": "2025-09-19T16:00:00+02:00",
-                                "end_time": "2025-09-19T22:00:00+02:00",
+                                "to": "availability",
+                                "day": "2025-09-19",
+                                "part": "evening",
                             }
                         },
                     },
@@ -3082,8 +3050,8 @@ class TestImportSummaryLabels:
                 "index": 1,
                 "status": "unconfirmed",
                 "question": "Slots",
-                "mapping": "Time slots",
-                "details": "1 windows",
+                "mapping": "Available days",
+                "details": "1 day mappings",
             },
             {
                 "index": 2,
@@ -3320,7 +3288,7 @@ class TestImportRowSavePostHelpers:
         integration.refresh_from_db()
         assert integration.settings_json == before
 
-    def test_post_skips_blank_time_slot_row(
+    def test_post_skips_blank_availability_row(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -3332,10 +3300,10 @@ class TestImportRowSavePostHelpers:
             data={
                 "index": "0",
                 "question_0": "When",
-                "target_0": "session.time_slots",
-                "tsoption_0": ["Fri", ""],
-                "tsstart_0": ["2025-09-19T16:00", ""],
-                "tsend_0": ["2025-09-19T22:00", ""],
+                "target_0": "session.availability",
+                "timeoption_0": ["Fri", ""],
+                "timeday_0": ["2025-09-19", ""],
+                "timepart_0": ["evening", ""],
             },
         )
 
@@ -3344,7 +3312,7 @@ class TestImportRowSavePostHelpers:
         target = ImportSettings.model_validate_json(
             integration.settings_json
         ).questions["When"]
-        # The trailing blank window row is ignored.
+        # The trailing blank row is ignored.
         assert set(target.values) == {"Fri"}
 
     def test_post_skips_entity_row_with_blank_name(

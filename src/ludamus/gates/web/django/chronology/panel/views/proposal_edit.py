@@ -13,6 +13,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.text import slugify
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -33,6 +34,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     requirement_fields,
     unfold_custom_answers,
 )
+from ludamus.gates.web.django.event.propose import DAY_PART_LABELS
 from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
 from ludamus.pacts import (
     NotFoundError,
@@ -43,6 +45,13 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    availability_from_value,
+    availability_value,
+    offered_parts_by_day,
+)
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
@@ -51,6 +60,7 @@ from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
+    from datetime import date
 
     from django import forms
     from django.http import QueryDict
@@ -65,6 +75,26 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldRequirementDTO,
     )
+
+
+def _availability_options(
+    offered: list[tuple[date, list[DayPart]]], chosen: list[AvailabilityDTO]
+) -> list[dict[str, object]]:
+    picked = {(entry.day, entry.part) for entry in chosen}
+    return [
+        {
+            "day": day,
+            "parts": [
+                {
+                    "value": availability_value(day, part),
+                    "label": DAY_PART_LABELS[part],
+                    "is_selected": (day, part) in picked,
+                }
+                for part in parts
+            ],
+        }
+        for day, parts in offered
+    ]
 
 
 @dataclass(frozen=True)
@@ -422,11 +452,30 @@ class ProposalFormPageView(_ProposalFormBase):
             plural="tracks", singular="track", valid={t.pk for t in tracks}
         )
 
-    def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
-        slots = self.request.di.uow.time_slots.list_by_event(event_pk)
-        return self._collect_ids(
-            plural="time_slots", singular="time_slot", valid={s.pk for s in slots}
+    @staticmethod
+    def _offered_availability(event: EventDTO) -> list[tuple[date, list[DayPart]]]:
+        return offered_parts_by_day(
+            start=event.start_time, end=event.end_time, tz=get_current_timezone()
         )
+
+    def _collect_availability(self, event: EventDTO) -> list[AvailabilityDTO] | None:
+        # Same sentinel contract as the id pickers: absent means "the picker
+        # was not on the page", present-but-empty means "cleared".
+        if self.request.POST.get("availability_submitted") != "1":
+            return None
+        offered = {
+            (day, part)
+            for day, parts in self._offered_availability(event)
+            for part in parts
+        }
+        raw_values = self.request.POST.getlist("availability")
+        picked = {
+            (entry.day, entry.part)
+            for raw in raw_values
+            if (entry := availability_from_value(raw)) is not None
+            and (entry.day, entry.part) in offered
+        }
+        return [AvailabilityDTO(day=day, part=part) for day, part in sorted(picked)]
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
@@ -598,16 +647,13 @@ class ProposalFormPageView(_ProposalFormBase):
                 sessions.read_track_ids(proposal_id) if proposal_id is not None else ()
             ),
         )
-        self._picker_context(
-            context,
-            plural="time_slots",
-            singular="time_slot",
-            all_items=self.request.di.uow.time_slots.list_by_event(event_pk),
-            stored=(
-                sessions.read_preferred_time_slot_ids(proposal_id)
-                if proposal_id is not None
-                else ()
-            ),
+        submitted = self._collect_availability(current_event)
+        stored = (
+            sessions.read_availability(proposal_id) if proposal_id is not None else []
+        )
+        chosen = submitted if submitted is not None else stored
+        context["availability_options"] = _availability_options(
+            self._offered_availability(current_event), chosen
         )
 
         context.update(self._field_context(current_event, prepared))
@@ -729,7 +775,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     else {}
                 ),
                 track_ids=self._collect_track_ids(current_event.pk) or [],
-                time_slot_ids=self._collect_time_slot_ids(current_event.pk) or [],
+                availability=self._collect_availability(current_event) or [],
             ),
         )
 
@@ -810,7 +856,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     ),
                     facilitator_ids=self._collect_facilitator_ids(current_event.pk),
                     track_ids=self._collect_track_ids(current_event.pk),
-                    time_slot_ids=self._collect_time_slot_ids(current_event.pk),
+                    availability=self._collect_availability(current_event),
                     remove_field_ids=remove_field_ids,
                 ),
             )

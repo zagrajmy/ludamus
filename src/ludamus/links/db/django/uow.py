@@ -66,10 +66,6 @@ class UnitOfWork(DjangoTransaction, UnitOfWorkProtocol):
         return repositories.SphereRepository()
 
     @cached_property
-    def time_slots(self) -> repositories.TimeSlotRepository:
-        return repositories.TimeSlotRepository()
-
-    @cached_property
     def tracks(self) -> repositories.TrackRepository:
         return repositories.TrackRepository()
 

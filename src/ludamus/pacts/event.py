@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import StrEnum
 from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
@@ -10,7 +9,6 @@ from ludamus.pacts.legacy import (
     EventListItemDTO,
     EventRepositoryProtocol,
     PanelStatsDTO,
-    TimeSlotDTO,
 )
 
 
@@ -69,24 +67,6 @@ class FacilitatorListItemDTO(BaseModel):
     session_count: int
     slug: str
     user_id: int | None
-
-
-class TimeSlotValidationError(StrEnum):
-    START_NOT_BEFORE_END = "start_not_before_end"
-    OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
-
-
-class TimeSlotRejectedError(Exception):
-    def __init__(self, errors: list[TimeSlotValidationError]) -> None:
-        super().__init__(", ".join(error.value for error in errors))
-        self.errors = errors
-
-
-class TimeSlotSavedDTO(BaseModel):
-    slot: TimeSlotDTO
-    # A slot outside the event dates widens them rather than being refused;
-    # the organizer is told, since the public event page moves with them.
-    event_dates_widened: bool
 
 
 class EventPanelContextDTO(BaseModel):
@@ -221,16 +201,3 @@ class EventConfirmationsServiceProtocol(Protocol):
         contact_email: str | None = None,
         agenda_item_pk: int | None = None,
     ) -> None: ...
-
-
-class PanelTimeSlotsServiceProtocol(Protocol):
-    def list_for_event(self, event_id: int) -> list[TimeSlotDTO]: ...
-    def undeletable_pks(self, event_id: int) -> frozenset[int]: ...
-    def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
-    def create(
-        self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> TimeSlotSavedDTO: ...
-    def update(
-        self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> TimeSlotSavedDTO: ...
-    def delete(self, *, event_id: int, pk: int) -> bool: ...

@@ -70,9 +70,9 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.update(MISSING_ID, {"cover_image": ""})
 
-    def test_read_time_slot_raises_when_missing(self):
+    def test_set_availability_raises_when_session_missing(self):
         with pytest.raises(NotFoundError):
-            SessionRepository.read_time_slot(MISSING_ID, MISSING_ID)
+            SessionRepository.set_availability(MISSING_ID, [])
 
     def test_set_session_tracks_raises_when_session_missing(self):
         with pytest.raises(NotFoundError):

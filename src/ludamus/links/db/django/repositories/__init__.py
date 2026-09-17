@@ -35,7 +35,6 @@ from ludamus.links.db.django.repositories.submissions import (
 from ludamus.links.db.django.repositories.venues import (
     SpaceRepository,
     SpaceTreeRepository,
-    TimeSlotRepository,
     TrackRepository,
 )
 
@@ -64,7 +63,6 @@ __all__ = [
     "SpaceRepository",
     "SpaceTreeRepository",
     "SphereRepository",
-    "TimeSlotRepository",
     "TrackRepository",
     "delete_stored_file",
     "is_connection_display_name_conflict",

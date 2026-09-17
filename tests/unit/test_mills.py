@@ -1,6 +1,6 @@
 import json as _json
 from contextlib import nullcontext
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -47,6 +47,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
@@ -839,10 +840,6 @@ class _ImportServiceMocks:
         return MagicMock()
 
     @pytest.fixture
-    def time_slots(self):
-        return MagicMock()
-
-    @pytest.fixture
     def tracks(self):
         return MagicMock()
 
@@ -876,7 +873,6 @@ class _ImportServiceMocks:
         session_fields,
         personal_fields,
         personal_data_field_values,
-        time_slots,
         tracks,
         categories,
         facilitators,
@@ -888,7 +884,6 @@ class _ImportServiceMocks:
             session_fields,
             personal_fields,
             personal_data_field_values,
-            time_slots,
             tracks,
             categories,
             facilitators,
@@ -932,7 +927,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -963,7 +958,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "talk",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -994,7 +989,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[7],
         )
@@ -1368,7 +1363,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "my-talk",
                 "contact_email": "anna@example.com",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1423,7 +1418,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H30M",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1460,7 +1455,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H45M",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1685,7 +1680,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "other",
                 "duration": "PT30M",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1793,7 +1788,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 8,
                 "slug": "talk",
             },
-            time_slot_ids=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -2003,72 +1998,46 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.created == 0
         sessions.create.assert_not_called()
 
-    def test_run_attaches_time_slots_for_chosen_options(
-        self, service, event_integrations, sessions, time_slots
+    def test_run_attaches_availability_for_chosen_options(
+        self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.time_slots", "values": {'
-                '"Fri": {"to": "time_slot",'
-                ' "start_time": "2025-09-19T16:00:00+02:00",'
-                ' "end_time": "2025-09-19T22:00:00+02:00"},'
-                '"Sat": {"to": "time_slot",'
-                ' "start_time": "2025-09-20T10:00:00+02:00",'
-                ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
+                '"Sat": {"to": "availability", "day": "2025-09-20",'
+                ' "part": "morning"}}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "Fri, Sat"}])
-        time_slots.get_or_create.side_effect = [101, 102]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
-        assert time_slots.get_or_create.call_args_list == [
-            call(
-                2,
-                datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
-                datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
-            ),
-            call(
-                2,
-                datetime.fromisoformat("2025-09-20T10:00:00+02:00"),
-                datetime.fromisoformat("2025-09-20T14:00:00+02:00"),
-            ),
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
+            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
         ]
-        assert sessions.create.call_args.kwargs["time_slot_ids"] == [101, 102]
 
-    def test_run_attaches_every_window_of_a_multi_window_option(
-        self, service, event_integrations, sessions, time_slots
+    def test_run_attaches_every_part_of_a_multi_part_option(
+        self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.time_slots", "values": {'
-                '"All": [{"to": "time_slot",'
-                ' "start_time": "2025-09-19T16:00:00+02:00",'
-                ' "end_time": "2025-09-19T22:00:00+02:00"},'
-                '{"to": "time_slot",'
-                ' "start_time": "2025-09-20T10:00:00+02:00",'
-                ' "end_time": "2025-09-20T14:00:00+02:00"}]}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"All": [{"to": "availability", "day": "2025-09-19",'
+                ' "part": "evening"},'
+                '{"to": "availability", "day": "2025-09-20", "part": "morning"}]}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "All"}])
-        time_slots.get_or_create.side_effect = [201, 202]
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
 
-        assert time_slots.get_or_create.call_args_list == [
-            call(
-                2,
-                datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
-                datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
-            ),
-            call(
-                2,
-                datetime.fromisoformat("2025-09-20T10:00:00+02:00"),
-                datetime.fromisoformat("2025-09-20T14:00:00+02:00"),
-            ),
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
+            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
         ]
-        assert sessions.create.call_args.kwargs["time_slot_ids"] == [201, 202]
 
     def test_run_attaches_a_track_for_the_chosen_option(
         self, service, event_integrations, sessions, tracks
@@ -2345,50 +2314,42 @@ class TestProposalImportService(_ImportServiceMocks):
         session_fields.create.assert_not_called()
         personal_fields.create.assert_not_called()
 
-    def test_run_skips_time_slot_options_the_respondent_did_not_choose(
-        self, service, event_integrations, sessions, time_slots
+    def test_run_skips_availability_options_the_respondent_did_not_choose(
+        self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.time_slots", "values": {'
-                '"Fri": {"to": "time_slot",'
-                ' "start_time": "2025-09-19T16:00:00+02:00",'
-                ' "end_time": "2025-09-19T22:00:00+02:00"},'
-                '"Sat": {"to": "time_slot",'
-                ' "start_time": "2025-09-20T10:00:00+02:00",'
-                ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
-        time_slots.get_or_create.return_value = 101
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        # Only the chosen "Fri" window is provisioned; "Sat" is skipped.
-        time_slots.get_or_create.assert_called_once_with(
-            2,
-            datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
-            datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
-        )
-        assert sessions.create.call_args.kwargs["time_slot_ids"] == [101]
-
-    def test_run_ignores_a_non_time_slot_spec_in_time_slot_values(
-        self, service, event_integrations, sessions, time_slots
-    ):
-        # Defensive: a value that isn't a TimeSlotSpec (here an EntityRef-shaped
-        # blob) under a time-slots target is passed over, not provisioned.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"When": {"to": "session.time_slots", "values": {'
-                '"Fri": {"name": "Not a slot", "slug": "nope"}}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
+                '"Sat": {"to": "availability", "day": "2025-09-20",'
+                ' "part": "morning"}}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
 
-        time_slots.get_or_create.assert_not_called()
-        assert sessions.create.call_args.kwargs["time_slot_ids"] == []
+        # Only the chosen "Fri" evening is offered; "Sat" is skipped.
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
+
+    def test_run_ignores_a_non_availability_spec_in_availability_values(
+        self, service, event_integrations, sessions
+    ):
+        # Defensive: a value that isn't an AvailabilitySpec (here an
+        # EntityRef-shaped blob) under an availability target is passed over.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"Fri": {"name": "Not a day", "slug": "nope"}}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert sessions.create.call_args.kwargs["availability"] == []
 
 
 class TestImportLogService(_ImportServiceMocks):
@@ -3042,7 +3003,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
     ):
         # The cached row's participants_limit is now invalid, so resolving
         # built-ins (and facilitators) raises and is swallowed; category
-        # resolves to nothing; time slots and tracks are already present.
+        # resolves to nothing; availability and tracks are already present.
         event_integrations.get.return_value = MagicMock(
             settings_json=ImportSettings(
                 questions={
@@ -3055,7 +3016,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Cap": "loads", "Cat": "Foo"}')
         ]
         sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_preferred_time_slot_ids.return_value = [99]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [88]
 
         result = service.apply_field_layout(2, 3)
@@ -3065,7 +3028,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         assert result.session_links_filled == 0
         sessions.set_facilitators.assert_not_called()
 
-    def test_apply_swallows_row_skips_resolving_category_slots_and_tracks(
+    def test_apply_swallows_row_skips_resolving_category_times_and_tracks(
         self, service, event_integrations, sessions, log_entries
     ):
         # Conflicting duplicate columns make every entity resolution raise a
@@ -3074,7 +3037,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             settings_json=ImportSettings(
                 questions={
                     "Cat": QuestionTarget(to="category"),
-                    "When": QuestionTarget(to="session.time_slots"),
+                    "When": QuestionTarget(to="session.availability"),
                     "Track": QuestionTarget(to="track"),
                 }
             ).model_dump_json()
@@ -3095,7 +3058,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             )
         ]
         sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_availability.return_value = []
         sessions.read_track_ids.return_value = []
 
         result = service.apply_field_layout(2, 3)
@@ -3103,7 +3066,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         assert result.sessions_processed == 1
         assert result.session_links_filled == 0
         sessions.update.assert_not_called()
-        sessions.set_time_slots.assert_not_called()
+        sessions.set_availability.assert_not_called()
         sessions.set_session_tracks.assert_not_called()
 
     def test_apply_adds_missing_personal_entries_for_a_facilitator(
@@ -3126,7 +3089,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Phone": "555"}')
         ]
         sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_preferred_time_slot_ids.return_value = [1]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [1]
         sessions.read_facilitators.return_value = [MagicMock(pk=7)]
 
@@ -3155,7 +3120,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Phone": "  "}')
         ]
         sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_preferred_time_slot_ids.return_value = [1]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [1]
         sessions.read_facilitators.return_value = [MagicMock(pk=7)]
 

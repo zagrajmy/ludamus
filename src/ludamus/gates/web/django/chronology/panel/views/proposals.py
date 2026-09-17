@@ -185,9 +185,7 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_facilitators = self.request.di.uow.sessions.read_facilitators(
             proposal_id
         )
-        preferred_time_slots = self.request.di.uow.sessions.read_preferred_time_slots(
-            proposal_id
-        )
+        availability = self.request.di.uow.sessions.read_availability(proposal_id)
         presenter = None
         if session.presenter_id is not None:
             presenter = self.request.di.uow.active_users.read_by_id(
@@ -239,7 +237,7 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
-        context["preferred_time_slots"] = preferred_time_slots
+        context["availability"] = availability
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
         # Carries the list's filters back: the breadcrumb and the action forms

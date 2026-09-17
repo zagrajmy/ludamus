@@ -232,8 +232,6 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     # the venue unfinished gets the reason and the panel link, not a bounce.
     if not context.space_options:
         return "spaces"
-    if not context.time_slots:
-        return "time_slots"
     return None
 
 
@@ -259,7 +257,7 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
-                time_slot_id=form.cleaned_data["time_slot"],
+                start_time=form.cleaned_data["start_time"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
@@ -316,8 +314,7 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 "session": context.session,
                 "event": context.event,
                 "presenter": context.presenter,
-                "time_slots": context.time_slots,
-                "preferred_time_slot_ids": context.preferred_time_slot_ids,
+                "availability": context.availability,
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),

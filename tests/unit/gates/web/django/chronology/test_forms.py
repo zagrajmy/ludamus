@@ -1,57 +1,43 @@
-"""Unit tests for the accept-proposal form's choice building."""
+"""Unit tests for the accept-proposal form's availability helpers."""
 
-from datetime import UTC, datetime
+from datetime import date
 
-from ludamus.gates.web.django.chronology.forms import slot_choices, slot_label
-from ludamus.pacts import TimeSlotDTO
-
-
-def _slot(pk: int, hour: int) -> TimeSlotDTO:
-    return TimeSlotDTO(
-        pk=pk,
-        start_time=datetime(2026, 3, 1, hour, 0, tzinfo=UTC),
-        end_time=datetime(2026, 3, 1, hour + 2, 0, tzinfo=UTC),
-    )
+from ludamus.gates.web.django.chronology.forms import (
+    availability_label,
+    day_label,
+    offered_times_hint,
+)
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 
 
-class TestSlotLabel:
-    def test_reads_the_slot_in_the_event_time_zone(self) -> None:
-        # The template filter this replaced localised first (it is registered
-        # `expects_localtime`), so a label built in Python has to as well or
-        # every time on the page shifts by the configured offset.
-        assert slot_label(_slot(1, 10)) == "Sunday, Mar 1 · 11:00–13:00"
+class TestDayLabel:
+    def test_names_the_weekday_beside_the_date(self) -> None:
+        # The reviewer picks a day, so the weekday is the part they read;
+        # "Mar 1" alone makes them count on a calendar.
+        assert day_label(date(2026, 3, 1)) == "Sunday, Mar 1"
 
 
-class TestSlotChoices:
-    def test_lists_slots_flat_behind_a_blank_when_none_are_preferred(self) -> None:
-        choices = slot_choices([_slot(1, 10), _slot(2, 14)], [])
+class TestAvailabilityLabel:
+    def test_names_the_part_after_the_day(self) -> None:
+        entry = AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.EVENING)
 
-        assert choices == [
-            ("", "Choose a time…"),
-            (1, "Sunday, Mar 1 · 11:00–13:00"),
-            (2, "Sunday, Mar 1 · 15:00–17:00"),
-        ]
+        assert availability_label(entry) == "Sunday, Mar 1 evening"
 
-    def test_floats_the_preferred_slots_into_their_own_group(self) -> None:
-        choices = slot_choices([_slot(1, 10), _slot(2, 14)], [2])
 
-        assert choices == [
-            ("", "Choose a time…"),
-            ("Preferred by the facilitator", [(2, "Sunday, Mar 1 · 15:00–17:00")]),
-            ("Other times", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
-        ]
+class TestOfferedTimesHint:
+    def test_lists_every_time_the_facilitator_offered(self) -> None:
+        hint = offered_times_hint(
+            [
+                AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.MORNING),
+                AvailabilityDTO(day=date(2026, 3, 2), part=DayPart.NIGHT),
+            ]
+        )
 
-    def test_drops_both_headings_when_no_preference_matches(self) -> None:
-        # "Other times" alone would name a contrast with a group that is not
-        # on the page. Preferences matching nothing read as no preference.
-        choices = slot_choices([_slot(1, 10)], [99])
+        assert hint == (
+            "The facilitator offered: Sunday, Mar 1 morning, Monday, Mar 2 night"
+        )
 
-        assert choices == [("", "Choose a time…"), (1, "Sunday, Mar 1 · 11:00–13:00")]
-
-    def test_omits_the_other_group_when_every_slot_is_preferred(self) -> None:
-        choices = slot_choices([_slot(1, 10)], [1])
-
-        assert choices == [
-            ("", "Choose a time…"),
-            ("Preferred by the facilitator", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
-        ]
+    def test_says_nothing_when_no_time_was_offered(self) -> None:
+        # An empty hint lets the field fall back to its own help text rather
+        # than claiming the facilitator offered nothing at all.
+        assert not offered_times_hint([])
