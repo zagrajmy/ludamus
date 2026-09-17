@@ -19,7 +19,7 @@ if TYPE_CHECKING:
         ConflictDTO,
         HeatmapDTO,
         MultiselectOptionDTO,
-        PreferredSlotViolationDTO,
+        OfferedTimeViolationDTO,
         SessionPlacement,
         TimetableGridDTO,
         TimetableGridFilter,
@@ -94,10 +94,10 @@ class ConflictDetectionServiceProtocol(Protocol):
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
         tz: tzinfo,
-    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]: ...
-    def list_preferred_slot_violations(
+    ) -> tuple[list[ConflictDTO], list[OfferedTimeViolationDTO]]: ...
+    def list_offered_time_violations(
         self, *, event_pk: int, track_pk: int | None, tz: tzinfo
-    ) -> list[PreferredSlotViolationDTO]: ...
+    ) -> list[OfferedTimeViolationDTO]: ...
 
 
 class TimetableOverviewServiceProtocol(Protocol):

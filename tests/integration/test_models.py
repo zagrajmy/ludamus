@@ -15,10 +15,11 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
-    SessionAvailableDay,
+    SessionAvailability,
     SphereMembership,
     Track,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.multiverse import SphereRole
@@ -66,33 +67,56 @@ class TestSphereClean:
         assert "default_page" in exc_info.value.message_dict
 
 
-class TestSessionAvailableDay:
+class TestSessionAvailability:
     @staticmethod
     def _day(event):
         return localtime(event.start_time).date()
 
     def test_validate_unique_ok_for_another_day(self, event, session):
         day = self._day(event)
-        SessionAvailableDay.objects.create(session=session, day=day)
+        SessionAvailability.objects.create(
+            session=session, day=day, part=DayPart.EVENING
+        )
 
-        SessionAvailableDay(session=session, day=day + timedelta(days=1)).full_clean()
+        SessionAvailability(
+            session=session, day=day + timedelta(days=1), part=DayPart.EVENING
+        ).full_clean()
+
+    def test_validate_unique_ok_for_another_part_of_the_same_day(self, event, session):
+        # The day is the same offer; the part is a different answer within it.
+        day = self._day(event)
+        SessionAvailability.objects.create(
+            session=session, day=day, part=DayPart.EVENING
+        )
+
+        SessionAvailability(session=session, day=day, part=DayPart.MORNING).full_clean()
 
     def test_validate_unique_ok_for_another_session(self, event, session):
         day = self._day(event)
-        SessionAvailableDay.objects.create(session=session, day=day)
+        SessionAvailability.objects.create(
+            session=session, day=day, part=DayPart.EVENING
+        )
 
-        SessionAvailableDay(
-            session=SessionFactory(event=event, category=None), day=day
+        SessionAvailability(
+            session=SessionFactory(event=event, category=None),
+            day=day,
+            part=DayPart.EVENING,
         ).full_clean()
 
-    def test_validate_unique_error_for_the_same_day_twice(self, event, session):
-        # One offer, one answer per day: a duplicate would double-count the
+    def test_validate_unique_error_for_the_same_day_and_part_twice(
+        self, event, session
+    ):
+        # One offer, one answer per part: a duplicate would double-count the
         # session on every day-major read.
         day = self._day(event)
-        SessionAvailableDay.objects.create(session=session, day=day)
+        SessionAvailability.objects.create(
+            session=session, day=day, part=DayPart.EVENING
+        )
 
         with pytest.raises(ValidationError):
-            SessionAvailableDay(session=session, day=day).full_clean()
+            SessionAvailability(
+                session=session, day=day, part=DayPart.EVENING
+            ).full_clean()
 
 
 class TestModelStringRepresentations:

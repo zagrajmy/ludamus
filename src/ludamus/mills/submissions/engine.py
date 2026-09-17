@@ -36,9 +36,10 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
-    AvailableDaySpec,
+    AvailabilitySpec,
     FieldDefinition,
     ImportLogEntryCreateData,
     ImportLogStatus,
@@ -326,7 +327,7 @@ class ImportEngine:
         )
         session_id = self._repos.sessions.create(
             session_data,
-            available_days=self.available_days(settings=settings, row=row),
+            availability=self.availability(settings=settings, row=row),
             track_ids=self.track_ids(event_id=event_id, settings=settings, row=row),
             facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
@@ -369,9 +370,9 @@ class ImportEngine:
             settings=settings,
             row=row,
         )
-        if not self._repos.sessions.read_available_days(session_id):
-            self._repos.sessions.set_available_days(
-                session_id, self.available_days(settings=settings, row=row)
+        if not self._repos.sessions.read_availability(session_id):
+            self._repos.sessions.set_availability(
+                session_id, self.availability(settings=settings, row=row)
             )
         if not self._repos.sessions.read_track_ids(session_id):
             self._repos.sessions.set_session_tracks(
@@ -689,28 +690,31 @@ class ImportEngine:
             self._repos.personal_data_field_values.save(entries)
 
     @staticmethod
-    def available_days(*, settings: ImportSettings, row: ImportRow) -> list[date]:
-        # For each `session.available_days` question, the chosen options name
-        # the days the facilitator offered. The response cell joins
+    def availability(
+        *, settings: ImportSettings, row: ImportRow
+    ) -> list[AvailabilityDTO]:
+        # For each `session.availability` question, the chosen options name
+        # when the facilitator could host. The response cell joins
         # multi-select answers with ", "; options here are comma-free, so a
         # comma split + exact match resolves them.
-        days: list[date] = []
+        offered: dict[tuple[date, DayPart], AvailabilityDTO] = {}
         for header, target in settings.questions.items():
-            if target.to != "session.available_days":
+            if target.to != "session.availability":
                 continue
             chosen = {
-                part.strip()
-                for part in cell(target=target, row=row, header=header).split(",")
+                answer.strip()
+                for answer in cell(target=target, row=row, header=header).split(",")
             }
             for option, spec in target.values.items():
                 if option not in chosen:
                     continue
-                for offered in spec if isinstance(spec, list) else [spec]:
-                    if not isinstance(offered, AvailableDaySpec):
-                        continue
-                    if offered.day not in days:
-                        days.append(offered.day)
-        return sorted(days)
+                for entry in spec if isinstance(spec, list) else [spec]:
+                    if isinstance(entry, AvailabilitySpec):
+                        offered.setdefault(
+                            (entry.day, entry.part),
+                            AvailabilityDTO(day=entry.day, part=entry.part),
+                        )
+        return [offered[key] for key in sorted(offered)]
 
     def track_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

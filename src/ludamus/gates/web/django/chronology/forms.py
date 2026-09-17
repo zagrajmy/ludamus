@@ -9,6 +9,9 @@ from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.templatetags.date_tags import DAY_PART_NAMES
+from ludamus.pacts.availability import AvailabilityDTO, part_window
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import date, datetime
@@ -25,13 +28,17 @@ def day_label(day: date) -> str:
     return date_format(day, "l, M j")
 
 
-def offered_days_hint(days: Sequence[date]) -> str:
-    # The facilitator already said which days suit them, so the reviewer reads
+def availability_label(entry: AvailabilityDTO) -> str:
+    return f"{day_label(entry.day)} {DAY_PART_NAMES[entry.part]}"
+
+
+def offered_times_hint(offered: Sequence[AvailabilityDTO]) -> str:
+    # The facilitator already said when they are free, so the reviewer reads
     # it beside the field instead of going back to the proposal.
-    if not days:
+    if not offered:
         return ""
-    return gettext("The facilitator offered: %(days)s") % {
-        "days": ", ".join(day_label(day) for day in days)
+    return gettext("The facilitator offered: %(times)s") % {
+        "times": ", ".join(availability_label(entry) for entry in offered)
     }
 
 
@@ -46,16 +53,15 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
 
 
 def _initial_start(context: ProposalAcceptContextDTO) -> datetime:
-    # Open on a day the facilitator offered, at the hour the event opens, so
-    # the common case is a confirm rather than a fill-in.
+    # Open on the first time the facilitator offered, so the common case is a
+    # confirm rather than a fill-in. Its part gives the hour, never later than
+    # the event's own opening on that day.
     opening = localtime(context.event.start_time)
-    if not context.available_days or opening.date() in set(context.available_days):
+    if not context.availability:
         return opening
-    return opening.replace(
-        year=context.available_days[0].year,
-        month=context.available_days[0].month,
-        day=context.available_days[0].day,
-    )
+    first = context.availability[0]
+    start, _end = part_window(first.day, first.part, get_current_timezone())
+    return max(start, opening) if start.date() == opening.date() else start
 
 
 def create_proposal_acceptance_form(
@@ -82,7 +88,7 @@ def create_proposal_acceptance_form(
     )
     start_field = forms.DateTimeField(
         label=_("Starts at"),
-        help_text=offered_days_hint(context.available_days)
+        help_text=offered_times_hint(context.availability)
         or _("When this session starts. It runs for %(minutes)s minutes.")
         % {"minutes": context.duration_minutes},
         widget=forms.DateTimeInput(

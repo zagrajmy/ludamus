@@ -47,6 +47,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
@@ -926,7 +927,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -957,7 +958,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "talk",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -988,7 +989,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[7],
         )
@@ -1362,7 +1363,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "my-talk",
                 "contact_email": "anna@example.com",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1417,7 +1418,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H30M",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1454,7 +1455,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H45M",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1679,7 +1680,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "other",
                 "duration": "PT30M",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1787,7 +1788,7 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 8,
                 "slug": "talk",
             },
-            available_days=[],
+            availability=[],
             track_ids=[],
             facilitator_ids=[],
         )
@@ -1997,14 +1998,15 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.created == 0
         sessions.create.assert_not_called()
 
-    def test_run_attaches_available_days_for_chosen_options(
+    def test_run_attaches_availability_for_chosen_options(
         self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.available_days", "values": {'
-                '"Fri": {"to": "available_day", "day": "2025-09-19"},'
-                '"Sat": {"to": "available_day", "day": "2025-09-20"}}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
+                '"Sat": {"to": "availability", "day": "2025-09-20",'
+                ' "part": "morning"}}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "Fri, Sat"}])
@@ -2012,28 +2014,29 @@ class TestProposalImportService(_ImportServiceMocks):
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
-        assert sessions.create.call_args.kwargs["available_days"] == [
-            date(2025, 9, 19),
-            date(2025, 9, 20),
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
+            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
         ]
 
-    def test_run_attaches_every_day_of_a_multi_day_option(
+    def test_run_attaches_every_part_of_a_multi_part_option(
         self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.available_days", "values": {'
-                '"All": [{"to": "available_day", "day": "2025-09-19"},'
-                '{"to": "available_day", "day": "2025-09-20"}]}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"All": [{"to": "availability", "day": "2025-09-19",'
+                ' "part": "evening"},'
+                '{"to": "availability", "day": "2025-09-20", "part": "morning"}]}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "All"}])
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
 
-        assert sessions.create.call_args.kwargs["available_days"] == [
-            date(2025, 9, 19),
-            date(2025, 9, 20),
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
+            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
         ]
 
     def test_run_attaches_a_track_for_the_chosen_option(
@@ -2311,31 +2314,34 @@ class TestProposalImportService(_ImportServiceMocks):
         session_fields.create.assert_not_called()
         personal_fields.create.assert_not_called()
 
-    def test_run_skips_available_day_options_the_respondent_did_not_choose(
+    def test_run_skips_availability_options_the_respondent_did_not_choose(
         self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.available_days", "values": {'
-                '"Fri": {"to": "available_day", "day": "2025-09-19"},'
-                '"Sat": {"to": "available_day", "day": "2025-09-20"}}}}}'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
+                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
+                '"Sat": {"to": "availability", "day": "2025-09-20",'
+                ' "part": "morning"}}}}}'
             )
         )
         event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
 
-        # Only the chosen "Fri" day is offered; "Sat" is skipped.
-        assert sessions.create.call_args.kwargs["available_days"] == [date(2025, 9, 19)]
+        # Only the chosen "Fri" evening is offered; "Sat" is skipped.
+        assert sessions.create.call_args.kwargs["availability"] == [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
 
-    def test_run_ignores_a_non_day_spec_in_available_day_values(
+    def test_run_ignores_a_non_availability_spec_in_availability_values(
         self, service, event_integrations, sessions
     ):
-        # Defensive: a value that isn't an AvailableDaySpec (here an
-        # EntityRef-shaped blob) under a days target is passed over.
+        # Defensive: a value that isn't an AvailabilitySpec (here an
+        # EntityRef-shaped blob) under an availability target is passed over.
         event_integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"When": {"to": "session.available_days", "values": {'
+                '{"questions": {"When": {"to": "session.availability", "values": {'
                 '"Fri": {"name": "Not a day", "slug": "nope"}}}}}'
             )
         )
@@ -2343,7 +2349,7 @@ class TestProposalImportService(_ImportServiceMocks):
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
 
-        assert sessions.create.call_args.kwargs["available_days"] == []
+        assert sessions.create.call_args.kwargs["availability"] == []
 
 
 class TestImportLogService(_ImportServiceMocks):
@@ -2997,7 +3003,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
     ):
         # The cached row's participants_limit is now invalid, so resolving
         # built-ins (and facilitators) raises and is swallowed; category
-        # resolves to nothing; available days and tracks are already present.
+        # resolves to nothing; availability and tracks are already present.
         event_integrations.get.return_value = MagicMock(
             settings_json=ImportSettings(
                 questions={
@@ -3010,7 +3016,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Cap": "loads", "Cat": "Foo"}')
         ]
         sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_available_days.return_value = [date(2025, 9, 19)]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [88]
 
         result = service.apply_field_layout(2, 3)
@@ -3020,7 +3028,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         assert result.session_links_filled == 0
         sessions.set_facilitators.assert_not_called()
 
-    def test_apply_swallows_row_skips_resolving_category_days_and_tracks(
+    def test_apply_swallows_row_skips_resolving_category_times_and_tracks(
         self, service, event_integrations, sessions, log_entries
     ):
         # Conflicting duplicate columns make every entity resolution raise a
@@ -3029,7 +3037,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             settings_json=ImportSettings(
                 questions={
                     "Cat": QuestionTarget(to="category"),
-                    "When": QuestionTarget(to="session.available_days"),
+                    "When": QuestionTarget(to="session.availability"),
                     "Track": QuestionTarget(to="track"),
                 }
             ).model_dump_json()
@@ -3050,7 +3058,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             )
         ]
         sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_available_days.return_value = []
+        sessions.read_availability.return_value = []
         sessions.read_track_ids.return_value = []
 
         result = service.apply_field_layout(2, 3)
@@ -3058,7 +3066,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         assert result.sessions_processed == 1
         assert result.session_links_filled == 0
         sessions.update.assert_not_called()
-        sessions.set_available_days.assert_not_called()
+        sessions.set_availability.assert_not_called()
         sessions.set_session_tracks.assert_not_called()
 
     def test_apply_adds_missing_personal_entries_for_a_facilitator(
@@ -3081,7 +3089,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Phone": "555"}')
         ]
         sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_available_days.return_value = [date(2025, 9, 19)]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [1]
         sessions.read_facilitators.return_value = [MagicMock(pk=7)]
 
@@ -3110,7 +3120,9 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             self._entry(session_id=5, response_json='{"Phone": "  "}')
         ]
         sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_available_days.return_value = [date(2025, 9, 19)]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+        ]
         sessions.read_track_ids.return_value = [1]
         sessions.read_facilitators.return_value = [MagicMock(pk=7)]
 

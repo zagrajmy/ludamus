@@ -285,6 +285,6 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             self._repos.sessions.save_field_values(session_id, answered)
         if draft.track_ids:
             self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
-        if draft.available_days:
-            self._repos.sessions.set_available_days(session_id, draft.available_days)
+        if draft.availability:
+            self._repos.sessions.set_availability(session_id, draft.availability)
         return session_id

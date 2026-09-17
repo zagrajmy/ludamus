@@ -13,7 +13,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     make_overlapping_sessions,
     make_timetable_session,
-    schedule_outside_preferred_slot,
+    schedule_outside_offered_time,
 )
 
 User = get_user_model()
@@ -87,7 +87,7 @@ class TestTimetableConflictsPartView:
     def test_slot_violation_does_not_appear_in_conflicts(
         self, panel_client, event, proposal_category
     ):
-        schedule_outside_preferred_slot(
+        schedule_outside_offered_time(
             event=event, category=proposal_category, space=SpaceFactory(event=event)
         )
 

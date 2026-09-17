@@ -6,12 +6,13 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.availability import AvailabilityDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
@@ -33,20 +34,6 @@ from ludamus.pacts.party import PartyDTO
 if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
     from ludamus.pacts.submissions import ImportRow
-
-
-# A convention day ends when people go to sleep, not at midnight: a session
-# that runs from Friday 22:00 into the small hours is Friday's programme, and
-# a reader at 02:00 is still living Friday. Every schedule layout, server- and
-# client-side alike, turns its days over at this hour.
-PROGRAMME_DAY_STARTS_AT_HOUR = 6
-
-
-def days_between(first: date, last: date) -> list[date]:
-    """List every calendar day from `first` to `last`, both ends included."""
-    if last < first:
-        return []
-    return [first + timedelta(days=offset) for offset in range((last - first).days + 1)]
 
 
 class IntegrationKind(StrEnum):
@@ -307,9 +294,9 @@ class ProposalAcceptContextDTO(BaseModel):
     event: EventDTO
     presenter: UserDTO | None
     space_options: list[SpaceOptionDTO]
-    # The days the facilitator offered, so the picker can suggest one instead
-    # of making the reviewer look them up on the proposal.
-    available_days: list[date]
+    # When the facilitator said they could run it, so the picker can suggest
+    # a time instead of making the reviewer look it up on the proposal.
+    availability: list[AvailabilityDTO]
     duration_minutes: int
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
@@ -562,12 +549,12 @@ class TimetableGridDTO(BaseModel):
     conflicts: list[ConflictDTO] = []
 
 
-class PreferredSlotViolationDTO(BaseModel):
+class OfferedTimeViolationDTO(BaseModel):
     session_pk: int
     session_title: str
     scheduled_start: datetime
     scheduled_end: datetime
-    available_days: list[date]
+    availability: list[AvailabilityDTO]
     track_name: str | None = None
     manager_names: list[str] = []
 

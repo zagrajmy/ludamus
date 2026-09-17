@@ -18,29 +18,6 @@ const openSpaceMenu = async (page: Page, name: string): Promise<Locator> => {
   return page.locator("[data-menu]", { has: toggle }).locator("[data-menu-panel]");
 };
 
-/** Build an HH:MM string by adding minutes to a base hour:minute. */
-function timeHHMM(hour: number, minute: number, addMinutes: number = 0): string {
-  const d = new Date(2000, 0, 1, hour, minute + addMinutes);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/**
- * Compute both YYYY-MM-DD and HH:MM after adding minutes to a base datetime.
- * Handles midnight rollover by advancing the date.
- */
-function dateTimeAfter(
-  baseDateStr: string,
-  hour: number,
-  minute: number,
-  addMinutes: number = 0,
-): { date: string; time: string } {
-  const [y, m, day] = baseDateStr.split("-").map(Number);
-  const d = new Date(y, m - 1, day, hour, minute + addMinutes);
-  const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const ts = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return { date: ds, time: ts };
-}
-
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -857,7 +834,7 @@ test.describe("Backoffice Panel", () => {
       }
 
       // Ask proposers which days they could host.
-      await page.getByLabel("Ask for available days").check();
+      await page.getByLabel("Ask when they could host").check();
 
       // Add a duration: 2h 0min
       await page.locator("#duration-hours").fill("2");
@@ -931,8 +908,19 @@ test.describe("Backoffice Panel", () => {
       await page.getByLabel("Subscribe to newsletter?").check();
       await page.getByRole("button", { name: /Continue/ }).click();
 
-      // frostfire-con runs for one day, so there is no day to choose and the
-      // wizard does not stop to ask: it goes straight on to the details.
+      // Step 3: When. frostfire-con runs for a single day, but the hours it
+      // keeps still span several parts, so the proposer is asked which of them
+      // would work -- never for a clock time.
+      await expect(
+        page.locator("#wizard-content").getByRole("heading", {
+          name: "When could you host?",
+        }),
+      ).toBeVisible();
+      // The chip is the label: a proposer clicks the word, not the box behind it.
+      const evening = page.getByRole("checkbox", { name: "Evening" });
+      await page.locator("label", { has: evening }).click();
+      await expect(evening).toBeChecked();
+      await page.getByRole("button", { name: /Continue/ }).click();
 
       // Step 4: Session Details
       await expect(
@@ -1009,6 +997,10 @@ test.describe("Backoffice Panel", () => {
         .locator(`select[name="personal_${slugify(experienceName)}"]`)
         .selectOption("Advanced");
       await page.getByLabel("Subscribe to newsletter?").check();
+      await page.getByRole("button", { name: /Continue/ }).click();
+
+      const morning = page.getByRole("checkbox", { name: "Morning" });
+      await page.locator("label", { has: morning }).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       await expect(

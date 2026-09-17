@@ -5,7 +5,7 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SphereRepositoryProtocol,
     )
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
@@ -224,7 +225,7 @@ class ProposalAcceptanceService:
             event=self._sessions.read_event(session.pk),
             presenter=self._sessions.read_presenter(session.pk),
             space_options=self._sessions.read_space_options(session.pk),
-            available_days=self._sessions.read_available_days(session.pk),
+            availability=self._sessions.read_availability(session.pk),
             duration_minutes=duration_minutes(session.duration),
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
@@ -368,8 +369,8 @@ def _core_comparisons(
     return comparisons
 
 
-def _day_labels(days: list[date]) -> list[str]:
-    return [day.isoformat() for day in days]
+def _availability_labels(offered: list[AvailabilityDTO]) -> list[str]:
+    return [f"{entry.day.isoformat()} {entry.part}" for entry in offered]
 
 
 def _append_m2m_change(
@@ -409,7 +410,7 @@ def _inverse_core_update(
 ) -> bool:
     # Restores `field` to `old` in the update payload. Returns False for
     # irreversible entries: the old cover-image binary is gone, and m2m
-    # assignments (facilitators/tracks/available_days) are logged as display
+    # assignments (facilitators/tracks/availability) are logged as display
     # names, not ids.
     if _inverse_text_update(update=update, field=field, old=old):
         return True
@@ -591,11 +592,15 @@ class SessionContentEditService:
                 self._sessions.set_session_tracks(session_id, data.track_ids)
                 after = [t.name for t in self._sessions.read_tracks(session_id)]
                 _append_m2m_change(m2m_changes, "tracks", before, after)
-            if data.available_days is not None:
-                before = _day_labels(self._sessions.read_available_days(session_id))
-                self._sessions.set_available_days(session_id, data.available_days)
-                after = _day_labels(self._sessions.read_available_days(session_id))
-                _append_m2m_change(m2m_changes, "available_days", before, after)
+            if data.availability is not None:
+                before = _availability_labels(
+                    self._sessions.read_availability(session_id)
+                )
+                self._sessions.set_availability(session_id, data.availability)
+                after = _availability_labels(
+                    self._sessions.read_availability(session_id)
+                )
+                _append_m2m_change(m2m_changes, "availability", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )

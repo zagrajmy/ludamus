@@ -1,7 +1,12 @@
 import { requestConfirm } from "./confirm";
 
+interface OfferedWindow {
+  end: string;
+  start: string;
+}
+
 interface Placement {
-  availableDays: string[];
+  availability: OfferedWindow[];
   backUrl: string | null;
   confirmed: boolean;
   duration: number;
@@ -100,33 +105,62 @@ function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): v
   if (guide.parentElement !== col) col.append(guide);
 }
 
-function parseAvailableDays(raw: string | undefined): string[] {
+function parseAvailability(raw: string | undefined): OfferedWindow[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((day): day is string => typeof day === "string");
+    return parsed.filter(
+      (item): item is OfferedWindow =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as OfferedWindow).start === "string" &&
+        typeof (item as OfferedWindow).end === "string",
+    );
   } catch {
     return [];
   }
 }
 
-function clearAvailableDayOverlays(): void {
-  for (const el of document.querySelectorAll<HTMLElement>(".timetable-day-grid")) {
-    el.classList.remove("timetable-day-offered");
-  }
+function clearAvailabilityOverlays(): void {
+  for (const el of document.querySelectorAll<HTMLElement>(".timetable-offered")) el.remove();
 }
 
-// Availability is per day now, so the hint is a whole day rather than a band
-// inside one. Marking the offered days leaves every other day droppable —
-// this is advice, not a rule.
-function renderAvailableDayOverlays(): void {
-  clearAvailableDayOverlays();
-  const days = (armed ?? dragging)?.availableDays ?? [];
-  if (days.length === 0) return;
+// Parts of a day have hours, so the hint can paint the band the facilitator
+// actually offered. It stays advice: every other hour is still droppable.
+function renderAvailabilityOverlays(): void {
+  clearAvailabilityOverlays();
+  const offered = (armed ?? dragging)?.availability ?? [];
+  if (offered.length === 0) return;
+
   for (const cal of dayGrids()) {
-    const day = cal.dataset.timetableDay;
-    if (day && days.includes(day)) cal.classList.add("timetable-day-offered");
+    const { eventStart } = cal.dataset;
+    if (!eventStart) continue;
+    const totalMinutes = Number(cal.dataset.totalMinutes);
+    if (!totalMinutes) continue;
+
+    const eventStartMs = new Date(eventStart).getTime();
+    const minutePx = pxPerMinute(cal);
+    const pxPerMs = minutePx / 60_000;
+    const totalHeightPx = totalMinutes * minutePx;
+
+    for (const window of offered) {
+      const startMs = new Date(window.start).getTime();
+      const endMs = new Date(window.end).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+
+      const top = Math.max(0, (startMs - eventStartMs) * pxPerMs);
+      const bottom = Math.min(totalHeightPx, (endMs - eventStartMs) * pxPerMs);
+      if (bottom <= top) continue;
+
+      for (const col of cal.querySelectorAll<HTMLElement>(".timetable-column")) {
+        const band = document.createElement("div");
+        band.className = "timetable-offered";
+        band.style.top = `calc(${top}px + 20px)`;
+        band.style.height = `${bottom - top}px`;
+        col.append(band);
+      }
+    }
   }
 }
 
@@ -149,7 +183,7 @@ function enterAssignMode(placement: Placement): void {
   banner().classList.remove("hidden");
   markColumnsActive(true);
   markFiltersInert(true);
-  renderAvailableDayOverlays();
+  renderAvailabilityOverlays();
 }
 
 function exitAssignMode(): void {
@@ -157,13 +191,13 @@ function exitAssignMode(): void {
   banner().classList.add("hidden");
   markColumnsActive(false);
   markFiltersInert(false);
-  clearAvailableDayOverlays();
+  clearAvailabilityOverlays();
   hideHoverPreview();
 }
 
 function placementFromAssignButton(btn: HTMLElement): Placement {
   return {
-    availableDays: parseAvailableDays(btn.dataset.assignAvailableDays),
+    availability: parseAvailability(btn.dataset.assignAvailability),
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
@@ -174,7 +208,7 @@ function placementFromAssignButton(btn: HTMLElement): Placement {
 function placementFromDraggable(el: HTMLElement): Placement {
   const sessionPk = el.dataset.sessionPk!;
   return {
-    availableDays: armed?.sessionPk === sessionPk ? armed.availableDays : [],
+    availability: armed?.sessionPk === sessionPk ? armed.availability : [],
     backUrl: armed?.sessionPk === sessionPk ? armed.backUrl : null,
     confirmed: el.dataset.confirmed === "true",
     duration: Number(el.dataset.duration) || 60,
@@ -291,7 +325,7 @@ document.addEventListener("dragstart", (e) => {
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", dragging.sessionPk);
   markColumnsActive(true);
-  renderAvailableDayOverlays();
+  renderAvailabilityOverlays();
 });
 
 document.addEventListener("dragover", (e) => {
@@ -321,10 +355,10 @@ document.addEventListener("dragend", () => {
   dragging = null;
   hideDropGuide();
   if (armed) {
-    renderAvailableDayOverlays();
+    renderAvailabilityOverlays();
   } else {
     markColumnsActive(false);
-    clearAvailableDayOverlays();
+    clearAvailabilityOverlays();
   }
 });
 
@@ -369,7 +403,7 @@ document.body.addEventListener("htmx:afterSwap", () => {
     banner().classList.remove("hidden");
     markColumnsActive(true);
     markFiltersInert(true);
-    renderAvailableDayOverlays();
+    renderAvailabilityOverlays();
   }
 });
 

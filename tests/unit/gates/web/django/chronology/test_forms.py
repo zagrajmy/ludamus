@@ -1,8 +1,13 @@
-"""Unit tests for the accept-proposal form's day helpers."""
+"""Unit tests for the accept-proposal form's availability helpers."""
 
 from datetime import date
 
-from ludamus.gates.web.django.chronology.forms import day_label, offered_days_hint
+from ludamus.gates.web.django.chronology.forms import (
+    availability_label,
+    day_label,
+    offered_times_hint,
+)
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 
 
 class TestDayLabel:
@@ -12,13 +17,27 @@ class TestDayLabel:
         assert day_label(date(2026, 3, 1)) == "Sunday, Mar 1"
 
 
-class TestOfferedDaysHint:
-    def test_lists_every_day_the_facilitator_offered(self) -> None:
-        hint = offered_days_hint([date(2026, 3, 1), date(2026, 3, 2)])
+class TestAvailabilityLabel:
+    def test_names_the_part_after_the_day(self) -> None:
+        entry = AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.EVENING)
 
-        assert hint == "The facilitator offered: Sunday, Mar 1, Monday, Mar 2"
+        assert availability_label(entry) == "Sunday, Mar 1 evening"
 
-    def test_says_nothing_when_no_day_was_offered(self) -> None:
+
+class TestOfferedTimesHint:
+    def test_lists_every_time_the_facilitator_offered(self) -> None:
+        hint = offered_times_hint(
+            [
+                AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.MORNING),
+                AvailabilityDTO(day=date(2026, 3, 2), part=DayPart.NIGHT),
+            ]
+        )
+
+        assert hint == (
+            "The facilitator offered: Sunday, Mar 1 morning, Monday, Mar 2 night"
+        )
+
+    def test_says_nothing_when_no_time_was_offered(self) -> None:
         # An empty hint lets the field fall back to its own help text rather
         # than claiming the facilitator offered nothing at all.
-        assert not offered_days_hint([])
+        assert not offered_times_hint([])

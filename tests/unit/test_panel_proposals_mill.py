@@ -7,6 +7,7 @@ import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.pacts import NotFoundError, SessionStatus
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.panel import (
     ProposalDraft,
     ProposalListQuery,
@@ -18,6 +19,10 @@ from ludamus.pacts.services import DatabaseConstraintError
 _NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
 _IDENT_LOOKUPS_ON_CONSTRAINT = 2
+
+
+def _offered(part: DayPart) -> AvailabilityDTO:
+    return AvailabilityDTO(day=date(2026, 6, 1), part=part)
 
 
 class _FakeTransaction:
@@ -191,7 +196,7 @@ class TestProposalPanelService:
         assert not result.sort
         assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
-    def test_create_writes_session_field_values_and_days_together(
+    def test_create_writes_session_field_values_and_availability_together(
         self, service, sessions, session_fields, facilitators, tracks
     ):
         sessions.slug_exists.return_value = False
@@ -210,7 +215,7 @@ class TestProposalPanelService:
                 facilitator_ids=[7],
                 field_values={3: "D&D 5e"},
                 track_ids=[4],
-                available_days=[date(2026, 6, 1)],
+                availability=[_offered(DayPart.EVENING)],
             ),
         )
 
@@ -228,8 +233,8 @@ class TestProposalPanelService:
             _NEW_PROPOSAL_ID,
             [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
         )
-        sessions.set_available_days.assert_called_once_with(
-            _NEW_PROPOSAL_ID, [date(2026, 6, 1)]
+        sessions.set_availability.assert_called_once_with(
+            _NEW_PROPOSAL_ID, [_offered(DayPart.EVENING)]
         )
         sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
 
@@ -268,7 +273,7 @@ class TestProposalPanelService:
         )
 
         sessions.save_field_values.assert_not_called()
-        sessions.set_available_days.assert_not_called()
+        sessions.set_availability.assert_not_called()
 
     def test_create_accepted_session_returns_existing_ident(self, service, sessions):
         sessions.find_id_by_ident.return_value = _EXISTING_SESSION_ID

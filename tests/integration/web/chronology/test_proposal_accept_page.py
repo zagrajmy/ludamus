@@ -17,8 +17,9 @@ from ludamus.links.db.django.models import (
     Space,
 )
 from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.crowd import UserDTO
-from tests.integration.conftest import SessionAvailableDayFactory
+from tests.integration.conftest import SessionAvailabilityFactory
 from tests.integration.utils import assert_response
 
 POSTED_START = "%Y-%m-%dT%H:%M"
@@ -28,6 +29,18 @@ def _wall_clock(event):
     # What a `datetime-local` input posts: the event's opening as a local wall
     # clock, with no offset for the browser to send.
     return localtime(event.start_time)
+
+
+def _open_event_at(event, *, hour: int):
+    # Pin the event's opening to a local wall-clock hour, so a part window can
+    # sit either side of it. Returns the opening as local time.
+    opening = localtime(event.start_time).replace(
+        hour=hour, minute=0, second=0, microsecond=0
+    )
+    event.start_time = opening
+    event.end_time = opening + timedelta(hours=12)
+    event.save(update_fields=["start_time", "end_time"])
+    return opening
 
 
 def _has_option(content: str, value: int, label: str) -> bool:
@@ -81,7 +94,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -89,13 +102,15 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_shows_the_days_the_facilitator_offered(
+    def test_get_shows_the_times_the_facilitator_offered(
         self, event, pending_session, manager_client
     ):
-        # The reviewer picks a start time; the days the author said they could
-        # run on come along so that choice is not made blind.
+        # The reviewer picks a start time; the parts of days the author said
+        # they could run in come along so that choice is not made blind.
         day = localtime(event.start_time).date()
-        SessionAvailableDayFactory(session=pending_session, day=day)
+        SessionAvailabilityFactory(
+            session=pending_session, day=day, part=DayPart.EVENING
+        )
 
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -109,12 +124,51 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [day],
+                "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
                 "field_values": [],
                 "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
+
+    @pytest.mark.usefixtures("space")
+    def test_get_opens_the_start_time_on_the_first_offered_part(
+        self, event, pending_session, manager_client
+    ):
+        # The reviewer should be confirming a time, not typing one: the field
+        # opens where the earliest offered part opens.
+        opening = _open_event_at(event, hour=10)
+        SessionAvailabilityFactory(
+            session=pending_session, day=opening.date(), part=DayPart.AFTERNOON
+        )
+
+        response = manager_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["form"].fields[
+            "start_time"
+        ].initial == opening.replace(hour=12)
+
+    @pytest.mark.usefixtures("space")
+    def test_get_never_opens_the_start_time_before_the_event_does(
+        self, event, pending_session, manager_client
+    ):
+        # A morning offer on the opening day starts at 06:00, hours before the
+        # doors open; the field is clamped to the opening rather than proposing
+        # a placement the event cannot hold.
+        opening = _open_event_at(event, hour=10)
+        SessionAvailabilityFactory(
+            session=pending_session, day=opening.date(), part=DayPart.MORNING
+        )
+
+        response = manager_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["form"].fields["start_time"].initial == opening
 
     @pytest.mark.usefixtures("space")
     def test_get_renders_host_avatar(self, pending_session, manager_client):
@@ -160,7 +214,7 @@ class TestProposalAcceptPageView:
                 "presenter": None,
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -223,7 +277,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": "spaces",
             },
@@ -249,7 +303,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -279,7 +333,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -360,7 +414,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -482,7 +536,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -522,7 +576,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
             },
@@ -560,7 +614,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,
@@ -608,7 +662,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,
@@ -656,7 +710,7 @@ class TestProposalAcceptPageView:
                 "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "available_days": [],
+                "availability": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         allow_custom=False,

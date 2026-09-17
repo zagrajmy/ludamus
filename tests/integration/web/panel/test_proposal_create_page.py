@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     Facilitator,
@@ -27,6 +28,7 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     TrackDTO,
 )
+from ludamus.pacts.availability import DayPart, offered_parts_by_day
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response, checkbox_tag
@@ -38,12 +40,54 @@ from tests.integration.web.panel.helpers import (
     panel_context,
 )
 
+DAY_PART_LABELS = {
+    DayPart.MORNING: "Morning",
+    DayPart.AFTERNOON: "Afternoon",
+    DayPart.EVENING: "Evening",
+    DayPart.NIGHT: "Night",
+}
+
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
     b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
     b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
 )
+
+
+def offered_availability(event):
+    # The (day, part) pairs the event's own hours reach, which is what the
+    # picker offers and what the view accepts back.
+    return offered_parts_by_day(
+        start=event.start_time, end=event.end_time, tz=get_current_timezone()
+    )
+
+
+def first_offered(event):
+    day, parts = offered_availability(event)[0]
+    return day, parts[0]
+
+
+def availability_value(day, part):
+    return f"{day.isoformat()}:{part.value}"
+
+
+def availability_options(event, selected=()):
+    picked = set(selected)
+    return [
+        {
+            "day": day,
+            "parts": [
+                {
+                    "value": availability_value(day, part),
+                    "label": DAY_PART_LABELS[part],
+                    "is_selected": (day, part) in picked,
+                }
+                for part in parts
+            ],
+        }
+        for day, parts in offered_availability(event)
+    ]
 
 
 def _fields_context(event):
@@ -67,8 +111,7 @@ def _base_context(event):
         "assigned_facilitator_pks": set(),
         "all_tracks": [],
         "assigned_track_pks": set(),
-        "all_available_days": day_range(event),
-        "selected_available_days": [],
+        "availability_options": availability_options(event),
         "facilitator_personal_data": [],
     }
 
@@ -416,12 +459,12 @@ class TestProposalCreatePageView:
         )
         assert new_session.cover_image
 
-    def test_post_creates_session_with_available_days(self, panel_client, event):
+    def test_post_creates_session_with_availability(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        day = day_range(event)[0]
+        day, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event),
@@ -431,20 +474,23 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "title": "Day Session",
                 "facilitator_name": "Test Host",
-                "available_days_submitted": "1",
-                "available_days": [day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
         new_session = Session.objects.get(title="Day Session")
-        assert list(new_session.available_days.values_list("day", flat=True)) == [day]
+        assert list(new_session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
-    def test_post_ignores_day_outside_the_event(self, panel_client, event):
+    def test_post_ignores_time_outside_the_event(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
         outside_day = day_range(event)[-1] + timedelta(days=1)
+        __, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event),
@@ -454,25 +500,25 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "title": "Day Session",
                 "facilitator_name": "Test Host",
-                "available_days_submitted": "1",
-                "available_days": [outside_day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(outside_day, part)],
             },
         )
 
         new_session = Session.objects.get(title="Day Session")
-        assert not new_session.available_days.exists()
+        assert not new_session.availability.exists()
 
-    def test_post_invalid_keeps_selected_day(self, panel_client, event):
+    def test_post_invalid_keeps_selected_time(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        day = day_range(event)[0]
+        day, part = first_offered(event)
 
         response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
                 "facilitator_name": "Test Host",
-                "available_days_submitted": "1",
-                "available_days": [day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
@@ -484,7 +530,9 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "selected_available_days": [day],
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
             },
         )
 

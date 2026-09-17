@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO
 
@@ -109,10 +110,12 @@ def _row_header_matches(key: str, header: str) -> bool:
     return suffix != key and _DUPLICATE_HEADER_SUFFIX.fullmatch(suffix) is not None
 
 
-class AvailableDaySpec(BaseModel):
-    # An event day the answer says the facilitator could host on.
-    to: Literal["available_day"] = "available_day"
+class AvailabilitySpec(BaseModel):
+    # When an answer says the facilitator could host: a programme day and the
+    # part of it, never a clock time.
+    to: Literal["availability"] = "availability"
     day: date
+    part: DayPart
 
 
 class EntityRef(BaseModel):
@@ -132,17 +135,17 @@ class DurationSpec(BaseModel):
 
 # A choice option's mapped value: an event day (or several), the
 # track/category entity it resolves to, or an ISO duration.
-QuestionValue = AvailableDaySpec | list[AvailableDaySpec] | EntityRef | DurationSpec
+QuestionValue = AvailabilitySpec | list[AvailabilitySpec] | EntityRef | DurationSpec
 
 
 class QuestionTarget(BaseModel):
     # `to` is "session.<col>" (a built-in proposal field), "field.<slug>" (a new
     # session field), "personal.<slug>" (a new personal-data field),
-    # "session.available_days" (event days), or "track"/"category"
+    # "session.availability" (parts of event days), or "track"/"category"
     # (provisioned entities); each provisioned by slug from
     # `ImportSettings.definitions`; `ignore` marks a question as deliberately
     # unmapped. `values` maps a choice option's text to its target value — for
-    # `session.available_days`, one day or several; for "track"/"category", the
+    # `session.availability`, one entry or several; for "track"/"category", the
     # entity it resolves to. `overrides` substitutes the raw cell text before
     # any parsing or `values` lookup — used to clean up free-form answers like
     # "maybe 8, maybe 10" into "10" for a numeric target, or to fix typos in a
@@ -428,7 +431,7 @@ class ProposalCategorySettingsData(BaseModel):
     offer_claim_window: timedelta | None
     personal_fields: RequirementSelectionDTO
     session_fields: RequirementSelectionDTO
-    asks_available_days: bool
+    asks_availability: bool
 
 
 class ProposalCategoryEditContextDTO(BaseModel):
@@ -439,7 +442,7 @@ class ProposalCategoryEditContextDTO(BaseModel):
     available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
-    asks_available_days: bool
+    asks_availability: bool
     proposal_count: int
 
 

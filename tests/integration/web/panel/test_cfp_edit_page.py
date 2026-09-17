@@ -80,7 +80,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -222,7 +222,7 @@ class TestProposalCategorySettingsPageView:
                 "session_field_requirements": {},
                 "available_fields": [],
                 "available_session_fields": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
             },
         )
@@ -308,7 +308,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -338,7 +338,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -396,7 +396,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -502,7 +502,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -560,7 +560,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -602,7 +602,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -821,7 +821,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": ["PT1H", "PT2H", "PT3H"],
                 "proposal_count": 0,
             },
@@ -850,7 +850,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1012,7 +1012,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1078,7 +1078,7 @@ class TestProposalCategorySettingsPageView:
                     difficulty_field.pk: False,
                 },
                 "session_field_order": [genre_field.pk, difficulty_field.pk],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1120,7 +1120,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1320,7 +1320,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1383,7 +1383,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1412,7 +1412,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1513,7 +1513,7 @@ class TestProposalCategorySettingsPageView:
                     difficulty_field.pk: False,
                 },
                 "session_field_order": [difficulty_field.pk, genre_field.pk],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1578,7 +1578,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {genre_field.pk: True},
                 "session_field_order": [genre_field.pk],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1607,7 +1607,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1677,7 +1677,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1716,7 +1716,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 1 + 1 + 1,  # 3 sessions created for this category
             },
@@ -1758,7 +1758,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": False,
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 1 + 1,  # Only 2 in this category
             },
@@ -1855,7 +1855,7 @@ class TestProposalCategorySettingsPageView:
             event=event,
             name="RPG Sessions",
             slug="rpg-sessions",
-            asks_available_days=True,
+            asks_availability=True,
         )
 
         response = panel_client.get(self.get_url(event, category))
@@ -1874,20 +1874,20 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "asks_available_days": True,
+                "asks_availability": True,
                 "durations": [],
                 "proposal_count": 0,
             },
         )
 
-    def test_post_saves_asks_available_days(self, panel_client, event):
+    def test_post_saves_asks_availability(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
         response = panel_client.post(
             self.get_url(event, category),
-            data={"name": "RPG Sessions", "asks_available_days": "on"},
+            data={"name": "RPG Sessions", "asks_availability": "on"},
         )
 
         assert_response(
@@ -1897,14 +1897,14 @@ class TestProposalCategorySettingsPageView:
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
-        assert category.asks_available_days is True
+        assert category.asks_availability is True
 
-    def test_post_clears_asks_available_days_when_unchecked(self, panel_client, event):
+    def test_post_clears_asks_availability_when_unchecked(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
             slug="rpg-sessions",
-            asks_available_days=True,
+            asks_availability=True,
         )
 
         response = panel_client.post(
@@ -1918,7 +1918,7 @@ class TestProposalCategorySettingsPageView:
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
-        assert category.asks_available_days is False
+        assert category.asks_availability is False
 
     # Participant limits tests
 

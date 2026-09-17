@@ -49,13 +49,14 @@ from ludamus.pacts import (
     SessionDTO,
     SessionFieldValueDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
@@ -117,8 +118,8 @@ def _field_dto(field):
     )
 
 
-# Day offsets from the event start for the proposal that names the days its
-# author could host on: three of them, so the card shows the earliest and
+# Day offsets from the event start for the proposal that names the times its
+# author could host at: three of them, so the card shows the earliest and
 # counts the rest.
 _OFFERED_DAY_OFFSETS = (0, 1, 2)
 
@@ -1677,7 +1678,7 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_superuser_sees_offered_days_earliest_first(
+    def test_ok_superuser_sees_offered_times_earliest_first(
         self, authenticated_client, event, active_user, pending_session
     ):
         active_user.is_staff = True
@@ -1687,10 +1688,15 @@ class TestEventPageView:
         event.save(update_fields=["proposal_end_time"])
         # Added latest-first, so a card that echoed insertion order would fail.
         opening = timezone.localtime(event.start_time).date()
-        days = [
-            SessionAvailableDayFactory(
-                session=pending_session, day=opening + timedelta(days=offset)
-            ).day
+        offered = [
+            AvailabilityDTO(
+                day=SessionAvailabilityFactory(
+                    session=pending_session,
+                    day=opening + timedelta(days=offset),
+                    part=DayPart.EVENING,
+                ).day,
+                part=DayPart.EVENING,
+            )
             for offset in reversed(_OFFERED_DAY_OFFSETS)
         ]
         flexible_session = SessionFactory(
@@ -1708,7 +1714,10 @@ class TestEventPageView:
             flexible_session, presenter=active_user, can_edit=True
         )
         expected_pending = proposal_card(
-            pending_session, presenter=active_user, can_edit=True, days=sorted(days)
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            offered_times=sorted(offered, key=lambda entry: (entry.day, entry.part)),
         )
         assert_response(
             response,

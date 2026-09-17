@@ -11,8 +11,7 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
 
 if TYPE_CHECKING:
-    from datetime import date
-
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
@@ -144,7 +143,7 @@ class ProposalDraft:
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
     track_ids: list[int] = field(default_factory=list)
-    available_days: list[date] = field(default_factory=list)
+    availability: list[AvailabilityDTO] = field(default_factory=list)
 
 
 @dataclass

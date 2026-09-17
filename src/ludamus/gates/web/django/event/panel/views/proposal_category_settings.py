@@ -88,7 +88,7 @@ def _settings_data(
         session_fields=parse_requirement_selection(
             request.POST, prefix="session_field_", order_key="session_field_order"
         ),
-        asks_available_days=bool(request.POST.get("asks_available_days")),
+        asks_availability=bool(request.POST.get("asks_availability")),
     )
 
 
@@ -109,7 +109,7 @@ def _render(
         available_session_fields=page.available_session_fields,
         session_field_requirements=page.session_field_requirements,
         session_field_order=page.session_field_order,
-        asks_available_days=page.asks_available_days,
+        asks_availability=page.asks_availability,
         durations=page.category.durations,
         proposal_count=page.proposal_count,
     )

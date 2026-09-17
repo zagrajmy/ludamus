@@ -78,7 +78,7 @@ class ImportFieldLayoutService:
                     settings=settings,
                     row=row,
                 )
-                result.session_links_filled += self._fill_missing_available_days(
+                result.session_links_filled += self._fill_missing_availability(
                     session_id=entry.session_id, settings=settings, row=row
                 )
                 result.session_links_filled += self._fill_missing_tracks(
@@ -195,21 +195,21 @@ class ImportFieldLayoutService:
         self._repos.sessions.update(session_id, {"category_id": category_id})
         return 1
 
-    def _fill_missing_available_days(
+    def _fill_missing_availability(
         self, *, session_id: int, settings: ImportSettings, row: ImportRow
     ) -> int:
-        # Apply-field-layout extension for available days: only fill when the
-        # session has none yet and the row resolves at least one day.
-        if self._repos.sessions.read_available_days(session_id):
+        # Apply-field-layout extension for availability: only fill when the
+        # session has none yet and the row resolves at least one entry.
+        if self._repos.sessions.read_availability(session_id):
             return 0
         try:
-            days = self._engine.available_days(settings=settings, row=row)
+            offered = self._engine.availability(settings=settings, row=row)
         except RowSkippedError:
             return 0
-        if not days:
+        if not offered:
             return 0
-        self._repos.sessions.set_available_days(session_id, days)
-        return len(days)
+        self._repos.sessions.set_availability(session_id, offered)
+        return len(offered)
 
     def _fill_missing_tracks(
         self,

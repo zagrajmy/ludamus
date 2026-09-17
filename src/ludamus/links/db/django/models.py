@@ -23,6 +23,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
@@ -1154,30 +1155,36 @@ class Session(SoftDeleteModel):
         return any(config.is_session_eligible(self) for config in active_configs)
 
 
-class SessionAvailableDay(models.Model):
-    """A day the facilitator said they could run this session.
+class SessionAvailability(models.Model):
+    """A part of a programme day the facilitator could run this session in.
 
-    Availability is a property of the offer, so it lives on the session
-    rather than on the event. Days come from the event's own date range,
-    so there is nothing to configure before the question can be asked.
+    Availability belongs to the offer, so it lives on the session rather than
+    on the event, and it is answered in named parts rather than clock times:
+    the proposer knows they are free on Friday evening, not that the room
+    opens at 18:30. Days come from the event's own dates, so there is nothing
+    to configure before the question can be asked.
     """
 
     session = models.ForeignKey(
-        Session, on_delete=models.CASCADE, related_name="available_days"
+        Session, on_delete=models.CASCADE, related_name="availability"
     )
     day = models.DateField()
+    part = models.CharField(
+        max_length=9, choices=[(part.value, part.name) for part in DayPart]
+    )
 
     class Meta:
-        db_table = "session_available_day"
-        ordering: ClassVar = ["day"]
+        db_table = "session_availability"
+        ordering: ClassVar = ["day", "part"]
         constraints = (
             models.UniqueConstraint(
-                fields=("session", "day"), name="session_has_unique_available_day"
+                fields=("session", "day", "part"),
+                name="session_has_unique_availability",
             ),
         )
 
     def __str__(self) -> str:
-        return f"{self.day.isoformat()} ({self.id})"
+        return f"{self.day.isoformat()} {self.part} ({self.id})"
 
 
 class AgendaItem(models.Model):
@@ -1244,11 +1251,11 @@ class ProposalCategory(models.Model):
     # Settings
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
-    asks_available_days = models.BooleanField(
+    asks_availability = models.BooleanField(
         default=False,
         help_text=(
-            "Ask proposers which event days they could run this on. Off by"
-            " default: most categories do not need it."
+            "Ask proposers when they could run this. Off by default:"
+            " most categories do not need it."
         ),
     )
     durations = models.JSONField(

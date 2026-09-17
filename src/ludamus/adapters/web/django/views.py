@@ -95,7 +95,11 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SpherePage,
 )
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
+from ludamus.pacts.availability import (
+    PROGRAMME_DAY_STARTS_AT_HOUR,
+    AvailabilityDTO,
+    DayPart,
+)
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     NO_ENROLLMENT_ACCESS,
@@ -727,13 +731,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 ],
                 # Only an unscheduled proposal has availability worth reading;
                 # its queryset is the one that prefetches it.
-                available_days=(
-                    []
-                    if agenda_item
-                    else [
-                        available_day.day
-                        for available_day in session.available_days.all()
+                offered_times=(
+                    [
+                        AvailabilityDTO(day=row.day, part=DayPart(row.part))
+                        for row in session.availability.all()
                     ]
+                    if agenda_item is None
+                    else []
                 ),
             )
 

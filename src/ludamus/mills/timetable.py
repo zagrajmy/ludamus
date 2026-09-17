@@ -11,7 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import MIDNIGHT, event_opening_hours
+from ludamus.mills.timeslots import event_opening_hours
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -20,6 +20,7 @@ from ludamus.pacts import (
     SessionStatus,
     TrackSessionCountsDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, part_of, programme_date
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ConflictDTO,
@@ -31,7 +32,7 @@ from ludamus.pacts.chronology import (
     HeatmapDTO,
     HeatmapRowDTO,
     MultiselectOptionDTO,
-    PreferredSlotViolationDTO,
+    OfferedTimeViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
     SessionPositionState,
@@ -76,7 +77,7 @@ def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
 
 
 def _card_states(
-    conflicts: Iterable[ConflictDTO], violations: Iterable[PreferredSlotViolationDTO]
+    conflicts: Iterable[ConflictDTO], violations: Iterable[OfferedTimeViolationDTO]
 ) -> dict[int, SessionPositionState]:
     # What each card warns about, resolved once per page so the grid stops
     # testing the same session against page-wide sets on every element. A clash
@@ -662,7 +663,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
         tz: tzinfo,
-    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]:
+    ) -> tuple[list[ConflictDTO], list[OfferedTimeViolationDTO]]:
         # The grid has already loaded the event's items and space nodes, and
         # both warnings run off the same subjects. Taking them as arguments
         # keeps one render to one load of each instead of three.
@@ -873,9 +874,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             result.append(conflict.model_copy(update=update))
         return result
 
-    def list_preferred_slot_violations(
+    def list_offered_time_violations(
         self, *, event_pk: int, track_pk: int | None, tz: tzinfo
-    ) -> list[PreferredSlotViolationDTO]:
+    ) -> list[OfferedTimeViolationDTO]:
         if track_pk is not None:
             require_track_in_event(
                 tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
@@ -892,21 +893,23 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
 
     def _violations(
         self, scheduled: list[AgendaItemDTO], track_pk: int | None, tz: tzinfo
-    ) -> list[PreferredSlotViolationDTO]:
+    ) -> list[OfferedTimeViolationDTO]:
         if not scheduled:
             return []
 
-        available_by_session = self._repos.sessions.read_available_days_by_sessions(
+        offered_by_session = self._repos.sessions.read_availability_by_sessions(
             {item.session_id for item in scheduled}
         )
 
-        violating: list[tuple[AgendaItemDTO, list[date]]] = []
+        violating: list[tuple[AgendaItemDTO, list[AvailabilityDTO]]] = []
         for item in scheduled:
-            if not (offered := available_by_session.get(item.session_id, [])):
+            if not (offered := offered_by_session.get(item.session_id, [])):
                 continue
-            # A session placed across midnight still belongs to the day it
-            # opened on, which is the day the facilitator answered about.
-            if MIDNIGHT.date_of(item.start_time, tz) in set(offered):
+            # The facilitator answered about the programme day and the part of
+            # it, so a block opening at 01:00 is judged against the evening it
+            # grew out of, not against the next morning.
+            placed = (programme_date(item.start_time, tz), part_of(item.start_time, tz))
+            if placed in {(entry.day, entry.part) for entry in offered}:
                 continue
             violating.append((item, offered))
         if not violating:
@@ -915,16 +918,16 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         attribution = self._foreign_track_attribution(
             {item.session_id for item, _ in violating}, track_pk
         )
-        violations: list[PreferredSlotViolationDTO] = []
+        violations: list[OfferedTimeViolationDTO] = []
         for item, offered in violating:
             track_name, managers = attribution.get(item.session_id, (None, []))
             violations.append(
-                PreferredSlotViolationDTO(
+                OfferedTimeViolationDTO(
                     session_pk=item.session_id,
                     session_title=item.session_title,
                     scheduled_start=item.start_time,
                     scheduled_end=item.end_time,
-                    available_days=list(offered),
+                    availability=list(offered),
                     track_name=track_name,
                     manager_names=managers,
                 )

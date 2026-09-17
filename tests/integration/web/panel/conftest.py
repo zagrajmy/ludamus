@@ -5,12 +5,13 @@ from datetime import timedelta
 
 import pytest
 from django.conf import settings
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import AgendaItem, Connection, Facilitator, Track
 from ludamus.links.encryption import FernetEncryptor
+from ludamus.pacts.availability import part_of, programme_date
 from tests.integration.conftest import (
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
@@ -141,9 +142,12 @@ def timetable_scale_data_fixture(event, proposal_category):
         # Facilitators are shared, so sessions clash across rooms as well.
         session.facilitators.add(facilitators[index % len(facilitators)])
         # Offer the day after the event opens, so every session scheduled on
-        # the opening day counts as a day violation and the page exercises it.
-        SessionAvailableDayFactory(
-            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
+        # the opening day counts as a violation and the page exercises it.
+        SessionAvailabilityFactory(
+            session=session,
+            day=programme_date(event.start_time, get_current_timezone())
+            + timedelta(days=1),
+            part=part_of(event.start_time, get_current_timezone()),
         )
         session.tracks.add(tracks[index % len(tracks)])
 

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import (
@@ -23,6 +23,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpaceDTO,
 )
+from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -43,7 +44,7 @@ from ludamus.specs.timetable import (
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
 )
@@ -217,13 +218,16 @@ def make_overlapping_sessions(event, category):
     return space, sessions
 
 
-def schedule_outside_preferred_slot(*, event, category, space):
-    # Scheduled on the event's first day while the only day the facilitator
-    # offered is the next one: a day violation, which the conflict panel
-    # deliberately ignores.
+def schedule_outside_offered_time(*, event, category, space):
+    # Scheduled when the event opens while the only time the facilitator
+    # offered is the next day: an availability violation, which the conflict
+    # panel deliberately ignores.
     session = make_timetable_session(category)
-    SessionAvailableDayFactory(
-        session=session, day=localtime(event.start_time).date() + timedelta(days=1)
+    tz = get_current_timezone()
+    SessionAvailabilityFactory(
+        session=session,
+        day=programme_date(event.start_time, tz) + timedelta(days=1),
+        part=part_of(event.start_time, tz),
     )
     schedule_session(session=session, space=space, start=event.start_time)
     return session
@@ -420,7 +424,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
         "field_values": [],
         "facilitators": [],
         "presenter": UserDTO.model_validate(presenter),
-        "available_days": [],
+        "availability": [],
         "import_log_entry": None,
         "import_log_integration": None,
     }

@@ -58,7 +58,7 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
                 self._repos.categories.get_session_field_requirements(category.pk)
             ),
             session_field_order=session_field_order,
-            asks_available_days=category.asks_available_days,
+            asks_availability=category.asks_availability,
             proposal_count=self._repos.sessions.count_by_category(category.pk),
         )
 
@@ -80,7 +80,7 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
                 durations=data.durations,
                 min_participants_limit=data.min_participants_limit,
                 max_participants_limit=data.max_participants_limit,
-                asks_available_days=data.asks_available_days,
+                asks_availability=data.asks_availability,
             )
             if data.promotion_mode is not None:
                 category_data["promotion_mode"] = data.promotion_mode

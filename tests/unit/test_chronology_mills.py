@@ -19,6 +19,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
@@ -153,9 +154,9 @@ class TestContentEditRevert:
             {"field": "facilitators", "field_id": None, "old": "Alice", "new": "Bob"},
             {"field": "tracks", "field_id": None, "old": "A", "new": "B"},
             {
-                "field": "available_days",
+                "field": "availability",
                 "field_id": None,
-                "old": "Saturday, Jun 1",
+                "old": "2026-06-01 evening",
                 "new": "",
             },
             {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
@@ -580,7 +581,9 @@ class TestProposalAcceptanceService:
         sessions.read_event.return_value = _event_dto()
         sessions.read_presenter.return_value = None
         sessions.read_space_options.return_value = []
-        sessions.read_available_days.return_value = [_NOW.date()]
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=_NOW.date(), part=DayPart.MORNING)
+        ]
         sessions.read_field_values.return_value = []
         active_users.read.return_value = _user_dto()
 
@@ -615,7 +618,9 @@ class TestProposalAcceptanceService:
         assert context.event.slug == "con"
         assert context.presenter is None
         assert context.space_options == []
-        assert context.available_days == [_NOW.date()]
+        assert context.availability == [
+            AvailabilityDTO(day=_NOW.date(), part=DayPart.MORNING)
+        ]
         assert context.duration_minutes == _DEFAULT_DURATION_MINUTES
         assert context.can_accept is True
 

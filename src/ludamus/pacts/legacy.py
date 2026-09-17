@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.crowd import (
         CompanionRepositoryProtocol,
         UserDTO,
@@ -126,7 +127,7 @@ class PromotionMode(StrEnum):
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    asks_available_days: bool = False
+    asks_availability: bool = False
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -626,7 +627,7 @@ class EnrollmentConfigDTO(BaseModel):
 
 
 class ProposalCategoryData(TypedDict, total=False):
-    asks_available_days: bool
+    asks_availability: bool
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -734,7 +735,8 @@ class WizardData(TypedDict, total=False):
     contact_email: str
     personal_data: dict[str, str]
     session_data: dict[str, FieldValue | int]
-    available_days: list[date]
+    # Wire form, `YYYY-MM-DD:part`: the wizard lives in a JSON session.
+    availability: list[str]
     track_pks: list[int]
 
 
@@ -823,7 +825,7 @@ class SessionRepositoryProtocol(Protocol):
     def create(
         session_data: SessionData,
         *,
-        available_days: Iterable[date] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int: ...
@@ -866,11 +868,11 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
-    def read_available_days(session_id: int) -> list[date]: ...
+    def read_availability(session_id: int) -> list[AvailabilityDTO]: ...
     @staticmethod
-    def read_available_days_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[date]]: ...
+    ) -> dict[int, list[AvailabilityDTO]]: ...
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
@@ -906,7 +908,7 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
     @staticmethod
-    def set_available_days(session_id: int, days: list[date]) -> None: ...
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None: ...
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
@@ -1100,7 +1102,7 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def get_field_requirements(category_id: int) -> dict[int, bool]: ...
     @staticmethod
-    def asks_available_days(category_id: int) -> bool: ...
+    def asks_availability(category_id: int) -> bool: ...
     @staticmethod
     def get_session_field_order(category_id: int) -> list[int]: ...
     @staticmethod
@@ -1517,7 +1519,7 @@ class SessionContentEditData:
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
-    available_days: list[date] | None = None
+    availability: list[AvailabilityDTO] | None = None
     remove_field_ids: list[int] | None = None
 
 

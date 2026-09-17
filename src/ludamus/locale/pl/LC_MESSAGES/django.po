@@ -839,8 +839,8 @@ msgstr[3] "%(counter)s wolne miejsca"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #, python-format
-msgid "The facilitator offered: %(days)s"
-msgstr "Twórca programu zaproponował: %(days)s"
+msgid "The facilitator offered: %(times)s"
+msgstr "Twórca programu zaproponował: %(times)s"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Ungrouped"
@@ -2618,6 +2618,26 @@ msgid "Door cards"
 msgstr "Tabliczki na drzwi"
 
 #: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Morning"
+msgstr "Rano"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Afternoon"
+msgstr "Po południu"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Evening"
+msgstr "Wieczorem"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Night"
+msgstr "W nocy"
+
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select a category first."
 msgstr "Najpierw wybierz kategorię."
 
@@ -2635,8 +2655,8 @@ msgid "Please select a category."
 msgstr "Wybierz kategorię."
 
 #: src/ludamus/gates/web/django/event/propose.py
-msgid "Pick at least one day you could host."
-msgstr "Wybierz przynajmniej jeden dzień, w którym możesz poprowadzić."
+msgid "Pick at least one time you could host."
+msgstr "Wybierz przynajmniej jedną porę, w której możesz poprowadzić."
 
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select at least one track."
@@ -3731,6 +3751,22 @@ msgstr "Scalono z"
 msgid "track"
 msgstr "blok"
 
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "morning"
+msgstr "rano"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "afternoon"
+msgstr "po południu"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "evening"
+msgstr "wieczorem"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "night"
+msgstr "w nocy"
+
 #: src/ludamus/links/db/django/models.py
 msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
@@ -4420,8 +4456,10 @@ msgid "Submitted"
 msgstr "Przesłane"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Days the facilitator offered"
-msgstr "Dni zaproponowane przez twórcę programu"
+#: src/ludamus/templates/panel/parts/availability-picker.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "When the facilitator could host"
+msgstr "Kiedy twórca programu może poprowadzić"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Schedule it"
@@ -6225,8 +6263,9 @@ msgid "Your info"
 msgstr "Twoje dane"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
-msgid "Days"
-msgstr "Dni"
+#: src/ludamus/templates/notice_board/detail.html
+msgid "When"
+msgstr "Kiedy"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgctxt "wizard step"
@@ -6254,13 +6293,13 @@ msgid "Continue"
 msgstr "Dalej"
 
 #: src/ludamus/templates/event/propose/parts/days.html
-#: src/ludamus/templates/event/propose/parts/review.html
-msgid "Days you could host"
-msgstr "Dni, w które możesz poprowadzić"
+msgid "When could you host?"
+msgstr "Kiedy możesz poprowadzić?"
 
 #: src/ludamus/templates/event/propose/parts/days.html
-msgid "Pick every day that would work for you."
-msgstr "Zaznacz każdy dzień, który Ci pasuje."
+msgid "Tick every time that would work. We settle the exact hours later."
+msgstr ""
+"Zaznacz każdą porę, która Ci pasuje. Dokładne godziny ustalamy później."
 
 #: src/ludamus/templates/event/propose/parts/days.html
 #: src/ludamus/templates/event/propose/parts/details.html
@@ -6272,12 +6311,12 @@ msgid "Back"
 msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/days.html
-msgid "Days saved. Next step coming soon."
-msgstr "Dni zapisane. Następny krok wkrótce."
+msgid "Availability saved. Next step coming soon."
+msgstr "Dostępność zapisana. Następny krok wkrótce."
 
 #: src/ludamus/templates/event/propose/parts/days.html
-msgid "No day selection needed. Proceeding to next step."
-msgstr "Wybór dni nie jest potrzebny. Przechodzimy do następnego kroku."
+msgid "No availability to pick. Proceeding to next step."
+msgstr "Nie ma czego wybierać. Przechodzimy do następnego kroku."
 
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session Details"
@@ -6340,6 +6379,10 @@ msgstr "Bez limitu"
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "All ages"
 msgstr "Bez ograniczeń"
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "When you could host"
+msgstr "Kiedy możesz poprowadzić"
 
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Submit Proposal"
@@ -6717,10 +6760,6 @@ msgstr "Bierzesz udział w tym spotkaniu"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "invites you to an encounter"
 msgstr "zaprasza Cię na spotkanie"
-
-#: src/ludamus/templates/notice_board/detail.html
-msgid "When"
-msgstr "Kiedy"
 
 #: src/ludamus/templates/notice_board/detail.html
 msgid "Where"
@@ -7408,15 +7447,17 @@ msgstr "Dostępność"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid ""
-"Ask proposers which event days they could run this on. The days come from "
-"the event's own dates, so there is nothing else to set up."
+"Ask proposers when they could run this: a morning, an evening, and so on. "
+"The days and parts come from the event's own dates, so there is nothing else "
+"to set up, and nobody is asked to pick an hour."
 msgstr ""
-"Pytaj zgłaszających, w które dni wydarzenia mogliby to poprowadzić. Dni "
-"wynikają z dat wydarzenia, więc nie trzeba nic więcej ustawiać."
+"Pytaj zgłaszających, kiedy mogliby to poprowadzić: rano, wieczorem i tak "
+"dalej. Dni i pory wynikają z dat wydarzenia, więc nie trzeba nic więcej "
+"ustawiać, a nikt nie musi wybierać godziny."
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Ask for available days"
-msgstr "Pytaj o dostępne dni"
+msgid "Ask when they could host"
+msgstr "Pytaj, kiedy mogą poprowadzić"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Chosen"
@@ -8779,17 +8820,12 @@ msgstr "Przypisz %(name)s do gildii"
 msgid "This sphere has no guilds yet."
 msgstr "Ta sfera nie ma jeszcze żadnych gildii."
 
-#: src/ludamus/templates/panel/parts/available-days-picker.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Days the facilitator could host"
-msgstr "Dni, w które twórca programu może poprowadzić"
-
-#: src/ludamus/templates/panel/parts/available-days-picker.html
+#: src/ludamus/templates/panel/parts/availability-picker.html
 msgid ""
-"Days that would work for this session. These are preferences, not a final "
+"Times that would work for this session. These are preferences, not a final "
 "schedule."
 msgstr ""
-"Dni, które pasowałyby dla tego punktu programu. To preferencje, nie "
+"Pory, które pasowałyby dla tego punktu programu. To preferencje, nie "
 "ostateczny harmonogram."
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
@@ -8938,12 +8974,16 @@ msgid "Allow custom values"
 msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Remove day"
-msgstr "Usuń dzień"
+msgid "Part of day"
+msgstr "Pora dnia"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Add day"
-msgstr "Dodaj dzień"
+msgid "Remove time"
+msgstr "Usuń porę"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Add time"
+msgstr "Dodaj porę"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Catch-all for custom answers"
@@ -9218,8 +9258,8 @@ msgid "Not assigned"
 msgstr "Nieprzypisane"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Offered days"
-msgstr "Zaproponowane dni"
+msgid "Offered times"
+msgstr "Zaproponowane pory"
 
 #: src/ludamus/templates/panel/parts/timetable-session-list.html
 #, python-format
@@ -9978,8 +10018,8 @@ msgid "No conflicts."
 msgstr "Brak konfliktów."
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "Sessions outside preferred slots"
-msgstr "Punkty programu poza preferowanymi przedziałami"
+msgid "Sessions outside the times they offered"
+msgstr "Punkty programu poza zaproponowanymi porami"
 
 #: src/ludamus/templates/panel/timetable-problems.html
 #, python-format
@@ -9987,16 +10027,18 @@ msgid "Scheduled: %(start)s – %(end)s"
 msgstr "Zaplanowano: %(start)s – %(end)s"
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "Offered days:"
-msgstr "Zaproponowane dni:"
+msgid "Offered times:"
+msgstr "Zaproponowane pory:"
 
 #: src/ludamus/templates/panel/timetable-problems.html
 msgid "Open in Schedule"
 msgstr "Otwórz w harmonogramie"
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "All scheduled sessions are inside their preferred slots."
-msgstr "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+msgid "Every scheduled session sits inside a time its facilitator offered."
+msgstr ""
+"Każdy zaplanowany punkt programu mieści się w porze zaproponowanej przez "
+"twórcę programu."
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Click a position on the grid to place the session"
@@ -10140,14 +10182,32 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
+#~ msgid "Ask for available days"
+#~ msgstr "Pytaj o dostępne dni"
+
+#~ msgid "Days the facilitator offered"
+#~ msgstr "Dni zaproponowane przez twórcę programu"
+
+#~ msgid "Days"
+#~ msgstr "Dni"
+
+#~ msgid "Pick every day that would work for you."
+#~ msgstr "Zaznacz każdy dzień, który Ci pasuje."
+
+#~ msgid "Remove day"
+#~ msgstr "Usuń dzień"
+
+#~ msgid "Add day"
+#~ msgstr "Dodaj dzień"
+
+#~ msgid "Offered days"
+#~ msgstr "Zaproponowane dni"
+
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
 
 #~ msgid "Preferred by the facilitator"
 #~ msgstr "Preferowane przez twórcę programu"
-
-#~ msgid "Other times"
-#~ msgstr "Pozostałe godziny"
 
 #~ msgid "Time slot"
 #~ msgstr "Przedział czasowy"

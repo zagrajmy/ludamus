@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load date_tags i18n %}
 {% load cfp_tags %}
 {% load tessera %}
 {% load markdown_tags %}
@@ -65,15 +65,15 @@
                     {% translate "Submitted" as submitted_label %}
                     {% include "components/_detail_tile.html" with label=submitted_label value=session.creation_time|date:"M j, Y" %}
                 </div>
-                {% if available_days %}
+                {% if availability %}
                     <div class="mt-6">
                         <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
                             {% icon "calendar-days" class="w-4 h-4 inline mr-1" variant="mini" %}
-                            {% translate "Days the facilitator offered" %}
+                            {% translate "When the facilitator could host" %}
                         </h4>
                         <div class="flex flex-wrap gap-1.5">
-                            {% for day in available_days %}
-                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ day|date:"l, M j" }}</span>
+                            {% for entry in availability %}
+                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</span>
                             {% endfor %}
                         </div>
                     </div>

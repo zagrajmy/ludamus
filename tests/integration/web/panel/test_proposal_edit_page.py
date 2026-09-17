@@ -49,7 +49,7 @@ from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SpaceFactory,
     UserFactory,
 )
@@ -66,6 +66,11 @@ from tests.integration.web.panel.helpers import (
     day_range,
     facilitator_list_item_dto,
     panel_context,
+)
+from tests.integration.web.panel.test_proposal_create_page import (
+    availability_options,
+    availability_value,
+    first_offered,
 )
 
 CUSTOM_DURATION_MINUTES = 45
@@ -141,8 +146,7 @@ def _edit_page_response(event, session):
             "cancel_url": _cancel_url(event, session.pk),
             "all_tracks": [],
             "assigned_track_pks": set(),
-            "all_available_days": day_range(event),
-            "selected_available_days": [],
+            "availability_options": availability_options(event),
             "facilitator_personal_data": [],
         },
     }
@@ -272,8 +276,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -309,8 +312,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -512,8 +514,7 @@ class TestProposalEditPageView:
                 "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             messages=[(messages.ERROR, error)],
@@ -597,8 +598,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -686,8 +686,7 @@ class TestProposalEditPageView:
                 "assigned_facilitator_pks": set(),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
@@ -979,9 +978,9 @@ class TestProposalEditPageView:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
-    def test_post_assigns_available_days(self, panel_client, event):
+    def test_post_assigns_availability(self, panel_client, event):
         session = _make_session(event)
-        day = day_range(event)[0]
+        day, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -991,16 +990,19 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "available_days_submitted": "1",
-                "available_days": [day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
-        assert list(session.available_days.values_list("day", flat=True)) == [day]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
-    def test_post_ignores_day_outside_the_event(self, panel_client, event):
+    def test_post_ignores_time_outside_the_event(self, panel_client, event):
         session = _make_session(event)
         outside_day = day_range(event)[-1] + timedelta(days=1)
+        __, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1010,18 +1012,19 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "available_days_submitted": "1",
-                "available_days": [outside_day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(outside_day, part)],
             },
         )
 
-        assert not session.available_days.exists()
+        assert not session.availability.exists()
 
-    def test_post_clears_available_days_when_marker_present_and_none_selected(
+    def test_post_clears_availability_when_marker_present_and_none_selected(
         self, panel_client, event
     ):
         session = _make_session(event)
-        SessionAvailableDayFactory(session=session, day=day_range(event)[0])
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1031,18 +1034,18 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "available_days_submitted": "1",
+                "availability_submitted": "1",
             },
         )
 
-        assert not session.available_days.exists()
+        assert not session.availability.exists()
 
-    def test_invalid_post_preserves_submitted_day_selection(
+    def test_invalid_post_preserves_submitted_availability(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         session = _make_session(event)
-        day = day_range(event)[0]
+        day, part = first_offered(event)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1052,8 +1055,8 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "available_days_submitted": "1",
-                "available_days": [day.isoformat()],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
@@ -1081,19 +1084,20 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [day],
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
                 "facilitator_personal_data": [],
             },
         )
-        assert not session.available_days.exists()
+        assert not session.availability.exists()
 
-    def test_partial_post_without_days_marker_preserves_available_days(
+    def test_partial_post_without_marker_preserves_availability(
         self, panel_client, event
     ):
         session = _make_session(event)
-        day = day_range(event)[0]
-        SessionAvailableDayFactory(session=session, day=day)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1106,7 +1110,9 @@ class TestProposalEditPageView:
             },
         )
 
-        assert list(session.available_days.values_list("day", flat=True)) == [day]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
     def test_get_renders_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
@@ -1158,8 +1164,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1395,8 +1400,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1498,8 +1502,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1646,8 +1649,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -1718,8 +1720,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -1973,8 +1974,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             contains=[
@@ -2045,14 +2045,14 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.title == "Updated title only"
 
-    def test_get_renders_track_and_available_day_cards(self, panel_client, event):
+    def test_get_renders_track_and_availability_cards(self, panel_client, event):
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
         session.tracks.add(track)
-        day = day_range(event)[0]
-        SessionAvailableDayFactory(session=session, day=day)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         response = panel_client.get(self.get_url(event, session.pk))
 
@@ -2080,8 +2080,9 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "assigned_track_pks": {track.pk},
-                "all_available_days": day_range(event),
-                "selected_available_days": [day],
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
                 "facilitator_personal_data": [],
             },
         )
@@ -2128,8 +2129,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             contains=['id="facilitator-search"', "Alice", "Bob"],
@@ -2189,8 +2189,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_available_days": day_range(event),
-                "selected_available_days": [],
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )

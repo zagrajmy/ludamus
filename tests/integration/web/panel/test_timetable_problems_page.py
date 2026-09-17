@@ -2,18 +2,19 @@ from datetime import timedelta
 from http import HTTPStatus
 
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.pacts import EventDTO
+from ludamus.pacts.availability import AvailabilityDTO, DayPart, part_of, programme_date
 from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
-    PreferredSlotViolationDTO,
+    OfferedTimeViolationDTO,
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SpaceFactory,
 )
 from tests.integration.utils import assert_login_required, assert_response
@@ -44,7 +45,7 @@ class TestTimetableProblemsPageView:
         return reverse("panel:timetable-problems", kwargs={"slug": event.slug})
 
     @staticmethod
-    def expected_context(event, *, stats, conflicts_grouped, slot_violations):
+    def expected_context(event, *, stats, conflicts_grouped, time_violations):
         return {
             "current_event": EventDTO.model_validate(event),
             "events": [EventDTO.model_validate(event)],
@@ -52,7 +53,7 @@ class TestTimetableProblemsPageView:
             "stats": stats,
             "active_nav": "timetable",
             "conflicts_grouped": conflicts_grouped,
-            "slot_violations": slot_violations,
+            "time_violations": time_violations,
             "slug": event.slug,
             "tab_urls": timetable_tab_urls(event),
             "active_tab": "problems",
@@ -95,7 +96,7 @@ class TestTimetableProblemsPageView:
                     "total_sessions": 0,
                 },
                 conflicts_grouped={},
-                slot_violations=[],
+                time_violations=[],
             ),
         )
 
@@ -130,17 +131,21 @@ class TestTimetableProblemsPageView:
                         )
                     ]
                 },
-                slot_violations=[],
+                time_violations=[],
             ),
         )
 
-    def test_lists_session_scheduled_on_a_day_nobody_offered(
+    def test_lists_session_scheduled_at_a_time_nobody_offered(
         self, panel_client, event, proposal_category
     ):
+        tz = get_current_timezone()
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        offered_day = localtime(event.start_time).date() + timedelta(days=1)
-        SessionAvailableDayFactory(session=session, day=offered_day)
+        offered = AvailabilityDTO(
+            day=programme_date(event.start_time, tz) + timedelta(days=1),
+            part=part_of(event.start_time, tz),
+        )
+        SessionAvailabilityFactory(session=session, day=offered.day, part=offered.part)
         agenda_item = schedule_session(
             session=session, space=space, start=event.start_time
         )
@@ -155,13 +160,13 @@ class TestTimetableProblemsPageView:
                 event,
                 stats=ONE_SCHEDULED_SESSION_STATS,
                 conflicts_grouped={},
-                slot_violations=[
-                    PreferredSlotViolationDTO(
+                time_violations=[
+                    OfferedTimeViolationDTO(
                         session_pk=session.pk,
                         session_title=session.title,
                         scheduled_start=agenda_item.start_time,
                         scheduled_end=agenda_item.end_time,
-                        available_days=[offered_day],
+                        availability=[offered],
                         track_name=None,
                         manager_names=[],
                     )
@@ -169,17 +174,20 @@ class TestTimetableProblemsPageView:
             ),
         )
 
-    def test_lists_every_day_the_facilitator_offered(
+    def test_lists_every_time_the_facilitator_offered(
         self, panel_client, event, proposal_category
     ):
+        tz = get_current_timezone()
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        first_offered = localtime(event.start_time).date() + timedelta(days=1)
-        second_offered = first_offered + timedelta(days=1)
-        for day in (second_offered, first_offered):
-            SessionAvailableDayFactory(session=session, day=day)
         start = event.start_time + timedelta(hours=1)
         end = start + timedelta(hours=4)
+        part = part_of(start, tz)
+        placed_day = programme_date(start, tz)
+        first_offered = AvailabilityDTO(day=placed_day + timedelta(days=1), part=part)
+        second_offered = AvailabilityDTO(day=placed_day + timedelta(days=2), part=part)
+        for entry in (second_offered, first_offered):
+            SessionAvailabilityFactory(session=session, day=entry.day, part=entry.part)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
 
         response = panel_client.get(self.get_url(event))
@@ -192,13 +200,13 @@ class TestTimetableProblemsPageView:
                 event,
                 stats=ONE_SCHEDULED_SESSION_STATS,
                 conflicts_grouped={},
-                slot_violations=[
-                    PreferredSlotViolationDTO(
+                time_violations=[
+                    OfferedTimeViolationDTO(
                         session_pk=session.pk,
                         session_title=session.title,
                         scheduled_start=start,
                         scheduled_end=end,
-                        available_days=[first_offered, second_offered],
+                        availability=[first_offered, second_offered],
                         track_name=None,
                         manager_names=[],
                     )
@@ -206,13 +214,16 @@ class TestTimetableProblemsPageView:
             ),
         )
 
-    def test_skips_session_scheduled_on_an_offered_day(
+    def test_skips_session_scheduled_at_an_offered_time(
         self, panel_client, event, proposal_category
     ):
+        tz = get_current_timezone()
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        SessionAvailableDayFactory(
-            session=session, day=localtime(event.start_time).date()
+        SessionAvailabilityFactory(
+            session=session,
+            day=programme_date(event.start_time, tz),
+            part=part_of(event.start_time, tz),
         )
         schedule_session(session=session, space=space, start=event.start_time)
 
@@ -226,23 +237,24 @@ class TestTimetableProblemsPageView:
                 event,
                 stats=ONE_SCHEDULED_SESSION_STATS,
                 conflicts_grouped={},
-                slot_violations=[],
+                time_violations=[],
             ),
         )
 
-    def test_skips_session_running_past_midnight_into_a_day_nobody_offered(
+    def test_skips_session_running_past_midnight_out_of_the_offered_part(
         self, panel_client, event, proposal_category
     ):
-        # The day a block belongs to is the one it opens on, which is the day
-        # the facilitator answered about.
+        # A block is judged on the part it opens in, which is the one the
+        # facilitator answered about — not the night it runs into.
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        opening_day = localtime(event.start_time).date()
-        SessionAvailableDayFactory(session=session, day=opening_day)
         start = localtime(event.start_time).replace(
             hour=23, minute=0, second=0, microsecond=0
         )
         end = start + timedelta(hours=2)
+        SessionAvailabilityFactory(
+            session=session, day=start.date(), part=DayPart.EVENING
+        )
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
 
         response = panel_client.get(self.get_url(event))
@@ -255,11 +267,11 @@ class TestTimetableProblemsPageView:
                 event,
                 stats=ONE_SCHEDULED_SESSION_STATS,
                 conflicts_grouped={},
-                slot_violations=[],
+                time_violations=[],
             ),
         )
 
-    def test_skips_session_with_no_available_days(
+    def test_skips_session_with_no_availability(
         self, panel_client, event, proposal_category
     ):
         space = SpaceFactory(event=event)
@@ -276,6 +288,6 @@ class TestTimetableProblemsPageView:
                 event,
                 stats=ONE_SCHEDULED_SESSION_STATS,
                 conflicts_grouped={},
-                slot_violations=[],
+                time_violations=[],
             ),
         )

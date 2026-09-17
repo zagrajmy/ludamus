@@ -314,7 +314,7 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 "session": context.session,
                 "event": context.event,
                 "presenter": context.presenter,
-                "available_days": context.available_days,
+                "availability": context.availability,
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),

@@ -3,15 +3,16 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
+from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
 )
@@ -218,16 +219,18 @@ class TestTimetableSessionListPartView:
     def test_date_filter_keeps_sessions_available_on_that_date(
         self, panel_client, event, proposal_category
     ):
-        day_one = localtime(event.start_time).date()
+        tz = get_current_timezone()
+        day_one = programme_date(event.start_time, tz)
         day_two = day_one + timedelta(days=1)
+        part = part_of(event.start_time, tz)
         on_day_one = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        SessionAvailableDayFactory(session=on_day_one, day=day_one)
+        SessionAvailabilityFactory(session=on_day_one, day=day_one, part=part)
         on_day_two = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        SessionAvailableDayFactory(session=on_day_two, day=day_two)
+        SessionAvailabilityFactory(session=on_day_two, day=day_two, part=part)
         anytime = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
@@ -246,8 +249,10 @@ class TestTimetableSessionListPartView:
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        SessionAvailableDayFactory(
-            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
+        SessionAvailabilityFactory(
+            session=session,
+            day=programme_date(event.start_time, get_current_timezone())
+            + timedelta(days=1),
         )
 
         response = panel_client.get(self.get_url(event), {"date": "not-a-date"})
@@ -262,8 +267,10 @@ class TestTimetableSessionListPartView:
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
-        SessionAvailableDayFactory(
-            session=session, day=localtime(event.start_time).date() + timedelta(days=1)
+        SessionAvailabilityFactory(
+            session=session,
+            day=programme_date(event.start_time, get_current_timezone())
+            + timedelta(days=1),
         )
 
         response = panel_client.get(self.get_url(event), {"date": "all"})

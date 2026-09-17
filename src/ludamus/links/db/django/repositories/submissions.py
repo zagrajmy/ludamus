@@ -142,7 +142,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return category.pk
 
     _SIMPLE_UPDATE_FIELDS = (
-        "asks_available_days",
+        "asks_availability",
         "description",
         "start_time",
         "end_time",
@@ -233,9 +233,9 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return [ProposalCategoryDTO.model_validate(c) for c in categories]
 
     @staticmethod
-    def asks_available_days(category_id: int) -> bool:
+    def asks_availability(category_id: int) -> bool:
         return ProposalCategory.objects.filter(
-            pk=category_id, asks_available_days=True
+            pk=category_id, asks_availability=True
         ).exists()
 
     @staticmethod

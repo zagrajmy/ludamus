@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
 from functools import cached_property
+from itertools import starmap
 from typing import TYPE_CHECKING, Any
 
 from django.conf import settings as django_settings
@@ -10,8 +10,9 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.dynamic_fields import (
@@ -36,13 +37,22 @@ from ludamus.gates.web.django.propose_cover import (
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    availability_from_value,
+    availability_value,
+    offered_parts_by_day,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+    from datetime import date
 
     from django.core.files.uploadedfile import UploadedFile
     from django.forms import Form
     from django.utils.datastructures import MultiValueDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import (
@@ -131,11 +141,32 @@ def _apply_wizard_cover_from_form(
         stash_wizard_cover(state, cover)
 
 
-def _day_descriptors(
-    days: Sequence[date], selected: Sequence[date]
+DAY_PART_LABELS: dict[DayPart, _StrPromise] = {
+    DayPart.MORNING: gettext_lazy("Morning"),
+    DayPart.AFTERNOON: gettext_lazy("Afternoon"),
+    DayPart.EVENING: gettext_lazy("Evening"),
+    DayPart.NIGHT: gettext_lazy("Night"),
+}
+
+
+def _availability_descriptors(
+    offered: Sequence[tuple[date, list[DayPart]]], selected: Sequence[AvailabilityDTO]
 ) -> list[dict[str, object]]:
-    chosen = set(selected)
-    return [{"day": day, "is_selected": day in chosen} for day in sorted(days)]
+    chosen = {(entry.day, entry.part) for entry in selected}
+    return [
+        {
+            "day": day,
+            "parts": [
+                {
+                    "value": availability_value(day, part),
+                    "label": DAY_PART_LABELS[part],
+                    "is_selected": (day, part) in chosen,
+                }
+                for part in parts
+            ],
+        }
+        for day, parts in offered
+    ]
 
 
 def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
@@ -216,25 +247,35 @@ class _Wizard:
         return self.service.get_proposal_settings(self.event.pk)
 
     @cached_property
-    def event_days(self) -> list[date]:
-        # Days come from the event itself, so the question can be asked the
-        # moment an event exists and needs no separate setup step.
-        start = localtime(self.event.start_time).date()
-        end = localtime(self.event.end_time).date()
-        return [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    def offered_availability(self) -> list[tuple[date, list[DayPart]]]:
+        # Both axes come from the event itself, so the question can be asked
+        # the moment an event exists and needs no separate setup step. A day
+        # only offers the parts its hours actually reach, so an event closing
+        # at 18:00 never asks about an evening it does not have.
+        return offered_parts_by_day(
+            start=self.event.start_time,
+            end=self.event.end_time,
+            tz=get_current_timezone(),
+        )
+
+    @cached_property
+    def offered_pairs(self) -> list[tuple[date, DayPart]]:
+        return [
+            (day, part) for day, parts in self.offered_availability for part in parts
+        ]
 
     @cached_property
     def asks_days(self) -> bool:
         if self.category is None:
             return True
-        return self.service.asks_available_days(self.category.pk)
+        return self.service.asks_availability(self.category.pk)
 
     @cached_property
     def steps(self) -> tuple[str, ...]:
-        # A one-day event is no more a choice than one category. Before a
+        # One possible answer is no more a choice than one category. Before a
         # category is chosen the step is assumed present: the strip must not
         # grow a step the moment the first choice is made.
-        shows_days = self.asks_days and len(self.event_days) > 1
+        shows_days = self.asks_days and len(self.offered_pairs) > 1
         return tuple(
             key
             for key in _STEP_KEYS
@@ -324,17 +365,23 @@ def _personal_context(
 def _days_context(
     wizard: _Wizard, state: WizardState, *, error: str | None = None
 ) -> StepContext:
-    selected = [] if error else _stored_days(state)
+    selected = [] if error else _stored_availability(state)
     return {
         **wizard.base_context("days"),
         "category": wizard.chosen,
-        "day_descriptors": _day_descriptors(wizard.event_days, selected),
+        "day_descriptors": _availability_descriptors(
+            wizard.offered_availability, selected
+        ),
         "error": error,
     }
 
 
-def _stored_days(state: WizardState) -> list[date]:
-    return [date.fromisoformat(raw) for raw in state.get("available_days", [])]
+def _stored_availability(state: WizardState) -> list[AvailabilityDTO]:
+    return [
+        entry
+        for raw in state.get("availability", [])
+        if (entry := availability_from_value(raw)) is not None
+    ]
 
 
 def _details_context(
@@ -393,8 +440,14 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         prefix="personal",
     )
 
-    chosen_days = _stored_days(state)
-    available_days = _day_descriptors(chosen_days, chosen_days)
+    chosen = _stored_availability(state)
+    availability = _availability_descriptors(
+        [
+            (day, [entry.part for entry in chosen if entry.day == day])
+            for day in sorted({entry.day for entry in chosen})
+        ],
+        chosen,
+    )
 
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
@@ -410,7 +463,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         "private_session_fields": [f for f in session_fields if not f["is_public"]],
         "public_personal_fields": [f for f in personal_fields if f["is_public"]],
         "private_personal_fields": [f for f in personal_fields if not f["is_public"]],
-        "available_days": available_days,
+        "availability": availability,
     }
 
     return {**wizard.base_context("review"), "category": category, "review": review}
@@ -427,10 +480,11 @@ _STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
 
 def _step_context(wizard: _Wizard, step: str) -> StepContext:
     with _WizardState(wizard.request, wizard.event.slug) as state:
-        # A one-day event never shows the step, so its only answer is
-        # recorded as the step is walked past.
-        if step == "details" and wizard.asks_days and len(wizard.event_days) == 1:
-            state["available_days"] = [wizard.event_days[0].isoformat()]
+        # An event with one possible answer never shows the step, so that
+        # answer is recorded as the step is walked past.
+        if step == "details" and wizard.asks_days and len(wizard.offered_pairs) == 1:
+            day, part = wizard.offered_pairs[0]
+            state["availability"] = [availability_value(day, part)]
         return _STEP_CONTEXTS[step](wizard, state)
 
 
@@ -604,20 +658,20 @@ class ProposeSessionDaysComponentView(ProposeWizardMixin):
         if "days" not in wizard.steps:
             return _render(wizard, wizard.after("days"))
 
-        offered = {day.isoformat() for day in wizard.event_days}
+        offered = set(starmap(availability_value, wizard.offered_pairs))
         selected = [
-            raw for raw in request.POST.getlist("available_days") if raw in offered
+            raw for raw in request.POST.getlist("availability") if raw in offered
         ]
 
         if not selected:
             with _WizardState(request, event_slug) as state:
                 context = _days_context(
-                    wizard, state, error=_("Pick at least one day you could host.")
+                    wizard, state, error=_("Pick at least one time you could host.")
                 )
             return TemplateResponse(request, _STEP_TEMPLATES["days"], context)
 
         with _WizardState(request, event_slug) as state:
-            state["available_days"] = selected
+            state["availability"] = selected
 
         return _render(wizard, wizard.after("days"))
 

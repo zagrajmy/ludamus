@@ -28,7 +28,7 @@ from tests.integration.web.panel.helpers import (
     event_day_start,
     grid_with,
     panel_context,
-    schedule_outside_preferred_slot,
+    schedule_outside_offered_time,
     schedule_session,
     session_position,
     timetable_tab_urls,
@@ -703,10 +703,10 @@ class TestTimetablePageView:
             ),
         )
 
-    def test_grid_marks_session_outside_an_offered_day(
+    def test_grid_marks_session_outside_an_offered_time(
         self, panel_client, event, proposal_category, space
     ):
-        session = schedule_outside_preferred_slot(
+        session = schedule_outside_offered_time(
             event=event, category=proposal_category, space=space
         )
 

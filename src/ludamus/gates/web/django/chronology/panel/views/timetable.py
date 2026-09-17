@@ -30,6 +30,7 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.availability import part_window
 from ludamus.pacts.chronology import (
     DateSelection,
     MultiselectOptionDTO,
@@ -423,20 +424,29 @@ class TimetableSessionDetailPartView(PanelAccessMixin, EventContextMixin, View):
 
         agenda_item = uow.agenda_items.read_by_session(pk)
         facilitators = uow.sessions.read_facilitators(pk)
-        available_days = uow.sessions.read_available_days(pk)
+        availability = uow.sessions.read_availability(pk)
 
         duration_minutes = duration_minutes_of(session.duration)
 
         back_url = _build_back_url(slug, self.request.GET)
 
-        available_days_json = json.dumps([day.isoformat() for day in available_days])
+        # Parts have hours, so the drag hint can paint the real bands rather
+        # than outlining a whole day.
+        tz = get_current_timezone()
+        availability_json = json.dumps(
+            [
+                {"start": window[0].isoformat(), "end": window[1].isoformat()}
+                for entry in availability
+                for window in (part_window(entry.day, entry.part, tz),)
+            ]
+        )
 
         context = {
             "session": session,
             "agenda_item": agenda_item,
             "facilitators": facilitators,
-            "available_days": available_days,
-            "available_days_json": available_days_json,
+            "availability": availability,
+            "availability_json": availability_json,
             "duration_minutes": duration_minutes,
             "slug": slug,
             "event": current_event,
@@ -660,14 +670,14 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         conflict_service = self.request.services.timetable_conflicts
         overview = self.request.services.timetable_overview
         all_conflicts = overview.get_all_conflicts(current_event.pk)
-        slot_violations = conflict_service.list_preferred_slot_violations(
+        time_violations = conflict_service.list_offered_time_violations(
             event_pk=current_event.pk, track_pk=None, tz=get_current_timezone()
         )
 
         context["conflicts_grouped"] = overview.all_conflicts_grouped(
             current_event.pk, conflicts=all_conflicts
         )
-        context["slot_violations"] = slot_violations
+        context["time_violations"] = time_violations
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "problems"

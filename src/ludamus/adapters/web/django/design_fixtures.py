@@ -21,6 +21,7 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SessionStatus,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 
@@ -181,7 +182,10 @@ def mock_session_proposal() -> SessionData:
         loc=NO_LOCATION,
         session_participations=[],
         enrolled_count=0,
-        available_days=[first_day, first_day + timedelta(days=1)],
+        offered_times=[
+            AvailabilityDTO(day=first_day, part=DayPart.EVENING),
+            AvailabilityDTO(day=first_day + timedelta(days=1), part=DayPart.MORNING),
+        ],
     )
 
 

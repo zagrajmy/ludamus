@@ -80,7 +80,7 @@ def _data() -> ProposalCategorySettingsData:
         session_fields=RequirementSelectionDTO(
             requirements={2: False, 999: False}, order=[2, 999]
         ),
-        asks_available_days=True,
+        asks_availability=True,
     )
 
 
@@ -130,7 +130,7 @@ def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
             "max_participants_limit": 5,
             "promotion_mode": PromotionMode.OFFER_CLAIM,
             "offer_claim_window": timedelta(minutes=30),
-            "asks_available_days": True,
+            "asks_availability": True,
         },
     )
     categories.set_field_requirements.assert_called_once_with(7, {1: True}, [1])

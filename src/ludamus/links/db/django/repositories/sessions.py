@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -12,7 +12,7 @@ from ludamus.links.db.django.models import (
     Event,
     Facilitator,
     Session,
-    SessionAvailableDay,
+    SessionAvailability,
     SessionFieldValue,
     SessionParticipationStatus,
     Space,
@@ -52,6 +52,7 @@ from ludamus.pacts import (
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     SessionModalDTO,
     SessionModalRepositoryProtocol,
@@ -176,7 +177,8 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
         )
         .prefetch_related(
             Prefetch(
-                "available_days", queryset=SessionAvailableDay.objects.order_by("day")
+                "availability",
+                queryset=SessionAvailability.objects.order_by("day", "part"),
             )
         )
         .order_by("-creation_time")
@@ -289,7 +291,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     def create(
         session_data: SessionData,
         *,
-        available_days: Iterable[date] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
@@ -297,9 +299,12 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # add(), not set(): the session is brand new, so there is nothing to
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.
-        if days := list(available_days):
-            SessionAvailableDay.objects.bulk_create(
-                [SessionAvailableDay(session=session, day=day) for day in days]
+        if offered := list(availability):
+            SessionAvailability.objects.bulk_create(
+                [
+                    SessionAvailability(session=session, day=item.day, part=item.part)
+                    for item in offered
+                ]
             )
         if facilitator_pks := list(facilitator_ids):
             FacilitatorRepository.lock(facilitator_pks)
@@ -484,27 +489,30 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         return Session.objects.filter(category_id=category_id).count()
 
     @staticmethod
-    def read_available_days(session_id: int) -> list[date]:
-        return list(
-            SessionAvailableDay.objects.filter(session_id=session_id)
-            .order_by("day")
-            .values_list("day", flat=True)
-        )
+    def read_availability(session_id: int) -> list[AvailabilityDTO]:
+        return [
+            AvailabilityDTO(day=day, part=DayPart(part))
+            for day, part in (
+                SessionAvailability.objects.filter(session_id=session_id)
+                .order_by("day", "part")
+                .values_list("day", "part")
+            )
+        ]
 
     @staticmethod
-    def read_available_days_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[date]]:
+    ) -> dict[int, list[AvailabilityDTO]]:
         if not (ids := list(session_ids)):
             return {}
         rows = (
-            SessionAvailableDay.objects.filter(session_id__in=ids)
-            .order_by("day")
-            .values_list("session_id", "day")
+            SessionAvailability.objects.filter(session_id__in=ids)
+            .order_by("day", "part")
+            .values_list("session_id", "day", "part")
         )
-        result: dict[int, list[date]] = {sid: [] for sid in ids}
-        for session_id, day in rows:
-            result[session_id].append(day)
+        result: dict[int, list[AvailabilityDTO]] = {sid: [] for sid in ids}
+        for session_id, day, part in rows:
+            result[session_id].append(AvailabilityDTO(day=day, part=DayPart(part)))
         return result
 
     @staticmethod
@@ -759,23 +767,24 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.tracks.set(track_pks)
 
     @staticmethod
-    def set_available_days(session_id: int, days: list[date]) -> None:
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None:
         if not Session.objects.filter(pk=session_id).exists():
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg)
-        wanted = set(days)
+        wanted = {(item.day, str(item.part)) for item in offered}
         existing = set(
-            SessionAvailableDay.objects.filter(session_id=session_id).values_list(
-                "day", flat=True
+            SessionAvailability.objects.filter(session_id=session_id).values_list(
+                "day", "part"
             )
         )
-        SessionAvailableDay.objects.filter(
-            session_id=session_id, day__in=existing - wanted
-        ).delete()
-        SessionAvailableDay.objects.bulk_create(
+        for day, part in existing - wanted:
+            SessionAvailability.objects.filter(
+                session_id=session_id, day=day, part=part
+            ).delete()
+        SessionAvailability.objects.bulk_create(
             [
-                SessionAvailableDay(session_id=session_id, day=day)
-                for day in sorted(wanted - existing)
+                SessionAvailability(session_id=session_id, day=day, part=part)
+                for day, part in sorted(wanted - existing)
             ]
         )
 
@@ -886,8 +895,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             qs = qs.filter(tracks__pk=filters.track_pk)
         if filters.available_on is not None:
             qs = qs.filter(
-                Q(available_days__isnull=True)
-                | Q(available_days__day=filters.available_on)
+                Q(availability__isnull=True) | Q(availability__day=filters.available_on)
             ).distinct()
         if filters.category_pk is not None:
             qs = qs.filter(category__pk=filters.category_pk)

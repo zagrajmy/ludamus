@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from itertools import starmap
 from unittest.mock import patch
 
 import pytest
@@ -35,12 +36,42 @@ from ludamus.pacts import (
     RedirectError,
     TrackDTO,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import PNG_BYTES, ProposalCategoryFactory
 from tests.integration.utils import assert_response
 
 COVER_LOGGER = propose_cover.__name__
 SUBMITTED_MESSAGE = "Session proposal 'Test Session' submitted successfully!"
+
+# Spelled out rather than imported from the view, so a relabelled chip has to
+# be restated here.
+PART_LABELS = {
+    DayPart.MORNING: "Morning",
+    DayPart.AFTERNOON: "Afternoon",
+    DayPart.EVENING: "Evening",
+    DayPart.NIGHT: "Night",
+}
+
+
+def time_value(day, part):
+    # What one chip posts back: a programme day and the part of it.
+    return f"{day.isoformat()}:{part.value}"
+
+
+def day_descriptor(day, parts, *, selected=()):
+    return {
+        "day": day,
+        "parts": [
+            {
+                "value": time_value(day, part),
+                "label": PART_LABELS[part],
+                "is_selected": part in selected,
+            }
+            for part in parts
+        ],
+    }
+
 
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
@@ -93,26 +124,45 @@ class TestProposeSessionPageView:
         )
         event.save()
 
-    def _offer_days(self, event, category, *, days=3):
-        # The day step only shows when the category asks for days and the event
-        # spans more than one, so a scenario about it has to state both.
-        event.end_time = event.start_time + timedelta(days=days - 1, hours=8)
-        event.save(update_fields=["end_time"])
-        category.asks_available_days = True
-        category.save(update_fields=["asks_available_days"])
-        opening = localtime(event.start_time).date()
-        return [opening + timedelta(days=offset) for offset in range(days)]
+    def _offer_times(self, event, category, *, days=3):
+        # The time step only shows when the category asks and the event offers
+        # more than one (day, part) pair, so a scenario about it states both.
+        # Doors at 18:00 and closing at noon keep the offer small enough to
+        # spell out: an evening and a night to open with, whole days in the
+        # middle, a morning to close on.
+        opening = localtime(event.start_time).replace(
+            hour=18, minute=0, second=0, microsecond=0
+        )
+        event.start_time = opening
+        event.end_time = opening.replace(hour=12) + timedelta(days=days - 1)
+        event.save(update_fields=["start_time", "end_time"])
+        category.asks_availability = True
+        category.save(update_fields=["asks_availability"])
+        first = opening.date()
+        whole_day = [DayPart.MORNING, DayPart.AFTERNOON, DayPart.EVENING, DayPart.NIGHT]
+        return [
+            (first, [DayPart.EVENING, DayPart.NIGHT]),
+            *(
+                (first + timedelta(days=offset), whole_day)
+                for offset in range(1, days - 1)
+            ),
+            (first + timedelta(days=days - 1), [DayPart.MORNING]),
+        ]
 
-    def _one_day(self, event):
-        # The fixture event's 24 hours straddle two local dates; a scenario
-        # about the single-day case has to close it inside one.
-        event.end_time = event.start_time + timedelta(hours=10)
-        event.save(update_fields=["end_time"])
-        return localtime(event.start_time).date()
+    def _offer_one_time(self, event):
+        # One possible answer is no choice at all: an evening that closes at
+        # midnight reaches no other part of any day.
+        opening = localtime(event.start_time).replace(
+            hour=18, minute=0, second=0, microsecond=0
+        )
+        event.start_time = opening
+        event.end_time = opening + timedelta(hours=6)
+        event.save(update_fields=["start_time", "end_time"])
+        return opening.date(), DayPart.EVENING
 
     def _asks_days(self, category):
-        category.asks_available_days = True
-        category.save(update_fields=["asks_available_days"])
+        category.asks_availability = True
+        category.save(update_fields=["asks_availability"])
 
     def _set_wizard_category(self, client, event, category):
         session = client.session
@@ -525,7 +575,7 @@ class TestProposeSessionPageView:
         PersonalDataFieldRequirement.objects.create(
             category=proposal_category, field=field, is_required=True
         )
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -534,9 +584,11 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert [entry["day"] for entry in response.context["day_descriptors"]] == days
+        assert response.context["day_descriptors"] == list(
+            starmap(day_descriptor, offered)
+        )
 
-    def test_post_personal_skips_days_on_a_one_day_event(
+    def test_post_personal_skips_days_when_one_time_is_offered(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
@@ -547,7 +599,7 @@ class TestProposeSessionPageView:
             category=proposal_category, field=field, is_required=True
         )
         self._asks_days(proposal_category)
-        day = self._one_day(event)
+        day, part = self._offer_one_time(event)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -558,14 +610,14 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert wizard["available_days"] == [day.isoformat()]
+        assert wizard["availability"] == [time_value(day, part)]
 
-    def test_single_category_single_day_defaults_are_submitted(
+    def test_single_category_single_time_defaults_are_submitted(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
         self._asks_days(proposal_category)
-        day = self._one_day(event)
+        day, part = self._offer_one_time(event)
 
         response = authenticated_client.get(self._get_url(event.slug))
         assert response.status_code == HTTPStatus.OK
@@ -579,7 +631,7 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
-        assert wizard["available_days"] == [day.isoformat()]
+        assert wizard["availability"] == [time_value(day, part)]
 
         response = authenticated_client.post(
             self._get_details_url(event.slug),
@@ -593,8 +645,8 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "event/propose/parts/review.html"
         assert response.context["review"]["category_name"] == proposal_category.name
-        assert response.context["review"]["available_days"] == [
-            {"day": day, "is_selected": True}
+        assert response.context["review"]["availability"] == [
+            day_descriptor(day, [part], selected=[part])
         ]
 
         response = authenticated_client.post(self._get_submit_url(event.slug))
@@ -602,30 +654,36 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.FOUND
         session = Session.objects.get(title="Skipped Defaults")
         assert session.category_id == proposal_category.pk
-        assert list(session.available_days.values_list("day", flat=True)) == [day]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
     def test_post_days_stores_in_session(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
+        (first_day, first_parts), (last_day, last_parts) = offered[0], offered[-1]
+        picked = [
+            time_value(first_day, first_parts[0]),
+            time_value(last_day, last_parts[0]),
+        ]
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_days_url(event.slug),
-            {"available_days": [days[0].isoformat(), days[1].isoformat()]},
+            self._get_days_url(event.slug), {"availability": picked}
         )
 
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert wizard["available_days"] == [days[0].isoformat(), days[1].isoformat()]
+        assert wizard["availability"] == picked
         assert response.context["form"] is not None
 
     def test_post_days_without_selection_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        self._offer_days(event, proposal_category)
+        self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(self._get_days_url(event.slug), {})
@@ -633,37 +691,46 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["error"]
 
-    def test_post_days_filters_days_outside_the_event(
+    def test_post_days_filters_times_the_event_does_not_offer(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
+        first_day, first_parts = offered[0]
+        kept = time_value(first_day, first_parts[0])
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
             self._get_days_url(event.slug),
             {
-                "available_days": [
-                    days[0].isoformat(),
-                    (days[-1] + timedelta(days=1)).isoformat(),
+                "availability": [
+                    kept,
+                    # The doors open in the evening, so the opening day has no
+                    # morning to offer, and the event is over by this date.
+                    time_value(first_day, DayPart.MORNING),
+                    time_value(offered[-1][0] + timedelta(days=1), DayPart.MORNING),
                 ]
             },
         )
 
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert wizard["available_days"] == [days[0].isoformat()]
+        assert wizard["availability"] == [kept]
 
-    def test_post_days_with_only_a_foreign_day_shows_error(
+    def test_post_days_with_only_a_foreign_time_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category, days=2)
+        offered = self._offer_times(event, proposal_category, days=2)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
             self._get_days_url(event.slug),
-            {"available_days": [(days[-1] + timedelta(days=1)).isoformat()]},
+            {
+                "availability": [
+                    time_value(offered[-1][0] + timedelta(days=1), DayPart.MORNING)
+                ]
+            },
         )
 
         assert_response(
@@ -675,16 +742,15 @@ class TestProposeSessionPageView:
                     allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
-                "day_descriptors": [{"day": day, "is_selected": False} for day in days],
-                "error": "Pick at least one day you could host.",
+                "day_descriptors": list(starmap(day_descriptor, offered)),
+                "error": "Pick at least one time you could host.",
                 "current_step": "days",
                 "wizard_steps": ["personal", "days", "details", "review"],
             },
             template_name="event/propose/parts/days.html",
         )
         assert (
-            "available_days"
-            not in authenticated_client.session[f"propose_{event.slug}"]
+            "availability" not in authenticated_client.session[f"propose_{event.slug}"]
         )
 
     def test_post_days_skips_when_the_category_does_not_ask(
@@ -703,11 +769,11 @@ class TestProposeSessionPageView:
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
         session = authenticated_client.session
         session[f"propose_{event.slug}"] = {
             "category_id": proposal_category.pk,
-            "available_days": [days[0].isoformat()],
+            "availability": [time_value(offered[0][0], offered[0][1][0])],
         }
         session.save()
 
@@ -966,7 +1032,7 @@ class TestProposeSessionPageView:
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        self._offer_days(event, proposal_category)
+        self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -996,12 +1062,12 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/personal.html"
         assert response.context["field_descriptors"]
 
-    def test_post_back_from_details_skips_days_on_a_one_day_event(
+    def test_post_back_from_details_skips_days_when_one_time_is_offered(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
         self._asks_days(proposal_category)
-        self._one_day(event)
+        self._offer_one_time(event)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -1054,13 +1120,13 @@ class TestProposeSessionPageView:
         PersonalDataFieldRequirement.objects.create(
             category=proposal_category, field=field, is_required=True
         )
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_full(
             authenticated_client,
             event,
             proposal_category,
             personal_data={"personal_phone": "+48 123"},
-            available_days=[days[0].isoformat()],
+            availability=[time_value(offered[0][0], offered[0][1][0])],
         )
 
         response = authenticated_client.post(
@@ -1082,7 +1148,7 @@ class TestProposeSessionPageView:
             len(review["public_personal_fields"] + review["private_personal_fields"])
             == 1
         )
-        assert len(review["available_days"]) == 1
+        assert len(review["availability"]) == 1
 
     def test_review_shows_icon_of_public_session_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1257,22 +1323,25 @@ class TestProposeSessionPageView:
         hpd = PersonalDataFieldValue.objects.get(event=event, field=field)
         assert hpd.value == "+48 555"
 
-    def test_submit_sets_available_days(
+    def test_submit_sets_availability(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
+        day, parts = offered[0]
         self._set_wizard_full(
             authenticated_client,
             event,
             proposal_category,
-            available_days=[days[0].isoformat()],
+            availability=[time_value(day, parts[0])],
         )
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
         session = Session.objects.get(title="Test Session")
-        assert list(session.available_days.values_list("day", flat=True)) == [days[0]]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, parts[0].value)
+        ]
 
     def test_submit_saves_session_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1699,7 +1768,7 @@ class TestProposeSessionPageView:
                     "private_session_fields": [],
                     "public_personal_fields": [],
                     "public_session_fields": [],
-                    "available_days": [],
+                    "availability": [],
                     "title": "Test Session",
                 },
                 "wizard_steps": ["personal", "details", "review"],
@@ -2324,7 +2393,7 @@ class TestProposeSessionPageView:
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        days = self._offer_days(event, proposal_category)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -2340,7 +2409,7 @@ class TestProposeSessionPageView:
                     allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
-                "day_descriptors": [{"day": day, "is_selected": False} for day in days],
+                "day_descriptors": list(starmap(day_descriptor, offered)),
                 "error": None,
                 "current_step": "days",
                 "wizard_steps": ["personal", "days", "details", "review"],
@@ -2409,7 +2478,7 @@ class TestProposeSessionPageView:
                     "private_session_fields": [],
                     "public_personal_fields": [],
                     "private_personal_fields": [],
-                    "available_days": [],
+                    "availability": [],
                 },
                 "current_step": "review",
                 "wizard_steps": ["personal", "details", "review"],
@@ -2954,7 +3023,7 @@ class TestProposeWizardWithoutCategory:
     @pytest.fixture
     def wizard(self, event):
         # Two categories, so the wizard cannot auto-pick one.
-        ProposalCategoryFactory(event=event, asks_available_days=True)
+        ProposalCategoryFactory(event=event, asks_availability=True)
         ProposalCategoryFactory(event=event)
         service = Services().propose_session
         return propose._Wizard(

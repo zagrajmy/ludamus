@@ -36,6 +36,7 @@ django.setup()
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
+from ludamus.pacts.availability import DayPart
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -43,14 +44,19 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     Space,
-    SessionAvailableDay,
+    SessionAvailability,
     Track,
 )
 
 
 def _offer_days(session: Session, days: list[date]) -> None:
-    SessionAvailableDay.objects.bulk_create(
-        (SessionAvailableDay(session=session, day=day) for day in days),
+    # Morning is the part the seeded programme actually runs in, so an offered
+    # day reads as genuinely offered rather than as a violation.
+    SessionAvailability.objects.bulk_create(
+        (
+            SessionAvailability(session=session, day=day, part=DayPart.MORNING)
+            for day in days
+        ),
         ignore_conflicts=True,
     )
 
@@ -120,9 +126,9 @@ def main() -> None:
     )
 
     # Ask proposers in this category which days they could host.
-    if not cat.asks_available_days:
-        cat.asks_available_days = True
-        cat.save(update_fields=["asks_available_days"])
+    if not cat.asks_availability:
+        cat.asks_availability = True
+        cat.save(update_fields=["asks_availability"])
 
     # A pre-scheduled, over-capacity session so the conflict panel exercises
     # its "conflict" rendering path (capacity_exceeded: a 24-seat session in an
@@ -234,7 +240,10 @@ def main() -> None:
     )
     misplaced.tracks.add(track)
     misplaced.facilitators.add(cleo)
-    SessionAvailableDay.objects.get_or_create(session=misplaced, day=event_day)
+    # Offered for the first morning; it is placed on the second one.
+    SessionAvailability.objects.get_or_create(
+        session=misplaced, day=event_day, part=DayPart.MORNING
+    )
     AgendaItem.objects.get_or_create(
         space=space_b,
         session=misplaced,

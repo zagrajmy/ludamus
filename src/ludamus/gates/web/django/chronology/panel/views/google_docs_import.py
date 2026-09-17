@@ -33,6 +33,7 @@ from ludamus.gates.web.django.event.panel.import_durations import (
     option_durations,
 )
 from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -40,7 +41,7 @@ from ludamus.pacts.durations import (
     InvalidDurationError,
 )
 from ludamus.pacts.submissions import (
-    AvailableDaySpec,
+    AvailabilitySpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -63,14 +64,19 @@ SESSION_COLUMNS = (
     "participants_limit",
     "contact_email",
 )
-AVAILABLE_DAYS_TARGET = "session.available_days"
+AVAILABILITY_TARGET = "session.availability"
 ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
 
 
-class OptionDays(TypedDict):
+class OptionTime(TypedDict):
+    day: str
+    part: str
+
+
+class OptionTimes(TypedDict):
     option: str
-    days: list[str]
+    times: list[OptionTime]
 
 
 class OptionEntity(TypedDict):
@@ -95,7 +101,7 @@ class RecipeRow(TypedDict):
     is_multiple: bool
     allow_custom: bool
     options: str
-    option_days: list[OptionDays]
+    option_times: list[OptionTimes]
     option_entities: list[OptionEntity]
     option_durations: list[OptionDuration]
     overrides: list[OverrideRow]
@@ -204,7 +210,7 @@ def _row(
         # Always built from the source options so the (hidden) editors are ready
         # the moment the operator switches this row to "Available days" or a
         # track/category target.
-        "option_days": _option_days(question, target),
+        "option_times": _option_times(question, target),
         "option_entities": _option_entities(question, target),
         "option_durations": option_durations(question, target),
         "overrides": _override_rows(target),
@@ -259,7 +265,7 @@ def _summary_row(
 
 
 _FIXED_MAPPING_LABELS = {
-    AVAILABLE_DAYS_TARGET: lambda: _("Available days"),
+    AVAILABILITY_TARGET: lambda: _("Available days"),
     "track": lambda: _("Track"),
     "category": lambda: _("Category"),
     "facilitator.display_name": lambda: _("Facilitator — Display name"),
@@ -299,7 +305,7 @@ def _details_label(target: QuestionTarget | None, definitions: FieldDefinitions)
     if target is None or target.ignore or not target.to:
         return ""
     to = target.to
-    if to == AVAILABLE_DAYS_TARGET:
+    if to == AVAILABILITY_TARGET:
         return _("%(count)d day mappings") % {"count": len(target.values)}
     if to == "session.duration":
         return _("%(count)d mappings") % {"count": len(target.values)}
@@ -345,20 +351,22 @@ def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
     return setup.field_type, setup.is_multiple
 
 
-def _option_days(
+def _option_times(
     question: SourceQuestion, target: QuestionTarget | None
-) -> list[OptionDays]:
-    # One editable group per source option, pre-filled with the event days it
-    # maps to (ISO strings) or a single blank row to fill.
+) -> list[OptionTimes]:
+    # One editable group per source option, pre-filled with the times it maps
+    # to, or a single blank row to fill.
     configured = target.values if target else {}
-    rows: list[OptionDays] = []
+    rows: list[OptionTimes] = []
     for option in question.options:
         spec = configured.get(option)
         specs = spec if isinstance(spec, list) else [spec] if spec else []
-        days: list[str] = [
-            s.day.isoformat() for s in specs if isinstance(s, AvailableDaySpec)
-        ] or [""]
-        rows.append({"option": option, "days": days})
+        times: list[OptionTime] = [
+            {"day": item.day.isoformat(), "part": item.part.value}
+            for item in specs
+            if isinstance(item, AvailabilitySpec)
+        ] or [{"day": "", "part": ""}]
+        rows.append({"option": option, "times": times})
     return rows
 
 
@@ -449,29 +457,32 @@ def _store_definition(
         )
 
 
-def _available_day_values_from_post(
+def _availability_values_from_post(
     post: QueryDict, index: int
 ) -> dict[str, QuestionValue]:
-    # The day rows submit parallel arrays (one entry per row); regroup them by
-    # option, dropping blank and unparsable days.
-    grouped: dict[str, list[AvailableDaySpec]] = {}
+    # The rows submit parallel arrays (one entry per row); regroup them by
+    # option, dropping blank and unparsable entries.
+    grouped: dict[str, list[AvailabilitySpec]] = {}
     rows = zip(
-        post.getlist(f"dayoption_{index}"),
-        post.getlist(f"dayvalue_{index}"),
+        post.getlist(f"timeoption_{index}"),
+        post.getlist(f"timeday_{index}"),
+        post.getlist(f"timepart_{index}"),
         strict=False,
     )
-    for option, raw_day in rows:
-        if not (option and raw_day):
+    for option, raw_day, raw_part in rows:
+        if not (option and raw_day and raw_part):
             continue
         try:
-            day = date.fromisoformat(raw_day)
+            entry = AvailabilitySpec(
+                day=date.fromisoformat(raw_day), part=DayPart(raw_part)
+            )
         except ValueError:
             continue
-        grouped.setdefault(option, []).append(AvailableDaySpec(day=day))
-    result: dict[str, QuestionValue] = {
-        option: days[0] if len(days) == 1 else days for option, days in grouped.items()
+        grouped.setdefault(option, []).append(entry)
+    return {
+        option: items[0] if len(items) == 1 else items
+        for option, items in grouped.items()
     }
-    return result
 
 
 def _entity_map_from_post(
@@ -507,10 +518,10 @@ def _entity_map_from_post(
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
     overrides = _overrides_from_post(post, index)
-    if choice == AVAILABLE_DAYS_TARGET:
+    if choice == AVAILABILITY_TARGET:
         return QuestionTarget(
             to=choice,
-            values=_available_day_values_from_post(post, index),
+            values=_availability_values_from_post(post, index),
             overrides=overrides,
         )
     if choice in ENTITY_TARGETS:

@@ -23,7 +23,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
-    SessionAvailableDay,
+    SessionAvailability,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
@@ -37,6 +37,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
+from ludamus.pacts.availability import DayPart
 
 
 class TestSphere:
@@ -153,13 +154,13 @@ class TestSpace:
         assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
-class TestSessionAvailableDay:
+class TestSessionAvailability:
     def test_str(self, faker):
         pk = faker.random_int(min=1)
 
         assert (
-            str(SessionAvailableDay(id=pk, day=date(2025, 1, 2)))
-            == f"2025-01-02 ({pk})"
+            str(SessionAvailability(id=pk, day=date(2025, 1, 2), part=DayPart.EVENING))
+            == f"2025-01-02 evening ({pk})"
         )
 
 

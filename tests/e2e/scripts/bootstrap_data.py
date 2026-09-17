@@ -27,8 +27,9 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.utils import timezone
-from django.utils.timezone import get_current_timezone, localtime
+from django.utils.timezone import get_current_timezone
 
+from ludamus.pacts.availability import DayPart, programme_date
 from ludamus.links.db.django.models import (
     AgendaItem,
     Connection,
@@ -47,7 +48,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
-    SessionAvailableDay,
+    SessionAvailability,
     Track,
     User,
 )
@@ -1178,13 +1179,15 @@ def main() -> None:
         min_age=12,
         status=SessionStatus.PENDING,
     )
-    SessionAvailableDay.objects.create(
-        session=pending_session, day=localtime(upcoming_event.start_time).date()
+    SessionAvailability.objects.create(
+        session=pending_session,
+        day=programme_date(upcoming_event.start_time, get_current_timezone()),
+        part=DayPart.EVENING,
     )
 
     # A second proposal covering the card's other two arms: no participants
     # limit at all (which must render nothing, not "0 seats"), and more
-    # offered days than the meta row can name.
+    # offered times than the meta row can name.
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -1199,12 +1202,16 @@ def main() -> None:
         min_age=0,
         status=SessionStatus.PENDING,
     )
-    SessionAvailableDay.objects.bulk_create(
-        SessionAvailableDay(
-            session=open_session,
-            day=localtime(upcoming_event.start_time).date() + timedelta(days=offset),
+    first_day = programme_date(upcoming_event.start_time, get_current_timezone())
+    SessionAvailability.objects.bulk_create(
+        SessionAvailability(
+            session=open_session, day=first_day + timedelta(days=offset), part=part
         )
-        for offset in (0, 1, 2)
+        for offset, part in (
+            (0, DayPart.MORNING),
+            (1, DayPart.EVENING),
+            (2, DayPart.AFTERNOON),
+        )
     )
 
     # Dedicated events for the mutating panel / cover-image specs, so they

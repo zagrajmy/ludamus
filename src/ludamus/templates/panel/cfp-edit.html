@@ -372,11 +372,11 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Availability" %}</h3>
                         <p class="text-sm text-foreground-muted mb-4">
-                            {% translate "Ask proposers which event days they could run this on. The days come from the event's own dates, so there is nothing else to set up." %}
+                            {% translate "Ask proposers when they could run this: a morning, an evening, and so on. The days and parts come from the event's own dates, so there is nothing else to set up, and nobody is asked to pick an hour." %}
                         </p>
                         <label class="flex items-center gap-2 text-sm">
-                            {% include "components/checkbox-input.html" with name="asks_available_days" checked=asks_available_days only %}
-                            {% translate "Ask for available days" %}
+                            {% include "components/checkbox-input.html" with name="asks_availability" checked=asks_availability only %}
+                            {% translate "Ask when they could host" %}
                         </label>
                     </div>
                 </div>

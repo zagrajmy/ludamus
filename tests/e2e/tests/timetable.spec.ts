@@ -180,10 +180,10 @@ test.describe("Timetable", () => {
 
     await expect(page.getByText("Session details")).toBeVisible();
     await page.getByRole("button", { name: "Assign" }).click();
-    // Availability is a day now, so the hint marks whole days rather than
-    // painting a band inside one. This session offered both.
-    await expect(days.nth(0)).toHaveClass(/timetable-day-offered/);
-    await expect(days.nth(1)).toHaveClass(/timetable-day-offered/);
+    // Parts of a day have hours, so the hint paints the band the facilitator
+    // offered. This session offered a morning on each of the two days.
+    await expect(days.nth(0).locator(".timetable-offered").first()).toBeVisible();
+    await expect(days.nth(1).locator(".timetable-offered").first()).toBeVisible();
     await days
       .nth(1)
       .locator(".timetable-column.assign-mode-active")

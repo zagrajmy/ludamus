@@ -23,6 +23,7 @@ from ludamus.pacts import (
     SessionStatus,
     TrackDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -33,7 +34,7 @@ from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
-    SessionAvailableDayFactory,
+    SessionAvailabilityFactory,
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
@@ -132,7 +133,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -210,7 +211,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -218,7 +219,7 @@ class TestProposalDetailPageView:
             contains=["Presenter", "Contact Email", 'href="mailto:anna@example.com"'],
         )
 
-    def test_lists_available_days_when_attached(self, panel_client, event):
+    def test_lists_availability_when_attached(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -230,7 +231,7 @@ class TestProposalDetailPageView:
             status="pending",
         )
         day = date(2026, 6, 19)
-        SessionAvailableDayFactory(session=session, day=day)
+        SessionAvailabilityFactory(session=session, day=day, part=DayPart.EVENING)
 
         response = panel_client.get(self.get_url(event, session.pk))
 
@@ -257,7 +258,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [day],
+                "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -303,7 +304,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -375,7 +376,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -457,7 +458,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -542,7 +543,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -589,7 +590,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -655,7 +656,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -707,7 +708,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [FacilitatorDTO.model_validate(facilitator)],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -759,7 +760,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -825,7 +826,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "available_days": [],
+                "availability": [],
                 "import_log_entry": ImportLogEntryDTO.model_validate(entry),
                 "import_log_integration": EventIntegrationDTO(
                     pk=integration.pk,

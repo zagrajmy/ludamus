@@ -16,6 +16,7 @@ from ludamus.pacts import (
     SpaceDTO,
     TrackSessionCountsDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ConflictDTO,
@@ -239,7 +240,7 @@ class TestBuildGridOverlappingSessions:
         uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.sessions.read_facilitators_by_sessions.return_value = {}
         uow.sessions.read_participants_limits.return_value = {}
-        uow.sessions.read_available_days_by_sessions.return_value = {}
+        uow.sessions.read_availability_by_sessions.return_value = {}
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.list_manager_names_by_tracks.return_value = {}
 
@@ -965,6 +966,10 @@ def _track_stub(pk, name="Track"):
     return track
 
 
+def _offered(day: int, part: DayPart) -> AvailabilityDTO:
+    return AvailabilityDTO(day=date(2026, 1, day), part=part)
+
+
 def _event_track(*, event_pk):
     track = MagicMock()
     track.event_id = event_pk
@@ -1197,61 +1202,81 @@ class TestListAllForTrack:
             _conflict_service(uow).detect_for_assignment(event_pk=1, session_pk=99)
 
 
-class TestListPreferredSlotViolations:
+class TestListOfferedTimeViolations:
     @staticmethod
     def _uow(*, items, available):
         uow = MagicMock()
         uow.agenda_items.list_by_event.return_value = items
         uow.agenda_items.list_by_track.return_value = items
-        uow.sessions.read_available_days_by_sessions.return_value = available
+        uow.sessions.read_availability_by_sessions.return_value = available
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
 
-    def test_session_on_a_day_its_facilitator_offered_is_not_a_violation(self):
+    def test_session_in_a_part_its_facilitator_offered_is_not_a_violation(self):
         item = _make_item(
             pk=1,
             session_id=10,
             start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         )
-        uow = self._uow(items=[item], available={10: [date(2026, 1, 1)]})
+        uow = self._uow(items=[item], available={10: [_offered(1, DayPart.MORNING)]})
 
-        violations = _conflict_service(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_offered_time_violations(
             event_pk=1, track_pk=None, tz=UTC
         )
 
         assert not violations
 
-    def test_a_session_running_past_midnight_belongs_to_the_day_it_opened(self):
-        # The facilitator answered about Thursday evening, so a placement that
-        # spills into Friday morning is still on the day they offered.
+    def test_a_block_opening_after_midnight_belongs_to_the_night_before(self):
+        # The facilitator answered about Thursday night, so a block opening at
+        # 01:00 is judged against the evening it grew out of, not the morning
+        # the calendar has just turned over into.
         item = _make_item(
             pk=1,
             session_id=10,
-            start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
-            end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            start_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 3, 0, tzinfo=UTC),
         )
-        uow = self._uow(items=[item], available={10: [date(2026, 1, 1)]})
+        uow = self._uow(items=[item], available={10: [_offered(1, DayPart.NIGHT)]})
 
-        violations = _conflict_service(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_offered_time_violations(
             event_pk=1, track_pk=None, tz=UTC
         )
 
         assert not violations
 
-    def test_a_session_with_no_offered_days_is_not_a_violation(self):
+    def test_the_right_day_in_the_wrong_part_is_a_violation(self):
+        # The day axis alone no longer settles it: a morning placement on a
+        # day the facilitator only offered the evening of is still misplaced.
+        item = _make_item(
+            pk=1,
+            session_id=10,
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+        uow = self._uow(items=[item], available={10: [_offered(1, DayPart.EVENING)]})
+
+        violations = _conflict_service(uow).list_offered_time_violations(
+            event_pk=1, track_pk=None, tz=UTC
+        )
+
+        assert [violation.session_pk for violation in violations] == [
+            _SUBJECT_SESSION_PK
+        ]
+
+    def test_a_session_with_nothing_offered_is_not_a_violation(self):
         item = _make_item(pk=1, session_id=10)
         uow = self._uow(items=[item], available={})
 
-        violations = _conflict_service(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_offered_time_violations(
             event_pk=1, track_pk=None, tz=UTC
         )
 
         assert not violations
 
-    def test_session_on_an_unoffered_day_carries_foreign_attribution(self):
+    def test_session_outside_the_offered_times_carries_foreign_attribution(self):
         item = _make_item(
             pk=1,
             session_id=10,
@@ -1259,11 +1284,11 @@ class TestListPreferredSlotViolations:
             start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         )
-        uow = self._uow(items=[item], available={10: [date(2026, 1, 2)]})
+        uow = self._uow(items=[item], available={10: [_offered(2, DayPart.MORNING)]})
         uow.sessions.list_track_names_by_session.return_value = {10: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
-        violations = _conflict_service(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_offered_time_violations(
             event_pk=1, track_pk=5, tz=UTC
         )
 
@@ -1273,7 +1298,7 @@ class TestListPreferredSlotViolations:
         assert violation.session_title == "Evening quiz"
         assert violation.scheduled_start == item.start_time
         assert violation.scheduled_end == item.end_time
-        assert violation.available_days == [date(2026, 1, 2)]
+        assert violation.availability == [_offered(2, DayPart.MORNING)]
         assert violation.track_name == "Board games"
         assert violation.manager_names == ["Basia"]
 

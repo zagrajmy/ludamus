@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
+from ludamus.pacts.availability import PROGRAMME_DAY_STARTS_AT_HOUR
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -113,8 +113,7 @@ def event_opening_hours(
     ]
     seen = set(dates)
     for window_start, window_end in occupied:
-        day = MIDNIGHT.date_of(window_start, tz)
-        if day not in seen:
+        if (day := MIDNIGHT.date_of(window_start, tz)) not in seen:
             seen.add(day)
             dates.append(day)
         minutes.extend(

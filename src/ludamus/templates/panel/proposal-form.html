@@ -134,11 +134,11 @@
                     </div>
                 </div>
             {% endif %}
-            {% if all_available_days %}
+            {% if availability_options %}
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" name="available_days_submitted" value="1">
-                        {% include "panel/parts/available-days-picker.html" %}
+                        <input type="hidden" name="availability_submitted" value="1">
+                        {% include "panel/parts/availability-picker.html" %}
                     </div>
                 </div>
             {% endif %}

@@ -20,10 +20,10 @@
  *     <select data-recipe-fieldtype data-row="0">…</select>
  *     <div data-recipe-options data-row="0">…</div>
  *   </div>
- *   <div data-recipe-days data-row="0">
- *     <div data-day-option><div data-day-rows>
- *       <div data-day-row>…<button data-day-remove>…</div>
- *     </div><button data-day-add>…</button></div>
+ *   <div data-recipe-times data-row="0">
+ *     <div data-time-option><div data-time-rows>
+ *       <div data-time-row>…<button data-time-remove>…</div>
+ *     </div><button data-time-add>…</button></div>
  *   </div>
  *   <div data-recipe-entities data-row="0">
  *     <div data-slug-scope>
@@ -35,7 +35,7 @@
 import slugifyLib from "slugify";
 
 const NEW_FIELD_TARGETS = new Set(["personal-field", "session-field"]);
-const AVAILABLE_DAYS_TARGET = "session.available_days";
+const AVAILABILITY_TARGET = "session.availability";
 const DURATION_TARGET = "session.duration";
 const ENTITY_TARGETS = new Set(["category", "track"]);
 
@@ -68,9 +68,9 @@ function syncTarget(select: HTMLSelectElement): void {
     "is-open",
     NEW_FIELD_TARGETS.has(select.value),
   );
-  rowElement("[data-recipe-days]", row)?.classList.toggle(
+  rowElement("[data-recipe-times]", row)?.classList.toggle(
     "hidden",
-    select.value !== AVAILABLE_DAYS_TARGET,
+    select.value !== AVAILABILITY_TARGET,
   );
   rowElement("[data-recipe-entities]", row)?.classList.toggle(
     "hidden",
@@ -88,9 +88,9 @@ function syncFieldType(select: HTMLSelectElement): void {
   options?.classList.toggle("hidden", select.value === "text");
 }
 
-function addDay(button: HTMLElement): void {
-  const days = button.closest("[data-day-option]")?.querySelector("[data-day-rows]");
-  const last = days?.querySelector<HTMLElement>("[data-day-row]:last-child");
+function addTime(button: HTMLElement): void {
+  const days = button.closest("[data-time-option]")?.querySelector("[data-time-rows]");
+  const last = days?.querySelector<HTMLElement>("[data-time-row]:last-child");
   if (!days || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
   for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
@@ -99,11 +99,11 @@ function addDay(button: HTMLElement): void {
   days.append(clone);
 }
 
-function removeDay(button: HTMLElement): void {
-  const day = button.closest<HTMLElement>("[data-day-row]");
+function removeTime(button: HTMLElement): void {
+  const day = button.closest<HTMLElement>("[data-time-row]");
   const days = day?.parentElement;
   if (!day || !days) return;
-  if (days.querySelectorAll("[data-day-row]").length > 1) {
+  if (days.querySelectorAll("[data-time-row]").length > 1) {
     day.remove();
   } else {
     for (const input of day.querySelectorAll<HTMLInputElement>("input")) {
@@ -154,16 +154,16 @@ document.addEventListener("input", (e) => {
 
 document.addEventListener("click", (e) => {
   if (!(e.target instanceof HTMLElement)) return;
-  const dayAdd = e.target.closest<HTMLElement>("[data-day-add]");
-  if (dayAdd) {
+  const timeAdd = e.target.closest<HTMLElement>("[data-time-add]");
+  if (timeAdd) {
     e.preventDefault();
-    addDay(dayAdd);
+    addTime(timeAdd);
     return;
   }
-  const dayRemove = e.target.closest<HTMLElement>("[data-day-remove]");
-  if (dayRemove) {
+  const timeRemove = e.target.closest<HTMLElement>("[data-time-remove]");
+  if (timeRemove) {
     e.preventDefault();
-    removeDay(dayRemove);
+    removeTime(timeRemove);
     return;
   }
   const ovAdd = e.target.closest<HTMLElement>("[data-ov-add]");

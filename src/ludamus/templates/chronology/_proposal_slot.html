@@ -1,21 +1,21 @@
-{% load i18n %}
-{# The days a proposal could run on, as one line of a card's meta row: the #}
-{# earliest day, plus a count of the rest. #}
+{% load i18n date_tags %}
+{# When a proposal could run, as one line of a card's meta row: the #}
+{# earliest time offered, plus a count of the rest. #}
 {# No title attributes: the card's content wrapper is pointer-events-none #}
 {# so the full-bleed link owns every hover, and a native tooltip on a #}
 {# descendant can never fire. The overflow names its days to assistive #}
 {# tech instead, which also survives touch. #}
 {# Variables: data (SessionData) #}
-{% if data.available_days %}
-    {% with day=data.available_days.0 %}
-        <span class="truncate tabular-nums">{{ day|date:"D, j M" }}</span>
+{% if data.offered_times %}
+    {% with first=data.offered_times.0 %}
+        <span class="truncate tabular-nums">{{ first.day|date:"D, j M" }} {{ first.part|day_part }}</span>
     {% endwith %}
-    {% with extra=data.available_days|length|add:"-1" %}
+    {% with extra=data.offered_times|length|add:"-1" %}
         {% if extra %}
             <span class="shrink-0 text-foreground-muted">
                 {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
                 <span class="sr-only" data-overflow-days>
-                    {% for day in data.available_days|slice:"1:" %}{{ day|date:"l, j E" }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% for entry in data.offered_times|slice:"1:" %}{{ entry.day|date:"l, j E" }} {{ entry.part|day_part }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 </span>
             </span>
         {% endif %}

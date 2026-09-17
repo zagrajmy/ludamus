@@ -14,7 +14,6 @@ from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
-    from datetime import date
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -23,6 +22,7 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldValueDTO,
     )
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.chronology import (
         PartyEventHistoryDTO,
         PartySessionHistoryDTO,
@@ -144,7 +144,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # Days the author could run this on, earliest first. Only ever populated
     # for a pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the days for one would cost a query per card.
-    available_days: list[date] = field(default_factory=list)
+    # What the proposer said; `availability` below is the enrollment state.
+    offered_times: list[AvailabilityDTO] = field(default_factory=list)
 
     @property
     def cloud_overflow(self) -> list[CloudPill]:
