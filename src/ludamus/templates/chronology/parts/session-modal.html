@@ -194,7 +194,7 @@
         <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
              data-morph="footer"
              data-session-footer="{{ data.session.pk }}">
-            <div>
+            <div class="btn-strip-compact">
                 {% if data.can_edit %}
                     <button type="button"
                             class="btn btn-secondary text-sm"
@@ -202,7 +202,8 @@
                             hx-get="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
                             hx-target="#session-{{ data.session.pk }}-editform"
                             hx-swap="innerHTML">
-                        {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
+                        {% icon "pencil-square" class="w-4 h-4" variant="mini" %}
+                        <span class="btn-label">{% translate "Edit session" %}</span>
                     </button>
                 {% endif %}
             </div>
