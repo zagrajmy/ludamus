@@ -1,2 +1,27 @@
 [rituals]
-files = ["src/ludamus/edges/rituals"]
+modules = ["cabinet.rituals"]
+
+[cabinet]
+forge = "github"
+base = "main"
+remote = "https-origin"
+gate = "mise run pr-fix"
+coverage = "mise run diff-cover"
+fast_coverage = "`mise run test:py:cov:diff"
+sign_commits = false
+
+[cabinet.labels]
+reviewed = "pr::thermo"
+wait = "pr::wait"
+marker = "v"
+
+# The job names in .github/workflows/ci.yml, plus what Codecov posts.
+[cabinet.ci]
+gate_checks = ["checks", "test"]
+cover_checks = ["codecov/", "test"]
+patch_check = "codecov/patch"
+
+[cabinet.agent]
+model = "opus"
+effort = "high"
+max_turns = 0
