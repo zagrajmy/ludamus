@@ -3818,6 +3818,16 @@ msgid "waiting"
 msgstr "oczekuje"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+msgid "Bookmark session"
+msgstr "Dodaj zakładkę do punktu programu"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/_session_card.html
+#, python-format
+msgid "Open details for %(title)s"
+msgstr "Otwórz szczegóły %(title)s"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "%(counter)s spot left"
@@ -3826,10 +3836,6 @@ msgstr[0] "%(counter)s miejsce"
 msgstr[1] "%(counter)s miejsca"
 msgstr[2] "%(counter)s miejsc"
 msgstr[3] "%(counter)s miejsca"
-
-#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
-msgid "Bookmark session"
-msgstr "Dodaj zakładkę do punktu programu"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #, python-format
@@ -4288,13 +4294,6 @@ msgstr "Przejdź do godziny"
 #, python-format
 msgid "Jump to %(day)s %(time)s"
 msgstr "Przejdź do %(day)s %(time)s"
-
-#: src/ludamus/templates/chronology/_compact_session_row.html
-#: src/ludamus/templates/chronology/_room_lane_tile.html
-#: src/ludamus/templates/chronology/_session_card.html
-#, python-format
-msgid "Open details for %(title)s"
-msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/templates/chronology/_hero_tools.html
 msgid "Print the program"

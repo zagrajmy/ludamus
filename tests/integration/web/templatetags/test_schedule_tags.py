@@ -6,46 +6,116 @@ import pytest
 from django.template import Context, Template
 from django.utils import timezone, translation
 
+from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
 from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
+from ludamus.pacts.durations import format_duration
+from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory
 from tests.integration.web.chronology.helpers import proposal_card, session_card
 
+_VOID_TAGS = frozenset({"img", "br", "input"})
 
-class _Tags(HTMLParser):
+
+class _Markup(HTMLParser):
+    # The tags and the text of a fragment: the attribute values are the
+    # contract session-filters.ts and session-bookmarks.ts compare exactly,
+    # the text is what a reader (or a screen reader) gets.
     def __init__(self):
         super().__init__()
         self.tags = []
+        self.parts = []
 
     def handle_starttag(self, tag, attrs):
         self.tags.append((tag, dict(attrs)))
 
+    def handle_data(self, data):
+        self.parts.append(data)
+
+
+class _Element(HTMLParser):
+    # The text inside the first element whose attributes satisfy `match`.
+    def __init__(self, match):
+        super().__init__()
+        self.match = match
+        self.depth = 0
+        self.parts = []
+        self.done = False
+
+    def handle_starttag(self, tag, attrs):
+        if self.done or tag in _VOID_TAGS:
+            return
+        if self.depth:
+            self.depth += 1
+        elif self.match(dict(attrs)):
+            self.depth = 1
+
+    def handle_endtag(self, tag):
+        if self.depth and tag not in _VOID_TAGS:
+            self.depth -= 1
+            self.done = not self.depth
+
+    def handle_data(self, data):
+        if self.depth:
+            self.parts.append(data)
+
+
+def _squash(parts):
+    return " ".join(" ".join(parts).split())
+
 
 def _tags(html):
-    parser = _Tags()
+    parser = _Markup()
     parser.feed(html)
     return parser.tags
 
 
-def _attrs(fragment):
-    return _tags(f"<div {fragment}></div>")[0][1]
+def _text(html):
+    parser = _Markup()
+    parser.feed(html)
+    return _squash(parser.parts)
+
+
+def _element_text(html, match):
+    parser = _Element(match)
+    parser.feed(html)
+    return _squash(parser.parts)
+
+
+def _is_bookmark_affordance(attrs):
+    return "bookmark-affordance" in (attrs.get("class") or "").split()
+
+
+def _session_attrs(html):
+    return next(
+        attrs
+        for _tag, attrs in _tags(html)
+        if "session" in (attrs.get("class") or "").split()
+    )
 
 
 def _render(source, **context):
     return Template("{% load schedule_tags %}" + source).render(Context(context))
 
 
-def _text(html):
-    class Text(HTMLParser):
-        def __init__(self):
-            super().__init__()
-            self.parts = []
+def _row(data, *, start=None, end=None, **context):
+    item = data.agenda_item
+    tile = ScheduleTile(
+        data=data, start=start or item.start_time, end=end or item.end_time
+    )
+    return _render("{% compact_session_row tile %}", tile=tile, **context)
 
-        def handle_data(self, data):
-            self.parts.append(data)
 
-    parser = Text()
-    parser.feed(html)
-    return " ".join(" ".join(parser.parts).split())
+def _tile(data, *, slot_key="", **context):
+    item = data.agenda_item
+    tile = RoomLaneTile(
+        data=data, start=item.start_time, end=item.end_time, col=3, row_span=2
+    )
+    return _render(
+        "{% room_lane_tile tile slot_key=slot_key %}",
+        tile=tile,
+        slot_key=slot_key,
+        **context,
+    )
 
 
 @pytest.fixture(name="card")
@@ -55,8 +125,10 @@ def scheduled_card(event, space, active_user):
         presenter=active_user,
         facilitator_name="Ada Lovelace",
         title="Difference Engines",
+        description="Babbage's plan, on brass.",
         participants_limit=10,
         min_age=16,
+        duration="PT2H",
     )
     start = timezone.now().replace(minute=0, second=0, microsecond=0) + timedelta(
         days=3
@@ -73,9 +145,12 @@ def scheduled_card(event, space, active_user):
 
 class TestSessionDataAttrs:
     def test_card_states_the_session_and_its_room(self, card):
-        attrs = _attrs(_render("{% session_data_attrs data %}", data=card))
+        attrs = _tags(_render("<div {% session_data_attrs data %}></div>", data=card))[
+            0
+        ][1]
 
         local_start = timezone.localtime(card.agenda_item.start_time)
+        local_end = timezone.localtime(card.agenda_item.end_time)
         assert attrs == {
             "data-title": "difference engines",
             "data-session-id": str(card.session.pk),
@@ -93,11 +168,9 @@ class TestSessionDataAttrs:
             "data-space": str(card.loc["space_id"]),
             "data-space-name": card.loc["space_name"],
             "data-space-order": space_sort_path_json(card.loc["sort_path"]),
-            "data-session-end": (
-                timezone.localtime(card.agenda_item.end_time).isoformat()
-            ),
+            "data-session-end": local_end.isoformat(),
             "data-start": local_start.isoformat(),
-            "data-end": timezone.localtime(card.agenda_item.end_time).isoformat(),
+            "data-end": local_end.isoformat(),
             "data-day": local_start.strftime("%Y-%m-%d"),
             "data-day-label": (
                 local_start.strftime("%A, ") + f"{local_start.day} {local_start:%B}"
@@ -105,19 +178,28 @@ class TestSessionDataAttrs:
             "data-hour": local_start.strftime("%H:%M"),
         }
 
-    def test_ledger_row_is_clipped_to_its_occurrence_and_marks_the_ended(self, card):
+    def test_proposal_carries_no_time(self, event, active_user):
+        session = SessionFactory(event=event, presenter=active_user, min_age=0)
+        data = proposal_card(session, presenter=active_user)
+
+        attrs = _tags(_render("<div {% session_data_attrs data %}></div>", data=data))[
+            0
+        ][1]
+
+        assert attrs["data-status"] == "proposal"
+        assert attrs["data-takes-enrollment"] == "false"
+        assert not attrs["data-space"]
+        assert "data-start" not in attrs
+        assert "data-session-end" not in attrs
+
+
+class TestCompactSessionRow:
+    def test_row_is_clipped_to_its_day_and_marks_the_ended(self, card):
         ended = replace(card, is_ended=True, is_ongoing=True)
         start = timezone.localtime(card.agenda_item.start_time)
         end = start + timedelta(minutes=30)
 
-        attrs = _attrs(
-            _render(
-                "{% session_data_attrs data start end %}",
-                data=ended,
-                start=start,
-                end=end,
-            )
-        )
+        attrs = _session_attrs(_row(ended, start=start, end=end))
 
         assert attrs["data-ended"] is None
         assert attrs["data-status"] == "ended"
@@ -129,29 +211,27 @@ class TestSessionDataAttrs:
         )
 
     def test_started_session_reads_in_progress_until_it_ends(self, card):
-        attrs = _attrs(
-            _render(
-                "{% session_data_attrs data %}", data=replace(card, is_ongoing=True)
-            )
-        )
+        attrs = _session_attrs(_row(replace(card, is_ongoing=True)))
 
         assert attrs["data-status"] == "in-progress"
         assert "data-ended" not in attrs
 
-    def test_proposal_carries_no_time(self, event, active_user):
-        session = SessionFactory(event=event, presenter=active_user, min_age=0)
-        data = proposal_card(session, presenter=active_user)
+    def test_row_reads_time_title_host_meta_and_description(self, card):
+        start = timezone.localtime(card.agenda_item.start_time)
+        end = timezone.localtime(card.agenda_item.end_time)
+        with translation.override("en"):
+            rendered = _row(card)
 
-        attrs = _attrs(_render("{% session_data_attrs data %}", data=data))
+        assert _text(rendered) == (
+            f"Open details for Difference Engines {start:%H:%M} – {end:%H:%M}"
+            f" Difference Engines Ada Lovelace {card.loc['space_name']}"
+            f" · {format_duration(card.session.duration)} · 16+ · 10 seats"
+            " Babbage's plan, on brass."
+        )
+        link = dict(_tags(rendered))["a"]
+        assert link["href"] == f"?session={card.session.pk}"
+        assert link["aria-controls"] == f"session-{card.session.pk}"
 
-        assert attrs["data-status"] == "proposal"
-        assert attrs["data-takes-enrollment"] == "false"
-        assert not attrs["data-space"]
-        assert "data-start" not in attrs
-        assert "data-session-end" not in attrs
-
-
-class TestSessionAvailability:
     @pytest.mark.parametrize(
         ("overrides", "expected"),
         (
@@ -170,38 +250,50 @@ class TestSessionAvailability:
     )
     def test_label_follows_the_availability_ladder(self, card, overrides, expected):
         with translation.override("en"):
-            rendered = _render(
-                "{% session_availability data %}", data=replace(card, **overrides)
-            )
+            rendered = _row(replace(card, **overrides))
 
-        assert _text(rendered) == expected
+        meta = _element_text(rendered, lambda attrs: "title" in attrs)
+        assert meta.endswith(f" · {expected}")
 
-    def test_no_enrollment_renders_nothing(self, card):
+    def test_no_enrollment_prints_no_label_and_no_separator(self, card):
         data = replace(
             card, session=card.session.model_copy(update={"participants_limit": 0})
         )
 
-        assert not _render("{% session_availability data %}", data=data)
+        meta = _element_text(_row(data), lambda attrs: "title" in attrs)
+
+        assert meta == (
+            f"{card.loc['space_name']} · {format_duration(card.session.duration)}"
+            " · 16+"
+        )
 
     def test_scarce_seats_take_the_warning_tone(self, card):
-        rendered = _render(
-            "{% session_availability data %}",
-            data=replace(card, is_enrollment_available=True, enrolled_count=9),
-        )
+        rendered = _row(replace(card, is_enrollment_available=True, enrolled_count=9))
 
         assert "text-coral-600" in rendered
 
+    def test_guild_mark_sits_by_the_title(self, card):
+        guild = GuildMarkDTO(pk=1, name="Cogwheel", logo_url="https://g.test/c.png")
+        with translation.override("en"):
+            rendered = _row(replace(card, guild=guild))
 
-class TestBookmarkToggle:
+        marks = [attrs for tag, attrs in _tags(rendered) if tag == "img"]
+        assert [(mark["src"], mark["alt"]) for mark in marks] == [
+            ("https://g.test/c.png", "Guild: Cogwheel")
+        ]
+
+    def test_guild_without_a_logo_leaves_no_mark(self, card):
+        rendered = _row(replace(card, guild=GuildMarkDTO(pk=1, name="Cogwheel")))
+
+        assert "img" not in dict(_tags(rendered))
+
     def test_signed_in_viewer_gets_a_toggle(self, card, active_user):
-        rendered = _render(
-            '{% bookmark_toggle data wrapper_class="shrink-0" %}',
-            data=replace(card, user_bookmarked=True, bookmark_count=3),
+        rendered = _row(
+            replace(card, user_bookmarked=True, bookmark_count=3),
             current_user=active_user,
         )
 
-        tags = dict(_tags(rendered))
-        button = tags["button"]
+        button = dict(_tags(rendered))["button"]
         assert button["aria-pressed"] == "true"
         assert button["data-session-id"] == str(card.session.pk)
         assert "text-coral-600" in button["class"]
@@ -213,16 +305,93 @@ class TestBookmarkToggle:
             if tag == "svg"
         }
         assert icons == {"outline": True, "solid": False}
-        assert _text(rendered) == "Bookmark session 3"
+        with translation.override("en"):
+            rendered = _row(
+                replace(card, user_bookmarked=True, bookmark_count=3),
+                current_user=active_user,
+            )
+        assert (
+            _element_text(rendered, lambda attrs: "data-bookmark-toggle" in attrs)
+            == "Bookmark session 3"
+        )
+
+    def test_signed_in_viewer_keeps_a_hidden_zero_to_count_from(
+        self, card, active_user
+    ):
+        rendered = _row(card, current_user=active_user)
+
+        count = next(
+            attrs for _tag, attrs in _tags(rendered) if "data-bookmark-count" in attrs
+        )
+        assert "hidden" in count["class"].split()
+        assert (
+            _element_text(rendered, lambda attrs: "data-bookmark-count" in attrs) == "0"
+        )
 
     def test_anonymous_viewer_sees_the_count(self, card):
         with translation.override("en"):
-            rendered = _render(
-                "{% bookmark_toggle data %}", data=replace(card, bookmark_count=2)
-            )
+            rendered = _row(replace(card, bookmark_count=2))
 
         assert "data-bookmark-toggle" not in rendered
-        assert _text(rendered) == "2 Bookmarked by 2 people"
+        badge = _element_text(rendered, _is_bookmark_affordance)
+        assert badge == "2 Bookmarked by 2 people"
 
-    def test_quiet_session_renders_nothing_for_an_anonymous_viewer(self, card):
-        assert not _render("{% bookmark_toggle data %}", data=card)
+    def test_quiet_session_carries_no_bookmark_noise(self, card):
+        rendered = _row(card)
+
+        assert not [
+            attrs for _tag, attrs in _tags(rendered) if _is_bookmark_affordance(attrs)
+        ]
+
+
+class TestRoomLaneTile:
+    def test_tile_names_its_slot_and_its_room_column(self, card):
+        rendered = _tile(card, slot_key="1700000000")
+
+        tags = dict(_tags(rendered))
+        assert tags["article"]["data-slot-hour"] == "1700000000"
+        assert tags["a"]["aria-describedby"] == "room-lane-room-3"
+        local_start = timezone.localtime(card.agenda_item.start_time)
+        assert _session_attrs(rendered)["data-start"] == local_start.isoformat()
+
+    def test_tile_reads_time_and_age(self, card):
+        start = timezone.localtime(card.agenda_item.start_time)
+        end = timezone.localtime(card.agenda_item.end_time)
+
+        clock = _element_text(
+            _tile(card), lambda attrs: attrs.get("data-morph") == "time"
+        )
+
+        assert clock == f"{start:%H:%M}–{end:%H:%M} · 16+"
+
+    def test_tile_shows_the_host_with_an_avatar(self, card):
+        rendered = _tile(card)
+
+        avatars = [
+            attrs for _tag, attrs in _tags(rendered) if attrs.get("role") == "img"
+        ]
+        assert [avatar["aria-label"] for avatar in avatars] == [
+            card.presenter.full_name or card.presenter.name
+        ]
+        assert (
+            _element_text(rendered, lambda attrs: attrs.get("data-morph") == "host")
+            == "Ada Lovelace"
+        )
+
+    def test_tile_without_a_host_draws_no_presenter_row(self, card):
+        data = replace(
+            card, session=card.session.model_copy(update={"facilitator_name": ""})
+        )
+
+        rendered = _tile(data)
+
+        assert not [attrs for _tag, attrs in _tags(rendered) if "role" in attrs]
+
+    def test_tile_reads_the_availability(self, card):
+        with translation.override("en"):
+            rendered = _tile(replace(card, is_enrollment_available=True))
+
+        assert (
+            _element_text(rendered, lambda attrs: attrs.get("data-morph") == "meta")
+            == "10 spots left"
+        )

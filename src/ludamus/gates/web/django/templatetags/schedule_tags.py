@@ -2,32 +2,56 @@
 
 The data-* contract that session-filters.ts, session-bookmarks.ts and the
 detail modal read off every session is built here, once, and so are the
-availability label, the seat count and the bookmark toggle; the three layouts
-call the same tags. Python rather than template partials because a big event
-renders a thousand of each, and the template engine spent more on the include
-tree per row than the whole page's data.
+availability label, the seat count and the bookmark toggle. The ledger row
+and the room tile are rendered whole, from one format string each. Python
+rather than template partials because a big event renders a thousand of
+each, and the template engine spent more on the include tree per row than
+the whole page's data: ~290 node renders, 77 variable lookups and 27
+branches per row against one string build.
+
+What every row on a page shares — the clock, the viewer, the translated
+words, the day labels, the rooms' sort keys — is resolved once per render
+into a _Sheet kept in the render context, so the per-row work is the row's
+own values.
+
+SAFETY: the builders format plain strings and escape by hand, where
+format_html would conditional_escape every argument: two thirds of a row's
+forty-odd values are integers, flags, timestamps and markup built here, and
+escaping them cost more than the rest of the row. Every string that carries
+what a person typed — a title, a name, a room, a tag, a description — goes
+through escape() at the one place it enters, and the translated words are
+escaped once when the sheet is built. Values that reach a format string
+otherwise are ints, "true"/"false", ISO timestamps, H:M clocks and fragments
+these same builders returned.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from functools import cache
+from html import escape
 from typing import TYPE_CHECKING
 
 from django import template
+from django.template.loader import get_template
 from django.utils import dateformat, timezone
-from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
 from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
+from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from datetime import datetime
+    from collections.abc import Callable, Hashable
+    from datetime import date, datetime, tzinfo
 
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
+    from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
+    from ludamus.gates.web.django.entities import UserInfo
+    from ludamus.pacts.guild import GuildMarkDTO
+    from ludamus.pacts.legacy import LocationData
 
 register = template.Library()
 
@@ -40,7 +64,7 @@ _ICON_RENDERERS: dict[str, Callable[..., str]] = {
 _DAY_LABEL_FORMAT = "l, j F"
 # What tessera's {% icon %} puts on every icon, so these read the same.
 _ICON_CLASS = "shrink-0 align-middle size-4"
-_NOTHING = SafeString("")
+_SHEET_KEY = "schedule_tags.sheet"
 
 _SESSION_ATTRS = (
     'data-title="{}" data-session-id="{}" data-host="{}" data-tags="{}"'
@@ -53,7 +77,7 @@ _SCHEDULED_ATTRS = (
     ' data-session-end="{}"{} data-start="{}" data-end="{}" data-day="{}"'
     ' data-day-label="{}" data-hour="{}"'
 )
-_ENDED_ATTR = SafeString(" data-ended")
+_ENDED_ATTR = " data-ended"
 
 _MUTED_LABEL = '<span class="font-medium text-foreground-muted">{}</span>'
 _FULL_LABEL = '<span class="font-semibold text-foreground-muted">{}</span>'
@@ -61,6 +85,8 @@ _FULL_WAITING_LABEL = (
     f'{_FULL_LABEL} <span class="text-foreground-muted">· {{}} {{}}</span>'
 )
 _SPOTS_LABEL = '<span class="font-semibold tabular-nums {}">{}</span>'
+_CORAL = "text-coral-600 dark:text-coral-400"
+_TEAL = "text-teal-700 dark:text-teal-400"
 _SEAT_COUNT = (
     '<span class="{}font-semibold tabular-nums text-foreground-muted">{}</span>'
 )
@@ -83,48 +109,186 @@ _COUNT_BADGE = (
     '<span class="sr-only">{}</span></span></span>'
 )
 
+_ENROLLED_TONE = " bg-coral-50/60 dark:bg-coral-950/40"
+_AGE_MARK = f' · <span class="font-medium {_CORAL}">{{}}+</span>'
+# Ledger row: one line per session — time range, bold title with the author
+# right after it, then a right-aligned bullet-separated cluster of room ·
+# duration · age · availability, and the bookmark. On phones the stacked time
+# is absolute so it centers against the whole two-line row, and the toggle
+# pins to the row's right edge instead of wrapping to a third line after the
+# basis-full meta span. The title cluster is flex, not one truncating inline
+# run: only a flex parent keeps the guild mark's shrink-0, and inline it
+# would be clipped by exactly the long title where knowing the guild helps.
+_ROW = (
+    '<article class="min-w-0" data-session-wrapper>'
+    '<div class="session group/row relative flex flex-wrap items-center gap-x-2'
+    " rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors"
+    " has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary"
+    " dark:has-[a:hover]:bg-bg-tertiary/50 max-sm:has-[.bookmark-affordance]:pr-11{}"
+    ' data-ended:opacity-65 data-ended:has-[a:hover]:opacity-100" data-no-morph {}>'
+    '<a href="?session={}" class="session-link absolute inset-0 z-10 rounded-lg"'
+    ' aria-haspopup="dialog" aria-controls="session-{}">'
+    '<span class="sr-only">{}</span></a>'
+    '<span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] tabular-nums'
+    " text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2"
+    ' max-sm:-translate-y-1/2 sm:w-28 sm:pt-1.5">{}{}'
+    '<span class="hidden sm:inline">–</span>'
+    '<span class="block sm:inline">{}{}</span></span>'
+    '<span class="flex min-w-0 flex-1 items-baseline gap-x-1.5">'
+    '<span class="truncate text-sm font-semibold text-foreground">{}</span>{}'
+    '<span class="truncate text-xs text-foreground-muted">{}</span></span>'
+    '<span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full'
+    ' sm:whitespace-nowrap sm:text-right" title="{}">{}{}{}{}</span>'
+    '{}<span class="sr-only" data-session-description>{}</span>'
+    "</div></article>"
+)
+_ROW_TZ_MARK = ' <span class="text-[0.55rem]">{}</span>'
+# The separator rides with the label: no-enrollment is the one state that
+# prints nothing, and a bullet must not outlive what it separates.
+_ROW_AVAILABILITY = ' <span class="print:hidden">· {}</span>'
+_ROW_TOGGLE_CLASS = (
+    "z-20 shrink-0 self-center pointer-events-auto max-sm:absolute max-sm:right-1"
+    " max-sm:top-1/2 max-sm:-translate-y-1/2"
+)
+
+# Session tile inside a room-lane grid cell: title, host (with avatar), time,
+# then availability + bookmark pinned to the bottom. Fills its cell (h-full),
+# never clipped — the grid row grows to the tallest tile. w-fit keeps the
+# title's morph group on the text rather than the tile column.
+_TILE = (
+    '<article class="h-full min-w-0" data-session-wrapper{}>'
+    '<div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl'
+    " border border-border pb-1 bg-bg-secondary p-2 transition-colors"
+    " hover:border-neutral-300 dark:hover:border-neutral-600{}"
+    ' data-ended:opacity-65 data-ended:hover:opacity-100" {}>'
+    '<a href="?session={}" class="session-link absolute inset-0 z-10 rounded-xl"'
+    ' aria-haspopup="dialog" aria-controls="session-{}"'
+    ' aria-describedby="room-lane-room-{}"><span class="sr-only">{}</span></a>'
+    '<h4 class="w-fit text-sm font-semibold leading-snug text-foreground'
+    ' wrap-anywhere text-pretty" data-morph="title">{}</h4>{}'
+    '<span class="truncate text-xs tabular-nums text-foreground-muted"'
+    ' data-morph="time">{}{}–{}{}{}</span>'
+    '<div class="mt-auto flex items-center justify-between gap-2 pt-0.5 text-xs"'
+    ' data-morph="meta"><span class="min-w-0 truncate text-foreground-muted">{}'
+    "</span>{}</div></div></article>"
+)
+_TILE_SLOT_ATTR = ' data-slot-hour="{}"'
+_TILE_TZ_MARK = " {}"
+# No corner rule on the avatar here: the mark sits beside the name, not on
+# it, so the warning badge has bottom-right to itself.
+_TILE_HOST = (
+    '<div class="flex min-w-0 items-center gap-0.75 text-xs text-foreground-muted">'
+    '<span class="shrink-0" data-morph="avatar">{}</span>{}'
+    '<span class="truncate" data-morph="host">{}</span></div>'
+)
+
+
+@dataclass(frozen=True)
+class _Words:
+    # The translated strings a row repeats, looked up and escaped once.
+    ended: str
+    in_progress: str
+    full: str
+    waiting: str
+    bookmark_label: str
+    open_details: str
+
+
+@dataclass
+class _Components:
+    # Rendered tessera components keyed by what they were rendered from: a
+    # page with a thousand tiles has a few dozen presenters and guilds. The
+    # template is looked up once per render: a loader without a cache in
+    # front of it re-reads and re-parses the file on every get_template.
+    rendered: dict[Hashable, str] = field(default_factory=dict)
+    renderers: dict[str, Callable[..., str]] = field(default_factory=dict)
+
+    def render(
+        self,
+        name: str,
+        key: Hashable,
+        **variables: str | bool | GuildMarkDTO | UserInfo,
+    ) -> str:
+        # A component keeps its one template; the memo only spares the engine
+        # rendering the same presenter for the twentieth time.
+        if (rendered := self.rendered.get(key)) is None:
+            if (render := self.renderers.get(name)) is None:
+                render = self.renderers[name] = get_template(name).render
+            rendered = self.rendered[key] = render(variables).strip()
+        return rendered
+
+
+@dataclass
+class _Sheet:
+    # What every row on one rendered page shares, resolved once per render.
+    tz: tzinfo
+    signed_in: bool
+    words: _Words
+    day_labels: dict[date, str] = field(default_factory=dict)
+    space_orders: dict[tuple[tuple[int, str, int], ...], str] = field(
+        default_factory=dict
+    )
+    durations: dict[str | None, str] = field(default_factory=dict)
+    components: _Components = field(default_factory=_Components)
+
+    def day_label(self, local_start: datetime) -> str:
+        day = local_start.date()
+        if (label := self.day_labels.get(day)) is None:
+            label = self.day_labels[day] = escape(
+                dateformat.format(local_start, _DAY_LABEL_FORMAT)
+            )
+        return label
+
+    def space_order(self, loc: LocationData) -> str:
+        path = loc["sort_path"]
+        if (order := self.space_orders.get(path)) is None:
+            order = self.space_orders[path] = escape(space_sort_path_json(path))
+        return order
+
+    def duration(self, iso_duration: str | None) -> str:
+        if (label := self.durations.get(iso_duration)) is None:
+            label = self.durations[iso_duration] = format_duration(iso_duration)
+        return label
+
+
+def _sheet(context: template.Context) -> _Sheet:
+    render_context = context.render_context
+    if (sheet := render_context.get(_SHEET_KEY)) is None:
+        sheet = render_context[_SHEET_KEY] = _Sheet(
+            tz=timezone.get_current_timezone(),
+            signed_in=bool(context.get("current_user")),
+            words=_Words(
+                ended=escape(_("Ended")),
+                in_progress=escape(_("In Progress")),
+                full=escape(_("Full")),
+                waiting=escape(_("waiting")),
+                bookmark_label=escape(_("Bookmark session")),
+                open_details=_("Open details for %(title)s"),
+            ),
+        )
+    return sheet
+
 
 def _flag(*, on: bool) -> str:
     return "true" if on else "false"
 
 
-def _occurrence(start: datetime, end: datetime) -> tuple[str, str, str, str, str]:
-    # The instant, offset included: data-day/data-hour are the event's local
-    # wall clock, which reads as a different moment in a reader's own
-    # timezone, and the "now" line compares against the reader's clock.
-    local_start = timezone.localtime(start)
-    return (
-        local_start.isoformat(),
-        timezone.localtime(end).isoformat(),
-        f"{local_start:%Y-%m-%d}",
-        dateformat.format(local_start, _DAY_LABEL_FORMAT),
-        f"{local_start:%H:%M}",
-    )
-
-
-@register.simple_tag
-def session_data_attrs(
+def _session_attrs(
+    sheet: _Sheet,
     data: SessionData,
-    occurrence_start: datetime | None = None,
-    occurrence_end: datetime | None = None,
-) -> SafeString:
-    """Render the data-* attributes every schedule layout puts on a session.
-
-    Returns:
-        The attribute list for the opening tag of the card, the ledger row
-        or the room tile. session-filters.ts compares the values exactly.
-    """
+    local_start: datetime | None,
+    local_end: datetime | None,
+) -> str:
     session = data.session
     loc = data.loc
-    attrs = format_html(
-        _SESSION_ATTRS,
-        session.title.lower(),
+    attrs = _SESSION_ATTRS.format(
+        escape(session.title.lower()),
         session.pk,
         # As-is casing: the host filter's option value and label both; the
         # search haystack lowercases on its own (normalizeText).
-        session.facilitator_name,
-        data.public_tags,
-        data.filter_categories,
+        escape(session.facilitator_name),
+        escape(data.public_tags),
+        escape(data.filter_categories),
         # data.availability, with one broader term: the filter counts any
         # started session as in progress, while the label waits for a
         # limit_to_end_time window to shut it (should_show_as_inactive).
@@ -135,24 +299,57 @@ def session_data_attrs(
         _flag(on=data.user_bookmarked),
         session.min_age,
         loc["parent_id"] or "",
-        loc["parent_name"],
+        escape(loc["parent_name"]),
         loc["space_id"] or "",
-        loc["space_name"],
-        space_sort_path_json(loc["sort_path"]),
+        escape(loc["space_name"]),
+        sheet.space_order(loc),
     )
-    if (item := data.agenda_item) is None:
+    if (item := data.agenda_item) is None or local_start is None or local_end is None:
         return attrs
-    if occurrence_start is None or occurrence_end is None:
-        occurrence_start, occurrence_end = item.start_time, item.end_time
+    # The instant, offset included: data-day/data-hour are the event's local
+    # wall clock, which reads as a different moment in a reader's own
+    # timezone, and the "now" line compares against the reader's clock.
     # data-session-end is when the session itself is over, which is not what
     # data-end answers: in the ledger that one is clipped to the programme day
     # the row sits under. schedule-now.ts re-reads it as the clock passes it —
     # the served answer is only true for the moment it was rendered.
-    return attrs + format_html(
-        _SCHEDULED_ATTRS,
-        timezone.localtime(item.end_time).isoformat(),
+    return attrs + _SCHEDULED_ATTRS.format(
+        item.end_time.astimezone(sheet.tz).isoformat(),
         _ENDED_ATTR if data.is_ended else "",
-        *_occurrence(occurrence_start, occurrence_end),
+        local_start.isoformat(),
+        local_end.isoformat(),
+        f"{local_start:%Y-%m-%d}",
+        sheet.day_label(local_start),
+        f"{local_start:%H:%M}",
+    )
+
+
+@register.simple_tag(takes_context=True)
+def session_data_attrs(context: template.Context, data: SessionData) -> SafeString:
+    """Render the data-* attributes every schedule layout puts on a session.
+
+    Returns:
+        The attribute list for the opening tag of the card; the ledger row and
+        the room tile render theirs inside their own tags, clipped to the
+        programme day they sit under. session-filters.ts compares the values
+        exactly.
+    """
+    sheet = _sheet(context)
+    if (item := data.agenda_item) is None:
+        return SafeString(_session_attrs(sheet, data, None, None))
+    return SafeString(
+        _session_attrs(
+            sheet,
+            data,
+            item.start_time.astimezone(sheet.tz),
+            item.end_time.astimezone(sheet.tz),
+        )
+    )
+
+
+def _seat_count(data: SessionData, extra_class: str) -> str:
+    return _SEAT_COUNT.format(
+        f"{escape(extra_class)} " if extra_class else "", escape(data.seats_label)
     )
 
 
@@ -163,45 +360,37 @@ def session_seat_count(data: SessionData, extra_class: str = "") -> SafeString:
     Returns:
         A cap, or what is free of one — SessionData.seats_label's to decide.
     """
-    return format_html(
-        _SEAT_COUNT, f"{extra_class} " if extra_class else "", data.seats_label
-    )
+    return SafeString(_seat_count(data, extra_class))
 
 
-@register.simple_tag
-def session_availability(data: SessionData) -> SafeString:
-    """Render the compact availability label of the ledger row and room tile.
-
-    Returns:
-        The label, or nothing for a session that takes no enrollment: on big
-        events a repeated negative label on most rows is redundant noise.
-    """
+def _availability(sheet: _Sheet, data: SessionData) -> str:
+    # The compact label of the ledger row and the room tile. Nothing for a
+    # session that takes no enrollment: on big events a repeated negative
+    # label on most rows is redundant noise.
     availability = data.availability
+    words = sheet.words
     if availability == "ended":
-        return format_html(_MUTED_LABEL, _("Ended"))
+        return _MUTED_LABEL.format(words.ended)
     if availability == "in-progress":
-        return format_html(_MUTED_LABEL, _("In Progress"))
+        return _MUTED_LABEL.format(words.in_progress)
     if availability == "unavailable":
-        return session_seat_count(data)
+        return _seat_count(data, "")
     if availability == "full":
         if data.waiting_count > 0:
-            return format_html(
-                _FULL_WAITING_LABEL, _("Full"), data.waiting_count, _("waiting")
+            return _FULL_WAITING_LABEL.format(
+                words.full, data.waiting_count, words.waiting
             )
-        return format_html(_FULL_LABEL, _("Full"))
+        return _FULL_LABEL.format(words.full)
     if availability == "available":
         spots = data.spots_left
-        return format_html(
-            _SPOTS_LABEL,
-            (
-                "text-coral-600 dark:text-coral-400"
-                if data.spots_scarce
-                else "text-teal-700 dark:text-teal-400"
+        return _SPOTS_LABEL.format(
+            _CORAL if data.spots_scarce else _TEAL,
+            escape(
+                ngettext("%(counter)s spot left", "%(counter)s spots left", spots)
+                % {"counter": spots}
             ),
-            ngettext("%(counter)s spot left", "%(counter)s spots left", spots)
-            % {"counter": spots},
         )
-    return _NOTHING
+    return ""
 
 
 @cache
@@ -214,50 +403,191 @@ def _bookmark_icon(variant: str, *, hidden: bool = False, tagged: bool = True) -
     return _ICON_RENDERERS[variant]("bookmark", **attrs)
 
 
-@register.simple_tag(takes_context=True)
-def bookmark_toggle(
-    context: template.Context, data: SessionData, wrapper_class: str = ""
-) -> SafeString:
-    """Render the bookmark affordance the ledger row and the room tile share.
-
-    Returns:
-        A toggle for a signed-in viewer; a read-only count for an anonymous
-        one (a popularity signal); nothing when there is neither, so quiet
-        sessions carry no "0" noise. The structure — data-bookmark-toggle,
-        data-bookmark-icon, data-bookmark-count, aria-pressed, the coral
-        classes — is a contract with session-bookmarks.ts.
-    """
+def _bookmark(sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
+    # A toggle for a signed-in viewer; a read-only count for an anonymous one
+    # (a popularity signal); nothing when there is neither, so quiet sessions
+    # carry no "0" noise. The structure — data-bookmark-toggle,
+    # data-bookmark-icon, data-bookmark-count, aria-pressed, the coral
+    # classes — is a contract with session-bookmarks.ts.
     # The toggle sits above the stretched row/tile link (z-20 +
     # pointer-events-auto) so a tap toggles the bookmark instead of opening
     # the detail modal. Callers position it via wrapper_class and pad for it
     # with has-[.bookmark-affordance] variants instead of re-deriving
     # visibility.
     count = data.bookmark_count
-    if context.get("current_user"):
+    if sheet.signed_in:
         bookmarked = data.user_bookmarked
-        return format_html(
-            _TOGGLE,
+        return _TOGGLE.format(
             wrapper_class,
-            " text-coral-600 dark:text-coral-400" if bookmarked else "",
+            f" {_CORAL}" if bookmarked else "",
             data.session.pk,
             _flag(on=bookmarked),
             _bookmark_icon("outline", hidden=bookmarked),
             _bookmark_icon("solid", hidden=not bookmarked),
-            _("Bookmark session"),
+            sheet.words.bookmark_label,
             "" if count else " hidden",
             count,
         )
     if not count:
-        return _NOTHING
-    return format_html(
-        _COUNT_BADGE,
+        return ""
+    return _COUNT_BADGE.format(
         wrapper_class,
         _bookmark_icon("outline", tagged=False),
         count,
-        ngettext(
-            "Bookmarked by %(counter)s person",
-            "Bookmarked by %(counter)s people",
-            count,
+        escape(
+            ngettext(
+                "Bookmarked by %(counter)s person",
+                "Bookmarked by %(counter)s people",
+                count,
+            )
+            % {"counter": count}
+        ),
+    )
+
+
+def _guild_mark(sheet: _Sheet, data: SessionData, extra_class: str) -> str:
+    if (guild := data.guild) is None or not guild.logo_url:
+        return ""
+    return sheet.components.render(
+        "components/guild_mark.html",
+        ("guild_mark", guild.logo_url, guild.name, extra_class),
+        guild=guild,
+        size="size-4",
+        extra_class=extra_class,
+        ring="",
+    )
+
+
+def _avatar(sheet: _Sheet, data: SessionData) -> str:
+    presenter = data.presenter
+    flagged = data.presenter_is_shadowbanned
+    return sheet.components.render(
+        "components/avatar.html",
+        (
+            "avatar",
+            presenter.pk,
+            presenter.full_name,
+            presenter.name,
+            presenter.username,
+            presenter.avatar_url,
+            flagged,
+        ),
+        user=presenter,
+        size="size-5",
+        danger_ring=flagged,
+    )
+
+
+def _clock(
+    local_start: datetime, local_end: datetime, tz_mark: str
+) -> tuple[str, str, str, str]:
+    # The zone names only when the two ends of the range read on different
+    # clocks: a session across a DST switch.
+    if local_start.utcoffset() == local_end.utcoffset():
+        return f"{local_start:%H:%M}", "", f"{local_end:%H:%M}", ""
+    return (
+        f"{local_start:%H:%M}",
+        tz_mark.format(escape(local_start.tzname() or "")),
+        f"{local_end:%H:%M}",
+        tz_mark.format(escape(local_end.tzname() or "")),
+    )
+
+
+def _age_mark(data: SessionData) -> str:
+    min_age = data.session.min_age
+    return _AGE_MARK.format(min_age) if min_age > 0 else ""
+
+
+def _open_details(sheet: _Sheet, title: str) -> str:
+    return escape(sheet.words.open_details % {"title": title})
+
+
+@register.simple_tag(takes_context=True)
+def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeString:
+    """Render one ledger row of the compact schedule.
+
+    Returns:
+        The row, clipped to the programme day the tile sits under. Carries the
+        same data-* contract as _session_card.html so session-filters and the
+        detail modal work unchanged.
+    """
+    sheet = _sheet(context)
+    data = tile.data
+    session = data.session
+    local_start = tile.start.astimezone(sheet.tz)
+    local_end = tile.end.astimezone(sheet.tz)
+    start_clock, start_zone, end_clock, end_zone = _clock(
+        local_start, local_end, _ROW_TZ_MARK
+    )
+    duration = sheet.duration(session.duration)
+    availability = _availability(sheet, data)
+    return SafeString(
+        _ROW.format(
+            _ENROLLED_TONE if data.user_enrolled else "",
+            _session_attrs(sheet, data, local_start, local_end),
+            session.pk,
+            session.pk,
+            _open_details(sheet, session.title),
+            start_clock,
+            start_zone,
+            end_clock,
+            end_zone,
+            escape(session.title),
+            _guild_mark(sheet, data, "self-center relative"),
+            escape(session.facilitator_name),
+            escape(data.location_label),
+            escape(data.loc["space_name"]),
+            f" · {duration}" if duration else "",
+            _age_mark(data),
+            _ROW_AVAILABILITY.format(availability) if availability else "",
+            _bookmark(sheet, data, _ROW_TOGGLE_CLASS),
+            escape(session.description),
         )
-        % {"counter": count},
+    )
+
+
+@register.simple_tag(takes_context=True)
+def room_lane_tile(
+    context: template.Context, tile: RoomLaneTile, slot_key: str = ""
+) -> SafeString:
+    """Render one session tile of the rooms grid.
+
+    Returns:
+        The tile, with the same .session / data-* contract as the ledger row,
+        so filters, bookmarks and the detail modal apply.
+    """
+    sheet = _sheet(context)
+    data = tile.data
+    session = data.session
+    local_start = tile.start.astimezone(sheet.tz)
+    local_end = tile.end.astimezone(sheet.tz)
+    start_clock, start_zone, end_clock, end_zone = _clock(
+        local_start, local_end, _TILE_TZ_MARK
+    )
+    host = ""
+    if session.facilitator_name:
+        host = _TILE_HOST.format(
+            _avatar(sheet, data),
+            _guild_mark(sheet, data, "relative"),
+            escape(session.facilitator_name),
+        )
+    return SafeString(
+        _TILE.format(
+            _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
+            _ENROLLED_TONE if data.user_enrolled else "",
+            _session_attrs(sheet, data, local_start, local_end),
+            session.pk,
+            session.pk,
+            tile.col,
+            _open_details(sheet, session.title),
+            escape(session.title),
+            host,
+            start_clock,
+            start_zone,
+            end_clock,
+            end_zone,
+            _age_mark(data),
+            _availability(sheet, data),
+            _bookmark(sheet, data, "shrink-0"),
+        )
     )
