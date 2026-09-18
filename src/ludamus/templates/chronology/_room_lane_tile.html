@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load cfp_tags %}
+{% load schedule_tags %}
 {% load tessera %}
 {# Session tile inside a room-lane grid cell: title, host (with avatar), time, #}
 {# then availability + bookmark pinned to the bottom. Fills its cell (h-full), #}
@@ -10,7 +11,7 @@
          data-session-wrapper
          {% if slot_key %}data-slot-hour="{{ slot_key }}"{% endif %}>
     <div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl border border-border pb-1 bg-bg-secondary p-2 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} data-ended:opacity-65 data-ended:hover:opacity-100"
-         {% include "chronology/_session_data_attrs.html" %}>
+         {% session_data_attrs data occurrence_start occurrence_end %}>
         <a href="?session={{ data.session.pk }}"
            class="session-link absolute inset-0 z-10 rounded-xl"
            aria-haspopup="dialog"
@@ -44,8 +45,8 @@
         </span>
         <div class="mt-auto flex items-center justify-between gap-2 pt-0.5 text-xs"
              data-morph="meta">
-            <span class="min-w-0 truncate text-foreground-muted">{% include "chronology/_session_availability.html" %}</span>
-            {% include "chronology/_bookmark_toggle.html" with wrapper_class="shrink-0" %}
+            <span class="min-w-0 truncate text-foreground-muted">{% session_availability data %}</span>
+            {% bookmark_toggle data wrapper_class="shrink-0" %}
         </div>
     </div>
 </article>
