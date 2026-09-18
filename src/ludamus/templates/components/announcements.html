@@ -1,0 +1,19 @@
+{% load i18n %}
+{% comment %}
+    The sphere's announcements. `extra_class` carries page layout only — the
+    landing is full-bleed and brings its own width, the shell pages do not.
+{% endcomment %}
+<section id="announcements"
+         class="{{ extra_class }}"
+         aria-labelledby="announcements-heading">
+    <h2 id="announcements-heading"
+        class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
+    <div class="space-y-4">
+        {% for announcement in announcements %}
+            <article class="card p-6">
+                <h3 class="text-lg font-semibold text-foreground mb-2">{{ announcement.title }}</h3>
+                <p class="text-foreground-secondary whitespace-pre-line">{{ announcement.content }}</p>
+            </article>
+        {% endfor %}
+    </div>
+</section>

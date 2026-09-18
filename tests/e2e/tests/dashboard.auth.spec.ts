@@ -1,3 +1,4 @@
+import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
 
 // The root domain serves the pitch to a visitor (landing.spec.ts) and this
@@ -38,5 +39,13 @@ test.describe("Dashboard", () => {
         .filter({ hasText: "Foreign Programme" })
         .getByRole("button", { name: "Subscribe" }),
     ).toBeVisible();
+  });
+
+  test("has no critical or serious axe violations", async ({ page }) => {
+    await page.goto("/dashboard/");
+
+    await expect(page.getByRole("heading", { name: "Your dashboard" })).toBeVisible();
+
+    await analyzePageAccessibility(page);
   });
 });

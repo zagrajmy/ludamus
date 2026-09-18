@@ -8,9 +8,7 @@
 <a href="{{ card.url }}"
    class="card flex flex-col overflow-hidden hover:bg-bg-tertiary transition-colors">
     {% if card.cover_url %}
-        <div class="min-h-28 bg-cover bg-center rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
-             style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ card.cover_url }}')">
-        </div>
+        {% include "components/cover_tint.html" with url=card.cover_url extra_class="min-h-28" only %}
     {% endif %}
     <div class="flex flex-col gap-1 p-4">
         <h3 class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>

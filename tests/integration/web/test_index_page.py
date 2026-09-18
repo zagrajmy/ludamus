@@ -12,6 +12,7 @@ from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
+from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
 from ludamus.pacts.event import LandingStatsDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
@@ -76,7 +77,13 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"dashboard": ANY, "can_create_encounter": True},
+            context_data={
+                "announcements": [],
+                "dashboard": DashboardDTO(
+                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                ),
+                "can_create_encounter": True,
+            },
             template_name="dashboard/index.html",
         )
 

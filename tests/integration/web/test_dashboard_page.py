@@ -1,12 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
-from ludamus.pacts.dashboard import DashboardRole
+from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -16,7 +15,7 @@ from tests.integration.conftest import (
     SessionParticipationFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
 
@@ -44,7 +43,7 @@ class TestDashboardPageView:
             DASHBOARD_URL, HTTP_HOST=non_root_sphere.site.domain
         )
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert_response_404(response)
 
     def test_an_empty_account_still_gets_a_page(self, authenticated_client):
         response = authenticated_client.get(DASHBOARD_URL)
@@ -52,14 +51,15 @@ class TestDashboardPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"dashboard": ANY, "can_create_encounter": True},
+            context_data={
+                "announcements": [],
+                "dashboard": DashboardDTO(
+                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                ),
+                "can_create_encounter": True,
+            },
             template_name="dashboard/index.html",
         )
-        dashboard = response.context_data["dashboard"]
-        assert dashboard.agenda == []
-        assert dashboard.open_encounters == []
-        assert dashboard.sphere_feed == []
-        assert dashboard.discover == []
 
     def test_agenda_gathers_seats_and_encounters_across_spheres(
         self, authenticated_client, active_user, non_root_sphere, sphere
@@ -172,7 +172,7 @@ class TestSphereSubscriptionActions:
             reverse("web:sphere-subscribe", kwargs={"pk": 10_000})
         )
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert_response_404(response)
         assert not SphereSubscription.objects.exists()
 
     def test_the_root_sphere_is_nobody_s_subscription(
@@ -184,5 +184,5 @@ class TestSphereSubscriptionActions:
             reverse("web:sphere-subscribe", kwargs={"pk": sphere.pk})
         )
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert_response_404(response)
         assert not SphereSubscription.objects.exists()

@@ -8,24 +8,22 @@ Safe to run repeatedly — each event is announced once.
 
 from __future__ import annotations
 
-import logging
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from django.core.management.base import BaseCommand
-
+from ludamus.gates.cli.django.management.commands._sweep import SweepCommand
 from ludamus.inits.services import Services
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
-class Command(BaseCommand):
+class Command(SweepCommand):
     help = "Notify sphere subscribers about newly published events."
 
-    def handle(self, *_args: object, **_options: object) -> None:
-        announced = Services().sphere_subscriptions.announce_published_events(
-            now=datetime.now(UTC)
-        )
-        logger.info("announce_published_events: announced %s event(s)", announced)
-        self.stdout.write(
-            self.style.SUCCESS(f"Announced {announced} event(s) to subscribers.")
-        )
+    @staticmethod
+    def sweep(*, now: datetime) -> int:
+        return Services().sphere_subscriptions.announce_published_events(now=now)
+
+    @staticmethod
+    def report(handled: int) -> str:
+        return f"Announced {handled} event(s) to subscribers."

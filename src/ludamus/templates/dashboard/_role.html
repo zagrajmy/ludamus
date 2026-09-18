@@ -1,14 +1,21 @@
 {% load i18n %}
 {% comment %}
     Why `card` is on this dashboard, in the reader's terms. One line, never
-    two: a row you hold says so, a row that is open says how much room is left.
+    two: a row you hold says so, a row that is open says how much room is
+    left.
+
+    The four states share one treatment and differ only by the semantic
+    colour token, so they read as one set. Those tokens rather than the raw
+    brand colours: `text-primary` is 3.14:1 on a card and `text-secondary`
+    3.69:1, both under AA at this size, while every `*-text` token clears
+    4.5:1 in light and dark alike.
 {% endcomment %}
 {% if card.role == "signed_up" %}
-    <p class="mt-1 text-xs font-semibold text-secondary-hover">{% translate "You're signed up" %}</p>
+    <p class="mt-1 text-xs font-semibold text-success-text">{% translate "You're signed up" %}</p>
 {% elif card.role == "organizing" %}
-    <p class="mt-1 text-xs font-semibold text-primary">{% translate "You organize this" %}</p>
+    <p class="mt-1 text-xs font-semibold text-warning-text">{% translate "You organize this" %}</p>
 {% elif card.spots_remaining %}
-    <p class="mt-1 text-xs font-semibold text-foreground-muted">
+    <p class="mt-1 text-xs font-semibold text-foreground-secondary">
         {% blocktranslate count counter=card.spots_remaining %}
             {{ counter }} spot left
         {% plural %}
@@ -16,5 +23,5 @@
         {% endblocktranslate %}
     </p>
 {% elif card.capacity %}
-    <p class="mt-1 text-xs font-semibold text-foreground-muted">{% translate "No spots left" %}</p>
+    <p class="mt-1 text-xs font-semibold text-danger-text">{% translate "No spots left" %}</p>
 {% endif %}

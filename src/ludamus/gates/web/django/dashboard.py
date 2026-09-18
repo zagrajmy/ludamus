@@ -39,15 +39,20 @@ def dashboard_page(request: RootRequest, *, user_id: int) -> HttpResponse:
         the request so the root sphere's front door, which has already
         established who is asking, can render this page directly.
     """
+    sphere_id = request.context.current_sphere_id
     return TemplateResponse(
         request,
         "dashboard/index.html",
         {
+            # The brand's own announcements. This is the only page a
+            # signed-in member sees on zagrajmy.net, so leaving them to the
+            # landing would hide them from the audience they are for.
+            "announcements": request.services.announcements.list_published(sphere_id),
             "dashboard": request.services.dashboard.read(
                 user_id=user_id, now=datetime.now(UTC)
             ),
             "can_create_encounter": request.services.encounters.can_create(
-                sphere_id=request.context.current_sphere_id, user_id=user_id
+                sphere_id=sphere_id, user_id=user_id
             ),
         },
     )
