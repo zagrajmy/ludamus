@@ -4644,7 +4644,6 @@ msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Add to calendar"
 msgstr "Dodaj do kalendarza"
 
@@ -6244,8 +6243,16 @@ msgid "Download"
 msgstr "Pobierz"
 
 #: src/ludamus/templates/design.html
-msgid "Link preview card"
-msgstr "Karta podglądu linku"
+msgid "Open at full size"
+msgstr "Otwórz w pełnym rozmiarze"
+
+#: src/ludamus/templates/design.html
+msgid ""
+"Link preview card: the zagrajmy wordmark over a painted cylindrical space "
+"colony"
+msgstr ""
+"Karta podglądu linku: znak słowny zagrajmy na tle malowanej cylindrycznej "
+"kolonii kosmicznej"
 
 #: src/ludamus/templates/event/propose/base.html
 msgid "Submit a session proposal for"
@@ -6676,7 +6683,6 @@ msgid "Save Settings"
 msgstr "Zapisz ustawienia"
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Download .ics"
 msgstr "Pobierz .ics"
 
@@ -10340,6 +10346,9 @@ msgstr ""
 
 #~ msgid "Go to connections"
 #~ msgstr "Przejdź do połączeń"
+
+#~ msgid "Link preview card"
+#~ msgstr "Karta podglądu linku"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
