@@ -67,15 +67,18 @@ _ICON_CLASS = "shrink-0 align-middle size-4"
 _SHEET_KEY = "schedule_tags.sheet"
 
 _SESSION_ATTRS = (
-    'data-title="{}" data-session-id="{}" data-host="{}" data-tags="{}"'
-    ' data-tag-categories="{}" data-status="{}" data-takes-enrollment="{}"'
-    ' data-user-enrolled="{}" data-user-waiting="{}" data-bookmarked="{}"'
-    ' data-min-age="{}" data-venue="{}" data-venue-name="{}" data-space="{}"'
-    ' data-space-name="{}" data-space-order="{}"'
+    'data-title="%(title)s" data-session-id="%(pk)s" data-host="%(host)s"'
+    ' data-tags="%(tags)s" data-tag-categories="%(tag_categories)s"'
+    ' data-status="%(status)s" data-takes-enrollment="%(takes_enrollment)s"'
+    ' data-user-enrolled="%(user_enrolled)s" data-user-waiting="%(user_waiting)s"'
+    ' data-bookmarked="%(bookmarked)s" data-min-age="%(min_age)s"'
+    ' data-venue="%(venue)s" data-venue-name="%(venue_name)s" data-space="%(space)s"'
+    ' data-space-name="%(space_name)s" data-space-order="%(space_order)s"'
 )
 _SCHEDULED_ATTRS = (
-    ' data-session-end="{}"{} data-start="{}" data-end="{}" data-day="{}"'
-    ' data-day-label="{}" data-hour="{}"'
+    ' data-session-end="%(session_end)s"%(ended)s data-start="%(start)s"'
+    ' data-end="%(end)s" data-day="%(day)s" data-day-label="%(day_label)s"'
+    ' data-hour="%(hour)s"'
 )
 _ENDED_ATTR = " data-ended"
 
@@ -92,21 +95,22 @@ _SEAT_COUNT = (
 )
 
 _TOGGLE = (
-    '<span class="bookmark-affordance print:hidden {}">'
+    '<span class="bookmark-affordance print:hidden %(wrapper_class)s">'
     '<button type="button" data-bookmark-toggle class="before:inset-0'
     " before:-inset-y-2.5 before:absolute before:bg-transparent icon-btn"
     " icon-btn-clear relative z-20 shrink-0 self-center border border-transparent"
-    ' hover:border-border hover:bg-bg-tertiary gap-0.75 pointer-events-auto{}"'
-    ' data-session-id="{}" aria-pressed="{}">{}{}<span class="sr-only">{}</span>'
-    '<span data-bookmark-count class="text-xs tabular-nums{}">{}</span>'
-    "</button></span>"
+    ' hover:border-border hover:bg-bg-tertiary gap-0.75 pointer-events-auto%(tone)s"'
+    ' data-session-id="%(pk)s" aria-pressed="%(pressed)s">'
+    '%(outline_icon)s%(solid_icon)s<span class="sr-only">%(label)s</span>'
+    '<span data-bookmark-count class="text-xs tabular-nums%(count_class)s">%(count)s'
+    "</span></button></span>"
 )
 _COUNT_BADGE = (
-    '<span class="bookmark-affordance print:hidden {}">'
+    '<span class="bookmark-affordance print:hidden %(wrapper_class)s">'
     '<span class="relative z-20 inline-flex shrink-0 items-center self-center'
-    ' gap-0.75 p-1.5 text-xs text-foreground-secondary">{}'
-    '<span class="tabular-nums" aria-hidden="true">{}</span>'
-    '<span class="sr-only">{}</span></span></span>'
+    ' gap-0.75 p-1.5 text-xs text-foreground-secondary">%(icon)s'
+    '<span class="tabular-nums" aria-hidden="true">%(count)s</span>'
+    '<span class="sr-only">%(label)s</span></span></span>'
 )
 
 _ENROLLED_TONE = " bg-coral-50/60 dark:bg-coral-950/40"
@@ -124,22 +128,25 @@ _ROW = (
     '<div class="session group/row relative flex flex-wrap items-center gap-x-2'
     " rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors"
     " has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary"
-    " dark:has-[a:hover]:bg-bg-tertiary/50 max-sm:has-[.bookmark-affordance]:pr-11{}"
-    ' data-ended:opacity-65 data-ended:has-[a:hover]:opacity-100" data-no-morph {}>'
-    '<a href="?session={}" class="session-link absolute inset-0 z-10 rounded-lg"'
-    ' aria-haspopup="dialog" aria-controls="session-{}">'
-    '<span class="sr-only">{}</span></a>'
+    " dark:has-[a:hover]:bg-bg-tertiary/50 max-sm:has-[.bookmark-affordance]:pr-11"
+    '%(tone)s data-ended:opacity-65 data-ended:has-[a:hover]:opacity-100"'
+    " data-no-morph %(attrs)s>"
+    '<a href="?session=%(pk)s" class="session-link absolute inset-0 z-10 rounded-lg"'
+    ' aria-haspopup="dialog" aria-controls="session-%(pk)s">'
+    '<span class="sr-only">%(link_label)s</span></a>'
     '<span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] tabular-nums'
     " text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2"
-    ' max-sm:-translate-y-1/2 sm:w-28 sm:pt-1.5">{}{}'
+    ' max-sm:-translate-y-1/2 sm:w-28 sm:pt-1.5">%(start)s%(start_zone)s'
     '<span class="hidden sm:inline">–</span>'
-    '<span class="block sm:inline">{}{}</span></span>'
+    '<span class="block sm:inline">%(end)s%(end_zone)s</span></span>'
     '<span class="flex min-w-0 flex-1 items-baseline gap-x-1.5">'
-    '<span class="truncate text-sm font-semibold text-foreground">{}</span>{}'
-    '<span class="truncate text-xs text-foreground-muted">{}</span></span>'
+    '<span class="truncate text-sm font-semibold text-foreground">%(title)s</span>'
+    '%(guild_mark)s<span class="truncate text-xs text-foreground-muted">%(host)s</span>'
+    "</span>"
     '<span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full'
-    ' sm:whitespace-nowrap sm:text-right" title="{}">{}{}{}{}</span>'
-    '{}<span class="sr-only" data-session-description>{}</span>'
+    ' sm:whitespace-nowrap sm:text-right" title="%(location)s">'
+    "%(room)s%(duration)s%(age)s%(availability)s</span>"
+    '%(bookmark)s<span class="sr-only" data-session-description>%(description)s</span>'
     "</div></article>"
 )
 _ROW_TZ_MARK = ' <span class="text-[0.55rem]">{}</span>'
@@ -156,21 +163,23 @@ _ROW_TOGGLE_CLASS = (
 # never clipped — the grid row grows to the tallest tile. w-fit keeps the
 # title's morph group on the text rather than the tile column.
 _TILE = (
-    '<article class="h-full min-w-0" data-session-wrapper{}>'
+    '<article class="h-full min-w-0" data-session-wrapper%(slot)s>'
     '<div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl'
     " border border-border pb-1 bg-bg-secondary p-2 transition-colors"
-    " hover:border-neutral-300 dark:hover:border-neutral-600{}"
-    ' data-ended:opacity-65 data-ended:hover:opacity-100" {}>'
-    '<a href="?session={}" class="session-link absolute inset-0 z-10 rounded-xl"'
-    ' aria-haspopup="dialog" aria-controls="session-{}"'
-    ' aria-describedby="room-lane-room-{}"><span class="sr-only">{}</span></a>'
+    " hover:border-neutral-300 dark:hover:border-neutral-600%(tone)s"
+    ' data-ended:opacity-65 data-ended:hover:opacity-100" %(attrs)s>'
+    '<a href="?session=%(pk)s" class="session-link absolute inset-0 z-10 rounded-xl"'
+    ' aria-haspopup="dialog" aria-controls="session-%(pk)s"'
+    ' aria-describedby="room-lane-room-%(col)s">'
+    '<span class="sr-only">%(link_label)s</span></a>'
     '<h4 class="w-fit text-sm font-semibold leading-snug text-foreground'
-    ' wrap-anywhere text-pretty" data-morph="title">{}</h4>{}'
+    ' wrap-anywhere text-pretty" data-morph="title">%(title)s</h4>%(host)s'
     '<span class="truncate text-xs tabular-nums text-foreground-muted"'
-    ' data-morph="time">{}{}–{}{}{}</span>'
+    ' data-morph="time">%(start)s%(start_zone)s–%(end)s%(end_zone)s%(age)s</span>'
     '<div class="mt-auto flex items-center justify-between gap-2 pt-0.5 text-xs"'
-    ' data-morph="meta"><span class="min-w-0 truncate text-foreground-muted">{}'
-    "</span>{}</div></div></article>"
+    ' data-morph="meta">'
+    '<span class="min-w-0 truncate text-foreground-muted">%(availability)s</span>'
+    "%(bookmark)s</div></div></article>"
 )
 _TILE_SLOT_ATTR = ' data-slot-hour="{}"'
 _TILE_TZ_MARK = " {}"
@@ -178,8 +187,8 @@ _TILE_TZ_MARK = " {}"
 # it, so the warning badge has bottom-right to itself.
 _TILE_HOST = (
     '<div class="flex min-w-0 items-center gap-0.75 text-xs text-foreground-muted">'
-    '<span class="shrink-0" data-morph="avatar">{}</span>{}'
-    '<span class="truncate" data-morph="host">{}</span></div>'
+    '<span class="shrink-0" data-morph="avatar">%(avatar)s</span>%(guild_mark)s'
+    '<span class="truncate" data-morph="host">%(host)s</span></div>'
 )
 
 
@@ -281,29 +290,33 @@ def _session_attrs(
 ) -> str:
     session = data.session
     loc = data.loc
-    attrs = _SESSION_ATTRS.format(
-        escape(session.title.lower()),
-        session.pk,
+    attrs = _SESSION_ATTRS % {
+        "title": escape(session.title.lower()),
+        "pk": session.pk,
         # As-is casing: the host filter's option value and label both; the
         # search haystack lowercases on its own (normalizeText).
-        escape(session.facilitator_name),
-        escape(data.public_tags),
-        escape(data.filter_categories),
+        "host": escape(session.facilitator_name),
+        "tags": escape(data.public_tags),
+        "tag_categories": escape(data.filter_categories),
         # data.availability, with one broader term: the filter counts any
         # started session as in progress, while the label waits for a
         # limit_to_end_time window to shut it (should_show_as_inactive).
-        "in-progress" if data.is_ongoing and not data.is_ended else data.availability,
-        _flag(on=data.takes_enrollment),
-        _flag(on=data.user_enrolled),
-        _flag(on=data.user_waiting),
-        _flag(on=data.user_bookmarked),
-        session.min_age,
-        loc["parent_id"] or "",
-        escape(loc["parent_name"]),
-        loc["space_id"] or "",
-        escape(loc["space_name"]),
-        sheet.space_order(loc),
-    )
+        "status": (
+            "in-progress"
+            if data.is_ongoing and not data.is_ended
+            else data.availability
+        ),
+        "takes_enrollment": _flag(on=data.takes_enrollment),
+        "user_enrolled": _flag(on=data.user_enrolled),
+        "user_waiting": _flag(on=data.user_waiting),
+        "bookmarked": _flag(on=data.user_bookmarked),
+        "min_age": session.min_age,
+        "venue": loc["parent_id"] or "",
+        "venue_name": escape(loc["parent_name"]),
+        "space": loc["space_id"] or "",
+        "space_name": escape(loc["space_name"]),
+        "space_order": sheet.space_order(loc),
+    }
     if (item := data.agenda_item) is None or local_start is None or local_end is None:
         return attrs
     # The instant, offset included: data-day/data-hour are the event's local
@@ -313,15 +326,15 @@ def _session_attrs(
     # data-end answers: in the ledger that one is clipped to the programme day
     # the row sits under. schedule-now.ts re-reads it as the clock passes it —
     # the served answer is only true for the moment it was rendered.
-    return attrs + _SCHEDULED_ATTRS.format(
-        item.end_time.astimezone(sheet.tz).isoformat(),
-        _ENDED_ATTR if data.is_ended else "",
-        local_start.isoformat(),
-        local_end.isoformat(),
-        f"{local_start:%Y-%m-%d}",
-        sheet.day_label(local_start),
-        f"{local_start:%H:%M}",
-    )
+    return attrs + _SCHEDULED_ATTRS % {
+        "session_end": item.end_time.astimezone(sheet.tz).isoformat(),
+        "ended": _ENDED_ATTR if data.is_ended else "",
+        "start": local_start.isoformat(),
+        "end": local_end.isoformat(),
+        "day": f"{local_start:%Y-%m-%d}",
+        "day_label": sheet.day_label(local_start),
+        "hour": f"{local_start:%H:%M}",
+    }
 
 
 @register.simple_tag(takes_context=True)
@@ -417,24 +430,24 @@ def _bookmark(sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
     count = data.bookmark_count
     if sheet.signed_in:
         bookmarked = data.user_bookmarked
-        return _TOGGLE.format(
-            wrapper_class,
-            f" {_CORAL}" if bookmarked else "",
-            data.session.pk,
-            _flag(on=bookmarked),
-            _bookmark_icon("outline", hidden=bookmarked),
-            _bookmark_icon("solid", hidden=not bookmarked),
-            sheet.words.bookmark_label,
-            "" if count else " hidden",
-            count,
-        )
+        return _TOGGLE % {
+            "wrapper_class": wrapper_class,
+            "tone": f" {_CORAL}" if bookmarked else "",
+            "pk": data.session.pk,
+            "pressed": _flag(on=bookmarked),
+            "outline_icon": _bookmark_icon("outline", hidden=bookmarked),
+            "solid_icon": _bookmark_icon("solid", hidden=not bookmarked),
+            "label": sheet.words.bookmark_label,
+            "count_class": "" if count else " hidden",
+            "count": count,
+        }
     if not count:
         return ""
-    return _COUNT_BADGE.format(
-        wrapper_class,
-        _bookmark_icon("outline", tagged=False),
-        count,
-        escape(
+    return _COUNT_BADGE % {
+        "wrapper_class": wrapper_class,
+        "icon": _bookmark_icon("outline", tagged=False),
+        "count": count,
+        "label": escape(
             ngettext(
                 "Bookmarked by %(counter)s person",
                 "Bookmarked by %(counter)s people",
@@ -442,7 +455,7 @@ def _bookmark(sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
             )
             % {"counter": count}
         ),
-    )
+    }
 
 
 def _guild_mark(sheet: _Sheet, data: SessionData, extra_class: str) -> str:
@@ -478,19 +491,23 @@ def _avatar(sheet: _Sheet, data: SessionData) -> str:
     )
 
 
-def _clock(
-    local_start: datetime, local_end: datetime, tz_mark: str
-) -> tuple[str, str, str, str]:
-    # The zone names only when the two ends of the range read on different
+def _clock(local_start: datetime, local_end: datetime, tz_mark: str) -> dict[str, str]:
+    # The start, end, start_zone and end_zone slots of a row or a tile. The
+    # zone names only when the two ends of the range read on different
     # clocks: a session across a DST switch.
     if local_start.utcoffset() == local_end.utcoffset():
-        return f"{local_start:%H:%M}", "", f"{local_end:%H:%M}", ""
-    return (
-        f"{local_start:%H:%M}",
-        tz_mark.format(escape(local_start.tzname() or "")),
-        f"{local_end:%H:%M}",
-        tz_mark.format(escape(local_end.tzname() or "")),
-    )
+        return {
+            "start": f"{local_start:%H:%M}",
+            "start_zone": "",
+            "end": f"{local_end:%H:%M}",
+            "end_zone": "",
+        }
+    return {
+        "start": f"{local_start:%H:%M}",
+        "start_zone": tz_mark.format(escape(local_start.tzname() or "")),
+        "end": f"{local_end:%H:%M}",
+        "end_zone": tz_mark.format(escape(local_end.tzname() or "")),
+    }
 
 
 def _age_mark(data: SessionData) -> str:
@@ -516,33 +533,29 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
     session = data.session
     local_start = tile.start.astimezone(sheet.tz)
     local_end = tile.end.astimezone(sheet.tz)
-    start_clock, start_zone, end_clock, end_zone = _clock(
-        local_start, local_end, _ROW_TZ_MARK
-    )
     duration = sheet.duration(session.duration)
     availability = _availability(sheet, data)
     return SafeString(
-        _ROW.format(
-            _ENROLLED_TONE if data.user_enrolled else "",
-            _session_attrs(sheet, data, local_start, local_end),
-            session.pk,
-            session.pk,
-            _open_details(sheet, session.title),
-            start_clock,
-            start_zone,
-            end_clock,
-            end_zone,
-            escape(session.title),
-            _guild_mark(sheet, data, "self-center relative"),
-            escape(session.facilitator_name),
-            escape(data.location_label),
-            escape(data.loc["space_name"]),
-            f" · {duration}" if duration else "",
-            _age_mark(data),
-            _ROW_AVAILABILITY.format(availability) if availability else "",
-            _bookmark(sheet, data, _ROW_TOGGLE_CLASS),
-            escape(session.description),
-        )
+        _ROW
+        % {
+            "tone": _ENROLLED_TONE if data.user_enrolled else "",
+            "attrs": _session_attrs(sheet, data, local_start, local_end),
+            "pk": session.pk,
+            "link_label": _open_details(sheet, session.title),
+            **_clock(local_start, local_end, _ROW_TZ_MARK),
+            "title": escape(session.title),
+            "guild_mark": _guild_mark(sheet, data, "self-center relative"),
+            "host": escape(session.facilitator_name),
+            "location": escape(data.location_label),
+            "room": escape(data.loc["space_name"]),
+            "duration": f" · {duration}" if duration else "",
+            "age": _age_mark(data),
+            "availability": (
+                _ROW_AVAILABILITY.format(availability) if availability else ""
+            ),
+            "bookmark": _bookmark(sheet, data, _ROW_TOGGLE_CLASS),
+            "description": escape(session.description),
+        }
     )
 
 
@@ -561,33 +574,27 @@ def room_lane_tile(
     session = data.session
     local_start = tile.start.astimezone(sheet.tz)
     local_end = tile.end.astimezone(sheet.tz)
-    start_clock, start_zone, end_clock, end_zone = _clock(
-        local_start, local_end, _TILE_TZ_MARK
-    )
     host = ""
     if session.facilitator_name:
-        host = _TILE_HOST.format(
-            _avatar(sheet, data),
-            _guild_mark(sheet, data, "relative"),
-            escape(session.facilitator_name),
-        )
+        host = _TILE_HOST % {
+            "avatar": _avatar(sheet, data),
+            "guild_mark": _guild_mark(sheet, data, "relative"),
+            "host": escape(session.facilitator_name),
+        }
     return SafeString(
-        _TILE.format(
-            _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
-            _ENROLLED_TONE if data.user_enrolled else "",
-            _session_attrs(sheet, data, local_start, local_end),
-            session.pk,
-            session.pk,
-            tile.col,
-            _open_details(sheet, session.title),
-            escape(session.title),
-            host,
-            start_clock,
-            start_zone,
-            end_clock,
-            end_zone,
-            _age_mark(data),
-            _availability(sheet, data),
-            _bookmark(sheet, data, "shrink-0"),
-        )
+        _TILE
+        % {
+            "slot": _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
+            "tone": _ENROLLED_TONE if data.user_enrolled else "",
+            "attrs": _session_attrs(sheet, data, local_start, local_end),
+            "pk": session.pk,
+            "col": tile.col,
+            "link_label": _open_details(sheet, session.title),
+            "title": escape(session.title),
+            "host": host,
+            **_clock(local_start, local_end, _TILE_TZ_MARK),
+            "age": _age_mark(data),
+            "availability": _availability(sheet, data),
+            "bookmark": _bookmark(sheet, data, "shrink-0"),
+        }
     )
