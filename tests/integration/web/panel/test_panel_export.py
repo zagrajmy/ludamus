@@ -12,7 +12,11 @@ from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 
 from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
-from ludamus.gates.web.django.chronology.panel.views.export import ODS_CONTENT_TYPE
+from ludamus.gates.web.django.chronology.panel.views.export import (
+    ODS_CONTENT_TYPE,
+    ProposalExportPageView,
+    export_columns,
+)
 from ludamus.gates.web.django.pagination import DEFAULT_PAGE_SIZE
 from ludamus.links.db.django.models import (
     Discount,
@@ -26,6 +30,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Track,
 )
+from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -493,3 +498,19 @@ class TestFacilitatorExportPageView:
                 "error": _EMPTY_SELECTION_ERROR,
             },
         )
+
+
+class TestExportColumns:
+    def test_no_keys_fall_back_to_the_lists_own_columns(self, panel_client, event):
+        # What an export set with neither a chooser nor default keys downloads.
+        url = reverse("panel:proposal-export", kwargs={"slug": event.slug})
+        request = panel_client.get(url).wsgi_request
+
+        columns = export_columns(
+            request=request,
+            event_pk=event.pk,
+            export_set=ProposalExportPageView.export_set,
+            keys=None,
+        )
+
+        assert columns == [PanelColumnDTO(key=key) for key in _PROPOSAL_KEYS]
