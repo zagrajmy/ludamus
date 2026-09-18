@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
@@ -63,7 +63,7 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Sequence
 
     from ludamus.pacts.event import EventCreateData
 
@@ -134,18 +134,38 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
         )
 
 
-def location_data(space: Space) -> LocationData:
-    chain = (*reversed(tuple(space.iter_ancestors())), space)
-    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
+class SpaceNode(Protocol):
+    # What a space contributes to a location, whether it is a loaded Space
+    # or a values() row of one.
+    pk: int
+    parent_id: int | None
+    name: str
+    order: int
+    programme_order: int
+
+
+def location_from_chain(chain: Sequence[SpaceNode]) -> LocationData:
+    """Describe the last space of a root-to-leaf chain.
+
+    Returns:
+        The room, its venue (the space above it) and the path and sort key
+        down to it: the location every card and filter reads.
+    """
+    space = chain[-1]
+    parent = chain[-2] if len(chain) > 1 else None
     return LocationData(
         space_id=space.pk,
         parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_name=space.parent.name if space.parent else "",
-        path=str(space),
-        sort_path=sort_path,
+        parent_name=parent.name if parent else "",
+        path=" > ".join(node.name for node in chain),
+        sort_path=tuple((node.order, node.name, node.pk) for node in chain),
         programme_order=space.programme_order,
     )
+
+
+def location_data(space: Space) -> LocationData:
+    return location_from_chain((*reversed(tuple(space.iter_ancestors())), space))
 
 
 def eligible_window_ids(session: Session) -> frozenset[int]:

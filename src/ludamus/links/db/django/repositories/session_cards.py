@@ -27,6 +27,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.chronology import (
     card_stats,
     location_data,
+    location_from_chain,
     public_scheduled_sessions,
     session_card_stats,
 )
@@ -45,7 +46,6 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
-from ludamus.pacts.legacy import LocationData
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 
     from ludamus.links.db.django.models import EnrollmentConfig, Event
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.legacy import LocationData
 
 
 class _SessionRow(BaseModel):
@@ -192,16 +193,7 @@ def _location_index(event_id: int) -> dict[int, LocationData]:
         while (parent_id := chain[-1].parent_id) and parent_id in spaces:
             chain.append(spaces[parent_id])
         chain.reverse()
-        parent = spaces.get(space.parent_id) if space.parent_id else None
-        index[pk] = LocationData(
-            space_id=pk,
-            parent_id=space.parent_id or 0,
-            space_name=space.name,
-            parent_name=parent.name if parent else "",
-            path=" > ".join(node.name for node in chain),
-            sort_path=tuple((node.order, node.name, node.pk) for node in chain),
-            programme_order=space.programme_order,
-        )
+        index[pk] = location_from_chain(chain)
     return index
 
 
