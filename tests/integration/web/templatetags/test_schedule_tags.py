@@ -10,10 +10,18 @@ from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleT
 from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
 from ludamus.pacts.durations import format_duration
 from ludamus.pacts.guild import GuildMarkDTO
+from ludamus.pacts.legacy import LocationData, SessionFieldValueDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory
 from tests.integration.web.chronology.helpers import proposal_card, session_card
 
 _VOID_TAGS = frozenset({"img", "br", "input"})
+# What a person could type into any field the row and the tile print: markup
+# and the quote that would break out of an attribute.
+_PAYLOAD = '<script>alert(1)</script>"'
+# The text a row and a tile print from those fields: the link label, the
+# title, the host, the room (row only) and the description (row only).
+_ROW_TEXT_SLOTS = ("link label", "title", "host", "room", "description")
+_TILE_TEXT_SLOTS = ("link label", "title", "host")
 
 
 class _Markup(HTMLParser):
@@ -342,6 +350,95 @@ class TestCompactSessionRow:
         assert not [
             attrs for _tag, attrs in _tags(rendered) if _is_bookmark_affordance(attrs)
         ]
+
+
+@pytest.fixture(name="poisoned")
+def poisoned_card(card):
+    # _PAYLOAD in every field a person types: the session's words, the host,
+    # the room and its venue, a tag, a track, a category and the guild.
+    sort_path = ((0, _PAYLOAD, 2), (0, _PAYLOAD, 1))
+    return replace(
+        card,
+        session=card.session.model_copy(
+            update={
+                "title": _PAYLOAD,
+                "description": _PAYLOAD,
+                "facilitator_name": _PAYLOAD,
+            }
+        ),
+        presenter=replace(card.presenter, full_name=_PAYLOAD, name=_PAYLOAD),
+        loc=LocationData(
+            space_id=1,
+            parent_id=2,
+            space_name=_PAYLOAD,
+            parent_name=_PAYLOAD,
+            path=f"{_PAYLOAD} > {_PAYLOAD}",
+            sort_path=sort_path,
+            programme_order=0,
+        ),
+        field_values=[
+            SessionFieldValueDTO(
+                field_name="Genre",
+                field_question="Genre",
+                field_slug="genre",
+                field_type="select",
+                is_public=True,
+                value=[_PAYLOAD],
+            )
+        ],
+        track_names=[_PAYLOAD],
+        category_name=_PAYLOAD,
+        guild=GuildMarkDTO(pk=1, name=_PAYLOAD, logo_url="https://g.test/c.png"),
+        bookmark_count=1,
+    )
+
+
+class TestEscaping:
+    # The builders format plain strings and escape by hand, so this pins that
+    # every slot a person's words reach was escaped: once (the parsed values
+    # read back as typed) and never skipped (no tag survives in the raw HTML).
+
+    @pytest.mark.parametrize("signed_in", (False, True))
+    def test_row_escapes_every_typed_field(self, poisoned, active_user, signed_in):
+        rendered = _row(poisoned, current_user=active_user if signed_in else None)
+
+        assert "<script" not in rendered
+        attrs = _session_attrs(rendered)
+        assert attrs["data-title"] == _PAYLOAD
+        assert attrs["data-host"] == _PAYLOAD
+        assert attrs["data-tags"] == _PAYLOAD
+        assert attrs["data-tag-categories"] == (
+            f"genre:{_PAYLOAD};__track:{_PAYLOAD};__category:{_PAYLOAD}"
+        )
+        assert attrs["data-venue-name"] == _PAYLOAD
+        assert attrs["data-space-name"] == _PAYLOAD
+        assert attrs["data-space-order"] == space_sort_path_json(
+            poisoned.loc["sort_path"]
+        )
+        tags = _tags(rendered)
+        meta = next(attrs for tag, attrs in tags if tag == "span" and "title" in attrs)
+        assert meta["title"] == f"{_PAYLOAD} > {_PAYLOAD}"
+        mark = next(attrs for tag, attrs in tags if tag == "img")
+        assert mark["alt"] == f"Guild: {_PAYLOAD}"
+        assert _text(rendered).count(_PAYLOAD) == len(_ROW_TEXT_SLOTS)
+
+    @pytest.mark.parametrize("signed_in", (False, True))
+    def test_tile_escapes_every_typed_field(self, poisoned, active_user, signed_in):
+        rendered = _tile(
+            poisoned, slot_key=_PAYLOAD, current_user=active_user if signed_in else None
+        )
+
+        assert "<script" not in rendered
+        attrs = _session_attrs(rendered)
+        assert attrs["data-title"] == _PAYLOAD
+        assert attrs["data-host"] == _PAYLOAD
+        assert attrs["data-space-name"] == _PAYLOAD
+        tags = dict(_tags(rendered))
+        assert tags["article"]["data-slot-hour"] == _PAYLOAD
+        assert tags["img"]["alt"] == f"Guild: {_PAYLOAD}"
+        avatar = next(attrs for _tag, attrs in _tags(rendered) if "role" in attrs)
+        assert avatar["aria-label"] == _PAYLOAD
+        assert _text(rendered).count(_PAYLOAD) == len(_TILE_TEXT_SLOTS)
 
 
 class TestRoomLaneTile:
