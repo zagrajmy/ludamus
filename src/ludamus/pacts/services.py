@@ -28,6 +28,10 @@ if TYPE_CHECKING:
         CrowdAuthServiceProtocol,
         ProfileServiceProtocol,
     )
+    from ludamus.pacts.dashboard import (
+        DashboardServiceProtocol,
+        SphereSubscriptionServiceProtocol,
+    )
     from ludamus.pacts.discounts import (
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
@@ -153,6 +157,10 @@ class ServicesProtocol(Protocol):
     def sites(self) -> SitesServiceProtocol: ...
     @property
     def landing(self) -> LandingServiceProtocol: ...
+    @property
+    def dashboard(self) -> DashboardServiceProtocol: ...
+    @property
+    def sphere_subscriptions(self) -> SphereSubscriptionServiceProtocol: ...
     @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property

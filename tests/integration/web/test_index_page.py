@@ -12,6 +12,7 @@ from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
+from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
 from ludamus.pacts.event import LandingStatsDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
@@ -86,6 +87,24 @@ class TestIndexRedirectView:
                 "encounters_enabled": False,
             },
             template_name=["landing_page.html"],
+        )
+
+    def test_serves_the_dashboard_to_a_signed_in_member(self, authenticated_client):
+        # zagrajmy.net runs no programme, so once you are signed in its root
+        # is your own activity rather than the pitch you already read.
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "dashboard": DashboardDTO(
+                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                ),
+                "can_create_encounter": True,
+            },
+            template_name="dashboard/index.html",
         )
 
     def test_serves_the_feed_on_a_sphere_domain(self, client, non_root_sphere):
