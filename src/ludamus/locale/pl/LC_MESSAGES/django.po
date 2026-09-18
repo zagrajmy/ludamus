@@ -3794,6 +3794,52 @@ msgstr "Scalono z"
 msgid "track"
 msgstr "blok"
 
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Ended"
+msgstr "Zakończona"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/_session_card.html
+msgid "In Progress"
+msgstr "W Trakcie"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/event.html
+msgid "Full"
+msgstr "Pełne"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+msgid "waiting"
+msgstr "oczekuje"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#: src/ludamus/templates/chronology/_session_card.html
+#, python-format
+msgid "%(counter)s spot left"
+msgid_plural "%(counter)s spots left"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsca"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+msgid "Bookmark session"
+msgstr "Dodaj zakładkę do punktu programu"
+
+#: src/ludamus/gates/web/django/templatetags/schedule_tags.py
+#, python-format
+msgid "Bookmarked by %(counter)s person"
+msgid_plural "Bookmarked by %(counter)s people"
+msgstr[0] "Dodane do zakładek przez %(counter)s osobę"
+msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
+msgstr[2] "Dodane do zakładek przez %(counter)s osób"
+msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
+
 #: src/ludamus/links/db/django/models.py
 msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
@@ -4212,19 +4258,6 @@ msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
 
-#: src/ludamus/templates/chronology/_bookmark_toggle.html
-msgid "Bookmark session"
-msgstr "Dodaj zakładkę do punktu programu"
-
-#: src/ludamus/templates/chronology/_bookmark_toggle.html
-#, python-format
-msgid "Bookmarked by %(counter)s person"
-msgid_plural "Bookmarked by %(counter)s people"
-msgstr[0] "Dodane do zakładek przez %(counter)s osobę"
-msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
-msgstr[2] "Dodane do zakładek przez %(counter)s osób"
-msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
-
 #: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Not Yet Available"
 msgstr "Jeszcze Niedostępne"
@@ -4408,39 +4441,6 @@ msgstr "Lista"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Rooms"
 msgstr "Sale"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/enrollment-settings.html
-msgid "Ended"
-msgstr "Zakończona"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "In Progress"
-msgstr "W Trakcie"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Full"
-msgstr "Pełne"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-msgid "waiting"
-msgstr "oczekuje"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
-#, python-format
-msgid "%(counter)s spot left"
-msgid_plural "%(counter)s spots left"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsca"
 
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
