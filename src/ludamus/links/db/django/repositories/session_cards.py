@@ -321,8 +321,7 @@ def scheduled_session_cards(event: Event, *, roster_up_to: int) -> list[SessionC
         ``roster_up_to`` sessions: the card grid draws them, the compact
         schedule a bigger event switches to does not.
     """
-    rows = _scheduled_rows(event.pk)
-    if not rows:
+    if not (rows := _scheduled_rows(event.pk)):
         return []
     session_ids = [row.pk for row in rows]
     locations = _location_index(event.pk)
