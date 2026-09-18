@@ -19,6 +19,11 @@
         {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
         {% translate "New Facilitator" as t_new_facilitator %}
         {% tessera_button t_new_facilitator href=create_url icon="plus" %}
+        {% url 'panel:facilitator-export' slug=current_event.slug as export_url %}
+        {% translate "Export" as t_export %}
+        {% with export_href=export_url|add:"?"|add:request.GET.urlencode %}
+            {% tessera_button t_export href=export_href variant="secondary" icon="arrow-down-tray" %}
+        {% endwith %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

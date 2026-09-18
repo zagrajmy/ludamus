@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -30,13 +29,12 @@ from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePag
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import SessionFieldRequirementDTO
-    from ludamus.pacts.multiverse import ConnectionDTO
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -928,56 +926,3 @@ class DiscountForm(forms.Form):
         label=_("Note"),
         widget=forms.Textarea(attrs={"rows": 3}),
     )
-
-
-_SPREADSHEET_URL_ID_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
-_SPREADSHEET_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-
-
-class DiscountExportForm(forms.Form):
-    connection = forms.ChoiceField(label=_("Connection"))
-    spreadsheet = forms.CharField(
-        label=_("Google Sheets link"),
-        max_length=500,
-        strip=True,
-        help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
-    )
-    tab = forms.CharField(
-        label=_("Tab name"),
-        max_length=100,
-        strip=True,
-        help_text=_("The tab has to exist already; the export replaces its content."),
-    )
-    columns = forms.MultipleChoiceField(
-        label=_("Columns"),
-        widget=forms.CheckboxSelectMultiple,
-        help_text=_(
-            "Facilitator and personal data written before the discount columns."
-            " Pick what this sheet needs; nothing is exported by default."
-        ),
-    )
-
-    def __init__(
-        self,
-        *args: Any,
-        connections: Iterable[ConnectionDTO],
-        columns: Iterable[tuple[str, str]] = (),
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        connection_field = cast("forms.ChoiceField", self.fields["connection"])
-        connection_field.choices = [
-            (str(connection.pk), connection.display_name) for connection in connections
-        ]
-        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
-        columns_field.choices = list(columns)
-
-    def clean_spreadsheet(self) -> str:
-        raw = str(self.cleaned_data["spreadsheet"])
-        if match := _SPREADSHEET_URL_ID_RE.search(raw):
-            return match.group(1)
-        if _SPREADSHEET_ID_RE.fullmatch(raw):
-            return raw
-        raise forms.ValidationError(
-            _("Enter a Google Sheets link or a spreadsheet ID.")
-        )

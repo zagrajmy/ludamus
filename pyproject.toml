@@ -48,6 +48,7 @@ unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
 posthog = "^7.44.2"
+odfpy = "^1.4.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -87,7 +88,7 @@ tingle = "^0.7.2"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.4"
-vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.7.0" }
 
 [tool.black]
 line-length = 88
@@ -228,6 +229,10 @@ module = ["markdown"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["odf.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["zeal.*"]
 ignore_missing_imports = true
 
@@ -242,6 +247,7 @@ module = [
     "ludamus.links.google_auth",
     "ludamus.links.google_forms",
     "ludamus.links.google_sheets",
+    "ludamus.links.ods",
     "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from django.http import Http404
@@ -16,12 +17,15 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelAccessMixin,
     EventPanelRequest,
 )
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from django.http import HttpRequest
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import DependencyInjectorProtocol
 
@@ -52,6 +56,24 @@ def format_field_value(
     if isinstance(value, list):
         return ", ".join(by_value.get(item) or item for item in value)
     return by_value.get(value or "") or value or ""
+
+
+@dataclass(frozen=True)
+class AccreditationFilter:
+    """The `?accreditation=` value a list is filtered by, and its options."""
+
+    value: str
+    options: list[tuple[str, _StrPromise]]
+
+
+def accreditation_filter(request: HttpRequest) -> AccreditationFilter:
+    # A tampered value falls back to "all", so no toolbar ever shows a
+    # selected option the list is not actually filtered by.
+    raw = request.GET.get("accreditation", "").strip()
+    return AccreditationFilter(
+        value=raw if raw in AccreditationType else "",
+        options=[(t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType],
+    )
 
 
 class PanelRequest(EventPanelRequest):
@@ -122,6 +144,7 @@ def facilitator_tab_urls(slug: str) -> dict[str, str]:
         "list": reverse("panel:facilitators", kwargs={"slug": slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": slug}),
     }
 
@@ -130,6 +153,7 @@ def proposal_tab_urls(slug: str) -> dict[str, str]:
     return {
         "list": reverse("panel:proposals", kwargs={"slug": slug}),
         "columns": reverse("panel:proposal-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:proposal-export", kwargs={"slug": slug}),
     }
 
 
