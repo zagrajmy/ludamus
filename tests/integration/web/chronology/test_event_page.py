@@ -124,6 +124,13 @@ _PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 # The review queue the query-count guard grows to, from one proposal.
 _PROPOSALS_IN_QUEUE = 5
 
+# What the public event page costs, in queries, for an anonymous viewer of a
+# schedule whose sessions carry attendees and custom field values. Pinned
+# rather than merely "constant in the session count": a prefetch graph
+# nothing reads (#1063) adds a fixed number of queries per page, which a
+# constant-in-N check never sees.
+_EVENT_PAGE_QUERIES = 18
+
 
 class TestEventPageView:
     URL_NAME = "web:chronology:event"
@@ -1561,6 +1568,42 @@ class TestEventPageView:
         assert len(big_event_queries.captured_queries) == len(
             small_event_queries.captured_queries
         )
+
+    def test_query_count_with_attendees_and_field_values(self, client, event, space):
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        self._add_choices(session_field, "a", "b")
+        sessions = [
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
+            for _ in range(2)
+        ]
+        client.get(self._get_url(event.slug))
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+                scheduled_count=2,
+            ),
+            template_name=["chronology/event.html"],
+        )
+        assert len(queries.captured_queries) == _EVENT_PAGE_QUERIES
 
     def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session

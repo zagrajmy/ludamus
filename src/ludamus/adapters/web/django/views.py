@@ -260,14 +260,12 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
     request: RootRequest
 
     def get_queryset(self) -> QuerySet[Event]:
+        # Only enrollment_configs: the schedule is read through
+        # public_scheduled_sessions, not walked from the event's spaces.
         return (
             Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
             .select_related("sphere")
-            .prefetch_related(
-                "spaces__agenda_items__session__field_values__field",
-                "spaces__agenda_items__session__session_participations__user",
-                "enrollment_configs",
-            )
+            .prefetch_related("enrollment_configs")
         )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
