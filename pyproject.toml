@@ -51,7 +51,8 @@ posthog = "^7.44.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-cabinet = {git = "https://github.com/fancysnake/cabinet.git", rev = "v0.2.0"}
+# NOTE: cabinet is not on PyPI and is not going there; git is its only source.
+cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v0.2.0" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^10.4.1"
@@ -84,7 +85,7 @@ taplo = "^0.9.3"
 tingle = "^0.7.2"
 types-authlib = "^1.7.2.20260724"
 types-requests = "^2.33.0.20260906"
-vekna = "0.7.0"
+vekna = "^0.7.0"
 vulture = "^2.16"
 yamllint = "1.38.0"
 
