@@ -41,104 +41,6 @@ floating UI for the same corner.{% endcomment %}
             } catch (e) {}
         })();
     </script>
-    <style>
-        .panel-shell .app-scroll>nav {
-            position: static;
-        }
-
-        .panel-shell .app-scroll>nav>.max-w-7xl {
-            max-width: none;
-        }
-
-        .panel-shell .app-scroll>footer>.max-w-7xl {
-            max-width: none;
-        }
-
-        @media (width >=64rem) {
-
-            .panel-shell .app-scroll>nav>.max-w-7xl,
-            .panel-shell .app-scroll>footer>.max-w-7xl {
-                padding-inline: 16px;
-            }
-        }
-
-        .sidebar-overlay {
-            transition: opacity 0.3s ease-in-out;
-        }
-
-        .sidebar-panel {
-            transition: transform 0.3s ease-in-out;
-        }
-
-        #sidebar {
-            scrollbar-width: none;
-        }
-
-        #sidebar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .sidebar-fold-btn {
-            display: none;
-        }
-
-        @media (min-width: 1024px) {
-            .sidebar-fold-btn {
-                display: inline-flex;
-            }
-
-            html[data-folded] #sidebar {
-                width: 4rem;
-            }
-
-            html[data-folded] #sidebar .sidebar-label,
-            html[data-folded] #sidebar .sidebar-fold-hide {
-                display: none;
-            }
-
-            html[data-folded] #sidebar .sidebar-toggle {
-                padding: 0.5rem;
-                justify-content: center;
-            }
-
-            html[data-folded] #sidebar .sidebar-link {
-                justify-content: center;
-                padding-left: 0.5rem;
-                padding-right: 0.5rem;
-            }
-
-            html[data-folded] #sidebar .sidebar-link svg {
-                margin-right: 0;
-            }
-
-            html[data-folded] #sidebar .sidebar-section {
-                padding-left: 0.5rem;
-                padding-right: 0.5rem;
-            }
-
-        }
-
-        .sidebar-cat-chevron {
-            transition: transform 0.15s ease;
-        }
-
-        /* One pair per PanelCat member; TestSidebarCoverage checks none is missing. */
-        html.catc-program [data-cat="program"] .sidebar-cat-body,
-        html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
-        html.catc-live [data-cat="live"] .sidebar-cat-body,
-        html.catc-settings [data-cat="settings"] .sidebar-cat-body,
-        html.catc-sphere [data-cat="sphere"] .sidebar-cat-body {
-            display: none;
-        }
-
-        html.catc-program [data-cat="program"] .sidebar-cat-chevron,
-        html.catc-schedule [data-cat="schedule"] .sidebar-cat-chevron,
-        html.catc-live [data-cat="live"] .sidebar-cat-chevron,
-        html.catc-settings [data-cat="settings"] .sidebar-cat-chevron,
-        html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
-            transform: rotate(-90deg);
-        }
-    </style>
 {% endblock extra_head %}
 {% block body_class %}
     panel-shell app-shell relative font-sans antialiased bg-background text-foreground
@@ -148,15 +50,15 @@ floating UI for the same corner.{% endcomment %}
         <!-- Mobile Sidebar Overlay -->
         <button type="button"
                 id="sidebarOverlay"
-                class="sidebar-overlay fixed inset-0 bg-black/50 z-40 lg:hidden hidden w-full h-full cursor-default"
+                class="transition-opacity duration-300 ease-in-out fixed inset-0 bg-black/50 z-40 lg:hidden hidden w-full h-full cursor-default"
                 aria-label="{% translate "Close navigation" %}"
                 data-action="toggle-sidebar"></button>
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
-            <div class="sidebar-toggle sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 bg-bg-tertiary p-2 dark:bg-bg-secondary">
+               class="transition-transform duration-300 ease-in-out scrollbar-none w-64 lg:folded:w-16 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
+            <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
-                    <div class="sidebar-fold-hide relative min-w-0 flex-1">
+                    <div class="relative min-w-0 flex-1 lg:folded:hidden">
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
                                 class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
@@ -179,7 +81,7 @@ floating UI for the same corner.{% endcomment %}
                 {% translate "Toggle sidebar" as t_toggle_sidebar %}
                 <button id="sidebarFoldBtn"
                         type="button"
-                        class="sidebar-fold-btn items-center justify-center p-2 text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary rounded-lg transition flex-shrink-0"
+                        class="hidden lg:inline-flex items-center justify-center p-2 text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary rounded-lg transition flex-shrink-0"
                         title="{{ t_toggle_sidebar }}"
                         aria-label="{{ t_toggle_sidebar }}"
                         data-action="toggle-fold">
@@ -188,7 +90,7 @@ floating UI for the same corner.{% endcomment %}
             </div>
             {# Labelled because the site navbar is a <nav> too — without this both landmarks read as plain "navigation". #}
             <nav aria-label="{% translate "Panel sections" %}"
-                 class="sidebar-section px-2 pb-2 gap-0.5 flex flex-col">
+                 class="px-2 pb-2 gap-0.5 flex flex-col">
                 {% block sidebar_nav %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
@@ -263,34 +165,9 @@ floating UI for the same corner.{% endcomment %}
         Pages that run their cards to the viewport edge below sm mark their
         wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
         {% endcomment %}
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
+        <main class="flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
             <!-- Top Bar -->
-            {% comment %}Header CTAs go icon-only below sm — the glyph carries the
-            action and the title beside it gets the width back. The label goes
-            sr-only rather than hidden, so the button keeps its accessible name.
-            Templates and `tessera_button` both mark it `.btn-label`; the
-            breakpoint is decided here, once, rather than in 28 templates.
-
-            The first three rules hang off the same `:has(>svg)`, and must keep
-            doing so. A button with no icon has nothing to fall back on, so
-            hiding its label leaves a blank pill — which is what the moderation
-            bar on proposal-detail (Accept / Hold / Reject / Delete) would
-            become. The same guard covers
-            `{% templatetag openblock %} icon {% templatetag closeblock %}`
-            returning "" for a missing icon in production.
-
-            `min-h-11` is the one rule that covers every button: an iconless
-            one keeps its label and its own width, but `py-2` alone leaves it
-            38px — under the tap-target floor, and 6px shy of the squares it
-            sits beside. Stated as a minimum rather than a height so it never
-            argues with `size-11` over the icon buttons.
-
-            `w-auto` is deliberately ungated: `tessera_button` stretches every
-            form-submit button by default, which is right in a body form and
-            never right in this strip. Deciding it here spares 22 header
-            templates from each passing `full_width_mobile=False`.
-            {% endcomment %}
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10 max-sm:[&_.btn:has(>svg)_.btn-label]:sr-only max-sm:[&_.btn:has(>svg)]:size-11 max-sm:[&_.btn:has(>svg)]:p-0 max-sm:[&_.btn]:min-h-11 max-md:[&_.btn]:w-auto">
+            <header class="btn-strip-compact bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}

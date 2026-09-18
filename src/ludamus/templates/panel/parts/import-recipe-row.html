@@ -12,7 +12,8 @@
                for="target_{{ row.index }}">{% translate "Maps to" %}</label>
         <select id="target_{{ row.index }}"
                 name="target_{{ row.index }}"
-                class="recipe-target w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:max-w-xs"
+                data-recipe-target
+                class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:max-w-xs"
                 data-row="{{ row.index }}">
             <option value="ignore" {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
             {% for col in session_columns %}
@@ -55,7 +56,8 @@
                            name="newname_{{ row.index }}"
                            value="{{ row.field_name }}"
                            placeholder="{% translate "Field name" %}"
-                           class="recipe-name w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                           data-recipe-name
+                           class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                            data-row="{{ row.index }}">
                 </div>
                 <div>
@@ -66,7 +68,8 @@
                            name="newslug_{{ row.index }}"
                            value="{{ row.field_slug }}"
                            placeholder="{% translate "Slug" %}"
-                           class="recipe-slug w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                           data-recipe-slug
+                           class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                            data-row="{{ row.index }}">
                 </div>
                 <div>
@@ -74,7 +77,8 @@
                            for="fieldtype_{{ row.index }}">{% translate "Field type" %}</label>
                     <select id="fieldtype_{{ row.index }}"
                             name="fieldtype_{{ row.index }}"
-                            class="recipe-fieldtype w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            data-recipe-fieldtype
+                            class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             data-row="{{ row.index }}">
                         <option value="text" {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
                         <option value="select" {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
@@ -84,7 +88,8 @@
                         </option>
                     </select>
                 </div>
-                <div class="recipe-options {% if row.field_type == "text" %}hidden{% endif %} space-y-3"
+                <div data-recipe-options
+                     class="{% if row.field_type == "text" %}hidden{% endif %} space-y-3"
                      data-row="{{ row.index }}">
                     <textarea name="options_{{ row.index }}"
                               rows="3"
@@ -108,14 +113,16 @@
             </div>
         </div>
     </div>
-    <div class="recipe-timeslots mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
+    <div data-recipe-timeslots
+         class="mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         {% for ow in row.option_windows %}
-            <div class="ts-option rounded-lg border border-border bg-bg-tertiary p-4">
+            <div data-ts-option
+                 class="rounded-lg border border-border bg-bg-tertiary p-4">
                 <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ow.option }}</p>
-                <div class="ts-windows space-y-2">
+                <div data-ts-windows class="space-y-2">
                     {% for w in ow.windows %}
-                        <div class="ts-window flex items-center gap-2">
+                        <div data-ts-window class="flex items-center gap-2">
                             <input type="hidden" name="tsoption_{{ row.index }}" value="{{ ow.option }}">
                             <input type="text"
                                    name="tsstart_{{ row.index }}"
@@ -135,7 +142,8 @@
                                    title="2025-09-19T16:00"
                                    class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                             <button type="button"
-                                    class="ts-remove shrink-0 text-foreground-muted hover:text-foreground"
+                                    data-ts-remove
+                                    class="shrink-0 text-foreground-muted hover:text-foreground"
                                     aria-label="{% translate "Remove window" %}">
                                 {% icon "x-mark" class="w-4 h-4" %}
                             </button>
@@ -143,17 +151,19 @@
                     {% endfor %}
                 </div>
                 <button type="button"
-                        class="ts-add mt-2 inline-flex items-center text-sm text-primary hover:underline">
+                        data-ts-add
+                        class="mt-2 inline-flex items-center text-sm text-primary hover:underline">
                     {% icon "plus" class="w-4 h-4 mr-1" %}
                     {% translate "Add window" %}
                 </button>
             </div>
         {% endfor %}
     </div>
-    <div class="recipe-entities mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "track" and row.selected != "category" %}hidden{% endif %}"
+    <div data-recipe-entities
+         class="mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "track" and row.selected != "category" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         {% for ent in row.option_entities %}
-            <div class="ent-option rounded-lg border border-border bg-bg-tertiary p-3"
+            <div class="rounded-lg border border-border bg-bg-tertiary p-3"
                  data-slug-scope>
                 <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ent.option }}</p>
                 <input type="hidden"
@@ -164,16 +174,18 @@
                            name="entname_{{ row.index }}"
                            value="{{ ent.name }}"
                            aria-label="{% translate "Field name" %}"
-                           class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                           data-recipe-name
+                           class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                     <input type="text"
                            name="entslug_{{ row.index }}"
                            value="{{ ent.slug }}"
                            aria-label="{% translate "Slug" %}"
-                           class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                           data-recipe-slug
+                           class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
             </div>
         {% endfor %}
-        <div class="ent-catchall rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
+        <div class="rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
              data-slug-scope>
             <p class="mb-2 text-xs font-medium text-foreground-secondary">{% translate "Catch-all for custom answers" %}</p>
             <div class="flex items-center gap-2">
@@ -181,16 +193,19 @@
                        name="entcatchname_{{ row.index }}"
                        value="{{ row.catchall_name }}"
                        placeholder="{% translate "Field name" %}"
-                       class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                       data-recipe-name
+                       class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <input type="text"
                        name="entcatchslug_{{ row.index }}"
                        value="{{ row.catchall_slug }}"
                        placeholder="{% translate "Slug" %}"
-                       class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                       data-recipe-slug
+                       class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
         </div>
     </div>
-    <div class="recipe-durations mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "session.duration" %}hidden{% endif %}"
+    <div data-recipe-durations
+         class="mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "session.duration" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         <p class="text-xs text-foreground-muted">
             {% translate "Set how long each source answer means. Answers left at zero are skipped at import time." %}
@@ -198,7 +213,7 @@
         {% translate "Hours" as hours_label %}
         {% translate "Minutes" as minutes_label %}
         {% for dur in row.option_durations %}
-            <fieldset class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
+            <fieldset class="rounded-lg border border-border bg-bg-tertiary p-3">
                 <legend class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</legend>
                 <input type="hidden"
                        name="droption_{{ row.index }}"
@@ -214,14 +229,15 @@
             </fieldset>
         {% endfor %}
     </div>
-    <div class="recipe-overrides mt-3 max-w-xl space-y-2 sm:ml-20 {% if row.selected == "ignore" %}hidden{% endif %}"
+    <div data-recipe-overrides
+         class="mt-3 max-w-xl space-y-2 sm:ml-20 {% if row.selected == "ignore" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         <p class="text-xs text-foreground-muted">
             {% translate "Substitute raw cell answers before mapping or parsing — useful for cleaning up noisy free-text into a value the field accepts, or fixing a typo so it matches the value mapping above." %}
         </p>
-        <div class="ov-rows space-y-2">
+        <div data-ov-rows class="space-y-2">
             {% for ov in row.overrides %}
-                <div class="ov-row flex items-center gap-2">
+                <div data-ov-row class="flex items-center gap-2">
                     <input type="text"
                            name="ovraw_{{ row.index }}"
                            value="{{ ov.raw }}"
@@ -236,13 +252,15 @@
                            placeholder="{% translate "Replacement" %}"
                            class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                     <button type="button"
-                            class="ov-remove shrink-0 text-foreground-muted hover:text-foreground"
+                            data-ov-remove
+                            class="shrink-0 text-foreground-muted hover:text-foreground"
                             aria-label="{% translate "Remove override" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
                 </div>
             {% endfor %}
         </div>
         <button type="button"
-                class="ov-add inline-flex items-center text-sm text-primary hover:underline">
+                data-ov-add
+                class="inline-flex items-center text-sm text-primary hover:underline">
             {% icon "plus" class="w-4 h-4 mr-1" %}
             {% translate "Add override" %}
         </button>
