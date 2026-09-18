@@ -227,6 +227,18 @@ def _get_displayed_field_ids(event: Event) -> set[int]:
     return set()
 
 
+def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:
+    # One read of these users' seats on the page's sessions; a seat held by
+    # any of them marks the card.
+    seats = SessionParticipation.objects.filter(
+        session_id__in=sessions, user_id__in=user_ids
+    ).values_list("session_id", "status")
+    for session_id, status in seats:
+        data = sessions[session_id]
+        data.user_enrolled |= status == SessionParticipationStatus.CONFIRMED
+        data.user_waiting |= status == SessionParticipationStatus.WAITING
+
+
 # Above this many scheduled sessions, the card grid becomes unwieldy and the
 # event page switches to the compact schedule (a dense chronological list with
 # an hour scrubber). Tunable; not a business invariant, so it lives here rather
@@ -503,10 +515,9 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         )
 
     def _set_user_participations(self, sessions: dict[int, SessionData]) -> None:
-        anonymous_service = self.request.services.anonymous_enrollment
-        # Handle authenticated users
+        # The viewer's seats mark the cards: a signed-in viewer's together with
+        # their companions', an anonymous viewer's alone.
         if self.request.context.current_user_slug:
-            # Get all companions in a single query
             all_users = [
                 self.request.di.uow.active_users.read(
                     self.request.context.current_user_slug
@@ -515,44 +526,26 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     self.request.context.current_user_slug
                 ),
             ]
+            _mark_held_seats(sessions, user_ids=[u.pk for u in all_users])
+        elif (anonymous_user := self._anonymous_viewer()) is not None:
+            _mark_held_seats(sessions, user_ids=[anonymous_user.pk])
 
-            # One read of the viewer's and their companions' seats on this
-            # page's sessions; a seat held by any of them marks the card.
-            seats = SessionParticipation.objects.filter(
-                session_id__in=sessions, user_id__in=[u.pk for u in all_users]
-            ).values_list("session_id", "status")
-            for session_id, status in seats:
-                data = sessions[session_id]
-                data.user_enrolled |= status == SessionParticipationStatus.CONFIRMED
-                data.user_waiting |= status == SessionParticipationStatus.WAITING
-
-        # Handle anonymous users
-        elif self.request.session.get(
-            "anonymous_enrollment_active"
-        ) and self.request.session.get("anonymous_user_code"):
-            # Validate anonymous user is for the current site
-            current_site_id = self.request.context.current_site_id
-            session_site_id = self.request.session.get("anonymous_site_id")
-            anonymous_user_code = self.request.session.get("anonymous_user_code")
-            if session_site_id == current_site_id and anonymous_user_code is not None:
-                anonymous_user = None
-                with suppress(NotFoundError):
-                    anonymous_user = anonymous_service.get_user_by_code(
-                        code=anonymous_user_code
-                    )
-
-                if anonymous_user:
-                    seats = SessionParticipation.objects.filter(
-                        session_id__in=sessions, user_id=anonymous_user.pk
-                    ).values_list("session_id", "status")
-                    for session_id, status in seats:
-                        data = sessions[session_id]
-                        data.user_enrolled |= (
-                            status == SessionParticipationStatus.CONFIRMED
-                        )
-                        data.user_waiting |= (
-                            status == SessionParticipationStatus.WAITING
-                        )
+    def _anonymous_viewer(self) -> UserDTO | None:
+        session = self.request.session
+        if not (
+            session.get("anonymous_enrollment_active")
+            and session.get("anonymous_user_code")
+        ):
+            return None
+        # An anonymous code is for one site: another site's code says nothing
+        # about this page's sessions.
+        if session.get("anonymous_site_id") != self.request.context.current_site_id:
+            return None
+        with suppress(NotFoundError):
+            return self.request.services.anonymous_enrollment.get_user_by_code(
+                code=session["anonymous_user_code"]
+            )
+        return None
 
     def _set_bookmark_counts(self, sessions_data: dict[int, SessionData]) -> None:
         counts = self.request.services.bookmarks.bookmark_counts(
