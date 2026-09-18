@@ -112,8 +112,8 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     if (heading.dataset.laneRow) seamRows.add(Number(heading.dataset.laneRow));
   }
 
-  for (const cell of lanes.querySelectorAll<HTMLElement>(".room-lanes-cell")) {
-    const visible = cell.querySelector(".session-wrapper:not([hidden])") !== null;
+  for (const cell of lanes.querySelectorAll<HTMLElement>("[data-room-lanes-cell]")) {
+    const visible = cell.querySelector("[data-session-wrapper]:not([hidden])") !== null;
     const row = Number(cell.dataset.tileRow);
     const folded = foldedDays.has(dayOfRow.get(row) ?? -1);
     cell.hidden = !visible || folded;
