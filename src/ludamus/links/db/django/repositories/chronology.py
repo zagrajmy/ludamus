@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     UserEnrollmentConfig,
+    effective_participants_limit,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
@@ -62,6 +63,8 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
+
     from ludamus.pacts.event import EventCreateData
 
 
@@ -156,13 +159,47 @@ def eligible_window_ids(session: Session) -> frozenset[int]:
     )
 
 
-def session_card_stats(session: Session) -> SessionCardStatsDTO:
+def card_stats(
+    *,
+    participants_limit: int,
+    start_time: datetime | None,
+    enrolled_count: int,
+    waiting_count: int,
+    active_configs: Collection[EnrollmentConfig],
+) -> SessionCardStatsDTO:
+    """State a session's seats from the facts Session's own properties read.
+
+    Returns:
+        The counts, whether it is full, the windows that can seat it and the
+        cap they leave: what a card, a row read or an instance, prints.
+    """
+    eligible = [
+        config
+        for config in active_configs
+        if config.can_seat(participants_limit=participants_limit, start_time=start_time)
+    ]
+    effective = effective_participants_limit(
+        participants_limit=participants_limit, eligible_configs=eligible
+    )
     return SessionCardStatsDTO(
+        enrolled_count=enrolled_count,
+        waiting_count=waiting_count,
+        # Session.is_full: there was a seat, and it is taken. A session that
+        # takes no enrollment never had one.
+        is_full=participants_limit != 0 and enrolled_count >= effective,
+        enrollment_window_ids=frozenset(config.pk for config in eligible),
+        effective_participants_limit=effective,
+    )
+
+
+def session_card_stats(session: Session) -> SessionCardStatsDTO:
+    agenda_item = getattr(session, "agenda_item", None)
+    return card_stats(
+        participants_limit=session.participants_limit,
+        start_time=None if agenda_item is None else agenda_item.start_time,
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
-        is_full=session.is_full,
-        enrollment_window_ids=eligible_window_ids(session),
-        effective_participants_limit=session.effective_participants_limit,
+        active_configs=session.event.get_active_enrollment_configs(),
     )
 
 

@@ -23,9 +23,9 @@ from ludamus.links.db.django.models import (
     Space,
     Track,
     User,
-    effective_participants_limit,
 )
 from ludamus.links.db.django.repositories.chronology import (
+    card_stats,
     location_data,
     public_scheduled_sessions,
     session_card_stats,
@@ -165,24 +165,12 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
 def _stats(
     row: _SessionRow, *, active_configs: Collection[EnrollmentConfig]
 ) -> SessionCardStatsDTO:
-    limit = row.participants_limit
-    eligible = [
-        config
-        for config in active_configs
-        if config.can_seat(
-            participants_limit=limit, start_time=row.agenda_item__start_time
-        )
-    ]
-    effective = effective_participants_limit(
-        participants_limit=limit, eligible_configs=eligible
-    )
-    enrolled = row.enrolled_count_cached
-    return SessionCardStatsDTO(
-        enrolled_count=enrolled,
+    return card_stats(
+        participants_limit=row.participants_limit,
+        start_time=row.agenda_item__start_time,
+        enrolled_count=row.enrolled_count_cached,
         waiting_count=row.waiting_count_cached,
-        is_full=limit != 0 and enrolled >= effective,
-        enrollment_window_ids=frozenset(config.pk for config in eligible),
-        effective_participants_limit=effective,
+        active_configs=active_configs,
     )
 
 
