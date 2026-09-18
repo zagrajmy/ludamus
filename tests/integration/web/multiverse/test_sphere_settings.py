@@ -8,7 +8,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from PIL import Image as PILImage
 
-from ludamus.pacts import EventDTO
 from tests.integration.conftest import PNG_BYTES, EncounterFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
@@ -37,16 +36,10 @@ GIF_BYTES = (
 
 GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {
     "form": ANY,
-    "disable_warning_pages": [],
     "needs_disable_confirmation": False,
-    "confirmed_page_disable": "",
 }
 
-PAGE_DATA = {
-    "enabled_pages": ["events", "encounters"],
-    "default_page": "events",
-    "encounter_public_policy": "disabled",
-}
+PAGE_DATA = {"encounters_policy": "everyone"}
 
 SETTINGS_TEMPLATE = "multiverse/panel/sphere-settings.html"
 
@@ -307,60 +300,14 @@ class TestSphereSettingsPageView:
         sphere.refresh_from_db()
         assert sphere.logo.name == "spheres/keep.png"
 
-    def test_post_persists_pages_and_policy(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.url,
-            data={
-                "enabled_pages": ["encounters"],
-                "default_page": "encounters",
-                "encounter_public_policy": "managers",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
-            url=self.url,
-        )
-        sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["encounters"]
-        assert sphere.default_page == "encounters"
-        assert sphere.encounter_public_policy == "managers"
-
-    def test_post_persists_timeline_as_default(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.url,
-            data=PAGE_DATA
-            | {"enabled_pages": ["timeline"], "default_page": "timeline"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
-            url=self.url,
-        )
-        sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["timeline"]
-        assert sphere.default_page == "timeline"
-
-    @pytest.mark.parametrize("policy", ("disabled", "managers", "everyone"))
+    @pytest.mark.parametrize("policy", ("none", "managers", "everyone"))
     def test_post_persists_each_policy(
         self, authenticated_client, active_user, sphere, policy
     ):
         sphere.managers.add(active_user)
 
         response = authenticated_client.post(
-            self.url, data=PAGE_DATA | {"encounter_public_policy": policy}
+            self.url, data={"encounters_policy": policy}
         )
 
         assert_response(
@@ -370,66 +317,43 @@ class TestSphereSettingsPageView:
             url=self.url,
         )
         sphere.refresh_from_db()
-        assert sphere.encounter_public_policy == policy
+        assert sphere.encounters_policy == policy
 
-    def test_post_rejects_default_page_not_enabled(
+    def test_post_rejects_unknown_policy(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
 
         response = authenticated_client.post(
-            self.url, data=PAGE_DATA | {"enabled_pages": ["encounters"]}
+            self.url, data={"encounters_policy": "sometimes"}
         )
 
         assert_form_error(
-            response, "The default page must be one of the enabled pages."
+            response, "Select a valid choice. sometimes is not one of the"
         )
         sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
+        assert sphere.encounters_policy == "everyone"
 
-    def test_post_rejects_no_enabled_pages(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.url,
-            data={"default_page": "events", "encounter_public_policy": "disabled"},
-        )
-
-        assert_form_error(
-            response,
-            "At least one page must stay enabled.",
-            "The default page must be one of the enabled pages.",
-        )
-        sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
-
-    def test_post_disabling_page_with_content_asks_for_confirmation(
+    def test_post_turning_encounters_off_with_content_asks_for_confirmation(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
         EncounterFactory(sphere=sphere)
 
         response = authenticated_client.post(
-            self.url, data=PAGE_DATA | {"enabled_pages": ["events"]}
+            self.url, data={"encounters_policy": "none"}
         )
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=SETTINGS_TEMPLATE,
-            context_data=GENERAL_PANEL_CONTEXT
-            | {
-                "disable_warning_pages": ["Encounters", "Timeline"],
-                "needs_disable_confirmation": True,
-                "confirmed_page_disable": "encounters,timeline",
-            },
+            context_data=GENERAL_PANEL_CONTEXT | {"needs_disable_confirmation": True},
         )
         sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
+        assert sphere.encounters_policy == "everyone"
 
-    def test_post_disabling_page_with_content_confirmed_saves(
+    def test_post_turning_encounters_off_confirmed_saves(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
@@ -437,11 +361,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(
             self.url,
-            data=PAGE_DATA
-            | {
-                "enabled_pages": ["events"],
-                "confirmed_page_disable": "encounters,timeline",
-            },
+            data={"encounters_policy": "none", "confirmed_encounters_disable": "1"},
         )
 
         assert_response(
@@ -451,76 +371,15 @@ class TestSphereSettingsPageView:
             url=self.url,
         )
         sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events"]
+        assert sphere.encounters_policy == "none"
 
-    def test_post_confirmation_does_not_carry_over_to_another_page(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        EncounterFactory(sphere=sphere)
-
-        # Confirmed for Encounters, then Events is unticked instead: the
-        # warning has to come back for the page nobody was warned about.
-        response = authenticated_client.post(
-            self.url,
-            data=PAGE_DATA
-            | {
-                "enabled_pages": ["encounters"],
-                "default_page": "encounters",
-                "confirmed_page_disable": "encounters",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name=SETTINGS_TEMPLATE,
-            context_data=GENERAL_PANEL_CONTEXT
-            | {
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "disable_warning_pages": ["Events", "Timeline"],
-                "needs_disable_confirmation": True,
-                "confirmed_page_disable": "events,timeline",
-            },
-        )
-        sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
-
-    def test_post_confirmation_token_keeps_earlier_confirmed_pages(
+    def test_post_turning_off_without_content_saves_unconfirmed(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        EncounterFactory(sphere=sphere)
-
-        # Confirmed for Encounters, then Timeline is unticked as well: the
-        # token has to keep naming Encounters, or the next submit drops that
-        # confirmation and the two warnings alternate forever.
-        response = authenticated_client.post(
-            self.url,
-            data=PAGE_DATA
-            | {"enabled_pages": ["events"], "confirmed_page_disable": "encounters"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name=SETTINGS_TEMPLATE,
-            context_data=GENERAL_PANEL_CONTEXT
-            | {
-                "disable_warning_pages": ["Encounters", "Timeline"],
-                "needs_disable_confirmation": True,
-                "confirmed_page_disable": "encounters,timeline",
-            },
-        )
 
         response = authenticated_client.post(
-            self.url,
-            data=PAGE_DATA
-            | {
-                "enabled_pages": ["events"],
-                "confirmed_page_disable": "encounters,timeline",
-            },
+            self.url, data={"encounters_policy": "none"}
         )
 
         assert_response(
@@ -530,27 +389,7 @@ class TestSphereSettingsPageView:
             url=self.url,
         )
         sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["events"]
-
-    def test_post_disabling_empty_page_saves_without_confirmation(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.url,
-            data=PAGE_DATA
-            | {"enabled_pages": ["encounters"], "default_page": "encounters"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
-            url=self.url,
-        )
-        sphere.refresh_from_db()
-        assert sphere.enabled_pages == ["encounters"]
+        assert sphere.encounters_policy == "none"
 
     def test_post_rejects_non_manager(self, authenticated_client, sphere):
         sphere.allow_facilitator_session_edit = True
