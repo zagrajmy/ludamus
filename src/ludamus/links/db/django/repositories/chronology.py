@@ -50,8 +50,8 @@ from ludamus.pacts.chronology import (
     PartyEventHistoryDTO,
     PartySessionHistoryDTO,
     PartySessionHistoryRepositoryProtocol,
-    PartySessionSeatDTO,
     SessionCardStatsDTO,
+    SessionSeatDTO,
 )
 from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
@@ -188,7 +188,7 @@ def _party_session_history(
             user_dto(session.presenter) if session.presenter is not None else None
         ),
         participations=[
-            PartySessionSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,

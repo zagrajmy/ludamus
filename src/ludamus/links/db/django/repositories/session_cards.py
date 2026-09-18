@@ -44,11 +44,7 @@ from ludamus.pacts import (
     SessionStatus,
     TimeSlotDTO,
 )
-from ludamus.pacts.chronology import (
-    SessionCardDTO,
-    SessionCardSeatDTO,
-    SessionCardStatsDTO,
-)
+from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
 from ludamus.pacts.legacy import LocationData
 
 if TYPE_CHECKING:
@@ -278,10 +274,8 @@ def _track_names_by_session(session_ids: Collection[int]) -> dict[int, list[str]
     return grouped
 
 
-def _seats_by_session(
-    session_ids: Collection[int],
-) -> dict[int, list[SessionCardSeatDTO]]:
-    grouped: dict[int, list[SessionCardSeatDTO]] = defaultdict(list)
+def _seats_by_session(session_ids: Collection[int]) -> dict[int, list[SessionSeatDTO]]:
+    grouped: dict[int, list[SessionSeatDTO]] = defaultdict(list)
     rows = (
         SessionParticipation.objects.filter(session_id__in=session_ids)
         .select_related("user")
@@ -289,7 +283,7 @@ def _seats_by_session(
     )
     for participation in rows:
         grouped[participation.session_id].append(
-            SessionCardSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,
@@ -373,7 +367,7 @@ def _card_from_session(session: Session) -> SessionCardDTO:
         track_names=[track.name for track in session.tracks.all()],
         category_name=session.category.name if session.category else "",
         participations=[
-            SessionCardSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,
