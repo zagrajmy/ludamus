@@ -18,6 +18,19 @@ proxy, often not 8000. `mise run start -- --no-portless` is
 portless proxy 404s every hostname and sets `X-Portless: 1`. Probe
 `/healthz/` on the Site domain. Do not kill by process name.
 
+## Claude Code plugins
+
+The `glimpse` skill (GLIMPSE layer rules, referenced from `CLAUDE.md`) is a
+plugin, not a file in this repo. Install it once per machine:
+
+```bash
+claude plugin marketplace add fancysnake/glimpse-architecture
+claude plugin install glimpse@glimpse
+```
+
+Inside a Claude Code session the same commands work as `/plugin marketplace add`
+and `/plugin install`.
+
 ## MCP tokens (local agents)
 
 `mise run bootstrap` and `mise run mcp-token` write gitignored
