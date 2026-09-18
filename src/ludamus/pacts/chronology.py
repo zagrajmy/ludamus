@@ -394,6 +394,33 @@ class SessionModalDTO(SessionCardStatsDTO):
     is_ended: bool
 
 
+class SessionCardSeatDTO(BaseModel):
+    user: UserDTO
+    status: SessionParticipationStatus
+    creation_time: datetime
+
+
+class SessionCardDTO(SessionCardStatsDTO):
+    """One session as the event page's card, ledger row or room tile reads it."""
+
+    session: SessionDTO
+    # None while a proposal waits for a slot; every other field is filled
+    # either way, so one card shape serves the schedule and the review queue.
+    agenda_item: AgendaItemDTO | None
+    presenter: UserDTO | None
+    location: LocationData
+    # Public fields only, in the organizer's field order.
+    field_values: list[SessionFieldValueDTO]
+    track_names: list[str]
+    category_name: str
+    # Empty when the reader asked for no roster: the card grid draws the first
+    # seat holders, the compact ledger draws none and a big event has many.
+    participations: list[SessionCardSeatDTO]
+    # A proposal's acceptable slots, earliest first. A scheduled session states
+    # its time through agenda_item and carries none.
+    preferred_time_slots: list[TimeSlotDTO]
+
+
 class SessionModalRepositoryProtocol(Protocol):
     @staticmethod
     def read_modal(

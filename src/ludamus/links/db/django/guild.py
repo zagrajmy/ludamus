@@ -108,16 +108,17 @@ def _mark_for_facilitator(
 
 
 def _mark_for_session(
-    session: Session,
     *,
+    session_pk: int,
+    presenter_id: int | None,
     by_session: dict[int, list[Facilitator]],
     by_user: dict[int, GuildMarkDTO],
 ) -> GuildMarkDTO | None:
-    if session.presenter_id:
-        return by_user.get(session.presenter_id)
+    if presenter_id:
+        return by_user.get(presenter_id)
     # Presenter-less cards show the first co-facilitator that has a mark,
     # ordered by display name then pk so the badge is stable across loads.
-    for facilitator in by_session.get(session.pk, []):
+    for facilitator in by_session.get(session_pk, []):
         if found := _mark_for_facilitator(facilitator, by_user=by_user):
             return found
     return None
@@ -359,19 +360,16 @@ class GuildRepository(GuildRepositoryProtocol):
     ) -> dict[int, GuildMarkDTO]:
         if not session_pks:
             return {}
+        # Two columns, not instances: a page of a thousand rows asks this once.
         sessions = list(
-            Session.objects.filter(pk__in=session_pks, event__sphere_id=sphere_id).only(
-                "pk", "presenter_id"
-            )
+            Session.objects.filter(
+                pk__in=session_pks, event__sphere_id=sphere_id
+            ).values_list("pk", "presenter_id")
         )
         if not sessions:
             return {}
-        presenter_ids = [
-            session.presenter_id for session in sessions if session.presenter_id
-        ]
-        presenter_less_pks = [
-            session.pk for session in sessions if not session.presenter_id
-        ]
+        presenter_ids = [presenter_id for _, presenter_id in sessions if presenter_id]
+        presenter_less_pks = [pk for pk, presenter_id in sessions if not presenter_id]
         by_session: dict[int, list[Facilitator]] = {}
         facilitator_user_ids: list[int] = []
         if presenter_less_pks:
@@ -393,9 +391,12 @@ class GuildRepository(GuildRepositoryProtocol):
             sphere_id=sphere_id, user_pks=presenter_ids + facilitator_user_ids
         )
         marks: dict[int, GuildMarkDTO] = {}
-        for session in sessions:
+        for pk, presenter_id in sessions:
             if found := _mark_for_session(
-                session, by_session=by_session, by_user=by_user
+                session_pk=pk,
+                presenter_id=presenter_id,
+                by_session=by_session,
+                by_user=by_user,
             ):
-                marks[session.pk] = found
+                marks[pk] = found
         return marks

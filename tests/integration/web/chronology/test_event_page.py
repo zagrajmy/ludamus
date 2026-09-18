@@ -1,5 +1,4 @@
 import re
-from dataclasses import replace
 from datetime import UTC, timedelta
 from http import HTTPStatus
 
@@ -129,7 +128,7 @@ _PROPOSALS_IN_QUEUE = 5
 # rather than merely "constant in the session count": a prefetch graph
 # nothing reads (#1063) adds a fixed number of queries per page, which a
 # constant-in-N check never sees.
-_EVENT_PAGE_QUERIES = 18
+_EVENT_PAGE_QUERIES = 17
 
 
 class TestEventPageView:
@@ -539,32 +538,10 @@ class TestEventPageView:
                 minute=0, second=0, microsecond=0
             )
 
-        def with_participants(session):
-            # Every card carries the people already seated on its session.
-            return replace(
-                base_cards[session.pk],
-                session_participations=[
-                    ParticipationInfo(
-                        user=UserInfo.from_user_dto(
-                            UserDTO.model_validate(participation.user),
-                            gravatar_url=gravatar_url,
-                        ),
-                        status=participation.status,
-                        creation_time=participation.creation_time,
-                        is_shadowbanned=False,
-                    )
-                    for participation in (
-                        SessionParticipation.objects.filter(session=session)
-                        .select_related("user")
-                        .order_by("pk")
-                    )
-                ],
-            )
-
-        cards = {
-            session.pk: with_participants(session)
-            for session in (ended, ongoing, plenty, scarce, no_enrollment, full)
-        }
+        # No roster on a compact card: the ledger and the rooms grid print the
+        # counts and never the people, so the page does not read them for a
+        # schedule this size.
+        cards = base_cards
 
         def tile(session):
             return ScheduleTile(
