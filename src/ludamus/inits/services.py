@@ -50,6 +50,7 @@ from ludamus.mills.event import (
     EventConfirmationsService,
     EventPanelService,
     EventsService,
+    LandingService,
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -314,6 +315,10 @@ class Services:
         return SitesService(self._repos.spheres, self._repos.spheres)
 
     @cached_property
+    def landing(self) -> LandingService:
+        return LandingService(self._repos.landing_stats)
+
+    @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
             transaction=self._transaction,
@@ -497,6 +502,7 @@ class Services:
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
+            sites=self.sites,
         )
 
     @cached_property

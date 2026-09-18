@@ -83,10 +83,10 @@ test("panel redirects to home with message when sphere has no events", async ({ 
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
-  // Visit panel — should redirect to index (then to /events/)
+  // Visit panel — should redirect to the sphere root, which is its feed
   await page.goto(`${emptyBase}/panel/`);
-  await expect(page).toHaveURL(`${emptyBase}/events/`);
-  await expect(page.getByText("No events available")).toBeVisible();
+  await expect(page).toHaveURL(`${emptyBase}/`);
+  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();
 });
@@ -1544,7 +1544,7 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
 
     // Published announcement shows on the public landing page
-    await page.goto("/events/");
+    await page.goto("/");
     await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText(content)).toBeVisible();

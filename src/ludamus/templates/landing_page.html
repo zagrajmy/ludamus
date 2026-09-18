@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load django_vite %}
+{% block title %}
+    {% translate "Zagrajmy • conventions and events" %}
+{% endblock title %}
+{% block title_suffix %}
+{% endblock title_suffix %}
+{% block meta_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock twitter_description %}
+{% comment %}
+    The landing's full-bleed strips need a main without the shell's max-width,
+    so the whole main region is replaced.
+{% endcomment %}
+{% block main_region %}
+    {% if messages %}
+        <div class="flash-region"
+             role="region"
+             aria-live="polite"
+             aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+    {% endif %}
+    <main class="grow flex flex-col w-full mb-8">
+        {% if announcements %}
+            {% comment %}
+                The brand's own announcements: zagrajmy.net runs no programme,
+                so its page is the only place they can appear.
+            {% endcomment %}
+            <section class="max-w-7xl w-full mx-auto px-4 md:px-6 lg:px-8 pt-10"
+                     aria-labelledby="landing-announcements-heading">
+                <h2 id="landing-announcements-heading"
+                    class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
+                <div class="space-y-4">
+                    {% for announcement in announcements %}
+                        <article class="card p-6">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">{{ announcement.title }}</h3>
+                            <p class="text-foreground-secondary whitespace-pre-line">{{ announcement.content }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+        {% include "landing/landing.html" %}
+    </main>
+{% endblock main_region %}
+{% block extra_head %}
+    {% comment %}
+        Ctrl+P works right here: hide the interactive chrome and, for dark-mode
+        visitors, print with the light palette (dark text on unprinted white).
+    {% endcomment %}
+    {% include "_print_chrome.html" %}
+{% endblock extra_head %}
+{% block extra_scripts %}
+    {% vite_asset 'src/landing.ts' %}
+{% endblock extra_scripts %}

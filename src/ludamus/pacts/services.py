@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
         EventsServiceProtocol,
+        LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
@@ -150,6 +151,8 @@ class ServicesProtocol(Protocol):
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
     def sites(self) -> SitesServiceProtocol: ...
+    @property
+    def landing(self) -> LandingServiceProtocol: ...
     @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property

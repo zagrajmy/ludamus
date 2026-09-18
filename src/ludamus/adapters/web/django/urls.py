@@ -11,13 +11,13 @@ from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
+from ludamus.gates.web.django.landing import index_page, landing_page
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
-from ludamus.gates.web.django.timeline import TimelinePageView
 
 from . import views
 
@@ -75,9 +75,14 @@ chronology_urls = [
 ]
 
 urlpatterns = [
-    path("", views.IndexRedirectView.as_view(), name="index"),
-    path("events/", views.EventsPageView.as_view(), name="events"),
-    path("timeline/", TimelinePageView.as_view(), name="timeline"),
+    path("", index_page, name="index"),
+    # The pitch on purpose, not by default: once a signed-in visitor is
+    # sent to their dashboard from / (#1307), this is the way back to it.
+    path("landing/", landing_page, name="landing"),
+    # The feed lives at the sphere root now. /events/ and /timeline/ were
+    # public, so they redirect rather than 404.
+    path("events/", RedirectView.as_view(pattern_name="web:index")),
+    path("timeline/", RedirectView.as_view(pattern_name="web:index")),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),
