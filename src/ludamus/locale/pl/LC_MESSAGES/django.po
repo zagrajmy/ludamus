@@ -6317,8 +6317,16 @@ msgid "Download"
 msgstr "Pobierz"
 
 #: src/ludamus/templates/design.html
-msgid "Link preview card"
-msgstr "Karta podglądu linku"
+msgid "Open at full size"
+msgstr "Otwórz w pełnym rozmiarze"
+
+#: src/ludamus/templates/design.html
+msgid ""
+"Link preview card: the zagrajmy wordmark over a painted cylindrical space "
+"colony"
+msgstr ""
+"Karta podglądu linku: znak słowny zagrajmy na tle malowanej cylindrycznej "
+"kolonii kosmicznej"
 
 #: src/ludamus/templates/event/propose/base.html
 msgid "Submit a session proposal for"
@@ -10339,6 +10347,9 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Link preview card"
+#~ msgstr "Karta podglądu linku"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
