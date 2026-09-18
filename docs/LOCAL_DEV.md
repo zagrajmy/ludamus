@@ -20,12 +20,17 @@ portless proxy 404s every hostname and sets `X-Portless: 1`. Probe
 
 ## Claude Code plugins
 
-The `glimpse` skill (GLIMPSE layer rules, referenced from `CLAUDE.md`) is a
-plugin, not a file in this repo. Install it once per machine:
+The `glimpse` skill (GLIMPSE layer rules, referenced from `CLAUDE.md`),
+`ritual-scribe` (vekna rituals) and `issue-maker` (GitHub issues) are
+plugins, not files in this repo. Install them once per machine:
 
 ```bash
 claude plugin marketplace add fancysnake/glimpse-architecture
 claude plugin install glimpse@glimpse
+claude plugin marketplace add fancysnake/vekna
+claude plugin install ritual-scribe@vekna
+claude plugin marketplace add fancysnake/cabinet
+claude plugin install issue-maker@cabinet
 ```
 
 Inside a Claude Code session the same commands work as `/plugin marketplace add`
