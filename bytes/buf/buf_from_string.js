@@ -1,0 +1,1 @@
+function buf_from_string(s) { const b = new TextEncoder().encode(s); let d = 0; while ((1 << d) < b.length) d++; const a = Array(1 << d).fill(0); for (let i = 0; i < b.length; i++) a[i] = b[i]; return io_tup(a, b.length); }

@@ -1,0 +1,4 @@
+*.bin
+bytes/buf/demo
+race/race
+*.c.out

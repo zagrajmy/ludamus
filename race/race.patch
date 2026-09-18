@@ -1,0 +1,56 @@
+--- a/bend2/comp.ts
++++ b/bend2/comp.ts
+@@ -5244,6 +5244,8 @@
+   Term          cont;
+   Term          item;
+   u64           time;
++  u64           until;
++  bool          late;
+   short         evts;
+   struct IoAct* next;
+ } IoAct;
+@@ -5287,11 +5289,22 @@
+   a->work.word = (u32)fd;
+   a->work.pack = more;
+   a->time      = 0;
++  a->until     = 0;
++  a->late      = false;
+   a->evts      = evts;
+   io_push(&io_park, a);
+   return IO_PARK;
+ }
+ 
++// Parks like io_wait_on, but the loop also wakes the activation once
++// until (an io_tick deadline) has passed, with late set, so more can
++// answer a timeout instead of retrying the fd.
++static Term io_wait_until(IoWork* w, int fd, short evts, IoPack more, u64 until) {
++  io_wait_on(w, fd, evts, more);
++  ((IoAct*)w)->until = until;
++  return IO_PARK;
++}
++
+ OUTLINE void io_out(FILE* h, const char* data, u64 len) {
+   if (fwrite(data, 1, len, h) != len) {
+     err_fail("a short write on a standard stream");
+@@ -5473,6 +5486,9 @@
+       fds[n].fd     = (int)a->work.word;
+       fds[n].events = a->evts;
+       n += 1;
++      if (a->until != 0) {
++        soon = soon == 0 || a->until < soon ? a->until : soon;
++      }
+     }
+   }
+   if (soon != 0) {
+@@ -5496,7 +5512,10 @@
+   io_park.last = NULL;
+   while (todo.head != NULL) {
+     IoAct* a   = io_pop(&todo);
+-    bool   due = a->time == 0 ? fds[i].revents != 0 : a->time <= now;
++    bool   late = a->time == 0 && a->until != 0 && fds[i].revents == 0
++      && a->until <= now;
++    bool   due = a->time == 0 ? fds[i].revents != 0 || late : a->time <= now;
++    a->late = late;
+     i += a->time == 0;
+     if (!due) {
+       io_push(&io_park, a);
