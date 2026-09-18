@@ -75,7 +75,7 @@
     {# Party rows #}
     <div class="flex flex-col gap-3">
         {% for entry in parties %}
-            <div class="card item-card">
+            <div class="card">
                 <div class="card-body grid grid-cols-[minmax(0,1fr)_auto] gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                     <span class="order-3 col-span-2 flex -space-x-3 shrink-0 sm:order-1 sm:col-span-1"
                           role="img"
@@ -278,8 +278,7 @@
         <div class="grid gap-2 sm:grid-cols-2">
             {% for row in companions %}
                 <div class="rounded-lg bg-bg-tertiary/60 p-3">
-                    <div class="item-display"
-                         id="companion-display-{{ row.companion.slug }}"
+                    <div id="companion-display-{{ row.companion.slug }}"
                          {% if row.editing %}style="display:none"{% endif %}>
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex min-w-0 items-center gap-3">
@@ -345,8 +344,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="item-edit"
-                         id="companion-edit-{{ row.companion.slug }}"
+                    <div id="companion-edit-{{ row.companion.slug }}"
                          {% if not row.editing %}style="display:none"{% endif %}>
                         <form action="{% url 'web:crowd:profile-companions-update' slug=row.companion.slug %}"
                               method="post">
