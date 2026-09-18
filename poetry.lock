@@ -5194,7 +5194,7 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 
 [[package]]
 name = "vekna"
-version = "0.6.0"
+version = "0.7.0"
 description = "Run coding agents as rituals: ordinary Python programs whose steps you control"
 optional = false
 python-versions = ">=3.11,<4"
@@ -5206,6 +5206,7 @@ develop = false
 claude-agent-sdk = ">=0.2,<1.0"
 click = ">=8.3.2,<9.0.0"
 pydantic = ">=2.12.5,<3.0.0"
+typing-extensions = ">=4.16,<5.0"
 
 [package.extras]
 trial = ["pytest (>=8.0,<10.0)"]
@@ -5213,8 +5214,8 @@ trial = ["pytest (>=8.0,<10.0)"]
 [package.source]
 type = "git"
 url = "https://github.com/fancysnake/vekna.git"
-reference = "v0.6.0"
-resolved_reference = "783e24bd102a47c9db49c49528c0c3264db563fd"
+reference = "v0.7.0"
+resolved_reference = "030ac2aeee8bfa010fa88ebd0f64e45db0f16545"
 
 [[package]]
 name = "vulture"
@@ -5395,4 +5396,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "4fbf1d495f0701decc39208c8a4c02736ffbd7c756ef6a1a234a3f4d39fb5fba"
+content-hash = "78135892245b18111a437b28f2404f2ccdadfa783539764f0a690f7540126491"

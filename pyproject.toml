@@ -88,7 +88,7 @@ tingle = "^0.7.2"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.4"
-vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.7.0" }
 
 [tool.black]
 line-length = 88
