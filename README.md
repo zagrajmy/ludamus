@@ -43,9 +43,9 @@ Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
 contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also available
 as `AGENTS.md` for Cursor/OpenAI agents).
 
-Local-dev details — simulator login, Playwright auth state, and a glossary of
-the task-file tools (aube, varlock, hk) — live in
-[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
+Local-dev details — simulator login, Playwright auth state, the Claude Code
+`glimpse` plugin, and a glossary of the task-file tools (aube, varlock, hk) —
+live in [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
 ### Email in development
 
