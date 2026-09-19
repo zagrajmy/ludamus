@@ -5,6 +5,7 @@ import path from "node:path";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
+import { settleViewTransitions } from "./helpers/view-transitions";
 
 // A 1x1 opaque PNG — the mark only has to be a real raster the browser will
 // decode, so the smallest valid one keeps the fixture inline.
@@ -111,6 +112,10 @@ test.describe("Guilds", () => {
     await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/do\/delete\//);
     await page.getByRole("link", { name: "Cancel" }).click();
     await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
+    // The panel opts cross-document navigations into a view transition
+    // (base.html's `@view-transition` rule); its pseudo-elements sit in the
+    // top layer and block hit-testing on the real page until it settles.
+    await settleViewTransitions(page);
 
     const presentersCell = row.locator("td").nth(1);
     const box = await presentersCell.boundingBox();
