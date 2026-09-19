@@ -66,16 +66,23 @@ every call site.
 ## What it touches
 
 - Migration: `PersonalDataField.is_required` (default false), backfilled
-  with `all(is_required)` across that field's `PersonalDataFieldRequirement`
-  rows — the strict-to-optional direction, whose failure mode an organiser
-  fixes in two clicks, unlike a form that silently starts rejecting
-  submissions. `order` takes the maximum requirement order. The requirement
-  table is dropped.
+  true only when every kind in the field's event has a
+  `PersonalDataFieldRequirement` row for that field with `is_required`
+  true. A missing row counts as not required, and a field whose event has
+  no kinds stays optional — read the kinds, not just the rows the field
+  happens to have, or `all()` over an empty set makes a field nobody
+  attached required for everyone. This is the strict-to-optional direction,
+  whose failure mode an organiser fixes in two clicks, unlike a form that
+  silently starts rejecting submissions. `order` takes the maximum
+  requirement order. The requirement table is dropped.
 - `CheckConstraint` on `PersonalDataField`: not
-  (`field_type = checkbox` and `is_required`). The repository normalises
-  `is_required` to false when the type is checkbox on every write, so a type
-  change from text to checkbox cannot violate it. The form guard stays as
-  the message the organiser reads.
+  (`field_type = checkbox` and `is_required`). The same migration zeroes
+  `is_required` on every checkbox field after the backfill and before the
+  constraint is added, so the backfill cannot leave behind a row the
+  constraint rejects. The repository normalises `is_required` to false when
+  the type is checkbox on every write, so a type change from text to
+  checkbox cannot violate it. The form guard stays as the message the
+  organiser reads.
 - `PersonalDataFieldForm` and the create/edit pages gain "Required" and
   order inputs; the per-kind selects disappear. The repository persists
   `order`.

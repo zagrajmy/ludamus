@@ -38,6 +38,10 @@ am not offered something the organiser has closed.
 As a proposer, I want the kind chosen for me when only one is open, so that
 I am not asked a question with one answer.
 
+As a proposer whose chosen kind closed while I was filling the wizard, I
+want to be told when I submit, so that I can move to a kind that is still
+open rather than have my proposal land on a closed call.
+
 As an anonymous proposer, I want to propose without an account when the
 event allows anonymous proposals, so that the lowest barrier wins and I
 learn about the account requirement before I fill anything in.
@@ -55,13 +59,24 @@ intake, so that seeding an event works before proposals open.
 - `SessionKind.accepts_proposals`, a boolean defaulting to true, a checkbox
   on the kind form, and a column on the kinds list. The migration sets it
   true everywhere, so existing events carry over unchanged.
-- `Event.is_proposal_active` keeps its meaning — both dates set and now
-  between them — and the wizard additionally requires at least one kind
-  with `accepts_proposals`. Unset or half-set dates stay closed, as today.
+- `Event.is_proposal_active` gains a third clause — both dates set, now
+  between them, and at least one kind with `accepts_proposals` — so one
+  predicate governs intake. The wizard entry check and every open/closed
+  display read it alike: the event card, the hero status pill, the
+  programme page's propose affordances, the panel nav. Splitting them
+  would show "Proposals open" to an organiser who has closed every kind,
+  on a call the wizard then bounces them out of. Unset or half-set dates
+  stay closed, as today. The property now needs the event's kinds, so
+  whatever builds the DTO carrying it reads more than the two dates.
 - The proposal settings form refuses an end before its start; the two
   columns stay nullable.
 - The wizard's kind step lists only accepting kinds and is skipped when
-  exactly one accepts, as it is today with one kind.
+  exactly one accepts, as it is today with one kind. Listing is not the
+  guard: the wizard re-fetches the chosen kind by id from the session on
+  each step, scoped to the event but not to its openness, so submission
+  rechecks `accepts_proposals` and refuses a kind that closed meanwhile.
+  The intake predicate above cannot catch this while another kind is
+  still open.
 - Anonymity stays event-wide in `EventProposalSettings`, so
   `ProposeWizardMixin.dispatch` keeps deciding before the wizard starts and
   an anonymous proposer is never bounced to a login page mid-wizard, after

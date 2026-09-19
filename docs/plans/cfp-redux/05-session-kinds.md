@@ -61,13 +61,20 @@ a lock.
   category methods follow.
 - URL names `panel:cfp*` → `panel:session-kinds*`; templates
   `panel/cfp.html` and friends; `cfp_tags.cfp_status` goes with the kind's
-  dates (a kind has no status to badge).
+  dates (a kind has no status to badge). The `/cfp/` path segment stays:
+  time-slots, personal-data and session-fields sit under it too and this
+  step does not move them. The `category_slug` kwarg does follow the
+  rename, to `kind_slug` — it names the kind and nothing else.
 - The public tag filter key `__category` becomes `__kind`
   (`event_presentation.py`, `chronology/event.html`); the visible label
   stays "rodzaj atrakcji". A shared link carrying the old key filters
   nothing rather than erroring — the programme still lists in full.
 - MCP: `list_proposal_categories` / `create_proposal_category` become
   `list_session_kinds` / `create_session_kind`, descriptions reworded.
+  `scripts/polcon26/seed.py` passes both names as plain strings, so it is
+  renamed in the same step: nothing type-checks a tool name, so the seed
+  would fail at runtime with an unknown tool. One in-repo caller is not
+  worth an alias.
 - Konwencik export keeps its `type` column; only the Python that feeds it is
   renamed.
 - The kind edit page keeps name, durations, participant bounds, waitlist
