@@ -17,6 +17,9 @@ ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
 # Build-only: Django settings need these to load for compilemessages.
 # Overridden at runtime by env_file / environment in compose.
+# HACK: DL3064 reads the *name* SECRET_KEY as sensitive; the value is the
+# literal placeholder above, never a real secret.
+# hadolint ignore=DL3064
 ENV SECRET_KEY=build-only-not-used-at-runtime
 ENV CREDENTIALS_ENCRYPTION_KEY=build-only-not-used-at-runtime
 ENV DB_NAME=:memory:
@@ -36,6 +39,10 @@ RUN mkdir -p staticfiles media logs \
     && chown -R appuser:appuser /mise
 
 # Switch to non-root user for the remaining build steps
+# HACK: DL3066 wants a numeric UID for host-side resolvability; useradd above
+# doesn't pin one, and guessing one risks colliding with the base image's
+# users without a build to check against.
+# hadolint ignore=DL3066
 USER appuser
 
 # Install the toolchain (python/node/poetry/aube). Shared by dev and prod; the

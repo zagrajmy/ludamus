@@ -81,7 +81,8 @@
                             {% if session.agenda_item.space %}
                                 <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
                                     {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                                    <span class="truncate" title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
+                                    <span class="truncate"
+                                          title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
                                 </span>
                             {% endif %}
                         </div>
@@ -164,13 +165,17 @@
                                                 {% if state.disabled and state.reason and state.reason != state.badge.label %}
                                                     <span class="text-foreground-muted">{{ state.reason }}</span>
                                                 {% endif %}
-                                                <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
+                                                <span data-seat-hint
+                                                      hidden
+                                                      class="font-medium"
+                                                      aria-live="polite"></span>
                                             </span>
                                         </span>
                                         {# aria-labelledby, not a generated aria-label: the name must stay #}
                                         {# out of attribute values so session replay can mask it — replay #}
                                         {# masks text nodes, never attributes. #}
-                                        <span id="enroll-include-{{ row.user.pk }}" class="sr-only">{% translate "Include" %}</span>
+                                        <span id="enroll-include-{{ row.user.pk }}"
+                                              class="sr-only">{% translate "Include" %}</span>
                                         {% with pk_str=row.user.pk|stringformat:"s" %}
                                             {% with labelledby="enroll-include-"|add:pk_str|add:" enroll-name-"|add:pk_str %}
                                                 {% include "components/checkbox-field.html" with name=state.field_name value="include" size="w-5 h-5" aria_labelledby=labelledby checked=state.box_checked disabled=state.disabled label="" %}
