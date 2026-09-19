@@ -37,6 +37,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
@@ -106,11 +107,20 @@ def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
 
 
 def _placement_rejection_message(error: PlacementRejectedError) -> str:
-    if error.reason is PlacementRejection.OUTSIDE_TIME_SLOTS:
-        return _("Place the session inside one of the event's time slots.")
     if error.reason is PlacementRejection.SESSION_NOT_ACCEPTED:
         return _("Only accepted sessions can be placed on the schedule.")
     return _("This placement is invalid.")
+
+
+def _before_publication_response() -> HttpResponse:
+    return HttpResponse(
+        _(
+            "This is before the event is published. "
+            "Move the publication time in the event settings first."
+        ),
+        status=422,
+        content_type="text/plain; charset=utf-8",
+    )
 
 
 class _FacilitatorOptions(NamedTuple):
@@ -486,6 +496,25 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _assign(
+        self, session_pk: int, placement: SessionPlacement, event_pk: int
+    ) -> HttpResponse | None:
+        """Place the session; answer with the refusal if there is one."""
+        try:
+            self.request.services.timetable.assign_session(
+                session_pk=session_pk,
+                placement=placement,
+                event_pk=event_pk,
+                user_pk=self.request.user.pk,
+            )
+        except PlacementRejectedError as error:
+            return _rejection_response(error)
+        except EventPublicationInvalidError:
+            return _before_publication_response()
+        except NotFoundError:
+            return HttpResponse(status=422)
+        return None
+
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -501,17 +530,10 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
-        try:
-            self.request.services.timetable.assign_session(
-                session_pk=session_pk,
-                placement=placement,
-                event_pk=current_event.pk,
-                user_pk=self.request.user.pk,
-            )
-        except PlacementRejectedError as error:
-            return _rejection_response(error)
-        except NotFoundError:
-            return HttpResponse(status=422)
+        if (
+            refusal := self._assign(session_pk, placement, current_event.pk)
+        ) is not None:
+            return refusal
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 

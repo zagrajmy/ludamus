@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ludamus.mills.event import widen_event_dates
 from ludamus.pacts.event import (
     PanelTimeSlotsServiceProtocol,
     TimeSlotRejectedError,
+    TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
 
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         DateTimeRangeProtocol,
         EventDTO,
+        EventRepositoryProtocol,
         TimeSlotDTO,
         TimeSlotRepositoryProtocol,
     )
@@ -31,19 +34,12 @@ if TYPE_CHECKING:
 
 
 def _validate_time_slot(
-    *,
-    start: datetime,
-    end: datetime,
-    event: EventDTO,
-    existing_slots: Sequence[DateTimeRangeProtocol],
+    *, start: datetime, end: datetime, existing_slots: Sequence[DateTimeRangeProtocol]
 ) -> list[TimeSlotValidationError]:
     errors: list[TimeSlotValidationError] = []
 
     if start >= end:
         errors.append(TimeSlotValidationError.START_NOT_BEFORE_END)
-
-    if start < event.start_time or end > event.end_time:
-        errors.append(TimeSlotValidationError.OUTSIDE_EVENT_DATES)
 
     if any(start < slot.end_time and end > slot.start_time for slot in existing_slots):
         errors.append(TimeSlotValidationError.OVERLAPS_EXISTING_SLOT)
@@ -57,9 +53,11 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
         *,
         transaction: TransactionProtocol,
         time_slots: TimeSlotRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._time_slots = time_slots
+        self._events = events
 
     def list_for_event(self, event_id: int) -> list[TimeSlotDTO]:
         return self._time_slots.list_by_event(event_id)
@@ -77,7 +75,7 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
 
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> TimeSlotDTO:
+    ) -> TimeSlotSavedDTO:
         # atomic() keeps the write consistent but does not serialize the
         # check-then-insert: two concurrent requests can both read the same
         # slots, both pass validation, and insert overlapping slots. Full
@@ -85,15 +83,19 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
         with self._transaction.atomic():
             existing = self._time_slots.list_by_event(event.pk)
             errors = _validate_time_slot(
-                start=start_time, end=end_time, event=event, existing_slots=existing
+                start=start_time, end=end_time, existing_slots=existing
             )
             if errors:
                 raise TimeSlotRejectedError(errors)
-            return self._time_slots.create(event.pk, start_time, end_time)
+            widened = widen_event_dates(
+                events=self._events, event=event, start=start_time, end=end_time
+            )
+            slot = self._time_slots.create(event.pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
 
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> None:
+    ) -> TimeSlotSavedDTO:
         # Same unserialized check-then-write race as in create().
         with self._transaction.atomic():
             # Scope the pk to the panel's event before writing; a foreign pk
@@ -105,11 +107,15 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
                 if slot.pk != pk
             ]
             errors = _validate_time_slot(
-                start=start_time, end=end_time, event=event, existing_slots=existing
+                start=start_time, end=end_time, existing_slots=existing
             )
             if errors:
                 raise TimeSlotRejectedError(errors)
-            self._time_slots.update(pk, start_time, end_time)
+            widened = widen_event_dates(
+                events=self._events, event=event, start=start_time, end=end_time
+            )
+            slot = self._time_slots.update(pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
 
     def delete(self, *, event_id: int, pk: int) -> bool:
         with self._transaction.atomic():

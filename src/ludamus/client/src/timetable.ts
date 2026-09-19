@@ -421,6 +421,18 @@ document.body.addEventListener("htmx:pushedIntoHistory", () => {
   gridEl.setAttribute("hx-get", baseUrl + globalThis.location.search);
 });
 
+// The room slider names a page rather than linking to one, so its hx-push-url
+// cannot be written into the markup: it is set here, from the slider's value,
+// just before htmx sends the request, and the push then goes through htmx like
+// the arrows' does (history snapshot, pushedIntoHistory sync above).
+document.body.addEventListener("htmx:configRequest", (evt) => {
+  const slider = evt.target;
+  if (!(slider instanceof HTMLInputElement) || slider.dataset.roomPage === undefined) return;
+  const pageUrl = new URL(globalThis.location.href);
+  pageUrl.searchParams.set("room_page", slider.value);
+  slider.setAttribute("hx-push-url", pageUrl.pathname + pageUrl.search);
+});
+
 // Cancel button — delegated so it survives HTMX swaps of any ancestor
 document.addEventListener("click", (e) => {
   const target = e.target as Element;
