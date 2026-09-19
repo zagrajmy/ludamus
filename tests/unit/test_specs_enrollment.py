@@ -33,7 +33,6 @@ def _wp(
         has_conflict=has_conflict,
         owner_slots_remaining=slots,
         recipient_user_id=sponsor_id if sponsor_id is not None else user_id,
-        recipient_email=f"r{sponsor_id if sponsor_id is not None else user_id}@e.com",
     )
 
 
