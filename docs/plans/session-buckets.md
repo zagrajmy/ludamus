@@ -139,8 +139,12 @@ different first step.
   | 2 | Odrzucone | x-circle | danger |
   | 3 | Zaakceptowane | check-circle | success |
 
-  Event creation seeds them through `gettext` under the request language; the
-  migration seeds Polish, which is what production shows today.
+  Both seed paths write these Polish literals. Event creation does not run
+  them through `gettext`: `pl` and `en` are both configured, so a bucket
+  seeded under an English UI would otherwise stay English on Polish pages,
+  and two events would disagree on the name of the same workflow step. Nor
+  are they translation keys — the feature file makes a bucket name
+  renameable organizer text, and no key survives a rename.
 
   **Known gap:** creation paths that build an `Event` without going through
   the create flow — admin, factories, fixtures — get no buckets, exactly as
@@ -164,6 +168,14 @@ bucket, always:
 A session in several buckets (a checklist rather than a pipeline) is not
 built. Should one ever be asked for, it arrives as its own plan carrying its
 own FK → M2M migration, and pays for the reader cost it adds.
+
+Both paths that take a caller-supplied `bucket_id` —
+`SessionRepository.create` and `SessionBucketService.set_bucket` — resolve
+it within the session's own event before any write; a bucket pk from
+another event 404/422s and writes nothing. The scoping lives in the
+service, not the view, and a `mills` test covers it, so the guard holds
+for the MCP surface and every non-page caller too, not only the panel
+pages the `gates` tests exercise.
 
 `SessionRepository.create` resolves the bucket: callers may pass
 `bucket_id`, and when they don't, the repository writes the event's
@@ -307,9 +319,10 @@ page's columns.
 - `review_inbox_proposals` (`repositories/sessions.py`, the public event
   page's review block, and `own_pending_proposals` built on it): today
   `status=PENDING AND agenda_item__isnull`. It becomes **unplaced sessions in
-  the lowest-order bucket** — the unprocessed ones. On a one-bucket event
-  inbox and plannable coincide and the block shows nothing, which is right:
-  there is no review step to show.
+  the lowest-order bucket** — the unprocessed ones. A one-bucket event is no
+  exception: inbox and plannable coincide, and the block lists the unplaced
+  sessions sitting there, which is what `session-state.md` asks for —
+  "the sessions sitting in the inbox that are not yet on the timetable".
 - `specs/confirmations.py` (`SCHEDULED_STATUS`, `STATUS_ORDER`,
   `COUNTED_UNPLACED`) is deleted. Confirmation facilitator cards list placed
   sessions as rows, and unplaced sessions as rows with their bucket chip
@@ -354,9 +367,14 @@ migration 0150 already has.
    keeps writing `status` alongside the bucket, and every surface not yet
    moved keeps reading `status`, so each one is demoable and revertible on
    its own:
-   1. `Session.bucket` FK, backfill from `status` by seeded position,
+   1. `Session.bucket` FK, backfill from `status` onto the seeded buckets,
       `SessionBucketService.set_bucket`, dual writes. Nothing reads the
-      bucket yet.
+      bucket yet. The backfill keys off the seeded rows by pk, not by
+      position: step 2 ships bucket CRUD with no session referencing a
+      bucket, so the "refused while sessions sit in it" guard is inert and
+      an organizer can freely reorder or delete a seeded bucket before this
+      release lands. Any status whose seeded bucket is gone falls back to
+      the event's lowest-order bucket.
    2. Proposals list and detail: the `session_state` tag, the bucket action
       and bulk-move views, the three filters, the `proposal_columns` key.
    3. Timetable: the assign invariant and `SESSION_NOT_PLANNABLE`, session
