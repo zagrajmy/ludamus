@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     proposal_detail_tab_urls,
     proposal_detail_url,
     proposal_tab_urls,
+    read_field_filters,
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     PROPOSAL_COLUMNS,
@@ -91,11 +92,7 @@ def read_proposal_query(
         track_pk=track_pk,
         multi_tracks=request.GET.get("track") == "multi",
         sort=request.GET.get("sort", "").strip(),
-        raw_field_filters={
-            int(key.removeprefix("field_")): request.GET.get(key, "")
-            for key in request.GET
-            if key.startswith("field_") and key.removeprefix("field_").isdigit()
-        },
+        raw_field_filters=read_field_filters(request),
     )
 
 

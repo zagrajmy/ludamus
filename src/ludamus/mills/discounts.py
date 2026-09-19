@@ -177,12 +177,8 @@ class DiscountsService(DiscountsServiceProtocol):
         self._schedule = schedule
         self._facilitator_change_logs = facilitator_change_logs
 
-    def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]:
-        return _roster(
-            discounts=self._discounts,
-            facilitators=self._facilitators,
-            event_pk=event_pk,
-        )
+    def list_discounts(self, event_pk: int) -> list[DiscountDTO]:
+        return self._discounts.list_by_event(event_pk)
 
     def list_facilitator_schedule(self, event_pk: int) -> list[FacilitatorScheduleRow]:
         return self._schedule.list_facilitator_schedule(event_pk)

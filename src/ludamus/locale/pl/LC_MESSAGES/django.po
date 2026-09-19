@@ -1145,10 +1145,6 @@ msgstr ""
 "Zastosowano agendę: oznaczono twórców programu: %(marked)d, odznaczono: "
 "%(unmarked)d, przyznano zniżek: %(set)d, wycofano: %(cleared)d."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-msgid "Accreditation sheet"
-msgstr "Arkusz akredytacji"
-
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "allowed"
 msgstr "dozwolone"
@@ -1258,6 +1254,10 @@ msgstr "Godziny zaplanowane"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Facilitators"
 msgstr "Twórcy programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Accreditation sheet"
+msgstr "Arkusz akredytacji"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."

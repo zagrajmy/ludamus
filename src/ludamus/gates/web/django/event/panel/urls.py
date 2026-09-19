@@ -534,7 +534,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/discounts/export/",
-        discounts.DiscountExportPageView.as_view(),
+        export.DiscountExportPageView.as_view(),
         name="discount-export",
     ),
     path(

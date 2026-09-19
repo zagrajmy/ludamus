@@ -55,7 +55,6 @@ if TYPE_CHECKING:
 
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.discounts import DiscountDTO
 
 ODS_CONTENT_TYPE = "application/vnd.oasis.opendocument.spreadsheet"
 
@@ -166,13 +165,23 @@ class PanelExportPageView[RowT: PanelRowProtocol](
                 else self.export_set.default_keys
             ),
         )
-        if not columns and template is not None:
-            return self._render(
-                template=template,
-                context=context,
-                slug=slug,
+        if not columns:
+            if template is not None:
+                return self._render(
+                    template=template,
+                    context=context,
+                    slug=slug,
+                    event_pk=current_event.pk,
+                    error=_("Pick at least one column to export."),
+                )
+            # No chooser, so nowhere to show the error: a `columns` param that
+            # resolves to nothing falls back to the fixed sheet rather than
+            # writing a file of empty rows.
+            columns = export_columns(
+                request=self.request,
                 event_pk=current_event.pk,
-                error=_("Pick at least one column to export."),
+                export_set=self.export_set,
+                keys=self.export_set.default_keys,
             )
         return self._download(slug=slug, event_pk=current_event.pk, columns=columns)
 
@@ -218,13 +227,13 @@ class PanelExportPageView[RowT: PanelRowProtocol](
         )
         headers = [view.label for view in column_views(columns, self.export_set.cells)]
         body = [
-            [
-                {**cells.get(row.pk, {}), **loaded.computed.get(row.pk, {})}.get(
-                    column.key, ""
-                )
-                for column in columns
-            ]
-            for row in loaded.rows
+            [values.get(column.key, "") for column in columns]
+            # One merged dict per row, not per cell; a computed value wins over
+            # the row's own cell for the same key.
+            for values in (
+                {**cells.get(row.pk, {}), **loaded.computed.get(row.pk, {})}
+                for row in loaded.rows
+            )
         ]
         content = spreadsheet_bytes(
             rows=[headers, *body], sheet_title=str(self.export_set.sheet_title)
@@ -286,27 +295,19 @@ DISCOUNT_EXPORT_CELLS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = {
     "discount_note": BuiltinColumn(label=gettext_lazy("Note")),
 }
 
-_SCHEDULE_KEYS = frozenset({"scheduled_sessions", "scheduled_hours"})
+SCHEDULE_EXPORT_CELLS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = {
+    "scheduled_sessions": BuiltinColumn(label=gettext_lazy("Scheduled sessions")),
+    "scheduled_hours": BuiltinColumn(label=gettext_lazy("Scheduled hours")),
+}
 
 FACILITATOR_EXPORT_CELLS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = {
     "guild": BuiltinColumn(
         label=FACILITATOR_COLUMNS["guild"].label,
         cell=lambda f: f.guild.name if f.guild is not None else "",
     ),
-    "scheduled_sessions": BuiltinColumn(label=gettext_lazy("Scheduled sessions")),
-    "scheduled_hours": BuiltinColumn(label=gettext_lazy("Scheduled hours")),
+    **SCHEDULE_EXPORT_CELLS,
     **DISCOUNT_EXPORT_CELLS,
 }
-
-
-def discount_cells(discount: DiscountDTO | None) -> dict[str, str]:
-    if discount is None:
-        return {}
-    return {
-        "discount_kind": str(DISCOUNT_KIND_LABELS[discount.kind]),
-        "discount_value": str(discount.value),
-        "discount_note": discount.note,
-    }
 
 
 def _facilitator_computed(
@@ -316,9 +317,13 @@ def _facilitator_computed(
     computed: defaultdict[int, dict[str, str]] = defaultdict(dict)
     discounts = request.services.discounts
     if keys & DISCOUNT_EXPORT_CELLS.keys():
-        for entry in discounts.list_roster(event_pk):
-            computed[entry.facilitator.pk].update(discount_cells(entry.discount))
-    if keys & _SCHEDULE_KEYS:
+        for discount in discounts.list_discounts(event_pk):
+            computed[discount.facilitator_id].update(
+                discount_kind=str(DISCOUNT_KIND_LABELS[discount.kind]),
+                discount_value=str(discount.value),
+                discount_note=discount.note,
+            )
+    if keys & SCHEDULE_EXPORT_CELLS.keys():
         for row in discounts.list_facilitator_schedule(event_pk):
             computed[row.facilitator_id].update(
                 scheduled_sessions=str(row.session_count),
@@ -334,11 +339,13 @@ def _facilitator_rows(
     facilitators = panel.list_context(
         event_id=event_pk, query=read_facilitator_query(view.request)
     ).facilitators
-    attach_facilitator_guild_marks(
-        facilitators,
-        guilds=view.request.services.guilds,
-        sphere_id=view.request.context.current_sphere_id,
-    )
+    keys = {column.key for column in columns}
+    if "guild" in keys:
+        attach_facilitator_guild_marks(
+            facilitators,
+            guilds=view.request.services.guilds,
+            sphere_id=view.request.context.current_sphere_id,
+        )
     return ExportRows(
         rows=facilitators,
         raw_values=panel.column_values(
@@ -346,9 +353,7 @@ def _facilitator_rows(
             field_ids=[c.field.pk for c in columns if c.field is not None],
         ),
         computed=_facilitator_computed(
-            request=view.request,
-            event_pk=event_pk,
-            keys={column.key for column in columns},
+            request=view.request, event_pk=event_pk, keys=keys
         ),
     )
 
@@ -363,4 +368,20 @@ class FacilitatorExportPageView(PanelExportPageView[FacilitatorListItemDTO]):
         sheet_title=gettext_lazy("Facilitators"),
         filename_part="facilitators",
         template="panel/facilitator-export.html",
+    )
+
+
+class DiscountExportPageView(PanelExportPageView[FacilitatorListItemDTO]):
+    """Download the accreditation sheet: the filtered roster with its discounts."""
+
+    # The same rows as the facilitators list — the roster *is* a facilitator
+    # list — narrowed by the same filters and fixed to the four desk columns.
+    export_set = PanelExportSet(
+        columns=FACILITATOR_COLUMN_SET,
+        export_cells=DISCOUNT_EXPORT_CELLS,
+        rows=_facilitator_rows,
+        sheet_title=gettext_lazy("Accreditation sheet"),
+        filename_part="accreditation",
+        # The desk sheet has no chooser and no stored columns of its own.
+        default_keys=("name", "discount_kind", "discount_value", "discount_note"),
     )

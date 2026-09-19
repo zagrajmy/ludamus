@@ -11,7 +11,6 @@ from ludamus.pacts.discounts import (
     DiscountDTO,
     DiscountKind,
     DiscountMethod,
-    DiscountRosterEntryDTO,
     DiscountRuleDTO,
     DiscountSyncResultDTO,
     FacilitatorScheduleRow,
@@ -198,18 +197,12 @@ def _log(facilitator_id, old, new, *, event_id=1, user_id=7):
 
 
 class TestDiscountsService:
-    def test_list_roster_pairs_facilitators_with_their_discounts(self):
+    def test_list_discounts_reads_only_this_event(self):
         discount = _dto(1, facilitator_id=1)
         repo = FakeRepo(items=[discount, _dto(2, event_id=2, facilitator_id=2)])
-        facilitators = FakeFacilitators(list_items=[_list_item(pk=1), _list_item(pk=2)])
-        service = _service(repo=repo, facilitators=facilitators)
+        service = _service(repo=repo)
 
-        result = service.list_roster(1)
-
-        assert result == [
-            DiscountRosterEntryDTO(facilitator=_list_item(pk=1), discount=discount),
-            DiscountRosterEntryDTO(facilitator=_list_item(pk=2), discount=None),
-        ]
+        assert service.list_discounts(1) == [discount]
 
     def test_list_facilitator_schedule_reads_the_placed_program(self):
         row = FacilitatorScheduleRow(facilitator_id=1, session_count=2, minutes=90)

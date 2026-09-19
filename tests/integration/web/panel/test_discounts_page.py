@@ -813,3 +813,22 @@ class TestDiscountExportPageView:
             ["Alice", "", "", ""],
             ["Nobody", "", "", ""],
         ]
+
+    def test_get_with_columns_resolving_to_nothing_falls_back_to_the_sheet(
+        self, panel_client, event
+    ):
+        _make_facilitator(event)
+
+        response = panel_client.get(self.get_url(event), {"columns": ""})
+
+        assert_response(response, HTTPStatus.OK)
+        assert _sheet(response) == [_SHEET_HEADERS, ["Alice", "", "", ""]]
+
+    def test_get_narrows_the_rows_by_the_lists_search(self, panel_client, event):
+        _make_facilitator(event)
+        _make_facilitator(event, display_name="Nobody", slug="nobody")
+
+        response = panel_client.get(self.get_url(event), {"search": "Alice"})
+
+        assert_response(response, HTTPStatus.OK)
+        assert _sheet(response) == [_SHEET_HEADERS, ["Alice", "", "", ""]]

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from django.http import Http404
@@ -17,15 +16,14 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelAccessMixin,
     EventPanelRequest,
 )
-from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.mills.panel_columns import FIELD_KEY_PREFIX
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from django.http import HttpRequest
-    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import DependencyInjectorProtocol
 
@@ -58,22 +56,24 @@ def format_field_value(
     return by_value.get(value or "") or value or ""
 
 
-@dataclass(frozen=True)
-class AccreditationFilter:
-    """The `?accreditation=` value a list is filtered by, and its options."""
+def read_field_filters(request: HttpRequest) -> dict[int, str]:
+    # `?field_<pk>=value`, one entry per configurable column the organizer
+    # narrowed by. The pk is the mill's to resolve — a field this event does
+    # not have drops out there, not here.
+    return {
+        int(key.removeprefix(FIELD_KEY_PREFIX)): request.GET.get(key, "")
+        for key in request.GET
+        if key.startswith(FIELD_KEY_PREFIX)
+        and key.removeprefix(FIELD_KEY_PREFIX).isdigit()
+    }
 
-    value: str
-    options: list[tuple[str, _StrPromise]]
 
-
-def accreditation_filter(request: HttpRequest) -> AccreditationFilter:
-    # A tampered value falls back to "all", so no toolbar ever shows a
-    # selected option the list is not actually filtered by.
+def read_accreditation_filter(request: HttpRequest) -> str:
+    # A tampered value falls back to "all", so no toolbar ever shows a selected
+    # option the list is not actually filtered by. The options beside it are
+    # `ACCREDITATION_TYPE_CHOICES` — the list the form already renders.
     raw = request.GET.get("accreditation", "").strip()
-    return AccreditationFilter(
-        value=raw if raw in AccreditationType else "",
-        options=[(t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType],
-    )
+    return raw if raw in AccreditationType else ""
 
 
 class PanelRequest(EventPanelRequest):
