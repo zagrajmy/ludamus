@@ -249,6 +249,49 @@
   text-box: trim-both cap alphabetic;
 }
 
+/* A strip of labelled icon buttons that goes icon-only below sm: the glyph
+   carries the action and the text beside it gets the width back. The label is
+   `.btn-label` (templates and `tessera_button` both mark it) and goes sr-only
+   rather than hidden, so the button keeps its accessible name. The breakpoint
+   is decided here, once, for the panel header and the session modal's footer.
+
+   The first two rules hang off the same `:has(> svg)`, and must keep doing so.
+   A button with no icon has nothing to fall back on, so hiding its label
+   leaves a blank pill — which is what the moderation bar on proposal-detail
+   (Accept / Hold / Reject / Delete) would become. The same guard covers
+   `{% icon %}` returning "" for a missing icon in production.
+
+   `min-height` covers every button: an iconless one keeps its label and its
+   own width, but `py-2` alone leaves it 38px — under the tap-target floor,
+   and 6px shy of the squares it sits beside. A minimum rather than a height
+   so it never argues with `size-11` over the icon buttons.
+
+   `w-auto` runs to md, not sm: `tessera_button` stretches every form-submit
+   button by `max-md:w-full`, which is right in a body form and never right in
+   a strip. Deciding it here spares 22 header templates from each passing
+   `full_width_mobile=False`. */
+@utility btn-strip-compact {
+  @media (width < 40rem) {
+    .btn:has(> svg) .btn-label {
+      @apply sr-only;
+    }
+
+    .btn:has(> svg) {
+      @apply size-11 p-0;
+    }
+
+    .btn {
+      @apply min-h-11;
+    }
+  }
+
+  @media (width < 48rem) {
+    .btn {
+      @apply w-auto;
+    }
+  }
+}
+
 *,
 *::before,
 *::after {
