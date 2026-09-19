@@ -1,2 +1,15 @@
 [rituals]
-files = ["src/ludamus/edges/rituals"]
+modules = ["cabinet.rituals"]
+
+# Only what differs from cabinet's defaults; everything else follows the tome,
+# so a cabinet bump is not silently frozen out by a copied value.
+[cabinet]
+remote = "https-origin"
+sign_commits = false
+review_skill = ".claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
+
+# Job names in .github/workflows/ci.yml, matched by prefix. `test` covers
+# test-postgres/-unit/-e2e and the aggregator; `tingle` is left out on
+# purpose — it is continue-on-error and never turns the board red.
+[cabinet.ci]
+gate_checks = ["checks", "frontend-analysis", "test"]

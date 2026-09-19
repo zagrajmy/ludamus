@@ -50,7 +50,7 @@ const placeInGrid = (at: number): void => {
 // hides its rows with CSS instead (schedule-fold.ts) and still counts: the
 // programme has begun whether or not yesterday is open on screen.
 const shownRows = (): HTMLElement[] =>
-  [...document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")].filter(
+  [...document.querySelectorAll<HTMLElement>(".session-grid [data-session-wrapper]")].filter(
     (row) => !row.closest("[hidden]"),
   );
 

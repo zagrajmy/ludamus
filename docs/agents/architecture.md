@@ -2,8 +2,8 @@
 
 This doc maps the codebase: where each layer lives, which nouns own which
 pages and models, and how services are wired. The rules themselves (imports,
-file layout, slicing, patterns) live in the `glimpse` skill
-(`.claude/skills/glimpse/SKILL.md`) and are enforced by `importlinter`.
+file layout, slicing, patterns) live in the `glimpse` plugin skill (install
+steps in [LOCAL_DEV.md](../LOCAL_DEV.md)) and are enforced by `importlinter`.
 
 ## Layers
 

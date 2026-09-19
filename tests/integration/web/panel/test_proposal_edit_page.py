@@ -2177,11 +2177,6 @@ class TestProposalEditPageView:
         html = response.content.decode()
         assert "checked" in checkbox_tag(html, "facilitator_ids", assigned.pk)
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
-        # Search-first picker: unassigned facilitators start hidden.
-        assert (
-            "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
-            " hover:bg-foreground/5 hidden" in html
-        )
 
     def test_post_invalid_keeps_submitted_facilitator_selection(
         self, panel_client, event

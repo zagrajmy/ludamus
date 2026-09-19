@@ -15,7 +15,8 @@
             class="divide-y divide-border"
             aria-label="{{ t_programme_room_order }}">
             {% for row in programme_spaces %}
-                <li class="programme-space-node flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                <li data-programme-space-node
+                    class="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
                     {% if programme_spaces|length > 1 %}draggable="true"{% endif %}
                     data-space-id="{{ row.space.pk }}"
                     data-space-name="{{ row.space.name }}"
@@ -23,7 +24,8 @@
                     aria-setsize="{{ programme_spaces|length }}">
                     {% if programme_spaces|length > 1 %}
                         <button type="button"
-                                class="programme-drag-handle icon-btn shrink-0 cursor-move text-foreground-muted"
+                                data-programme-drag-handle
+                                class="icon-btn shrink-0 cursor-move text-foreground-muted"
                                 aria-label="{% blocktranslate with name=row.space.name %}Reorder {{ name }} in the programme — use the arrow keys{% endblocktranslate %}">
                             {% icon "bars-3" class="size-4" %}
                         </button>

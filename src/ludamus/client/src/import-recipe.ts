@@ -3,7 +3,7 @@
  *   - reveal the new-field setup when the target is a "New personal/session
  *     field…" option;
  *   - reveal the options block when the field type takes options;
- *   - auto-fill a name's slug (the .recipe-slug in the same [data-slug-scope])
+ *   - auto-fill a name's slug (the [data-recipe-slug] in the same [data-slug-scope])
  *     until the operator types into the slug directly, OR the row is confirmed
  *     (slug stays locked); emptying the slug field unlocks auto-sync again.
  *     Applies to field setup + each entity row;
@@ -12,22 +12,22 @@
  *   - reveal the track/category entity editor for those targets.
  *
  * Markup (one per recipe row, keyed by a shared data-row):
- *   <select class="recipe-target" data-row="0">…</select>
+ *   <select data-recipe-target data-row="0">…</select>
  *   <div class="recipe-setup" data-row="0">
  *     <div data-slug-scope>
- *       <input class="recipe-name"><input class="recipe-slug">
+ *       <input data-recipe-name><input data-recipe-slug>
  *     </div>
- *     <select class="recipe-fieldtype" data-row="0">…</select>
- *     <div class="recipe-options" data-row="0">…</div>
+ *     <select data-recipe-fieldtype data-row="0">…</select>
+ *     <div data-recipe-options data-row="0">…</div>
  *   </div>
- *   <div class="recipe-timeslots" data-row="0">
- *     <div class="ts-option"><div class="ts-windows">
- *       <div class="ts-window">…<button class="ts-remove">…</div>
- *     </div><button class="ts-add">…</button></div>
+ *   <div data-recipe-timeslots data-row="0">
+ *     <div data-ts-option><div data-ts-windows>
+ *       <div data-ts-window>…<button data-ts-remove>…</div>
+ *     </div><button data-ts-add>…</button></div>
  *   </div>
- *   <div class="recipe-entities" data-row="0">
- *     <div class="ent-option" data-slug-scope>
- *       <input class="recipe-name"><input class="recipe-slug">
+ *   <div data-recipe-entities data-row="0">
+ *     <div data-slug-scope>
+ *       <input data-recipe-name><input data-recipe-slug>
  *     </div>…
  *   </div>
  */
@@ -53,7 +53,7 @@ function slugify(value: string): string {
 // The slug paired with a name lives in the same [data-slug-scope] (the field
 // setup, or one track/category row).
 function pairedSlug(name: HTMLElement): HTMLInputElement | null {
-  const slug = name.closest("[data-slug-scope]")?.querySelector(".recipe-slug");
+  const slug = name.closest("[data-slug-scope]")?.querySelector("[data-recipe-slug]");
   return slug instanceof HTMLInputElement ? slug : null;
 }
 
@@ -68,29 +68,29 @@ function syncTarget(select: HTMLSelectElement): void {
     "is-open",
     NEW_FIELD_TARGETS.has(select.value),
   );
-  rowElement(".recipe-timeslots", row)?.classList.toggle(
+  rowElement("[data-recipe-timeslots]", row)?.classList.toggle(
     "hidden",
     select.value !== TIME_SLOTS_TARGET,
   );
-  rowElement(".recipe-entities", row)?.classList.toggle(
+  rowElement("[data-recipe-entities]", row)?.classList.toggle(
     "hidden",
     !ENTITY_TARGETS.has(select.value),
   );
-  rowElement(".recipe-durations", row)?.classList.toggle(
+  rowElement("[data-recipe-durations]", row)?.classList.toggle(
     "hidden",
     select.value !== DURATION_TARGET,
   );
-  rowElement(".recipe-overrides", row)?.classList.toggle("hidden", select.value === "ignore");
+  rowElement("[data-recipe-overrides]", row)?.classList.toggle("hidden", select.value === "ignore");
 }
 
 function syncFieldType(select: HTMLSelectElement): void {
-  const options = rowElement(".recipe-options", select.dataset.row ?? "");
+  const options = rowElement("[data-recipe-options]", select.dataset.row ?? "");
   options?.classList.toggle("hidden", select.value === "text");
 }
 
 function addWindow(button: HTMLElement): void {
-  const windows = button.closest(".ts-option")?.querySelector(".ts-windows");
-  const last = windows?.querySelector<HTMLElement>(".ts-window:last-child");
+  const windows = button.closest("[data-ts-option]")?.querySelector("[data-ts-windows]");
+  const last = windows?.querySelector<HTMLElement>("[data-ts-window]:last-child");
   if (!windows || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
   for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
@@ -100,10 +100,10 @@ function addWindow(button: HTMLElement): void {
 }
 
 function removeWindow(button: HTMLElement): void {
-  const window_ = button.closest<HTMLElement>(".ts-window");
+  const window_ = button.closest<HTMLElement>("[data-ts-window]");
   const windows = window_?.parentElement;
   if (!window_ || !windows) return;
-  if (windows.querySelectorAll(".ts-window").length > 1) {
+  if (windows.querySelectorAll("[data-ts-window]").length > 1) {
     window_.remove();
   } else {
     for (const input of window_.querySelectorAll<HTMLInputElement>("input")) {
@@ -114,9 +114,9 @@ function removeWindow(button: HTMLElement): void {
 
 function addOverride(button: HTMLElement): void {
   const rows = button
-    .closest<HTMLElement>(".recipe-overrides")
-    ?.querySelector<HTMLElement>(".ov-rows");
-  const last = rows?.querySelector<HTMLElement>(".ov-row:last-child");
+    .closest<HTMLElement>("[data-recipe-overrides]")
+    ?.querySelector<HTMLElement>("[data-ov-rows]");
+  const last = rows?.querySelector<HTMLElement>("[data-ov-row]:last-child");
   if (!rows || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
   for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
@@ -126,10 +126,10 @@ function addOverride(button: HTMLElement): void {
 }
 
 function removeOverride(button: HTMLElement): void {
-  const row = button.closest<HTMLElement>(".ov-row");
+  const row = button.closest<HTMLElement>("[data-ov-row]");
   const rows = row?.parentElement;
   if (!row || !rows) return;
-  if (rows.querySelectorAll(".ov-row").length > 1) {
+  if (rows.querySelectorAll("[data-ov-row]").length > 1) {
     row.remove();
   } else {
     for (const input of row.querySelectorAll<HTMLInputElement>("input")) {
@@ -141,39 +141,38 @@ function removeOverride(button: HTMLElement): void {
 document.addEventListener("change", (e) => {
   const select = e.target;
   if (!(select instanceof HTMLSelectElement)) return;
-  if (select.classList.contains("recipe-target")) syncTarget(select);
-  else if (select.classList.contains("recipe-fieldtype")) syncFieldType(select);
+  if ("recipeTarget" in select.dataset) syncTarget(select);
+  else if ("recipeFieldtype" in select.dataset) syncFieldType(select);
 });
 
 document.addEventListener("input", (e) => {
   const input = e.target;
   if (!(input instanceof HTMLInputElement)) return;
-  if (input.classList.contains("recipe-name")) syncSlug(input);
-  else if (input.classList.contains("recipe-slug"))
-    input.dataset.edited = input.value ? "true" : "";
+  if ("recipeName" in input.dataset) syncSlug(input);
+  else if ("recipeSlug" in input.dataset) input.dataset.edited = input.value ? "true" : "";
 });
 
 document.addEventListener("click", (e) => {
   if (!(e.target instanceof HTMLElement)) return;
-  const tsAdd = e.target.closest<HTMLElement>(".ts-add");
+  const tsAdd = e.target.closest<HTMLElement>("[data-ts-add]");
   if (tsAdd) {
     e.preventDefault();
     addWindow(tsAdd);
     return;
   }
-  const tsRemove = e.target.closest<HTMLElement>(".ts-remove");
+  const tsRemove = e.target.closest<HTMLElement>("[data-ts-remove]");
   if (tsRemove) {
     e.preventDefault();
     removeWindow(tsRemove);
     return;
   }
-  const ovAdd = e.target.closest<HTMLElement>(".ov-add");
+  const ovAdd = e.target.closest<HTMLElement>("[data-ov-add]");
   if (ovAdd) {
     e.preventDefault();
     addOverride(ovAdd);
     return;
   }
-  const ovRemove = e.target.closest<HTMLElement>(".ov-remove");
+  const ovRemove = e.target.closest<HTMLElement>("[data-ov-remove]");
   if (ovRemove) {
     e.preventDefault();
     removeOverride(ovRemove);
@@ -181,10 +180,10 @@ document.addEventListener("click", (e) => {
 });
 
 function initRecipe(): void {
-  for (const target of document.querySelectorAll<HTMLSelectElement>(".recipe-target")) {
+  for (const target of document.querySelectorAll<HTMLSelectElement>("[data-recipe-target]")) {
     syncTarget(target);
   }
-  for (const fieldType of document.querySelectorAll<HTMLSelectElement>(".recipe-fieldtype")) {
+  for (const fieldType of document.querySelectorAll<HTMLSelectElement>("[data-recipe-fieldtype]")) {
     syncFieldType(fieldType);
   }
   // Lock every populated slug in a confirmed row from name-driven auto-sync.
@@ -193,7 +192,7 @@ function initRecipe(): void {
   for (const row of document.querySelectorAll<HTMLElement>(
     "[data-recipe-row][data-confirmed='true']",
   )) {
-    for (const slug of row.querySelectorAll<HTMLInputElement>(".recipe-slug")) {
+    for (const slug of row.querySelectorAll<HTMLInputElement>("[data-recipe-slug]")) {
       if (slug.value) slug.dataset.edited = "true";
     }
   }

@@ -51,7 +51,7 @@ def tessera_copy_popover() -> str:
 _VARIANT_CLASSES = {
     "button": "btn btn-secondary text-sm w-full",
     "menu-item": (
-        "relative w-full px-3 py-2 text-sm text-left text-foreground "
+        "relative w-full px-3 py-2 rounded-lg text-sm text-left text-foreground "
         "hover:bg-bg-tertiary focus-visible:bg-bg-tertiary"
     ),
 }

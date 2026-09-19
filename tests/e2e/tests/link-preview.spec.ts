@@ -17,10 +17,23 @@ test.describe("Link preview metadata", () => {
     );
   });
 
-  test("serves the brand card at 1200x630", async ({ request, baseURL }) => {
-    const response = await request.get(new URL("/static/og-image.jpg", baseURL).toString());
+  test("serves the brand card at 1200x630", async ({ page, request, baseURL }) => {
+    const url = new URL("/static/og-image.jpg", baseURL).toString();
+    const response = await request.get(url);
 
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("image/jpeg");
+
+    // Crawlers reject an unfurl whose image is not the ratio they expect, so
+    // decode it rather than trusting the file the build task left behind.
+    await page.goto("/");
+    const size = await page.evaluate(async (source) => {
+      const image = new Image();
+      image.src = source;
+      await image.decode();
+      return { height: image.naturalHeight, width: image.naturalWidth };
+    }, url);
+
+    expect(size).toEqual({ height: 630, width: 1200 });
   });
 });

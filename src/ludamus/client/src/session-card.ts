@@ -5,7 +5,7 @@
 for (const tabPane of document.querySelectorAll<HTMLElement>(".tab-panel")) {
   let position = 1;
   for (const badge of tabPane.querySelectorAll<HTMLElement>(
-    ".waiting-list-row .waiting-position",
+    "[data-waiting-list-row] [data-waiting-position]",
   )) {
     const n = position++;
     badge.textContent = String(n);

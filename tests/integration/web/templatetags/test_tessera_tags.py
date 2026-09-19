@@ -893,19 +893,25 @@ class TestActionDropdown:
                 "{% endtessera_action_dropdown %}"
             ).render(Context())
 
-    @pytest.mark.parametrize(
-        "item",
-        (
-            '{% tessera_action_dropdown_item "Missing" %}',
-            '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}',
-        ),
-    )
-    def test_item_requires_exactly_one_destination(self, item: str) -> None:
-        with pytest.raises(TemplateSyntaxError, match="exactly one of href or form"):
+    def test_item_without_destination_is_a_plain_button(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "QR" data_show_qr="qr-modal" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+        assert '<button type="button" class="' in html
+        assert 'data-show-qr="qr-modal"' in html
+        assert "form=" not in html
+
+    def test_item_rejects_href_and_form_together(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="href or form, not both"):
             Template(
                 "{% load tessera %}"
                 '{% tessera_action_dropdown id="m" %}t'
-                f"{{% action_dropdown_menu %}}{item}"
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}'
                 "{% endtessera_action_dropdown %}"
             ).render(Context())
 

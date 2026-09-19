@@ -17,7 +17,7 @@ message: |
   Icon-only button needs an accessible name.
   An .icon-btn renders only an icon, so screen readers have nothing to announce.
   Give it a visible-to-AT label the way every other .icon-btn does:
-    <button type="button" class="icon-btn icon-btn-danger">
+    <button type="button" class="icon-btn">
       {% icon "trash" class="w-3.5 h-3.5" %}
       <span class="sr-only">{% translate "Delete" %}</span>
     </button>
