@@ -6,9 +6,13 @@ to absorb a per-facilitator query would hide the regression it exists to catch.
 
 from http import HTTPStatus
 
+import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+
+from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
+from ludamus.links.db.django.models import NotificationSubscription
 
 # Five reads (organizers, tracks, track managers, facilitator-less items, the
 # event totals) plus the panel chrome.
@@ -16,6 +20,19 @@ _DASHBOARD_QUERY_LIMIT = 21
 # Five reads (facilitators of the block, their session rows, track names,
 # co-facilitator names, facilitator-less items) plus the panel chrome.
 _TRACK_VIEW_QUERY_LIMIT = 21
+
+
+@pytest.fixture(autouse=True)
+def _subscribed_session(authenticated_client, active_user, sphere):
+    # The visit middleware subscribes and flags the session once per session;
+    # seeding both keeps that write out of the measured requests, which must
+    # stay free to catch first-request cost.
+    NotificationSubscription.objects.create(
+        user=active_user, sphere=sphere, source="visit"
+    )
+    session = authenticated_client.session
+    session[SUBSCRIBED_SPHERES_SESSION_KEY] = [sphere.pk]
+    session.save()
 
 
 def _query_count(client, url):
