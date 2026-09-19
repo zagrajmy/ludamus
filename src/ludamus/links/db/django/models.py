@@ -1693,7 +1693,6 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    ip_address = models.GenericIPAddressField()
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:

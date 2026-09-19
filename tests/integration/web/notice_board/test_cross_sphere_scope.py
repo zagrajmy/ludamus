@@ -58,7 +58,7 @@ class TestForeignSphereEncounter:
     def test_cancel_rsvp_404_leaves_the_signup_alone(
         self, authenticated_client, active_user, foreign_encounter
     ):
-        foreign_encounter.rsvps.create(user=active_user, ip_address="10.0.0.1")
+        foreign_encounter.rsvps.create(user=active_user)
 
         response = authenticated_client.post(
             reverse(
