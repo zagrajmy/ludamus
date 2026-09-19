@@ -43,8 +43,9 @@
                            href="{{ log_filter_urls.success }}">{% translate "Successes" %}</a>
                     </nav>
                     <form method="get" class="flex items-center gap-2">
-                        {% if log_status and log_status != 'all' %}<input type="hidden" name="status" value="{{ log_status }}">{% endif %}
-                        <label for="log-search" class="sr-only">{% translate "Search by title or display name" %}</label>
+                        {% if log_status and log_status != "all" %}<input type="hidden" name="status" value="{{ log_status }}">{% endif %}
+                        <label for="log-search"
+                               class="sr-only">{% translate "Search by title or display name" %}</label>
                         {% translate "Search title or display name" as t_search_placeholder %}
                         {% include "components/text-field.html" with name="search" id="log-search" input_type="search" value=log_search placeholder=t_search_placeholder class="w-auto" only %}
                         <button type="submit" class="btn btn-secondary text-sm">{% translate "Search" %}</button>
@@ -135,7 +136,8 @@
                                                       action="{% url 'panel:import-log-reimport' slug=current_event.slug pk=active_integration.pk %}">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                                                    <button type="submit" class="btn btn-secondary inline-flex items-center">
+                                                    <button type="submit"
+                                                            class="btn btn-secondary inline-flex items-center">
                                                         {% icon "arrow-path" class="w-4 h-4 mr-1" %}
                                                         {% translate "Reimport" %}
                                                     </button>
