@@ -355,6 +355,41 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         save_replacing_files(session, data)
 
     @staticmethod
+    def set_schedule_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        session_pk: int | None = None,
+    ) -> int:
+        """Set the schedule confirmation over one facilitator's placed sessions.
+
+        Scoping to placed sessions is what keeps an unplaced one unconfirmable.
+        `contact_email` narrows to one address (including the empty one),
+        `session_pk` to one session.
+
+        Returns:
+            How many sessions the filter matched.
+        """
+        # One statement per column, whatever the scope — never a save loop.
+        # The agenda-item column is mirrored until it is dropped.
+        queryset = Session.objects.filter(
+            event_id=event_pk,
+            facilitators__pk=facilitator_pk,
+            agenda_item__isnull=False,
+        )
+        if contact_email is not None:
+            queryset = queryset.filter(contact_email=contact_email)
+        if session_pk is not None:
+            queryset = queryset.filter(pk=session_pk)
+        with transaction.atomic():
+            AgendaItem.objects.filter(session__in=queryset).update(
+                session_confirmed=confirmed
+            )
+            return queryset.update(schedule_confirmed=confirmed)
+
+    @staticmethod
     def soft_delete(pk: int) -> None:
         # Reach through `all_objects` so an already-dead row raises NotFound
         # instead of silently re-stamping `deleted_at`.
@@ -713,8 +748,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 "contact_email",
                 "category__name",
                 "facilitators__pk",
+                "schedule_confirmed",
                 "agenda_item__pk",
-                "agenda_item__session_confirmed",
                 "agenda_item__start_time",
                 "agenda_item__end_time",
                 "agenda_item__space__name",
@@ -729,8 +764,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(row["status"]),
                 contact_email=row["contact_email"],
                 category_name=row["category__name"] or "",
-                agenda_item_pk=row["agenda_item__pk"],
-                is_confirmed=bool(row["agenda_item__session_confirmed"]),
+                is_scheduled=bool(row["agenda_item__pk"]),
+                is_confirmed=row["schedule_confirmed"],
                 start_time=row["agenda_item__start_time"],
                 end_time=row["agenda_item__end_time"],
                 room_name=row["agenda_item__space__name"] or "",

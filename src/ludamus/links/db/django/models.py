@@ -1102,6 +1102,9 @@ class Session(SoftDeleteModel):
         choices=[(item.value, item.name) for item in SessionStatus],
         default=SessionStatus.PENDING,
     )
+    # The facilitator agreed to the placed time and room. Mirrors
+    # AgendaItem.session_confirmed until that column is dropped.
+    schedule_confirmed = models.BooleanField(default=False)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
@@ -1233,6 +1236,11 @@ class AgendaItem(models.Model):
             f"{self.session.title} by {self.session.facilitator_name} "
             f"({self.session_confirmed})"
         )
+
+    @property
+    def schedule_confirmed(self) -> bool:
+        # What AgendaItemDTO reads; the session owns the flag.
+        return self.session.schedule_confirmed
 
     def overlaps_with(self, other_item: AgendaItem) -> bool:
         return bool(

@@ -363,7 +363,7 @@ class TestProposalDetailPageView:
                 "agenda_item": AgendaItemDTO(
                     end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
                     pk=agenda_item.pk,
-                    session_confirmed=False,
+                    schedule_confirmed=False,
                     start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
                     space_id=space.pk,
                     space_name="Main Hall",
@@ -643,7 +643,7 @@ class TestProposalDetailPageView:
                 "agenda_item": AgendaItemDTO(
                     end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
                     pk=agenda_item.pk,
-                    session_confirmed=False,
+                    schedule_confirmed=False,
                     start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
                     space_id=space.pk,
                     space_name="Main Hall",

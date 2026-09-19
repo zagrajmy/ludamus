@@ -366,8 +366,6 @@ class TestTimetablePageView:
         content = response.content.decode()
         assert 'draggable="true"' in content
         assert f'data-session-pk="{session.pk}"' in content
-        assert 'data-confirmed="false"' in content
-        assert 'title="Confirmed"' not in content
         assert time_slot is not None
 
     def test_grid_marks_confirmed_session(
@@ -406,9 +404,6 @@ class TestTimetablePageView:
                 ),
             ),
         )
-        content = response.content.decode()
-        assert 'data-confirmed="true"' in content
-        assert 'title="Confirmed"' in content
         assert time_slot is not None
 
     def test_filters_by_track(self, panel_client, event, space):

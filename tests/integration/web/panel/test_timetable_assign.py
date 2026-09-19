@@ -178,6 +178,7 @@ class TestTimetableAssignView:
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
+        assert session.schedule_confirmed is True
         assert session.agenda_item.session_confirmed is True
 
     def test_assign_leaves_unconfirmed_when_auto_confirm_off(
@@ -204,6 +205,7 @@ class TestTimetableAssignView:
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
+        assert session.schedule_confirmed is False
         assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")

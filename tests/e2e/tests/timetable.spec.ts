@@ -898,19 +898,19 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Schedule not confirmed")).toBeVisible({ timeout: 5000 });
 
     // Confirm — the button flips to the "Undo confirmation" state.
-    await leftPane.getByRole("button", { name: "Confirm program item" }).click();
+    await leftPane.getByRole("button", { name: "Confirm schedule" }).click();
     await expect(
       leftPane.getByRole("button", {
         name: "Undo confirmation",
       }),
     ).toBeVisible({ timeout: 5000 });
 
-    // Undo — the button returns to the "Confirm program item" state.
+    // Undo — the button returns to the "Confirm schedule" state.
     await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
+    await expect(leftPane.getByRole("button", { name: "Confirm schedule" })).toBeVisible({
       timeout: 5000,
     });
 

@@ -575,7 +575,7 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            agenda_item_pk = int(self.request.POST["agenda_item_pk"])
+            session_pk = int(self.request.POST["session_pk"])
         except KeyError, ValueError:
             return HttpResponse(status=422)
         confirmed_raw = self.request.POST.get("confirmed")
@@ -585,7 +585,7 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
         try:
             self.request.services.session_confirmation.set_session_confirmed(
                 event_pk=current_event.pk,
-                agenda_item_pk=agenda_item_pk,
+                session_pk=session_pk,
                 confirmed=confirmed_raw == "true",
             )
         except NotFoundError:

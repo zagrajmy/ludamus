@@ -485,6 +485,7 @@ class TestProposalAcceptPageView:
         assert session.facilitator_name == active_user.name
         assert session.agenda_item.space == space
         assert session.agenda_item.session == session
+        assert session.schedule_confirmed
         assert session.agenda_item.session_confirmed
         assert session.agenda_item.start_time == time_slot.start_time
         assert session.agenda_item.end_time == time_slot.end_time

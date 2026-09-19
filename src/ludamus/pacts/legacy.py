@@ -198,7 +198,7 @@ class AgendaItemDTO(BaseModel):
 
     end_time: datetime
     pk: int
-    session_confirmed: bool
+    schedule_confirmed: bool
     start_time: datetime
     space_id: int = 0
     space_name: str = ""
@@ -406,6 +406,7 @@ class SessionData(TypedDict, total=False):
     min_age: int
     participants_limit: int
     presenter_id: int | None
+    schedule_confirmed: bool
     facilitator_name: str
     slug: str
     status: SessionStatus
@@ -421,6 +422,7 @@ class SessionUpdateData(TypedDict, total=False):
     duration: str
     min_age: int
     participants_limit: int
+    schedule_confirmed: bool
     slug: str
     status: SessionStatus
     title: str
@@ -863,6 +865,15 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
     @staticmethod
+    def set_schedule_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        session_pk: int | None = None,
+    ) -> int: ...
+    @staticmethod
     def soft_delete(pk: int) -> None: ...
     @staticmethod
     def restore(pk: int, event_pk: int) -> None: ...
@@ -1024,7 +1035,7 @@ class ConfirmationSessionRow(TypedDict):
     status: SessionStatus
     contact_email: str
     category_name: str
-    agenda_item_pk: int | None
+    is_scheduled: bool
     is_confirmed: bool
     start_time: datetime | None
     end_time: datetime | None
@@ -1059,15 +1070,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
     @staticmethod
     def count_event_totals(event_pk: int) -> ConfirmationTotalsRow: ...
-    @staticmethod
-    def set_confirmed_for_facilitator(
-        *,
-        event_pk: int,
-        facilitator_pk: int,
-        confirmed: bool,
-        contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
-    ) -> int: ...
     @staticmethod
     def count_without_facilitator(
         event_pk: int, track_pk: int | None = None

@@ -38,7 +38,7 @@ def _make_item(**overrides):
         "space_id": 1,
         "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
         "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "session_confirmed": False,
+        "schedule_confirmed": False,
     }
     defaults.update(overrides)
     return AgendaItemDTO(**defaults)
@@ -453,34 +453,46 @@ class TestSessionConfirmation:
         return event
 
     def test_confirm_persists_true(self, service, transaction, agenda_items, sessions):
-        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        agenda_items.read_by_session.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
-        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+        service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
         transaction.atomic.assert_called_once_with()
+        sessions.update.assert_called_once_with(3, {"schedule_confirmed": True})
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
 
     def test_unconfirm_persists_false(
         self, service, transaction, agenda_items, sessions
     ):
-        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        agenda_items.read_by_session.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
-        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
+        service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=False)
 
         transaction.atomic.assert_called_once_with()
+        sessions.update.assert_called_once_with(3, {"schedule_confirmed": False})
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
 
-    def test_rejects_agenda_item_from_another_event(
-        self, service, agenda_items, sessions
-    ):
-        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+    def test_rejects_session_from_another_event(self, service, agenda_items, sessions):
         sessions.read_event.return_value = self._event(2)
 
         with pytest.raises(NotFoundError):
-            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
+        sessions.update.assert_not_called()
+        agenda_items.update.assert_not_called()
+
+    def test_rejects_a_session_not_on_the_timetable(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read_by_session.return_value = None
+        sessions.read_event.return_value = self._event(1)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        sessions.update.assert_not_called()
         agenda_items.update.assert_not_called()
 
 
@@ -660,7 +672,12 @@ class TestProposalAcceptanceService:
             7, _NOW, _NOW, exclude_session_pk=5
         )
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
         )
         agenda_items.create.assert_called_once_with(
             {
@@ -713,7 +730,12 @@ class TestProposalAcceptanceService:
         )
 
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
         )
         spheres.manager_role.assert_not_called()
 

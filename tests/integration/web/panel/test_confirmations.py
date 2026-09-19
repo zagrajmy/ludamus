@@ -74,7 +74,7 @@ def _session_dto(session, item=None, **overrides):
             "room_name": item.space.name if item else "",
             "start_time": item.start_time if item else None,
             "end_time": item.end_time if item else None,
-            "agenda_item_pk": item.pk if item else None,
+            "is_scheduled": item is not None,
             "is_confirmed": bool(item and item.session_confirmed),
             "co_facilitator_names": [],
             "other_track_names": [],
