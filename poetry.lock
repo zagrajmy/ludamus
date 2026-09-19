@@ -263,6 +263,27 @@ linting = ["black", "isort", "pycodestyle"]
 testing = ["pytest (>=6,!=7.0.0)", "pytest-xdist (>=2)"]
 
 [[package]]
+name = "cabinet"
+version = "0.2.0"
+description = "A vekna tome: pull request maintenance rituals for GitHub and GitLab"
+optional = false
+python-versions = ">=3.14,<3.15"
+groups = ["dev"]
+files = []
+develop = false
+
+[package.dependencies]
+claude-agent-sdk = ">=0.2,<1.0"
+pydantic = ">=2.12.5,<3.0.0"
+vekna = {version = ">=0.7.0,<0.8.0", extras = ["trial"]}
+
+[package.source]
+type = "git"
+url = "https://github.com/fancysnake/cabinet.git"
+reference = "v0.2.0"
+resolved_reference = "cae3beb8d6f2df95687e7a99bd9aecf722ab5193"
+
+[[package]]
 name = "cachecontrol"
 version = "0.14.4"
 description = "httplib2 caching for requests"
@@ -5180,27 +5201,25 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 
 [[package]]
 name = "vekna"
-version = "0.6.0"
+version = "0.7.0"
 description = "Run coding agents as rituals: ordinary Python programs whose steps you control"
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = "<4,>=3.11"
 groups = ["dev"]
-files = []
-develop = false
+files = [
+    {file = "vekna-0.7.0-py3-none-any.whl", hash = "sha256:366a1379bfb4719eea768b1a351fedb7ebe531c1502c0edc8e19b30c421cd456"},
+    {file = "vekna-0.7.0.tar.gz", hash = "sha256:bb12310ba7c33a9b4b7eb18aa92e0f6d68e40ea79dd34ae8dec267a108416897"},
+]
 
 [package.dependencies]
 claude-agent-sdk = ">=0.2,<1.0"
 click = ">=8.3.2,<9.0.0"
 pydantic = ">=2.12.5,<3.0.0"
+pytest = {version = ">=8.0,<10.0", optional = true, markers = "extra == \"trial\""}
+typing-extensions = ">=4.16,<5.0"
 
 [package.extras]
 trial = ["pytest (>=8.0,<10.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/fancysnake/vekna.git"
-reference = "v0.6.0"
-resolved_reference = "783e24bd102a47c9db49c49528c0c3264db563fd"
 
 [[package]]
 name = "vulture"
@@ -5381,4 +5400,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "9dfb2bba350d9c304a400589ddee8b288bba857db66957c5acc34bdf15441f9a"
+content-hash = "af039b7eccff81982ccab750c35cde93b32823ae316b2a3e424e12fb423003a4"
