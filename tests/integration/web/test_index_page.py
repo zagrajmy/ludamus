@@ -99,10 +99,11 @@ class TestIndexRedirectView:
         )
 
 
+@pytest.mark.usefixtures("_on_a_sphere_domain")
 class TestEventsPageView:
     URL = reverse("web:index")
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _on_a_sphere_domain(self, client, non_root_sphere):
         # The root sphere's front door is the landing; a feed needs a non_root_sphere.
         client.defaults["HTTP_HOST"] = non_root_sphere.site.domain
@@ -600,10 +601,11 @@ def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine
     )
 
 
+@pytest.mark.usefixtures("_on_a_sphere_domain")
 class TestEventsPageFeed:
     URL = reverse("web:index")
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _on_a_sphere_domain(self, client, non_root_sphere):
         # The root sphere's front door is the landing; a feed needs a non_root_sphere.
         client.defaults["HTTP_HOST"] = non_root_sphere.site.domain

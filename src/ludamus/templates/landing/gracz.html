@@ -15,7 +15,8 @@
         </p>
         <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
             {% if encounters_enabled %}
-                <a class="btn btn-primary" href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
+                <a class="btn btn-primary"
+                   href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
             {% endif %}
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
