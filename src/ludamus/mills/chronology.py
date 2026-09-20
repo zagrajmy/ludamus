@@ -253,6 +253,10 @@ class ProposalAcceptanceService:
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
         time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
+        # Same rule as assign_session: the event decides whether a first
+        # placement counts as agreed. Acceptance is always a first placement,
+        # so the move exemption that path carries does not apply here.
+        confirmed = self._sessions.read_event(session_id).auto_confirm_sessions
         with self._transaction.atomic():
             if self._agenda_items.list_overlapping_in_space(
                 space_id,
@@ -268,14 +272,14 @@ class ProposalAcceptanceService:
                 {
                     "status": SessionStatus.ACCEPTED,
                     "facilitator_name": session.facilitator_name,
-                    "schedule_confirmed": True,
+                    "schedule_confirmed": confirmed,
                 },
             )
             self._agenda_items.create(
                 {
                     "space_id": space_id,
                     "session_id": session_id,
-                    "session_confirmed": True,
+                    "session_confirmed": confirmed,
                     "start_time": time_slot.start_time,
                     "end_time": time_slot.end_time,
                 }

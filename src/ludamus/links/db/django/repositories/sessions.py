@@ -765,7 +765,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 contact_email=row["contact_email"],
                 category_name=row["category__name"] or "",
                 is_scheduled=bool(row["agenda_item__pk"]),
-                is_confirmed=row["schedule_confirmed"],
+                # Confirmation only means anything about a placed session; the
+                # dashboard totals count over agenda items, so an unplaced
+                # session carrying a stale flag would make the two disagree.
+                is_confirmed=bool(row["agenda_item__pk"]) and row["schedule_confirmed"],
                 start_time=row["agenda_item__start_time"],
                 end_time=row["agenda_item__end_time"],
                 room_name=row["agenda_item__space__name"] or "",

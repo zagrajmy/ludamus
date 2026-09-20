@@ -659,6 +659,7 @@ class TestProposalAcceptanceService:
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto()
         spheres.manager_role.return_value = SphereRole.MANAGER
@@ -689,6 +690,40 @@ class TestProposalAcceptanceService:
             }
         )
         transaction.atomic.assert_called_once_with()
+
+    def test_accept_session_leaves_schedule_unconfirmed_without_auto_confirm(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=False)
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
+        )
+
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": False,
+            },
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": False,
+                "start_time": _NOW,
+                "end_time": _NOW,
+            }
+        )
 
     def test_accept_session_raises_on_space_time_conflict(
         self, service, sessions, agenda_items, active_users, spheres
@@ -722,6 +757,7 @@ class TestProposalAcceptanceService:
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
 

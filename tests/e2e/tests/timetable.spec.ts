@@ -923,6 +923,30 @@ test.describe("Timetable", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
+  test("grid card marks confirmation and arms the move guard", async ({ page }) => {
+    // Read-only against the seed: "Overflow Demo Game" is placed and
+    // confirmed, "Misplaced Demo Game" placed and not. Asserting both pins
+    // the attribute to the flag rather than to the markup existing at all.
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const confirmed = page.locator(".timetable-session", { hasText: "Overflow Demo Game" });
+    await expect(confirmed).toHaveAttribute("data-confirmed", "true");
+    await expect(confirmed.getByTitle("Schedule confirmed")).toBeVisible();
+
+    const unconfirmed = page.locator(".timetable-session", { hasText: "Misplaced Demo Game" });
+    await expect(unconfirmed).toHaveAttribute("data-confirmed", "false");
+    await expect(unconfirmed.getByTitle("Schedule confirmed")).toHaveCount(0);
+
+    // data-confirmed is what submitPlacement reads to decide whether to gate a
+    // drop; the message it shows is carried on the grid, not the card.
+    const grid = page.locator("#timetable-grid");
+    await expect(grid).toHaveAttribute(
+      "data-confirm-move",
+      /Moving it will clear the confirmation\./,
+    );
+    await expect(grid).toHaveAttribute("data-confirm-move-action", "Move");
+  });
+
   // --- Conflict Panel ---
 
   test("conflict panel loads and shows conflict status", async ({ page }) => {

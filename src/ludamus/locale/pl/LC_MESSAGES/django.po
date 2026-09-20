@@ -10189,7 +10189,6 @@ msgid ""
 "confirmation."
 msgstr ""
 "Termin tego punktu programu jest potwierdzony. Przeniesienie go cofnie "
-"potwierdzenie.Ten punkt programu jest potwierdzony. Przeniesienie usunie "
 "potwierdzenie."
 
 #: src/ludamus/templates/panel/timetable.html
