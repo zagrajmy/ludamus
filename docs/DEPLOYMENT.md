@@ -107,9 +107,50 @@ must hold:
 
 - SSL/TLS mode **Full (strict)** — anything else loops with
   `SECURE_SSL_REDIRECT`.
-- Origin firewalled to [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
-  on 80/443, so nobody can bypass the proxy by hitting the VPS address.
+- Origin locked to [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+  so nobody can bypass the proxy by hitting the VPS address. Done in Traefik,
+  not the host firewall, because the same Coolify box serves other domains
+  that are not on Cloudflare (see below).
 - Mail records (MX, SPF, DKIM) stay DNS-only; Cloudflare does not proxy mail.
+
+The origin lock is a Traefik `ipAllowList` middleware scoped to this app's
+routers. Coolify: Servers → the server → Proxy → Dynamic Configurations →
+add `cloudflare.yaml`:
+
+```yaml
+http:
+  middlewares:
+    cloudflare-only:
+      ipAllowList:
+        sourceRange:
+          # paste the current lists from https://www.cloudflare.com/ips-v4
+          # and https://www.cloudflare.com/ips-v6
+          - 173.245.48.0/20
+          - 2400:cb00::/32
+```
+
+Then in the ludamus application → Advanced → Container Labels, prepend the
+middleware on every `https-N` router whose `Host` rule is a Cloudflare-proxied
+domain (Coolify emits one `http-N`/`https-N` pair per FQDN):
+
+```text
+traefik.http.routers.https-0-<uuid>.middlewares=cloudflare-only@file,gzip
+```
+
+Leave `http-N` routers alone (they only redirect to HTTPS) and leave any
+router for a non-proxied domain alone, or it 403s for everyone. Redeploy.
+Verify from outside the box:
+
+```bash
+curl -sI https://<domain>/healthz/                                     # 200
+curl -sk -o /dev/null -w '%{http_code}\n' \
+  --resolve <domain>:443:<vps-ip> https://<domain>/                    # 403
+```
+
+A stale range list fails closed (visitors from a new Cloudflare edge get
+403), so refresh the YAML when Cloudflare announces a change. Let's Encrypt
+HTTP-01 renewals still work: the challenge arrives through Cloudflare.
+Uptime monitors must use the domain, not the VPS address.
 
 Because of this, every request at the app arrives from a Cloudflare address:
 `REMOTE_ADDR` and the rightmost `X-Forwarded-For` entry name Cloudflare, not
