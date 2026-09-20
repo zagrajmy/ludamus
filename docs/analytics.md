@@ -2,6 +2,9 @@
 
 Two halves, one project. `prologue.ts` runs in browser behind consent banner.
 `links/analytics/reporting.py` reports server faults only.
+CSP violations go to PostHog too (`report-uri` in `CSP_POLICY`), as
+`$csp_violation` events; filter `$csp_blocked_url` on `chrome-extension://`
+and friends to drop extension noise.
 
 Wiring documented where it lives: `edges/settings.py` for CSP and env,
 `links/analytics/identity.py` for how person named, `.env.schema` for the two

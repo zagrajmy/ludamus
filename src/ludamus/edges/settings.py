@@ -440,10 +440,8 @@ INTERNAL_IPS = [
 # old @import needed. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
-# No report-uri/report-to is configured: there is no violation-ingestion
-# endpoint yet (plan 007's Maintenance notes flagged this as deferred).
-# Violations that slip through can only be seen via browser devtools for
-# now; wiring a collector is a separate, human-scoped follow-up.
+# Violations are reported to PostHog when analytics is configured (see the
+# block below); without it they are only visible in browser devtools.
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
@@ -467,6 +465,10 @@ if POSTHOG_API_KEY:
     CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
+    # Violations land as $csp_violation events; the trailing slash is required.
+    # report-to is skipped: it needs a Reporting-Endpoints header Django does
+    # not emit, and every browser still honours report-uri.
+    CSP_POLICY["report-uri"] = [f"{POSTHOG_HOST}/report/?token={POSTHOG_API_KEY}"]
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or

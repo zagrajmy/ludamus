@@ -144,3 +144,4 @@ class TestPostHogCSP:
         # disabled one. If the PostHog append ever escapes its guard, visitors
         # with analytics off get a tracker origin in their header.
         assert CSP_POLICY["connect-src"] == [CSP.SELF]
+        assert "report-uri" not in CSP_POLICY
