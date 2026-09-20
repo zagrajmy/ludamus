@@ -40,13 +40,12 @@
     <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated) print:mb-4 print:shadow-none print:bg-transparent"
          data-event-hero>
         {% if event.cover_image_url %}
-            {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
-            {# and components/file-dropzone.html draws the width of its "edges" #}
-            {# guide from it. Changing these heights moves the guide people upload #}
-            {# against. #}
-            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl print:hidden"
-                 style="background-image: url('{{ event.cover_image_url }}')"
-                 data-event-cover>
+            {# NOTE: phones show the whole cover at its natural aspect ratio. From #}
+            {# sm upward, this becomes a fixed-height banner and crops vertically. #}
+            <div class="relative sm:h-72 print:hidden" data-event-cover>
+                <img src="{{ event.cover_image_url }}"
+                     alt=""
+                     class="block h-auto w-full sm:h-full sm:rounded-t-3xl sm:object-cover">
                 {# On the gutter the body below keeps. #}
                 <div class="absolute top-4 right-4 sm:top-8 sm:right-8">
                     {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True only %}

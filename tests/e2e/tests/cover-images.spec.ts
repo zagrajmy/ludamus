@@ -76,6 +76,28 @@ test.describe("Event cover image upload", () => {
     expect(ogImage).not.toContain("og-image.jpg");
   });
 
+  test("public event shows the whole cover on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto("/event/lakeside-weekend/");
+
+    const image = page.locator("[data-event-cover] img");
+    await expect(image).toBeVisible();
+    const dimensions = await image.evaluate((element: HTMLImageElement) => {
+      const box = element.getBoundingClientRect();
+      return {
+        naturalRatio: element.naturalWidth / element.naturalHeight,
+        renderedRatio: box.width / box.height,
+      };
+    });
+
+    expect(dimensions.renderedRatio).toBeCloseTo(dimensions.naturalRatio, 2);
+
+    await page.setViewportSize({ width: 900, height: 900 });
+    const desktopCover = await page.locator("[data-event-cover]").boundingBox();
+    if (!desktopCover) throw new Error("event cover has no box");
+    expect(desktopCover.height).toBeCloseTo(288, 0);
+  });
+
   test("safe zone keeps its share of the preview at every width", async ({ page }) => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await coverImageInput(page).setInputFiles({
@@ -97,7 +119,7 @@ test.describe("Event cover image upload", () => {
       // The guide is only honest while the preview shows the upload at the
       // shape the help text asks for.
       expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
-      expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
+      expect(guideBox.width / previewBox.width).toBeCloseTo(0.96, 2);
       expect(guideBox.height / previewBox.height).toBeCloseTo(0.28, 2);
     }
   });
@@ -191,13 +213,13 @@ test.describe("Event cover image upload", () => {
 
   // Last in a serial describe: read-only, and a failure here should not skip
   // the upload tests above it.
-  test("a session cover is asked for a different crop than an event cover", async ({ page }) => {
+  test("cover fields describe their remaining vertical crops", async ({ page }) => {
     // The guide over the preview is decorative (aria-hidden), so the sentence
     // under the field is what actually tells an uploader which way their image
     // will be cut. Only the cover fields carry that sentence, so a page-wide
     // match cannot pick up the logo dropzone sharing the settings page.
     await page.goto("/panel/event/lakeside-weekend/settings/");
-    await expect(page.getByText(/We crop the edges/)).toBeVisible();
+    await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();
 
     await page.goto("/panel/event/lakeside-weekend/proposals/create/");
     await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();
