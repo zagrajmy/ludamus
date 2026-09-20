@@ -20,10 +20,12 @@ from ludamus.links.db.django.models import (
     SphereMembership,
     Track,
 )
+from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import (
     AgendaItemFactory,
+    EncounterFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
@@ -861,6 +863,73 @@ class TestOrganizerProgrammeTools:
         assert result["content"][0]["text"] == "start_not_before_end"
 
 
+class TestOrganizerSphereSettingsTool:
+    def test_update_sphere_sets_the_encounters_policy(self, client, org_token, sphere):
+        updated = call_org_json(
+            client, org_token, "update_sphere", {"encounters_policy": "managers"}
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.encounters_policy == EncountersPolicy.MANAGERS
+        assert updated["encounters_policy"] == "managers"
+
+    def test_update_sphere_keeps_what_it_was_not_given(self, client, org_token, sphere):
+        # The service takes the whole settings shape, so an omitted field has
+        # to be written back as it stands rather than defaulted.
+        sphere.allow_facilitator_session_edit = False
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+
+        call_org_json(
+            client, org_token, "update_sphere", {"encounters_policy": "managers"}
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.allow_facilitator_session_edit is False
+        assert sphere.encounters_policy == EncountersPolicy.MANAGERS
+
+    def test_update_sphere_rejects_empty_update(self, client, org_token):
+        response = call_org_tool(client, org_token, "update_sphere", {})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Provide at least one field to update"
+
+    def test_update_sphere_will_not_hide_existing_encounters_unasked(
+        self, client, org_token, sphere, active_user
+    ):
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+        EncounterFactory(sphere=sphere, creator=active_user)
+
+        response = call_org_tool(
+            client, org_token, "update_sphere", {"encounters_policy": "none"}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "confirm_hiding_encounters" in result["content"][0]["text"]
+        sphere.refresh_from_db()
+        assert sphere.encounters_policy == EncountersPolicy.EVERYONE
+
+    def test_update_sphere_hides_encounters_when_asked_twice(
+        self, client, org_token, sphere, active_user
+    ):
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+        EncounterFactory(sphere=sphere, creator=active_user)
+
+        call_org_json(
+            client,
+            org_token,
+            "update_sphere",
+            {"encounters_policy": "none", "confirm_hiding_encounters": True},
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.encounters_policy == EncountersPolicy.NONE
+
+
 class TestOrganizerEventSettingsTools:
     def test_update_event_changes_only_provided_fields(self, client, org_token, event):
         new_end = event.end_time + timedelta(hours=2)
@@ -904,6 +973,71 @@ class TestOrganizerEventSettingsTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert "timezone-aware" in result["content"][0]["text"]
+
+    def test_update_event_sets_the_rest_of_the_settings(self, client, org_token, event):
+        # The fields the tool grew: everything the settings page can change
+        # apart from the two images, which have their own tool.
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {
+                "name": "Bachanalia 2027",
+                "address": "Wrocław, Rynek 1",
+                "auto_confirm_sessions": True,
+                "use_participants_label": True,
+                "use_session_cover_placeholders": True,
+                "facilitator_session_edit": "disallow",
+            },
+        )
+
+        event.refresh_from_db()
+        assert event.name == "Bachanalia 2027"
+        assert event.address == "Wrocław, Rynek 1"
+        assert event.auto_confirm_sessions is True
+        assert event.use_participants_label is True
+        assert event.use_session_cover_placeholders is True
+        assert event.allow_facilitator_session_edit is False
+        assert updated["name"] == "Bachanalia 2027"
+
+    def test_update_event_can_hand_facilitator_editing_back_to_the_sphere(
+        self, client, org_token, event
+    ):
+        # None is the stored "follow the sphere", so it needs a word of its
+        # own — an omitted field means keep, not inherit.
+        event.allow_facilitator_session_edit = False
+        event.save(update_fields=["allow_facilitator_session_edit"])
+
+        call_org_json(
+            client, org_token, "update_event", {"facilitator_session_edit": "inherit"}
+        )
+
+        event.refresh_from_db()
+        assert event.allow_facilitator_session_edit is None
+
+    def test_update_event_clears_the_proposal_window(self, client, org_token, event):
+        assert event.proposal_start_time is not None
+
+        call_org_json(
+            client, org_token, "update_event", {"clear_proposal_window": True}
+        )
+
+        event.refresh_from_db()
+        assert event.proposal_start_time is None
+        assert event.proposal_end_time is None
+
+    def test_update_event_refuses_a_slug_another_event_holds(
+        self, client, org_token, event, sphere
+    ):
+        EventFactory(sphere=sphere, slug="taken")
+
+        response = call_org_tool(client, org_token, "update_event", {"slug": "taken"})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "already uses the slug" in result["content"][0]["text"]
+        event.refresh_from_db()
+        assert event.slug != "taken"
 
     def test_set_event_cover_image(self, client, org_token, event):
         updated = call_org_json(

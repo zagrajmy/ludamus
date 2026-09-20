@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 from django.utils.text import slugify
@@ -11,15 +10,12 @@ from ludamus.gates.mcp.inputs import (
     AwareDatetimeRange,
     EmptyInput,
     EventIdInput,
-    ImageUploadInput,
     NonBlankName,
-    require_aware_datetime,
 )
 from ludamus.gates.mcp.map_tools import map_tools
 from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
-from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
@@ -49,7 +45,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ludamus.gates.mcp.registry import ToolProtocol
-    from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -727,38 +722,6 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         )
 
 
-class _UpdateEventInput(BaseModel):
-    description: str | None = Field(
-        default=None, description="New event description; omit to keep the current one"
-    )
-    start_time: datetime | None = Field(
-        default=None, description="New aware start time; omit to keep"
-    )
-    end_time: datetime | None = Field(
-        default=None, description="New aware end time; omit to keep"
-    )
-    publication_time: datetime | None = Field(
-        default=None, description="New aware publication time; omit to keep"
-    )
-    clear_publication_time: bool = Field(
-        default=False, description="Unset the publication time (hides the event)"
-    )
-
-    @field_validator("start_time", "end_time", "publication_time")
-    @classmethod
-    def _aware(cls, value: datetime | None) -> datetime | None:
-        return None if value is None else require_aware_datetime(value)
-
-
-class _SetEventImageInput(ImageUploadInput):
-    kind: Literal["cover", "logo"] = Field(
-        description=(
-            "cover: the event cover image (raster only, 1920×1080 16:9 works "
-            "best). logo: the printable-schedule logo (SVG allowed)."
-        )
-    )
-
-
 class _UpdateSessionInput(BaseModel):
     pk: int = Field(description="Session primary key (see list_sessions)")
     facilitator_name: str = Field(
@@ -861,87 +824,6 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-def _apply_event_update(
-    *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
-) -> str:
-    event = token_event(services=services, actor=actor)
-    services.event_settings.update_general(
-        sphere_id=actor_sphere(actor), slug=event.slug, data=data
-    )
-    return token_event(services=services, actor=actor).model_dump_json(indent=2)
-
-
-class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
-    name = "update_event"
-    description = (
-        "Update the token event's description, start/end times, or publication "
-        "time. Only provided fields change."
-    )
-    scope = ToolScope.ORGANIZER
-    input_model = _UpdateEventInput
-
-    @staticmethod
-    def handle(call: ToolCall[_UpdateEventInput]) -> str:
-        data: EventUpdateData = {}
-        if call.data.description is not None:
-            data["description"] = call.data.description
-        if call.data.start_time is not None:
-            data["start_time"] = call.data.start_time
-        if call.data.end_time is not None:
-            data["end_time"] = call.data.end_time
-        if call.data.clear_publication_time:
-            data["publication_time"] = None
-        elif call.data.publication_time is not None:
-            data["publication_time"] = call.data.publication_time
-        if not data:
-            raise ToolError("Provide at least one field to update")
-        return _apply_event_update(services=call.services, actor=call.actor, data=data)
-
-
-class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
-    name = "set_event_image"
-    description = "Replace the token event's cover image or printable logo."
-    scope = ToolScope.ORGANIZER
-    input_model = _SetEventImageInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[_SetEventImageInput]) -> str:
-        if call.data.kind == "cover":
-            upload = call.data.validated_upload(validate_uploaded_raster)
-            data: EventUpdateData = {"cover_image": upload}
-        else:
-            upload = call.data.validated_upload(validate_uploaded_logo)
-            data = {"logo": upload}
-        return _apply_event_update(services=call.services, actor=call.actor, data=data)
-
-
-class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
-    name = "set_sphere_logo"
-    description = "Replace the sphere's logo (SVG allowed)."
-    scope = ToolScope.ORGANIZER
-    input_model = ImageUploadInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[ImageUploadInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
-        upload = call.data.validated_upload(validate_uploaded_logo)
-        # Confirmed up front: this writes the sphere's own stored policy back
-        # unchanged, so it can never be the save that hides encounters — but
-        # an unconfirmed call returns without writing, and a silently dropped
-        # logo is the worst way to learn that.
-        call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            encounters_policy=sphere.encounters_policy,
-            logo=upload,
-            confirmed_encounters_disable=True,
-        )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
@@ -962,8 +844,5 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
-        OrganizerUpdateEventTool(),
-        OrganizerSetEventImageTool(),
-        OrganizerSetSphereLogoTool(),
         *map_tools(),
     )

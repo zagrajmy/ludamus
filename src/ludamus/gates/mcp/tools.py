@@ -22,6 +22,7 @@ from ludamus.gates.mcp.konwencik_tools import (
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
+from ludamus.gates.mcp.settings_tools import settings_tools
 from ludamus.pacts.event import (
     EventDatesInvalidError,
     EventPublicationInvalidError,
@@ -397,6 +398,7 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
         *programme_tools(),
+        *settings_tools(),
         OrganizerGetKonwencikSettingsTool(),
         OrganizerUpdateKonwencikStylesTool(),
         OrganizerListAnnouncementsTool(),
