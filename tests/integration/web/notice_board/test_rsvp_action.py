@@ -93,6 +93,24 @@ class TestEncounterRSVPActionView:
         rsvp = EncounterRSVP.objects.get(user=user)
         assert rsvp.ip_address == "203.0.113.50"
 
+    def test_rsvp_stores_cloudflare_connecting_ip(
+        self, authenticated_client, encounter, user
+    ):
+        response = authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "You have signed up!"),),
+            url=f"/e/{encounter.share_code}/",
+        )
+        rsvp = EncounterRSVP.objects.get(user=user)
+        assert rsvp.ip_address == "203.0.113.50"
+
     def test_ip_throttle(self, authenticated_client, encounter):
         EncounterRSVPFactory(encounter=encounter, ip_address="10.0.0.1")
 

@@ -99,6 +99,29 @@ pre-configured for production with:
 - `USE_X_FORWARDED_HOST = True`
 - `USE_X_FORWARDED_PORT = True`
 
+**Cloudflare in front (production):** DNS for the production domain is on
+Cloudflare with the web records proxied (orange cloud). Cloudflare absorbs
+volumetric DDoS, runs the managed WAF ruleset, and rate-limits abusive
+paths; the Coolify box behind it only sees Cloudflare traffic. Settings that
+must hold:
+
+- SSL/TLS mode **Full (strict)** — anything else loops with
+  `SECURE_SSL_REDIRECT`.
+- Origin firewalled to [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+  on 80/443, so nobody can bypass the proxy by hitting the VPS address.
+- Mail records (MX, SPF, DKIM) stay DNS-only; Cloudflare does not proxy mail.
+
+Because of this, every request at the app arrives from a Cloudflare address:
+`REMOTE_ADDR` and the rightmost `X-Forwarded-For` entry name Cloudflare, not
+the visitor. The real client IP is the `CF-Connecting-IP` header, which
+Cloudflare sets and, given the origin lockdown, nobody else can. All
+IP-keyed logic (throttles, RSVP dedupe) goes through `get_client_ip` in
+`gates/web/django/helpers.py`, which prefers that header and falls back to
+rightmost `X-Forwarded-For` then `REMOTE_ADDR` for local and non-Cloudflare
+setups. Never read those two directly. If the origin lockdown is ever
+removed, `CF-Connecting-IP` becomes client-supplied and this helper must
+change first.
+
 **Bind mount paths:** `POSTGRES_DATA_PATH`, `STATIC_DATA_PATH`, and
 `MEDIA_DATA_PATH` in `.env` control where Docker volumes are stored on the
 host. They default to `/var/lib/ludamus/` in `docker/compose/prod.yaml` but

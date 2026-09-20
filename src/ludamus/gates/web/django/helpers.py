@@ -38,6 +38,11 @@ def read_public_event(request: RootRequest, slug: str) -> EventDTO:
 
 
 def get_client_ip(request: HttpRequest) -> str:
+    # SAFETY: production sits behind Cloudflare with the origin firewalled to
+    # Cloudflare ranges, so CF-Connecting-IP is set by Cloudflare and cannot
+    # be forged. Without that lockdown the header is client-supplied.
+    if cloudflare_ip := request.META.get("HTTP_CF_CONNECTING_IP", ""):
+        return str(cloudflare_ip).strip()
     if forwarded := request.META.get("HTTP_X_FORWARDED_FOR", ""):
         # The rightmost entry is appended by our own reverse proxy;
         # everything left of it is client-supplied and spoofable.
