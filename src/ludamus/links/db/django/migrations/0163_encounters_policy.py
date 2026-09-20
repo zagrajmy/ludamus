@@ -55,8 +55,10 @@ class Migration(migrations.Migration):
         ),
         # Irreversible: which spheres had which page enabled is not
         # recoverable once folded in, and reversing the schema alone leaves
-        # rows holding "none", which the restored choices reject.
-        migrations.RunPython(fold_pages_into_policy, migrations.RunPython.noop),
+        # rows holding "none", which the restored choices reject. No
+        # reverse_code, so Django refuses the rollback instead of pretending
+        # data survives it.
+        migrations.RunPython(fold_pages_into_policy),
         migrations.AlterField(
             model_name="sphere",
             name="encounters_policy",
