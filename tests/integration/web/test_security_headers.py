@@ -71,13 +71,14 @@ class TestCSPEnforceHeader:
 
 
 class TestPermissionsPolicy:
-    def test_header_sent_on_every_response(self, client, settings):
+    def test_header_sent_on_every_response(self, client):
         response = client.get(reverse("web:index"))
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
-        header = response.headers["Permissions-Policy"]
-        assert header == settings.PERMISSIONS_POLICY
-        assert "camera=()" in header
+        assert response.headers["Permissions-Policy"] == (
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
+            "display-capture=()"
+        )
 
 
 class TestCSPNonce:
