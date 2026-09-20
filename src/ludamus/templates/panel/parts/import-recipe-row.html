@@ -15,7 +15,8 @@
                 data-recipe-target
                 class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:max-w-xs"
                 data-row="{{ row.index }}">
-            <option value="ignore" {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
+            <option value="ignore"
+                    {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
             {% for col in session_columns %}
                 <option value="session.{{ col }}"
                         {% if row.selected == "session."|add:col %}selected{% endif %}>
@@ -80,8 +81,10 @@
                             data-recipe-fieldtype
                             class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             data-row="{{ row.index }}">
-                        <option value="text" {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
-                        <option value="select" {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
+                        <option value="text"
+                                {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
+                        <option value="select"
+                                {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
                         <option value="checkbox"
                                 {% if row.field_type == "checkbox" %}selected{% endif %}>
                             {% translate "Checkbox" %}
@@ -134,11 +137,14 @@
                             <select name="timepart_{{ row.index }}"
                                     aria-label="{% translate "Part of day" %}"
                                     class="min-w-0 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                <option value="morning" {% if entry.part == "morning" %}selected{% endif %}>{% translate "Morning" %}</option>
+                                <option value="morning"
+                                        {% if entry.part == "morning" %}selected{% endif %}>{% translate "Morning" %}</option>
                                 <option value="afternoon"
                                         {% if entry.part == "afternoon" %}selected{% endif %}>{% translate "Afternoon" %}</option>
-                                <option value="evening" {% if entry.part == "evening" %}selected{% endif %}>{% translate "Evening" %}</option>
-                                <option value="night" {% if entry.part == "night" %}selected{% endif %}>{% translate "Night" %}</option>
+                                <option value="evening"
+                                        {% if entry.part == "evening" %}selected{% endif %}>{% translate "Evening" %}</option>
+                                <option value="night"
+                                        {% if entry.part == "night" %}selected{% endif %}>{% translate "Night" %}</option>
                             </select>
                             <button type="button"
                                     data-time-remove
