@@ -52,7 +52,6 @@ class TestDashboardPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "announcements": [],
                 "dashboard": DashboardDTO(
                     agenda=[], open_encounters=[], sphere_feed=[], discover=[]
                 ),

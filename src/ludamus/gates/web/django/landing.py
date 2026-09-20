@@ -36,9 +36,8 @@ def landing_page(request: RootRequest) -> HttpResponse:
     """Render the pitch, with the live evidence behind it.
 
     Returns:
-        The landing page: the brand's own announcements, the conventions that
-        run on Zagrajmy, and the open encounters the copy claims are already
-        happening.
+        The landing page: the conventions that run on Zagrajmy, and the open
+        encounters the copy claims are already happening.
     """
     context = request.context
     landing = request.services.landing
@@ -52,9 +51,6 @@ def landing_page(request: RootRequest) -> HttpResponse:
         request,
         ["landing_page.html"],
         {
-            "announcements": request.services.announcements.list_published(
-                context.current_sphere_id
-            ),
             "stats": landing.stats(),
             "conventions": landing.conventions(),
             "encounters": encounters.upcoming[:LANDING_ENCOUNTERS],

@@ -27,9 +27,6 @@
              aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
     {% endif %}
     <main class="grow flex flex-col w-full mb-8">
-        {% if announcements %}
-            {% include "components/announcements.html" with extra_class="max-w-7xl w-full mx-auto px-4 md:px-6 lg:px-8 pt-10" %}
-        {% endif %}
         {% include "landing/landing.html" %}
     </main>
 {% endblock main_region %}

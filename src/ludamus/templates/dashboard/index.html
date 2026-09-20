@@ -8,9 +8,6 @@
 {% endblock header %}
 {% block body %}
     <h1 class="mb-8 text-3xl font-bold tracking-tight text-foreground">{% translate "Your dashboard" %}</h1>
-    {% if announcements %}
-        {% include "components/announcements.html" with extra_class="mb-12" %}
-    {% endif %}
     <div class="grid items-start gap-8 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <aside aria-labelledby="dashboard-agenda-heading">
             <h2 id="dashboard-agenda-heading"

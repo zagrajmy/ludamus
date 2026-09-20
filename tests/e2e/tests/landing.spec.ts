@@ -23,10 +23,15 @@ test.describe("Landing", () => {
     await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
   });
 
-  test("keeps the plain feed on a sphere domain", async ({ page }) => {
+  test("keeps the plain feed on a sphere domain, announcements first", async ({ page }) => {
     await page.goto("http://foreign.localhost:8000/");
 
     await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
+
+    // A sphere's announcements sit above its programme. The root sphere runs
+    // no programme and shows none.
+    await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Doors open at 9:00" })).toBeVisible();
   });
 });

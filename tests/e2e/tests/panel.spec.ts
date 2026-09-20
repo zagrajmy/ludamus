@@ -1527,7 +1527,7 @@ test.describe("Backoffice Panel", () => {
 
   // --- Organization announcements CRUD ---
 
-  test("manages the announcement lifecycle and public visibility", async ({ page }) => {
+  test("manages the announcement lifecycle", async ({ page }) => {
     const stamp = Date.now();
     const title = `E2E Announcement ${stamp}`;
     const editedTitle = `E2E Announcement Edited ${stamp}`;
@@ -1542,12 +1542,6 @@ test.describe("Backoffice Panel", () => {
 
     await expect(page.getByText("Announcement created successfully.")).toBeVisible();
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
-
-    // Published announcement shows on the public landing page
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByText(content)).toBeVisible();
 
     // Edit
     await page.goto("/multiverse/panel/announcements/");

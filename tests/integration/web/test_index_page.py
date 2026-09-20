@@ -61,7 +61,6 @@ class TestIndexRedirectView:
             response,
             HTTPStatus.OK,
             context_data={
-                "announcements": [],
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
@@ -78,7 +77,6 @@ class TestIndexRedirectView:
             response,
             HTTPStatus.OK,
             context_data={
-                "announcements": [],
                 "dashboard": DashboardDTO(
                     agenda=[], open_encounters=[], sphere_feed=[], discover=[]
                 ),
@@ -836,7 +834,6 @@ class TestLandingPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "announcements": [],
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],

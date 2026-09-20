@@ -5182,12 +5182,6 @@ msgstr "Następna"
 msgid "Are you sure you want to delete this?"
 msgstr "Czy na pewno chcesz to usunąć?"
 
-#: src/ludamus/templates/components/announcements.html
-#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-msgid "Organization announcements"
-msgstr "Ogłoszenia organizacji"
-
 #: src/ludamus/templates/components/avatar.html
 #, python-format
 msgid "%(name_value)s (flagged)"
@@ -6439,6 +6433,12 @@ msgstr ""
 #: src/ludamus/templates/landing/org_proof.html
 msgid "Events"
 msgstr "Wydarzenia"
+
+#: src/ludamus/templates/index.html
+#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Organization announcements"
+msgstr "Ogłoszenia organizacji"
 
 #: src/ludamus/templates/index.html
 msgid "Nothing coming up."
