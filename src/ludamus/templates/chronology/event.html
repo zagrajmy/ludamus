@@ -235,7 +235,8 @@
                 class="modal p-0"
                 aria-labelledby="anonymousCodeModal-title">
             <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-                <h3 id="anonymousCodeModal-title" class="font-semibold text-foreground">{% translate "Enter Different Code" %}</h3>
+                <h3 id="anonymousCodeModal-title"
+                    class="font-semibold text-foreground">{% translate "Enter Different Code" %}</h3>
                 <button type="button"
                         data-modal-close="anonymousCodeModal"
                         class="p-1 rounded-lg hover:opacity-70 text-foreground-muted"
@@ -348,7 +349,8 @@
                                         {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
                                     </div>
                                     <div class="flex flex-col gap-1.5">
-                                        <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="status-filter">{% translate "Status" %}</label>
                                         {% select id="status-filter" class=select_class %}
                                             <option value="">{% translate "All statuses" %}</option>
                                             <option value="available">{% translate "Available spots" %}</option>
@@ -375,7 +377,8 @@
                                     <div id="space-filter-group"
                                          data-all-rooms-label="{{ t_all_rooms }}"
                                          class="flex flex-col gap-1.5 hidden">
-                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="space-filter">{% translate "Location" %}</label>
                                         {% translate "Search locations…" as t_location_search %}
                                         {% tessera_combobox id="space-filter" multiple=True placeholder=t_location_search %}
                                         {% endtessera_combobox %}
@@ -388,11 +391,13 @@
                                     {# what people share links for. #}
                                     <div class="flex gap-3">
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="age-filter">{% translate "Participant age" %}</label>
                                             {% include "components/text-field.html" with name="age" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
                                         </div>
                                         <div id="min-age-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="min-age-filter">{% translate "Age from" %}</label>
                                             {% select id="min-age-filter" name="age-min" class=select_class %}
                                                 <option value="">{% translate "Any age" %}</option>
                                             {% endselect %}
@@ -400,13 +405,15 @@
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                         <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="day-filter">{% translate "Day" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="day-filter">{% translate "Day" %}</label>
                                             {% select id="day-filter" class=select_class %}
                                                 <option value="">{% translate "All days" %}</option>
                                             {% endselect %}
                                         </div>
                                         <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="hour-filter">{% translate "Hour" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="hour-filter">{% translate "Hour" %}</label>
                                             {% select id="hour-filter" class=select_class %}
                                                 <option value="">{% translate "All hours" %}</option>
                                             {% endselect %}
@@ -414,7 +421,8 @@
                                     </div>
                                     {% if track_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="tag-filter-__track">{% translate "Track" %}</label>
                                             {% translate "Search tracks…" as t_track_search %}
                                             {% tessera_combobox id="tag-filter-__track" multiple=True placeholder=t_track_search data_category="__track" %}
                                                 {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -423,7 +431,8 @@
                                     {% endif %}
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
                                             {% translate "Search categories…" context "participant filter" as t_category_search %}
                                             {% tessera_combobox id="tag-filter-__category" multiple=True placeholder=t_category_search data_category="__category" %}
                                                 {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -433,7 +442,8 @@
                                     <div id="tag-filters" class="contents">
                                         {% for field in filterable_tag_categories %}
                                             <div class="flex flex-col gap-1.5 grow">
-                                                <label class="{{ label_class }}" for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
+                                                <label class="{{ label_class }}"
+                                                       for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
                                                 {% select id="tag-filter-"|add:field.slug data_category=field.slug class=select_class|add:" tag-filter" %}
                                                     <option value="">{% translate "All" %} {{ field.name }}</option>
                                                     {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
@@ -449,7 +459,8 @@
                                     {# between, so the control stays hidden. Search keeps #}
                                     {# a long multiple-choice list manageable. #}
                                     <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="host-filter">{% translate "Host" %}</label>
                                         {% translate "Search hosts…" as t_host_search %}
                                         {% translate "No host matches your search." as t_host_empty %}
                                         {% translate "Show hosts" as t_host_toggle %}
