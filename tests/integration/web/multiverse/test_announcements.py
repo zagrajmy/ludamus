@@ -347,12 +347,13 @@ class TestAnnouncementDeletePageView:
 ACTIVE_SUBSCRIBERS = 2
 
 
+@pytest.mark.usefixtures("_cron_scheduler")
 class TestAnnouncementFanout:
     # Full loop with the cron-mode scheduler: the panel publish records intent
     # (log only) and the sweep — here driven directly — delivers the bell rows.
     create_url = reverse("multiverse:panel:announcement-create")
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _cron_scheduler(self, settings):
         settings.SCHEDULER_MODE = "cron"
 

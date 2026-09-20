@@ -22,7 +22,7 @@ _DASHBOARD_QUERY_LIMIT = 21
 _TRACK_VIEW_QUERY_LIMIT = 21
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def _subscribed_session(authenticated_client, active_user, sphere):
     # The visit middleware subscribes and flags the session once per session;
     # seeding both keeps that write out of the measured requests, which must
@@ -44,6 +44,7 @@ def _query_count(client, url):
     return len(ctx.captured_queries)
 
 
+@pytest.mark.usefixtures("_subscribed_session")
 class TestConfirmationsQueryBounds:
     def test_dashboard_bounded_queries(
         self, authenticated_client, active_user, sphere, confirmations_scale_data
