@@ -916,6 +916,36 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
+class _SetSphereCoverButtonsInput(BaseModel):
+    event_cover_buttons_at_bottom: bool = Field(
+        description=(
+            "True places event-cover buttons in a horizontal row at the bottom "
+            "right; false restores the default top-right position"
+        )
+    )
+
+
+class OrganizerSetSphereCoverButtonsTool(Tool[_SetSphereCoverButtonsInput]):
+    name = "set_sphere_event_cover_buttons"
+    description = "Set the event-cover button position for the token's sphere."
+    scope = ToolScope.ORGANIZER
+    input_model = _SetSphereCoverButtonsInput
+
+    @staticmethod
+    def handle(call: ToolCall[_SetSphereCoverButtonsInput]) -> str:
+        sphere_id = actor_sphere(call.actor)
+        sphere = call.services.sphere_panel.read(sphere_id)
+        call.services.sphere_panel.update_settings(
+            sphere_id,
+            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
+            event_cover_buttons_at_bottom=(call.data.event_cover_buttons_at_bottom),
+            enabled_pages=sphere.enabled_pages,
+            default_page=sphere.default_page,
+            encounter_public_policy=sphere.encounter_public_policy,
+        )
+        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
+
+
 class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
     name = "set_sphere_logo"
     description = "Replace the sphere's logo (SVG allowed)."
@@ -962,6 +992,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerUpdateSpaceTool(),
         OrganizerUpdateEventTool(),
         OrganizerSetEventImageTool(),
+        OrganizerSetSphereCoverButtonsTool(),
         OrganizerSetSphereLogoTool(),
         *map_tools(),
     )

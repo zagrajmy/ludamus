@@ -961,6 +961,24 @@ class TestOrganizerEventSettingsTools:
         assert result["isError"] is True
         assert "Unsupported image format" in result["content"][0]["text"]
 
+    @pytest.mark.parametrize("at_bottom", (True, False))
+    def test_set_sphere_event_cover_buttons(
+        self, client, org_token, sphere, *, at_bottom
+    ):
+        sphere.event_cover_buttons_at_bottom = not at_bottom
+        sphere.save(update_fields=["event_cover_buttons_at_bottom"])
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_sphere_event_cover_buttons",
+            {"event_cover_buttons_at_bottom": at_bottom},
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.event_cover_buttons_at_bottom is at_bottom
+        assert updated["event_cover_buttons_at_bottom"] is at_bottom
+
     def test_set_sphere_logo_rejects_scripted_svg(self, client, org_token, sphere):
         scripted = base64.b64encode(
             b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
