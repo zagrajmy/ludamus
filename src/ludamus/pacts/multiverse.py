@@ -180,6 +180,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        event_cover_buttons_at_bottom: bool,
         enabled_pages: list[SpherePage],
         default_page: SpherePage,
         encounter_public_policy: EncounterPublicPolicy,

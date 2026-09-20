@@ -2911,6 +2911,18 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Place event cover buttons at the bottom right"
+msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Shows the print and venue map buttons side by side at the bottom of event "
+"cover images."
+msgstr ""
+"Wyświetla przyciski drukowania i map obiektu obok siebie na dole okładek "
+"wydarzeń."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enabled pages"
 msgstr "Włączone strony"
 
@@ -6693,6 +6705,10 @@ msgstr ""
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere settings"
 msgstr "Ustawienia sfery"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid "Event covers"
+msgstr "Okładki wydarzeń"
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 msgid "Pages"

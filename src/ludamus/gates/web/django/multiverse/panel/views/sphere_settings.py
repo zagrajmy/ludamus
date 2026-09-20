@@ -40,6 +40,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "enabled_pages": [page.value for page in sphere.enabled_pages],
                 "default_page": sphere.default_page.value,
                 "encounter_public_policy": sphere.encounter_public_policy.value,
@@ -75,6 +76,9 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
+            ],
+            event_cover_buttons_at_bottom=form.cleaned_data[
+                "event_cover_buttons_at_bottom"
             ],
             enabled_pages=enabled_pages,
             default_page=SpherePage(form.cleaned_data["default_page"]),

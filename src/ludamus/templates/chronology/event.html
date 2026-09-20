@@ -47,8 +47,9 @@
                      alt=""
                      class="block h-auto w-full sm:h-full sm:rounded-t-3xl sm:object-cover">
                 {# On the gutter the body below keeps. #}
-                <div class="absolute top-4 right-4 sm:top-8 sm:right-8">
-                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True only %}
+                <div class="absolute right-4 sm:right-8 {% if event.sphere.event_cover_buttons_at_bottom %}bottom-4 sm:bottom-8{% else %}top-4 sm:top-8{% endif %}"
+                     data-event-cover-tools>
+                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True horizontal=event.sphere.event_cover_buttons_at_bottom only %}
                 </div>
             </div>
         {% endif %}

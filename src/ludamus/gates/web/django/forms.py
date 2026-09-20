@@ -239,6 +239,14 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    event_cover_buttons_at_bottom = forms.BooleanField(
+        required=False,
+        label=_("Place event cover buttons at the bottom right"),
+        help_text=_(
+            "Shows the print and venue map buttons side by side at the bottom of "
+            "event cover images."
+        ),
+    )
     enabled_pages = forms.MultipleChoiceField(
         choices=_sphere_page_choices,
         widget=forms.CheckboxSelectMultiple,

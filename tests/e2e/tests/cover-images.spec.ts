@@ -98,6 +98,42 @@ test.describe("Event cover image upload", () => {
     expect(desktopCover.height).toBeCloseTo(288, 0);
   });
 
+  test("sphere can move cover buttons to a horizontal bottom-right row", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
+
+    await page.goto("/multiverse/panel/");
+    const positionSetting = page.getByLabel("Place event cover buttons at the bottom right");
+    await positionSetting.check();
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+
+    try {
+      await page.setViewportSize({ width: 390, height: 900 });
+      await page.goto("/event/lakeside-weekend/");
+
+      const cover = await page.locator("[data-event-cover]").boundingBox();
+      const tools = page.locator("[data-event-cover-tools]");
+      const toolsBox = await tools.boundingBox();
+      if (!cover || !toolsBox) throw new Error("event cover tools have no box");
+
+      expect(cover.x + cover.width - (toolsBox.x + toolsBox.width)).toBeCloseTo(16, 0);
+      expect(cover.y + cover.height - (toolsBox.y + toolsBox.height)).toBeCloseTo(16, 0);
+      await expect(tools.locator(":scope > div")).toHaveCSS("flex-direction", "row");
+    } finally {
+      await page.goto("/multiverse/panel/");
+      await page.getByLabel("Place event cover buttons at the bottom right").uncheck();
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+    }
+  });
+
   test("safe zone keeps its share of the preview at every width", async ({ page }) => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await coverImageInput(page).setInputFiles({

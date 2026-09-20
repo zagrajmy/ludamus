@@ -453,6 +453,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    event_cover_buttons_at_bottom: bool = False
     default_page: SpherePage
     enabled_pages: list[SpherePage]
     encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
@@ -465,6 +466,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    event_cover_buttons_at_bottom: bool
     default_page: str
     enabled_pages: list[str]
     encounter_public_policy: str

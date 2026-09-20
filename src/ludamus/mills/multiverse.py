@@ -165,6 +165,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        event_cover_buttons_at_bottom: bool,
         enabled_pages: list[SpherePage],
         default_page: SpherePage,
         encounter_public_policy: EncounterPublicPolicy,
@@ -177,6 +178,7 @@ class SpherePanelService:
             raise DefaultPageDisabledError
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "enabled_pages": [page.value for page in enabled_pages],
             "default_page": default_page.value,
             "encounter_public_policy": encounter_public_policy.value,

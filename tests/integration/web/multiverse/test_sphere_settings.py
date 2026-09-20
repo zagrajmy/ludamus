@@ -124,6 +124,24 @@ class TestSphereSettingsPageView:
         sphere.refresh_from_db()
         assert sphere.allow_facilitator_session_edit is True
 
+    def test_post_places_event_cover_buttons_at_bottom(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"event_cover_buttons_at_bottom": "on"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.event_cover_buttons_at_bottom is True
+
     def test_get_shows_existing_logo_preview(
         self, authenticated_client, active_user, sphere
     ):
