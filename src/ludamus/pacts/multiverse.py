@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -169,6 +169,14 @@ class SphereDirectoryRepositoryProtocol(Protocol):
     def list_all() -> list[SphereListItemDTO]: ...
 
 
+class SphereSettingsPatch(TypedDict, total=False):
+    allow_facilitator_session_edit: bool
+    event_cover_buttons_at_bottom: bool
+    enabled_pages: list[SpherePage]
+    default_page: SpherePage
+    encounter_public_policy: EncounterPublicPolicy
+
+
 class SpherePanelServiceProtocol(Protocol):
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None: ...
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
@@ -186,6 +194,10 @@ class SpherePanelServiceProtocol(Protocol):
         encounter_public_policy: EncounterPublicPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None: ...
+    def patch_settings(
+        self, sphere_id: int, *, changes: SphereSettingsPatch
+    ) -> None: ...
+    def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None: ...
 
 
 class SitesServiceProtocol(Protocol):

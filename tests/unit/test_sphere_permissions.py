@@ -131,3 +131,41 @@ class TestSpherePanelServiceUpdateSettings:
             )
 
         spheres.update.assert_not_called()
+
+    def test_patch_writes_only_supplied_settings(self, service, spheres):
+        sphere = spheres.read.return_value
+        sphere.enabled_pages = [SpherePage.EVENTS]
+        sphere.default_page = SpherePage.EVENTS
+
+        service.patch_settings(
+            3,
+            changes={
+                "event_cover_buttons_at_bottom": True,
+                "encounter_public_policy": EncounterPublicPolicy.MANAGERS,
+            },
+        )
+
+        spheres.update.assert_called_once_with(
+            3,
+            {
+                "event_cover_buttons_at_bottom": True,
+                "encounter_public_policy": "managers",
+            },
+        )
+
+    def test_patch_validates_pages_with_stored_default(self, service, spheres):
+        sphere = spheres.read.return_value
+        sphere.enabled_pages = [SpherePage.EVENTS]
+        sphere.default_page = SpherePage.EVENTS
+
+        with pytest.raises(DefaultPageDisabledError):
+            service.patch_settings(
+                3, changes={"enabled_pages": [SpherePage.ENCOUNTERS]}
+            )
+
+        spheres.update.assert_not_called()
+
+    def test_logo_update_does_not_rewrite_settings(self, service, spheres):
+        service.update_logo(3, "new-logo.svg")
+
+        spheres.update.assert_called_once_with(3, {"logo": "new-logo.svg"})

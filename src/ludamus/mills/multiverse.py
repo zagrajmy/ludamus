@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
         SphereRole,
+        SphereSettingsPatch,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -188,6 +189,38 @@ class SpherePanelService:
             data["logo"] = logo
         with self._transaction.atomic():
             self._spheres.update(sphere_id, data)
+
+    def patch_settings(self, sphere_id: int, *, changes: SphereSettingsPatch) -> None:
+        with self._transaction.atomic():
+            sphere = self._spheres.read(sphere_id)
+            enabled_pages = changes.get("enabled_pages", sphere.enabled_pages)
+            default_page = changes.get("default_page", sphere.default_page)
+            if default_page not in enabled_pages:
+                raise DefaultPageDisabledError
+
+            data: SphereUpdateData = {}
+            if "allow_facilitator_session_edit" in changes:
+                data["allow_facilitator_session_edit"] = changes[
+                    "allow_facilitator_session_edit"
+                ]
+            if "event_cover_buttons_at_bottom" in changes:
+                data["event_cover_buttons_at_bottom"] = changes[
+                    "event_cover_buttons_at_bottom"
+                ]
+            if "enabled_pages" in changes:
+                data["enabled_pages"] = [page.value for page in enabled_pages]
+            if "default_page" in changes:
+                data["default_page"] = default_page.value
+            if "encounter_public_policy" in changes:
+                data["encounter_public_policy"] = changes[
+                    "encounter_public_policy"
+                ].value
+            if data:
+                self._spheres.update(sphere_id, data)
+
+    def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, {"logo": logo})
 
 
 class SitesService:

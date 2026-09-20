@@ -19,6 +19,7 @@ from ludamus.gates.mcp.map_tools import map_tools
 from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
+from ludamus.gates.mcp.sphere_tools import sphere_tools
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
@@ -916,60 +917,6 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-class _SetSphereCoverButtonsInput(BaseModel):
-    event_cover_buttons_at_bottom: bool = Field(
-        description=(
-            "True places event-cover buttons in a horizontal row at the bottom "
-            "right; false restores the default top-right position"
-        )
-    )
-
-
-class OrganizerSetSphereCoverButtonsTool(Tool[_SetSphereCoverButtonsInput]):
-    name = "set_sphere_event_cover_buttons"
-    description = "Set the event-cover button position for the token's sphere."
-    scope = ToolScope.ORGANIZER
-    input_model = _SetSphereCoverButtonsInput
-
-    @staticmethod
-    def handle(call: ToolCall[_SetSphereCoverButtonsInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
-        call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            event_cover_buttons_at_bottom=(call.data.event_cover_buttons_at_bottom),
-            enabled_pages=sphere.enabled_pages,
-            default_page=sphere.default_page,
-            encounter_public_policy=sphere.encounter_public_policy,
-        )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
-class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
-    name = "set_sphere_logo"
-    description = "Replace the sphere's logo (SVG allowed)."
-    scope = ToolScope.ORGANIZER
-    input_model = ImageUploadInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[ImageUploadInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
-        upload = call.data.validated_upload(validate_uploaded_logo)
-        call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            event_cover_buttons_at_bottom=sphere.event_cover_buttons_at_bottom,
-            enabled_pages=sphere.enabled_pages,
-            default_page=sphere.default_page,
-            encounter_public_policy=sphere.encounter_public_policy,
-            logo=upload,
-        )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
@@ -992,7 +939,6 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerUpdateSpaceTool(),
         OrganizerUpdateEventTool(),
         OrganizerSetEventImageTool(),
-        OrganizerSetSphereCoverButtonsTool(),
-        OrganizerSetSphereLogoTool(),
+        *sphere_tools(),
         *map_tools(),
     )
