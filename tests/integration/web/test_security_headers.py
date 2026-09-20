@@ -70,6 +70,16 @@ class TestCSPEnforceHeader:
         assert ENFORCE_HEADER not in response.headers
 
 
+class TestPermissionsPolicy:
+    def test_header_sent_on_every_response(self, client, settings):
+        response = client.get(reverse("web:index"))
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        header = response.headers["Permissions-Policy"]
+        assert header == settings.PERMISSIONS_POLICY
+        assert "camera=()" in header
+
+
 class TestCSPNonce:
     # web:events actually renders base.html (unlike the index redirect), so
     # its first inline script (the FOUC-prevention script) forces the CSP

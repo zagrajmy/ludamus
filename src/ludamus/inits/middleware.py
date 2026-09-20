@@ -8,6 +8,8 @@ from ludamus.inits.services import Services
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from django.http import HttpRequest, HttpResponse
+
     from ludamus.pacts import RootRequestProtocol
 
 
@@ -34,3 +36,13 @@ class ServiceInjectionMiddleware[Response]:
             request.services = Services()
 
         return self.get_response(request)
+
+
+class PermissionsPolicyMiddleware:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.get_response(request)
+        response["Permissions-Policy"] = settings.PERMISSIONS_POLICY
+        return response
