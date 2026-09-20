@@ -45,7 +45,7 @@ def enforced_header_fixture(client, settings) -> str:
 
 class TestCSPEnforceHeader:
     def test_header_sent_when_production_policy_active(self, enforced_header):
-        assert "default-src 'self'" in enforced_header
+        assert "default-src 'none'" in enforced_header
         assert "unsafe-eval" not in enforced_header
         assert "img-src 'self' data: blob: https:" in enforced_header
         assert "frame-ancestors 'none'" in enforced_header

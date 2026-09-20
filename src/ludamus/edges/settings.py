@@ -444,8 +444,10 @@ INTERNAL_IPS = [
 # endpoint yet (plan 007's Maintenance notes flagged this as deferred).
 # Violations that slip through can only be seen via browser devtools for
 # now; wiring a collector is a separate, human-scoped follow-up.
+# default-src is 'none': every resource type the app loads is listed below,
+# so an unlisted one is blocked instead of silently allowed by 'self'.
 CSP_POLICY: dict[str, list[str]] = {
-    "default-src": [CSP.SELF],
+    "default-src": [CSP.NONE],
     "script-src": [CSP.SELF, CSP.NONCE],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],
