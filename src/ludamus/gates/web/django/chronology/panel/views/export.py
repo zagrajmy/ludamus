@@ -24,6 +24,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
     format_field_value,
+    track_filter_context,
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMN_SET,
@@ -35,6 +36,9 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     PanelRowProtocol,
     column_values,
     column_views,
+)
+from ludamus.gates.web.django.chronology.panel.views.discounts import (
+    read_discount_query,
 )
 from ludamus.gates.web.django.chronology.panel.views.facilitators import (
     read_facilitator_query,
@@ -48,7 +52,11 @@ from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.links.ods import spreadsheet_bytes
 from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
 from ludamus.pacts.durations import MINUTES_PER_HOUR
-from ludamus.pacts.panel import PanelColumnDTO, PanelColumnsContextDTO
+from ludamus.pacts.panel import (
+    FacilitatorListQuery,
+    PanelColumnDTO,
+    PanelColumnsContextDTO,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -57,6 +65,8 @@ if TYPE_CHECKING:
 
 
 ODS_CONTENT_TYPE = "application/vnd.oasis.opendocument.spreadsheet"
+# One chooser page for every list; what it says comes from the export set.
+LIST_EXPORT_TEMPLATE = "panel/list-export.html"
 
 
 @dataclass(frozen=True)
@@ -71,12 +81,17 @@ class ExportRows[RowT: PanelRowProtocol]:
 
 class ExportRowsProtocol[RowT: PanelRowProtocol](Protocol):
     def __call__(
-        self,
-        *,
-        view: EventContextMixin,
-        event_pk: int,
-        columns: Sequence[PanelColumnDTO],
+        self, *, request: PanelRequest, event_pk: int, columns: Sequence[PanelColumnDTO]
     ) -> ExportRows[RowT]: ...
+
+
+@dataclass(frozen=True)
+class ExportChooser:
+    """What one list's column chooser says; the page itself is shared."""
+
+    tabs_partial: str
+    page_title: _StrPromise
+    help_text: _StrPromise
 
 
 @dataclass(frozen=True)
@@ -92,7 +107,7 @@ class PanelExportSet[RowT: PanelRowProtocol]:
     sheet_title: _StrPromise
     filename_part: str
     # The chooser page; without one a GET downloads `default_keys` at once.
-    template: str | None = None
+    chooser: ExportChooser | None = None
     default_keys: Sequence[str] | None = None
 
     @property
@@ -146,10 +161,10 @@ class PanelExportPageView[RowT: PanelRowProtocol](
 
         # A `columns` param, even an empty one, is the chooser's submit.
         submitted = "columns" in self.request.GET
-        template = self.export_set.template
-        if template is not None and not submitted:
+        chooser = self.export_set.chooser
+        if chooser is not None and not submitted:
             return self._render(
-                template=template,
+                chooser=chooser,
                 context=context,
                 slug=slug,
                 event_pk=current_event.pk,
@@ -166,9 +181,9 @@ class PanelExportPageView[RowT: PanelRowProtocol](
             ),
         )
         if not columns:
-            if template is not None:
+            if chooser is not None:
                 return self._render(
-                    template=template,
+                    chooser=chooser,
                     context=context,
                     slug=slug,
                     event_pk=current_event.pk,
@@ -188,7 +203,7 @@ class PanelExportPageView[RowT: PanelRowProtocol](
     def _render(
         self,
         *,
-        template: str,
+        chooser: ExportChooser,
         context: dict[str, object],
         slug: str,
         event_pk: int,
@@ -200,6 +215,11 @@ class PanelExportPageView[RowT: PanelRowProtocol](
         context["active_nav"] = self.export_set.columns.active_nav
         context["active_tab"] = "export"
         context["tab_urls"] = self.export_set.columns.tab_urls(slug)
+        context["tabs_partial"] = chooser.tabs_partial
+        context["page_title"] = chooser.page_title
+        context["help_text"] = chooser.help_text
+        # The sheet's name is the list's name, on screen as in the file.
+        context["list_name"] = self.export_set.sheet_title
         context["chosen_columns"] = column_views(offered.chosen, self.export_set.cells)
         context["available_columns"] = column_views(
             offered.available, self.export_set.cells
@@ -213,12 +233,14 @@ class PanelExportPageView[RowT: PanelRowProtocol](
             for value in self.request.GET.getlist(name)
         ]
         context["error"] = error
-        return TemplateResponse(self.request, template, context)
+        return TemplateResponse(self.request, LIST_EXPORT_TEMPLATE, context)
 
     def _download(
         self, *, slug: str, event_pk: int, columns: Sequence[PanelColumnDTO]
     ) -> HttpResponse:
-        loaded = self.export_set.rows(view=self, event_pk=event_pk, columns=columns)
+        loaded = self.export_set.rows(
+            request=self.request, event_pk=event_pk, columns=columns
+        )
         cells = column_values(
             rows=loaded.rows,
             columns=columns,
@@ -245,11 +267,11 @@ class PanelExportPageView[RowT: PanelRowProtocol](
 
 
 def _proposal_rows(
-    *, view: EventContextMixin, event_pk: int, columns: Sequence[PanelColumnDTO]
+    *, request: PanelRequest, event_pk: int, columns: Sequence[PanelColumnDTO]
 ) -> ExportRows[SessionListItemDTO]:
-    _tracks, _managed, track_pk = view.get_track_filter_context(event_pk)
-    query = read_proposal_query(view.request, track_pk=track_pk)
-    panel = view.request.services.proposal_panel
+    _tracks, _managed, track_pk = track_filter_context(request, event_pk)
+    query = read_proposal_query(request, track_pk=track_pk)
+    panel = request.services.proposal_panel
     proposals = panel.list_context(event_id=event_pk, query=query).proposals
     return ExportRows(
         rows=proposals,
@@ -285,7 +307,15 @@ class ProposalExportPageView(PanelExportPageView[SessionListItemDTO]):
         rows=_proposal_rows,
         sheet_title=gettext_lazy("Proposals"),
         filename_part="proposals",
-        template="panel/proposal-export.html",
+        chooser=ExportChooser(
+            tabs_partial="panel/_proposal_tabs.html",
+            page_title=gettext_lazy("Export proposals"),
+            help_text=gettext_lazy(
+                "Tick the columns the file gets, and order them top to bottom."
+                " Every proposal the list's current filters match is exported,"
+                " not just the page on screen."
+            ),
+        ),
     )
 
 
@@ -332,19 +362,21 @@ def _facilitator_computed(
     return computed
 
 
-def _facilitator_rows(
-    *, view: EventContextMixin, event_pk: int, columns: Sequence[PanelColumnDTO]
+def _roster_rows(
+    *,
+    request: PanelRequest,
+    event_pk: int,
+    columns: Sequence[PanelColumnDTO],
+    query: FacilitatorListQuery,
 ) -> ExportRows[FacilitatorListItemDTO]:
-    panel = view.request.services.facilitator_panel
-    facilitators = panel.list_context(
-        event_id=event_pk, query=read_facilitator_query(view.request)
-    ).facilitators
+    panel = request.services.facilitator_panel
+    facilitators = panel.list_context(event_id=event_pk, query=query).facilitators
     keys = {column.key for column in columns}
     if "guild" in keys:
         attach_facilitator_guild_marks(
             facilitators,
-            guilds=view.request.services.guilds,
-            sphere_id=view.request.context.current_sphere_id,
+            guilds=request.services.guilds,
+            sphere_id=request.context.current_sphere_id,
         )
     return ExportRows(
         rows=facilitators,
@@ -352,9 +384,29 @@ def _facilitator_rows(
             facilitator_ids=[f.pk for f in facilitators],
             field_ids=[c.field.pk for c in columns if c.field is not None],
         ),
-        computed=_facilitator_computed(
-            request=view.request, event_pk=event_pk, keys=keys
-        ),
+        computed=_facilitator_computed(request=request, event_pk=event_pk, keys=keys),
+    )
+
+
+def _facilitator_rows(
+    *, request: PanelRequest, event_pk: int, columns: Sequence[PanelColumnDTO]
+) -> ExportRows[FacilitatorListItemDTO]:
+    return _roster_rows(
+        request=request,
+        event_pk=event_pk,
+        columns=columns,
+        query=read_facilitator_query(request),
+    )
+
+
+def _discount_rows(
+    *, request: PanelRequest, event_pk: int, columns: Sequence[PanelColumnDTO]
+) -> ExportRows[FacilitatorListItemDTO]:
+    return _roster_rows(
+        request=request,
+        event_pk=event_pk,
+        columns=columns,
+        query=read_discount_query(request),
     )
 
 
@@ -367,7 +419,15 @@ class FacilitatorExportPageView(PanelExportPageView[FacilitatorListItemDTO]):
         rows=_facilitator_rows,
         sheet_title=gettext_lazy("Facilitators"),
         filename_part="facilitators",
-        template="panel/facilitator-export.html",
+        chooser=ExportChooser(
+            tabs_partial="panel/_facilitator_tabs.html",
+            page_title=gettext_lazy("Export facilitators"),
+            help_text=gettext_lazy(
+                "Tick the columns the file gets, and order them top to bottom."
+                " Every facilitator the list's current filters match is"
+                " exported, not just the page on screen."
+            ),
+        ),
     )
 
 
@@ -375,11 +435,12 @@ class DiscountExportPageView(PanelExportPageView[FacilitatorListItemDTO]):
     """Download the accreditation sheet: the filtered roster with its discounts."""
 
     # The same rows as the facilitators list — the roster *is* a facilitator
-    # list — narrowed by the same filters and fixed to the four desk columns.
+    # list — narrowed by the one filter the roster page offers and fixed to the
+    # four desk columns.
     export_set = PanelExportSet(
         columns=FACILITATOR_COLUMN_SET,
         export_cells=DISCOUNT_EXPORT_CELLS,
-        rows=_facilitator_rows,
+        rows=_discount_rows,
         sheet_title=gettext_lazy("Accreditation sheet"),
         filename_part="accreditation",
         # The desk sheet has no chooser and no stored columns of its own.

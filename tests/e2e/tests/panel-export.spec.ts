@@ -47,9 +47,11 @@ test.describe("Panel list exports", () => {
   });
 
   test("facilitators: the Export tab downloads the ticked columns", async ({ page }) => {
-    await page.goto(`${PANEL_URL}/facilitators/`);
+    await page.goto(`${PANEL_URL}/facilitators/?accreditation=guest`);
     await page.getByRole("tab", { name: "Export" }).click();
 
+    // The tab leaves with the list's filters, so the file matches the screen.
+    await expect(page).toHaveURL(/accreditation=guest/);
     await expect(page.getByRole("heading", { name: "Export facilitators" })).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Discount kind" })).not.toBeChecked();
 

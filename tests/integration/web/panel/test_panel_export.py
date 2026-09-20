@@ -83,6 +83,15 @@ _FACILITATOR_LABELS = {
 _PROPOSAL_HEADERS = [_PROPOSAL_LABELS[key] for key in _PROPOSAL_KEYS]
 _FACILITATOR_HEADERS = [_FACILITATOR_LABELS[key] for key in _FACILITATOR_KEYS]
 _EMPTY_SELECTION_ERROR = "Pick at least one column to export."
+_HELP_TEXT = "Tick the columns the file gets, and order them top to bottom."
+_PROPOSAL_HELP_TEXT = (
+    f"{_HELP_TEXT} Every proposal the list's current filters match is exported,"
+    " not just the page on screen."
+)
+_FACILITATOR_HELP_TEXT = (
+    f"{_HELP_TEXT} Every facilitator the list's current filters match is"
+    " exported, not just the page on screen."
+)
 
 
 def _columns(labels, keys):
@@ -146,6 +155,10 @@ class TestProposalExportPageView:
             **panel_context(event, active_nav="proposals"),
             "active_tab": "export",
             "tab_urls": _proposal_tab_urls(event),
+            "tabs_partial": "panel/_proposal_tabs.html",
+            "page_title": "Export proposals",
+            "help_text": _PROPOSAL_HELP_TEXT,
+            "list_name": "Proposals",
             "chosen_columns": _columns(_PROPOSAL_LABELS, _PROPOSAL_KEYS),
             "available_columns": _columns(_PROPOSAL_LABELS, ["scheduled"]),
             "hidden_params": hidden_params,
@@ -179,7 +192,7 @@ class TestProposalExportPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-export.html",
+            template_name="panel/list-export.html",
             context_data=self._chooser_context(
                 event, hidden_params=[("status", "all"), ("search", "x")], error=None
             ),
@@ -191,7 +204,7 @@ class TestProposalExportPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-export.html",
+            template_name="panel/list-export.html",
             context_data=self._chooser_context(
                 event, hidden_params=[], error=_EMPTY_SELECTION_ERROR
             ),
@@ -361,11 +374,15 @@ class TestFacilitatorExportPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/facilitator-export.html",
+            template_name="panel/list-export.html",
             context_data={
                 **panel_context(event, active_nav="facilitators"),
                 "active_tab": "export",
                 "tab_urls": _facilitator_tab_urls(event),
+                "tabs_partial": "panel/_facilitator_tabs.html",
+                "page_title": "Export facilitators",
+                "help_text": _FACILITATOR_HELP_TEXT,
+                "list_name": "Facilitators",
                 "chosen_columns": _columns(_FACILITATOR_LABELS, ["name", "guild"]),
                 "available_columns": _columns(
                     _FACILITATOR_LABELS,
@@ -485,11 +502,15 @@ class TestFacilitatorExportPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/facilitator-export.html",
+            template_name="panel/list-export.html",
             context_data={
                 **panel_context(event, active_nav="facilitators"),
                 "active_tab": "export",
                 "tab_urls": _facilitator_tab_urls(event),
+                "tabs_partial": "panel/_facilitator_tabs.html",
+                "page_title": "Export facilitators",
+                "help_text": _FACILITATOR_HELP_TEXT,
+                "list_name": "Facilitators",
                 "chosen_columns": _columns(_FACILITATOR_LABELS, _FACILITATOR_KEYS),
                 "available_columns": _columns(
                     _FACILITATOR_LABELS, _FACILITATOR_EXPORT_ONLY

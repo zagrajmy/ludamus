@@ -6,7 +6,8 @@
     {% tab "columns" href=tab_urls.columns %}
         {% translate "Columns" %}
     {% endtab %}
-    {% tab "export" href=tab_urls.export %}
+    {# The list page hands in its own filtered href; the other tabs have none. #}
+    {% tab "export" href=export_tab_url|default:tab_urls.export %}
         {% translate "Export" %}
     {% endtab %}
 {% endtabs %}

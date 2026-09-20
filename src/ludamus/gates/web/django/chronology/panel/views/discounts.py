@@ -13,9 +13,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-)
-from ludamus.gates.web.django.chronology.panel.views.facilitators import (
-    read_facilitator_query,
+    read_accreditation_filter,
 )
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_CHOICES,
@@ -25,6 +23,7 @@ from ludamus.gates.web.django.forms import (
 from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.pacts import FacilitatorListItemDTO, NotFoundError
 from ludamus.pacts.discounts import DiscountData, DiscountKind
+from ludamus.pacts.panel import FacilitatorListQuery
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -50,7 +49,18 @@ class _DiscountsContext(PanelNavContext):
     assignments: list[_DiscountAssignment]
     rows: list[_DiscountRow]
     filter_accreditation: str
+    filters_active: bool
     accreditation_types: list[tuple[str, _StrPromise]]
+
+
+def read_discount_query(request: PanelRequest) -> FacilitatorListQuery:
+    # The roster page renders one filter, so it reads one: a facilitator-list
+    # filter the page cannot show would narrow both the roster and its
+    # accreditation sheet with nothing on screen to clear it by.
+    return FacilitatorListQuery(
+        accreditation=read_accreditation_filter(request),
+        current_user_id=request.context.current_user_id,
+    )
 
 
 def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
@@ -91,12 +101,12 @@ def _discounts_context(
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
 ) -> _DiscountsContext:
-    # The roster is a facilitator list, so it is the facilitators list: one
-    # query DTO the mill applies, the same rows and order, and the export reads
-    # it through the same reader. Everyone the event knows has a line —
-    # accreditation NONE included — because the desk sheet listing only the
-    # discounted was a hidden rule no filter could express (plans/020).
-    query = read_facilitator_query(request)
+    # The roster is a facilitator list, so it is the facilitators list: the same
+    # query DTO the mill applies, the same rows and order, and the accreditation
+    # sheet reads it through the same reader. Everyone the event knows has a
+    # line — accreditation NONE included — because the desk sheet listing only
+    # the discounted was a hidden rule no filter could express (plans/020).
+    query = read_discount_query(request)
     facilitators = request.services.facilitator_panel.list_context(
         event_id=event_pk, query=query
     ).facilitators
@@ -129,6 +139,7 @@ def _discounts_context(
         "assignments": assignments,
         "rows": rows,
         "filter_accreditation": query.accreditation,
+        "filters_active": bool(query.accreditation),
         "accreditation_types": ACCREDITATION_TYPE_CHOICES,
     }
 

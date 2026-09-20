@@ -1206,11 +1206,23 @@ msgstr "Zaplanowane"
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-columns.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-export.html
 #: src/ludamus/templates/panel/proposal-form.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Proposals"
 msgstr "Zgłoszenia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Export proposals"
+msgstr "Eksport zgłoszeń"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid ""
+"Tick the columns the file gets, and order them top to bottom. Every proposal "
+"the list's current filters match is exported, not just the page on screen."
+msgstr ""
+"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
+"dołu. Eksportowane są wszystkie zgłoszenia pasujące do bieżących filtrów "
+"listy, nie tylko strona na ekranie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/export.py
 msgid "Discount kind"
@@ -1244,7 +1256,6 @@ msgstr "Godziny zaplanowane"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitator-export.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/index.html
@@ -1254,6 +1265,20 @@ msgstr "Godziny zaplanowane"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Facilitators"
 msgstr "Twórcy programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Export facilitators"
+msgstr "Eksport twórców programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid ""
+"Tick the columns the file gets, and order them top to bottom. Every "
+"facilitator the list's current filters match is exported, not just the page "
+"on screen."
+msgstr ""
+"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
+"dołu. Eksportowani są wszyscy twórcy programu pasujący do bieżących filtrów "
+"listy, nie tylko strona na ekranie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/export.py
 msgid "Accreditation sheet"
@@ -6968,10 +6993,7 @@ msgstr "Kolumny"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/_proposal_tabs.html
-#: src/ludamus/templates/panel/facilitator-export.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposal-export.html
-#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/list-export.html
 msgid "Export"
 msgstr "Eksportuj"
 
@@ -8125,25 +8147,6 @@ msgstr ""
 "Nazwa zapisana przez kreator zgłoszeń — aby zmienić podpis, edytuj nazwę "
 "prowadzącego w zgłoszeniu."
 
-#: src/ludamus/templates/panel/facilitator-export.html
-msgid "Export facilitators"
-msgstr "Eksport twórców programu"
-
-#: src/ludamus/templates/panel/facilitator-export.html
-#: src/ludamus/templates/panel/proposal-export.html
-msgid "Download .ods"
-msgstr "Pobierz .ods"
-
-#: src/ludamus/templates/panel/facilitator-export.html
-msgid ""
-"Tick the columns the file gets, and order them top to bottom. Every "
-"facilitator the list's current filters match is exported, not just the page "
-"on screen."
-msgstr ""
-"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
-"dołu. Eksportowani są wszyscy twórcy programu pasujący do bieżących filtrów "
-"listy, nie tylko strona na ekranie."
-
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
 msgstr "Scal twórców programu"
@@ -8751,6 +8754,10 @@ msgstr ""
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid "Synchronisation"
 msgstr "Synchronizacja"
+
+#: src/ludamus/templates/panel/list-export.html
+msgid "Download .ods"
+msgstr "Pobierz .ods"
 
 #: src/ludamus/templates/panel/mcp-token.html
 #, python-format
@@ -9568,19 +9575,6 @@ msgid ""
 msgstr ""
 "Czy na pewno chcesz usunąć to zgłoszenie? Zniknie z wydarzenia i "
 "harmonogramu."
-
-#: src/ludamus/templates/panel/proposal-export.html
-msgid "Export proposals"
-msgstr "Eksport zgłoszeń"
-
-#: src/ludamus/templates/panel/proposal-export.html
-msgid ""
-"Tick the columns the file gets, and order them top to bottom. Every proposal "
-"the list's current filters match is exported, not just the page on screen."
-msgstr ""
-"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
-"dołu. Eksportowane są wszystkie zgłoszenia pasujące do bieżących filtrów "
-"listy, nie tylko strona na ekranie."
 
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Edit Proposal"

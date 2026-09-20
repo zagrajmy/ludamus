@@ -58,6 +58,7 @@ def _facilitator_list_dto(facilitator):
 
 _FILTER_CONTEXT = {
     "filter_accreditation": "",
+    "filters_active": False,
     "accreditation_types": [
         (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
     ],
@@ -165,6 +166,7 @@ class TestDiscountsPageView:
                     }
                 ],
                 "filter_accreditation": "guest",
+                "filters_active": True,
             },
         )
 
@@ -824,11 +826,19 @@ class TestDiscountExportPageView:
         assert_response(response, HTTPStatus.OK)
         assert _sheet(response) == [_SHEET_HEADERS, ["Alice", "", "", ""]]
 
-    def test_get_narrows_the_rows_by_the_lists_search(self, panel_client, event):
+    def test_get_ignores_a_filter_the_roster_page_does_not_offer(
+        self, panel_client, event
+    ):
+        # The roster shows one filter, so the sheet reads one: a search only a
+        # hand-typed URL could carry must not narrow it invisibly.
         _make_facilitator(event)
         _make_facilitator(event, display_name="Nobody", slug="nobody")
 
         response = panel_client.get(self.get_url(event), {"search": "Alice"})
 
         assert_response(response, HTTPStatus.OK)
-        assert _sheet(response) == [_SHEET_HEADERS, ["Alice", "", "", ""]]
+        assert _sheet(response) == [
+            _SHEET_HEADERS,
+            ["Alice", "", "", ""],
+            ["Nobody", "", "", ""],
+        ]
