@@ -3846,6 +3846,20 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "%(sphere)s announced %(event)s"
+msgstr "%(sphere)s ogłasza: %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"You subscribe to %(sphere)s. Its programme for %(event)s is up — open it to "
+"see what is on and sign up."
+msgstr ""
+"Subskrybujesz sferę %(sphere)s. Program wydarzenia %(event)s jest już "
+"dostępny — zajrzyj, co w nim będzie, i zapisz się."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "A shadowbanned player joined %(session)s with you"
 msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
 
@@ -5350,6 +5364,11 @@ msgid "Panel"
 msgstr "Panel"
 
 #: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Your dashboard"
+msgstr "Twój pulpit"
+
+#: src/ludamus/templates/components/navbar.html
 #: src/ludamus/templates/crowd/user/edit.html
 msgid "Edit profile"
 msgstr "Edycja profilu"
@@ -6040,6 +6059,134 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#: src/ludamus/templates/dashboard/_role.html
+msgid "You're signed up"
+msgstr "Jesteś zapisany/a"
+
+#: src/ludamus/templates/dashboard/_role.html
+msgid "You organize this"
+msgstr "Organizujesz"
+
+#: src/ludamus/templates/dashboard/_role.html
+#, python-format
+msgid ""
+"\n"
+"            %(counter)s spot left\n"
+"        "
+msgid_plural ""
+"\n"
+"            %(counter)s spots left\n"
+"        "
+msgstr[0] ""
+"\n"
+"                        %(counter)s punkt programu\n"
+"                    "
+msgstr[1] ""
+"\n"
+"                        %(counter)s punkty programu\n"
+"                    "
+msgstr[2] ""
+"\n"
+"                        %(counter)s punktów programu\n"
+"                    "
+msgstr[3] ""
+"\n"
+"                        %(counter)s punktów programu\n"
+"                    "
+
+#: src/ludamus/templates/dashboard/_role.html
+#: src/ludamus/templates/notice_board/_rsvp_inline.html
+#: src/ludamus/templates/notice_board/detail.html
+msgid "No spots left"
+msgstr "Brak wolnych miejsc"
+
+#: src/ludamus/templates/dashboard/_sphere.html
+#, python-format
+msgid ""
+"\n"
+"                        %(counter)s event coming up\n"
+"                    "
+msgid_plural ""
+"\n"
+"                        %(counter)s events coming up\n"
+"                    "
+msgstr[0] ""
+"\n"
+"                        %(counter)s punkt programu\n"
+"                    "
+msgstr[1] ""
+"\n"
+"                        %(counter)s punkty programu\n"
+"                    "
+msgstr[2] ""
+"\n"
+"                        %(counter)s punktów programu\n"
+"                    "
+msgstr[3] ""
+"\n"
+"                        %(counter)s punktów programu\n"
+"                    "
+
+#: src/ludamus/templates/dashboard/_sphere.html
+msgid "Subscribed"
+msgstr "Subskrybujesz"
+
+#: src/ludamus/templates/dashboard/_sphere.html
+#, python-format
+msgid ""
+"\n"
+"            We'll notify you whenever %(name)s publishes a new event. You "
+"can unsubscribe here any time.\n"
+"        "
+msgstr ""
+"\n"
+"            Damy Ci znać, gdy %(name)s ogłosi nowe wydarzenie. Możesz "
+"zrezygnować tutaj w każdej chwili.\n"
+"        "
+
+#: src/ludamus/templates/dashboard/_sphere.html
+#, python-format
+msgid ""
+"\n"
+"            Subscribe to %(name)s?\n"
+"        "
+msgstr ""
+"\n"
+"            Subskrybować sferę %(name)s?\n"
+"        "
+
+#: src/ludamus/templates/dashboard/_sphere.html
+msgid "Subscribe"
+msgstr "Subskrybuj"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Coming up"
+msgstr "Najbliższe"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid ""
+"Nothing yet. Sign up for a session or an encounter and it will wait for you "
+"here."
+msgstr ""
+"Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+"Ciebie."
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "For you"
+msgstr "Dla Ciebie"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "No open encounters right now. Start one and people will find it here."
+msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tutaj."
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "In your spheres"
+msgstr "W Twoich sferach"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Spheres to discover"
+msgstr "Sfery do odkrycia"
+
 #: src/ludamus/templates/design.html
 msgid ""
 "A hoverable row's background follows the default action — Edit or Details. "
@@ -6294,7 +6441,7 @@ msgstr ""
 msgid "Events"
 msgstr "Wydarzenia"
 
-#: src/ludamus/templates/index.html src/ludamus/templates/landing_page.html
+#: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements"
@@ -7571,11 +7718,6 @@ msgstr "Dołącz z kontem"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-#: src/ludamus/templates/notice_board/detail.html
-msgid "No spots left"
-msgstr "Brak wolnych miejsc"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "You're signed up!"

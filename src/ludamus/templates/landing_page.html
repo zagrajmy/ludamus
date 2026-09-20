@@ -27,25 +27,6 @@
              aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
     {% endif %}
     <main class="grow flex flex-col w-full mb-8">
-        {% if announcements %}
-            {% comment %}
-                The brand's own announcements: zagrajmy.net runs no programme,
-                so its page is the only place they can appear.
-            {% endcomment %}
-            <section class="max-w-7xl w-full mx-auto px-4 md:px-6 lg:px-8 pt-10"
-                     aria-labelledby="landing-announcements-heading">
-                <h2 id="landing-announcements-heading"
-                    class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
-                <div class="space-y-4">
-                    {% for announcement in announcements %}
-                        <article class="card p-6">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{{ announcement.title }}</h3>
-                            <p class="text-foreground-secondary whitespace-pre-line">{{ announcement.content }}</p>
-                        </article>
-                    {% endfor %}
-                </div>
-            </section>
-        {% endif %}
         {% include "landing/landing.html" %}
     </main>
 {% endblock main_region %}
