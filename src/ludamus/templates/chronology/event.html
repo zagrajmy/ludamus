@@ -43,12 +43,12 @@
             {# NOTE: phones show the whole cover at its natural aspect ratio. From #}
             {# sm upward, this becomes a fixed-height banner and crops vertically. #}
             <div class="relative sm:h-72 print:hidden" data-event-cover>
+                {% blocktranslate with event_name=event.name asvar event_cover_alt %}Cover image for {{ event_name }}{% endblocktranslate %}
                 <img src="{{ event.cover_image_url }}"
-                     alt=""
+                     alt="{{ event_cover_alt }}"
                      class="block h-auto w-full sm:h-full sm:rounded-t-3xl sm:object-cover">
                 {# On the gutter the body below keeps. #}
-                <div class="absolute right-4 sm:right-8 {% if event.sphere.event_cover_buttons_at_bottom %}bottom-4 sm:bottom-8{% else %}top-4 sm:top-8{% endif %}"
-                     data-event-cover-tools>
+                <div class="absolute right-4 sm:right-8 {% if event.sphere.event_cover_buttons_at_bottom %}bottom-4 sm:bottom-8{% else %}top-4 sm:top-8{% endif %}">
                     {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True horizontal=event.sphere.event_cover_buttons_at_bottom only %}
                 </div>
             </div>

@@ -20,6 +20,7 @@ const coverImageInput = (page: Page) => page.getByLabel("Cover image", { exact: 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
 const coverDropzone = (page: Page) => labeledDropzone(page, "Cover image");
 const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
+const EVENT_COVER_NAME = "Cover image for Lakeside Tabletop Weekend";
 
 test.describe.configure({ mode: "serial" });
 
@@ -80,7 +81,7 @@ test.describe("Event cover image upload", () => {
     await page.setViewportSize({ width: 390, height: 900 });
     await page.goto("/event/lakeside-weekend/");
 
-    const image = page.locator("[data-event-cover] img");
+    const image = page.getByRole("img", { name: EVENT_COVER_NAME });
     await expect(image).toBeVisible();
     const dimensions = await image.evaluate((element: HTMLImageElement) => {
       const box = element.getBoundingClientRect();
@@ -93,7 +94,7 @@ test.describe("Event cover image upload", () => {
     expect(dimensions.renderedRatio).toBeCloseTo(dimensions.naturalRatio, 2);
 
     await page.setViewportSize({ width: 900, height: 900 });
-    const desktopCover = await page.locator("[data-event-cover]").boundingBox();
+    const desktopCover = await image.boundingBox();
     if (!desktopCover) throw new Error("event cover has no box");
     expect(desktopCover.height).toBeCloseTo(288, 0);
   });
@@ -118,14 +119,20 @@ test.describe("Event cover image upload", () => {
       await page.setViewportSize({ width: 390, height: 900 });
       await page.goto("/event/lakeside-weekend/");
 
-      const cover = await page.locator("[data-event-cover]").boundingBox();
-      const tools = page.locator("[data-event-cover-tools]");
-      const toolsBox = await tools.boundingBox();
-      if (!cover || !toolsBox) throw new Error("event cover tools have no box");
+      const cover = await page.getByRole("img", { name: EVENT_COVER_NAME }).boundingBox();
+      const printButton = page.getByRole("link", { name: "Print the program" });
+      const printButtonBox = await printButton.boundingBox();
+      if (!cover || !printButtonBox) throw new Error("event cover controls have no box");
 
-      expect(cover.x + cover.width - (toolsBox.x + toolsBox.width)).toBeCloseTo(16, 0);
-      expect(cover.y + cover.height - (toolsBox.y + toolsBox.height)).toBeCloseTo(16, 0);
-      await expect(tools.locator(":scope > div")).toHaveCSS("flex-direction", "row");
+      expect(cover.x + cover.width - (printButtonBox.x + printButtonBox.width)).toBeCloseTo(16, 0);
+      expect(cover.y + cover.height - (printButtonBox.y + printButtonBox.height)).toBeCloseTo(
+        16,
+        0,
+      );
+      const flexDirection = await printButton.evaluate((element) =>
+        getComputedStyle(element.parentElement!).getPropertyValue("flex-direction"),
+      );
+      expect(flexDirection).toBe("row");
     } finally {
       await page.goto("/multiverse/panel/");
       await page.getByLabel("Place event cover buttons at the bottom right").uncheck();

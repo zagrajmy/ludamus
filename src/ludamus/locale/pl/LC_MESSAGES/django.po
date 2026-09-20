@@ -4690,6 +4690,11 @@ msgid "Manage companions in your profile settings"
 msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "Cover image for %(event_name)s"
+msgstr "Okładka wydarzenia „%(event_name)s”"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 msgid "Add to calendar"
 msgstr "Dodaj do kalendarza"
