@@ -59,3 +59,25 @@ class TestLandingStatsRepository:
         del sphere, non_root_sphere
 
         assert LandingStatsRepository.list_conventions(3) == []
+
+    def test_conventions_never_carry_an_unpublished_event_cover(
+        self, sphere, non_root_sphere, event
+    ):
+        del event
+        now = datetime.now(UTC)
+        EventFactory(
+            sphere=non_root_sphere,
+            start_time=now - timedelta(days=30),
+            cover_image="events/published.png",
+        )
+        EventFactory(
+            sphere=non_root_sphere,
+            start_time=now + timedelta(days=1),
+            publication_time=now + timedelta(days=1),
+            cover_image="events/draft.png",
+        )
+
+        conventions = LandingStatsRepository.list_conventions(3)
+
+        assert [c.name for c in conventions] == [non_root_sphere.name]
+        assert conventions[0].cover_image_url.endswith("events/published.png")

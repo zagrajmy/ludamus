@@ -636,14 +636,14 @@ test.describe("Backoffice Panel", () => {
 
     const assertOptionalOnly = async (group: string, fieldName: string) => {
       await page
-        .locator(`${group} .avail-list .field-item`, { hasText: fieldName })
+        .locator(`${group} .avail-list [data-field-item]`, { hasText: fieldName })
         .locator(".add-field")
         .click();
 
-      const chosen = page.locator(`${group} .chosen-list .field-item`, {
+      const chosen = page.locator(`${group} .chosen-list [data-field-item]`, {
         hasText: fieldName,
       });
-      await expect(chosen.locator(".field-select")).toHaveValue("optional");
+      await expect(chosen.locator("[data-field-select]")).toHaveValue("optional");
       await expect(chosen.locator(".toggle-req")).toHaveCount(0);
       await expect(chosen.locator(".optional-label")).toHaveText("Optional");
     };
@@ -967,12 +967,12 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_end_time").fill(toLocalISO(nextWeek));
 
       const ensureChosen = async (group: string, fieldName: string) => {
-        const chosen = page.locator(`${group} .chosen-list .field-item`, {
+        const chosen = page.locator(`${group} .chosen-list [data-field-item]`, {
           hasText: fieldName,
         });
         if ((await chosen.count()) === 0) {
           await page
-            .locator(`${group} .avail-list .field-item`, {
+            .locator(`${group} .avail-list [data-field-item]`, {
               hasText: fieldName,
             })
             .locator(".add-field")
@@ -990,7 +990,7 @@ test.describe("Backoffice Panel", () => {
       }
 
       // Add all time slots
-      const slotAvail = page.locator("#time-slots-list .avail-list .field-item");
+      const slotAvail = page.locator("#time-slots-list .avail-list [data-field-item]");
       while ((await slotAvail.count()) > 0) {
         await slotAvail.first().locator(".add-field").click();
       }
@@ -999,13 +999,13 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#duration-hours").fill("2");
       await page.locator("#duration-minutes").fill("0");
       await page.locator("#add-duration-btn").click();
-      await expect(page.locator(".duration-item", { hasText: "2h" })).toBeVisible();
+      await expect(page.locator("[data-duration-item]", { hasText: "2h" })).toBeVisible();
 
       await page
-        .locator("#session-fields-list .field-item", {
+        .locator("#session-fields-list [data-field-item]", {
           hasText: beginnerName,
         })
-        .locator(".field-select")
+        .locator("[data-field-select]")
         .evaluate((sel: HTMLSelectElement) => {
           if (!sel.querySelector('option[value="required"]')) {
             const opt = document.createElement("option");
@@ -1300,7 +1300,7 @@ test.describe("Backoffice Panel", () => {
 
     // Top-level node ids from the root sibling list.
     const ids = await page
-      .locator("#space-root-list > li.space-node")
+      .locator("#space-root-list > li[data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(ids.length).toBeGreaterThanOrEqual(2);
     const reversed = [...ids].reverse();
@@ -1326,7 +1326,7 @@ test.describe("Backoffice Panel", () => {
 
     await page.reload();
     const newIds = await page
-      .locator("#space-root-list > li.space-node")
+      .locator("#space-root-list > li[data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(newIds).toEqual(reversed);
 

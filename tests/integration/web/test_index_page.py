@@ -64,6 +64,26 @@ class TestIndexRedirectView:
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
+                "encounters_enabled": True,
+            },
+            template_name=["landing_page.html"],
+        )
+
+    def test_landing_hides_the_create_cta_when_encounters_are_off(self, client, sphere):
+        sphere.encounters_policy = "none"
+        sphere.save()
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": False,
             },
             template_name=["landing_page.html"],
         )
@@ -96,10 +116,11 @@ class TestIndexRedirectView:
         )
 
 
+@pytest.mark.usefixtures("_on_a_sphere_domain")
 class TestEventsPageView:
     URL = reverse("web:index")
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _on_a_sphere_domain(self, client, non_root_sphere):
         # The root sphere's front door is the landing; a feed needs a non_root_sphere.
         client.defaults["HTTP_HOST"] = non_root_sphere.site.domain
@@ -597,10 +618,11 @@ def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine
     )
 
 
+@pytest.mark.usefixtures("_on_a_sphere_domain")
 class TestEventsPageFeed:
     URL = reverse("web:index")
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _on_a_sphere_domain(self, client, non_root_sphere):
         # The root sphere's front door is the landing; a feed needs a non_root_sphere.
         client.defaults["HTTP_HOST"] = non_root_sphere.site.domain
@@ -837,6 +859,7 @@ class TestLandingPageView:
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
+                "encounters_enabled": True,
             },
             template_name=["landing_page.html"],
         )

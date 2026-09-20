@@ -51,7 +51,7 @@ test.describe("Event filter panel", () => {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
 
-    // Not the width alone: the sheet's own inline <style> reads --modal-max-h,
+    // Not the width alone: the sheet rule in filters.css reads --modal-max-h,
     // the one consumer of that token carrying no .modal class.
     await expectCappedToViewport(page, panel);
 
@@ -864,7 +864,7 @@ test.describe("Rooms view filtering", () => {
     expect(roomCount).toBeGreaterThan(1);
 
     const title = await lanes
-      .locator(".room-lanes-cell .session [data-morph='title']")
+      .locator("[data-room-lanes-cell] .session [data-morph='title']")
       .first()
       .innerText();
     await page.locator("#session-filter").fill(title);
@@ -880,7 +880,7 @@ test.describe("Rooms view filtering", () => {
   test("places each tile in the column and row its data attributes name", async ({ page }) => {
     await page.goto(denseEventUrl);
 
-    const cells = page.locator(".room-lanes-body .room-lanes-cell");
+    const cells = page.locator(".room-lanes-body [data-room-lanes-cell]");
     await expect(cells.first()).toBeVisible();
 
     const placements = await cells.evaluateAll((nodes) =>

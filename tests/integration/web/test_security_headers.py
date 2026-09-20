@@ -103,6 +103,7 @@ class TestCSPNonce:
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
                 "encounters": [],
+                "encounters_enabled": True,
             },
             template_name=["landing_page.html"],
         )

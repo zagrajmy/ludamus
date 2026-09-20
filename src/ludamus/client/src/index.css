@@ -12,6 +12,7 @@
 @import "./room-lanes.css";
 @import "./schedule-fold.css";
 @import "./schedule-now.css";
+@import "./panel-sidebar.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -50,6 +51,10 @@
 @source "../../**/*.{html,py,js}";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
+   on <html> before paint and panel-chrome.ts toggles it. */
+@custom-variant folded (:root[data-folded] &);
+@custom-variant panel (.panel-shell &);
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;
@@ -209,12 +214,85 @@
   margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
 }
 
+/* Scrim for text over a photo. A three-stop gradient bands where its stops
+   meet; these trace alpha = 0.9 × (1 − smoothstep(x)) at 10% steps, so the
+   scrim holds dark under the text and eases out with no edge to see. Apply
+   it to the caption's box and give that box room above the text: padding
+   (pt-28) or a height with the text pushed to the bottom (h-3/4 justify-end). */
+@utility scrim-t {
+  background-image: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.9) 0%,
+    rgb(0 0 0 / 0.875) 10%,
+    rgb(0 0 0 / 0.806) 20%,
+    rgb(0 0 0 / 0.706) 30%,
+    rgb(0 0 0 / 0.583) 40%,
+    rgb(0 0 0 / 0.45) 50%,
+    rgb(0 0 0 / 0.317) 60%,
+    rgb(0 0 0 / 0.194) 70%,
+    rgb(0 0 0 / 0.094) 80%,
+    rgb(0 0 0 / 0.025) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility text-box-trim-start {
   text-box: trim-start cap alphabetic;
 }
 
 @utility text-box-trim-both {
   text-box: trim-both cap alphabetic;
+}
+
+/* A strip of labelled icon buttons that goes icon-only below sm: the glyph
+   carries the action and the text beside it gets the width back. The label is
+   `.btn-label` (templates and `tessera_button` both mark it) and goes sr-only
+   rather than hidden, so the button keeps its accessible name. The breakpoint
+   is decided here, once, for the panel header and the session modal's footer.
+
+   The first two rules hang off the same `:has(> svg)`, and must keep doing so.
+   A button with no icon has nothing to fall back on, so hiding its label
+   leaves a blank pill — which is what the moderation bar on proposal-detail
+   (Accept / Hold / Reject / Delete) would become. The same guard covers
+   `{% icon %}` returning "" for a missing icon in production.
+
+   `min-height` covers every button: an iconless one keeps its label and its
+   own width, but `py-2` alone leaves it 38px — under the tap-target floor,
+   and 6px shy of the squares it sits beside. A minimum rather than a height
+   so it never argues with `size-11` over the icon buttons.
+
+   `w-auto` runs to md, not sm: `tessera_button` stretches every form-submit
+   button by `max-md:w-full`, which is right in a body form and never right in
+   a strip. Deciding it here spares 22 header templates from each passing
+   `full_width_mobile=False`. */
+@utility btn-strip-compact {
+  @media (width < 40rem) {
+    .btn:has(> svg) .btn-label {
+      @apply sr-only;
+    }
+
+    .btn:has(> svg) {
+      @apply size-11 p-0;
+    }
+
+    .btn {
+      @apply min-h-11;
+    }
+  }
+
+  @media (width < 48rem) {
+    .btn {
+      @apply w-auto;
+    }
+  }
 }
 
 *,
@@ -806,6 +884,18 @@ select:not([multiple]):not([size]) {
   background-position: right 0.5rem center;
   background-size: 1rem;
   padding-right: 2rem;
+}
+
+/* The card's link is a full-bleed overlay (.session-link); every other
+   control inside the card sits above it so it stays clickable. */
+.session :is(button, input, select, textarea, [role="button"]),
+.session a:not(.session-link) {
+  position: relative;
+  z-index: 20;
+}
+
+.time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
+  filter: grayscale(50%) brightness(0.95);
 }
 
 .session:has(.session-tags-more:hover) {

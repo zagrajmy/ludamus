@@ -54,5 +54,11 @@ def landing_page(request: RootRequest) -> HttpResponse:
             "stats": landing.stats(),
             "conventions": landing.conventions(),
             "encounters": encounters.upcoming[:LANDING_ENCOUNTERS],
+            # A sphere with encounters off 404s the create route for every
+            # visitor, signed in or not; the "Run an Encounter" CTA must not
+            # send anyone into that.
+            "encounters_enabled": request.services.encounters.enabled(
+                context.current_sphere_id
+            ),
         },
     )

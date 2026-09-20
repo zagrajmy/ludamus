@@ -4547,7 +4547,6 @@ msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Add to calendar"
 msgstr "Dodaj do kalendarza"
 
@@ -6281,8 +6280,16 @@ msgid "Download"
 msgstr "Pobierz"
 
 #: src/ludamus/templates/design.html
-msgid "Link preview card"
-msgstr "Karta podglądu linku"
+msgid "Open at full size"
+msgstr "Otwórz w pełnym rozmiarze"
+
+#: src/ludamus/templates/design.html
+msgid ""
+"Link preview card: the zagrajmy wordmark over a painted cylindrical space "
+"colony"
+msgstr ""
+"Karta podglądu linku: znak słowny zagrajmy na tle malowanej cylindrycznej "
+"kolonii kosmicznej"
 
 #: src/ludamus/templates/event/propose/base.html
 msgid "Submit a session proposal for"
@@ -7369,18 +7376,18 @@ msgstr ""
 #: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid ""
 "An animated demonstration of the waiting list: the programme item is full "
-"(8/8), and Ala and Ola wait in the queue as one group, with Basia in third "
-"place. When one person cancels (7/8), nobody enters: the group needs two "
+"(4/4), and Ala and Ola wait in the queue as one group, with Basia in third "
+"place. When one person cancels (3/4), nobody enters: the group needs two "
 "seats and nobody splits it up or skips past it. Only when a second person "
-"cancels (6/8) do Ala and Ola enter the enrolled list together (8/8), and "
+"cancels (2/4) do Ala and Ola enter the enrolled list together (4/4), and "
 "Basia moves from third to first place in the queue."
 msgstr ""
-"Animowana demonstracja listy oczekujących: punkt programu jest pełny (8/8), "
+"Animowana demonstracja listy oczekujących: punkt programu jest pełny (4/4), "
 "a w kolejce czekają Ala i Ola jako jedna grupa oraz Basia na trzecim "
-"miejscu. Gdy jedna osoba rezygnuje (7/8), nikt nie wchodzi: grupa potrzebuje "
+"miejscu. Gdy jedna osoba rezygnuje (3/4), nikt nie wchodzi: grupa potrzebuje "
 "dwóch miejsc i nikt jej nie rozdziela ani nie przeskakuje. Dopiero gdy "
-"rezygnuje druga osoba (6/8), Ala i Ola wchodzą razem na listę zapisanych "
-"(8/8), a Basia przesuwa się z trzeciego na pierwsze miejsce w kolejce."
+"rezygnuje druga osoba (2/4), Ala i Ola wchodzą razem na listę zapisanych "
+"(4/4), a Basia przesuwa się z trzeciego na pierwsze miejsce w kolejce."
 
 #: src/ludamus/templates/landing_page.html
 msgid "Zagrajmy • conventions and events"
@@ -7662,7 +7669,6 @@ msgid "Save Settings"
 msgstr "Zapisz ustawienia"
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Download .ics"
 msgstr "Pobierz .ics"
 
@@ -11391,6 +11397,9 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
+
+#~ msgid "Link preview card"
+#~ msgstr "Karta podglądu linku"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
