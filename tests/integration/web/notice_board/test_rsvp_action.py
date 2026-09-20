@@ -111,6 +111,26 @@ class TestEncounterRSVPActionView:
         rsvp = EncounterRSVP.objects.get(user=user)
         assert rsvp.ip_address == "203.0.113.50"
 
+    def test_rsvp_falls_through_a_malformed_cloudflare_header(
+        self, authenticated_client, encounter, user
+    ):
+        # ip_address is a non-null inet column, so a forged or malformed
+        # header must not reach it — the next source down is used instead.
+        response = authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_CF_CONNECTING_IP="not-an-ip",
+            REMOTE_ADDR="203.0.113.50",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "You have signed up!"),),
+            url=f"/e/{encounter.share_code}/",
+        )
+        rsvp = EncounterRSVP.objects.get(user=user)
+        assert rsvp.ip_address == "203.0.113.50"
+
     def test_ip_throttle(self, authenticated_client, encounter):
         EncounterRSVPFactory(encounter=encounter, ip_address="10.0.0.1")
 

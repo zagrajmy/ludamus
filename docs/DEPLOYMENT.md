@@ -123,11 +123,12 @@ http:
     cloudflare-only:
       ipAllowList:
         sourceRange:
-          # paste the current lists from https://www.cloudflare.com/ips-v4
-          # and https://www.cloudflare.com/ips-v6
-          - 173.245.48.0/20
-          - 2400:cb00::/32
+          - <every range from https://www.cloudflare.com/ips-v4>
+          - <every range from https://www.cloudflare.com/ips-v6>
 ```
+
+Both lists in full, one CIDR per line. A partial list is the same as a wrong
+one: every visitor routed through an edge you left out gets a 403.
 
 Then in the ludamus application → Advanced → Container Labels, prepend the
 middleware on every `https-N` router whose `Host` rule is a Cloudflare-proxied
