@@ -2990,6 +2990,8 @@ class TestImportLogService(_ImportServiceMocks):
 
 
 class TestImportFieldLayoutService(_ImportServiceMocks):
+    pytestmark = pytest.mark.usefixtures("_layout_defaults")
+
     @pytest.fixture
     def service(self, transaction, event_integrations, import_repos):
         return ImportFieldLayoutService(
@@ -2998,7 +3000,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             repos=import_repos,
         )
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _layout_defaults(
         self, sessions, session_fields, personal_fields, personal_data_field_values
     ):

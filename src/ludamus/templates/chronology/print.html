@@ -53,7 +53,8 @@
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="scope-select">{% translate "Scope" %}</label>
                                 {% select id="scope-select" name="scope" aria_label=aria_scope %}
-                                    <option value="" {% if not selected_scope %}selected{% endif %}>{% translate "Whole event" %}</option>
+                                    <option value=""
+                                            {% if not selected_scope %}selected{% endif %}>{% translate "Whole event" %}</option>
                                     {% for scope in print_scopes %}
                                         <option value="{{ scope.pk }}"
                                                 {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
