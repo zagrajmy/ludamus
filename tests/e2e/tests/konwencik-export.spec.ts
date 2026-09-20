@@ -155,6 +155,12 @@ test.describe("Konwencik export", () => {
 
   for (const width of [390, 768, 1440]) {
     test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
+      // NOTE: this shard also runs the axe-core scan below and other
+      // Firefox specs concurrently (workers: 2 on CI); under contention
+      // Firefox's viewport-resize IPC can miss the default timeout even
+      // though nothing is actually broken. Triple the budget rather than
+      // widen the assertions.
+      test.slow();
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/panel/event/konwencik-preview/export/");
       await expect(page.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
