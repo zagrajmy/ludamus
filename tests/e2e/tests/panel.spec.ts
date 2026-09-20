@@ -588,28 +588,31 @@ test.describe("Backoffice Panel", () => {
   });
 
   test('field create forms hide "Required" for checkbox fields', async ({ page }) => {
-    for (const path of [
-      "/panel/event/frostfire-con/cfp/personal-data/create/",
-      "/panel/event/frostfire-con/cfp/session-fields/create/",
-    ]) {
-      await page.goto(path);
+    await page.goto("/panel/event/frostfire-con/cfp/personal-data/create/");
+    const requiredBox = page.locator("#id_is_required");
+    await page.locator("#id_field_type").selectOption("text");
+    await requiredBox.check();
+    await expect(requiredBox).toBeVisible();
+    await page.locator("#id_field_type").selectOption("checkbox");
+    await expect(requiredBox).toBeHidden();
+    await expect(requiredBox).not.toBeChecked();
 
-      const requirementSelect = firstCategoryRequirementSelect(page);
-      await page.locator("#id_field_type").selectOption("text");
-      await requirementSelect.selectOption("required");
-      await expectRequiredOption(requirementSelect, {
-        hidden: false,
-        disabled: false,
-      });
-      await expect(requirementSelect).toHaveValue("required");
+    await page.goto("/panel/event/frostfire-con/cfp/session-fields/create/");
+    const requirementSelect = firstCategoryRequirementSelect(page);
+    await page.locator("#id_field_type").selectOption("text");
+    await requirementSelect.selectOption("required");
+    await expectRequiredOption(requirementSelect, {
+      hidden: false,
+      disabled: false,
+    });
+    await expect(requirementSelect).toHaveValue("required");
 
-      await page.locator("#id_field_type").selectOption("checkbox");
-      await expectRequiredOption(requirementSelect, {
-        hidden: true,
-        disabled: true,
-      });
-      await expect(requirementSelect).toHaveValue("optional");
-    }
+    await page.locator("#id_field_type").selectOption("checkbox");
+    await expectRequiredOption(requirementSelect, {
+      hidden: true,
+      disabled: true,
+    });
+    await expect(requirementSelect).toHaveValue("optional");
   });
 
   test("cfp picker shows checkbox fields as optional only", async ({ page }, testInfo) => {
@@ -648,7 +651,6 @@ test.describe("Backoffice Panel", () => {
       await expect(chosen.locator(".optional-label")).toHaveText("Optional");
     };
 
-    await assertOptionalOnly("#host-fields-list", hostFieldName);
     await assertOptionalOnly("#session-fields-list", sessionFieldName);
 
     await page.goto("/panel/event/frostfire-con/cfp/personal-data/");
@@ -981,10 +983,6 @@ test.describe("Backoffice Panel", () => {
         await expect(chosen).toBeVisible();
       };
 
-      for (const fieldName of [cityName, experienceName, newsletterName]) {
-        await ensureChosen("#host-fields-list", fieldName);
-      }
-
       for (const fieldName of [gameSystemName, genreName, languagesName, beginnerName]) {
         await ensureChosen("#session-fields-list", fieldName);
       }
@@ -1047,12 +1045,8 @@ test.describe("Backoffice Panel", () => {
       });
       const page = await context.newPage();
 
-      // Step 1: Category
+      // Step 1: Personal Data
       await page.goto("/event/frostfire-con/session/propose/");
-      await proposalCategoryOption(page, proposalCategoryName).click();
-      await page.getByRole("button", { name: /Continue/ }).click();
-
-      // Step 2: Personal Data
       await expect(
         page.locator("#wizard-content").getByRole("heading", {
           name: "Your Information",
@@ -1065,6 +1059,10 @@ test.describe("Backoffice Panel", () => {
         .locator(`select[name="personal_${slugify(experienceName)}"]`)
         .selectOption("Intermediate");
       await page.getByLabel("Subscribe to newsletter?").check();
+      await page.getByRole("button", { name: /Continue/ }).click();
+
+      // Step 2: Category
+      await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       // Step 3: Time Slots

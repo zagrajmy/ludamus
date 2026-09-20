@@ -30,6 +30,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     dynamic_fields_form,
     field_descriptors,
     fold_custom_answers,
+    personal_field_pairs,
     requirement_fields,
     unfold_custom_answers,
 )
@@ -92,7 +93,7 @@ def _facilitator_fields_form(
 ) -> forms.Form:
     return dynamic_fields_form(
         prefix=prefix,
-        fields=[(field, False) for field in fields],
+        fields=personal_field_pairs(fields, own_data=False),
         data=data,
         initial=values or {},
     )
@@ -102,7 +103,7 @@ def _descriptors(
     *, prefix: str, fields: Sequence[OrganizerFieldDTO], form: forms.Form
 ) -> list[FieldDescriptor]:
     return field_descriptors(
-        prefix=prefix, fields=[(field, False) for field in fields], form=form
+        prefix=prefix, fields=personal_field_pairs(fields, own_data=False), form=form
     )
 
 
@@ -177,7 +178,9 @@ def collect_session_field_inputs(
     # in the result — on an edit they blank an answer that exists, and the
     # write path is what drops the ones that would create an empty row.
     folded = fold_custom_answers(
-        cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+        cleaned=form.cleaned_data,
+        fields=[req.field for req in requirements],
+        prefix="session",
     )
     inputs: dict[int, str | list[str] | bool] = {}
     for req in requirements:

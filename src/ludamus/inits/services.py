@@ -124,9 +124,7 @@ class Services:
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
-            transaction=self._transaction,
-            fields=self._repos.personal_data_fields,
-            categories=self._repos.proposal_categories,
+            transaction=self._transaction, fields=self._repos.personal_data_fields
         )
 
     @cached_property
@@ -418,7 +416,6 @@ class Services:
             self._transaction,
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
-                personal_fields=self._repos.personal_data_fields,
                 session_fields=self._repos.session_fields,
                 time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,

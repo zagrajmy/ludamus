@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         EventDTO,
         EventProposalSettingsDTO,
         FacilitatorDTO,
-        PersonalFieldRequirementDTO,
+        OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
@@ -73,10 +73,8 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
         return self._repos.categories.read(pk, event_id)
 
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]:
-        return self._repos.categories.list_personal_field_requirements(category_id)
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self._repos.personal_fields.list_by_event(event_id)
 
     def get_session_requirements(
         self, category_id: int

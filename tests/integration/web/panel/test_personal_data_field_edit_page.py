@@ -4,13 +4,12 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import (
-    PersonalDataField,
-    PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
+from ludamus.links.db.django.models import PersonalDataField, PersonalDataFieldOption
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
 )
-from tests.integration.conftest import ProposalCategoryFactory
-from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -67,9 +66,6 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
-                "categories": [],
-                "required_category_pks": set(),
-                "optional_category_pks": set(),
             },
         )
         assert response.context["current_event"].pk == event.pk
@@ -147,22 +143,34 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.name == "Phone Number"
 
-    def test_post_drops_category_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """A category pk from another event is not linked on edit."""
-        sphere.managers.add(active_user)
+    def test_get_prepopulates_required_flag_and_order(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="What is your email?",
+            slug="email",
+            is_required=True,
+            order=4,
+        )
+
+        response = panel_client.get(self.get_url(event, field))
+
+        form = response.context["form"]
+        assert form.initial["is_required"] is True
+        assert form.initial["order"] == 1 + 1 + 1 + 1
+
+    def test_post_saves_required_flag_and_order(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
-        foreign_category = ProposalCategoryFactory(name="Workshop")  # different event
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Email",
                 "question": "What is your email?",
-                f"category_{foreign_category.pk}": "required",
+                "is_required": "on",
+                "order": 2,
             },
         )
 
@@ -172,9 +180,55 @@ class TestPersonalDataFieldEditPageView:
             messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )
-        assert not PersonalDataFieldRequirement.objects.filter(
-            field=field, category=foreign_category
-        ).exists()
+        field.refresh_from_db()
+        assert field.is_required is True
+        assert field.order == 1 + 1
+
+    def test_post_clears_required_flag_when_unchecked(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="What is your email?",
+            slug="email",
+            is_required=True,
+        )
+
+        panel_client.post(
+            self.get_url(event, field),
+            data={"name": "Email", "question": "What is your email?"},
+        )
+
+        field.refresh_from_db()
+        assert field.is_required is False
+
+    def test_post_rejects_required_on_checkbox_field(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Consent",
+            question="Do you agree?",
+            slug="consent",
+            field_type="checkbox",
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={"name": "Consent", "question": "Do you agree?", "is_required": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-edit.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "field": response.context["field"],
+                "form": FormErrorsMatcher(
+                    is_required=["A checkbox cannot be required."]
+                ),
+            },
+        )
+        field.refresh_from_db()
+        assert field.is_required is False
 
     def test_post_updates_slug_on_name_change(self, panel_client, event):
         field = PersonalDataField.objects.create(
@@ -222,9 +276,6 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
-                "categories": [],
-                "required_category_pks": set(),
-                "optional_category_pks": set(),
             },
         )
         field.refresh_from_db()

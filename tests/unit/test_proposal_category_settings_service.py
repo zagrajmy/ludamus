@@ -41,17 +41,6 @@ def _category() -> ProposalCategoryDTO:
     )
 
 
-def _personal_field(pk: int) -> OrganizerFieldDTO:
-    return OrganizerFieldDTO(
-        field_type="text",
-        name=f"Personal {pk}",
-        order=pk,
-        pk=pk,
-        question="Question",
-        slug=f"personal-{pk}",
-    )
-
-
 def _session_field(pk: int) -> OrganizerFieldDTO:
     return OrganizerFieldDTO(
         field_type="text",
@@ -79,9 +68,6 @@ def _data() -> ProposalCategorySettingsData:
         max_participants_limit=5,
         promotion_mode=PromotionMode.OFFER_CLAIM,
         offer_claim_window=timedelta(minutes=30),
-        personal_fields=RequirementSelectionDTO(
-            requirements={1: True, 999: True}, order=[999, 1]
-        ),
         session_fields=RequirementSelectionDTO(
             requirements={2: False, 999: False}, order=[2, 999]
         ),
@@ -98,15 +84,12 @@ def _service(transaction: RecordingTransaction, repos: ProposalCategorySettingsR
 def _mock_repos() -> tuple[ProposalCategorySettingsRepos, MagicMock]:
     categories = MagicMock()
     categories.read_by_slug.return_value = _category()
-    personal_fields = MagicMock()
-    personal_fields.list_by_event.return_value = [_personal_field(1)]
     session_fields = MagicMock()
     session_fields.list_by_event.return_value = [_session_field(2)]
     time_slots = MagicMock()
     time_slots.list_by_event.return_value = [_time_slot(3)]
     repos = ProposalCategorySettingsRepos(
         categories=categories,
-        personal_fields=personal_fields,
         session_fields=session_fields,
         time_slots=time_slots,
         sessions=MagicMock(),
@@ -119,7 +102,6 @@ def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
     repos, categories = _mock_repos()
     mutations = (
         categories.update,
-        categories.set_field_requirements,
         categories.set_session_field_requirements,
         categories.set_time_slot_requirements,
     )
@@ -143,7 +125,6 @@ def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
             "offer_claim_window": timedelta(minutes=30),
         },
     )
-    categories.set_field_requirements.assert_called_once_with(7, {1: True}, [1])
     categories.set_session_field_requirements.assert_called_once_with(
         7, {2: False}, [2]
     )
@@ -169,23 +150,21 @@ def test_update_leaves_promotion_config_untouched_when_not_submitted() -> None:
 
 def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     repos, categories = _mock_repos()
-    repos.personal_fields.list_by_event.return_value = [
-        _personal_field(1),
-        _personal_field(2),
-        _personal_field(3),
+    repos.session_fields.list_by_event.return_value = [
+        _session_field(1),
+        _session_field(2),
+        _session_field(3),
     ]
-    categories.get_field_order.return_value = [3, 1]
-    categories.get_session_field_order.return_value = []
+    categories.get_session_field_order.return_value = [3, 1]
     categories.get_time_slot_order.return_value = []
-    categories.get_field_requirements.return_value = {3: True}
-    categories.get_session_field_requirements.return_value = {}
+    categories.get_session_field_requirements.return_value = {3: True}
     categories.get_time_slot_requirements.return_value = {}
     proposal_count = 5
     repos.sessions.count_by_category.return_value = proposal_count
 
     page = _service(RecordingTransaction(), repos).read_context(4, "rpg")
 
-    assert [field.pk for field in page.available_fields] == [3, 1, 2]
+    assert [field.pk for field in page.available_session_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
 
 

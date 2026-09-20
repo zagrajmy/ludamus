@@ -710,12 +710,6 @@ class FieldUsageSummary:
         return bool(self.required_count or self.optional_count)
 
 
-class PersonalFieldRequirementDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    field: OrganizerFieldDTO
-    is_required: bool
-
-
 class SessionFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     field: OrganizerFieldDTO
@@ -1115,10 +1109,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]: ...
     @staticmethod
-    def get_field_order(category_id: int) -> list[int]: ...
-    @staticmethod
-    def get_field_requirements(category_id: int) -> dict[int, bool]: ...
-    @staticmethod
     def get_session_field_order(category_id: int) -> list[int]: ...
     @staticmethod
     def get_session_field_requirements(category_id: int) -> dict[int, bool]: ...
@@ -1131,10 +1121,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_slug(event_id: int, slug: str) -> ProposalCategoryDTO: ...
     @staticmethod
-    def list_personal_field_requirements(
-        category_id: int,
-    ) -> list[PersonalFieldRequirementDTO]: ...
-    @staticmethod
     def list_session_field_requirements(
         category_id: int,
     ) -> list[SessionFieldRequirementDTO]: ...
@@ -1142,10 +1128,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def list_time_slot_requirements(
         category_id: int,
     ) -> list[TimeSlotRequirementDTO]: ...
-    @staticmethod
-    def set_field_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None: ...
     @staticmethod
     def set_session_field_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
@@ -1159,12 +1141,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
-    def get_personal_field_categories(field_id: int) -> dict[int, bool]: ...
-    @staticmethod
-    def set_personal_field_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None: ...
-    @staticmethod
     def get_session_field_categories(field_id: int) -> dict[int, bool]: ...
     @staticmethod
     def set_session_field_categories(
@@ -1173,7 +1149,9 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO: ...
 
 
-class PersonalDataFieldCreateData(TypedDict):
+class OrganizerFieldFormData(TypedDict):
+    """What the field forms share, personal-data and session alike."""
+
     name: str
     slug: NotRequired[str]
     question: str
@@ -1184,6 +1162,13 @@ class PersonalDataFieldCreateData(TypedDict):
     max_length: int
     help_text: str
     is_public: bool
+
+
+class PersonalDataFieldCreateData(OrganizerFieldFormData):
+    # Absent when a field is created for someone else's answers (an import):
+    # nobody is bound by it yet.
+    is_required: NotRequired[bool]
+    order: NotRequired[int]
 
 
 class PersonalDataFieldUpdateData(TypedDict):
@@ -1192,23 +1177,15 @@ class PersonalDataFieldUpdateData(TypedDict):
     max_length: int
     help_text: str
     is_public: bool
+    is_required: bool
+    order: int
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
 
 
-class SessionFieldCreateData(TypedDict):
-    name: str
-    slug: NotRequired[str]
-    question: str
-    field_type: Literal["text", "select", "checkbox"]
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
-    max_length: int
-    help_text: str
+class SessionFieldCreateData(OrganizerFieldFormData):
     icon: str
-    is_public: bool
 
 
 class SessionFieldUpdateData(TypedDict):
@@ -1232,9 +1209,9 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete_orphans_for_event(event_id: int) -> int: ...
     @staticmethod
-    def has_requirements(pk: int) -> bool: ...
+    def has_values(pk: int) -> bool: ...
     @staticmethod
-    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
+    def count_values(event_id: int) -> dict[int, int]: ...
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(

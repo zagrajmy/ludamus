@@ -4,16 +4,15 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import (
-    PersonalDataField,
-    PersonalDataFieldRequirement,
+from ludamus.links.db.django.models import PersonalDataField
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
 )
-from tests.integration.conftest import ProposalCategoryFactory
-from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
-    make_workshop_and_talk,
     panel_context,
 )
 
@@ -46,13 +45,7 @@ class TestPersonalDataFieldCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "categories": [],
-                "form": ANY,
-                "required_category_pks": set(),
-                "optional_category_pks": set(),
-            },
+            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
         )
         assert response.context["current_event"].pk == event.pk
 
@@ -130,13 +123,7 @@ class TestPersonalDataFieldCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "categories": [],
-                "form": ANY,
-                "required_category_pks": set(),
-                "optional_category_pks": set(),
-            },
+            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
         )
         assert not PersonalDataField.objects.filter(event=event).exists()
 
@@ -291,67 +278,53 @@ class TestPersonalDataFieldCreatePageView:
         assert field.field_type == "text"
         assert field.allow_custom is False
 
-    # Category assignment tests
+    # Required and order tests
 
-    def test_get_includes_categories_in_context(self, panel_client, event):
-        make_workshop_and_talk(event)
-
-        response = panel_client.get(self.get_url(event))
-
-        assert len(response.context["categories"]) == 1 + 1  # Workshop + Talk
-
-    def test_post_with_category_assignments_creates_requirements(
-        self, panel_client, event
-    ):
-        cat1, cat2 = make_workshop_and_talk(event)
-
-        panel_client.post(
-            self.get_url(event),
-            data={
-                "name": "Email",
-                "question": "What is your email?",
-                f"category_{cat1.pk}": "required",
-                f"category_{cat2.pk}": "optional",
-            },
-        )
-
-        field = PersonalDataField.objects.get(event=event)
-        reqs = {
-            r.category_id: r.is_required
-            for r in PersonalDataFieldRequirement.objects.filter(field=field)
-        }
-        assert reqs == {cat1.pk: True, cat2.pk: False}
-
-    def test_post_without_category_assignments_creates_no_requirements(
-        self, panel_client, event
-    ):
-        ProposalCategoryFactory(event=event, name="Workshop")
-
+    def test_post_creates_optional_field_by_default(self, panel_client, event):
         panel_client.post(
             self.get_url(event),
             data={"name": "Email", "question": "What is your email?"},
         )
 
         field = PersonalDataField.objects.get(event=event)
-        assert not PersonalDataFieldRequirement.objects.filter(field=field).exists()
+        assert field.is_required is False
+        assert field.order == 0
 
-    def test_post_drops_category_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """A category pk from another event is not linked to the new field."""
-        sphere.managers.add(active_user)
-        foreign_category = ProposalCategoryFactory(name="Workshop")  # different event
-
-        authenticated_client.post(
+    def test_post_saves_required_flag_and_order(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Email",
                 "question": "What is your email?",
-                f"category_{foreign_category.pk}": "required",
+                "is_required": True,
+                "order": 3,
             },
         )
 
         field = PersonalDataField.objects.get(event=event)
-        assert not PersonalDataFieldRequirement.objects.filter(
-            field=field, category=foreign_category
-        ).exists()
+        assert field.is_required is True
+        assert field.order == 1 + 1 + 1
+
+    def test_post_rejects_required_checkbox(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data={
+                "name": "Consent",
+                "question": "Do you agree?",
+                "field_type": "checkbox",
+                "is_required": True,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-create.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "form": FormErrorsMatcher(
+                    is_required=["A checkbox cannot be required."]
+                ),
+            },
+        )
+        assert not PersonalDataField.objects.filter(event=event).exists()

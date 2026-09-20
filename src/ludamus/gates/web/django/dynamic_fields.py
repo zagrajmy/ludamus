@@ -19,11 +19,10 @@ if TYPE_CHECKING:
         FieldDescriptor,
         FieldValue,
         OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
         SessionFieldRequirementDTO,
     )
 
-type Requirement = PersonalFieldRequirementDTO | SessionFieldRequirementDTO
+type FieldPairs = Sequence[tuple[OrganizerFieldDTO, bool]]
 type WizardData = dict[str, FieldValue | int]
 
 
@@ -94,28 +93,36 @@ def build_field(
 
 
 def build_dynamic_fields(
-    *, fields: dict[str, forms.Field], requirements: Sequence[Requirement], prefix: str
+    *, fields: dict[str, forms.Field], pairs: FieldPairs, prefix: str
 ) -> tuple[str, ...]:
     # Returns the keys whose requirement the choice field alone can no longer
     # enforce, for CustomAnswerFormMixin to check as a pair.
-    for req in requirements:
+    for field_def, is_required in pairs:
         build_field(
             fields=fields,
-            field_key=f"{prefix}_{req.field.slug}",
-            field_def=req.field,
-            is_required=req.is_required,
+            field_key=f"{prefix}_{field_def.slug}",
+            field_def=field_def,
+            is_required=is_required,
         )
     return tuple(
-        f"{prefix}_{req.field.slug}"
-        for req in requirements
-        if req.is_required and req.field.offers_custom_input
+        f"{prefix}_{field_def.slug}"
+        for field_def, is_required in pairs
+        if is_required and field_def.offers_custom_input
     )
 
 
 def requirement_fields(
-    requirements: Sequence[Requirement],
+    requirements: Sequence[SessionFieldRequirementDTO],
 ) -> list[tuple[OrganizerFieldDTO, bool]]:
     return [(req.field, req.is_required) for req in requirements]
+
+
+def personal_field_pairs(
+    fields: Sequence[OrganizerFieldDTO], *, own_data: bool
+) -> list[tuple[OrganizerFieldDTO, bool]]:
+    # Who is answering decides what binds: the proposer meets each field's own
+    # flag; anyone recording data on someone else's behalf is never forced.
+    return [(field, own_data and field.is_required) for field in fields]
 
 
 def dynamic_fields_form(
@@ -240,28 +247,28 @@ def unfold_custom_answers(
 
 
 def fold_custom_answers(
-    *, cleaned: WizardData, requirements: Sequence[Requirement], prefix: str
+    *, cleaned: WizardData, fields: Sequence[OrganizerFieldDTO], prefix: str
 ) -> WizardData:
-    keys = {f"{prefix}_{req.field.slug}" for req in requirements}
+    keys = {f"{prefix}_{field_def.slug}" for field_def in fields}
     # Minus the real keys: a field slugged "triggers_custom" alongside
     # "triggers" owns its answer, companion spelling notwithstanding.
     companions = {
-        f"{prefix}_{req.field.slug}_custom"
-        for req in requirements
-        if req.field.offers_custom_input
+        f"{prefix}_{field_def.slug}_custom"
+        for field_def in fields
+        if field_def.offers_custom_input
     } - keys
     folded: WizardData = {
         key: value for key, value in cleaned.items() if key not in companions
     }
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
+    for field_def in fields:
+        key = f"{prefix}_{field_def.slug}"
         value = folded.get(key)
-        if not req.field.allow_custom or not isinstance(value, str | list | bool):
+        if not field_def.allow_custom or not isinstance(value, str | list | bool):
             continue
         custom_key = f"{key}_custom"
         folded[key] = merge_custom(
             chosen=value,
             custom="" if custom_key in keys else str(cleaned.get(custom_key) or ""),
-            is_multiple=req.field.is_multiple,
+            is_multiple=field_def.is_multiple,
         )
     return folded

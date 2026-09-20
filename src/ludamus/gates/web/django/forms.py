@@ -16,6 +16,7 @@ from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_log
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
+    requirement_fields,
 )
 from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.pacts.discounts import DiscountKind
@@ -435,6 +436,16 @@ class PersonalDataFieldForm(forms.Form):
         ),
     )
     is_public = forms.BooleanField(required=False, initial=False)
+    is_required = forms.BooleanField(required=False, initial=False)
+    order = forms.IntegerField(required=False, min_value=0, initial=0)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or self.cleaned_data
+        # The database refuses the pair too; this is the message the organiser
+        # reads instead of a constraint error.
+        if cleaned.get("field_type") == "checkbox" and cleaned.get("is_required"):
+            self.add_error("is_required", _("A checkbox cannot be required."))
+        return cleaned
 
 
 class SessionFieldForm(forms.Form):
@@ -817,7 +828,7 @@ def create_proposal_form(
     }
 
     custom_required = build_dynamic_fields(
-        fields=attrs, requirements=requirements, prefix="session"
+        fields=attrs, pairs=requirement_fields(requirements), prefix="session"
     )
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {

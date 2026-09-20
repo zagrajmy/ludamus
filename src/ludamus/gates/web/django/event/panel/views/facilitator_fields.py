@@ -6,6 +6,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
     dynamic_fields_form,
     field_descriptors,
+    personal_field_pairs,
 )
 from ludamus.pacts import PersonalDataFieldValueData
 
@@ -28,7 +29,7 @@ def personal_fields_form(
 ) -> forms.Form:
     return dynamic_fields_form(
         prefix=PERSONAL_PREFIX,
-        fields=[(field, False) for field in fields],
+        fields=personal_field_pairs(fields, own_data=False),
         data=data,
         initial=values or {},
     )
@@ -38,7 +39,9 @@ def personal_descriptors(
     fields: Sequence[OrganizerFieldDTO], form: forms.Form
 ) -> list[FieldDescriptor]:
     return field_descriptors(
-        prefix=PERSONAL_PREFIX, fields=[(field, False) for field in fields], form=form
+        prefix=PERSONAL_PREFIX,
+        fields=personal_field_pairs(fields, own_data=False),
+        form=form,
     )
 
 

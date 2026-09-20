@@ -12,7 +12,8 @@ from typing import (  # pylint: disable=unused-import
 from django.contrib import messages
 from django.utils.translation import gettext as _
 
-from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import OrganizerFieldFormData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -40,14 +41,14 @@ class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
     def read_by_slug(self, event_pk: int, slug: str) -> T: ...
 
 
-def parse_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
+def parse_field_form_data(form: forms.Form) -> OrganizerFieldFormData:
     field_type = cast(
         "Literal['text', 'select', 'checkbox']",
         form.cleaned_data.get("field_type") or "text",
     )
     options_text = form.cleaned_data.get("options") or ""
     options = [o.strip() for o in options_text.split("\n") if o.strip()] or None
-    return PersonalDataFieldCreateData(
+    return OrganizerFieldFormData(
         name=form.cleaned_data["name"],
         question=form.cleaned_data["question"],
         field_type=field_type,

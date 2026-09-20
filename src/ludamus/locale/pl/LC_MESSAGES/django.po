@@ -1584,6 +1584,10 @@ msgid "Unknown implementation: %(id)s"
 msgstr "Nieznana implementacja: %(id)s"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
+msgid "Already answered"
+msgstr "Są już odpowiedzi"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field created successfully."
 msgstr "Pole danych osobowych zostało utworzone."
 
@@ -1596,9 +1600,8 @@ msgid "Personal data field updated successfully."
 msgstr "Pole danych osobowych zostało zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
-#: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
-msgid "Cannot delete field that is used in categories."
-msgstr "Nie można usunąć pola używanego w kategoriach."
+msgid "Cannot delete a field that people have already answered."
+msgstr "Nie można usunąć pola, na które ktoś już odpowiedział."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field deleted successfully."
@@ -1790,6 +1793,10 @@ msgstr "Pole punktu programu nie zostało znalezione."
 #: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
 msgid "Session field updated successfully."
 msgstr "Pole punktu programu zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
+msgid "Cannot delete field that is used in categories."
+msgstr "Nie można usunąć pola używanego w kategoriach."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
 msgid "Session field deleted successfully."
@@ -2430,6 +2437,8 @@ msgstr "Procent odejmowany od ceny biletu."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 #: src/ludamus/templates/panel/discount-rules.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
 msgid "Order"
 msgstr "Kolejność"
 
@@ -3053,6 +3062,10 @@ msgid ""
 msgstr ""
 "Obsługuje markdown (linki, pogrubienie). Wyświetlane pod polem w formularzu "
 "zgłoszenia."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "A checkbox cannot be required."
+msgstr "Pole wyboru nie może być wymagane."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Date is required."
@@ -5357,7 +5370,6 @@ msgstr "Spoko"
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
 #: src/ludamus/templates/components/label.html
-#: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
 msgid "required"
 msgstr "wymagane"
@@ -6341,6 +6353,15 @@ msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 
 #: src/ludamus/templates/event/propose/parts/category.html
 #: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/category.html
+#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Continue"
@@ -6359,15 +6380,6 @@ msgstr ""
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Select the tracks your session belongs to."
 msgstr "Wybierz bloki programowe dla tego punktu programu."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-#: src/ludamus/templates/event/propose/parts/personal.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session details saved. Next step coming soon."
@@ -6915,15 +6927,12 @@ msgstr "Wszystko, co wymaga Twojej uwagi, pojawi się tutaj."
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Categories"
 msgstr "Kategorie"
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
-#: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 msgid "Host Data Fields"
 msgstr "Pola danych twórcy"
@@ -7485,12 +7494,10 @@ msgstr ""
 "zostaną do nich dodane, a usunięte pola zachowają swoje dane."
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which personal data fields hosts must provide."
-msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+msgid "Select which session fields hosts must provide."
+msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Not included"
@@ -7500,30 +7507,17 @@ msgstr "Nieuwzględnione"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Required"
 msgstr "Wymagane"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Optional"
 msgstr "Opcjonalne"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "No personal data fields defined for this event."
-msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Configure host data fields"
-msgstr "Skonfiguruj pola danych twórcy"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which session fields hosts must provide."
-msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "No session fields defined for this event."
@@ -9433,17 +9427,8 @@ msgstr "Pokaż na publicznej karcie punktu programu"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Select which categories should include this field."
-msgstr "Wybierz, które kategorie mają zawierać to pole."
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "No categories have been created yet."
-msgstr "Nie utworzono jeszcze żadnych kategorii."
+msgid "Lower numbers are asked first."
+msgstr "Pytania o niższym numerze pojawiają się wcześniej."
 
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 msgid "Edit Personal Data Field"
@@ -9482,22 +9467,13 @@ msgstr "Czym są pola danych twórcy?"
 msgid ""
 "Host data fields collect contact and personal information from session hosts "
 "when they submit proposals. Examples: email address, phone number, Discord "
-"username. This data is shared across all categories for the event - each "
-"host fills it once."
+"username. Every proposer at the event is asked the same questions once, "
+"whatever they propose."
 msgstr ""
 "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych od "
 "prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres e-"
-"mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-"wszystkich kategorii - każdy twórca wypełnia je tylko raz."
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid ""
-"After creating fields here, configure which ones are required or optional in "
-"each category's settings."
-msgstr ""
-"Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub opcjonalne "
-"w ustawieniach każdej kategorii."
+"mail, numer telefonu, nazwa użytkownika Discord. Każdy zgłaszający na "
+"wydarzeniu odpowiada na te same pytania raz, niezależnie od tego, co zgłasza."
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -9505,9 +9481,8 @@ msgid "Type"
 msgstr "Typ"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Usage"
-msgstr "Użycie"
+msgid "Answers"
+msgstr "Odpowiedzi"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -9515,14 +9490,8 @@ msgid "Multiple"
 msgstr "Wielokrotny"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "optional"
-msgstr "opcjonalne"
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Not used"
-msgstr "Nieużywane"
+msgid "No answers yet"
+msgstr "Brak odpowiedzi"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 msgid ""
@@ -9776,6 +9745,16 @@ msgstr "np. puzzle-piece, star"
 msgid "Heroicon name to display next to the field."
 msgstr "Nazwa ikony Heroicon wyświetlana obok pola."
 
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Select which categories should include this field."
+msgstr "Wybierz, które kategorie mają zawierać to pole."
+
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "No categories have been created yet."
+msgstr "Nie utworzono jeszcze żadnych kategorii."
+
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Edit Session Field"
 msgstr "Edytuj pole punktu programu"
@@ -9794,6 +9773,26 @@ msgstr ""
 "Przykłady: system gry, gatunek, poziom trudności, język. W przeciwieństwie "
 "do danych twórcy, pola punktu programu są wypełniane osobno dla każdego "
 "zgłoszenia."
+
+#: src/ludamus/templates/panel/session-fields.html
+msgid ""
+"After creating fields here, configure which ones are required or optional in "
+"each category's settings."
+msgstr ""
+"Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub opcjonalne "
+"w ustawieniach każdej kategorii."
+
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Usage"
+msgstr "Użycie"
+
+#: src/ludamus/templates/panel/session-fields.html
+msgid "optional"
+msgstr "opcjonalne"
+
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Not used"
+msgstr "Nieużywane"
 
 #: src/ludamus/templates/panel/session-fields.html
 msgid "No session fields defined. Add fields to classify sessions."
@@ -10308,6 +10307,15 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
