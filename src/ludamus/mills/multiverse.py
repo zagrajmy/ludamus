@@ -150,22 +150,29 @@ class SpherePanelService:
         self,
         sphere_id: int,
         *,
-        allow_facilitator_session_edit: bool,
-        encounters_policy: EncountersPolicy,
+        allow_facilitator_session_edit: bool | None = None,
+        encounters_policy: EncountersPolicy | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
-        """Save the sphere's settings, refusing an unconfirmed hide.
+        """Save the settings the caller named, refusing an unconfirmed hide.
+
+        Every argument is a patch: None means "leave this as it stands", and
+        a caller that only wants to swap the logo says so rather than reading
+        the other two and handing them back. That read-then-write is a lost
+        update waiting to happen — between the read and the write another
+        manager changes the policy, and the stale value overwrites theirs.
 
         Returns:
             NEEDS_CONFIRMATION when the save would turn encounters off while
             the sphere still has some — nothing is written, and the caller is
             expected to warn and ask again. SAVED otherwise.
         """
-        data: SphereUpdateData = {
-            "allow_facilitator_session_edit": allow_facilitator_session_edit,
-            "encounters_policy": encounters_policy.value,
-        }
+        data: SphereUpdateData = {}
+        if allow_facilitator_session_edit is not None:
+            data["allow_facilitator_session_edit"] = allow_facilitator_session_edit
+        if encounters_policy is not None:
+            data["encounters_policy"] = encounters_policy.value
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo

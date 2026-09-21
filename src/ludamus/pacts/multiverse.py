@@ -180,8 +180,8 @@ class SpherePanelServiceProtocol(Protocol):
         self,
         sphere_id: int,
         *,
-        allow_facilitator_session_edit: bool,
-        encounters_policy: EncountersPolicy,
+        allow_facilitator_session_edit: bool | None = None,
+        encounters_policy: EncountersPolicy | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...

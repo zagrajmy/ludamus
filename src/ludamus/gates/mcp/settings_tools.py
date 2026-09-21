@@ -264,18 +264,10 @@ class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
     @staticmethod
     def handle(call: ToolCall[ImageUploadInput]) -> str:
         sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
-        upload = call.data.validated_upload(validate_uploaded_logo)
-        # Confirmed up front: this writes the sphere's own stored policy back
-        # unchanged, so it can never be the save that hides encounters — but
-        # an unconfirmed call returns without writing, and a silently dropped
-        # logo is the worst way to learn that.
+        # Only the logo: naming the other settings here would hand back
+        # whatever they read as, overwriting a change made in between.
         call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            encounters_policy=sphere.encounters_policy,
-            logo=upload,
-            confirmed_encounters_disable=True,
+            sphere_id, logo=call.data.validated_upload(validate_uploaded_logo)
         )
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
 
@@ -321,22 +313,16 @@ class OrganizerUpdateSphereTool(Tool[_UpdateSphereInput]):
         ):
             raise ToolError("Provide at least one field to update")
         sphere_id = actor_sphere(call.actor)
-        # Read first so an omitted field is written back as it stands: the
-        # service takes the whole settings shape, not a patch.
-        sphere = call.services.sphere_panel.read(sphere_id)
-        policy = (
-            EncountersPolicy(call.data.encounters_policy)
-            if call.data.encounters_policy is not None
-            else sphere.encounters_policy
-        )
+        # Straight through: an omitted field stays omitted all the way to the
+        # UPDATE, so a setting this call never mentions is never rewritten.
         outcome = call.services.sphere_panel.update_settings(
             sphere_id,
-            allow_facilitator_session_edit=(
-                sphere.allow_facilitator_session_edit
-                if call.data.facilitator_session_edit is None
-                else call.data.facilitator_session_edit
+            allow_facilitator_session_edit=call.data.facilitator_session_edit,
+            encounters_policy=(
+                EncountersPolicy(call.data.encounters_policy)
+                if call.data.encounters_policy is not None
+                else None
             ),
-            encounters_policy=policy,
             confirmed_encounters_disable=call.data.confirm_hiding_encounters,
         )
         if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
