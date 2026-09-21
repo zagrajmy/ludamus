@@ -18,7 +18,7 @@ def disable_for_bachanalia(apps, _schema_editor) -> None:
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0162_rename_session_facilitator_name")]
+    dependencies = [("db_main", "0163_encounters_policy")]
 
     operations = [
         migrations.AddField(

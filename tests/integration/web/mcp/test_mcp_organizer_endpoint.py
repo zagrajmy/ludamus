@@ -979,17 +979,17 @@ class TestOrganizerEventSettingsTools:
             {
                 "event_cover_buttons_at_bottom": at_bottom,
                 "allow_facilitator_session_edit": not at_bottom,
-                "encounter_public_policy": "managers",
+                "encounters_policy": "managers",
             },
         )
 
         sphere.refresh_from_db()
         assert sphere.event_cover_buttons_at_bottom is at_bottom
         assert sphere.allow_facilitator_session_edit is not at_bottom
-        assert sphere.encounter_public_policy == "managers"
+        assert sphere.encounters_policy == "managers"
         assert updated["event_cover_buttons_at_bottom"] is at_bottom
         assert updated["allow_facilitator_session_edit"] is not at_bottom
-        assert updated["encounter_public_policy"] == "managers"
+        assert updated["encounters_policy"] == "managers"
 
     @pytest.mark.parametrize(
         ("arguments", "message"),

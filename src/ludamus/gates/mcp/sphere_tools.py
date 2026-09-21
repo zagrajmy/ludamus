@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from ludamus.gates.mcp.inputs import ImageUploadInput
 from ludamus.gates.mcp.organizer_context import actor_sphere
-from ludamus.gates.mcp.registry import Tool, ToolCall
+from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo
-from ludamus.pacts.legacy import EncounterPublicPolicy, SpherePage
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
+from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolProtocol
@@ -29,27 +29,15 @@ class _UpdateSphereSettingsInput(BaseModel):
             "right; false restores the default top-right position"
         ),
     )
-    enabled_pages: list[SpherePage] | None = Field(
-        default=None, min_length=1, description="Sphere pages that remain enabled"
+    encounters_policy: EncountersPolicy | None = Field(
+        default=None, description="Who may organize encounters in the sphere"
     )
-    default_page: SpherePage | None = Field(
-        default=None,
-        description="Page shown at the sphere root; it must also be enabled",
+    confirmed_encounters_disable: bool = Field(
+        default=False,
+        description=(
+            "Confirm hiding existing encounters when setting encounters_policy to none"
+        ),
     )
-    encounter_public_policy: EncounterPublicPolicy | None = Field(
-        default=None, description="Who may see public encounter listings"
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_patch(cls, data: object) -> object:
-        if not isinstance(data, Mapping):
-            return data
-        if not data:
-            raise ValueError("Provide at least one sphere setting to update")
-        if any(value is None for value in data.values()):
-            raise ValueError("Omit unchanged settings instead of passing null")
-        return data
 
     def to_patch(self) -> SphereSettingsPatch:
         changes: SphereSettingsPatch = {}
@@ -61,12 +49,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["event_cover_buttons_at_bottom"] = (
                 self.event_cover_buttons_at_bottom
             )
-        if self.enabled_pages is not None:
-            changes["enabled_pages"] = self.enabled_pages
-        if self.default_page is not None:
-            changes["default_page"] = self.default_page
-        if self.encounter_public_policy is not None:
-            changes["encounter_public_policy"] = self.encounter_public_policy
+        if self.encounters_policy is not None:
+            changes["encounters_policy"] = self.encounters_policy
         return changes
 
 
@@ -78,10 +62,34 @@ class OrganizerUpdateSphereSettingsTool(Tool[_UpdateSphereSettingsInput]):
 
     @staticmethod
     def handle(call: ToolCall[_UpdateSphereSettingsInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        call.services.sphere_panel.patch_settings(
-            sphere_id, changes=call.data.to_patch()
+        provided = call.data.model_fields_set - {"confirmed_encounters_disable"}
+        if not provided:
+            raise ToolError("Provide at least one sphere setting to update")
+        has_explicit_null = (
+            (
+                "allow_facilitator_session_edit" in provided
+                and call.data.allow_facilitator_session_edit is None
+            )
+            or (
+                "event_cover_buttons_at_bottom" in provided
+                and call.data.event_cover_buttons_at_bottom is None
+            )
+            or ("encounters_policy" in provided and call.data.encounters_policy is None)
         )
+        if has_explicit_null:
+            raise ToolError("Omit unchanged settings instead of passing null")
+
+        sphere_id = actor_sphere(call.actor)
+        outcome = call.services.sphere_panel.patch_settings(
+            sphere_id,
+            changes=call.data.to_patch(),
+            confirmed_encounters_disable=call.data.confirmed_encounters_disable,
+        )
+        if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
+            raise ToolError(
+                "This sphere has encounters. Retry with "
+                "confirmed_encounters_disable=true to hide them."
+            )
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
 
 

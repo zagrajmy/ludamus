@@ -7,20 +7,19 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import SpherePage
-from ludamus.pacts.multiverse import DefaultPageDisabledError, SphereAccessDTO
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.multiverse import SphereAccessDTO, SphereSettingsOutcome
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
+    from ludamus.pacts.encounter import EncounterRepositoryProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
-        EncounterPublicPolicy,
-        EncounterRepositoryProtocol,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
         SphereUpdateData,
-        UploadedFileProtocol,
     )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
@@ -148,79 +147,79 @@ class SpherePanelService:
     def read(self, sphere_id: int) -> SphereDTO:
         return self._spheres.read(sphere_id)
 
-    def pages_with_content(self, sphere_id: int) -> set[SpherePage]:
-        """Pages whose view would hide existing content if disabled."""
-        pages: set[SpherePage] = set()
-        if self._events.exists_for_sphere(sphere_id):
-            pages.add(SpherePage.EVENTS)
-        if self._encounters.exists_for_sphere(sphere_id):
-            pages.add(SpherePage.ENCOUNTERS)
-        if pages:
-            # The timeline shows published events and public encounters, so any
-            # content at all makes disabling it worth a warning.
-            pages.add(SpherePage.TIMELINE)
-        return pages
-
     def update_settings(
         self,
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
         event_cover_buttons_at_bottom: bool,
-        enabled_pages: list[SpherePage],
-        default_page: SpherePage,
-        encounter_public_policy: EncounterPublicPolicy,
+        encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
-    ) -> None:
-        # The homepage redirect sends visitors to default_page, so a disabled
-        # one strands them on a 404. Enforced here rather than only in the
-        # panel form, so every caller of the service is covered.
-        if default_page not in enabled_pages:
-            raise DefaultPageDisabledError
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome:
+        """Save the sphere's settings, refusing an unconfirmed hide.
+
+        Returns:
+            NEEDS_CONFIRMATION when the save would turn encounters off while
+            the sphere still has some — nothing is written, and the caller is
+            expected to warn and ask again. SAVED otherwise.
+        """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
             "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
-            "enabled_pages": [page.value for page in enabled_pages],
-            "default_page": default_page.value,
-            "encounter_public_policy": encounter_public_policy.value,
+            "encounters_policy": encounters_policy.value,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():
+            if (
+                not confirmed_encounters_disable
+                and encounters_policy is EncountersPolicy.NONE
+                and self._spheres.read(sphere_id).encounters_policy
+                is not EncountersPolicy.NONE
+                and self._encounters.exists_for_sphere(sphere_id)
+            ):
+                return SphereSettingsOutcome.NEEDS_CONFIRMATION
             self._spheres.update(sphere_id, data)
+            return SphereSettingsOutcome.SAVED
 
-    def patch_settings(self, sphere_id: int, *, changes: SphereSettingsPatch) -> None:
+    def patch_settings(
+        self,
+        sphere_id: int,
+        *,
+        changes: SphereSettingsPatch,
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome:
+        data: SphereUpdateData = {}
+        if "allow_facilitator_session_edit" in changes:
+            data["allow_facilitator_session_edit"] = changes[
+                "allow_facilitator_session_edit"
+            ]
+        if "event_cover_buttons_at_bottom" in changes:
+            data["event_cover_buttons_at_bottom"] = changes[
+                "event_cover_buttons_at_bottom"
+            ]
+        if (encounters_policy := changes.get("encounters_policy")) is not None:
+            data["encounters_policy"] = encounters_policy.value
+
         with self._transaction.atomic():
-            sphere = self._spheres.read(sphere_id)
-            enabled_pages = changes.get("enabled_pages", sphere.enabled_pages)
-            default_page = changes.get("default_page", sphere.default_page)
-            if default_page not in enabled_pages:
-                raise DefaultPageDisabledError
-
-            data: SphereUpdateData = {}
-            if "allow_facilitator_session_edit" in changes:
-                data["allow_facilitator_session_edit"] = changes[
-                    "allow_facilitator_session_edit"
-                ]
-            if "event_cover_buttons_at_bottom" in changes:
-                data["event_cover_buttons_at_bottom"] = changes[
-                    "event_cover_buttons_at_bottom"
-                ]
-            if "enabled_pages" in changes:
-                data["enabled_pages"] = [page.value for page in enabled_pages]
-            if "default_page" in changes:
-                data["default_page"] = default_page.value
-            if "encounter_public_policy" in changes:
-                data["encounter_public_policy"] = changes[
-                    "encounter_public_policy"
-                ].value
+            if (
+                not confirmed_encounters_disable
+                and encounters_policy is EncountersPolicy.NONE
+                and self._spheres.read(sphere_id).encounters_policy
+                is not EncountersPolicy.NONE
+                and self._encounters.exists_for_sphere(sphere_id)
+            ):
+                return SphereSettingsOutcome.NEEDS_CONFIRMATION
             if data:
                 self._spheres.update(sphere_id, data)
+            return SphereSettingsOutcome.SAVED
 
     def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
+        data: SphereUpdateData = {"logo": logo}
         with self._transaction.atomic():
-            self._spheres.update(sphere_id, {"logo": logo})
+            self._spheres.update(sphere_id, data)
 
 
 class SitesService:
@@ -235,8 +234,6 @@ class SitesService:
 
     def read(self, sphere_id: int) -> SphereDTO:
         # Memoised because the service is built per request and the current
-        # sphere is read several times in one: the page-gate mixin, the sites
-        # context processor and the homepage redirect all want it.
         if sphere_id not in self._read_cache:
             self._read_cache[sphere_id] = self._spheres.read(sphere_id)
         return self._read_cache[sphere_id]

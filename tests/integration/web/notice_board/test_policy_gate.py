@@ -5,6 +5,7 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
+from ludamus.links.db.django.models import Encounter
 from tests.integration.conftest import EncounterFactory
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -19,16 +20,15 @@ def encounter_fixture(sphere, active_user):
 
 
 @pytest.fixture
-def encounters_disabled(sphere):
-    sphere.enabled_pages = ["events"]
+def encounters_off(sphere):
+    sphere.encounters_policy = "none"
     sphere.save()
 
 
-@pytest.mark.usefixtures("encounters_disabled")
-class TestEncounterViewsWithPageDisabled:
-    @pytest.mark.parametrize("url_name", ("index", "create"), ids=("index", "create"))
-    def test_get_pages_404(self, authenticated_client, url_name):
-        response = authenticated_client.get(reverse(f"web:notice-board:{url_name}"))
+@pytest.mark.usefixtures("encounters_off")
+class TestEncounterViewsWithEncountersOff:
+    def test_create_404(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:notice-board:create"))
 
         assert_response_404(response)
 
@@ -45,7 +45,7 @@ class TestEncounterViewsWithPageDisabled:
         )
 
         assert_response_404(response)
-        encounter.refresh_from_db()
+        assert Encounter.objects.filter(pk=encounter.pk).exists()
 
     @pytest.mark.parametrize(
         "url_name",
@@ -80,25 +80,21 @@ class TestEncounterViewsWithPageDisabled:
 
 
 @pytest.fixture
-def timeline_only(sphere):
-    sphere.enabled_pages = ["timeline"]
-    sphere.default_page = "timeline"
+def managers_only(sphere):
+    sphere.encounters_policy = "managers"
     sphere.save()
 
 
-@pytest.mark.usefixtures("timeline_only")
-class TestEncounterContentWithTimelineOnly:
-    """The timeline feeds public encounters, so their content stays served.
-
-    Only the encounters index itself is the disabled page.
-    """
-
-    def test_index_404(self, authenticated_client):
-        response = authenticated_client.get(reverse("web:notice-board:index"))
+@pytest.mark.usefixtures("managers_only")
+class TestEncounterFormWithManagersOnlyPolicy:
+    def test_create_404_for_a_regular_user(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:notice-board:create"))
 
         assert_response_404(response)
 
-    def test_create_ok(self, authenticated_client):
+    def test_create_ok_for_a_manager(self, authenticated_client, active_user, sphere):
+        sphere.managers.add(active_user)
+
         response = authenticated_client.get(reverse("web:notice-board:create"))
 
         assert_response(
@@ -108,7 +104,7 @@ class TestEncounterContentWithTimelineOnly:
             template_name="notice_board/create.html",
         )
 
-    def test_share_code_page_ok(self, client, encounter):
+    def test_share_code_page_stays_served(self, client, encounter):
         response = client.get(
             reverse(
                 "web:notice-board:encounter-qr",
