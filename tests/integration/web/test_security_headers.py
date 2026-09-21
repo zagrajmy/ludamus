@@ -15,6 +15,17 @@ REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
 ENFORCE_HEADER = "Content-Security-Policy"
 
 
+# A sphere with nothing on: the smallest rendered surface these headers can be
+# read off, and the whole context it sends.
+EMPTY_FEED = {
+    "announcements": [],
+    "can_create_encounter": False,
+    "past": [],
+    "upcoming": [],
+    "view": ANY,
+}
+
+
 def _directive(*, header: str, name: str) -> str:
     match = re.search(rf"(?:^|; ){re.escape(name)} ([^;]*)", header)
     assert match, f"{name!r} directive not found in header: {header!r}"
@@ -38,7 +49,9 @@ def enforced_header_fixture(client, settings, non_root_sphere) -> str:
 
     response = client.get(reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain)
 
-    assert_response(response, HTTPStatus.OK, context_data=ANY, template_name=ANY)
+    assert_response(
+        response, HTTPStatus.OK, context_data=EMPTY_FEED, template_name=["index.html"]
+    )
     assert REPORT_ONLY_HEADER not in response.headers
     return response.headers[ENFORCE_HEADER]
 
@@ -67,7 +80,12 @@ class TestCSPEnforceHeader:
             reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
         )
 
-        assert_response(response, HTTPStatus.OK, context_data=ANY, template_name=ANY)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=EMPTY_FEED,
+            template_name=["index.html"],
+        )
         assert REPORT_ONLY_HEADER not in response.headers
         assert ENFORCE_HEADER not in response.headers
 
