@@ -961,6 +961,55 @@ class TestOrganizerEventSettingsTools:
         assert result["isError"] is True
         assert "Unsupported image format" in result["content"][0]["text"]
 
+    @pytest.mark.parametrize("at_bottom", (True, False))
+    def test_update_sphere_settings(self, client, org_token, sphere, *, at_bottom):
+        sphere.event_cover_buttons_at_bottom = not at_bottom
+        sphere.allow_facilitator_session_edit = at_bottom
+        sphere.save(
+            update_fields=[
+                "event_cover_buttons_at_bottom",
+                "allow_facilitator_session_edit",
+            ]
+        )
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {
+                "event_cover_buttons_at_bottom": at_bottom,
+                "allow_facilitator_session_edit": not at_bottom,
+                "encounters_policy": "managers",
+            },
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.event_cover_buttons_at_bottom is at_bottom
+        assert sphere.allow_facilitator_session_edit is not at_bottom
+        assert sphere.encounters_policy == "managers"
+        assert updated["event_cover_buttons_at_bottom"] is at_bottom
+        assert updated["allow_facilitator_session_edit"] is not at_bottom
+        assert updated["encounters_policy"] == "managers"
+
+    @pytest.mark.parametrize(
+        ("arguments", "message"),
+        (
+            ({}, "Provide at least one sphere setting to update"),
+            (
+                {"event_cover_buttons_at_bottom": None},
+                "Omit unchanged settings instead of passing null",
+            ),
+        ),
+    )
+    def test_update_sphere_settings_rejects_empty_values(
+        self, client, org_token, *, arguments, message
+    ):
+        response = call_org_tool(client, org_token, "update_sphere_settings", arguments)
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert message in result["content"][0]["text"]
+
     def test_set_sphere_logo_rejects_scripted_svg(self, client, org_token, sphere):
         scripted = base64.b64encode(
             b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'

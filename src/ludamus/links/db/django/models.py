@@ -307,6 +307,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    event_cover_buttons_at_bottom = models.BooleanField(default=False)
     encounters_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncountersPolicy],

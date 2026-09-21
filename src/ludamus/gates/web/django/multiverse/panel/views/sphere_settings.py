@@ -36,6 +36,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
             }
@@ -45,14 +46,15 @@ class SphereSettingsPageView(SphereAccessMixin, View):
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         form = SphereSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            # Re-rendered bound, not redirected: the form carries a logo
-            # picker, and a toast would throw all of it away.
             return self._render(form, needs_confirmation=False)
 
         outcome = self.request.services.sphere_panel.update_settings(
             self.request.context.current_sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
+            ],
+            event_cover_buttons_at_bottom=form.cleaned_data[
+                "event_cover_buttons_at_bottom"
             ],
             encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),

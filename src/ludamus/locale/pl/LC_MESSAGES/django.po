@@ -2910,6 +2910,18 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Place event cover buttons at the bottom right"
+msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Shows print and venue map buttons in a horizontal row at the bottom right of "
+"event covers."
+msgstr ""
+"Wyświetla przyciski drukowania i map obiektu w poziomym rzędzie w prawym "
+"dolnym rogu okładek wydarzeń."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Nobody (encounters are off here)"
 msgstr "Nikt (spotkania są tu wyłączone)"
 
@@ -4517,6 +4529,11 @@ msgstr "Potwierdź"
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Manage companions in your profile settings"
 msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
+
+#: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "Cover image for %(event_name)s"
+msgstr "Okładka wydarzenia „%(event_name)s”"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/_calendar_inline.html
@@ -6540,6 +6557,10 @@ msgstr ""
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere settings"
 msgstr "Ustawienia sfery"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid "Event covers"
+msgstr "Okładki wydarzeń"
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 msgid "Encounters"

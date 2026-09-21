@@ -413,6 +413,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    event_cover_buttons_at_bottom: bool = False
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
     pk: SphereId
@@ -423,6 +424,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    event_cover_buttons_at_bottom: bool
     encounters_policy: str
     logo: UploadedFileProtocol | str
 
