@@ -4,6 +4,23 @@
 Compatible clients load it from the repository root. Authenticate with OAuth
 on first use, grant read access, and never commit tokens.
 
+## Coolify CLI
+
+Install the [Coolify CLI][coolify-cli]. Create a team-scoped API token with
+`read` permission, then configure the production context once:
+
+```bash
+printf "Coolify token: " && read -rs COOLIFY_TOKEN && printf "\n"
+coolify context add zagrajmy-production \
+  https://arboretum.radekmg.pl \
+  "$COOLIFY_TOKEN" \
+  --default
+unset COOLIFY_TOKEN
+coolify context verify
+```
+
+[coolify-cli]: https://coolify.io/docs/cli/installation
+
 ## Triage
 
 1. Record the absolute time, timezone, URL, status, screenshot, and Cloudflare
@@ -14,8 +31,13 @@ on first use, grant read access, and never commit tokens.
    before PostHog loaded; it does not prove downtime.
 4. Query Cloudflare by hostname, time, and Ray ID. Identify the security rule
    or request status, then distinguish an edge response from an origin response.
-5. If both surfaces end at the origin boundary, inspect Coolify's application
-   and deployment logs.
+5. If both surfaces end at the origin boundary, inspect Coolify runtime and
+   deployment logs:
+
+   ```text
+   coolify app logs wk4p10un5xghmkgrqlsd7jda --lines 200 --show-timestamps
+   coolify app deployments logs wk4p10un5xghmkgrqlsd7jda --lines 200
+   ```
 
 ## MCPs
 
