@@ -58,7 +58,7 @@ jobs:
       # varlock comes from the lockfile rather than a version pinned a second
       # time here. --no-install below then makes a missing one fail loudly
       # rather than cold-start an unpinned fetch mid-deploy.
-      - uses: jdx/mise-action@v2
+      - uses: ./.github/actions/mise-tools
       - run: aube install --no-optional
 
       - name: Build Coolify env payload and validate with varlock

@@ -70,7 +70,7 @@ jobs:
             exit 1
           fi
 
-      - uses: jdx/mise-action@v2
+      - uses: ./.github/actions/mise-tools
         with:
           # ponytail: macOS poetry venv links to Homebrew's python framework;
           # caching it breaks when the runner image bumps python@3.14's patch
@@ -79,7 +79,6 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - run: mise install
       - run: mise exec -- poetry install
 
       # Split from the join below: booting takes ~2min of pure waiting that
