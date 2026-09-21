@@ -2,21 +2,23 @@
 
 `.mcp.json` configures `zagrajmy-posthog` and `zagrajmy-cloudflare`.
 Compatible clients load it from the repository root. Authenticate with OAuth
-on first use, grant read access, and never commit tokens.
+on first use and never commit tokens. For Cloudflare, use a dedicated member
+with the `Administrator Read Only` role; its API MCP includes write tools.
 
 ## Coolify CLI
 
-Install the [Coolify CLI][coolify-cli]. Create a team-scoped API token with
-`read` permission, then configure the production context once:
+Install the [Coolify CLI][coolify-cli]. Create a short-lived, team-scoped API
+token with `read:sensitive` permission, then configure the production context.
+This scope exposes logs and may expose secrets, so use the shortest practical
+expiry and revoke the token after the investigation.
 
 ```bash
 printf "Coolify token: " && read -rs COOLIFY_TOKEN && printf "\n"
 coolify context add zagrajmy-production \
   https://arboretum.radekmg.pl \
-  "$COOLIFY_TOKEN" \
-  --default
+  "$COOLIFY_TOKEN"
 unset COOLIFY_TOKEN
-coolify context verify
+coolify --context zagrajmy-production context verify
 ```
 
 [coolify-cli]: https://coolify.io/docs/cli/installation
@@ -35,8 +37,10 @@ coolify context verify
    deployment logs:
 
    ```text
-   coolify app logs wk4p10un5xghmkgrqlsd7jda --lines 200 --show-timestamps
-   coolify app deployments logs wk4p10un5xghmkgrqlsd7jda --lines 200
+   coolify --context zagrajmy-production app logs \
+     wk4p10un5xghmkgrqlsd7jda --lines 200 --show-timestamps
+   coolify --context zagrajmy-production app deployments logs \
+     wk4p10un5xghmkgrqlsd7jda --lines 200
    ```
 
 ## MCPs
