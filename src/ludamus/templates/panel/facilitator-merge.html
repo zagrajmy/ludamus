@@ -121,7 +121,9 @@
                                     <ul class="space-y-2">
                                         {% for facilitator in basket %}
                                             <li class="flex items-center justify-between gap-3 text-sm text-foreground">
-                                                <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
+                                                <input type="hidden"
+                                                       name="facilitator_slugs"
+                                                       value="{{ facilitator.slug }}">
                                                 <span>
                                                     {{ facilitator.display_name }}
                                                     {% if facilitator.user_id %}
@@ -140,7 +142,10 @@
                                 {% endif %}
                                 {% if can_merge %}
                                     <div class="mt-4">
-                                        <button type="submit" name="confirm" value="1" class="btn btn-primary">{% translate "Review and merge" %}</button>
+                                        <button type="submit"
+                                                name="confirm"
+                                                value="1"
+                                                class="btn btn-primary">{% translate "Review and merge" %}</button>
                                     </div>
                                 {% endif %}
                             </div>

@@ -26,7 +26,7 @@ for (const name of ["Fruit", "Multiple fruit"]) {
     await expect(input).toHaveValue(initial);
 
     await toggle.click();
-    await page.getByRole("link", { name: "Events", exact: true }).focus();
+    await page.getByRole("link", { name: "Privacy Policy", exact: true }).focus();
     await expect(list).toBeHidden();
     await expect(input).toHaveValue(initial);
   });
