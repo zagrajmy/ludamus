@@ -8,7 +8,7 @@ jobs = 8
 # resolve yet and its self-install can leave a broken .aube store (bit the
 # macOS CI runner on aube 1.32.0), so mise's npm backend uses plain npm.
 npm.package_manager = "npm"
-# The default 3 retries back off ~200ms/1s/4s — under five seconds all told,
+# The default 3 retries back off ~200ms/1s/4s — about five seconds all told,
 # which covers a blip rather than an outage: consecutive 504s from the GitHub
 # release host outlasted all of them and cost a CI run that had installed
 # neither python nor poetry. The schedule then repeats 15s, so 12 retries wait
