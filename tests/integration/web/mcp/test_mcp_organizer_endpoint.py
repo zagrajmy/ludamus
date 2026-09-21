@@ -1000,6 +1000,33 @@ class TestOrganizerEventSettingsTools:
         assert event.allow_facilitator_session_edit is False
         assert updated["name"] == "Bachanalia 2027"
 
+    def test_update_event_moves_the_whole_schedule(self, client, org_token, event):
+        # The setting half of the nullable fields, opposite the clear_* flags
+        # below: moving an event keeps publication_time <= start_time <
+        # end_time, which the table's own check constraint enforces.
+        start = event.start_time + timedelta(days=30)
+        window_opens = start - timedelta(days=20)
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {
+                "start_time": start.isoformat(),
+                "end_time": (start + timedelta(hours=8)).isoformat(),
+                "publication_time": window_opens.isoformat(),
+                "proposal_start_time": window_opens.isoformat(),
+                "proposal_end_time": (start - timedelta(days=6)).isoformat(),
+            },
+        )
+
+        event.refresh_from_db()
+        assert event.start_time == start
+        assert event.publication_time == window_opens
+        assert event.proposal_start_time == window_opens
+        assert event.proposal_end_time == start - timedelta(days=6)
+        assert updated["start_time"] == start.isoformat().replace("+00:00", "Z")
+
     def test_update_event_can_hand_facilitator_editing_back_to_the_sphere(
         self, client, org_token, event
     ):
