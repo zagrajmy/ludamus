@@ -104,6 +104,30 @@ class TestAgendaItemRepositoryListByEvent:
 
         assert result == []
 
+    def test_list_by_event_public_only_excludes_private_track_sessions(
+        self, agenda_item, event
+    ):
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        agenda_item.session.tracks.add(private_track)
+
+        result = AgendaItemRepository.list_by_event(event.pk, public_only=True)
+
+        assert result == []
+
+    def test_list_by_event_public_only_keeps_publicly_tracked_sessions(
+        self, agenda_item, event
+    ):
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        agenda_item.session.tracks.add(public_track)
+
+        result = AgendaItemRepository.list_by_event(event.pk, public_only=True)
+
+        assert [dto.pk for dto in result] == [agenda_item.pk]
+
 
 class TestAgendaItemRepositoryListByTrack:
     def test_list_by_track_returns_items_for_track(self, agenda_item, event, session):
@@ -126,6 +150,26 @@ class TestAgendaItemRepositoryListByTrack:
 
         result_pks = [dto.pk for dto in result]
         assert agenda_item.pk not in result_pks
+
+    def test_list_by_track_public_only_excludes_session_also_in_private_track(
+        self, agenda_item, event
+    ):
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        agenda_item.session.tracks.add(public_track, private_track)
+
+        result = AgendaItemRepository.list_by_track(public_track.pk, public_only=True)
+
+        assert result == []
+
+    def test_list_by_track_public_only_returns_empty_for_unknown_track(self):
+        result = AgendaItemRepository.list_by_track(999_999, public_only=True)
+
+        assert result == []
 
 
 class TestAgendaItemRepositoryUpdate:
