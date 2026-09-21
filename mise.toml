@@ -8,6 +8,13 @@ jobs = 8
 # resolve yet and its self-install can leave a broken .aube store (bit the
 # macOS CI runner on aube 1.32.0), so mise's npm backend uses plain npm.
 npm.package_manager = "npm"
+# mise gives a failed download 3 tries about five seconds apart, which covers a
+# blip rather than an outage: an ios-regressions run died to consecutive 504s
+# from the GitHub release host, having installed neither python nor pipx and so
+# having tested nothing. The backoff schedule ends in a repeating 15s, so this
+# spends roughly two minutes on a URL before giving up. Retries are per-URL and
+# only for transient statuses (408, 429, 5xx), so a bad pin still fails fast.
+http_retries = 12
 
 [hooks]
 enter = "poetry install"

@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/mise-tools
+      - uses: jdx/mise-action@v2
+      - run: mise install
       - run: mise exec -- poetry install
       - run: mise run dep:audit:py

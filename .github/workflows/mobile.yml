@@ -70,7 +70,7 @@ jobs:
             exit 1
           fi
 
-      - uses: ./.github/actions/mise-tools
+      - uses: jdx/mise-action@v2
         with:
           # ponytail: macOS poetry venv links to Homebrew's python framework;
           # caching it breaks when the runner image bumps python@3.14's patch
