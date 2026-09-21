@@ -8,20 +8,24 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.event_presentation import EventInfo
+from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
-from ludamus.pacts import EventListItemDTO
+from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.event import LandingStatsDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
+    EncounterFactory,
+    EncounterRSVPFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    UserFactory,
 )
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import assert_response
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -40,6 +44,10 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
     return EventInfo.from_list_item(
         item, cover_image_url=placeholder_cover_url(cover_index)
     )
+
+
+def _expected_feed_event(event, **kwargs):
+    return FeedEvent(event=_expected_event_info(event, **kwargs))
 
 
 class TestIndexRedirectView:
@@ -84,28 +92,6 @@ class TestIndexRedirectView:
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
 
-    def test_redirects_to_encounters_when_default_page_is_encounters(
-        self, client, non_root_sphere
-    ):
-        non_root_sphere.default_page = "encounters"
-        non_root_sphere.save()
-
-        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
-
-        assert_response(
-            response, HTTPStatus.FOUND, url=reverse("web:notice-board:index")
-        )
-
-    def test_redirects_to_timeline_when_default_page_is_timeline(
-        self, client, non_root_sphere
-    ):
-        non_root_sphere.default_page = "timeline"
-        non_root_sphere.save()
-
-        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
-
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:timeline"))
-
 
 class TestEventsPageView:
     URL = reverse("web:events")
@@ -118,8 +104,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -127,14 +114,6 @@ class TestEventsPageView:
         )
         assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
-
-    def test_404_when_events_page_disabled(self, client, sphere):
-        sphere.enabled_pages = ["encounters"]
-        sphere.save()
-
-        response = client.get(self.URL)
-
-        assert_response_404(response)
 
     def test_ok_with_event(self, client, event):
         response = client.get(self.URL)
@@ -144,8 +123,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -165,8 +145,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event, session_count=2)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -200,8 +181,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event, session_count=2)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -223,8 +205,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [expected],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [FeedEvent(event=expected)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -244,8 +227,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -265,8 +249,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -286,8 +271,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event)],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -313,10 +299,11 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [
-                    _expected_event_info(soon, cover_index=0),
-                    _expected_event_info(far, cover_index=1),
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [
+                    _expected_feed_event(soon, cover_index=0),
+                    _expected_feed_event(far, cover_index=1),
                 ],
                 "view": ANY,
             },
@@ -345,11 +332,12 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [
-                    _expected_event_info(recent, cover_index=0),
-                    _expected_event_info(older, cover_index=1),
+                "can_create_encounter": False,
+                "past": [
+                    _expected_feed_event(recent, cover_index=0),
+                    _expected_feed_event(older, cover_index=1),
                 ],
-                "upcoming_events": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -386,15 +374,16 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "upcoming_events": [
-                    _expected_event_info(soon, cover_index=0),
-                    _expected_event_info(far, cover_index=1),
+                "upcoming": [
+                    _expected_feed_event(soon, cover_index=0),
+                    _expected_feed_event(far, cover_index=1),
                 ],
-                "past_events": [
-                    _expected_event_info(recent, cover_index=0),
-                    _expected_event_info(older, cover_index=1),
+                "past": [
+                    _expected_feed_event(recent, cover_index=0),
+                    _expected_feed_event(older, cover_index=1),
                 ],
                 "announcements": [],
+                "can_create_encounter": False,
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -409,8 +398,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": True,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -425,8 +415,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": True,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -445,8 +436,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [AnnouncementDTO.model_validate(announcement)],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -465,8 +457,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -485,8 +478,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -502,8 +496,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -521,8 +516,9 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
+                "can_create_encounter": True,
+                "past": [],
+                "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -541,9 +537,206 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "past_events": [],
-                "upcoming_events": [_expected_event_info(event)],
+                "can_create_encounter": True,
+                "past": [],
+                "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
             },
+            template_name=["index.html"],
+        )
+
+
+def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
+    return {
+        "announcements": [],
+        "can_create_encounter": can_create_encounter,
+        "past": list(past),
+        "upcoming": list(upcoming),
+        "view": ANY,
+    }
+
+
+def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
+    return FeedEncounter(
+        encounter=EncounterIndexItem(
+            encounter=EncounterDTO.model_validate(encounter),
+            rsvp_count=rsvp_count,
+            is_mine=is_mine,
+            organizer_name=organizer_name,
+        )
+    )
+
+
+class TestEventsPageFeed:
+    URL = reverse("web:events")
+
+    def test_merges_events_and_public_encounters_chronologically(self, client, sphere):
+        now = datetime.now(UTC)
+        event = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=5),
+            end_time=now + timedelta(days=6),
+        )
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            sphere=sphere,
+            creator=creator,
+            is_public=True,
+            start_time=now + timedelta(days=2),
+        )
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [
+                    _expected_feed_encounter(encounter, organizer_name="Pub Organizer"),
+                    _expected_feed_event(event),
+                ],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_private_encounter_is_hidden_from_other_visitors(self, client, sphere):
+        EncounterFactory(
+            sphere=sphere,
+            is_public=False,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(),
+            template_name=["index.html"],
+        )
+
+    def test_private_encounter_is_hidden_from_an_uninvited_signed_in_visitor(
+        self, authenticated_client, sphere
+    ):
+        EncounterFactory(
+            sphere=sphere,
+            creator=UserFactory(username="host", name="Host"),
+            is_public=False,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(can_create_encounter=True),
+            template_name=["index.html"],
+        )
+
+    def test_own_private_encounter_is_listed_for_its_organizer(
+        self, authenticated_client, sphere, active_user
+    ):
+        encounter = EncounterFactory(
+            sphere=sphere,
+            creator=active_user,
+            is_public=False,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                can_create_encounter=True,
+                upcoming=[
+                    _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
+                ],
+            ),
+            template_name=["index.html"],
+        )
+
+    def test_invited_encounter_is_listed_for_the_attendee(
+        self, authenticated_client, sphere, active_user
+    ):
+        encounter = EncounterFactory(
+            sphere=sphere,
+            creator=UserFactory(username="host", name="Host"),
+            is_public=False,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+        EncounterRSVPFactory(encounter=encounter, user=active_user)
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                can_create_encounter=True,
+                upcoming=[
+                    _expected_feed_encounter(
+                        encounter, organizer_name="Host", rsvp_count=1
+                    )
+                ],
+            ),
+            template_name=["index.html"],
+        )
+
+    def test_past_encounters_join_past_events(self, client, sphere):
+        now = datetime.now(UTC)
+        past_event = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=5),
+            end_time=now - timedelta(days=4),
+            publication_time=now - timedelta(days=6),
+        )
+        encounter = EncounterFactory(
+            sphere=sphere,
+            creator=UserFactory(username="host", name="Host"),
+            is_public=True,
+            start_time=now - timedelta(days=1),
+            end_time=now - timedelta(hours=20),
+        )
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(
+                past=[
+                    _expected_feed_encounter(encounter, organizer_name="Host"),
+                    _expected_feed_event(past_event),
+                ]
+            ),
+            template_name=["index.html"],
+        )
+
+    def test_encounters_are_absent_while_the_sphere_runs_none(self, client, sphere):
+        EncounterFactory(
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+        sphere.encounters_policy = "none"
+        sphere.save()
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(),
             template_name=["index.html"],
         )

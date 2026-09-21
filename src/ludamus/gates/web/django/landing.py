@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
-from ludamus.pacts.legacy import SpherePage
-
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
@@ -14,6 +12,9 @@ if TYPE_CHECKING:
 
 
 def index_page(request: RootRequest) -> HttpResponse:
+    # The root sphere gets the marketing landing page; every other sphere's
+    # single feed lives at /events (the old per-sphere default_page choice
+    # was folded away there).
     context = request.context
     if context.current_sphere_id == context.root_sphere_id:
         landing = request.services.landing
@@ -22,9 +23,4 @@ def index_page(request: RootRequest) -> HttpResponse:
             ["landing_page.html"],
             {"stats": landing.stats(), "conventions": landing.conventions()},
         )
-    sphere = request.services.sites.read(context.current_sphere_id)
-    if sphere.default_page == SpherePage.ENCOUNTERS:
-        return redirect("web:notice-board:index")
-    if sphere.default_page == SpherePage.TIMELINE:
-        return redirect("web:timeline")
     return redirect("web:events")
