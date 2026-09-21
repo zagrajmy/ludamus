@@ -9,9 +9,9 @@ from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
+    EncountersPolicy,
     RSVPOutcome,
 )
-from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.multiverse import SphereRole
 
 CREATOR_ID = 10

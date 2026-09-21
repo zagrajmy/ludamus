@@ -96,6 +96,8 @@ class TestCSPNonce:
 
         response = client.get(reverse("web:index"))
 
+        # The page's own context is asserted in test_index_page; this one is
+        # about the nonce the rendered base.html carries.
         assert_response(
             response,
             HTTPStatus.OK,

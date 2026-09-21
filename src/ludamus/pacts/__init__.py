@@ -1,3 +1,13 @@
+from ludamus.pacts.encounter import (
+    EncounterData,
+    EncounterDTO,
+    EncounterFeed,
+    EncounterIndexItem,
+    EncounterRepositoryProtocol,
+    EncounterRSVPDTO,
+    EncounterRSVPRepositoryProtocol,
+    EncountersPolicy,
+)
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.fields import (
     FieldAnswer,
@@ -6,6 +16,7 @@ from ludamus.pacts.fields import (
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
 )
+from ludamus.pacts.images import UploadedFileProtocol
 from ludamus.pacts.legacy import (
     DEFAULT_FIELD_MAX_LENGTH,
     NO_LOCATION,
@@ -26,15 +37,6 @@ from ludamus.pacts.legacy import (
     DateTimeRangeProtocol,
     DependencyInjectorProtocol,
     DomainEnrollmentConfigDTO,
-    EncounterData,
-    EncounterDetailResult,
-    EncounterDTO,
-    EncounterFeed,
-    EncounterIndexItem,
-    EncounterRepositoryProtocol,
-    EncounterRSVPDTO,
-    EncounterRSVPRepositoryProtocol,
-    EncountersPolicy,
     EnrollmentConfigDTO,
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
@@ -113,7 +115,6 @@ from ludamus.pacts.legacy import (
     UnitOfWorkProtocol,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
-    UploadedFileProtocol,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
@@ -142,7 +143,6 @@ __all__ = [
     "DomainEnrollmentConfigDTO",
     "EncounterDTO",
     "EncounterData",
-    "EncounterDetailResult",
     "EncounterFeed",
     "EncounterIndexItem",
     "EncounterRSVPDTO",

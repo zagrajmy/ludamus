@@ -864,76 +864,45 @@ class TestOrganizerProgrammeTools:
 
 
 class TestOrganizerSphereSettingsTool:
-    def test_update_sphere_sets_the_encounters_policy(self, client, org_token, sphere):
-        updated = call_org_json(
-            client, org_token, "update_sphere", {"encounters_policy": "managers"}
-        )
+    """What the sphere tool does beyond writing a field.
 
-        sphere.refresh_from_db()
-        assert sphere.encounters_policy == EncountersPolicy.MANAGERS
-        assert updated["encounters_policy"] == "managers"
+    Setting values and refusing an empty call are covered with the rest of
+    `update_sphere_settings` below; these are the paths either side of the
+    encounters-hiding confirmation.
+    """
 
-    def test_update_sphere_keeps_what_it_was_not_given(self, client, org_token, sphere):
-        # An omitted field never reaches the UPDATE, so it cannot be
+    def test_a_patch_keeps_what_it_was_not_given(self, client, org_token, sphere):
+        # An omitted setting never reaches the UPDATE, so it cannot be
         # rewritten with the value this call happened to read.
         sphere.allow_facilitator_session_edit = False
         sphere.encounters_policy = EncountersPolicy.EVERYONE
         sphere.save()
 
         call_org_json(
-            client, org_token, "update_sphere", {"encounters_policy": "managers"}
+            client,
+            org_token,
+            "update_sphere_settings",
+            {"encounters_policy": "managers"},
         )
 
         sphere.refresh_from_db()
         assert sphere.allow_facilitator_session_edit is False
         assert sphere.encounters_policy == EncountersPolicy.MANAGERS
 
-    def test_logo_swap_leaves_a_hidden_sphere_hidden(
-        self, client, org_token, sphere, active_user
-    ):
-        # The logo tool used to write the policy back with the confirmation
-        # already given. Now it names only the logo, so the save that would
-        # have needed confirming is not part of it at all.
-        sphere.encounters_policy = EncountersPolicy.NONE
-        sphere.save()
-        EncounterFactory(sphere=sphere, creator=active_user)
-
-        call_org_json(
-            client,
-            org_token,
-            "set_sphere_logo",
-            {
-                "filename": "mark.svg",
-                "content_base64": (
-                    base64.b64encode(
-                        b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
-                    ).decode()
-                ),
-            },
-        )
-
-        sphere.refresh_from_db()
-        assert sphere.encounters_policy == EncountersPolicy.NONE
-        assert sphere.logo
-
-    def test_update_sphere_ignores_a_bare_confirmation_flag(self, client, org_token):
+    def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
         # The flag answers a question about a write; on its own there is none.
         response = call_org_tool(
-            client, org_token, "update_sphere", {"confirm_hiding_encounters": True}
+            client,
+            org_token,
+            "update_sphere_settings",
+            {"confirmed_encounters_disable": True},
         )
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert result["content"][0]["text"] == "Provide at least one field to update"
+        assert "at least one" in result["content"][0]["text"]
 
-    def test_update_sphere_rejects_empty_update(self, client, org_token):
-        response = call_org_tool(client, org_token, "update_sphere", {})
-
-        result = response.json()["result"]
-        assert result["isError"] is True
-        assert result["content"][0]["text"] == "Provide at least one field to update"
-
-    def test_update_sphere_will_not_hide_existing_encounters_unasked(
+    def test_will_not_hide_existing_encounters_unasked(
         self, client, org_token, sphere, active_user
     ):
         sphere.encounters_policy = EncountersPolicy.EVERYONE
@@ -941,18 +910,16 @@ class TestOrganizerSphereSettingsTool:
         EncounterFactory(sphere=sphere, creator=active_user)
 
         response = call_org_tool(
-            client, org_token, "update_sphere", {"encounters_policy": "none"}
+            client, org_token, "update_sphere_settings", {"encounters_policy": "none"}
         )
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert "confirm_hiding_encounters" in result["content"][0]["text"]
+        assert "confirmed_encounters_disable" in result["content"][0]["text"]
         sphere.refresh_from_db()
         assert sphere.encounters_policy == EncountersPolicy.EVERYONE
 
-    def test_update_sphere_hides_encounters_when_asked_twice(
-        self, client, org_token, sphere, active_user
-    ):
+    def test_hides_them_once_asked_twice(self, client, org_token, sphere, active_user):
         sphere.encounters_policy = EncountersPolicy.EVERYONE
         sphere.save()
         EncounterFactory(sphere=sphere, creator=active_user)
@@ -960,8 +927,8 @@ class TestOrganizerSphereSettingsTool:
         call_org_json(
             client,
             org_token,
-            "update_sphere",
-            {"encounters_policy": "none", "confirm_hiding_encounters": True},
+            "update_sphere_settings",
+            {"encounters_policy": "none", "confirmed_encounters_disable": True},
         )
 
         sphere.refresh_from_db()
@@ -1222,6 +1189,55 @@ class TestOrganizerEventSettingsTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert "Unsupported image format" in result["content"][0]["text"]
+
+    @pytest.mark.parametrize("at_bottom", (True, False))
+    def test_update_sphere_settings(self, client, org_token, sphere, *, at_bottom):
+        sphere.event_cover_buttons_at_bottom = not at_bottom
+        sphere.allow_facilitator_session_edit = at_bottom
+        sphere.save(
+            update_fields=[
+                "event_cover_buttons_at_bottom",
+                "allow_facilitator_session_edit",
+            ]
+        )
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {
+                "event_cover_buttons_at_bottom": at_bottom,
+                "allow_facilitator_session_edit": not at_bottom,
+                "encounters_policy": "managers",
+            },
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.event_cover_buttons_at_bottom is at_bottom
+        assert sphere.allow_facilitator_session_edit is not at_bottom
+        assert sphere.encounters_policy == "managers"
+        assert updated["event_cover_buttons_at_bottom"] is at_bottom
+        assert updated["allow_facilitator_session_edit"] is not at_bottom
+        assert updated["encounters_policy"] == "managers"
+
+    @pytest.mark.parametrize(
+        ("arguments", "message"),
+        (
+            ({}, "Provide at least one sphere setting to update"),
+            (
+                {"event_cover_buttons_at_bottom": None},
+                "Omit unchanged settings instead of passing null",
+            ),
+        ),
+    )
+    def test_update_sphere_settings_rejects_empty_values(
+        self, client, org_token, *, arguments, message
+    ):
+        response = call_org_tool(client, org_token, "update_sphere_settings", arguments)
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert message in result["content"][0]["text"]
 
     def test_set_sphere_logo_rejects_scripted_svg(self, client, org_token, sphere):
         scripted = base64.b64encode(

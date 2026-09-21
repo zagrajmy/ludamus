@@ -81,9 +81,9 @@ urlpatterns = [
     # sent to their dashboard from / (#1307), this is the way back to it.
     path("landing/", landing_page, name="landing"),
     # The feed lives at the sphere root now. /events/ and /timeline/ were
-    # public, so they redirect rather than 404.
-    path("events/", RedirectView.as_view(pattern_name="web:index")),
-    path("timeline/", RedirectView.as_view(pattern_name="web:index")),
+    # public, so they redirect permanently rather than 404.
+    path("events/", RedirectView.as_view(pattern_name="web:index", permanent=True)),
+    path("timeline/", RedirectView.as_view(pattern_name="web:index", permanent=True)),
     path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
     path(
         "dashboard/spheres/<int:pk>/do/subscribe",

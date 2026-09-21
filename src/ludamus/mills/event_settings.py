@@ -35,8 +35,7 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
         EventPublicationInvalidError: the event would publish after it starts.
     """
     start = data.get("start_time", current.start_time)
-    end = data.get("end_time", current.end_time)
-    if end <= start:
+    if data.get("end_time", current.end_time) <= start:
         raise EventDatesInvalidError
     publication = data.get("publication_time", current.publication_time)
     if publication is not None and publication > start:

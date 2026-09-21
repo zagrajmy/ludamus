@@ -1,9 +1,9 @@
-"""Sphere and event settings over MCP.
+"""What an event *is*, as opposed to the programme inside it.
 
-The configuration half of the organizer toolset: what a sphere or an event
-*is*, rather than the programme inside it (`programme_tools`). Every field is
-optional and omitting one keeps it, so a caller can send only what they mean
-to change.
+The event's own settings — name, dates, the windows, the display switches —
+beside `sphere_tools` for the sphere's. `programme_tools` holds what goes in
+the event. Every field is optional and omitting one keeps it, so a caller
+sends only what they mean to change.
 """
 
 from __future__ import annotations
@@ -25,15 +25,14 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError
-from ludamus.pacts.legacy import EncountersPolicy, EventUpdateData
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 # What `Event.address` holds.
 ADDRESS_MAX_LENGTH = 255
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -261,95 +260,5 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
-    name = "set_sphere_logo"
-    description = "Replace the sphere's logo (SVG allowed)."
-    scope = ToolScope.ORGANIZER
-    input_model = ImageUploadInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[ImageUploadInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        # Only the logo: naming the other settings here would hand back
-        # whatever they read as, overwriting a change made in between.
-        call.services.sphere_panel.update_settings(
-            sphere_id, logo=call.data.validated_upload(validate_uploaded_logo)
-        )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
-class _UpdateSphereInput(BaseModel):
-    allow_facilitator_session_edit: bool | None = Field(
-        default=None,
-        description=(
-            "Whether facilitators may edit their own sessions, for every event "
-            "that does not override it; omit to keep"
-        ),
-    )
-    encounters_policy: EncountersPolicy | None = Field(
-        default=None,
-        description=(
-            "Who may create encounters here. 'none' turns the feature off and "
-            "hides the ones that exist; omit to keep."
-        ),
-    )
-    confirm_hiding_encounters: bool = Field(
-        default=False,
-        description=(
-            "Required to set encounters_policy to 'none' while the sphere "
-            "still has encounters. Without it nothing is written."
-        ),
-    )
-
-    @property
-    def settings_sent(self) -> set[str]:
-        """Name the settings this call actually carries.
-
-        Returns:
-            The sent fields minus the confirmation flag, which answers a
-            question about a write rather than being one.
-        """
-        return self.model_fields_set - {"confirm_hiding_encounters"}
-
-
-class OrganizerUpdateSphereTool(Tool[_UpdateSphereInput]):
-    name = "update_sphere"
-    description = (
-        "Update your sphere's settings: who may create encounters, and whether "
-        "facilitators may edit their own sessions. Only provided fields "
-        "change. The logo has its own tool (set_sphere_logo)."
-    )
-    scope = ToolScope.ORGANIZER
-    input_model = _UpdateSphereInput
-
-    @staticmethod
-    def handle(call: ToolCall[_UpdateSphereInput]) -> str:
-        if not call.data.settings_sent:
-            raise ToolError("Provide at least one field to update")
-        sphere_id = actor_sphere(call.actor)
-        # Straight through: a setting this call never mentions is never
-        # rewritten, so it cannot overwrite a change made in between. Both of
-        # these columns reject a null, so None here is only ever "no change".
-        outcome = call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=call.data.allow_facilitator_session_edit,
-            encounters_policy=call.data.encounters_policy,
-            confirmed_encounters_disable=call.data.confirm_hiding_encounters,
-        )
-        if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
-            raise ToolError(
-                "This sphere still has encounters, and 'none' hides them. "
-                "Repeat the call with confirm_hiding_encounters=true to go "
-                "ahead."
-            )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
-def settings_tools() -> tuple[ToolProtocol, ...]:
-    return (
-        OrganizerUpdateEventTool(),
-        OrganizerSetEventImageTool(),
-        OrganizerSetSphereLogoTool(),
-        OrganizerUpdateSphereTool(),
-    )
+def event_tools() -> tuple[ToolProtocol, ...]:
+    return (OrganizerUpdateEventTool(), OrganizerSetEventImageTool())

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
+from ludamus.gates.mcp.event_tools import event_tools
 from ludamus.gates.mcp.inputs import (
     AwareDatetimeRange,
     EmptyInput,
@@ -16,6 +17,7 @@ from ludamus.gates.mcp.map_tools import map_tools
 from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
+from ludamus.gates.mcp.sphere_tools import sphere_tools
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
@@ -844,5 +846,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
+        *event_tools(),
+        *sphere_tools(),
         *map_tools(),
     )
