@@ -15,14 +15,10 @@ from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import (
-    EncounterPublicPolicy,
-    SpherePage,
-    resolve_uploaded_file_field,
-)
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -40,68 +36,42 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
-                "enabled_pages": [page.value for page in sphere.enabled_pages],
-                "default_page": sphere.default_page.value,
-                "encounter_public_policy": sphere.encounter_public_policy.value,
+                "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
             }
         )
-        return self._render(form, to_disable=set())
+        return self._render(form, needs_confirmation=False)
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         form = SphereSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            # Re-rendered bound, not redirected: the form carries six fields
-            # including a logo picker, and a toast would throw all of it away.
-            return self._render(form, to_disable=set())
+            # Re-rendered bound, not redirected: the form carries a logo
+            # picker, and a toast would throw all of it away.
+            return self._render(form, needs_confirmation=False)
 
-        sphere_id = self.request.context.current_sphere_id
-        service = self.request.services.sphere_panel
-        enabled_pages = [
-            SpherePage(page) for page in form.cleaned_data["enabled_pages"]
-        ]
-        to_disable = (
-            set(service.read(sphere_id).enabled_pages) - set(enabled_pages)
-        ) & service.pages_with_content(sphere_id)
-        # Compared page by page: a confirmation given for one page must not
-        # authorise disabling another the manager picked afterwards. The
-        # re-render carries the full set, not just the unconfirmed pages —
-        # a token naming only the delta drops the earlier confirmation and
-        # the two warnings alternate forever.
-        if to_disable - form.confirmed_pages():
-            return self._render(form, to_disable=to_disable)
-
-        service.update_settings(
-            sphere_id,
+        outcome = self.request.services.sphere_panel.update_settings(
+            self.request.context.current_sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
-            enabled_pages=enabled_pages,
-            default_page=SpherePage(form.cleaned_data["default_page"]),
-            encounter_public_policy=EncounterPublicPolicy(
-                form.cleaned_data["encounter_public_policy"]
-            ),
+            encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
+            confirmed_encounters_disable=form.cleaned_data[
+                "confirmed_encounters_disable"
+            ],
         )
+        if outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION:
+            return self._render(form, needs_confirmation=True)
+
         messages.success(self.request, _("Sphere settings saved successfully."))
         return redirect("multiverse:panel:sphere-settings")
 
     def _render(
-        self, form: SphereSettingsForm, *, to_disable: set[SpherePage]
+        self, form: SphereSettingsForm, *, needs_confirmation: bool
     ) -> HttpResponse:
         base = sphere_settings_context(self.request, active_tab="general")
         return TemplateResponse(
             self.request,
             "multiverse/panel/sphere-settings.html",
-            base
-            | {
-                "form": form,
-                "disable_warning_pages": sorted(
-                    str(SPHERE_PAGE_LABELS[page]) for page in to_disable
-                ),
-                "needs_disable_confirmation": bool(to_disable),
-                "confirmed_page_disable": ",".join(
-                    sorted(page.value for page in to_disable)
-                ),
-            },
+            base | {"form": form, "needs_disable_confirmation": needs_confirmation},
         )
