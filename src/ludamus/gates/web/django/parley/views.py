@@ -40,6 +40,7 @@ def _copy() -> dict[str, str]:
         "readOnly": _("This parley has ended, but you can still read what was said."),
         "presence": _("people around"),
         "messageLabel": _("Message"),
+        "messageListLabel": _("Messages"),
         "sendLabel": _("Send message"),
         "roomsLabel": _("Conversations"),
         "backLabel": _("Back to conversations"),

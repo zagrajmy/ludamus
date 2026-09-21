@@ -75,7 +75,9 @@ function Panel({ bootstrap, close }: { bootstrap: Bootstrap; close: () => void }
                 onClick={() => setRoom(candidate)}
                 type="button"
               >
-                <span className="block text-xs text-foreground-muted">
+                <span
+                  className={`block text-xs ${candidate.id === room?.id ? "text-foreground" : "text-foreground-muted"}`}
+                >
                   {candidate.kind === "sphere"
                     ? bootstrap.copy.sphereRoom
                     : bootstrap.copy.sessionRoom}
