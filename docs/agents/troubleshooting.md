@@ -1,8 +1,8 @@
 # Production troubleshooting
 
-`.mcp.json` configures PostHog and Cloudflare. Compatible clients load it from
-the repository root. Authenticate with OAuth on first use, grant read access,
-and never commit tokens.
+`.mcp.json` configures `zagrajmy-posthog` and `zagrajmy-cloudflare`.
+Compatible clients load it from the repository root. Authenticate with OAuth
+on first use, grant read access, and never commit tokens.
 
 ## Triage
 
@@ -14,13 +14,8 @@ and never commit tokens.
    before PostHog loaded; it does not prove downtime.
 4. Query Cloudflare by hostname, time, and Ray ID. Identify the security rule
    or request status, then distinguish an edge response from an origin response.
-5. If both surfaces end at the origin boundary, use a read-only Coolify CLI
-   context to inspect runtime and deployment logs:
-
-   ```text
-   coolify app logs wk4p10un5xghmkgrqlsd7jda --lines 200 --show-timestamps
-   coolify app deployments logs wk4p10un5xghmkgrqlsd7jda --lines 200
-   ```
+5. If both surfaces end at the origin boundary, inspect Coolify's application
+   and deployment logs.
 
 ## MCPs
 

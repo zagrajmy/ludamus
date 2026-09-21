@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "posthog": {
+    "zagrajmy-posthog": {
       "type": "http",
       "url": "https://mcp.posthog.com/mcp?project_id=251811&readonly=true"
     },
-    "cloudflare": {
+    "zagrajmy-cloudflare": {
       "type": "http",
       "url": "https://mcp.cloudflare.com/mcp"
     }
