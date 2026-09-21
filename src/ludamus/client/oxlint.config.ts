@@ -16,6 +16,9 @@ export default defineConfig({
     },
   ],
   settings: {
-    "better-tailwindcss": { entryPoint: tailwindEntryPoint },
+    "better-tailwindcss": {
+      detectComponentClasses: true,
+      entryPoint: tailwindEntryPoint,
+    },
   },
 });

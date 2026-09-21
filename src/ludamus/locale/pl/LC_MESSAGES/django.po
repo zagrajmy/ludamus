@@ -3566,6 +3566,10 @@ msgid "Message"
 msgstr "Wiadomość"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages"
+msgstr "Wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Send message"
 msgstr "Wyślij wiadomość"
 

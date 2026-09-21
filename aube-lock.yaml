@@ -50,15 +50,6 @@ importers:
       '@fortawesome/fontawesome-free':
         specifier: 6.7.2
         version: 6.7.2
-      '@modelcontextprotocol/client':
-        specifier: 2.0.0
-        version: 2.0.0
-      '@modelcontextprotocol/sdk':
-        specifier: 1.30.0
-        version: 1.30.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
-      '@modelcontextprotocol/server':
-        specifier: 2.0.0
-        version: 2.0.0
       '@shadcn/react':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.8)(react@19.2.8)
@@ -80,9 +71,6 @@ importers:
       slugify:
         specifier: 1.6.6
         version: 1.6.6
-      zod:
-        specifier: ^4.0.0
-        version: 4.4.3
     devDependencies:
       '@hasparus/oxlint-config':
         specifier: ^0.1.1
@@ -150,27 +138,12 @@ importers:
 
   workers/parley:
     dependencies:
-      '@modelcontextprotocol/client':
-        specifier: 2.0.0
-        version: 2.0.0
-      '@modelcontextprotocol/sdk':
-        specifier: 1.30.0
-        version: 1.30.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
-      '@modelcontextprotocol/server':
-        specifier: 2.0.0
-        version: 2.0.0
       agents:
         specifier: 0.20.1
         version: 0.20.1(@modelcontextprotocol/client@2.0.0)(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@modelcontextprotocol/server@2.0.0)(react@19.2.8)(vite@8.0.16(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))(zod@4.4.3)
       jose:
         specifier: 6.2.3
         version: 6.2.3
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      zod:
-        specifier: ^4.0.0
-        version: 4.4.3
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 0.20.1
@@ -178,18 +151,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 5.20260801.1
         version: 5.20260801.1
-      '@vitest/runner':
-        specifier: ^4.1.0
-        version: 4.1.11
-      '@vitest/snapshot':
-        specifier: ^4.1.0
-        version: 4.1.11
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-      vite:
-        specifier: ^6.0.0 || ^7.0.0 || ^8.0.0
-        version: 8.0.16(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
       vitest:
         specifier: 4.1.9
         version: 4.1.9(vite@8.0.16(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))

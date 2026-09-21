@@ -140,7 +140,7 @@ export function Conversation({
         <ReadObserver latestId={messages.at(-1)?.id} onRead={onRead} />
         <MessageScroller.Root className="relative min-h-0 flex-1">
           <MessageScroller.Viewport
-            aria-label={bootstrap.copy.messageLabel}
+            aria-label={bootstrap.copy.messageListLabel}
             className="absolute inset-0 overflow-y-auto"
           >
             <MessageScroller.Content className="py-2">
@@ -197,11 +197,7 @@ export function Conversation({
               rows={1}
               value={body}
             />
-            <button
-              className="rounded-xl bg-primary px-4 text-sm font-semibold text-foreground-inverse hover:bg-primary-hover disabled:opacity-50"
-              disabled={sending}
-              type="submit"
-            >
+            <button className="btn btn-primary text-sm" disabled={sending} type="submit">
               {sending ? bootstrap.copy.sending : bootstrap.copy.sendLabel}
             </button>
           </div>

@@ -1,5 +1,14 @@
+import path from "node:path";
+
 import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
+
+// The chromium-auth project's default storage state (e2e-tester) is a plain
+// user with no sphere role, so it can't reach /multiverse/panel/ to flip
+// the setting this spec exercises. Every other panel-touching .auth.spec.ts
+// (modal-surfaces, promotion) swaps in the superuser state for the same
+// reason.
+test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
 
 const bootstrap = {
   agentHost: "localhost:8787",
@@ -23,6 +32,7 @@ const bootstrap = {
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
     messageLabel: "Message",
+    messageListLabel: "Messages",
     messageTooLong: "Messages can be up to 1,000 characters.",
     moderatorDelete: "Delete as moderator",
     muteIndefinitely: "Mute indefinitely",
@@ -86,7 +96,7 @@ test("Parley launcher opens an accessible responsive conversation panel", async 
     const panel = page.getByRole("dialog", { name: "Parley" });
     await expect(panel).toBeVisible();
     await expect(panel.getByRole("navigation", { name: "Conversations" })).toBeVisible();
-    await expect(panel.getByLabel("Message")).toBeVisible();
+    await expect(panel.getByLabel("Message", { exact: true })).toBeVisible();
     await analyzePageAccessibility(page);
     await page.screenshot({ path: "screenshots/parley-desktop.png" });
 

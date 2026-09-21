@@ -17,6 +17,7 @@ export type Copy = Record<
   | "loadEarlier"
   | "loading"
   | "messageLabel"
+  | "messageListLabel"
   | "messageTooLong"
   | "moderatorDelete"
   | "muteIndefinitely"
