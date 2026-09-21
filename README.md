@@ -20,7 +20,9 @@ mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise dev                # Django :8000 + Vite :5173
 ```
 
-After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
+After bootstrap, log in as `admin` / `admin` on the portless origin, or
+<http://localhost:8000/admin/> with `--no-portless`. MCP tokens are in
+`.local/mcp-tokens.json`. See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
 No Postgres or Docker needed: the app develops and serves on SQLite by default.
 Set `USE_POSTGRES=true` to opt into Postgres.
@@ -41,9 +43,9 @@ Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
 contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also available
 as `AGENTS.md` for Cursor/OpenAI agents).
 
-Local-dev details — simulator login, Playwright auth state, and a glossary of
-the task-file tools (aube, varlock, hk) — live in
-[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
+Local-dev details — simulator login, Playwright auth state, the Claude Code
+`glimpse` plugin, and a glossary of the task-file tools (aube, varlock, hk) —
+live in [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
 ### Email in development
 

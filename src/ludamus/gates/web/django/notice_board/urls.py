@@ -1,4 +1,5 @@
 from django.urls import URLPattern, URLResolver, path
+from django.views.generic.base import RedirectView
 
 from . import views
 
@@ -19,7 +20,9 @@ public_urlpatterns: list[URLPattern | URLResolver] = [
 ]
 
 authenticated_urlpatterns: list[URLPattern | URLResolver] = [
-    path("", views.EncountersIndexPageView.as_view(), name="index"),
+    # The encounters index was folded into the events feed; the URL was
+    # public. Exact match, so the routes below still win.
+    path("", RedirectView.as_view(pattern_name="web:events", permanent=True)),
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),
     path(

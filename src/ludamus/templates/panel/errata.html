@@ -95,7 +95,9 @@
                                                   action="{% url 'panel:erratum-important' slug=current_event.slug %}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                <input type="hidden" name="log_pk" value="{{ erratum.log_pks|join:',' }}">
+                                                <input type="hidden"
+                                                       name="log_pk"
+                                                       value="{{ erratum.log_pks|join:',' }}">
                                                 {% if erratum.important %}
                                                     <input type="hidden" name="important" value="0">
                                                     {% blocktranslate asvar t_unimportant_row with title=erratum.session_title %}Stop showing {{ title }} first{% endblocktranslate %}
@@ -120,7 +122,9 @@
                                                   action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                <input type="hidden" name="log_pk" value="{{ erratum.log_pks|join:',' }}">
+                                                <input type="hidden"
+                                                       name="log_pk"
+                                                       value="{{ erratum.log_pks|join:',' }}">
                                                 {% if erratum.acknowledged_by_name %}
                                                     <input type="hidden" name="acknowledged" value="0">
                                                     {% blocktranslate asvar t_undo_row with title=erratum.session_title %}Undo the announcement of {{ title }}{% endblocktranslate %}
