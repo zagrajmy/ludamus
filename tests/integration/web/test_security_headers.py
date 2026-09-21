@@ -8,10 +8,22 @@ from django.utils.csp import CSP
 
 from ludamus.edges.settings import CSP_POLICY
 from ludamus.gates.web.django.events import EventsPageView
+from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
 ENFORCE_HEADER = "Content-Security-Policy"
+
+
+# A sphere with nothing on: the smallest rendered surface these headers can be
+# read off, and the whole context it sends.
+EMPTY_FEED = {
+    "announcements": [],
+    "can_create_encounter": False,
+    "past": [],
+    "upcoming": [],
+    "view": ANY,
+}
 
 
 def _directive(*, header: str, name: str) -> str:
@@ -30,15 +42,16 @@ def _assert_body_nonce_matches_header(response) -> None:
 
 
 @pytest.fixture(name="enforced_header")
-def enforced_header_fixture(client, settings) -> str:
-    # The middleware stamps every response, so the index redirect is the
-    # simplest surface to assert headers on without replicating a rendered
-    # page's full context.
+def enforced_header_fixture(client, settings, non_root_sphere) -> str:
+    # The middleware stamps every response; a sphere's empty feed is the
+    # smallest rendered surface to read the header off.
     settings.SECURE_CSP = CSP_POLICY
 
-    response = client.get(reverse("web:index"))
+    response = client.get(reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain)
 
-    assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+    assert_response(
+        response, HTTPStatus.OK, context_data=EMPTY_FEED, template_name=["index.html"]
+    )
     assert REPORT_ONLY_HEADER not in response.headers
     return response.headers[ENFORCE_HEADER]
 
@@ -62,29 +75,57 @@ class TestCSPEnforceHeader:
             header=enforced_header, name="script-src"
         )
 
-    def test_no_csp_headers_by_default(self, client):
-        response = client.get(reverse("web:index"))
+    def test_no_csp_headers_by_default(self, client, non_root_sphere):
+        response = client.get(
+            reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
+        )
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=EMPTY_FEED,
+            template_name=["index.html"],
+        )
         assert REPORT_ONLY_HEADER not in response.headers
         assert ENFORCE_HEADER not in response.headers
 
 
 class TestCSPNonce:
-    # web:events actually renders base.html (unlike the index redirect), so
-    # its first inline script (the FOUC-prevention script) forces the CSP
-    # nonce to materialize.
-    URL = reverse("web:events")
+    # A rendered page (unlike a bare redirect) carries base.html's
+    # FOUC-prevention script, which is what forces the nonce to materialize.
+    URL = reverse("web:index")
 
-    def test_nonce_in_header_matches_nonce_rendered_in_page(self, client, settings):
+    def test_nonce_in_header_matches_nonce_rendered_in_page(
+        self, client, settings, non_root_sphere
+    ):
         settings.SECURE_CSP = CSP_POLICY
 
-        response = client.get(self.URL)
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         # The page's own context is asserted in test_index_page; this one is
         # about the nonce the rendered base.html carries.
         assert_response(
             response, HTTPStatus.OK, context_data=ANY, template_name=["index.html"]
+        )
+        _assert_body_nonce_matches_header(response)
+
+    def test_landing_page_nonce_matches_the_header(self, client, settings):
+        settings.SECURE_CSP = CSP_POLICY
+
+        response = client.get(reverse("web:index"))
+
+        # The page's own context is asserted in test_index_page; this one is
+        # about the nonce the rendered base.html carries.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": True,
+            },
+            template_name=["landing_page.html"],
         )
         _assert_body_nonce_matches_header(response)
 
@@ -98,7 +139,7 @@ class TestCSP500PageNonce:
     # matches the header under the real middleware chain — not just via
     # calling custom_500() directly the way test_error_views.py does.
     def test_500_page_gets_a_nonce_matching_the_header(
-        self, client, settings, monkeypatch
+        self, client, settings, monkeypatch, non_root_sphere
     ):
         settings.SECURE_CSP = CSP_POLICY
         settings.DEBUG = False
@@ -113,7 +154,9 @@ class TestCSP500PageNonce:
         monkeypatch.setattr("secrets.randbelow", lambda _n: 0)
         client.raise_request_exception = False
 
-        response = client.get(reverse("web:events"))
+        response = client.get(
+            reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
+        )
 
         assert_response(
             response,
