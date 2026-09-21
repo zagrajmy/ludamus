@@ -2894,7 +2894,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
@@ -2908,7 +2908,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
