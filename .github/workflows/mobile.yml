@@ -71,16 +71,21 @@ jobs:
           fi
 
       - uses: jdx/mise-action@v2
-        # This job caches no tools, so it downloads them all every run — which
-        # is why it is the one that met the outage. Retries make that survivable
-        # without letting a long one eat the slack this job is sized with: past
-        # this, setup fails inside its budget and the log upload still runs.
+        # Bounded because a tool download can now retry for ~2 min (mise.toml's
+        # http_retries): past this, setup fails inside the budget above and the
+        # log upload still runs, which a job-level timeout would skip.
         timeout-minutes: 5
         with:
-          # ponytail: macOS poetry venv links to Homebrew's python framework;
-          # caching it breaks when the runner image bumps python@3.14's patch
-          # (dyld "Library not loaded" / Abort trap 6). Reinstall fresh instead.
-          cache: false
+          # The cache went off because a restored macOS build could meet a
+          # runner image it was not built against — dyld "Library not loaded",
+          # Abort trap 6. The action's own key carries ImageOS, which moves
+          # from macos14 to macos15 but not between patches of one image, and
+          # a patch is what that report named. ImageVersion carries the patch,
+          # so this key moves whenever the image does and a build from an
+          # older one is never restored. Rendered by the action rather than by
+          # Actions: `env.` in a workflow expression holds only what the
+          # workflow set, while the action reads the runner's own environment.
+          cache_key: "{{default}}-{{env.ImageVersion}}"
 
       - uses: oven-sh/setup-bun@v2
 
