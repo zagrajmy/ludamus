@@ -18,7 +18,7 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 
-@pytest.fixture(name="parley_settings", autouse=True)
+@pytest.fixture(name="parley_settings")
 def _parley_settings(settings):
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     settings.PARLEY_AGENT_HOST = "parley.example.com"
@@ -35,6 +35,7 @@ def _decode_segment(value: str) -> dict[str, object]:
     return json.loads(base64.urlsafe_b64decode(padded))
 
 
+@pytest.mark.usefixtures("parley_settings")
 def test_anonymous_bootstrap_is_unauthorized(client):
     response = client.get(reverse("parley_bootstrap"))
 
@@ -45,6 +46,7 @@ def test_anonymous_bootstrap_is_unauthorized(client):
     )
 
 
+@pytest.mark.usefixtures("parley_settings")
 def test_disabled_sphere_is_not_found(authenticated_client):
     response = authenticated_client.get(reverse("parley_bootstrap"))
 
