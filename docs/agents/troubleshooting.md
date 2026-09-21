@@ -1,17 +1,17 @@
 # Production troubleshooting
 
-`.mcp.json` configures project-scoped PostHog and read-oriented Cloudflare
-analytics, audit, and DNS servers. Compatible clients load it from the
-repository root. Authenticate with OAuth on first use. For Cloudflare,
-authorize only the Zagrajmy account and required read scopes. Never commit
-tokens.
+`.mcp.json` configures project-scoped PostHog and the supported Cloudflare API
+server. Compatible clients load it from the repository root. Authenticate with
+OAuth on first use. For Cloudflare, authorize only the Zagrajmy account and
+required read scopes; never grant write scopes. Never commit tokens.
 
 ## Coolify CLI
 
-Install the [Coolify CLI][coolify-cli]. Create a short-lived, team-scoped API
+Install the [Coolify CLI][coolify-cli]. An instance administrator must enable
+API Access and permit the operator's IP. Create a short-lived, team-scoped API
 token with `read:sensitive` permission, then configure the production context.
 This scope exposes logs and may expose secrets, so use the shortest practical
-expiry and revoke the token after the investigation.
+expiry.
 
 ```bash
 printf "Coolify token: " && read -rs COOLIFY_TOKEN && printf "\n"
@@ -32,8 +32,8 @@ coolify --context zagrajmy-production context verify
 3. Query PostHog for events, exceptions, logs, and recordings in a narrow UTC
    window. A missing browser event may mean the response stopped JavaScript
    before PostHog loaded; it does not prove downtime.
-4. Check Cloudflare analytics for matching edge or WAF events, audit logs for
-   configuration changes, and DNS analytics for DNS or proxy anomalies.
+4. Query Cloudflare by hostname, time, and Ray ID. Check edge or WAF events,
+   configuration changes, and DNS or proxy anomalies.
 5. If both surfaces end at the origin boundary, inspect Coolify runtime and
    deployment logs:
 
@@ -44,20 +44,21 @@ coolify --context zagrajmy-production context verify
      wk4p10un5xghmkgrqlsd7jda --lines 200
    ```
 
-6. Even if the investigation fails, delete the local Coolify context and
-   revoke its API token in Coolify:
+6. Even if the investigation fails, delete the local Coolify context:
 
    ```text
    coolify context delete zagrajmy-production
    ```
+
+   Then revoke the token under **Keys & Tokens → API Tokens** in Coolify.
 
 ## MCPs
 
 - **PostHog:** pinned read-only to the Zagrajmy project and limited to product
   analytics, error tracking, logs, and replay. The project timezone is UTC;
   recordings exist only when capture was enabled.
-- **Cloudflare:** the analytics, audit, and DNS servers expose narrower read
-  surfaces than the full Cloudflare API MCP.
+- **Cloudflare:** the API server is broad; the OAuth grant is the safety
+  boundary. Authorize only the account and read scopes needed for the incident.
 
 Report facts, bounded incident times, missing evidence, uncertainty, and the
 next discriminating check. Never turn an event gap into a root-cause claim.

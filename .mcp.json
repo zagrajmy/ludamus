@@ -4,17 +4,9 @@
       "type": "http",
       "url": "https://mcp.posthog.com/mcp?project_id=251811&readonly=true&features=product_analytics,error_tracking,logs,replay"
     },
-    "zagrajmy-cloudflare-analytics": {
+    "zagrajmy-cloudflare": {
       "type": "http",
-      "url": "https://graphql.mcp.cloudflare.com/mcp"
-    },
-    "zagrajmy-cloudflare-audit": {
-      "type": "http",
-      "url": "https://auditlogs.mcp.cloudflare.com/mcp"
-    },
-    "zagrajmy-cloudflare-dns": {
-      "type": "http",
-      "url": "https://dns-analytics.mcp.cloudflare.com/mcp"
+      "url": "https://mcp.cloudflare.com/mcp"
     }
   }
 }
