@@ -1,8 +1,9 @@
 # Production troubleshooting
 
-`.mcp.json` configures project-scoped PostHog and Cloudflare analytics, audit,
-and DNS servers. Compatible clients load it from the repository root.
-Authenticate with OAuth on first use, grant read access, and never commit
+`.mcp.json` configures project-scoped PostHog and read-oriented Cloudflare
+analytics, audit, and DNS servers. Compatible clients load it from the
+repository root. Authenticate with OAuth on first use. For Cloudflare,
+authorize only the Zagrajmy account and required read scopes. Never commit
 tokens.
 
 ## Coolify CLI
@@ -43,7 +44,8 @@ coolify --context zagrajmy-production context verify
      wk4p10un5xghmkgrqlsd7jda --lines 200
    ```
 
-6. Delete the local Coolify context and revoke its API token:
+6. Even if the investigation fails, delete the local Coolify context and
+   revoke its API token in Coolify:
 
    ```text
    coolify context delete zagrajmy-production
@@ -51,9 +53,9 @@ coolify --context zagrajmy-production context verify
 
 ## MCPs
 
-- **PostHog:** pinned read-only to the Zagrajmy project. Use it for browser
-  events, exceptions, recordings, and ingested logs. The project timezone is
-  UTC; recordings exist only when capture was enabled.
+- **PostHog:** pinned read-only to the Zagrajmy project and limited to product
+  analytics, error tracking, logs, and replay. The project timezone is UTC;
+  recordings exist only when capture was enabled.
 - **Cloudflare:** the analytics, audit, and DNS servers expose narrower read
   surfaces than the full Cloudflare API MCP.
 

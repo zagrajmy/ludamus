@@ -2,7 +2,7 @@
   "mcpServers": {
     "zagrajmy-posthog": {
       "type": "http",
-      "url": "https://mcp.posthog.com/mcp?project_id=251811&readonly=true"
+      "url": "https://mcp.posthog.com/mcp?project_id=251811&readonly=true&features=product_analytics,error_tracking,logs,replay"
     },
     "zagrajmy-cloudflare-analytics": {
       "type": "http",
