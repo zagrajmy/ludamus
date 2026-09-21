@@ -169,11 +169,13 @@
                                 {# An unreadable stored duration is left out entirely, so saving drops it. #}
                                 {% with duration_label=duration|format_duration %}
                                     {% if duration_label %}
-                                        <div class="duration-item flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg">
+                                        <div data-duration-item
+                                             class="flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg">
                                             <span class="text-sm text-foreground-secondary">{{ duration_label }}</span>
                                             <input type="hidden" name="durations" value="{{ duration }}">
                                             <button type="button"
-                                                    class="remove-duration text-foreground-muted hover:text-danger transition">
+                                                    data-remove-duration
+                                                    class="text-foreground-muted hover:text-danger transition">
                                                 {% icon "x-mark" class="w-4 h-4" %}
                                             </button>
                                         </div>
@@ -220,11 +222,12 @@
 
                         function createDurationItem(iso) {
                             const div = document.createElement('div');
-                            div.className = 'duration-item flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg';
+                            div.className = 'flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg';
+                            div.dataset.durationItem = '';
                             div.innerHTML = `
                             <span class="text-sm text-foreground-secondary" data-iso="${iso}">${formatDuration(iso)}</span>
                             <input type="hidden" name="durations" value="${iso}">
-                            <button type="button" class="remove-duration text-foreground-muted hover:text-danger transition">
+                            <button type="button" data-remove-duration class="text-foreground-muted hover:text-danger transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -250,10 +253,10 @@
                         });
 
                         list.addEventListener('click', function(e) {
-                            const btn = e.target.closest('.remove-duration');
+                            const btn = e.target.closest('[data-remove-duration]');
                             if (btn) {
-                                btn.closest('.duration-item').remove();
-                                if (!list.querySelector('.duration-item')) {
+                                btn.closest('[data-duration-item]').remove();
+                                if (!list.querySelector('[data-duration-item]')) {
                                     const p = document.createElement('p');
                                     p.id = 'no-durations-msg';
                                     p.className = 'text-sm text-foreground-muted italic';
@@ -292,12 +295,13 @@
                                    value="{{ field_order|join:',' }}">
                             <div id="host-fields-list" class="space-y-2">
                                 {% for field in available_fields %}
-                                    <div class="field-item flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
+                                    <div data-field-item
+                                         class="flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
                                          data-field-id="{{ field.pk }}"
                                          data-field-type="{{ field.field_type }}"
                                          data-original-index="{{ forloop.counter0 }}">
                                         <span class="text-sm font-medium text-foreground-secondary flex-1">{{ field.name }}</span>
-                                        <select name="field_{{ field.pk }}" class="field-select hidden">
+                                        <select name="field_{{ field.pk }}" data-field-select class="hidden">
                                             <option value="none"
                                                     {% if field.pk not in field_requirements %}selected{% endif %}>
                                                 {% translate "Not included" %}
@@ -333,12 +337,13 @@
                                    value="{{ session_field_order|join:',' }}">
                             <div id="session-fields-list" class="space-y-2">
                                 {% for field in available_session_fields %}
-                                    <div class="field-item flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
+                                    <div data-field-item
+                                         class="flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
                                          data-field-id="{{ field.pk }}"
                                          data-field-type="{{ field.field_type }}"
                                          data-original-index="{{ forloop.counter0 }}">
                                         <span class="text-sm font-medium text-foreground-secondary flex-1">{{ field.name }}</span>
-                                        <select name="session_field_{{ field.pk }}" class="field-select hidden">
+                                        <select name="session_field_{{ field.pk }}" data-field-select class="hidden">
                                             <option value="none"
                                                     {% if field.pk not in session_field_requirements %}selected{% endif %}>
                                                 {% translate "Not included" %}
@@ -376,11 +381,12 @@
                                    value="{{ time_slot_order|join:',' }}">
                             <div id="time-slots-list" class="space-y-2">
                                 {% for slot in available_time_slots %}
-                                    <div class="field-item flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
+                                    <div data-field-item
+                                         class="flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
                                          data-field-id="{{ slot.pk }}"
                                          data-original-index="{{ forloop.counter0 }}">
                                         <span class="text-sm font-medium text-foreground-secondary flex-1">{{ slot.start_time|date:"D d M" }} · {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}</span>
-                                        <select name="time_slot_{{ slot.pk }}" class="field-select hidden">
+                                        <select name="time_slot_{{ slot.pk }}" data-field-select class="hidden">
                                             <option value="none"
                                                     {% if slot.pk not in time_slot_requirements %}selected{% endif %}>
                                                 {% translate "Not included" %}
@@ -431,7 +437,7 @@
                             // Create wrapper structure
                             const chosenHeader = document.createElement('div');
                             chosenHeader.className = 'flex items-center gap-2 mb-2';
-                            chosenHeader.innerHTML = '<span class="text-xs font-semibold text-foreground-muted uppercase tracking-wider">' + i18n.chosen + '</span><span class="chosen-count text-xs text-foreground-muted bg-bg-tertiary rounded-full px-2 py-0.5">0</span>';
+                            chosenHeader.innerHTML = '<span class="text-xs font-semibold text-foreground-muted uppercase tracking-wider">' + i18n.chosen + '</span><span data-chosen-count class="text-xs text-foreground-muted bg-bg-tertiary rounded-full px-2 py-0.5">0</span>';
 
                             const chosenList = document.createElement('div');
                             chosenList.className = 'chosen-list space-y-2 min-h-[2rem]';
@@ -443,13 +449,13 @@
 
                             const availHeader = document.createElement('div');
                             availHeader.className = 'flex items-center gap-2 mb-2 mt-4';
-                            availHeader.innerHTML = '<span class="text-xs font-semibold text-foreground-muted uppercase tracking-wider">' + i18n.available + '</span><span class="avail-count text-xs text-foreground-muted bg-bg-tertiary rounded-full px-2 py-0.5">0</span>';
+                            availHeader.innerHTML = '<span class="text-xs font-semibold text-foreground-muted uppercase tracking-wider">' + i18n.available + '</span><span data-avail-count class="text-xs text-foreground-muted bg-bg-tertiary rounded-full px-2 py-0.5">0</span>';
 
                             const availList = document.createElement('div');
                             availList.className = 'avail-list space-y-2';
 
                             // Collect items and clear list
-                            const items = Array.from(list.querySelectorAll('.field-item'));
+                            const items = Array.from(list.querySelectorAll('[data-field-item]'));
                             list.innerHTML = '';
                             list.appendChild(chosenHeader);
                             list.appendChild(chosenList);
@@ -460,7 +466,7 @@
                             items.forEach(item => {
                                 const controls = document.createElement('div');
                                 controls.className = 'field-controls flex items-center gap-1';
-                                const select = item.querySelector('.field-select');
+                                const select = item.querySelector('[data-field-select]');
                                 const isChosen = select.value !== 'none';
                                 const itemHasReqOpt = hasReqOpt && item.dataset.fieldType !== 'checkbox';
 
@@ -473,11 +479,13 @@
                                     }
                                     const upBtn = document.createElement('button');
                                     upBtn.type = 'button';
-                                    upBtn.className = 'move-up p-1 text-foreground-muted hover:text-foreground transition';
+                                    upBtn.className = 'p-1 text-foreground-muted hover:text-foreground transition';
+                                    upBtn.dataset.move = 'up';
                                     upBtn.innerHTML = svgUp;
                                     const downBtn = document.createElement('button');
                                     downBtn.type = 'button';
-                                    downBtn.className = 'move-down p-1 text-foreground-muted hover:text-foreground transition';
+                                    downBtn.className = 'p-1 text-foreground-muted hover:text-foreground transition';
+                                    downBtn.dataset.move = 'down';
                                     downBtn.innerHTML = svgDown;
                                     const removeBtn = document.createElement('button');
                                     removeBtn.type = 'button';
@@ -502,7 +510,7 @@
 
                             function distributeItems() {
                                 // Preserve current chosen DOM order before clearing
-                                const currentChosen = Array.from(chosenList.querySelectorAll('.field-item'));
+                                const currentChosen = Array.from(chosenList.querySelectorAll('[data-field-item]'));
                                 chosenList.innerHTML = '';
                                 availList.innerHTML = '';
 
@@ -512,7 +520,7 @@
 
                                 // Keep existing chosen items in their current order
                                 currentChosen.forEach(item => {
-                                    const select = item.querySelector('.field-select');
+                                    const select = item.querySelector('[data-field-select]');
                                     if (select.value !== 'none') {
                                         chosen.push(item);
                                     }
@@ -523,7 +531,7 @@
                                 const chosenIds = new Set(chosen.map(i => i.dataset.fieldId));
                                 items.forEach(item => {
                                     if (chosenIds.has(item.dataset.fieldId)) return;
-                                    const select = item.querySelector('.field-select');
+                                    const select = item.querySelector('[data-field-select]');
                                     if (select.value !== 'none') {
                                         newlyChosen.push(item);
                                     } else {
@@ -546,8 +554,8 @@
                                 avail.forEach(item => availList.appendChild(item));
 
                                 // Update counts
-                                list.querySelector('.chosen-count').textContent = allChosen.length;
-                                list.querySelector('.avail-count').textContent = avail.length;
+                                list.querySelector('[data-chosen-count]').textContent = allChosen.length;
+                                list.querySelector('[data-avail-count]').textContent = avail.length;
                             }
 
                             function rebuildControls(item, isChosen) {
@@ -567,11 +575,13 @@
                                     }
                                     const upBtn = document.createElement('button');
                                     upBtn.type = 'button';
-                                    upBtn.className = 'move-up p-1 text-foreground-muted hover:text-foreground transition';
+                                    upBtn.className = 'p-1 text-foreground-muted hover:text-foreground transition';
+                                    upBtn.dataset.move = 'up';
                                     upBtn.innerHTML = svgUp;
                                     const downBtn = document.createElement('button');
                                     downBtn.type = 'button';
-                                    downBtn.className = 'move-down p-1 text-foreground-muted hover:text-foreground transition';
+                                    downBtn.className = 'p-1 text-foreground-muted hover:text-foreground transition';
+                                    downBtn.dataset.move = 'down';
                                     downBtn.innerHTML = svgDown;
                                     const removeBtn = document.createElement('button');
                                     removeBtn.type = 'button';
@@ -593,8 +603,8 @@
 
                             function updateToggleButtons() {
                                 chosenList.querySelectorAll('.toggle-req').forEach(btn => {
-                                    const item = btn.closest('.field-item');
-                                    const select = item.querySelector('.field-select');
+                                    const item = btn.closest('[data-field-item]');
+                                    const select = item.querySelector('[data-field-select]');
                                     if (select.value === 'required') {
                                         btn.textContent = i18n.required;
                                         btn.className = 'toggle-req text-xs px-2 py-1 rounded border border-primary/30 bg-primary/10 text-primary transition';
@@ -605,7 +615,7 @@
                                 });
                                 // For time slots, show "Included" label
                                 if (!hasReqOpt) {
-                                    chosenList.querySelectorAll('.field-item').forEach(item => {
+                                    chosenList.querySelectorAll('[data-field-item]').forEach(item => {
                                         if (!item.querySelector('.included-label')) {
                                             const label = document.createElement('span');
                                             label.className = 'included-label text-xs px-2 py-1 rounded border border-primary/30 bg-primary/10 text-primary';
@@ -617,7 +627,7 @@
                                 }
                                 // Checkbox fields can't be required — show a static "Optional" badge
                                 // so the chosen row isn't visually empty next to its neighbours.
-                                chosenList.querySelectorAll('.field-item[data-field-type="checkbox"]').forEach(item => {
+                                chosenList.querySelectorAll('[data-field-item][data-field-type="checkbox"]').forEach(item => {
                                     if (!item.querySelector('.optional-label')) {
                                         const label = document.createElement('span');
                                         label.className = 'optional-label text-xs px-2 py-1 rounded border border-border bg-bg-tertiary text-foreground-muted';
@@ -629,10 +639,10 @@
                             }
 
                             function updateDisabledStates() {
-                                const chosenItems = chosenList.querySelectorAll('.field-item');
+                                const chosenItems = chosenList.querySelectorAll('[data-field-item]');
                                 chosenItems.forEach((item, idx) => {
-                                    const upBtn = item.querySelector('.move-up');
-                                    const downBtn = item.querySelector('.move-down');
+                                    const upBtn = item.querySelector('[data-move="up"]');
+                                    const downBtn = item.querySelector('[data-move="down"]');
                                     if (upBtn) {
                                         upBtn.disabled = idx === 0;
                                         upBtn.classList.toggle('opacity-30', idx === 0);
@@ -647,7 +657,7 @@
                             }
 
                             function syncOrder() {
-                                const chosenItems = chosenList.querySelectorAll('.field-item');
+                                const chosenItems = chosenList.querySelectorAll('[data-field-item]');
                                 const ids = [];
                                 chosenItems.forEach(item => ids.push(item.dataset.fieldId));
                                 orderInput.value = ids.join(',');
@@ -659,8 +669,8 @@
                             list.addEventListener('click', e => {
                                 const addBtn = e.target.closest('.add-field');
                                 if (addBtn) {
-                                    const item = addBtn.closest('.field-item');
-                                    const select = item.querySelector('.field-select');
+                                    const item = addBtn.closest('[data-field-item]');
+                                    const select = item.querySelector('[data-field-select]');
                                     const isCheckboxField = item.dataset.fieldType === 'checkbox';
                                     select.value = isCheckboxField ? 'optional' : 'required';
                                     rebuildControls(item, true);
@@ -671,8 +681,8 @@
 
                                 const removeBtn = e.target.closest('.remove-field');
                                 if (removeBtn) {
-                                    const item = removeBtn.closest('.field-item');
-                                    const select = item.querySelector('.field-select');
+                                    const item = removeBtn.closest('[data-field-item]');
+                                    const select = item.querySelector('[data-field-select]');
                                     select.value = 'none';
                                     rebuildControls(item, false);
                                     distributeItems();
@@ -680,22 +690,22 @@
                                     return;
                                 }
 
-                                const upBtn = e.target.closest('.move-up');
+                                const upBtn = e.target.closest('[data-move="up"]');
                                 if (upBtn && !upBtn.disabled) {
-                                    const item = upBtn.closest('.field-item');
+                                    const item = upBtn.closest('[data-field-item]');
                                     const prev = item.previousElementSibling;
-                                    if (prev && prev.classList.contains('field-item')) {
+                                    if (prev && prev.hasAttribute('data-field-item')) {
                                         chosenList.insertBefore(item, prev);
                                         syncOrder();
                                     }
                                     return;
                                 }
 
-                                const downBtn = e.target.closest('.move-down');
+                                const downBtn = e.target.closest('[data-move="down"]');
                                 if (downBtn && !downBtn.disabled) {
-                                    const item = downBtn.closest('.field-item');
+                                    const item = downBtn.closest('[data-field-item]');
                                     const next = item.nextElementSibling;
-                                    if (next && next.classList.contains('field-item')) {
+                                    if (next && next.hasAttribute('data-field-item')) {
                                         chosenList.insertBefore(next, item);
                                         syncOrder();
                                     }
@@ -704,8 +714,8 @@
 
                                 const toggleBtn = e.target.closest('.toggle-req');
                                 if (toggleBtn) {
-                                    const item = toggleBtn.closest('.field-item');
-                                    const select = item.querySelector('.field-select');
+                                    const item = toggleBtn.closest('[data-field-item]');
+                                    const select = item.querySelector('[data-field-select]');
                                     select.value = select.value === 'required' ? 'optional' : 'required';
                                     syncOrder();
                                     return;

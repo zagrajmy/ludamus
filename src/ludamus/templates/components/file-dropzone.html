@@ -31,7 +31,8 @@
             <span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
             <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span>
         </p>
-        {% if has_errors %}<p data-dropzone-error class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
+        {% if has_errors %}<p data-dropzone-error
+   class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
     </div>
     <div data-dropzone-selected
          class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-lg group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
@@ -42,9 +43,10 @@
                  width="800"
                  height="400"
                  class="absolute inset-0 w-full h-full {% if contain %}object-contain p-6 pb-12{% else %}object-cover{% endif %}">
-            <div class="absolute inset-x-0 bottom-0 pt-12 pb-2 px-3 bg-linear-to-t from-black via-black/55 to-transparent">
-                <p data-dropzone-name class="text-sm font-medium text-white truncate">{{ initial_name }}</p>
-                <p data-dropzone-size class="text-xs text-white/75"></p>
+            <div class="absolute inset-x-0 bottom-0 flex items-baseline justify-between gap-3 pt-28 pb-2 px-3 scrim-t">
+                <p data-dropzone-name
+                   class="min-w-0 truncate text-sm font-medium text-white">{{ initial_name }}</p>
+                <p data-dropzone-size class="shrink-0 text-xs text-white"></p>
             </div>
             {% if crop %}
                 {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
