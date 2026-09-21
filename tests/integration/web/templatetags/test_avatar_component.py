@@ -29,8 +29,10 @@ class Nameless(BaseModel):
     avatar_url: str = ""
 
 
-def _render(user: BaseModel) -> str:
-    return render_to_string("components/avatar.html", {"user": user})
+def _render(user: BaseModel, *, danger_ring: bool = False) -> str:
+    return render_to_string(
+        "components/avatar.html", {"user": user, "danger_ring": danger_ring}
+    )
 
 
 class TestNameFallback:
@@ -44,8 +46,14 @@ class TestNameFallback:
     def test_falls_back_to_username_when_that_is_all_there_is(self):
         assert 'aria-label="auth0|abc"' in _render(UsernameOnly())
 
-    def test_renders_without_any_name_field_at_all(self):
-        assert 'aria-label=""' in _render(Nameless())
+    def test_renders_nothing_without_a_name_or_a_picture(self):
+        # A session with no facilitator carries a nameless stand-in; drawing a
+        # blank coloured disc for it is worse than drawing nothing.
+        assert not _render(Nameless()).strip()
+
+    def test_still_renders_a_flagged_user_with_no_name(self):
+        # The warning badge must never be the thing that goes missing.
+        assert "bg-danger" in _render(Nameless(), danger_ring=True)
 
 
 class TestInitials:

@@ -1,6 +1,7 @@
 import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 // Multi-day small event (card layout): Mega + Cozy on day one, Neon on day two.
 const SMALL_EVENT_URL = "/event/autumn-open/";
@@ -10,7 +11,6 @@ const NEON = "Przygoda w Mieście Neonów";
 // Single-day small event: nothing to fold, so no toggle to offer.
 const SINGLE_DAY_EVENT_URL = "/event/frostfire-con/";
 // The dense seeded event: compact ledger by default, rooms grid on ?view=rooms.
-const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 const WEEKDAY = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/;
 

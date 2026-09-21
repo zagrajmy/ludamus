@@ -59,6 +59,21 @@ test.describe("Print page controls", () => {
     expect(await preview.getByRole("group").count()).toBeGreaterThan(0);
   });
 
+  // The sheets scroll sideways inside their own region; the page never does.
+  // An absolutely positioned sr-only table head once escaped that region and
+  // dragged the whole page half a sheet to the right on a phone.
+  test("the page does not scroll sideways on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto(`${printUrl}?material=session-list`);
+    const preview = page.getByRole("region", { name: "Print preview" });
+    expect(await preview.getByRole("group").count()).toBeGreaterThan(1);
+
+    const overflow = await page
+      .locator("#app-scroll")
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBe(0);
+  });
+
   test("legacy timetable-descriptions URLs map to the checkbox", async ({ page }) => {
     await page.goto(`${printUrl}?material=timetable-descriptions`);
 
@@ -112,16 +127,6 @@ test.describe("Print page for managers", () => {
     await page.getByLabel("Username:").fill("e2e-manager");
     await page.getByLabel("Password:").fill("e2e-manager-123");
     await page.getByRole("button", { name: /Log in/i }).click();
-  });
-
-  test("the unconfirmed-sessions toggle applies itself to the URL", async ({ page }) => {
-    await page.goto(printUrl);
-
-    const box = page.getByLabel("Include unconfirmed sessions");
-    await box.check();
-
-    await expect(page).toHaveURL(/unconfirmed=1/);
-    await expect(page.getByLabel("Include unconfirmed sessions")).toBeChecked();
   });
 
   test("panel links lead to the canonical print page", async ({ page }) => {

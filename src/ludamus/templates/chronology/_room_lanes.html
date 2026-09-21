@@ -67,7 +67,7 @@
     <div class="room-lanes bg-background"
          data-rooms="{{ room_lanes.rooms|length }}"
          data-rows="{{ room_lanes.rows|length }}">
-        <div class="room-lanes-head-shell sticky top-14 z-30 border-b border-border/60 bg-background">
+        <div class="sticky top-14 z-30 border-b border-border/60 bg-background">
             {# The day the reader is looking at, kept current by room-lanes.ts. #}
             {# It doubles as that day's fold toggle (schedule-fold.ts): the #}
             {# first day has no in-grid seam of its own, so this bar is the #}
@@ -182,7 +182,8 @@
                                 {% endif %}
                             </div>
                             {% for tile in row.starting_tiles %}
-                                <div class="room-lanes-cell justify-self-start p-0.5"
+                                <div class="justify-self-start p-0.5"
+                                     data-room-lanes-cell
                                      data-tile-col="{{ tile.col }}"
                                      data-tile-row="{{ forloop.parentloop.counter }}"
                                      data-tile-span="{{ tile.row_span }}"
@@ -213,8 +214,8 @@
             </div>
             <div class="room-lanes-overlays" data-room-lanes-overlays>
                 <div class="room-lanes-now" data-room-lanes-now aria-hidden="true" hidden>
-                    <div class="room-lanes-now-strip">
-                        {% include "chronology/_schedule_now_marker.html" with extra_class="inline-block -translate-y-px" %}
+                    <div class="schedule-now-line">
+                        {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-[3px] -translate-y-1/2" %}
                     </div>
                 </div>
             </div>

@@ -185,8 +185,8 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
             event, page_url=f"http://testserver{url}"
         ),
         **schedule_context(url),
-        "user_enrolled_session_titles": [],
         "maps_url": None,
+        "print_url": f"{url}print/",
         "view": ANY,
     }
     context |= overrides

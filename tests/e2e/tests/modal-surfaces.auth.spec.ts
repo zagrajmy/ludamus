@@ -1,7 +1,8 @@
-import { type Page } from "@playwright/test";
+import { devices, type Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { expectCappedToViewport } from "./helpers/modal-cap";
 
 const expectPageScrollLocked = async (page: Page) => {
   const pageScrollLocked = await page.evaluate(() => {
@@ -26,9 +27,36 @@ test.describe("Modal surfaces using page scroll lock", () => {
     const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab" });
     await expect(dialog).toBeVisible();
     await expectPageScrollLocked(page);
+    await expectCappedToViewport(page, dialog);
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
+
+    await context.close();
+  });
+
+  test("keeps Edit as a named icon button in the phone footer", async ({ browser }) => {
+    const context = await browser.newContext({
+      ...devices["iPhone 14 Pro"],
+      storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
+    });
+    const page = await context.newPage();
+
+    await page.goto("/event/facilitator-edit-demo/");
+    await page.getByRole("link", { name: "Open details for Own Table Demo" }).press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Own Table Demo" });
+    await expect(dialog).toBeVisible();
+
+    // Edit keeps its accessible name but shows only the pencil, as a square
+    // at the tap-target floor, so it never pushes the enroll control onto a
+    // second line.
+    const edit = dialog.getByRole("button", { name: "Edit session" });
+    await expect(edit).toBeVisible();
+    const editBox = await edit.boundingBox();
+    expect(editBox).not.toBeNull();
+    expect(Math.round(editBox!.width)).toBe(44);
+    expect(Math.round(editBox!.height)).toBe(44);
 
     await context.close();
   });

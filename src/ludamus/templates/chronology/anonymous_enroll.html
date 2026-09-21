@@ -33,7 +33,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Host" %}</h6>
-                        <p class="mb-3">{{ session.display_name }}</p>
+                        <p class="mb-3">{{ session.facilitator_name }}</p>
                         <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Participants" %}</h6>
                         <p class="mb-3">
                             {{ session.enrolled_count }}/{{ session.effective_participants_limit }}

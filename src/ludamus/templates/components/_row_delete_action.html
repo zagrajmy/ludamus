@@ -1,0 +1,23 @@
+{% load i18n %}
+{# Delete control for a panel list row. A row that genuinely cannot be deleted #}
+{# says so where the button was, rather than taking the click and answering #}
+{# with an error. The reason is visible text, not a title on a disabled #}
+{# button, because a disabled button is not focusable and its tooltip never #}
+{# reaches the keyboard. #}
+{# Args: reason (None or absent = deletable), action_url, confirm, csrf_token. #}
+{# Included with `only`, so every one is explicit. #}
+{# SAFETY: an empty data-confirm makes confirm.ts skip the dialog and submit #}
+{# straight away, so a caller that drops `confirm` would get a one-click #}
+{# delete. The default keeps the guard on rather than trusting the call site. #}
+{% translate "Are you sure you want to delete this?" as fallback_confirm %}
+{% if reason %}
+    <span class="text-sm text-foreground-muted">{{ reason }}</span>
+{% else %}
+    <form method="post"
+          action="{{ action_url }}"
+          class="inline"
+          data-confirm="{{ confirm|default:fallback_confirm }}">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+    </form>
+{% endif %}

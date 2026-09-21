@@ -29,6 +29,7 @@ class ProposalCategoriesService(ProposalCategoriesServiceProtocol):
         return ProposalCategoriesPageDTO(
             categories=self._categories.list_by_event(event_pk),
             stats=self._categories.get_category_stats(event_pk),
+            undeletable_pks=self._categories.pks_with_proposals(event_pk),
         )
 
     def create(self, event_pk: int, name: str) -> ProposalCategoryDTO:

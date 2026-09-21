@@ -248,7 +248,7 @@ def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
             event=event,
             title=f"Half-hour handover {index + 1}",
             slug=f"kapitularz-handover-{index + 1}",
-            display_name="Host 001",
+            facilitator_name="Host 001",
             contact_email="host-001@example.test",
             description="Back-to-back slots that share an hour, not a minute.",
             duration="PT1H",
@@ -272,6 +272,7 @@ def _create_spaces(area: Space) -> list[Space]:
             slug=slugify(name),
             capacity=capacity,
             order=order,
+            programme_order=order,
             event=area.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)
@@ -364,7 +365,7 @@ def _create_sessions(
             event=event,
             title=title,
             slug=f"kapitularz-print-session-{index:03}",
-            display_name=facilitator.display_name,
+            facilitator_name=facilitator.display_name,
             contact_email=f"host-{index:03}@example.test",
             description=_description(index, spec.track_slug),
             duration=f"PT{duration_hours}H",

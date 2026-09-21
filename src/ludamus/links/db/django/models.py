@@ -22,12 +22,11 @@ from ludamus.pacts import (
     PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
-    SpherePage,
 )
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
@@ -51,6 +50,9 @@ SPACE_NO_CHILDREN_REASON = _(
 # no organizer flow has to stop and send the user off to the venue editor first.
 # Organizers rename it; the name is only the starting point.
 DEFAULT_SPACE_NAME = _("Main room")
+# Why Delete is unavailable on a space, shown where the button would be. Next
+# to the leaf-parent reason above so the rule and its sentence stay together.
+SPACE_UNDELETABLE_REASON = _("Has scheduled sessions")
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -304,20 +306,11 @@ class Sphere(models.Model):
     logo_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
-    enabled_pages = models.JSONField(
-        default=SpherePage.all_values,
-        help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
-    )
-    default_page = models.CharField(
-        max_length=20,
-        choices=[(p.value, p.name.title()) for p in SpherePage],
-        default=SpherePage.EVENTS,
-    )
     allow_facilitator_session_edit = models.BooleanField(default=True)
-    encounter_public_policy = models.CharField(
+    encounters_policy = models.CharField(
         max_length=20,
-        choices=[(p.value, p.name.title()) for p in EncounterPublicPolicy],
-        default=EncounterPublicPolicy.DISABLED,
+        choices=[(p.value, p.name.title()) for p in EncountersPolicy],
+        default=EncountersPolicy.NONE,
     )
 
     class Meta:
@@ -325,29 +318,6 @@ class Sphere(models.Model):
 
     def __str__(self) -> str:
         return self.name
-
-    def clean(self) -> None:
-        # enabled_pages is a JSONField, so any JSON value can arrive here
-        # (the admin's raw-JSON widget included). A non-list — e.g. the
-        # object {"events": true} — would coerce through membership checks
-        # but poison every SphereDTO validation on read.
-        enabled_pages = self.enabled_pages
-        if not isinstance(enabled_pages, list):
-            raise ValidationError(
-                {"enabled_pages": "Enabled pages must be a list of page slugs."}
-            )
-        known = SpherePage.all_values()
-        if set(enabled_pages) - set(known):
-            raise ValidationError(
-                {"enabled_pages": f"Enabled pages must be page slugs from {known}."}
-            )
-        # The homepage redirect sends visitors to default_page, so a disabled
-        # one strands them on a 404. Enforced here so every ModelForm writer
-        # (the admin included) is covered by Django's own validation.
-        if self.default_page not in set(enabled_pages):
-            raise ValidationError(
-                {"default_page": "Default page must be one of the enabled pages."}
-            )
 
     @property
     def logo_url(self) -> str:
@@ -768,6 +738,7 @@ class Space(models.Model):
     location = models.CharField(max_length=255, blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
+    programme_order = models.PositiveIntegerField(default=0)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
@@ -1062,7 +1033,7 @@ class Session(SoftDeleteModel):
     facilitators = models.ManyToManyField(
         Facilitator, blank=True, related_name="sessions"
     )
-    display_name = models.CharField(max_length=255)
+    facilitator_name = models.CharField(max_length=255)
     contact_email = models.EmailField(default="", blank=True)
     category = models.ForeignKey(
         "ProposalCategory",
@@ -1226,7 +1197,7 @@ class AgendaItem(models.Model):
 
     def __str__(self) -> str:
         return (
-            f"{self.session.title} by {self.session.display_name} "
+            f"{self.session.title} by {self.session.facilitator_name} "
             f"({self.session_confirmed})"
         )
 

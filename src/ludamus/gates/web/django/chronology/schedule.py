@@ -448,6 +448,7 @@ def group_sessions_by_state(
 
 
 class _RoomKey(NamedTuple):
+    programme_order: int
     sort_path: tuple[tuple[int, str, int], ...]
     space_id: int
     parent_id: int
@@ -457,6 +458,7 @@ class _RoomKey(NamedTuple):
 
 def _room_key(data: SessionData) -> _RoomKey:
     return _RoomKey(
+        programme_order=data.loc["programme_order"],
         sort_path=data.loc["sort_path"],
         space_id=data.loc["space_id"],
         parent_id=data.loc["parent_id"],

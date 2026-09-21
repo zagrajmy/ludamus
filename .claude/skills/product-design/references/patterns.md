@@ -15,10 +15,11 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | --- | --- | --- |
 | A whole form | `{% tessera_form form %}` | Renders labels, fields, help text, and errors. `layout="horizontal"` available. Use this before composing fields by hand. |
 | One field | `{% tessera_field form.name %}` | Dispatches to the right renderer (input/textarea/select/checkbox/file) by field type. |
+| Hex color | `{% tessera_field form.color %}` with `TextInput(attrs={"type": "color"})` | Text value plus synchronized native picker. Empty stays unset; the text field works without JavaScript. |
 | Form-level errors | `{% tessera_errors form %}` | Non-field errors as an alert. |
 | Action / link button | `{% tessera_button "Save" %}` | `href=` makes it a link; `variant="primary"/"secondary"/"danger"`, `size=`, `icon=`, `disabled`, `full_width_mobile`. The raw classes are `.btn .btn-primary` etc. |
 | Icon | `{% icon "calendar" %}` | Heroicons. `variant="outline"/"solid"/"mini"/"micro"`, `class="w-5 h-5"`. |
-| Icon-only button | `.icon-btn` + `{% icon %}` + `<span class="sr-only">` | **Must** carry an accessible name (`sr-only` span or `aria-label`). Enforced by `rules/icon-btn-accessible-name.yml`. Variants: `.icon-btn-primary`, `.icon-btn-danger`. |
+| Icon-only button | `.icon-btn` + `{% icon %}` + `<span class="sr-only">` | **Must** carry an accessible name (`sr-only` span or `aria-label`). Enforced by `rules/icon-btn-accessible-name.yml`. |
 | Custom `<select>` | `{% select id=.. name=.. %}<option>…{% endselect %}` | Slot-based, for selects not backed by a form field. Registered as a djlint custom block. |
 | Searchable select | `{% tessera_combobox id=.. name=.. %}<option>…{% endtessera_combobox %}` | For lists too long to scroll. Ships a `<select>` the browser upgrades to an ARIA combobox (typeahead, `aria-activedescendant`, top-layer popup); the select stays the value, so forms and `change` listeners are unaffected and it still works without JS. `placeholder=`, `empty_text=`, `toggle_label=` take the copy. djlint custom block. |
 | Data table | `{% tessera_table %}<thead>…<tbody>…{% endtessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. A hoverable row's background follows Edit / Details: mark that link `data-row-action`. |

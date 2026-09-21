@@ -318,6 +318,64 @@ class TestProposalAcceptPageView:
             template_name="chronology/accept_proposal.html",
         )
 
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_ok_for_a_proposal_without_a_category(
+        self, event, pending_session, manager_client, time_slot
+    ):
+        # Regression: the page's reads joined through Session.category, which is
+        # nullable, so a category-less proposal 500'd instead of rendering.
+        pending_session.category = None
+        pending_session.save()
+
+        response = manager_client.get(self._get_url(pending_session.id, event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+
+    @pytest.mark.usefixtures("space")
+    def test_get_ok_when_the_proposal_sets_length_and_minimum_age(
+        self, event, pending_session, manager_client, time_slot
+    ):
+        # The details grid only draws the length and minimum-age tiles when the
+        # proposal carries them, and the default fixture leaves both empty. How
+        # they read is e2e's business; that they reach the page is this test's.
+        pending_session.duration = "PT1H30M"
+        pending_session.min_age = 16
+        pending_session.save()
+
+        response = manager_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+
     def test_get_wrong_permissions(self, event, pending_session, authenticated_client):
         response = authenticated_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -424,7 +482,7 @@ class TestProposalAcceptPageView:
         )
         session = Session.objects.get(pk=pending_session.pk)
         assert session.status == "accepted"
-        assert session.display_name == active_user.name
+        assert session.facilitator_name == active_user.name
         assert session.agenda_item.space == space
         assert session.agenda_item.session == session
         assert session.agenda_item.session_confirmed
@@ -443,7 +501,7 @@ class TestProposalAcceptPageView:
             title=pending_session.title,
             event=event,
             slug=base_slug,
-            display_name=manager_user.name,
+            facilitator_name=manager_user.name,
             participants_limit=10,
         )
 
@@ -522,7 +580,7 @@ class TestProposalAcceptPageView:
             event=event,
             title="Other Session",
             slug="other-session",
-            display_name=manager_user.name,
+            facilitator_name=manager_user.name,
             participants_limit=10,
         )
         AgendaItem.objects.create(

@@ -86,7 +86,7 @@ test("panel redirects to home with message when sphere has no events", async ({ 
   // Visit panel — should redirect to index (then to /events/)
   await page.goto(`${emptyBase}/panel/`);
   await expect(page).toHaveURL(`${emptyBase}/events/`);
-  await expect(page.getByText("No events available")).toBeVisible();
+  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();
 });
@@ -135,6 +135,33 @@ test.describe("Backoffice Panel", () => {
       path: "test-results/panel-dashboard.png",
       fullPage: true,
     });
+  });
+
+  // Four cards further from each other than from their frame read as four
+  // floating things, not as one row of stats.
+  test("keeps the dashboard cards closer to each other than to their frame", async ({ page }) => {
+    await page.goto("/panel/");
+
+    for (const width of [1440, 1024, 640, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const spacing = await page
+        .locator("main .grid")
+        .first()
+        .evaluate((grid) => {
+          const frame = getComputedStyle(grid.parentElement!);
+          const own = getComputedStyle(grid);
+          return {
+            gap: Math.max(parseFloat(own.columnGap), parseFloat(own.rowGap)),
+            padding: Math.min(
+              ...[frame.paddingTop, frame.paddingRight, frame.paddingBottom, frame.paddingLeft].map(
+                parseFloat,
+              ),
+            ),
+          };
+        });
+
+      expect(spacing.gap, `gap vs frame at ${width}px`).toBeLessThanOrEqual(spacing.padding);
+    }
   });
 
   test("uses square top corners on panel tab strips", async ({ page }) => {
@@ -344,6 +371,16 @@ test.describe("Backoffice Panel", () => {
     await expect(
       bookedNode.getByText("A space holding a scheduled session cannot contain other spaces."),
     ).toBeAttached();
+  });
+
+  test("says why Delete is unavailable on a space holding a session", async ({ page }) => {
+    // delete_space refuses a subtree holding a scheduled session, so the row
+    // menu says so where the button would be. Read-only: this space is seeded.
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const menu = await openSpaceMenu(page, "Glacier Amphitheatre");
+    await expect(menu.getByText("Has scheduled sessions")).toBeVisible();
+    await expect(menu.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
   });
 
   test("edits a space", async ({ page }) => {
@@ -599,14 +636,14 @@ test.describe("Backoffice Panel", () => {
 
     const assertOptionalOnly = async (group: string, fieldName: string) => {
       await page
-        .locator(`${group} .avail-list .field-item`, { hasText: fieldName })
+        .locator(`${group} .avail-list [data-field-item]`, { hasText: fieldName })
         .locator(".add-field")
         .click();
 
-      const chosen = page.locator(`${group} .chosen-list .field-item`, {
+      const chosen = page.locator(`${group} .chosen-list [data-field-item]`, {
         hasText: fieldName,
       });
-      await expect(chosen.locator(".field-select")).toHaveValue("optional");
+      await expect(chosen.locator("[data-field-select]")).toHaveValue("optional");
       await expect(chosen.locator(".toggle-req")).toHaveCount(0);
       await expect(chosen.locator(".optional-label")).toHaveText("Optional");
     };
@@ -930,12 +967,12 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_end_time").fill(toLocalISO(nextWeek));
 
       const ensureChosen = async (group: string, fieldName: string) => {
-        const chosen = page.locator(`${group} .chosen-list .field-item`, {
+        const chosen = page.locator(`${group} .chosen-list [data-field-item]`, {
           hasText: fieldName,
         });
         if ((await chosen.count()) === 0) {
           await page
-            .locator(`${group} .avail-list .field-item`, {
+            .locator(`${group} .avail-list [data-field-item]`, {
               hasText: fieldName,
             })
             .locator(".add-field")
@@ -953,7 +990,7 @@ test.describe("Backoffice Panel", () => {
       }
 
       // Add all time slots
-      const slotAvail = page.locator("#time-slots-list .avail-list .field-item");
+      const slotAvail = page.locator("#time-slots-list .avail-list [data-field-item]");
       while ((await slotAvail.count()) > 0) {
         await slotAvail.first().locator(".add-field").click();
       }
@@ -962,13 +999,13 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#duration-hours").fill("2");
       await page.locator("#duration-minutes").fill("0");
       await page.locator("#add-duration-btn").click();
-      await expect(page.locator(".duration-item", { hasText: "2h" })).toBeVisible();
+      await expect(page.locator("[data-duration-item]", { hasText: "2h" })).toBeVisible();
 
       await page
-        .locator("#session-fields-list .field-item", {
+        .locator("#session-fields-list [data-field-item]", {
           hasText: beginnerName,
         })
-        .locator(".field-select")
+        .locator("[data-field-select]")
         .evaluate((sel: HTMLSelectElement) => {
           if (!sel.querySelector('option[value="required"]')) {
             const opt = document.createElement("option");
@@ -983,6 +1020,22 @@ test.describe("Backoffice Panel", () => {
       await page.getByRole("button", { name: "Save" }).click();
 
       await expect(page.getByText("Category updated successfully.")).toBeVisible();
+    });
+
+    test("says why Delete is unavailable on a field a category asks for", async ({ page }) => {
+      // The category above now requires these fields, so delete refuses them.
+      // Both pages share the partial and the helper that builds the sentence.
+      const cases = [
+        ["/panel/event/frostfire-con/cfp/session-fields/", gameSystemName],
+        ["/panel/event/frostfire-con/cfp/personal-data/", cityName],
+      ] as const;
+
+      for (const [url, fieldName] of cases) {
+        await page.goto(url);
+        const row = page.locator("tr", { hasText: fieldName });
+        await expect(row.getByText("Used by categories")).toBeVisible();
+        await expect(row.getByRole("button", { name: /Delete/i })).toHaveCount(0);
+      }
     });
 
     test("submits a proposal through the public wizard", async ({ browser }) => {
@@ -1037,7 +1090,7 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_title").fill(proposalTitle);
       await page.locator("#id_description").fill("An introductory RPG session for new players.");
       await page.locator("#id_participants_limit").fill("6");
-      await page.locator("#id_display_name").fill("Game Master Alex");
+      await page.getByRole("textbox", { name: /presenter name/i }).fill("Game Master Alex");
       // The category configures one duration, so the wizard answers for the
       // proposer instead of offering a dropdown with a single option.
       await expect(page.getByRole("combobox", { name: /duration/i })).toHaveCount(0);
@@ -1120,7 +1173,7 @@ test.describe("Backoffice Panel", () => {
         .fill("Regression coverage: min_age cap + unchecked required checkbox.");
       await page.locator("#id_participants_limit").fill("4");
       await page.locator("#id_min_age").fill("30");
-      await page.locator("#id_display_name").fill("Regression GM");
+      await page.getByRole("textbox", { name: /presenter name/i }).fill("Regression GM");
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("Pathfinder");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page
@@ -1145,10 +1198,28 @@ test.describe("Backoffice Panel", () => {
       await context.close();
     });
 
+    test("says why Delete is unavailable on a slot a proposal asked for", async ({ page }) => {
+      // The wizard above asked for slots, so delete() refuses those. Assert the
+      // invariant rather than a count: every slot row renders exactly one of
+      // the sentence or the button, and both kinds are on this page. A count
+      // would only track how many proposals the tests before this one filed.
+      await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+
+      const spokenFor = page.getByText("Used by proposals");
+      await expect(spokenFor.first()).toBeVisible();
+
+      // Every slot row renders exactly one of the sentence or the button, so
+      // the two counts partition the rows however many proposals were filed.
+      const rows = await page.getByRole("link", { name: "Edit", exact: true }).count();
+      const deletable = await page.getByRole("button", { name: "Delete", exact: true }).count();
+      expect((await spokenFor.count()) + deletable).toBe(rows);
+    });
+
     test("verifies proposal in panel proposals list and detail", async ({ page }) => {
       // Proposals list
       await page.goto("/panel/event/frostfire-con/proposals/");
 
+      await expect(page.getByRole("columnheader", { name: "Presenter name" })).toBeVisible();
       const row = page.locator("tr", {
         hasText: proposalTitle,
       });
@@ -1229,7 +1300,7 @@ test.describe("Backoffice Panel", () => {
 
     // Top-level node ids from the root sibling list.
     const ids = await page
-      .locator("#space-root-list > li.space-node")
+      .locator("#space-root-list > li[data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(ids.length).toBeGreaterThanOrEqual(2);
     const reversed = [...ids].reverse();
@@ -1255,7 +1326,7 @@ test.describe("Backoffice Panel", () => {
 
     await page.reload();
     const newIds = await page
-      .locator("#space-root-list > li.space-node")
+      .locator("#space-root-list > li[data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(newIds).toEqual(reversed);
 

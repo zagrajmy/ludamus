@@ -83,7 +83,7 @@ def _session_ctx(**overrides) -> AnonymousSessionDTO:
         "participants_limit": 10,
         "eligible_windows": [_open_window()],
         "title": "Warsztat",
-        "display_name": "Prowadzący",
+        "facilitator_name": "Prowadzący",
         "description": "",
         "min_age": 0,
         "enrolled_count": 0,

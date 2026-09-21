@@ -12,6 +12,7 @@
 @import "./room-lanes.css";
 @import "./schedule-fold.css";
 @import "./schedule-now.css";
+@import "./panel-sidebar.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -50,6 +51,10 @@
 @source "../../**/*.{html,py,js}";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
+   on <html> before paint and panel-chrome.ts toggles it. */
+@custom-variant folded (:root[data-folded] &);
+@custom-variant panel (.panel-shell &);
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;
@@ -206,12 +211,85 @@
   margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
 }
 
+/* Scrim for text over a photo. A three-stop gradient bands where its stops
+   meet; these trace alpha = 0.9 × (1 − smoothstep(x)) at 10% steps, so the
+   scrim holds dark under the text and eases out with no edge to see. Apply
+   it to the caption's box and give that box room above the text: padding
+   (pt-28) or a height with the text pushed to the bottom (h-3/4 justify-end). */
+@utility scrim-t {
+  background-image: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.9) 0%,
+    rgb(0 0 0 / 0.875) 10%,
+    rgb(0 0 0 / 0.806) 20%,
+    rgb(0 0 0 / 0.706) 30%,
+    rgb(0 0 0 / 0.583) 40%,
+    rgb(0 0 0 / 0.45) 50%,
+    rgb(0 0 0 / 0.317) 60%,
+    rgb(0 0 0 / 0.194) 70%,
+    rgb(0 0 0 / 0.094) 80%,
+    rgb(0 0 0 / 0.025) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility text-box-trim-start {
   text-box: trim-start cap alphabetic;
 }
 
 @utility text-box-trim-both {
   text-box: trim-both cap alphabetic;
+}
+
+/* A strip of labelled icon buttons that goes icon-only below sm: the glyph
+   carries the action and the text beside it gets the width back. The label is
+   `.btn-label` (templates and `tessera_button` both mark it) and goes sr-only
+   rather than hidden, so the button keeps its accessible name. The breakpoint
+   is decided here, once, for the panel header and the session modal's footer.
+
+   The first two rules hang off the same `:has(> svg)`, and must keep doing so.
+   A button with no icon has nothing to fall back on, so hiding its label
+   leaves a blank pill — which is what the moderation bar on proposal-detail
+   (Accept / Hold / Reject / Delete) would become. The same guard covers
+   `{% icon %}` returning "" for a missing icon in production.
+
+   `min-height` covers every button: an iconless one keeps its label and its
+   own width, but `py-2` alone leaves it 38px — under the tap-target floor,
+   and 6px shy of the squares it sits beside. A minimum rather than a height
+   so it never argues with `size-11` over the icon buttons.
+
+   `w-auto` runs to md, not sm: `tessera_button` stretches every form-submit
+   button by `max-md:w-full`, which is right in a body form and never right in
+   a strip. Deciding it here spares 22 header templates from each passing
+   `full_width_mobile=False`. */
+@utility btn-strip-compact {
+  @media (width < 40rem) {
+    .btn:has(> svg) .btn-label {
+      @apply sr-only;
+    }
+
+    .btn:has(> svg) {
+      @apply size-11 p-0;
+    }
+
+    .btn {
+      @apply min-h-11;
+    }
+  }
+
+  @media (width < 48rem) {
+    .btn {
+      @apply w-auto;
+    }
+  }
 }
 
 *,
@@ -228,38 +306,46 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Every page that extends base.html wears the shell, so its document never
-   scrolls and .app-scroll below reserves the only scrollbar gutter there is —
-   the root needs none. 500_dynamic.html deliberately goes without the shell
-   (it has no dialog to protect) and does scroll its document,
-   so a long enough message there shows a root scrollbar and nudges the centred
-   card by its width. Accepted: it is an error page, and reserving a gutter
-   everywhere to avoid it would indent every page that never scrolls.
+/* Every page wears the shell (base.html and the self-contained 500), so the
+   document never scrolls and the root needs no scrollbar gutter — .app-scroll
+   below reserves the only one, for the only scroller there is.
 
-   --app-vh is the measured visible height, published by app-viewport.ts; the
-   100dvh here is its default, so every consumer can read a bare var(--app-vh).
-   Deliberately not 100lvh: a shell larger than the screen puts the footer under
-   the toolbar with nothing able to scroll it back, which is worse than a short
-   one that merely looks wrong. */
-:root {
-  --app-vh: 100dvh;
-}
-
+   The shell takes the large viewport rather than 100dvh because iOS Safari
+   draws its floating bottom bar over the last 100lvh - 100dvh of the layout
+   viewport instead of shrinking it, and only retracts the bar for a document
+   scroll — which a shell this shape never has, so on a phone it never
+   retracts (iOS 18.7, measured: 100dvh 736, 100lvh 836). At 100dvh the shell
+   stops a bar's height above the page's bottom edge and the canvas below it
+   shows through the translucent bar as a band under the footer. */
 .app-shell {
-  height: var(--app-vh);
+  height: 100vh;
+  height: 100lvh;
   overflow: hidden;
 }
 
-/* 100%: the shell above is the single source of truth for the height, and the
-   scroller's job is to fill it. */
 .app-scroll {
+  /* The strip the bar covers: 0 on a viewport the bar shrinks instead of
+     overlapping, and 0 everywhere the two viewports agree. */
+  --toolbar-cover: calc(100lvh - 100dvh);
+
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scroll-padding-bottom: var(--toolbar-cover);
   -webkit-overflow-scrolling: touch;
+}
+
+/* Hold the page's last box off the bar from inside it, so the strip is painted
+   in that box's own surface and the page reads as running under the bar rather
+   than ending above something else. Inside rather than a strip of the
+   scroller's own, which could only ever guess at that surface. */
+.app-scroll > :last-child::after {
+  content: "";
+  display: block;
+  height: var(--toolbar-cover);
 }
 
 .schedule-rail.is-scrubbing,
@@ -281,6 +367,10 @@ body:has(dialog.modal[open]) .app-scroll {
     display: block;
     height: auto;
     overflow: visible;
+  }
+
+  .app-scroll > :last-child::after {
+    content: none;
   }
 }
 
@@ -344,6 +434,18 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   border-color: var(--color-border-focus) !important;
+}
+
+/* NOTE: unlayered to override the global :focus-visible rule above. */
+.write-in-chips:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary);
+}
+
+.write-in-chips input:focus-visible {
+  box-shadow: none;
 }
 
 @media (max-width: 640px) {
@@ -418,7 +520,7 @@ button:active {
     z-index: 60;
     height: 0;
     width: min(28rem, calc(100vw - 2rem));
-    max-height: calc(var(--app-vh) - 2rem);
+    max-height: calc(100dvh - 2rem);
     pointer-events: auto;
     overflow: visible;
     transform: translateX(-50%);
@@ -468,7 +570,7 @@ button:active {
   @media (min-width: 640px) {
     .flash-region {
       top: max(1.5rem, env(safe-area-inset-top));
-      max-height: calc(var(--app-vh) - 3rem);
+      max-height: calc(100dvh - 3rem);
     }
   }
 
@@ -710,6 +812,11 @@ button:active {
    first, the previous card's border-b for the rest — so a closed gap reads as
    one 1px divider rather than two stacked borders.
 
+   A stack spells the space between its cards three ways — the wrapper's own
+   `gap-*`, `space-y-*` (which Tailwind v4 compiles to `margin-block-end`), and
+   a card's own `mt-*` — so the bleed closes all three rather than leaving each
+   page to remember which one it used.
+
    Cards reached through a wrapper (cfp-edit nests its own inside a form) bleed
    too, which is why the selector is a descendant one and not `> .card`.
    Non-card content in a bled page has no card-body to inset it and asks for
@@ -722,8 +829,13 @@ button:active {
    the wrapper still wins. */
 @layer utilities {
   @media (width < 40rem) {
+    .panel-bleed {
+      gap: 0;
+    }
+
     .panel-bleed .card {
       margin-top: 0;
+      margin-bottom: 0;
       border-radius: 0;
       border-top-width: 0;
       border-left-width: 0;
@@ -766,6 +878,18 @@ select:not([multiple]):not([size]) {
   background-position: right 0.5rem center;
   background-size: 1rem;
   padding-right: 2rem;
+}
+
+/* The card's link is a full-bleed overlay (.session-link); every other
+   control inside the card sits above it so it stays clickable. */
+.session :is(button, input, select, textarea, [role="button"]),
+.session a:not(.session-link) {
+  position: relative;
+  z-index: 20;
+}
+
+.time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
+  filter: grayscale(50%) brightness(0.95);
 }
 
 .session:has(.session-tags-more:hover) {

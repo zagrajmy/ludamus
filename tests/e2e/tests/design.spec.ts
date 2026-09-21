@@ -28,6 +28,20 @@ test.describe("Design system page", () => {
     });
   });
 
+  // The panel shows the built og-image.jpg rather than the card source, so a
+  // typoed static name or a zero-byte build output only shows up here.
+  test("shows the link preview card as a decoded image", async ({ page }) => {
+    await page.goto("/design/");
+
+    const card = page.getByRole("img", { name: /link preview card/i });
+    await expect(card).toBeVisible();
+    // It loads lazily, and the panel sits well below the fold.
+    await card.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => card.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+  });
+
   test("lets people exercise toast stacking and dismissal", async ({ page }) => {
     await page.goto("/design/");
 
@@ -342,14 +356,11 @@ test.describe("Design system page", () => {
     await page.goto("/design/");
     const combobox = await upgradedCombobox(page, "Fruit");
 
-    // The options a person can pick from are data, not nodes: the <noscript>
-    // the server wrote them into holds text and no elements at all.
     expect(
-      await page.evaluate(() => {
-        const source = document.querySelector("[data-combobox-source]");
-        return { elements: source?.children.length, text: (source?.textContent ?? "").length };
-      }),
-    ).toEqual({ elements: 0, text: expect.any(Number) });
+      await combobox.evaluate(
+        (input) => input.closest("[data-combobox]")?.querySelectorAll("select, option").length,
+      ),
+    ).toBe(0);
 
     await combobox.click();
     await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
