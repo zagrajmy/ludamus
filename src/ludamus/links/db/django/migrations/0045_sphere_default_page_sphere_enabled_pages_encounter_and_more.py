@@ -4,7 +4,11 @@ import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
-import ludamus.pacts
+
+# Frozen copy of SpherePage.all_values as it stood here: the pages a sphere
+# could enable when this migration was written. The enum has since gone.
+def _sphere_page_values():
+    return ["events", "encounters"]
 
 
 class Migration(migrations.Migration):
@@ -17,7 +21,7 @@ class Migration(migrations.Migration):
             name="default_page",
             field=models.CharField(
                 choices=[("events", "Events"), ("encounters", "Encounters")],
-                default=ludamus.pacts.SpherePage["EVENTS"],
+                default="events",
                 max_length=20,
             ),
         ),
@@ -25,7 +29,7 @@ class Migration(migrations.Migration):
             model_name="sphere",
             name="enabled_pages",
             field=models.JSONField(
-                default=ludamus.pacts.SpherePage.all_values,
+                default=_sphere_page_values,
                 help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
             ),
         ),

@@ -29,6 +29,12 @@ test.describe("Encounter detail — copy share link", () => {
     await page.goto("/e/ENCQR1/");
 
     await page.getByRole("button", { name: "Share" }).first().click();
+    // Read the box only once the entrance transition has finished: the spring
+    // overshoot makes `before` fractional, and the click's retries can force-scroll.
+    const surface = page.locator("[data-menu-surface][data-menu-visible]").first();
+    await surface.evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)),
+    );
     const copyLink = page.getByRole("button", { name: "Copy link" }).first();
     const before = await copyLink.boundingBox();
 

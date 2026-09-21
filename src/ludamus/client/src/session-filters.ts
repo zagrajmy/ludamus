@@ -615,16 +615,16 @@ const initSessionFilters = (): void => {
         show &&= values.some((value) => filter.matches(card, value));
       }
 
-      const cardContainer = card.closest<HTMLElement>(".session-wrapper");
+      const cardContainer = card.closest<HTMLElement>("[data-session-wrapper]");
       if (cardContainer) cardContainer.hidden = !show;
     }
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
-      let visibleCards = cardGrid.querySelectorAll(".session-wrapper:not([hidden])");
+      let visibleCards = cardGrid.querySelectorAll("[data-session-wrapper]:not([hidden])");
       if (visibleCards.length === 0 && section.dataset.slotHour) {
         visibleCards = document.querySelectorAll(
-          `.session-wrapper[data-slot-hour="${CSS.escape(section.dataset.slotHour)}"]:not([hidden])`,
+          `[data-session-wrapper][data-slot-hour="${CSS.escape(section.dataset.slotHour)}"]:not([hidden])`,
         );
       }
       section.hidden = visibleCards.length === 0;
@@ -654,7 +654,7 @@ const initSessionFilters = (): void => {
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
       day.hidden = false;
     }
-    for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-wrapper")) {
+    for (const cardContainer of document.querySelectorAll<HTMLElement>("[data-session-wrapper]")) {
       cardContainer.hidden = false;
     }
 
@@ -724,7 +724,7 @@ const initSessionFilters = (): void => {
 
     scheduleUrlSync();
 
-    const visibleCards = document.querySelectorAll(".session-wrapper:not([hidden])");
+    const visibleCards = document.querySelectorAll("[data-session-wrapper]:not([hidden])");
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
       filterNoResults.hidden = !(

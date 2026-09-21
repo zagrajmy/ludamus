@@ -18,7 +18,7 @@ Variables:
    {% if new_tab %}target="_blank" rel="noopener"{% endif %}
    {% if active %}aria-current="page"{% endif %}
    title="{{ label }}"
-   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary aria-[current=page]:text-foreground aria-[current=page]:bg-bg-secondary dark:aria-[current=page]:bg-bg-tertiary rounded-lg transition hover:duration-0">
-    {% icon icon class="size-4.5 mr-2" %}
-    <span class="sidebar-label">{{ label }}</span>
+   class="flex text-sm items-center px-2 py-3 lg:folded:justify-center text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary aria-[current=page]:text-foreground aria-[current=page]:bg-bg-secondary dark:aria-[current=page]:bg-bg-tertiary rounded-lg transition hover:duration-0">
+    {% icon icon class="size-4.5 mr-2 lg:folded:mr-0" %}
+    <span class="lg:folded:hidden">{{ label }}</span>
 </a>

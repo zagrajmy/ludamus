@@ -25,7 +25,10 @@ PARTY_TOKEN_LENGTH = 43
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
 
 
-@pytest.fixture(autouse=True)
+pytestmark = pytest.mark.usefixtures("_rules")
+
+
+@pytest.fixture
 def _rules() -> Iterator[None]:
     # register() pins the rules and clears the builder, so without restoring it
     # afterwards this module leaves global state behind and whether another

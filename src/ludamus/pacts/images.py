@@ -1,5 +1,28 @@
 from pathlib import PurePosixPath
-from typing import Literal, NamedTuple
+from typing import Literal, NamedTuple, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class UploadedFileProtocol(Protocol):
+    name: str | None
+
+    def read(self, size: int = -1) -> bytes: ...
+
+
+def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
+    # Boundary parser: recover a typed upload from the untyped form-data value
+    # (a file on upload, "" / False / None otherwise), so callers narrow once
+    # here instead of casting.
+    return value if isinstance(value, UploadedFileProtocol) else None
+
+
+def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
+    # ClearableFileInput's tri-state in one place: a file on upload becomes the
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
+    if uploaded := parse_uploaded_file(raw):
+        return uploaded
+    return "" if raw is False else None
 
 
 class ImageFormat(NamedTuple):

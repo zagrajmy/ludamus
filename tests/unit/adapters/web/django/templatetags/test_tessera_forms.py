@@ -698,3 +698,7 @@ class TestTesseraButtonBranches:
     def test_full_width_on_mobile(self) -> None:
         html = tessera_button("Go")
         assert "max-md:w-full" in html
+
+    def test_extra_class_lands_on_the_button(self) -> None:
+        html = tessera_button("Go", extra_class="shrink-0")
+        assert "shrink-0" in html

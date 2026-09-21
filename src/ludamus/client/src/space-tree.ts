@@ -3,7 +3,7 @@ const rootDropTarget = document.getElementById("space-root-drop-target");
 
 const directChildren = (list: HTMLElement): HTMLElement[] =>
   [...list.children].filter(
-    (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains("space-node"),
+    (el): el is HTMLElement => el instanceof HTMLElement && Object.hasOwn(el.dataset, "spaceNode"),
   );
 
 const saveOrder = async (list: HTMLElement): Promise<void> => {
@@ -72,7 +72,7 @@ const toggleChildren = (disclosure: HTMLButtonElement): void => {
 
 const wireDrag = (list: HTMLElement): void => {
   list.addEventListener("dragstart", (event) => {
-    const li = (event.target as HTMLElement).closest<HTMLElement>(".space-node");
+    const li = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
     if (li && directChildren(list).includes(li)) {
       dragged = li;
       suppressDisclosureClick = false;
@@ -80,7 +80,7 @@ const wireDrag = (list: HTMLElement): void => {
     }
   });
   list.addEventListener("dragend", (event) => {
-    const li = (event.target as HTMLElement).closest<HTMLElement>(".space-node");
+    const li = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
     if (li && dragged && directChildren(list).includes(dragged)) {
       li.style.opacity = "1";
       void saveOrder(list);
@@ -93,7 +93,7 @@ const wireDrag = (list: HTMLElement): void => {
   });
   list.addEventListener("dragover", (event) => {
     if (!dragged || !directChildren(list).includes(dragged)) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>(".space-node");
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
     if (!target || target === dragged || !directChildren(list).includes(target)) {
       return;
     }
@@ -106,7 +106,7 @@ const wireDrag = (list: HTMLElement): void => {
 };
 
 if (root) {
-  for (const list of document.querySelectorAll<HTMLElement>(".space-list")) {
+  for (const list of document.querySelectorAll<HTMLElement>("[data-space-list]")) {
     wireDrag(list);
   }
   rootDropTarget?.addEventListener("dragover", (event) => {
@@ -149,8 +149,8 @@ if (root) {
   });
   root.addEventListener("keydown", (event) => {
     if (!["ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key)) return;
-    const handle = (event.target as HTMLElement).closest<HTMLElement>(".drag-handle");
-    const li = handle?.closest<HTMLElement>(".space-node");
+    const handle = (event.target as HTMLElement).closest<HTMLElement>("[data-drag-handle]");
+    const li = handle?.closest<HTMLElement>("[data-space-node]");
     if (!handle || !li) return;
     if (event.key === "ArrowLeft") {
       if (li.parentElement === root) return;

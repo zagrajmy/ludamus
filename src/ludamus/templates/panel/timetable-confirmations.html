@@ -17,7 +17,8 @@
                           action="{% url 'panel:timetable-confirmations' slug=current_event.slug %}"
                           data-autosubmit
                           class="flex items-center gap-2">
-                        <label for="confirmations-track" class="text-sm text-foreground-muted">{% translate "Track:" %}</label>
+                        <label for="confirmations-track"
+                               class="text-sm text-foreground-muted">{% translate "Track:" %}</label>
                         {% select id="confirmations-track" name="track" class="h-9 sm:w-56" %}
                             <option value="">{% translate "All tracks" %}</option>
                             {% for track in all_tracks %}

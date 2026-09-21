@@ -4,11 +4,11 @@ test.describe("Event index", () => {
   test("lists upcoming and past events and links to event detail", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
     const upcomingCard = page.getByRole("link", { name: /Autumn Open Playtest/ });
     await expect(upcomingCard).toContainText("A cozy meetup packed with prototypes");
 
-    await expect(page.getByRole("heading", { name: "Past events" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Past" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Retro Mini Jam/ })).toBeVisible();
 
     await upcomingCard.click();

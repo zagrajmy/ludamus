@@ -6,8 +6,8 @@ import pytest
 from django.urls import reverse
 from django.utils.csp import CSP
 
-from ludamus.adapters.web.django.views import EventsPageView
 from ludamus.edges.settings import CSP_POLICY
+from ludamus.gates.web.django.events import EventsPageView
 from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
@@ -81,16 +81,10 @@ class TestCSPNonce:
 
         response = client.get(self.URL)
 
+        # The page's own context is asserted in test_index_page; this one is
+        # about the nonce the rendered base.html carries.
         assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
-                "view": ANY,
-            },
-            template_name=["index.html"],
+            response, HTTPStatus.OK, context_data=ANY, template_name=["index.html"]
         )
         _assert_body_nonce_matches_header(response)
 

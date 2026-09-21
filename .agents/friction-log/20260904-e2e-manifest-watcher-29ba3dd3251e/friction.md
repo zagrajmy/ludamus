@@ -11,6 +11,7 @@ context:
       source_line: 526
     - recorded_on: '2026-09-09'
       source_line: 542
+issue: 'zagrajmy/ludamus#1253'
 ---
 
 ## Expected Behavior

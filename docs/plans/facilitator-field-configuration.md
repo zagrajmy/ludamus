@@ -1,5 +1,9 @@
 # Facilitator fields need their own configuration
 
+> Superseded by [cfp-redux.md](cfp-redux.md): personal-data requirements
+> become per-event, so the second switch below is dropped rather than joined
+> by a third.
+
 ## Where we are
 
 Personal-data fields hang off the event (`PersonalDataField.event`), and

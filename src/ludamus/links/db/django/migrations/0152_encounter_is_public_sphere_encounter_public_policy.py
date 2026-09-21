@@ -2,8 +2,6 @@
 
 from django.db import migrations, models
 
-import ludamus.pacts.legacy
-
 
 class Migration(migrations.Migration):
 
@@ -24,7 +22,7 @@ class Migration(migrations.Migration):
                     ("managers", "Managers"),
                     ("everyone", "Everyone"),
                 ],
-                default=ludamus.pacts.legacy.EncounterPublicPolicy["DISABLED"],
+                default="disabled",
                 max_length=20,
             ),
         ),

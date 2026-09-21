@@ -10,7 +10,13 @@
 # addresses are gone), and the AlterField reverse right after tries to make
 # that NULL-filled column NOT NULL again, which fails the same way. The
 # backfill below (a no-op going forward) runs between the two on reverse and
-# fills the gap with a sentinel so the NOT NULL restore has something to bite.
+# fills the gap with a sentinel so the NOT NULL restore has something to
+# bite. The sentinel must be a value PostgreSQL's inet type accepts — sqlite
+# doesn't enforce the column type, so a non-address string like "unknown"
+# would pass locally and then fail reversal with "invalid input syntax for
+# type inet" in production. 255.255.255.255 (limited broadcast) is never a
+# real client address, unlike 0.0.0.0, which ruff's S104 flags as a
+# bind-all-interfaces literal.
 
 from django.db import migrations, models
 
@@ -23,7 +29,7 @@ def _backfill_null_ip_address(apps, schema_editor):
     del schema_editor
     apps.get_model("db_main", "EncounterRSVP").objects.filter(
         ip_address__isnull=True
-    ).update(ip_address="unknown")
+    ).update(ip_address="255.255.255.255")
 
 
 class Migration(migrations.Migration):

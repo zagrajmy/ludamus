@@ -42,7 +42,6 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     filter_availability,
     filterable_tag_fields,
     mask_session_card,
-    split_events,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     CardDay,
@@ -60,7 +59,6 @@ from ludamus.gates.web.django.event.enroll_presentation import build_enroll_foot
 from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
-from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -93,7 +91,6 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SpherePage,
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
@@ -194,42 +191,6 @@ class StagingEmailInboxView(View):
         )
 
 
-class IndexRedirectView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        sphere = self.request.services.sites.read(
-            self.request.context.current_sphere_id
-        )
-        if sphere.default_page == SpherePage.ENCOUNTERS:
-            return redirect("web:notice-board:index")
-        if sphere.default_page == SpherePage.TIMELINE:
-            return redirect("web:timeline")
-        return redirect("web:events")
-
-
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventsPageView(EventsPageRequiredMixin, TemplateView):
-    request: RootRequest
-    template_name = "index.html"
-    reachable_via_timeline = False
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        sphere_id = self.request.context.current_sphere_id
-        context["announcements"] = self.request.services.announcements.list_published(
-            sphere_id
-        )
-        events = split_events(
-            self.request.services.events.list_for_sphere(
-                sphere_id, include_unpublished=has_panel_access(self.request)
-            )
-        )
-        context["upcoming_events"] = events.upcoming
-        context["past_events"] = events.past
-        return context
-
-
 def _get_displayed_field_ids(event: Event) -> set[int]:
     with suppress(EventSettings.DoesNotExist):
         return set(event.settings.displayed_session_fields.values_list("id", flat=True))
@@ -253,7 +214,7 @@ COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-arg]
+class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
@@ -895,7 +856,7 @@ _status_by_choice = {
 }
 
 
-class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
+class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
     _policies: dict[int, EnrollmentPolicy] | None = None
 

@@ -49,7 +49,7 @@ const firstHour = async (page: Page) =>
 const firstStart = async (page: Page) =>
   scheduleMoment(
     await page
-      .locator(".session-grid .session-wrapper .session")
+      .locator(".session-grid [data-session-wrapper] .session")
       .first()
       .getAttribute("data-start"),
   );
@@ -57,13 +57,13 @@ const firstStart = async (page: Page) =>
 const firstSessionEnd = async (page: Page) =>
   scheduleMoment(
     await page
-      .locator(".session-grid .session-wrapper .session")
+      .locator(".session-grid [data-session-wrapper] .session")
       .first()
       .getAttribute("data-session-end"),
   );
 
 const finalSessionRange = async (page: Page) => {
-  const sessions = page.locator(".session-grid .session-wrapper .session");
+  const sessions = page.locator(".session-grid [data-session-wrapper] .session");
   const starts = scheduleMoment(await sessions.last().getAttribute("data-start"));
   const ends = await sessions.evaluateAll((elements) =>
     elements.map((element) => Date.parse((element as HTMLElement).dataset.end ?? "")),
@@ -158,7 +158,7 @@ test.describe("Event schedule views", () => {
     const time = page.getByText("22:00–07:00", { exact: true });
     await expect(time).toHaveCount(1);
     const tile = await time.evaluate((el) => {
-      const cell = el.closest<HTMLElement>(".room-lanes-cell");
+      const cell = el.closest<HTMLElement>("[data-room-lanes-cell]");
       const session = el.closest<HTMLElement>(".session");
       return {
         id: session?.dataset.sessionId ?? "",
@@ -376,7 +376,7 @@ test.describe("Event schedule views", () => {
   test("room tiles read left to right and expose their room", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const cells = page.locator(".room-lanes-cell");
+    const cells = page.locator("[data-room-lanes-cell]");
     const colsByRow = await cells.evaluateAll((elements) => {
       const rows: Record<string, number[]> = {};
       for (const element of elements) {
@@ -404,7 +404,7 @@ test.describe("Event schedule views", () => {
   test("same-room conflicts remain visible and repack after filtering", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const cells = page.locator(".room-lanes-cell");
+    const cells = page.locator("[data-room-lanes-cell]");
     const first = cells.first();
     const second = cells.nth(1);
     await expect(first).toBeVisible();
@@ -452,7 +452,7 @@ test.describe("Event schedule views", () => {
     }
 
     const conflictWidth = firstBox?.width ?? 0;
-    await second.locator(".session-wrapper").evaluate((session) => {
+    await second.locator("[data-session-wrapper]").evaluate((session) => {
       (session as HTMLElement).hidden = true;
       document.dispatchEvent(new CustomEvent("schedule:filtered"));
     });
@@ -532,15 +532,15 @@ test.describe("Event schedule views", () => {
     await page.clock.install({ time: new Date(at) });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const cells = page.locator(".room-lanes-cell");
+    const cells = page.locator("[data-room-lanes-cell]");
     await cells.evaluateAll(
       (elements, placement) => {
         for (const element of elements) {
-          const session = element.querySelector<HTMLElement>(".session-wrapper");
+          const session = element.querySelector<HTMLElement>("[data-session-wrapper]");
           if (session) session.hidden = true;
         }
         const spanning = elements[0] as HTMLElement | undefined;
-        const session = spanning?.querySelector<HTMLElement>(".session-wrapper");
+        const session = spanning?.querySelector<HTMLElement>("[data-session-wrapper]");
         if (!spanning || !session) throw new Error("The fixture needs a room tile");
         spanning.dataset.tileRow = placement.sourceRow;
         spanning.dataset.tileSpan = "2";
@@ -591,7 +591,7 @@ test.describe("Event schedule views", () => {
   test("the rooms grid dims a tile once the clock passes its end", async ({ page }) => {
     // The ledger row and the lane tile carry the same dimming rule written
     // twice, one per layout, so the grid needs its own witness.
-    const tiles = page.locator(".room-lanes-cell .session");
+    const tiles = page.locator("[data-room-lanes-cell] .session");
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const ends = scheduleMoment(await tiles.first().getAttribute("data-session-end"));
     await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
@@ -731,7 +731,7 @@ test.describe("Event schedule views", () => {
       const current = days[0]?.querySelector<HTMLElement>(".session");
       const tomorrow = days[1]?.querySelector<HTMLElement>(".session");
       if (!current || !tomorrow) throw new Error("The fixture needs sessions on two days");
-      for (const row of document.querySelectorAll<HTMLElement>(".session-wrapper")) {
+      for (const row of document.querySelectorAll<HTMLElement>("[data-session-wrapper]")) {
         row.hidden = !row.contains(current) && !row.contains(tomorrow);
       }
       current.dataset.start = "2026-07-10T22:00:00+02:00";
@@ -760,7 +760,7 @@ test.describe("Event schedule views", () => {
     await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
     await page.goto(DENSE_EVENT_URL);
 
-    const row = page.locator(".session-grid .session-wrapper .session").first();
+    const row = page.locator(".session-grid [data-session-wrapper] .session").first();
     await expect(row).not.toHaveAttribute("data-ended");
 
     await page.clock.runFor(120_000);
@@ -780,7 +780,7 @@ test.describe("Event schedule views", () => {
       current.dataset.start = "2026-03-28T23:00:00+01:00";
       current.dataset.end = "2026-03-29T04:00:00+02:00";
       for (const session of rest) {
-        const row = session.closest<HTMLElement>(".session-wrapper");
+        const row = session.closest<HTMLElement>("[data-session-wrapper]");
         if (row) row.hidden = true;
       }
       document.dispatchEvent(new CustomEvent("schedule:filtered"));
@@ -971,7 +971,7 @@ test("overnight bookmark copies share one state and one request", async ({
   const page = await context.newPage();
   await page.goto(DENSE_EVENT_URL);
 
-  const buttons = page.locator(".bookmark-toggle");
+  const buttons = page.locator("[data-bookmark-toggle]");
   const sessionId = await buttons.evaluateAll((elements) => {
     const daysBySession = new Map<string, Set<string>>();
     for (const button of elements as HTMLElement[]) {
@@ -986,13 +986,13 @@ test("overnight bookmark copies share one state and one request", async ({
   });
   if (!sessionId) throw new Error("The fixture needs an overnight session");
 
-  const copies = page.locator(`.bookmark-toggle[data-session-id="${sessionId}"]`);
+  const copies = page.locator(`[data-bookmark-toggle][data-session-id="${sessionId}"]`);
   await expect(copies).toHaveCount(2);
   const initialStates = await copies.evaluateAll((elements) =>
     elements.map((element) => element.getAttribute("aria-pressed")),
   );
   expect(new Set(initialStates).size).toBe(1);
-  expect(new Set(await copies.locator(".bookmark-count").allTextContents()).size).toBe(1);
+  expect(new Set(await copies.locator("[data-bookmark-count]").allTextContents()).size).toBe(1);
 
   const source = copies.first();
   const copy = copies.nth(1);
@@ -1026,12 +1026,12 @@ test("overnight bookmark copies share one state and one request", async ({
   for (const button of await copies.all()) {
     await expect(button).toHaveAttribute("aria-pressed", expectedState);
   }
-  expect(new Set(await copies.locator(".bookmark-count").allTextContents()).size).toBe(1);
+  expect(new Set(await copies.locator("[data-bookmark-count]").allTextContents()).size).toBe(1);
   expect(requests).toBe(1);
 
   await page.locator("#status-filter").selectOption("my-bookmarked");
   const hiddenStates = await copies.evaluateAll((elements) =>
-    elements.map((button) => button.closest<HTMLElement>(".session-wrapper")?.hidden),
+    elements.map((button) => button.closest<HTMLElement>("[data-session-wrapper]")?.hidden),
   );
   expect(hiddenStates.every((hidden) => hidden === wasBookmarked)).toBe(true);
 

@@ -1,6 +1,7 @@
 ---
 title: 'Frog log drops the first line of piped bodies even with an explicit title'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1275'
 ---
 
 ## Expected Behavior

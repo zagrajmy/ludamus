@@ -58,6 +58,7 @@ export default defineConfig({
         "design-page": resolve(rootDir, "src/design-page.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         dropzone: resolve(rootDir, "src/dropzone.ts"),
+        "encounter-detail": resolve(rootDir, "src/encounter-detail.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),

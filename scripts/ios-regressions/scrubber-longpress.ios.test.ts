@@ -61,8 +61,8 @@ const namesFrom = (html: string, pattern: RegExp): Set<string> =>
 // templates/chronology/_compact_schedule.html renders; a reorder there fails
 // the loud railNavName / markerNames guards below, never a device run.
 const RAIL_NAV_NAME = /<nav class="schedule-rail[^"]*"\s+aria-label="([^"]+)"/;
-const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)"/g;
-const RAIL_HOUR_TEXTS = /class="schedule-rail-hour[^"]*"[^>]*>([^<]+)<\/a>/g;
+const RAIL_HOUR_NAMES = /data-schedule-rail-hour[^>]*aria-label="([^"]+)"/g;
+const RAIL_HOUR_TEXTS = /data-schedule-rail-hour[^>]*>([^<]+)<\/a>/g;
 
 const railNavName = (html: string): string => {
   const name = RAIL_NAV_NAME.exec(html)?.[1];

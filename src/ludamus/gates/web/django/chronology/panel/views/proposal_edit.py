@@ -44,8 +44,11 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.durations import parse_duration
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
+from ludamus.pacts.images import (
+    parse_uploaded_file,
+    resolve_uploaded_file_field,
+    stored_file,
+)
 from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError
 

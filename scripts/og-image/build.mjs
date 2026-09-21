@@ -1,9 +1,14 @@
-// Screenshots src/ludamus/static/og-card/ to src/ludamus/static/og-image.jpg.
+// Screenshots scripts/og-image/card/ to src/ludamus/static/og-image.jpg.
 //
 //   mise run og-image
 //
 // The card page owns the markup, the painting, and the font; this only renders
-// it. /design/ frames the same page, so the panel there cannot go stale.
+// it. Loaded over file://, so the card is a build input and never a served
+// asset -- /design/ and every unfurl read this task's output instead.
+//
+// NOTE: the render is not reproducible across environments -- an unedited card
+// still writes a different-sized JPEG here than the committed one. Check the
+// diff before committing an image you did not mean to change.
 
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -30,7 +35,7 @@ const { chromium } = await (async () => {
   throw new Error(`playwright-core not found. Install it in one of:\n  ${roots.join("\n  ")}`);
 })();
 
-const CARD = join(REPO, "src", "ludamus", "static", "og-card", "index.html");
+const CARD = join(REPO, "scripts", "og-image", "card", "index.html");
 const OUTPUT = join(REPO, "src", "ludamus", "static", "og-image.jpg");
 const WIDTH = 1200;
 const HEIGHT = 630;

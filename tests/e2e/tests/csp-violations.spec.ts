@@ -38,7 +38,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     await installCspViolationCollector(page);
 
     await page.goto("/events/");
-    await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
 
     await assertNoCspViolations(page);
   });
@@ -131,7 +131,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     // rows are plain divs with no distinct accessible role, so the count
     // assertion stays scoped by id/class rather than getByRole/getByText.
     await page.getByRole("button", { name: "Add" }).click();
-    await expect(page.locator("#durations-list .duration-item")).not.toHaveCount(0);
+    await expect(page.locator("#durations-list [data-duration-item]")).not.toHaveCount(0);
 
     await assertNoCspViolations(page);
   });

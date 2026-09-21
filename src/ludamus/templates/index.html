@@ -24,30 +24,38 @@
         </section>
     {% endif %}
     <div id="events">
-        {% if upcoming_events or past_events %}
-            {% if upcoming_events %}
-                <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Upcoming events" %}</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                    {% for event in upcoming_events %}
-                        {% include "components/event_card.html" with event=event %}
-                    {% endfor %}
-                </div>
+        {% if upcoming or past %}
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
+                {% if can_create_encounter %}
+                    {% translate "Create Encounter" as create_encounter_label %}
+                    {% url 'web:notice-board:create' as create_encounter_url %}
+                    {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
+                {% endif %}
+            </div>
+            {% if upcoming %}
+                {% include "components/feed_grid.html" with items=upcoming variant="" extra_class="mb-12" %}
+            {% else %}
+                <p class="text-sm text-foreground-muted py-4 mb-8">{% translate "Nothing coming up." %}</p>
             {% endif %}
-            {% if past_events %}
-                <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past events" %}</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for event in past_events %}
-                        {% include "components/event_card.html" with event=event variant="past" %}
-                    {% endfor %}
-                </div>
+            {% if past %}
+                <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past" %}</h2>
+                {% include "components/feed_grid.html" with items=past variant="past" extra_class="" %}
             {% endif %}
         {% else %}
             <div class="text-center py-16">
                 <div class="text-foreground-muted">
                     <div class="mb-4">{% icon "calendar-days" class="w-16 h-16 mx-auto opacity-50" %}</div>
-                    <p class="text-xl font-medium mb-2">{% translate "No events available" %}</p>
-                    <p class="text-sm">{% translate "There are currently no events scheduled. Please check back later!" %}</p>
+                    <p class="text-xl font-medium mb-2">{% translate "Nothing scheduled yet" %}</p>
+                    <p class="text-sm">{% translate "There are no upcoming events or public encounters. Please check back later!" %}</p>
                 </div>
+                {% if can_create_encounter %}
+                    <div class="mt-6">
+                        {% translate "Create Encounter" as create_encounter_label %}
+                        {% url 'web:notice-board:create' as create_encounter_url %}
+                        {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
+                    </div>
+                {% endif %}
             </div>
         {% endif %}
     </div>

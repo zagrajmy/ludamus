@@ -81,7 +81,8 @@
                             {% if session.agenda_item.space %}
                                 <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
                                     {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                                    <span class="truncate" title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
+                                    <span class="truncate"
+                                          title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
                                 </span>
                             {% endif %}
                         </div>
@@ -162,7 +163,10 @@
                                                 {% if state.disabled and state.reason and state.reason != state.badge.label %}
                                                     <span class="text-foreground-muted">{{ state.reason }}</span>
                                                 {% endif %}
-                                                <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
+                                                <span data-seat-hint
+                                                      hidden
+                                                      class="font-medium"
+                                                      aria-live="polite"></span>
                                             </span>
                                         </span>
                                         {% blocktranslate asvar include_label with name=row.user.full_name %}Include {{ name }}{% endblocktranslate %}
