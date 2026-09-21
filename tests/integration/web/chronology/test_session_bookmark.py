@@ -79,11 +79,12 @@ class TestSessionBookmarkToggleView:
 
 class TestEventPageBookmarkCounts:
     URL_NAME = "web:chronology:event"
+    pytestmark = pytest.mark.usefixtures("_compact_schedule")
 
     def _url(self, slug: str) -> str:
         return reverse(self.URL_NAME, kwargs={"slug": slug})
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def _compact_schedule(self, monkeypatch):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
