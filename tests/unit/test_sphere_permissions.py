@@ -92,11 +92,6 @@ class TestSpherePanelServiceUpdateSettings:
 
         spheres.update.assert_called_once_with(3, {"logo": "banner.svg"})
 
-    def test_a_named_field_travels_alone(self, service, spheres):
-        service.update_settings(3, encounters_policy=EncountersPolicy.EVERYONE)
-
-        spheres.update.assert_called_once_with(3, {"encounters_policy": "everyone"})
-
     def test_refuses_to_hide_existing_encounters_unconfirmed(
         self, service, spheres, encounters
     ):

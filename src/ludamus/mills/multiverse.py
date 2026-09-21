@@ -163,6 +163,12 @@ class SpherePanelService:
         update waiting to happen — between the read and the write another
         manager changes the policy, and the stale value overwrites theirs.
 
+        This closes the hazard for a partial write, which is what the MCP
+        tools do. A full form still asserts every field it carries, so the
+        panel keeps last-write-wins; closing that needs a version round-
+        tripped through the form. The confirmation gate below is likewise
+        check-then-act, but losing that race costs a round trip, not data.
+
         Returns:
             NEEDS_CONFIRMATION when the save would turn encounters off while
             the sphere still has some — nothing is written, and the caller is

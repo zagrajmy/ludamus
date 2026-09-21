@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import (
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
@@ -15,8 +16,31 @@ if TYPE_CHECKING:
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
-    from ludamus.pacts.legacy import EventProposalSettingsDTO, EventUpdateData
+    from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
+
+
+def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
+    """Refuse a patch that would leave the event's dates inconsistent.
+
+    A partial update only names some of the three, so each is read from the
+    patch or, failing that, from the event as it stands — the same pair the
+    table's check constraint will see. `EventsService.create` owns these
+    invariants for a new event; this is the same pair for an edit, raising
+    the same errors, so a caller handles one vocabulary rather than a
+    constraint violation.
+
+    Raises:
+        EventDatesInvalidError: the end would not be after the start.
+        EventPublicationInvalidError: the event would publish after it starts.
+    """
+    start = data.get("start_time", current.start_time)
+    end = data.get("end_time", current.end_time)
+    if end <= start:
+        raise EventDatesInvalidError
+    publication = data.get("publication_time", current.publication_time)
+    if publication is not None and publication > start:
+        raise EventPublicationInvalidError
 
 
 class EventSettingsService(EventSettingsServiceProtocol):
@@ -30,6 +54,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
         self, *, sphere_id: int, slug: str, data: EventUpdateData
     ) -> None:
         current_event = self._repos.events.read_by_slug(slug, sphere_id)
+        _check_dates(current_event, data)
         # The unique (sphere, slug) index is the only authority on slug
         # collisions: a pre-flight read loses the race against a concurrent
         # rename and the write then fails anyway. Let it fail, then ask why.
