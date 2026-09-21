@@ -48,7 +48,7 @@ def owned_session_fixture(event, active_user):
     return SessionFactory(
         category=category,
         presenter=active_user,
-        display_name=active_user.name,
+        facilitator_name=active_user.name,
         participants_limit=10,
         min_age=0,
         status="accepted",
@@ -182,7 +182,7 @@ class TestSessionEditViewGet:
 class TestSessionEditViewPost:
     @staticmethod
     def _data(**overrides):
-        data = {"title": "Updated title", "display_name": "Updated name"}
+        data = {"title": "Updated title", "facilitator_name": "Updated name"}
         data.update(overrides)
         return data
 
@@ -209,7 +209,7 @@ class TestSessionEditViewPost:
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
-        assert owned_session.display_name == "Updated name"
+        assert owned_session.facilitator_name == "Updated name"
 
     def test_htmx_post_composes_duration_from_the_steppers(
         self, authenticated_client, event, owned_session
@@ -376,7 +376,7 @@ class TestSessionEditViewPost:
 
         response = authenticated_client.post(
             url,
-            data={"title": "", "display_name": "Name", "participants_limit": "-1"},
+            data={"title": "", "facilitator_name": "Name", "participants_limit": "-1"},
             headers={"hx-request": "true"},
         )
 
@@ -411,7 +411,7 @@ class TestSessionEditViewPost:
 
         response = authenticated_client.post(
             url,
-            data={"title": "", "display_name": "Name"},
+            data={"title": "", "facilitator_name": "Name"},
             headers={"hx-request": "true"},
         )
 

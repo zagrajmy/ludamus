@@ -170,7 +170,7 @@ def main() -> None:
     sessions = [
         Session(
             event=event,
-            display_name=fake.name(),
+            facilitator_name=fake.name(),
             category=categories[i % len(categories)],
             title=fake.sentence(nb_words=4).rstrip("."),
             slug=f"perf-session-{i}",

@@ -20,6 +20,7 @@ lands; keep the table below in sync._
 | 6 | [HTMX adoption (frontend)](htmx-adoption.md) | 🟡 in progress | Convert one more multi-step/list page to HTMX partials |
 | 7 | [Scoped query boundaries (baked-in invariant filters)](scoped-query-boundaries.md) | 🔴 not started | Add `Session.scheduled` manager, switch the two public call sites |
 | 8 | [Dead-end actions (offer it, then refuse it)](dead-end-actions.md) | 🟡 in progress | Facilitator delete still refuses after the click (`OrganizerActionRefusal.HAS_SESSIONS`) |
+| 9 | [Unknown classes (every `class` token means something)](unknown-classes.md) | ✅ done | Revisit the nested-selector leftovers (`session-grid`, `time-slot-section`, `room-lanes-time`) and the JS-built hooks in `panel/cfp-edit.html` |
 
 Legend: ✅ done · 🟢 healthy/active · 🟡 partially done, steady-state ·
 🔴 not started.

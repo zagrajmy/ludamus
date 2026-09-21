@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera %}
-<article class="session-wrapper h-full min-w-0">
+<article class="h-full min-w-0 print:break-inside-avoid" data-session-wrapper>
     {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
     {# border — this codebase's mark for a slot with nothing real in it — on a #}
     {# warmer ground. Both are near the limit of perceptible on purpose; #}
@@ -38,9 +38,9 @@
         {% if cover_image_url %}
             {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0" only %}
         {% endif %}
-        <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none pt-4">
+        <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none pt-4 print:px-3 print:pb-3 print:pt-2">
             <header>
-                <h3 class="w-fit overflow-hidden wrap-anywhere text-pretty text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
+                <h3 class="w-fit overflow-hidden wrap-anywhere text-pretty text-3xl font-bold leading-tight tracking-tight text-foreground-primary print:text-lg"
                     data-morph="title">{{ data.session.title }}</h3>
                 {# This row must not clip: the avatar's warning badge and guild #}
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
@@ -49,9 +49,9 @@
                 {# A session with no facilitator still has a presenter object: the #}
                 {# card DTO substitutes one carrying the display name, so the name #}
                 {# is what says whether there is anybody to show. #}
-                {% if data.session.display_name or data.enrolled_count %}
+                {% if data.session.facilitator_name or data.enrolled_count %}
                     <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
-                        {% if data.session.display_name %}
+                        {% if data.session.facilitator_name %}
                             <span class="shrink-0 relative" data-morph="avatar">
                                 {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
                                 {# The notch reads as cut out of the card, so its ring #}
@@ -61,17 +61,17 @@
                                 {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-(--card-surface)" %}
                             </span>
                         {% endif %}
-                        {% if data.session.display_name %}
+                        {% if data.session.facilitator_name %}
                             <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                                   data-morph="host"
-                                  title="{{ data.session.display_name }}">{{ data.session.display_name }}</span>
+                                  title="{{ data.session.facilitator_name }}">{{ data.session.facilitator_name }}</span>
                         {% endif %}
                         {% if data.enrolled_count > 0 %}
                             <span class="shrink-0 flex justify-end grow -space-x-2"
                                   role="img"
                                   aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
                                 {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
-                                    {% if p.status == 'confirmed' %}
+                                    {% if p.status == "confirmed" %}
                                         {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=p.is_shadowbanned %}
                                     {% endif %}
                                 {% endfor %}
@@ -107,7 +107,7 @@
                         {% endif %}
                     {% endwith %}
                 </div>
-                <div class="shrink-0 flex items-center gap-2">
+                <div class="shrink-0 flex items-center gap-2 print:hidden">
                     {# No "awaiting review" pill: every card under the proposals #}
                     {# heading is awaiting review, and saying so per card is the #}
                     {# same word three times on one screen. This slot carries the #}

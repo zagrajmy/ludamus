@@ -13,15 +13,14 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
-from django.views.generic.base import TemplateResponseMixin, TemplateView, View
+from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
 from ludamus.adapters.web.django.forms import (
@@ -31,6 +30,10 @@ from ludamus.adapters.web.django.forms import (
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
 from ludamus.gates.web.django.access import has_panel_access, panel_access
+from ludamus.gates.web.django.cache import (
+    EVENT_PAGE_CACHE_SECONDS,
+    AudienceCachedResponseMixin,
+)
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -42,7 +45,6 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     filter_availability,
     filterable_tag_fields,
     mask_session_card,
-    split_events,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     CardDay,
@@ -60,7 +62,6 @@ from ludamus.gates.web.django.event.enroll_presentation import build_enroll_foot
 from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
-from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -93,7 +94,6 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SpherePage,
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
@@ -132,37 +132,6 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet
 
 MINIMUM_ALLOWED_USER_AGE = 16
-
-EVENT_PAGE_CACHE_SECONDS = 180
-
-
-def _patch_audience_cache(
-    *, response: HttpResponse, request: HttpRequest, max_age: int
-) -> HttpResponse:
-    patch_vary_headers(response, ["Cookie"])
-    if request.user.is_authenticated:
-        patch_cache_control(response, private=True, max_age=max_age)
-    else:
-        patch_cache_control(response, public=True, max_age=max_age)
-    return response
-
-
-class AudienceCachedResponseMixin(TemplateResponseMixin):
-    # Shared by EventsPageView/EventPageView: cache-control depends on
-    # request-time auth state (private for signed-in users, public for
-    # anonymous), so it can't be a static @method_decorator like the rest of
-    # this file's caching. TemplateView.get()/DetailView.get() both funnel
-    # through render_to_response(), so patching there (rather than
-    # overriding get() on each view) covers both with one Any-typed override.
-    audience_cache_max_age: int
-
-    def render_to_response(
-        self, context: dict[str, Any], **response_kwargs: Any
-    ) -> HttpResponse:
-        response = super().render_to_response(context, **response_kwargs)
-        return _patch_audience_cache(
-            response=response, request=self.request, max_age=self.audience_cache_max_age
-        )
 
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
@@ -227,44 +196,6 @@ class StagingEmailInboxView(View):
         )
 
 
-class IndexRedirectView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        sphere = self.request.services.sites.read(
-            self.request.context.current_sphere_id
-        )
-        if sphere.default_page == SpherePage.ENCOUNTERS:
-            return redirect("web:notice-board:index")
-        if sphere.default_page == SpherePage.TIMELINE:
-            return redirect("web:timeline")
-        return redirect("web:events")
-
-
-class EventsPageView(
-    EventsPageRequiredMixin, AudienceCachedResponseMixin, TemplateView
-):
-    request: RootRequest
-    template_name = "index.html"
-    reachable_via_timeline = False
-    audience_cache_max_age = EVENT_PAGE_CACHE_SECONDS
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        sphere_id = self.request.context.current_sphere_id
-        context["announcements"] = self.request.services.announcements.list_published(
-            sphere_id
-        )
-        events = split_events(
-            self.request.services.events.list_for_sphere(
-                sphere_id, include_unpublished=has_panel_access(self.request)
-            )
-        )
-        context["upcoming_events"] = events.upcoming
-        context["past_events"] = events.past
-        return context
-
-
 def _get_displayed_field_ids(event: Event) -> set[int]:
     with suppress(EventSettings.DoesNotExist):
         return set(event.settings.displayed_session_fields.values_list("id", flat=True))
@@ -287,7 +218,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-class EventPageView(EventsPageRequiredMixin, AudienceCachedResponseMixin, DetailView):  # type: ignore [type-arg]
+class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
@@ -706,7 +637,7 @@ class EventPageView(EventsPageRequiredMixin, AudienceCachedResponseMixin, Detail
                     presenter_dto, gravatar_url=self.request.di.gravatar_url
                 )
             else:
-                presenter_name = session.display_name or ""
+                presenter_name = session.facilitator_name or ""
                 presenter = UserInfo(
                     avatar_url=None,
                     discord_username="",
@@ -930,7 +861,7 @@ _status_by_choice = {
 }
 
 
-class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
+class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
     _policies: dict[int, EnrollmentPolicy] | None = None
 

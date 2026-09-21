@@ -25,7 +25,6 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.pacts import SpherePage
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
@@ -64,20 +63,11 @@ class SessionFieldValueInline(admin.TabularInline):  # type: ignore [type-arg]
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "status", "display_name", "category", "event")
+    list_display = ("title", "status", "facilitator_name", "category", "event")
     list_filter = ("status", "event")
-    search_fields = ("title", "display_name")
+    search_fields = ("title", "facilitator_name")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("title",)}
     inlines = (SessionFieldValueInline,)
-
-
-class SphereAdminForm(forms.ModelForm):  # type: ignore [type-arg]
-    # The default-page-must-be-enabled invariant lives on Sphere.clean(), which
-    # this ModelForm already runs.
-    enabled_pages = forms.MultipleChoiceField(
-        choices=[(p.value, p.value.title()) for p in SpherePage],
-        widget=forms.SelectMultiple,
-    )
 
 
 class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
@@ -88,7 +78,6 @@ class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
 
 @admin.register(Sphere)
 class SphereAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    form = SphereAdminForm
     inlines = (SphereMembershipInline,)
     exclude = ("managers",)
 

@@ -53,6 +53,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -191,7 +192,7 @@ def _create_session(
 ) -> Session:
     session = Session.objects.create(
         event=event,
-        display_name=presenter,
+        facilitator_name=presenter,
         title=title,
         slug=slug,
         description=description,
@@ -327,7 +328,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
         event=event,
-        display_name="Demo GM",
+        facilitator_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
         description="A full session used by the promotion e2e.",
@@ -379,6 +380,43 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> None:
+    """Seed a session the superuser presents on an event that lets them edit it.
+
+    The modal footer then carries both the Edit control and an enroll control,
+    which is the crowded phone footer the sheet e2e measures.
+    """
+    event = _create_event(
+        sphere,
+        name="Facilitator Edit Demo",
+        slug="facilitator-edit-demo",
+        description="A presenter looking at their own session.",
+        start_offset=timedelta(days=40),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    event.allow_facilitator_session_edit = True
+    event.save(update_fields=["allow_facilitator_session_edit"])
+    venue = _create_venue(event, name="Edit Venue", slug="edit-venue")
+    area = _create_area(venue, name="Edit Area", slug="edit-area")
+    space = _create_space(area, name="Edit Room", slug="edit-room", capacity=8)
+    session = _create_session(
+        event,
+        space,
+        title="Own Table Demo",
+        slug="own-table-demo",
+        presenter=superuser.name,
+        description="A session its presenter can edit from the modal.",
+        start_offset=timedelta(hours=1),
+        duration_hours=2,
+        participants_limit=8,
+        min_age=0,
+    )
+    session.presenter = superuser
+    session.save(update_fields=["presenter"])
 
 
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
@@ -889,7 +927,7 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
         Session.objects.create(
             event=event,
             presenter=User.objects.get(username="e2e-tester"),
-            display_name="E2E Tester",
+            facilitator_name="E2E Tester",
             contact_email="e2e@test.local",
             category=category,
             title=title,
@@ -982,6 +1020,9 @@ def main() -> None:
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
+
+    # A session its viewer presents, for the modal footer e2e.
+    _create_facilitator_edit_scenario(sphere, superuser=superuser)
 
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
@@ -1151,6 +1192,12 @@ def main() -> None:
         duration_hours=1,
     )
 
+    for session, name in ((mega_session, "Workshops"), (neon_session, "Roleplaying")):
+        session.category = ProposalCategory.objects.create(
+            event=upcoming_event, name=name, slug=name.lower()
+        )
+        session.save(update_fields=["category"])
+
     _create_tone_field_scenario(
         upcoming_event, picked_session=mega_session, mixed_session=neon_session
     )
@@ -1171,7 +1218,7 @@ def main() -> None:
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Pending Neon Proposal",
@@ -1190,7 +1237,7 @@ def main() -> None:
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Open Table Proposal",
@@ -1251,6 +1298,8 @@ def main() -> None:
 
     # Seed encounter owned by the e2e-tester user. Used by e2e tests covering
     # the organizer-only QR-share dialog on the notice-board encounter detail.
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save(update_fields=["encounters_policy"])
     Encounter.objects.create(
         sphere=sphere,
         creator=tester,

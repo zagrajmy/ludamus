@@ -144,10 +144,6 @@ class TestProposalCreatePageView:
                 f'value="{facilitator.pk}"',
                 "Alice",
                 'id="facilitator-search"',
-                (
-                    "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
-                    " hover:bg-foreground/5 hidden"
-                ),
             ],
         )
 
@@ -192,7 +188,7 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
             },
         )
 
@@ -223,7 +219,7 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "facilitators_submitted": "1",
                 "title": "Missing Facilitator",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
             },
         )
 
@@ -257,7 +253,7 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "facilitators_submitted": "1",
                 "title": "Missing Facilitator",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
             },
         )
 
@@ -311,7 +307,7 @@ class TestProposalCreatePageView:
             event=event,
             category=category,
             presenter=None,
-            display_name="Host",
+            facilitator_name="Host",
             title="Existing Session",
             slug="my-new-session",
             participants_limit=0,
@@ -325,7 +321,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "My New Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "description": "",
                 "contact_email": "",
                 "participants_limit": "",
@@ -361,7 +357,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "My New Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "description": "A great session",
                 "contact_email": "",
                 "participants_limit": "",
@@ -397,7 +393,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Session With Cover",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "description": "",
                 "contact_email": "",
                 "participants_limit": "",
@@ -462,7 +458,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Slotted Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "time_slots_submitted": "1",
                 "time_slot_ids": [slot.pk],
             },
@@ -490,7 +486,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Slotted Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "time_slots_submitted": "1",
                 "time_slot_ids": [foreign_slot.pk],
             },
@@ -511,7 +507,7 @@ class TestProposalCreatePageView:
             self.get_url(event),
             data={
                 "category_id": category.pk,
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "time_slots_submitted": "1",
                 "time_slot_ids": [slot.pk],
             },
@@ -574,7 +570,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Tracked Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "tracks_submitted": "1",
                 "track_ids": [track.pk],
             },
@@ -600,7 +596,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Tracked Session",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "tracks_submitted": "1",
                 "track_ids": [foreign_track.pk],
             },
@@ -617,7 +613,7 @@ class TestProposalCreatePageView:
             data={
                 "category_id": category.pk,
                 "title": "No Facilitator",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "description": "A great session",
                 "contact_email": "",
                 "participants_limit": "",
@@ -654,7 +650,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [foreign.pk],
                 "category_id": category.pk,
                 "title": "Foreign Facilitator",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
             },
         )
 
@@ -681,7 +677,7 @@ class TestProposalCreatePageView:
 
         response = panel_client.post(
             self.get_url(event),
-            data={"category_id": "", "title": "", "display_name": ""},
+            data={"category_id": "", "title": "", "facilitator_name": ""},
         )
 
         assert_response(
@@ -712,7 +708,7 @@ class TestProposalCreatePageView:
             "facilitator_ids": [facilitator.pk],
             "category_id": category.pk,
             "title": title,
-            "display_name": "Test Host",
+            "facilitator_name": "Test Host",
         }
 
         for _ in range(submissions):
@@ -742,7 +738,7 @@ class TestProposalCreatePageView:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Boom",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
             },
         )
 
@@ -975,7 +971,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Saved Fields",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "session_system": "Pathfinder",
             },
         )
@@ -999,7 +995,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Blank Field",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "session_system": "   ",
             },
         )
@@ -1024,7 +1020,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Missing Required",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "session_system": "",
             },
         )
@@ -1118,7 +1114,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Preset",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "duration": "PT2H",
             },
         )
@@ -1150,7 +1146,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Custom",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "duration": "custom",
                 "duration_hours": 1,
                 "duration_minutes": 45,
@@ -1184,7 +1180,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Steppers",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "duration_minutes": 45,
             },
         )
@@ -1216,7 +1212,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Empty Custom",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "duration": "custom",
             },
         )
@@ -1249,7 +1245,7 @@ class TestProposalCreateCategoryFields:
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Too Long",
-                "display_name": "Test Host",
+                "facilitator_name": "Test Host",
                 "duration_hours": 99,
                 "duration_minutes": 99,
             },

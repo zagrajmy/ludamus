@@ -29,6 +29,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     TimeSlot,
 )
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
@@ -119,6 +120,8 @@ class SphereFactory(DjangoModelFactory):
 
     name = Faker("company")
     site = SubFactory(SiteFactory)
+    # A sphere that runs encounters, since most tests that touch them want one.
+    encounters_policy = EncountersPolicy.EVERYONE
 
 
 class EventFactory(DjangoModelFactory):
@@ -180,7 +183,7 @@ class SessionFactory(DjangoModelFactory):
     slug = Sequence(lambda n: f"session-{n}")
     description = Faker("text")
     presenter = SubFactory(UserFactory)
-    display_name = Faker("name")
+    facilitator_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
     event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
@@ -399,7 +402,7 @@ def session_fixture(active_user, event):
         event=event,
         category=None,
         presenter=active_user,
-        display_name=active_user.full_name,
+        facilitator_name=active_user.full_name,
         participants_limit=10,
         min_age=0,
     )
@@ -415,7 +418,7 @@ def pending_session_fixture(proposal_category, active_user):
     return SessionFactory(
         category=proposal_category,
         presenter=active_user,
-        display_name=active_user.name,
+        facilitator_name=active_user.name,
         participants_limit=10,
         min_age=0,
         status="pending",
@@ -437,7 +440,8 @@ def sphere_fixture(settings, db):  # ruff:ignore[unused-function-argument]
     # survived a prior transactional test's flush) must reuse it rather than
     # insert a duplicate and trip `UNIQUE constraint failed: sphere.site_id`.
     sphere, __ = Sphere.objects.update_or_create(
-        site=site, defaults={"name": site.name}
+        site=site,
+        defaults={"name": site.name, "encounters_policy": EncountersPolicy.EVERYONE},
     )
     return sphere
 

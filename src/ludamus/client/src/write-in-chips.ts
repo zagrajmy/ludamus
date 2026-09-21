@@ -78,7 +78,8 @@ const initChipsInput = (draft: HTMLInputElement): void => {
   const addChip = (value: string): void => {
     if (chips.has(value)) return;
     const chip = document.createElement("span");
-    chip.className = "filter-chip max-w-full";
+    chip.className =
+      "inline-flex items-center gap-1 rounded-2xl font-medium max-w-full bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300 text-sm px-2.5 py-0.5";
     const text = document.createElement("span");
     text.textContent = value;
     text.className = "truncate";
@@ -87,7 +88,8 @@ const initChipsInput = (draft: HTMLInputElement): void => {
     remove.textContent = "×";
     remove.disabled = draft.disabled || draft.readOnly;
     remove.setAttribute("aria-label", `${removeLabel}: ${value}`);
-    remove.className = "focus-visible:outline-2 focus-visible:outline-primary";
+    remove.className =
+      "inline-flex items-center justify-center size-4 shrink-0 rounded-full cursor-pointer text-xs leading-none hover:bg-warm-300 dark:hover:bg-neutral-600 focus-visible:outline-2 focus-visible:outline-primary";
     remove.addEventListener("click", () => {
       removeChip(value);
       draft.focus();
