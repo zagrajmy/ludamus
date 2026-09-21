@@ -11,13 +11,13 @@ from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
+from ludamus.gates.web.django.events import EventsPageView
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
-from ludamus.gates.web.django.timeline import TimelinePageView
 
 from . import views
 
@@ -75,9 +75,10 @@ chronology_urls = [
 ]
 
 urlpatterns = [
-    path("", views.IndexRedirectView.as_view(), name="index"),
-    path("events/", views.EventsPageView.as_view(), name="events"),
-    path("timeline/", TimelinePageView.as_view(), name="timeline"),
+    path("", RedirectView.as_view(pattern_name="web:events"), name="index"),
+    path("events/", EventsPageView.as_view(), name="events"),
+    # The timeline was folded into the events feed; the URL was public.
+    path("timeline/", RedirectView.as_view(pattern_name="web:events", permanent=True)),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),

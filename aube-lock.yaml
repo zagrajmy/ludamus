@@ -117,9 +117,6 @@ importers:
       oxlint:
         specifier: 1.70.0
         version: 1.70.0
-      postcss:
-        specifier: ^8.2.14
-        version: 8.5.26
       postcss-nested:
         specifier: 7.0.2
         version: 7.0.2(postcss@8.5.26)
@@ -147,9 +144,6 @@ importers:
       monocart-coverage-reports:
         specifier: 2.12.12
         version: 2.12.12
-      playwright-core:
-        specifier: '>= 1.0.0'
-        version: 1.62.1
       typescript:
         specifier: 5.9.3
         version: 5.9.3

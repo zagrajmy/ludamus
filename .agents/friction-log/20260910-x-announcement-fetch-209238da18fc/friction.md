@@ -4,6 +4,7 @@ severity: 'minor'
 context:
   recorded_on: '2026-09-10'
   source: 'local papercuts draft'
+issue: 'zagrajmy/ludamus#1274'
 ---
 
 ## Expected Behavior

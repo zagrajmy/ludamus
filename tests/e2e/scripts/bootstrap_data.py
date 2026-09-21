@@ -53,6 +53,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -379,6 +380,43 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> None:
+    """Seed a session the superuser presents on an event that lets them edit it.
+
+    The modal footer then carries both the Edit control and an enroll control,
+    which is the crowded phone footer the sheet e2e measures.
+    """
+    event = _create_event(
+        sphere,
+        name="Facilitator Edit Demo",
+        slug="facilitator-edit-demo",
+        description="A presenter looking at their own session.",
+        start_offset=timedelta(days=40),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    event.allow_facilitator_session_edit = True
+    event.save(update_fields=["allow_facilitator_session_edit"])
+    venue = _create_venue(event, name="Edit Venue", slug="edit-venue")
+    area = _create_area(venue, name="Edit Area", slug="edit-area")
+    space = _create_space(area, name="Edit Room", slug="edit-room", capacity=8)
+    session = _create_session(
+        event,
+        space,
+        title="Own Table Demo",
+        slug="own-table-demo",
+        presenter=superuser.name,
+        description="A session its presenter can edit from the modal.",
+        start_offset=timedelta(hours=1),
+        duration_hours=2,
+        participants_limit=8,
+        min_age=0,
+    )
+    session.presenter = superuser
+    session.save(update_fields=["presenter"])
 
 
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
@@ -983,6 +1021,9 @@ def main() -> None:
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
 
+    # A session its viewer presents, for the modal footer e2e.
+    _create_facilitator_edit_scenario(sphere, superuser=superuser)
+
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
@@ -1257,6 +1298,8 @@ def main() -> None:
 
     # Seed encounter owned by the e2e-tester user. Used by e2e tests covering
     # the organizer-only QR-share dialog on the notice-board encounter detail.
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save(update_fields=["encounters_policy"])
     Encounter.objects.create(
         sphere=sphere,
         creator=tester,

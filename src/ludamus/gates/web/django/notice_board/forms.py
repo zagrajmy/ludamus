@@ -34,8 +34,8 @@ class EncounterForm(forms.Form):
         label=_("Public encounter"),
         required=False,
         help_text=_(
-            "Listed for everyone on the encounters page and the timeline. "
-            "Anyone with the link can always view it."
+            "Listed for everyone on the events page. Anyone with the link can "
+            "always view it."
         ),
     )
     header_image = cover_image_field(crop="top-and-bottom")

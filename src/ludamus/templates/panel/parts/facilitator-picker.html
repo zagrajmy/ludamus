@@ -9,7 +9,8 @@
 </div>
 <div class="space-y-2" id="facilitator-list">
     {% for f in all_facilitators %}
-        <label class="facilitator-row flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
+        <label data-facilitator-row
+               class="flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
                data-name="{{ f.display_name|lower }}">
             {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked_values=assigned_facilitator_pks label="" only %}
             {{ f.display_name }}
@@ -27,7 +28,7 @@
         function refresh() {
             const query = search.value.toLowerCase().trim();
             let matches = 0;
-            list.querySelectorAll('.facilitator-row').forEach(function(row) {
+            list.querySelectorAll('[data-facilitator-row]').forEach(function(row) {
                 const matched = query && (row.dataset.name || '').includes(query);
                 if (matched) matches++;
                 const checked = row.querySelector('input').checked;

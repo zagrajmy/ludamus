@@ -9,25 +9,25 @@
 {% block body %}
     {% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative mb-6 flex items-end justify-between gap-4 sm:mb-8">
-        <div>
-            <a href="{{ schedule_url }}"
-               class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-foreground">
-                {% icon "arrow-left" class="size-4" variant="mini" %}
-                {{ event.name }}
-            </a>
-            <h1 class="mt-2 text-3xl sm:text-4xl font-bold text-foreground">{% translate "Maps" %}</h1>
+    <div class="relative mb-6 sm:mb-8">
+        <a href="{{ schedule_url }}"
+           class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-foreground">
+            {% icon "arrow-left" class="size-4" variant="mini" %}
+            {{ event.name }}
+        </a>
+        <div class="mt-2 flex items-center justify-between gap-4">
+            <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{% translate "Maps" %}</h1>
+            {% if can_edit %}
+                {# The one organizer control that is not about a particular map. #}
+                {# A query link on this page's own path, so the dialog is #}
+                {# addressable and a failed upload reopens it with its errors. The #}
+                {# path is spelled out: a failed post renders this page at the #}
+                {# action's URL, and a bare "?add-map=1" would then resolve to that #}
+                {# path and make the modal script intercept the retry as a reopen. #}
+                {% translate "Add map" as t_add_map %}
+                {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" extra_class="shrink-0" aria_controls="add-map-modal" aria_haspopup="dialog" %}
+            {% endif %}
         </div>
-        {% if can_edit %}
-            {# The one organizer control that is not about a particular map. #}
-            {# A query link on this page's own path, so the dialog is #}
-            {# addressable and a failed upload reopens it with its errors. The #}
-            {# path is spelled out: a failed post renders this page at the #}
-            {# action's URL, and a bare "?add-map=1" would then resolve to that #}
-            {# path and make the modal script intercept the retry as a reopen. #}
-            {% translate "Add map" as t_add_map %}
-            {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
-        {% endif %}
     </div>
     {% if cards %}
         {# One plan after another, each anchored by its pk so a session's map #}

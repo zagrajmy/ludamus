@@ -801,7 +801,7 @@ class TestEventPageView:
             contains=[
                 "schedule-rail",
                 f"?session={in_arena.pk}",
-                # Both bookmark-toggle tile states render for the viewer.
+                # Both bookmark toggle tile states render for the viewer.
                 'aria-pressed="false"',
                 'aria-pressed="true"',
             ],

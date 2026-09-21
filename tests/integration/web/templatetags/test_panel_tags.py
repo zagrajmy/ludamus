@@ -10,6 +10,7 @@ from django.template import Context, Template, TemplateSyntaxError
 from django.template.loader import get_template
 from django.urls import NoReverseMatch, resolve
 
+import ludamus
 from ludamus.gates.web.django.panel import PANEL_CAT_KEYS, PANEL_NAV_KEYS
 from ludamus.gates.web.django.sphere.panel_context import SphereTab
 
@@ -155,7 +156,7 @@ class TestSidebarCat:
 
 class TestSidebarCatKey:
     def test_a_key_that_is_not_a_category_fails_loudly(self) -> None:
-        # A key with no collapse rules in panel/base.html renders a toggle that
+        # A key with no collapse rules in panel-sidebar.css renders a toggle that
         # visibly does nothing — the same dead-but-plausible failure
         # sidebar_link guards.
         tpl = Template(
@@ -176,6 +177,12 @@ def _template_source(name: str) -> str:
 
 def _sidebar_source() -> str:
     return _template_source("panel/base.html")
+
+
+def _sidebar_stylesheet() -> str:
+    path = Path(ludamus.__file__).parent / "client" / "src" / "panel-sidebar.css"
+
+    return path.read_text(encoding="utf-8")
 
 
 # The two Literals are only a single source of truth if `base.html` names every
@@ -213,7 +220,7 @@ class TestSidebarCoverage:
     # Both halves, because a category keeps its `html.catc-<key> ` prefix in one
     # rule when the other is missing — a hidden body under an unrotated chevron.
     def test_every_category_has_collapse_rules(self) -> None:
-        source = _sidebar_source()
+        source = _sidebar_stylesheet()
 
         missing = {
             f"{key}/{part}"

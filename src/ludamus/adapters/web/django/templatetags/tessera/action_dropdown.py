@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from django import template
 from django.template.loader import render_to_string
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from ._registry import register
 from ._utils import format_tag_attrs, parse_tag_attrs
@@ -123,17 +124,18 @@ def tessera_action_dropdown_item(
     external: bool = False,
     **attrs: str | int | bool | None,
 ) -> str:
-    """Render one navigation or submit row in an action dropdown.
+    """Render one row in an action dropdown.
 
-    Give the item exactly one destination: ``href`` renders a link, while
-    ``form`` renders a submit button associated with that form's id.
-    ``external`` marks links that open in a new tab.
+    ``href`` renders a link and ``form`` a submit button associated with that
+    form's id; with neither the row is a plain button for a script to wire
+    through its ``data_*`` attributes. ``external`` marks links that open in
+    a new tab.
 
     Returns:
         HTML string of the rendered menu item.
     """
-    if bool(href) == bool(form):
-        msg = "tessera_action_dropdown_item needs exactly one of href or form."
+    if href and form:
+        msg = "tessera_action_dropdown_item takes href or form, not both."
         raise template.TemplateSyntaxError(msg)
     if external and form:
         msg = "tessera_action_dropdown_item external is only valid with href."
@@ -160,11 +162,15 @@ def tessera_action_dropdown_item(
         else ""
     )
     extra_attrs = format_html(" {}", format_tag_attrs(attrs)) if attrs else ""
-    if form:
+    if not href:
+        form_attrs = (
+            format_html(' type="submit" form="{}"', form)
+            if form
+            else mark_safe(' type="button"')
+        )
         return format_html(
-            '<button type="submit" form="{}" class="{} w-full text-left"{}>'
-            "{}<span>{}</span></button>",
-            form,
+            '<button{} class="{} w-full text-left"{}>{}<span>{}</span></button>',
+            form_attrs,
             _ITEM_CLASS,
             extra_attrs,
             leading,

@@ -14,7 +14,7 @@
             <div class="border rounded-lg p-2 {% if conflict.severity == 'error' %}border-danger bg-danger-bg{% else %}border-warning bg-warning-bg{% endif %}">
                 <div class="flex items-start gap-1">
                     <span class="text-xs mt-0.5">
-                        {% if conflict.severity == 'error' %}
+                        {% if conflict.severity == "error" %}
                             ⚠
                         {% else %}
                             !

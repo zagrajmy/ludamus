@@ -8,9 +8,9 @@ panel/base.html — each supplies the shared fixed toaster wrapper. Behavior
     <div class="alert backdrop-blur-lg flex items-center {% if message.level_tag == 'error' %}alert-danger{% elif message.level_tag == 'warning' %}alert-warning{% elif message.level_tag == 'success' %}alert-success{% else %}alert-info{% endif %}"
          data-flash="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}sticky{% else %}transient{% endif %}"
          {% if message.level_tag == 'error' or message.level_tag == 'warning' %}role="alert" aria-live="assertive"{% else %}role="status" aria-live="polite"{% endif %}>
-        {% if message.level_tag == 'error' or message.level_tag == 'warning' %}
+        {% if message.level_tag == "error" or message.level_tag == "warning" %}
             {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
-        {% elif message.level_tag == 'success' %}
+        {% elif message.level_tag == "success" %}
             {% icon "check-circle" class="w-5 h-5 mr-3 shrink-0" %}
         {% else %}
             {% icon "information-circle" class="w-5 h-5 mr-3 shrink-0" %}

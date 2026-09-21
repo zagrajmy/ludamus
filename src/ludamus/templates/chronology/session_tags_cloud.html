@@ -21,7 +21,7 @@
                         {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
                     {% endfor %}
                 </div>
-                <span class="session-tags-more-trigger text-sm font-medium text-foreground-muted hover:text-foreground-secondary cursor-help border-b border-dotted border-foreground-muted hover:border-foreground-secondary">+{{ data.cloud_overflow|length }}</span>
+                <span class="text-sm font-medium text-foreground-muted hover:text-foreground-secondary cursor-help border-b border-dotted border-foreground-muted hover:border-foreground-secondary">+{{ data.cloud_overflow|length }}</span>
             </div>
         {% endif %}
     </div>

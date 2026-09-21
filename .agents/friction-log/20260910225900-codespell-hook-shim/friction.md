@@ -1,6 +1,7 @@
 ---
 title: 'Codespell hook shim points at a deleted worktree venv'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1277'
 ---
 
 ## Expected Behavior

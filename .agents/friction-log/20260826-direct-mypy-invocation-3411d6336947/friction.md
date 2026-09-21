@@ -9,6 +9,7 @@ context:
       source_line: 384
     - recorded_on: '2026-09-01'
       source_line: 448
+issue: 'zagrajmy/ludamus#1226'
 ---
 
 ## Expected Behavior

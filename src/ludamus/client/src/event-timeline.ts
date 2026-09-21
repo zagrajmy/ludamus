@@ -30,7 +30,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
   // both the scroll-spy viewport and programmatic scrolling target it.
   const scrollRoot = document.getElementById("app-scroll");
 
-  const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>(".schedule-rail-hour")];
+  const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>("[data-schedule-rail-hour]")];
   if (hourLinks.length === 0) return;
 
   let active: HTMLAnchorElement | null = null;
@@ -60,7 +60,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     };
     for (const child of rail.children) {
       if (!(child instanceof HTMLElement)) continue;
-      if (child.classList.contains("schedule-rail-hour")) {
+      if (Object.hasOwn(child.dataset, "scheduleRailHour")) {
         if (!candidates.has(child)) {
           child.hidden = true;
           continue;
@@ -102,7 +102,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
       const perDay: number[] = [];
       for (const child of rail.children) {
         if (!(child instanceof HTMLElement)) continue;
-        if (!child.classList.contains("schedule-rail-hour")) perDay.push(0);
+        if (!Object.hasOwn(child.dataset, "scheduleRailHour")) perDay.push(0);
         else if (candidates.has(child)) perDay[perDay.length - 1] += 1;
       }
       const hiddenAt = (k: number): number => {
