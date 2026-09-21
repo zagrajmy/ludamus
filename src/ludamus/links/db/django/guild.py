@@ -86,7 +86,7 @@ def _mark(guild: Guild) -> GuildMarkDTO:
 _LOGO_STORAGE = Guild.logo.field.storage
 
 
-def _mark_from_columns(pk: int, name: str, logo: str) -> GuildMarkDTO:
+def _mark_from_columns(*, pk: int, name: str, logo: str) -> GuildMarkDTO:
     # The same mark _mark builds from an instance, off a values_list row: the
     # schedule asks for a thousand sessions' co-facilitators at once, and a
     # model per row with its guild joined in cost more than the page's SQL.
@@ -171,7 +171,8 @@ class GuildRepository(GuildRepositoryProtocol):
     @staticmethod
     def list_for_sphere(*, sphere_id: int) -> list[GuildSummaryDTO]:
         guilds = (
-            Guild.objects.filter(sphere_id=sphere_id)
+            Guild.objects
+            .filter(sphere_id=sphere_id)
             .annotate(
                 # Two reverse relations in one annotate would otherwise
                 # multiply rows; distinct keeps each count as a count of
@@ -202,7 +203,8 @@ class GuildRepository(GuildRepositoryProtocol):
     @staticmethod
     def read(*, sphere_id: int, guild_pk: int) -> GuildDTO | None:
         guild = (
-            Guild.objects.filter(pk=guild_pk, sphere_id=sphere_id)
+            Guild.objects
+            .filter(pk=guild_pk, sphere_id=sphere_id)
             .prefetch_related("memberships__member")
             .first()
         )
@@ -253,7 +255,8 @@ class GuildRepository(GuildRepositoryProtocol):
     @staticmethod
     def list_facilitator_names(*, sphere_id: int) -> list[str]:
         return list(
-            Facilitator.objects.filter(event__sphere_id=sphere_id)
+            Facilitator.objects
+            .filter(event__sphere_id=sphere_id)
             .exclude(display_name="")
             .order_by("display_name")
             .values_list("display_name", flat=True)
@@ -267,9 +270,8 @@ class GuildRepository(GuildRepositoryProtocol):
         if not (name := name.strip()):
             return []
         rows = (
-            Facilitator.objects.filter(
-                event__sphere_id=sphere_id, display_name__iexact=name
-            )
+            Facilitator.objects
+            .filter(event__sphere_id=sphere_id, display_name__iexact=name)
             .order_by("pk")
             .values_list("pk", "user_id", "guild_id")
         )
@@ -290,7 +292,8 @@ class GuildRepository(GuildRepositoryProtocol):
         if not (identifier := identifier.strip().lstrip("@")):
             return []
         by_email = (
-            User.objects.filter(email__iexact=identifier, user_type=UserType.ACTIVE)
+            User.objects
+            .filter(email__iexact=identifier, user_type=UserType.ACTIVE)
             .order_by("pk")
             .first()
         )
@@ -305,9 +308,8 @@ class GuildRepository(GuildRepositoryProtocol):
     def read_member_guild(*, sphere_id: int, user_pk: int) -> GuildSummaryDTO | None:
         # Both sphere columns, not just the membership's: see marks_for_users.
         membership = (
-            GuildMembership.objects.filter(
-                sphere_id=sphere_id, guild__sphere_id=sphere_id, member_id=user_pk
-            )
+            GuildMembership.objects
+            .filter(sphere_id=sphere_id, guild__sphere_id=sphere_id, member_id=user_pk)
             .select_related("guild")
             .first()
         )
@@ -413,7 +415,9 @@ class GuildRepository(GuildRepositoryProtocol):
                     _CoFacilitator(
                         user_id=user_id,
                         guild=(
-                            _mark_from_columns(guild_id, guild_name, guild_logo)
+                            _mark_from_columns(
+                                pk=guild_id, name=guild_name, logo=guild_logo
+                            )
                             if guild_id
                             else None
                         ),

@@ -349,7 +349,9 @@ def session_data_attrs(context: template.Context, data: SessionData) -> SafeStri
     """
     sheet = _sheet(context)
     if (item := data.agenda_item) is None:
-        return SafeString(_session_attrs(sheet, data, None, None))
+        return SafeString(
+            _session_attrs(sheet=sheet, data=data, local_start=None, local_end=None)
+        )
     return SafeString(
         _session_attrs(
             sheet,
@@ -416,7 +418,7 @@ def _bookmark_icon(variant: str, *, hidden: bool = False, tagged: bool = True) -
     return _ICON_RENDERERS[variant]("bookmark", **attrs)
 
 
-def _bookmark(sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
+def _bookmark(*, sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
     # A toggle for a signed-in viewer; a read-only count for an anonymous one
     # (a popularity signal); nothing when there is neither, so quiet sessions
     # carry no "0" noise. The structure — data-bookmark-toggle,
@@ -458,7 +460,7 @@ def _bookmark(sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
     }
 
 
-def _guild_mark(sheet: _Sheet, data: SessionData, extra_class: str) -> str:
+def _guild_mark(*, sheet: _Sheet, data: SessionData, extra_class: str) -> str:
     if (guild := data.guild) is None or not guild.logo_url:
         return ""
     return sheet.components.render(
@@ -491,7 +493,9 @@ def _avatar(sheet: _Sheet, data: SessionData) -> str:
     )
 
 
-def _clock(local_start: datetime, local_end: datetime, tz_mark: str) -> dict[str, str]:
+def _clock(
+    *, local_start: datetime, local_end: datetime, tz_mark: str
+) -> dict[str, str]:
     # The start, end, start_zone and end_zone slots of a row or a tile. The
     # zone names only when the two ends of the range read on different
     # clocks: a session across a DST switch.
@@ -539,12 +543,18 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
         _ROW
         % {
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
-            "attrs": _session_attrs(sheet, data, local_start, local_end),
+            "attrs": _session_attrs(
+                sheet=sheet, data=data, local_start=local_start, local_end=local_end
+            ),
             "pk": session.pk,
             "link_label": _open_details(sheet, session.title),
-            **_clock(local_start, local_end, _ROW_TZ_MARK),
+            **_clock(
+                local_start=local_start, local_end=local_end, tz_mark=_ROW_TZ_MARK
+            ),
             "title": escape(session.title),
-            "guild_mark": _guild_mark(sheet, data, "self-center relative"),
+            "guild_mark": _guild_mark(
+                sheet=sheet, data=data, extra_class="self-center relative"
+            ),
             "host": escape(session.facilitator_name),
             "location": escape(data.location_label),
             "room": escape(data.loc["space_name"]),
@@ -553,7 +563,9 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
             "availability": (
                 _ROW_AVAILABILITY.format(availability) if availability else ""
             ),
-            "bookmark": _bookmark(sheet, data, _ROW_TOGGLE_CLASS),
+            "bookmark": _bookmark(
+                sheet=sheet, data=data, wrapper_class=_ROW_TOGGLE_CLASS
+            ),
             "description": escape(session.description),
         }
     )
@@ -578,7 +590,7 @@ def room_lane_tile(
     if session.facilitator_name:
         host = _TILE_HOST % {
             "avatar": _avatar(sheet, data),
-            "guild_mark": _guild_mark(sheet, data, "relative"),
+            "guild_mark": _guild_mark(sheet=sheet, data=data, extra_class="relative"),
             "host": escape(session.facilitator_name),
         }
     return SafeString(
@@ -586,15 +598,19 @@ def room_lane_tile(
         % {
             "slot": _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
-            "attrs": _session_attrs(sheet, data, local_start, local_end),
+            "attrs": _session_attrs(
+                sheet=sheet, data=data, local_start=local_start, local_end=local_end
+            ),
             "pk": session.pk,
             "col": tile.col,
             "link_label": _open_details(sheet, session.title),
             "title": escape(session.title),
             "host": host,
-            **_clock(local_start, local_end, _TILE_TZ_MARK),
+            **_clock(
+                local_start=local_start, local_end=local_end, tz_mark=_TILE_TZ_MARK
+            ),
             "age": _age_mark(data),
             "availability": _availability(sheet, data),
-            "bookmark": _bookmark(sheet, data, "shrink-0"),
+            "bookmark": _bookmark(sheet=sheet, data=data, wrapper_class="shrink-0"),
         }
     )
