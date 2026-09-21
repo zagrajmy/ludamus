@@ -157,7 +157,19 @@ class SpherePanelService:
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
-        """Save the sphere's settings, refusing an unconfirmed hide.
+        """Save the settings the caller named, refusing an unconfirmed hide.
+
+        Every argument is a patch: None means "leave this as it stands", and
+        a caller that only wants to swap the logo says so rather than reading
+        the other two and handing them back. That read-then-write is a lost
+        update waiting to happen — between the read and the write another
+        manager changes the policy, and the stale value overwrites theirs.
+
+        This closes the hazard for a partial write, which is what the MCP
+        tools do. A full form still asserts every field it carries, so the
+        panel keeps last-write-wins; closing that needs a version round-
+        tripped through the form. The confirmation gate below is likewise
+        check-then-act, but losing that race costs a round trip, not data.
 
         Returns:
             NEEDS_CONFIRMATION when the save would turn encounters off while

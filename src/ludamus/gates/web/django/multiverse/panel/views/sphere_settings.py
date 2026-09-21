@@ -50,6 +50,12 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             # picker, and a toast would throw all of it away.
             return self._render(form, needs_confirmation=False)
 
+        # Every field on purpose: submitting this form asserts all of it, and
+        # the person saw each value before they did. Sending only what moved
+        # would not close the window anyway — they submit what they were
+        # shown, so a value another manager changed in between gets written
+        # back either way. Closing that needs a version round-tripped through
+        # the form, which is a bigger change than this one.
         outcome = self.request.services.sphere_panel.update_settings(
             self.request.context.current_sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[

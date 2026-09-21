@@ -91,6 +91,21 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert not spheres.update.call_args.args[1]["logo"]
 
+    def test_a_patch_writes_only_what_it_names(self, service, spheres):
+        # The point of the patch shape: a caller changing one setting must not
+        # carry the others along, because it would be carrying whatever it
+        # read a moment ago and overwriting a change made in between.
+        service.patch_settings(
+            3, changes={"encounters_policy": EncountersPolicy.MANAGERS}
+        )
+
+        spheres.update.assert_called_once_with(3, {"encounters_policy": "managers"})
+
+    def test_a_logo_swap_touches_only_the_logo(self, service, spheres):
+        service.update_logo(3, "banner.svg")
+
+        spheres.update.assert_called_once_with(3, {"logo": "banner.svg"})
+
     def test_refuses_to_hide_existing_encounters_unconfirmed(
         self, service, spheres, encounters
     ):
