@@ -33,5 +33,12 @@ test.describe("Landing", () => {
     // no programme and shows none.
     await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Doors open at 9:00" })).toBeVisible();
+
+    // The feed's cards reach their event — coverage that lived in
+    // index.spec.ts, against the root domain, which is the pitch now. Located
+    // by href: the sphere and its event share a name, so the navbar's brand
+    // link answers to the same accessible name.
+    await page.locator('#events a[href="/event/foreign-programme/"]').first().click();
+    await expect(page).toHaveURL(/\/event\/foreign-programme\//);
   });
 });

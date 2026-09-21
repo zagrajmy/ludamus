@@ -19,6 +19,7 @@ from ludamus.gates.mcp.map_tools import map_tools
 from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
+from ludamus.gates.mcp.sphere_tools import sphere_tools
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
@@ -916,32 +917,6 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
-    name = "set_sphere_logo"
-    description = "Replace the sphere's logo (SVG allowed)."
-    scope = ToolScope.ORGANIZER
-    input_model = ImageUploadInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[ImageUploadInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        sphere = call.services.sphere_panel.read(sphere_id)
-        upload = call.data.validated_upload(validate_uploaded_logo)
-        # Confirmed up front: this writes the sphere's own stored policy back
-        # unchanged, so it can never be the save that hides encounters — but
-        # an unconfirmed call returns without writing, and a silently dropped
-        # logo is the worst way to learn that.
-        call.services.sphere_panel.update_settings(
-            sphere_id,
-            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
-            encounters_policy=sphere.encounters_policy,
-            logo=upload,
-            confirmed_encounters_disable=True,
-        )
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
@@ -964,6 +939,6 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerUpdateSpaceTool(),
         OrganizerUpdateEventTool(),
         OrganizerSetEventImageTool(),
-        OrganizerSetSphereLogoTool(),
+        *sphere_tools(),
         *map_tools(),
     )

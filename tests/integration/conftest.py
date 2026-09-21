@@ -29,7 +29,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     TimeSlot,
 )
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 

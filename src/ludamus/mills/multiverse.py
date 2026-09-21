@@ -7,19 +7,19 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import SphereAccessDTO, SphereSettingsOutcome
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
+    from ludamus.pacts.encounter import EncounterRepositoryProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
-        EncounterRepositoryProtocol,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
         SphereUpdateData,
-        UploadedFileProtocol,
     )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
         SphereRole,
+        SphereSettingsPatch,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -151,6 +152,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
@@ -164,6 +166,7 @@ class SpherePanelService:
         """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
@@ -180,6 +183,43 @@ class SpherePanelService:
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
             self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
+
+    def patch_settings(
+        self,
+        sphere_id: int,
+        *,
+        changes: SphereSettingsPatch,
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome:
+        data: SphereUpdateData = {}
+        if "allow_facilitator_session_edit" in changes:
+            data["allow_facilitator_session_edit"] = changes[
+                "allow_facilitator_session_edit"
+            ]
+        if "event_cover_buttons_at_bottom" in changes:
+            data["event_cover_buttons_at_bottom"] = changes[
+                "event_cover_buttons_at_bottom"
+            ]
+        if (encounters_policy := changes.get("encounters_policy")) is not None:
+            data["encounters_policy"] = encounters_policy.value
+
+        with self._transaction.atomic():
+            if (
+                not confirmed_encounters_disable
+                and encounters_policy is EncountersPolicy.NONE
+                and self._spheres.read(sphere_id).encounters_policy
+                is not EncountersPolicy.NONE
+                and self._encounters.exists_for_sphere(sphere_id)
+            ):
+                return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if data:
+                self._spheres.update(sphere_id, data)
+            return SphereSettingsOutcome.SAVED
+
+    def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
+        data: SphereUpdateData = {"logo": logo}
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
 
 
 class SitesService:

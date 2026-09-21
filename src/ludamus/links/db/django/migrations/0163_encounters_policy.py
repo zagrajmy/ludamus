@@ -58,14 +58,6 @@ def fold_pages_into_policy(apps, schema_editor):
         sphere.save(update_fields=["encounters_policy"])
 
 
-def unfold_policy_into_pages(apps, schema_editor):
-    del schema_editor
-    sphere_model = apps.get_model("db_main", "Sphere")
-    sphere_model.objects.filter(encounters_policy="none").update(
-        encounters_policy="disabled"
-    )
-
-
 class Migration(migrations.Migration):
 
     dependencies = [("db_main", "0162_rename_session_facilitator_name")]
@@ -76,11 +68,12 @@ class Migration(migrations.Migration):
             old_name="encounter_public_policy",
             new_name="encounters_policy",
         ),
-        # Which page each sphere had enabled is not recoverable, so the
-        # reverse only has to put the column back in the old vocabulary:
-        # "none" has no pre-image but `disabled`, and a SphereDTO read of
-        # anything else raises on every page that names the sphere.
-        migrations.RunPython(fold_pages_into_policy, unfold_policy_into_pages),
+        # Irreversible: which spheres had which page enabled is not
+        # recoverable once folded in, and reversing the schema alone leaves
+        # rows holding "none", which the restored choices reject. No
+        # reverse_code, so Django refuses the rollback instead of pretending
+        # data survives it.
+        migrations.RunPython(fold_pages_into_policy),
         migrations.AlterField(
             model_name="sphere",
             name="encounters_policy",

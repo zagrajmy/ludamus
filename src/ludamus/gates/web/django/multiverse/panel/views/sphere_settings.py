@@ -16,8 +16,8 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import EncountersPolicy, resolve_uploaded_file_field
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.multiverse import SphereSettingsOutcome
 
 if TYPE_CHECKING:
@@ -36,6 +36,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
             }
@@ -53,6 +54,9 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             self.request.context.current_sphere_id,
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
+            ],
+            event_cover_buttons_at_bottom=form.cleaned_data[
+                "event_cover_buttons_at_bottom"
             ],
             encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
