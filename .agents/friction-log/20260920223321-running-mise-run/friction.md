@@ -1,6 +1,7 @@
 ---
 title: 'Running mise run messages in a fresh worktree ignored the checked-in .env files and failed Varlock validation for required secrets; the task gives no hint to use the test environment for extraction.'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1347'
 ---
 
 ### Expected Behavior

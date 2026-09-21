@@ -1,6 +1,7 @@
 ---
 title: 'Fresh mise install times out after partially installing tools'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1346'
 ---
 
 ## Expected Behavior
