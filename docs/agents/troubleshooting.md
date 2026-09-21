@@ -54,9 +54,9 @@ coolify --context zagrajmy-production context verify
 
 ## MCPs
 
-- **PostHog:** pinned read-only to the Zagrajmy project and limited to product
-  analytics, error tracking, logs, and replay. The project timezone is UTC;
-  recordings exist only when capture was enabled.
+- **PostHog:** pinned read-only to the Zagrajmy project and limited to
+  insights, event metadata, SQL queries, error tracking, logs, and replay. The
+  project timezone is UTC; recordings exist only when capture was enabled.
 - **Cloudflare:** the API server is broad; the OAuth grant is the safety
   boundary. Authorize only the account and read scopes needed for the incident.
 
