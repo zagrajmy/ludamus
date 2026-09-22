@@ -142,7 +142,11 @@
 
   --color-foreground: #252220;
   --color-foreground-secondary: #5c534a;
-  --color-foreground-muted: #737373;
+  /* The least this can darken and still clear AA (4.5:1) on every surface it
+     sits on — warm-200 is the tightest at 4.53. It carries real text (card
+     metadata, counts, empty states), so it is held to the text threshold
+     rather than the 3:1 one. Any paler and that text drops back under. */
+  --color-foreground-muted: #6b6b6b;
   --color-foreground-inverse: #ffffff;
 
   --color-bg-secondary: #fdfcfb;
@@ -153,9 +157,8 @@
      (30°) at warm-150's channel spread, so it reads as sandpaper and not as
      a yellow tint. Deliberately near the limit of perceptible — the dashed
      border carries the other half of the signal. Don't darken it much
-     further: foreground-muted reads 4.44:1 here, in line with what that token
-     already gets on bg-tertiary (4.36) and warm-200 (4.03), and a heavier
-     ground would put it below them. */
+     further: foreground-muted clears AA here by 0.49, and a heavier ground
+     would put that text under the threshold. */
   --color-proposal-surface: #faf7f4;
 
   --color-border-focus: #f85a3c;
@@ -394,7 +397,10 @@ button {
   --color-proposal-surface: #272522;
   --color-foreground: #fafafa;
   --color-foreground-secondary: #d4d4d4;
-  --color-foreground-muted: #737373;
+  /* Lifted off the light ramp's value, which sat at 3.19:1 here. Same rule as
+     its light counterpart: the least it can lighten and clear AA on every
+     dark surface, bg-tertiary being the tightest at 4.50. */
+  --color-foreground-muted: #8c8c8c;
   --color-foreground-inverse: #0a0a0a;
   --color-border: #404040;
   --color-border-focus: #f85a3c;
