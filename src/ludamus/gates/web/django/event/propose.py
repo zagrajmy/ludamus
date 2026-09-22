@@ -16,7 +16,6 @@ from ludamus.gates.web.django.dynamic_fields import (
     WizardData,
     field_descriptors,
     fold_custom_answers,
-    personal_field_pairs,
     requirement_fields,
     unfold_custom_answers,
 )
@@ -178,10 +177,15 @@ def _review_fields(
     return shown
 
 
-def _login_nudge_context(request: HttpRequest) -> StepContext:
+def _login_nudge_context(wizard: _Wizard) -> StepContext:
+    # The personal step re-renders from its HTMX component endpoint, which
+    # answers POST only, so `next` has to name the wizard page instead of
+    # whatever path this request arrived on.
     return {
-        "show_login_nudge": not request.user.is_authenticated,
-        "login_url": f"{django_settings.LOGIN_URL}?next={request.path}",
+        "show_login_nudge": not wizard.request.user.is_authenticated,
+        "login_url": (
+            f"{django_settings.LOGIN_URL}?next={_propose_url(wizard.event.slug)}"
+        ),
     }
 
 
@@ -226,6 +230,15 @@ class _Wizard:
         if self.category is None:
             return []
         return self.service.get_timeslot_requirements(self.category.pk)
+
+    @cached_property
+    def personal_pairs(self) -> list[tuple[OrganizerFieldDTO, bool]]:
+        # The proposer answers for themselves, so each field's own required
+        # flag binds.
+        return [
+            (field, field.is_required)
+            for field in self.service.get_personal_fields(self.event.pk)
+        ]
 
     @cached_property
     def steps(self) -> tuple[str, ...]:
@@ -280,16 +293,10 @@ def _category_context(
     }
 
 
-def _personal_pairs(wizard: _Wizard) -> list[tuple[OrganizerFieldDTO, bool]]:
-    return personal_field_pairs(
-        wizard.service.get_personal_fields(wizard.event.pk), own_data=True
-    )
-
-
 def _personal_context(
     wizard: _Wizard, state: WizardState, *, form: Form | None = None
 ) -> StepContext:
-    pairs = _personal_pairs(wizard)
+    pairs = wizard.personal_pairs
 
     if form is None:
         stored: WizardData = state.get("personal_data") or {
@@ -314,7 +321,7 @@ def _personal_context(
         "field_descriptors": field_descriptors(
             prefix="personal", fields=pairs, form=form
         ),
-        **_login_nudge_context(wizard.request),
+        **_login_nudge_context(wizard),
     }
 
 
@@ -385,7 +392,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         prefix="session",
     )
     personal_fields = _review_fields(
-        fields=wizard.service.get_personal_fields(wizard.event.pk),
+        fields=[field for field, _is_required in wizard.personal_pairs],
         answers=state.get("personal_data", {}),
         prefix="personal",
     )
@@ -581,7 +588,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin):
         if request.POST.get("back"):
             return _render(wizard, wizard.at_or_before("personal"))
 
-        pairs = _personal_pairs(wizard)
+        pairs = wizard.personal_pairs
         form = build_personal_data_form(pairs)(data=request.POST)
 
         if not form.is_valid():

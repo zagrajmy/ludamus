@@ -2218,6 +2218,8 @@ class TestProposalImportService(_ImportServiceMocks):
                 "max_length": 255,
                 "help_text": "",
                 "is_public": False,
+                "is_required": False,
+                "order": 0,
             },
         )
         session_fields.create.assert_not_called()

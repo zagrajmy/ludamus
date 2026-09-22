@@ -28,9 +28,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import PersonalFieldSummary
 
 
-def undeletable_field_reasons(
-    summaries: Iterable[PersonalFieldSummary],
-) -> dict[int, str]:
+def answered_field_reasons(summaries: Iterable[PersonalFieldSummary]) -> dict[int, str]:
     # The same question `delete` refuses on, rendered beside the row instead
     # of taking the click.
     return dict.fromkeys(
@@ -60,7 +58,7 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = cfp_tab_urls(slug)
         summaries = service.list_summaries(current_event.pk)
         context["fields"] = summaries
-        context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
+        context["undeletable_field_reasons"] = answered_field_reasons(summaries)
         return TemplateResponse(
             self.request, "panel/personal-data-fields.html", context
         )
@@ -182,9 +180,9 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         # The type is fixed after creation, so the form learns it from the
         # field rather than the POST for the checkbox guard.
-        form = PersonalDataFieldForm(
-            {**self.request.POST.dict(), "field_type": field.field_type}
-        )
+        data = self.request.POST.copy()
+        data["field_type"] = field.field_type
+        form = PersonalDataFieldForm(data)
         if not form.is_valid():
             context["active_nav"] = "cfp"
             context["field"] = field
@@ -193,25 +191,13 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/personal-data-field-edit.html", context
             )
 
-        options_text = form.cleaned_data.get("options") or ""
-        options: list[str] | None = None
-        if field.field_type == "select":
-            options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
-
         service.update(
             event_pk=current_event.pk,
             field_slug=field_slug,
             data={
-                "name": form.cleaned_data["name"],
-                "question": form.cleaned_data["question"],
-                "max_length": form.cleaned_data.get("max_length") or 0,
-                "help_text": form.cleaned_data.get("help_text") or "",
-                "is_public": form.cleaned_data.get("is_public", False),
+                **parse_field_form_data(form),
                 "is_required": form.cleaned_data.get("is_required") or False,
                 "order": form.cleaned_data.get("order") or 0,
-                "options": options,
-                "is_multiple": form.cleaned_data.get("is_multiple") or False,
-                "allow_custom": form.cleaned_data.get("allow_custom") or False,
             },
         )
 

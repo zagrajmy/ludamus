@@ -2402,9 +2402,9 @@ class TestProposeSessionPageView:
                 "current_step": "personal",
                 "wizard_steps": ["personal", "details", "review"],
                 "show_login_nudge": False,
-                "login_url": (
-                    f"/crowd/login-required/?next={self._get_personal_url(event.slug)}"
-                ),
+                # The component endpoint answers POST only, so the nudge sends
+                # the proposer back to the wizard page, not to this URL.
+                "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
             },
             template_name="event/propose/parts/personal.html",
         )
@@ -2998,6 +2998,35 @@ class TestAnonymousProposalSubmission:
             template_name="event/propose/base.html",
         )
         assert b"Have an account?" in response.content
+
+    def test_anonymous_invalid_personal_post_nudges_to_the_wizard_page(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+
+        response = client.post(self._url(event.slug, "personal"), {})
+        form = response.context["form"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
+                "form": form,
+                "field_descriptors": [],
+                "current_step": "personal",
+                "wizard_steps": ["personal", "details", "review"],
+                "show_login_nudge": True,
+                # Not this endpoint: it answers POST only, so logging in from
+                # here has to land on the wizard page.
+                "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
+            },
+            template_name="event/propose/parts/personal.html",
+        )
 
     def test_rate_limit_uses_rightmost_x_forwarded_for(
         self, client, event, faker, time_zone, proposal_category

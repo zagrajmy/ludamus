@@ -444,7 +444,10 @@ class PersonalDataFieldForm(forms.Form):
         # The database refuses the pair too; this is the message the organiser
         # reads instead of a constraint error.
         if cleaned.get("field_type") == "checkbox" and cleaned.get("is_required"):
+            # Also a non-field error: the edit page hides the Required control
+            # for a checkbox, so its own error paragraph never renders.
             self.add_error("is_required", _("A checkbox cannot be required."))
+            self.add_error(None, _("A checkbox cannot be required."))
         return cleaned
 
 

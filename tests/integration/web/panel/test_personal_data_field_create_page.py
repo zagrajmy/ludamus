@@ -323,7 +323,8 @@ class TestPersonalDataFieldCreatePageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "form": FormErrorsMatcher(
-                    is_required=["A checkbox cannot be required."]
+                    is_required=["A checkbox cannot be required."],
+                    __all__=["A checkbox cannot be required."],
                 ),
             },
         )

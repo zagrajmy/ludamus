@@ -1165,23 +1165,15 @@ class OrganizerFieldFormData(TypedDict):
 
 
 class PersonalDataFieldCreateData(OrganizerFieldFormData):
-    # Absent when a field is created for someone else's answers (an import):
-    # nobody is bound by it yet.
-    is_required: NotRequired[bool]
-    order: NotRequired[int]
-
-
-class PersonalDataFieldUpdateData(TypedDict):
-    name: str
-    question: str
-    max_length: int
-    help_text: str
-    is_public: bool
     is_required: bool
     order: int
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
+
+
+class PersonalDataFieldUpdateData(OrganizerFieldFormData):
+    # `field_type` rides along because the form data carries it, but the type
+    # is fixed at creation: the repository reads the stored one.
+    is_required: bool
+    order: int
 
 
 class SessionFieldCreateData(OrganizerFieldFormData):

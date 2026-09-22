@@ -117,14 +117,6 @@ def requirement_fields(
     return [(req.field, req.is_required) for req in requirements]
 
 
-def personal_field_pairs(
-    fields: Sequence[OrganizerFieldDTO], *, own_data: bool
-) -> list[tuple[OrganizerFieldDTO, bool]]:
-    # Who is answering decides what binds: the proposer meets each field's own
-    # flag; anyone recording data on someone else's behalf is never forced.
-    return [(field, own_data and field.is_required) for field in fields]
-
-
 def dynamic_fields_form(
     *,
     prefix: str,

@@ -79,8 +79,9 @@ def read_field_or_redirect[T: _FieldDTO](
 def undeletable_field_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str]:
     """Say why Delete is unavailable, per field.
 
-    `is_used` answers the same question `delete` refuses on. Both field pages
-    render this beside the row instead of taking the click.
+    `is_used` answers the same question `delete` refuses on. The session-field
+    page renders this beside the row instead of taking the click; the
+    personal-data page has its own reason, `answered_field_reasons`.
 
     Returns:
         The sentence for each field a category asks for; missing means

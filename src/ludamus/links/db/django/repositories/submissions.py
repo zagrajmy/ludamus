@@ -52,12 +52,6 @@ from ludamus.pacts.submissions import (
 _FieldType = Literal["text", "select", "checkbox"]
 
 
-def _required_for(*, field_type: str, is_required: bool) -> bool:
-    # A required checkbox would force "yes"; the database constraint refuses
-    # it, so every write normalises before it gets there.
-    return is_required and field_type != "checkbox"
-
-
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
     # Personal-data fields carry no icon, so the DTO's empty default stands.
     return _field_dto(field, icon="", is_required=field.is_required)
@@ -438,10 +432,8 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
             max_length=data["max_length"],
             help_text=data["help_text"],
             is_public=data["is_public"],
-            is_required=_required_for(
-                field_type=field_type, is_required=data.get("is_required", False)
-            ),
-            order=data.get("order", 0),
+            is_required=data["is_required"],
+            order=data["order"],
         )
 
         if field_type == "select" and options:
@@ -515,9 +507,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
-        field.is_required = _required_for(
-            field_type=field.field_type, is_required=data["is_required"]
-        )
+        field.is_required = data["is_required"]
         field.order = data["order"]
         field.is_multiple = (
             data["is_multiple"] if field.field_type == "select" else False
@@ -527,10 +517,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         )
         field.save()
 
-        options = data["options"]
-        if options is not None and field.field_type == "select":
+        # The type is fixed at creation, so `data["field_type"]` is ignored and
+        # the stored one decides whether options mean anything here. Emptying
+        # the box clears them.
+        if field.field_type == "select":
             field.options.all().delete()
-            for order, raw_option in enumerate(options):
+            for order, raw_option in enumerate(data["options"] or []):
                 if option_label := raw_option.strip():
                     PersonalDataFieldOption.objects.create(
                         field=field, label=option_label, value=option_label, order=order

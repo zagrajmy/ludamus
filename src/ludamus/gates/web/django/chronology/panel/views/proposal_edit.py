@@ -27,12 +27,14 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
-    dynamic_fields_form,
     field_descriptors,
     fold_custom_answers,
-    personal_field_pairs,
     requirement_fields,
     unfold_custom_answers,
+)
+from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
+    personal_descriptors,
+    personal_fields_form,
 )
 from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
 from ludamus.pacts import (
@@ -51,7 +53,7 @@ from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable, Sequence
 
     from django import forms
     from django.http import QueryDict
@@ -60,7 +62,6 @@ if TYPE_CHECKING:
         EventDTO,
         FacilitatorDTO,
         FieldDescriptor,
-        FieldValue,
         OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionDTO,
@@ -82,29 +83,6 @@ FacilitatorPersonalData = list[PersonalDataCard]
 
 def _facilitator_prefix(facilitator_id: int) -> str:
     return f"facilitator_{facilitator_id}_personal"
-
-
-def _facilitator_fields_form(
-    *,
-    prefix: str,
-    fields: Sequence[OrganizerFieldDTO],
-    data: QueryDict | None = None,
-    values: Mapping[str, FieldValue] | None = None,
-) -> forms.Form:
-    return dynamic_fields_form(
-        prefix=prefix,
-        fields=personal_field_pairs(fields, own_data=False),
-        data=data,
-        initial=values or {},
-    )
-
-
-def _descriptors(
-    *, prefix: str, fields: Sequence[OrganizerFieldDTO], form: forms.Form
-) -> list[FieldDescriptor]:
-    return field_descriptors(
-        prefix=prefix, fields=personal_field_pairs(fields, own_data=False), form=form
-    )
 
 
 class _HasPk(Protocol):
@@ -456,7 +434,7 @@ class ProposalFormPageView(_ProposalFormBase):
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(
+            form = personal_fields_form(
                 prefix=prefix,
                 fields=fields,
                 values=values_by_facilitator.get(facilitator.pk, {}),
@@ -464,7 +442,9 @@ class ProposalFormPageView(_ProposalFormBase):
             result.append(
                 PersonalDataCard(
                     facilitator=facilitator,
-                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
+                    descriptors=personal_descriptors(
+                        prefix=prefix, fields=fields, form=form
+                    ),
                 )
             )
         return result
@@ -479,13 +459,15 @@ class ProposalFormPageView(_ProposalFormBase):
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(
+            form = personal_fields_form(
                 prefix=prefix, fields=fields, data=self.request.POST
             )
             result.append(
                 PersonalDataCard(
                     facilitator=facilitator,
-                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
+                    descriptors=personal_descriptors(
+                        prefix=prefix, fields=fields, form=form
+                    ),
                     has_errors=not form.is_valid(),
                 )
             )
@@ -505,7 +487,7 @@ class ProposalFormPageView(_ProposalFormBase):
         }
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         return fields, {
-            facilitator_id: _facilitator_fields_form(
+            facilitator_id: personal_fields_form(
                 prefix=_facilitator_prefix(facilitator_id),
                 fields=fields,
                 data=self.request.POST,

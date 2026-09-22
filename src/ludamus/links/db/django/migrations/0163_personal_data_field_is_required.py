@@ -3,6 +3,11 @@
 A field becomes required only when every kind at its event required it; a
 missing row counts as optional, and an event with no kinds keeps every field
 optional. `order` takes the highest order any kind gave the field.
+
+Reversing gives every kind at the event a row carrying the field's own
+`is_required` and `order`. That is the faithful inverse of a transform that
+collapsed per-kind rows into one flag, not a restore: which kinds originally
+asked for a field is exactly what the forward direction threw away.
 """
 
 from django.db import migrations, models
@@ -39,6 +44,29 @@ def backfill_from_requirements(apps, _schema_editor):
         field.save(update_fields=["is_required", "order"])
 
 
+def restore_requirements(apps, _schema_editor):
+    PersonalDataField = apps.get_model("db_main", "PersonalDataField")
+    ProposalCategory = apps.get_model("db_main", "ProposalCategory")
+    PersonalDataFieldRequirement = apps.get_model(
+        "db_main", "PersonalDataFieldRequirement"
+    )
+
+    kinds_per_event = {}
+    for event_id, category_id in ProposalCategory.objects.values_list("event_id", "pk"):
+        kinds_per_event.setdefault(event_id, []).append(category_id)
+
+    PersonalDataFieldRequirement.objects.bulk_create(
+        PersonalDataFieldRequirement(
+            field_id=field.pk,
+            category_id=category_id,
+            is_required=field.is_required,
+            order=field.order,
+        )
+        for field in PersonalDataField.objects.all()
+        for category_id in kinds_per_event.get(field.event_id, ())
+    )
+
+
 class Migration(migrations.Migration):
     dependencies = [("db_main", "0162_rename_session_facilitator_name")]
 
@@ -48,7 +76,7 @@ class Migration(migrations.Migration):
             name="is_required",
             field=models.BooleanField(default=False),
         ),
-        migrations.RunPython(backfill_from_requirements, migrations.RunPython.noop),
+        migrations.RunPython(backfill_from_requirements, restore_requirements),
         migrations.AddConstraint(
             model_name="personaldatafield",
             constraint=models.CheckConstraint(
