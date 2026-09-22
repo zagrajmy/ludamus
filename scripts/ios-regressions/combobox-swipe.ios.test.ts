@@ -161,7 +161,7 @@ beforeAll(async () => {
   console.log(`Host field: ${describeNode(field)}`);
   await tapCentre(rectOf(field, "the host field"), "the host field");
 
-  const before = await waitFor(
+  const opened = await waitFor(
     `The host list's first ${MIN_VISIBLE_ROWS} rows`,
     (snapshot) => {
       const state = listFrom(snapshot, names);
@@ -169,16 +169,29 @@ beforeAll(async () => {
     },
     inset,
   );
-  console.log(`LIST ${describeList(before)}`);
+  console.log(`LIST ${describeList(opened)}`);
   await screenshot("host-list-open");
-  const rows = rowsOnScreen(placed(before.options), before.screen);
-  if (rows.length < MIN_VISIBLE_ROWS) {
+  // The rows are in the tree before they settle: the keyboard animates in
+  // and the placement follows it, so where the list ends up is known only
+  // once it stops moving. Polled for the rows a finger can reach.
+  const last = { state: opened };
+  const before = await pollUntil(
+    async () => {
+      last.state = await readList(names);
+      const reachable = rowsOnScreen(placed(last.state.options), last.state.screen);
+      return reachable.length >= MIN_VISIBLE_ROWS ? last.state : null;
+    },
+    { timeoutMs: WAIT_MS },
+  );
+  if (!before) {
+    const reachable = rowsOnScreen(placed(last.state.options), last.state.screen);
     throw new Error(
-      `Only ${rows.length} of the list's ${before.options.length} rows are on screen, and the ` +
-        `swipe needs ${MIN_VISIBLE_ROWS}: the list opened where a finger cannot reach it. ` +
-        `${describeList(before)}.`,
+      `Only ${reachable.length} of the list's ${last.state.options.length} rows are on screen ` +
+        `after ${WAIT_MS}ms, and the swipe needs ${MIN_VISIBLE_ROWS}: the list opened where a ` +
+        `finger cannot reach it. ${describeList(last.state)}.`,
     );
   }
+  const rows = rowsOnScreen(placed(before.options), before.screen);
   const fromRow = rows[rows.length - 1];
   const toRow = rows[0];
   const from = centreOf(fromRow.rect);
