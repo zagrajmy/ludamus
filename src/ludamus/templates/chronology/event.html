@@ -40,16 +40,16 @@
     <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated) print:mb-4 print:shadow-none print:bg-transparent"
          data-event-hero>
         {% if event.cover_image_url %}
-            {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
-            {# and components/file-dropzone.html draws the width of its "edges" #}
-            {# guide from it. Changing these heights moves the guide people upload #}
-            {# against. #}
-            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl print:hidden"
-                 style="background-image: url('{{ event.cover_image_url }}')"
-                 data-event-cover>
+            {# NOTE: phones show the whole cover at its natural aspect ratio. From #}
+            {# sm upward, this becomes a fixed-height banner and crops vertically. #}
+            <div class="relative sm:h-72 print:hidden" data-event-cover>
+                {% blocktranslate with event_name=event.name asvar event_cover_alt %}Cover image for {{ event_name }}{% endblocktranslate %}
+                <img src="{{ event.cover_image_url }}"
+                     alt="{{ event_cover_alt }}"
+                     class="block h-auto w-full sm:h-full sm:rounded-t-3xl sm:object-cover">
                 {# On the gutter the body below keeps. #}
-                <div class="absolute top-4 right-4 sm:top-8 sm:right-8">
-                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True only %}
+                <div class="absolute right-4 sm:right-8 {% if event.sphere.event_cover_buttons_at_bottom %}bottom-4 sm:bottom-8{% else %}top-4 sm:top-8{% endif %}">
+                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True horizontal=event.sphere.event_cover_buttons_at_bottom only %}
                 </div>
             </div>
         {% endif %}
@@ -235,7 +235,8 @@
                 class="modal p-0"
                 aria-labelledby="anonymousCodeModal-title">
             <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-                <h3 id="anonymousCodeModal-title" class="font-semibold text-foreground">{% translate "Enter Different Code" %}</h3>
+                <h3 id="anonymousCodeModal-title"
+                    class="font-semibold text-foreground">{% translate "Enter Different Code" %}</h3>
                 <button type="button"
                         data-modal-close="anonymousCodeModal"
                         class="p-1 rounded-lg hover:opacity-70 text-foreground-muted"
@@ -348,7 +349,8 @@
                                         {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
                                     </div>
                                     <div class="flex flex-col gap-1.5">
-                                        <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="status-filter">{% translate "Status" %}</label>
                                         {% select id="status-filter" class=select_class %}
                                             <option value="">{% translate "All statuses" %}</option>
                                             <option value="available">{% translate "Available spots" %}</option>
@@ -375,7 +377,8 @@
                                     <div id="space-filter-group"
                                          data-all-rooms-label="{{ t_all_rooms }}"
                                          class="flex flex-col gap-1.5 hidden">
-                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="space-filter">{% translate "Location" %}</label>
                                         {% translate "Search locations…" as t_location_search %}
                                         {% tessera_combobox id="space-filter" multiple=True placeholder=t_location_search %}
                                         {% endtessera_combobox %}
@@ -388,11 +391,13 @@
                                     {# what people share links for. #}
                                     <div class="flex gap-3">
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="age-filter">{% translate "Participant age" %}</label>
                                             {% include "components/text-field.html" with name="age" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
                                         </div>
                                         <div id="min-age-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="min-age-filter">{% translate "Age from" %}</label>
                                             {% select id="min-age-filter" name="age-min" class=select_class %}
                                                 <option value="">{% translate "Any age" %}</option>
                                             {% endselect %}
@@ -400,13 +405,15 @@
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                         <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="day-filter">{% translate "Day" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="day-filter">{% translate "Day" %}</label>
                                             {% select id="day-filter" class=select_class %}
                                                 <option value="">{% translate "All days" %}</option>
                                             {% endselect %}
                                         </div>
                                         <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="{{ label_class }}" for="hour-filter">{% translate "Hour" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="hour-filter">{% translate "Hour" %}</label>
                                             {% select id="hour-filter" class=select_class %}
                                                 <option value="">{% translate "All hours" %}</option>
                                             {% endselect %}
@@ -414,7 +421,8 @@
                                     </div>
                                     {% if track_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="tag-filter-__track">{% translate "Track" %}</label>
                                             {% translate "Search tracks…" as t_track_search %}
                                             {% tessera_combobox id="tag-filter-__track" multiple=True placeholder=t_track_search data_category="__track" %}
                                                 {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -423,7 +431,8 @@
                                     {% endif %}
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
+                                            <label class="{{ label_class }}"
+                                                   for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
                                             {% translate "Search categories…" context "participant filter" as t_category_search %}
                                             {% tessera_combobox id="tag-filter-__category" multiple=True placeholder=t_category_search data_category="__category" %}
                                                 {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -433,7 +442,8 @@
                                     <div id="tag-filters" class="contents">
                                         {% for field in filterable_tag_categories %}
                                             <div class="flex flex-col gap-1.5 grow">
-                                                <label class="{{ label_class }}" for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
+                                                <label class="{{ label_class }}"
+                                                       for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
                                                 {% select id="tag-filter-"|add:field.slug data_category=field.slug class=select_class|add:" tag-filter" %}
                                                     <option value="">{% translate "All" %} {{ field.name }}</option>
                                                     {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
@@ -449,7 +459,8 @@
                                     {# between, so the control stays hidden. Search keeps #}
                                     {# a long multiple-choice list manageable. #}
                                     <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
+                                        <label class="{{ label_class }}"
+                                               for="host-filter">{% translate "Host" %}</label>
                                         {% translate "Search hosts…" as t_host_search %}
                                         {% translate "No host matches your search." as t_host_empty %}
                                         {% translate "Show hosts" as t_host_toggle %}
@@ -553,15 +564,9 @@
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8 print:hidden">
-        {% if "events" in current_sphere.enabled_pages %}
-            <a href="{% url 'web:events' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
-            </a>
-        {% else %}
-            <a href="{% url 'web:timeline' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Timeline" %}
-            </a>
-        {% endif %}
+        <a href="{% url 'web:index' %}" class="btn btn-secondary">
+            {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
+        </a>
     </div>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts). File→Print and the toolbar cannot be intercepted, so #}

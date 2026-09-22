@@ -31,7 +31,8 @@
             <span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
             <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span>
         </p>
-        {% if has_errors %}<p data-dropzone-error class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
+        {% if has_errors %}<p data-dropzone-error
+   class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
     </div>
     <div data-dropzone-selected
          class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-lg group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
@@ -51,20 +52,13 @@
                 {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
                 {# down for slack. `crop` says which way the image is cut; the box below #}
                 {# is the safe zone that leaves, hence data-dropzone-safe-zone. #}
-                {# Both crops lose the same height to the same box: a cover in a card #}
-                {# strip is h-40 at a fluid width, 967/160 = 6.0 one column below lg, #}
-                {# keeping 29% (chronology/_session_card.html, and #}
-                {# chronology/enroll_select.html, which falls back to the event's cover #}
-                {# when a session has none — so an "edges" upload lands here too). #}
-                {# They differ in width: "edges" also meets the full-bleed event banner #}
-                {# (chronology/event.html), 288/224 = 1.29 on a phone, keeping 72%; #}
-                {# "top-and-bottom" meets no banner and loses only what a 320px phone #}
-                {# card costs it, 280/160 = 1.75, keeping 98%. Every other surface sits #}
-                {# between those two shapes — the banner on desktop (1216/288 = 4.2, #}
-                {# keeping 42% of the height), event and encounter cards (599/128 = 4.7 #}
-                {# one column below sm), notice_board/detail.html (2:1) and #}
-                {# panel/proposal-detail.html (16:9) — deeper than the strip and #}
-                {# shallower than the phone banner, so none of them binds. #}
+                {# Both guides lose the same height to the widest card strip, which is #}
+                {# h-40 at a fluid width (chronology/_session_card.html and #}
+                {# chronology/enroll_select.html). "top-and-bottom" keeps almost all #}
+                {# of the width. "edges" also reserves the sides for narrow banners. #}
+                {# The event hero uses the top-and-bottom guide: its phone cover keeps #}
+                {# its natural ratio, while its desktop banner and card fallbacks crop #}
+                {# vertically. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
                      class="pointer-events-none absolute inset-y-[36%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%]{% else %}inset-x-[2%]{% endif %}">

@@ -8,6 +8,14 @@ jobs = 8
 # resolve yet and its self-install can leave a broken .aube store (bit the
 # macOS CI runner on aube 1.32.0), so mise's npm backend uses plain npm.
 npm.package_manager = "npm"
+# The default 3 retries back off ~200ms/1s/4s — under five seconds all told,
+# which covers a blip rather than an outage: consecutive 504s from the GitHub
+# release host outlasted all of them and cost a CI run that had installed
+# neither python nor poetry. The schedule then repeats 15s, so 12 retries wait
+# under two and a half minutes on one URL. A DNS failure is never retried and
+# neither is a deterministic status, so an offline laptop and a bad version pin
+# both still fail on the first attempt.
+http_retries = 12
 
 [hooks]
 enter = "poetry install"
@@ -20,16 +28,16 @@ enter = "poetry install"
 # binary).
 [tools]
 python = "3.14"
-node = "26.7.0"
-"pipx:poetry" = "2.4.1"
+node = "26.8.1"
+"pipx:poetry" = "2.4.3"
 "npm:frog" = "1.1.0"
-"npm:@ast-grep/cli" = { version = "0.45.1", npm_args = "--ignore-scripts=false" }
+"npm:@ast-grep/cli" = { version = "0.45.3", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.23.2"
 # Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
 # which skips .npmrc's min-release-age cooldown and picked up the broken
 # 1.32.0 the day it shipped.
-"npm:@endevco/aube" = { version = "1.41.0", npm_args = "--ignore-scripts=false" }
-hk = "1.56.0"
+"npm:@endevco/aube" = { version = "2.2.4", npm_args = "--ignore-scripts=false" }
+hk = "1.58.1"
 actionlint = "1.7.12"
 # `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
 # wrappers that append a packaging revision to the upstream version
@@ -38,9 +46,9 @@ actionlint = "1.7.12"
 # against the registry and picks the wrapper. On GitHub-release backends the
 # prefix matches the exact version, so laptops keep installing 0.11.0/2.14.0.
 shellcheck = "prefix:0.11.0"
-hadolint = "prefix:2.14.0"
+hadolint = "prefix:2.15.1"
 "github:reteps/dockerfmt" = "0.5.4"
-pipx = "1.16.7"
+pipx = "1.17.2"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -118,7 +126,11 @@ depends = [
 
 [tasks.update]
 description = "Update all dependencies: mise tools, pip, Poetry packages"
-run = [{ task = "dep:upgrade:py" }]
+run = [
+    "mise upgrade --bump --exclude python --minimum-release-age=7d",
+    "mise install",
+    { task = "dep:upgrade:py" },
+]
 
 ## Tests
 

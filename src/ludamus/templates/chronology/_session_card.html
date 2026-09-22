@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load cfp_tags %}
+{% load schedule_tags %}
 {% load tessera %}
 <article class="h-full min-w-0 print:break-inside-avoid" data-session-wrapper>
     {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
@@ -13,7 +14,7 @@
     {# author's proposal card has no link yet (#906), and a card that lifts #}
     {# under the cursor and then does nothing is a worse lie than a flat one. #}
     <div class="session relative flex h-full w-full flex-col rounded-2xl border duration-100 ring-offset-background ring-offset-[.5px] bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if not data.is_unscheduled or proposal_url %}hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01]{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
-         {% include "chronology/_session_data_attrs.html" %}>
+         {% session_data_attrs data %}>
         {% if data.is_unscheduled %}
             {# proposal_url is the page that acts on the proposal: the review #}
             {# screen, for an organizer. Guarded because the author's own card #}
@@ -71,7 +72,7 @@
                                   role="img"
                                   aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
                                 {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
-                                    {% if p.status == 'confirmed' %}
+                                    {% if p.status == "confirmed" %}
                                         {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=p.is_shadowbanned %}
                                     {% endif %}
                                 {% endfor %}
@@ -120,7 +121,7 @@
                         {# no arm, while a proposal leaves the ladder first, so #}
                         {# only this arm can say it. "0 seats" would read as full. #}
                         {% if data.session.participants_limit %}
-                            {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
+                            {% session_seat_count data extra_class="text-sm" %}
                         {% endif %}
                     {% elif data.availability == "full" %}
                         {% if data.waiting_count > 0 %}
@@ -135,7 +136,7 @@
                     {% elif data.availability == "in-progress" %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
-                        {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
+                        {% session_seat_count data extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>

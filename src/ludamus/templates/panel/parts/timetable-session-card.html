@@ -38,7 +38,8 @@
             {{ tone.icon }}
             {% if pos.agenda_item.session_confirmed %}
                 {% translate "Confirmed" as t_confirmed %}
-                <span aria-label="{{ t_confirmed }}" title="{{ t_confirmed }}">{% icon "lock-closed" variant="mini" class="w-3 h-3 inline" %}</span>
+                <span aria-label="{{ t_confirmed }}"
+                      title="{{ t_confirmed }}">{% icon "lock-closed" variant="mini" class="w-3 h-3 inline" %}</span>
             {% endif %}
             {{ pos.agenda_item.session_title|truncatechars:256 }}
         </div>

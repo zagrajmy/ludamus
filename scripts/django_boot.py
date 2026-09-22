@@ -14,6 +14,5 @@ def boot_django() -> None:
     if (src := str(REPO_ROOT / "src")) not in sys.path:
         sys.path.insert(0, src)
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ludamus.edges.settings")
-    apps = import_module("django.apps").apps
-    if not apps.ready:
+    if not import_module("django.apps").apps.ready:
         import_module("django").setup()

@@ -27,6 +27,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
   resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
   publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
+- No redundant migrations: if something can be done with a settings toggle or a
+  single MCP call, it does not require a migration.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
@@ -71,9 +73,10 @@ GLIMPSE layers, bottom to top: `pacts` (protocols, DTOs, errors), `mills`
 `pacts` and is imported only by `mills`. `edges` (settings, wsgi) stay
 outside the import graph. `adapters/` is legacy.
 
-Before writing backend code in these layers, load the `glimpse` skill
-(`.claude/skills/glimpse/`). It has the import rules, file layout, slicing
-vocabulary, and patterns. The map of this codebase (nouns, pages, models,
+Before writing backend code in these layers, load the `glimpse` skill. It is
+the `glimpse@glimpse` plugin; install steps in
+[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md). It has the import rules, file layout,
+slicing vocabulary, and patterns. The map of this codebase (nouns, pages, models,
 wiring examples) is in [docs/agents/architecture.md](docs/agents/architecture.md).
 
 Access data: views call `request.services.<service_name>.<method>(...)` and get
@@ -141,8 +144,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 
 - [Architecture](docs/agents/architecture.md) — codebase map: nouns, pages,
   models, service wiring
-- [GLIMPSE skill](.claude/skills/glimpse/SKILL.md) — layer, layout, and
-  slicing rules
+- [GLIMPSE skill](https://github.com/fancysnake/glimpse-architecture) — layer,
+  layout, and slicing rules (plugin `glimpse@glimpse`)
 - [Services migration](docs/agents/services-migration.md) — per-file recipe for
   moving views from `request.di.uow` to `request.services`
 - [Testing assertions](docs/agents/testing-assertions.md) — patterns for
