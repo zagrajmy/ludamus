@@ -1,6 +1,6 @@
 import type { SnapshotNode } from "agent-device";
 
-import { labelOf, type Placed } from "./snapshot";
+import { centreOnScreen, labelOf, type Placed, type Rect } from "./snapshot";
 
 // A row is 36pt; a swipe that lands moves the list by several. Under this the
 // finger did not scroll the list, and the run measured nothing.
@@ -21,11 +21,12 @@ export const optionNodes = (
   });
 };
 
-// The rows the list shows, top to bottom. It renders rows past both edges of
-// its box as scroll slack, and the ones above the box sit over the input,
-// clipped.
-export const rowsBelow = (rows: readonly Placed[], top: number): Placed[] =>
-  rows.filter((row) => row.rect.y >= top).sort((a, b) => a.rect.y - b.rect.y);
+// The rows a finger can reach, top to bottom. The list renders rows past both
+// edges of its box as scroll slack, an on-screen keyboard can flip the box
+// above the field, and a row the device reports beyond the screen is one a
+// gesture cannot land on; what is drawn on screen is all a swipe can use.
+export const rowsOnScreen = (rows: readonly Placed[], screen: Rect): Placed[] =>
+  rows.filter((row) => centreOnScreen(row.rect, screen)).sort((a, b) => a.rect.y - b.rect.y);
 
 const FIELD_TYPE = /field/i;
 
@@ -96,7 +97,7 @@ export const listSwipeVerdict = (reading: ListSwipeReading): string | null => {
     );
   }
   if (tapped === null) {
-    return `After the swipe no row was below the field to tap, so the tap could not be checked.`;
+    return `After the swipe no row was on screen to tap, so the tap could not be checked.`;
   }
   if (valueAfterTap !== tapped) {
     return (

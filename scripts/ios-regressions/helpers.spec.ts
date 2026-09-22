@@ -10,7 +10,7 @@ import {
   listSwipeVerdict,
   MIN_LIST_SCROLL_PT,
   optionNodes,
-  rowsBelow,
+  rowsOnScreen,
 } from "./list-swipe";
 import { decodeEntities, namesFrom } from "./page";
 import {
@@ -392,10 +392,16 @@ describe("optionNodes", () => {
   });
 });
 
-describe("rowsBelow", () => {
-  test("keeps the rows from the given edge down, top to bottom", () => {
-    const rows = placed([at("Host 003", 160), at("Host 001", 80), at("Host 002", 120)]);
-    expect(rowsBelow(rows, 120).map((row) => row.label)).toEqual(["Host 002", "Host 003"]);
+describe("rowsOnScreen", () => {
+  test("keeps the rows drawn inside the screen, clear of its chrome, top to bottom", () => {
+    const rows = placed([
+      at("Host 004", 960),
+      at("Host 002", 400),
+      at("Host 001", 300),
+      at("Host 003", 800),
+      at("Host 000", 60),
+    ]);
+    expect(rowsOnScreen(rows, screen).map((row) => row.label)).toEqual(["Host 001", "Host 002"]);
   });
 });
 
@@ -461,7 +467,7 @@ describe("listSwipeVerdict", () => {
     const verdict = listSwipeVerdict({ ...measured, valueAfterTap: "Search hosts…" });
     expect(verdict).toMatch(/^A tap on "Host 004" no longer picks it/);
     expect(listSwipeVerdict({ ...measured, tapped: null, valueAfterTap: null })).toMatch(
-      /no row was below the field/,
+      /no row was on screen/,
     );
   });
 });

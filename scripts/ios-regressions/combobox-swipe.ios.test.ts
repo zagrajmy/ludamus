@@ -3,7 +3,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import { createIosHarness, hookTimeoutMs, resolveEventUrl, sessionName } from "./harness";
-import { fieldNamed, listSwipeVerdict, optionNodes, rowsBelow } from "./list-swipe";
+import { fieldNamed, listSwipeVerdict, optionNodes, rowsOnScreen } from "./list-swipe";
 import { fetchReadyPage, namesFrom } from "./page";
 import {
   centreOf,
@@ -32,25 +32,26 @@ const FILTERS_LABEL = "Filters";
 const HOST_FIELD_LABEL = "Host";
 const CARD_HOSTS = /data-host="([^"]*)"/g;
 
-// A swipe from the fifth row to the second: long enough that the runner
-// cannot deliver it as a tap, and inside the six-row box the list shows, so
-// the list takes it rather than the sheet behind it.
-const SWIPE_FROM_ROW = 4;
-const SWIPE_TO_ROW = 1;
+// The swipe runs from the lowest row on screen to the highest, so it is as
+// long as the box allows and never leaves it; three rows is the least worth
+// swiping through. The list may sit above the field or below it: with the
+// keyboard up there is rarely room below, and the placement flips.
+const MIN_VISIBLE_ROWS = 3;
 const SWIPE_DURATION_MS = 250;
-// After the swipe the rendered window has moved; the third row below the
-// field is inside the box whatever the overscan above it rendered.
-const TAP_ROW = 2;
-const MIN_ROWS = SWIPE_FROM_ROW + 1;
 const SETTLE_MS = 800;
 const WAIT_MS = 15_000;
 const LABELS_IN_ERROR = 30;
+const KEYBOARD = /keyboard/i;
+const shotsDir = `${process.env.RUNNER_TEMP ?? "/tmp"}/ios-shots`;
 
 const { client, deviceOptions, takeSnapshot, close, wait, openUrl, prepareDevice } =
   createIosHarness(session);
 
 const describeTree = (nodes: readonly SnapshotNode[]): string =>
   nodes.slice(0, LABELS_IN_ERROR).map(describeNode).join(" | ") || "none";
+
+const describeRows = (rows: readonly Placed[]): string =>
+  JSON.stringify(rows.map((row) => `${row.label}@${Math.round(row.rect.y)}`));
 
 const rectOf = (node: SnapshotNode, what: string): Rect => {
   if (!node.rect) throw new Error(`${what} has no rect to tap: ${describeNode(node)}`);
@@ -63,6 +64,16 @@ const tapCentre = async (rect: Rect, what: string): Promise<void> => {
   await client.interactions.click({ ...deviceOptions, x, y });
 };
 
+// NOTE: collected by mobile.yml's artifact upload, for a person to open.
+const screenshot = async (name: string): Promise<void> => {
+  const shot = await client.capture.screenshot({
+    ...deviceOptions,
+    path: `${shotsDir}/${name}.png`,
+    maxSize: 900,
+  });
+  console.log(`Screenshot ${name}: ${shot.path}`);
+};
+
 // Polled, not slept: the sheet and the list both animate in, and a snapshot
 // taken mid-way reads what is about to be there as missing. A snapshot taken
 // while Safari is still settling throws; that is a state to wait out, not to
@@ -70,7 +81,7 @@ const tapCentre = async (rect: Rect, what: string): Promise<void> => {
 // that cap before the sheet begins, so a wait names the nodes worth dumping.
 const waitFor = async <T>(
   what: string,
-  probe: (nodes: readonly SnapshotNode[]) => T | null,
+  probe: (snapshot: CaptureSnapshotResult) => T | null,
   relevant: (node: SnapshotNode, screen: Rect) => boolean = () => true,
 ): Promise<T> => {
   const last: { snapshot: CaptureSnapshotResult | null } = { snapshot: null };
@@ -82,7 +93,7 @@ const waitFor = async <T>(
         console.warn("Snapshot failed while the page was settling; retrying.", error);
         return null;
       }
-      return probe(last.snapshot.nodes);
+      return probe(last.snapshot);
     },
     { timeoutMs: WAIT_MS },
   );
@@ -99,29 +110,36 @@ const inset = (node: SnapshotNode, screen: Rect): boolean =>
   node.rect.y > screen.y &&
   node.rect.y + node.rect.height <= screen.y + screen.height;
 
-const below =
-  (top: number) =>
-  (node: SnapshotNode): boolean =>
-    (node.rect?.y ?? -1) >= top;
+type ListState = {
+  screen: Rect;
+  options: SnapshotNode[];
+  value: string;
+  keyboard: boolean;
+};
 
-type ListState = { options: SnapshotNode[]; value: string };
-
-const listFrom = (nodes: readonly SnapshotNode[], names: ReadonlySet<string>): ListState => ({
-  options: optionNodes(nodes, names),
-  value: fieldNamed(nodes, HOST_FIELD_LABEL)?.value ?? "",
+const listFrom = (snapshot: CaptureSnapshotResult, names: ReadonlySet<string>): ListState => ({
+  screen: viewportOf(snapshot),
+  options: optionNodes(snapshot.nodes, names),
+  value: fieldNamed(snapshot.nodes, HOST_FIELD_LABEL)?.value ?? "",
+  keyboard: snapshot.nodes.some((node) => KEYBOARD.test(`${node.type ?? ""} ${labelOf(node)}`)),
 });
 
 const readList = async (names: ReadonlySet<string>): Promise<ListState> =>
-  listFrom((await takeSnapshot()).nodes, names);
+  listFrom(await takeSnapshot(), names);
+
+const describeList = (state: ListState): string =>
+  `screen=${Math.round(state.screen.width)}x${Math.round(state.screen.height)} ` +
+  `keyboard=${String(state.keyboard)} value=${JSON.stringify(state.value)} ` +
+  `rows=${describeRows(placed(state.options).sort((a, b) => a.rect.y - b.rect.y))}`;
 
 let issue: string | null = null;
 
 beforeAll(async () => {
   const html = await fetchReadyPage(eventUrl, 'data-host="');
   const names = namesFrom(html, CARD_HOSTS);
-  if (names.size < MIN_ROWS) {
+  if (names.size < MIN_VISIBLE_ROWS) {
     throw new Error(
-      `${eventUrl.toString()} rendered ${names.size} hosts; the spec needs at least ${MIN_ROWS} to scroll through.`,
+      `${eventUrl.toString()} rendered ${names.size} hosts; the spec needs at least ${MIN_VISIBLE_ROWS} to scroll through.`,
     );
   }
   await prepareDevice();
@@ -131,37 +149,38 @@ beforeAll(async () => {
 
   const filters = await waitFor(
     `The ${JSON.stringify(FILTERS_LABEL)} button`,
-    (nodes) => nodes.find((node) => labelOf(node) === FILTERS_LABEL) ?? null,
+    (snapshot) => snapshot.nodes.find((node) => labelOf(node) === FILTERS_LABEL) ?? null,
   );
   await tapCentre(rectOf(filters, "the Filters button"), "the Filters button");
 
   const field = await waitFor(
     `The ${JSON.stringify(HOST_FIELD_LABEL)} field`,
-    (nodes) => fieldNamed(nodes, HOST_FIELD_LABEL),
+    (snapshot) => fieldNamed(snapshot.nodes, HOST_FIELD_LABEL),
     inset,
   );
   console.log(`Host field: ${describeNode(field)}`);
-  const fieldRect = rectOf(field, "the host field");
-  await tapCentre(fieldRect, "the host field");
-  const fieldBottom = fieldRect.y + fieldRect.height;
+  await tapCentre(rectOf(field, "the host field"), "the host field");
 
   const before = await waitFor(
-    `The host list's first ${MIN_ROWS} rows`,
-    (nodes) => {
-      const state = listFrom(nodes, names);
-      return state.options.length >= MIN_ROWS ? state : null;
+    `The host list's first ${MIN_VISIBLE_ROWS} rows`,
+    (snapshot) => {
+      const state = listFrom(snapshot, names);
+      return state.options.length >= MIN_VISIBLE_ROWS ? state : null;
     },
-    below(fieldBottom),
+    inset,
   );
-  const rows = rowsBelow(placed(before.options), fieldBottom);
-  if (rows.length < MIN_ROWS) {
+  console.log(`LIST ${describeList(before)}`);
+  await screenshot("host-list-open");
+  const rows = rowsOnScreen(placed(before.options), before.screen);
+  if (rows.length < MIN_VISIBLE_ROWS) {
     throw new Error(
-      `Only ${rows.length} rows sit below the field (y=${Math.round(fieldBottom)}); the swipe ` +
-        `needs ${MIN_ROWS}. Rows: ${JSON.stringify(rows.map((row) => `${row.label}@${Math.round(row.rect.y)}`))}.`,
+      `Only ${rows.length} of the list's ${before.options.length} rows are on screen, and the ` +
+        `swipe needs ${MIN_VISIBLE_ROWS}: the list opened where a finger cannot reach it. ` +
+        `${describeList(before)}.`,
     );
   }
-  const fromRow = rows[SWIPE_FROM_ROW];
-  const toRow = rows[SWIPE_TO_ROW];
+  const fromRow = rows[rows.length - 1];
+  const toRow = rows[0];
   const from = centreOf(fromRow.rect);
   const to = centreOf(toRow.rect);
   console.log(
@@ -170,36 +189,25 @@ beforeAll(async () => {
   );
   await client.interactions.swipe({ ...deviceOptions, from, to, durationMs: SWIPE_DURATION_MS });
   await wait(SETTLE_MS);
-
-  // NOTE: collected by mobile.yml's artifact upload, for a person to open.
-  const shot = await client.capture.screenshot({
-    ...deviceOptions,
-    path: `${process.env.RUNNER_TEMP ?? "/tmp"}/ios-shots/host-list-after-swipe.png`,
-    maxSize: 900,
-  });
-  console.log(`Screenshot after the swipe: ${shot.path}`);
+  await screenshot("host-list-after-swipe");
 
   const after = await readList(names);
   const shift = medianShift(before.options, after.options);
   console.log(
-    `SWIPE rowsBefore=${before.options.length} rowsAfter=${after.options.length} ` +
-      `travelled=${shift === null ? "?" : Math.round(shift)}pt ` +
-      `value=${JSON.stringify(before.value)} -> ${JSON.stringify(after.value)}`,
+    `SWIPE travelled=${shift === null ? "?" : Math.round(shift)}pt ${describeList(after)}`,
   );
 
   let tapped: Placed | null = null;
   let valueAfterTap: string | null = null;
-  const target = rowsBelow(placed(after.options), fieldBottom)[TAP_ROW] ?? null;
+  const visible = rowsOnScreen(placed(after.options), after.screen);
+  const target = visible[Math.floor(visible.length / 2)] ?? null;
   if (after.value === before.value && target) {
     tapped = target;
     await tapCentre(target.rect, JSON.stringify(target.label));
     await wait(SETTLE_MS);
     const picked = await readList(names);
     valueAfterTap = picked.value;
-    console.log(
-      `TAP value=${JSON.stringify(valueAfterTap)} rowsLeft=${picked.options.length} ` +
-        `(a touch pick closes the list)`,
-    );
+    console.log(`TAP ${describeList(picked)} (a touch pick closes the list)`);
   }
 
   issue = listSwipeVerdict({
