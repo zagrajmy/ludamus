@@ -11,9 +11,8 @@ import {
   MIN_LIST_SCROLL_PT,
   optionNodes,
   rowsBelow,
-  rowsOf,
 } from "./list-swipe";
-import { decodeEntities } from "./page";
+import { decodeEntities, namesFrom } from "./page";
 import {
   ABOVE_TOLERANCE_PT,
   MIN_SCROLL_PT,
@@ -29,6 +28,7 @@ import {
   lowestNodes,
   matchesScopeLabel,
   medianShift,
+  placed,
   pollUntil,
   scrollBars,
   scrollerViewport,
@@ -369,15 +369,22 @@ describe("pageEndVerdict", () => {
   });
 });
 
+describe("namesFrom", () => {
+  test("collects the captured names, decoded and collapsed", () => {
+    const html = '<a data-host="Ann  &amp; Bo"></a><a data-host="Cy"></a><a data-host=""></a>';
+    expect(namesFrom(html, /data-host="([^"]*)"/g)).toEqual(new Set(["Ann & Bo", "Cy"]));
+  });
+});
+
 describe("optionNodes", () => {
   const hosts = new Set(["Host 001", "Host 002", "Host 003"]);
 
-  test("keeps the named rows in top-to-bottom order, one per name", () => {
+  test("keeps the named rows, one per name", () => {
     const nodes = optionNodes(
       [at("Host 003", 300), at("Search hosts…", 100), at("Host 001", 200), at("Host 001", 200)],
       hosts,
     );
-    expect(nodes.map(labelOf)).toEqual(["Host 001", "Host 003"]);
+    expect(nodes.map(labelOf)).toEqual(["Host 003", "Host 001"]);
   });
 
   test("drops a row without a rect, which nothing could swipe from", () => {
@@ -386,8 +393,8 @@ describe("optionNodes", () => {
 });
 
 describe("rowsBelow", () => {
-  test("keeps the rows from the given edge down", () => {
-    const rows = rowsOf([at("Host 001", 80), at("Host 002", 120), at("Host 003", 160)]);
+  test("keeps the rows from the given edge down, top to bottom", () => {
+    const rows = placed([at("Host 003", 160), at("Host 001", 80), at("Host 002", 120)]);
     expect(rowsBelow(rows, 120).map((row) => row.label)).toEqual(["Host 002", "Host 003"]);
   });
 });

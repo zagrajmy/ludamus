@@ -3,17 +3,18 @@ import type { SnapshotNode } from "agent-device";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import { createIosHarness, hookTimeoutMs, resolveEventUrl, sessionName } from "./harness";
+import { fieldNamed, listSwipeVerdict, optionNodes, rowsBelow } from "./list-swipe";
+import { fetchReadyPage, namesFrom } from "./page";
 import {
   centreOf,
-  fieldNamed,
-  listSwipeVerdict,
-  optionNodes,
-  type Row,
-  rowsBelow,
-  rowsOf,
-} from "./list-swipe";
-import { decodeEntities, fetchReadyPage } from "./page";
-import { collapse, describeNode, labelOf, medianShift, pollUntil } from "./snapshot";
+  describeNode,
+  labelOf,
+  medianShift,
+  type Placed,
+  placed,
+  pollUntil,
+  type Rect,
+} from "./snapshot";
 
 // The reported symptom: on an iPhone the host list could not be scrolled,
 // because every swipe began with a finger on a row and picked it. Swipe
@@ -41,85 +42,66 @@ const SWIPE_DURATION_MS = 250;
 const TAP_ROW = 2;
 const MIN_ROWS = SWIPE_FROM_ROW + 1;
 const SETTLE_MS = 800;
+const WAIT_MS = 15_000;
 const LABELS_IN_ERROR = 30;
 
 const { client, deviceOptions, takeSnapshot, close, wait, openUrl, prepareDevice } =
   createIosHarness(session);
 
-const hostNames = (html: string): Set<string> =>
-  new Set(
-    [...html.matchAll(CARD_HOSTS)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
-  );
-
 const describeTree = (nodes: readonly SnapshotNode[]): string =>
   nodes.slice(0, LABELS_IN_ERROR).map(describeNode).join(" | ") || "none";
 
-const nodeLabelled = (nodes: readonly SnapshotNode[], label: string): SnapshotNode | null =>
-  nodes.find((node) => labelOf(node) === label) ?? null;
-
-const tapCentre = async (node: SnapshotNode, what: string): Promise<void> => {
+const rectOf = (node: SnapshotNode, what: string): Rect => {
   if (!node.rect) throw new Error(`${what} has no rect to tap: ${describeNode(node)}`);
-  const { x, y } = centreOf(node.rect);
+  return node.rect;
+};
+
+const tapCentre = async (rect: Rect, what: string): Promise<void> => {
+  const { x, y } = centreOf(rect);
   console.log(`Tapping ${what} at x=${Math.round(x)} y=${Math.round(y)}...`);
   await client.interactions.click({ ...deviceOptions, x, y });
 };
 
 // Polled, not slept: the sheet and the list both animate in, and a snapshot
-// taken mid-way reads what is about to be there as missing.
-const waitForNode = async (
-  timeoutMs: number,
+// taken mid-way reads what is about to be there as missing. A snapshot taken
+// while Safari is still settling throws; that is a state to wait out, not to
+// end the run on.
+const waitFor = async <T>(
   what: string,
-  find: (nodes: readonly SnapshotNode[]) => SnapshotNode | null,
-): Promise<SnapshotNode> => {
+  probe: (nodes: readonly SnapshotNode[]) => T | null,
+): Promise<T> => {
   let last: readonly SnapshotNode[] = [];
   const found = await pollUntil(
     async () => {
       try {
         last = (await takeSnapshot()).nodes;
-        return find(last);
       } catch (error) {
         console.warn("Snapshot failed while the page was settling; retrying.", error);
         return null;
       }
+      return probe(last);
     },
-    { timeoutMs },
+    { timeoutMs: WAIT_MS },
   );
-  if (found) return found;
-  throw new Error(`${what} did not appear in ${timeoutMs}ms. Nodes: ${describeTree(last)}.`);
+  if (found !== null) return found;
+  throw new Error(`${what} did not appear in ${WAIT_MS}ms. Nodes: ${describeTree(last)}.`);
 };
 
-type ListState = { nodes: readonly SnapshotNode[]; options: SnapshotNode[]; value: string };
+type ListState = { options: SnapshotNode[]; value: string };
 
-const readList = async (names: ReadonlySet<string>): Promise<ListState> => {
-  const nodes = (await takeSnapshot()).nodes;
-  const field = fieldNamed(nodes, HOST_FIELD_LABEL);
-  return { nodes, options: optionNodes(nodes, names), value: field?.value ?? "" };
-};
+const listFrom = (nodes: readonly SnapshotNode[], names: ReadonlySet<string>): ListState => ({
+  options: optionNodes(nodes, names),
+  value: fieldNamed(nodes, HOST_FIELD_LABEL)?.value ?? "",
+});
 
-const waitForRows = async (timeoutMs: number, names: ReadonlySet<string>): Promise<ListState> => {
-  let seen = 0;
-  let nodes: readonly SnapshotNode[] = [];
-  const ready = await pollUntil(
-    async () => {
-      const state = await readList(names);
-      seen = state.options.length;
-      nodes = state.nodes;
-      return seen >= MIN_ROWS ? state : null;
-    },
-    { timeoutMs },
-  );
-  if (ready) return ready;
-  throw new Error(
-    `The host list did not show ${MIN_ROWS} rows in ${timeoutMs}ms; saw ${seen} of ` +
-      `${names.size} host names. Nodes: ${describeTree(nodes)}.`,
-  );
-};
+const readList = async (names: ReadonlySet<string>): Promise<ListState> =>
+  listFrom((await takeSnapshot()).nodes, names);
 
 let issue: string | null = null;
 
 beforeAll(async () => {
   const html = await fetchReadyPage(eventUrl, 'data-host="');
-  const names = hostNames(html);
+  const names = namesFrom(html, CARD_HOSTS);
   if (names.size < MIN_ROWS) {
     throw new Error(
       `${eventUrl.toString()} rendered ${names.size} hosts; the spec needs at least ${MIN_ROWS} to scroll through.`,
@@ -130,23 +112,27 @@ beforeAll(async () => {
   console.log(`Opening Safari at ${eventUrl.toString()}...`);
   await openUrl(eventUrl.toString(), { expectedLabels: [FILTERS_LABEL], scope: FILTERS_LABEL });
 
-  const filters = await waitForNode(
-    15_000,
+  const filters = await waitFor(
     `The ${JSON.stringify(FILTERS_LABEL)} button`,
-    (nodes) => nodeLabelled(nodes, FILTERS_LABEL),
+    (nodes) => nodes.find((node) => labelOf(node) === FILTERS_LABEL) ?? null,
   );
-  await tapCentre(filters, "the Filters button");
+  await tapCentre(rectOf(filters, "the Filters button"), "the Filters button");
 
-  const field = await waitForNode(
-    15_000,
-    `The ${JSON.stringify(HOST_FIELD_LABEL)} field`,
-    (nodes) => fieldNamed(nodes, HOST_FIELD_LABEL),
+  const field = await waitFor(`The ${JSON.stringify(HOST_FIELD_LABEL)} field`, (nodes) =>
+    fieldNamed(nodes, HOST_FIELD_LABEL),
   );
-  await tapCentre(field, "the host field");
-  const fieldBottom = field.rect ? field.rect.y + field.rect.height : 0;
+  // Logged so a device run says which way fieldNamed told the field from its
+  // label, and the other way can go once one run has.
+  console.log(`Host field: ${describeNode(field)}`);
+  const fieldRect = rectOf(field, "the host field");
+  await tapCentre(fieldRect, "the host field");
+  const fieldBottom = fieldRect.y + fieldRect.height;
 
-  const before = await waitForRows(15_000, names);
-  const rows = rowsBelow(rowsOf(before.options), fieldBottom);
+  const before = await waitFor(`The host list's first ${MIN_ROWS} rows`, (nodes) => {
+    const state = listFrom(nodes, names);
+    return state.options.length >= MIN_ROWS ? state : null;
+  });
+  const rows = rowsBelow(placed(before.options), fieldBottom);
   if (rows.length < MIN_ROWS) {
     throw new Error(
       `Only ${rows.length} rows sit below the field (y=${Math.round(fieldBottom)}); the swipe ` +
@@ -180,16 +166,12 @@ beforeAll(async () => {
       `value=${JSON.stringify(before.value)} -> ${JSON.stringify(after.value)}`,
   );
 
-  let tapped: Row | null = null;
+  let tapped: Placed | null = null;
   let valueAfterTap: string | null = null;
-  const target = rowsBelow(rowsOf(after.options), fieldBottom)[TAP_ROW] ?? null;
+  const target = rowsBelow(placed(after.options), fieldBottom)[TAP_ROW] ?? null;
   if (after.value === before.value && target) {
     tapped = target;
-    const { x, y } = centreOf(target.rect);
-    console.log(
-      `Tapping ${JSON.stringify(target.label)} at x=${Math.round(x)} y=${Math.round(y)}...`,
-    );
-    await client.interactions.click({ ...deviceOptions, x, y });
+    await tapCentre(target.rect, JSON.stringify(target.label));
     await wait(SETTLE_MS);
     const picked = await readList(names);
     valueAfterTap = picked.value;

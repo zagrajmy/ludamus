@@ -1,42 +1,31 @@
 import type { SnapshotNode } from "agent-device";
 
-import { labelOf, type Rect } from "./snapshot";
+import { labelOf, type Placed } from "./snapshot";
 
 // A row is 36pt; a swipe that lands moves the list by several. Under this the
 // finger did not scroll the list, and the run measured nothing.
 export const MIN_LIST_SCROLL_PT = 30;
 
-export type Row = { label: string; rect: Rect };
-
-// The list's option nodes, top to bottom. Every row carries a host name and
-// a name is one row, so a label seen twice is the same row reported twice.
+// The list's option nodes. Every row carries a host name and a name is one
+// row, so a label seen twice is the same row reported twice.
 export const optionNodes = (
   nodes: readonly SnapshotNode[],
   names: ReadonlySet<string>,
 ): SnapshotNode[] => {
   const seen = new Set<string>();
-  return nodes
-    .filter((node) => {
-      const label = labelOf(node);
-      if (!node.rect || !names.has(label) || seen.has(label)) return false;
-      seen.add(label);
-      return true;
-    })
-    .sort((a, b) => (a.rect?.y ?? 0) - (b.rect?.y ?? 0));
+  return nodes.filter((node) => {
+    const label = labelOf(node);
+    if (!node.rect || !names.has(label) || seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
 };
 
-export const rowsOf = (nodes: readonly SnapshotNode[]): Row[] =>
-  nodes.flatMap((node) => (node.rect ? [{ label: labelOf(node), rect: node.rect }] : []));
-
-// The rows the list shows. It renders rows past both edges of its box as
-// scroll slack, and the ones above the box sit over the input, clipped.
-export const rowsBelow = (rows: readonly Row[], top: number): Row[] =>
-  rows.filter((row) => row.rect.y >= top);
-
-export const centreOf = (rect: Rect): { x: number; y: number } => ({
-  x: rect.x + rect.width / 2,
-  y: rect.y + rect.height / 2,
-});
+// The rows the list shows, top to bottom. It renders rows past both edges of
+// its box as scroll slack, and the ones above the box sit over the input,
+// clipped.
+export const rowsBelow = (rows: readonly Placed[], top: number): Placed[] =>
+  rows.filter((row) => row.rect.y >= top).sort((a, b) => a.rect.y - b.rect.y);
 
 const FIELD_TYPE = /field/i;
 
