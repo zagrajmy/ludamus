@@ -8,6 +8,7 @@ from django.conf import settings
 from ludamus.inits.builders import (
     build_konwencik_export,
     build_printables_reminder,
+    build_sphere_subscriptions,
     build_waitlist_promotion,
 )
 from ludamus.inits.dbos_scheduler import (
@@ -40,6 +41,7 @@ from ludamus.mills.crowd import (
     CrowdAuthService,
     ProfileService,
 )
+from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.enrollment import (
@@ -53,6 +55,7 @@ from ludamus.mills.event import (
     EventConfirmationsService,
     EventPanelService,
     EventsService,
+    LandingService,
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -334,6 +337,18 @@ class Services:
         return SitesService(self._repos.spheres, self._repos.spheres)
 
     @cached_property
+    def landing(self) -> LandingService:
+        return LandingService(self._repos.landing_stats)
+
+    @cached_property
+    def dashboard(self) -> DashboardService:
+        return DashboardService(self._repos.dashboard)
+
+    @cached_property
+    def sphere_subscriptions(self) -> SphereSubscriptionService:
+        return build_sphere_subscriptions()
+
+    @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
             transaction=self._transaction,
@@ -523,6 +538,7 @@ class Services:
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
+            sites=self.sites,
         )
 
     @cached_property

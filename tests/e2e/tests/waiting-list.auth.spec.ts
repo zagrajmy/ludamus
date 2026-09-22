@@ -8,13 +8,13 @@ import { expect, test } from "./helpers/fixtures";
 
 test.describe("Navbar notifications dropdown", () => {
   test("unread count is in the accessible name, not colour alone", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await expect(page.getByRole("button", { name: /Notifications \(\d+ unread\)/ })).toBeVisible();
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     const trigger = page.getByRole("button", { name: /Notifications/ });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -36,7 +36,7 @@ test.describe("Navbar notifications dropdown", () => {
   });
 
   test("uses the profile menu motion", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     const trigger = page.getByRole("button", { name: /Notifications/ });
     const panel = page.locator("#navbar-notifications-panel");
@@ -60,7 +60,7 @@ test.describe("Navbar notifications dropdown", () => {
   });
 
   test("open dropdown has no critical or serious axe violations", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await page.getByRole("button", { name: /Notifications/ }).click();
     await expect(page.getByRole("link", { name: /a spot opened in/i })).toBeVisible();
@@ -71,7 +71,7 @@ test.describe("Navbar notifications dropdown", () => {
 
 test.describe("Navbar profile menu (a11y upgrade)", () => {
   test("opens on hover, preserves the safe path, and closes on pointer out", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     const trigger = page.getByRole("button", { name: /Account menu/ });
     const panel = page.locator("#navbar-profile-panel");
@@ -123,7 +123,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     const trigger = page.getByRole("button", { name: /Account menu/ });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -141,7 +141,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
   });
 
   test("open menu has no critical or serious axe violations", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
 
     await page.getByRole("button", { name: /Account menu/ }).focus();
     await page.keyboard.press("Enter");

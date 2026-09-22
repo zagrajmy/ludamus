@@ -66,7 +66,7 @@ migrated in `gates`/`links` and is self-contained:
 
 1. Create `pacts/encounter.py`; move `EncounterDTO`, `EncounterRSVPDTO`,
    `EncounterData`, `EncounterDetailResult`, `EncounterIndexItem`,
-   `EncounterIndexResult` and related types out of `pacts/legacy.py`.
+   `EncounterFeed` and related types out of `pacts/legacy.py`.
 2. Create `mills/encounter.py`; move `EncounterService` and the calendar /
    ICS / share-code helpers (`generate_ics_content`, `google_calendar_url`,
    `outlook_calendar_url`, `generate_share_code`, `render_markdown`).

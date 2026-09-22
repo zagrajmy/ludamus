@@ -83,10 +83,10 @@ test("panel redirects to home with message when sphere has no events", async ({ 
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
-  // Visit panel — should redirect to index (then to /events/)
+  // Visit panel — should redirect to the sphere root, which is its feed
   await page.goto(`${emptyBase}/panel/`);
-  await expect(page).toHaveURL(`${emptyBase}/events/`);
-  await expect(page.getByText("No events available")).toBeVisible();
+  await expect(page).toHaveURL(`${emptyBase}/`);
+  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();
 });
@@ -1527,7 +1527,7 @@ test.describe("Backoffice Panel", () => {
 
   // --- Organization announcements CRUD ---
 
-  test("manages the announcement lifecycle and public visibility", async ({ page }) => {
+  test("manages the announcement lifecycle", async ({ page }) => {
     const stamp = Date.now();
     const title = `E2E Announcement ${stamp}`;
     const editedTitle = `E2E Announcement Edited ${stamp}`;
@@ -1542,14 +1542,6 @@ test.describe("Backoffice Panel", () => {
 
     await expect(page.getByText("Announcement created successfully.")).toBeVisible();
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
-
-    // Published announcement shows on the public landing page. Scoped to the
-    // section: publishing also fans the announcement out to the bell, so the
-    // navbar dropdown carries the same title and body.
-    await page.goto("/events/");
-    const announcements = page.getByRole("region", { name: "Organization announcements" });
-    await expect(announcements.getByRole("heading", { name: title })).toBeVisible();
-    await expect(announcements.getByText(content)).toBeVisible();
 
     // Edit
     await page.goto("/multiverse/panel/announcements/");

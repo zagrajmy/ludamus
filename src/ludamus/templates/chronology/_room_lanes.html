@@ -1,5 +1,6 @@
 {% load csp_tags %}
 {% load i18n %}
+{% load schedule_tags %}
 {# Rooms view: a CSS grid — rooms across, clock time down, every day of the #}
 {# event stacked into the one grid. Rooms are the outer axis, so the whole #}
 {# event shares one column set, one room header, and one horizontal scroller; #}
@@ -189,7 +190,7 @@
                                      data-tile-span="{{ tile.row_span }}"
                                      data-tile-lane="{{ tile.lane_index }}"
                                      data-tile-lanes="{{ tile.lane_count }}">
-                                    {% include "chronology/_room_lane_tile.html" with data=tile.data slot_key=row.slot_key occurrence_start=tile.start occurrence_end=tile.end room_col=tile.col %}
+                                    {% room_lane_tile tile slot_key=row.slot_key %}
                                 </div>
                             {% endfor %}
                         {% else %}
