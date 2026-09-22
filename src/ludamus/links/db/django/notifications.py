@@ -360,8 +360,7 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"event_slug": notification.event_slug},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_shadowbanned_signup(

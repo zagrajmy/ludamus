@@ -280,22 +280,6 @@ class NotificationKind(StrEnum):
     SPHERE_EVENT_PUBLISHED = auto()
 
 
-class SpherePage(StrEnum):
-    EVENTS = "events"
-    ENCOUNTERS = "encounters"
-    TIMELINE = "timeline"
-
-    @classmethod
-    def all_values(cls) -> list[str]:
-        return [p.value for p in cls]
-
-
-class EncounterPublicPolicy(StrEnum):
-    DISABLED = "disabled"
-    MANAGERS = "managers"
-    EVERYONE = "everyone"
-
-
 class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
