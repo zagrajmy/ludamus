@@ -76,19 +76,32 @@ class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
     """Shared base for the two views that render the encounter form."""
 
     request: AuthenticatedRootRequest
-    needs_create_rights = True
 
-    @staticmethod
     def _form(
+        self,
         data: QueryDict | None = None,
         files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
         *,
         initial: dict[str, Any] | None = None,
     ) -> EncounterForm:
-        return EncounterForm(data, files, initial=initial)
+        form = EncounterForm(data, files, initial=initial)
+        # An owner the policy no longer covers may still edit their
+        # encounter, but not list it. The service enforces this again on
+        # write, so a forged flag never gets through.
+        if not self.request.services.encounters.can_create(
+            sphere_id=self.request.context.current_sphere_id,
+            user_id=self.request.context.current_user_id,
+        ):
+            del form.fields["is_public"]
+        return form
 
 
 class EncounterCreatePageView(_EncounterFormPageView):
+    # Only creating is policy-gated. Editing asks about ownership instead,
+    # and `read_owned` already answers that — a member who made an encounter
+    # keeps it when the sphere narrows to managers.
+    needs_create_rights = True
+
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
             request, "notice_board/create.html", {"form": self._form()}
@@ -189,7 +202,10 @@ class EncounterEditPageView(_EncounterFormPageView):
         header = resolve_uploaded_file_field(form.cleaned_data.get("header_image"))
         if header is not None:
             data["header_image"] = header
-        data["is_public"] = form.cleaned_data["is_public"]
+        # Absent when the policy no longer covers this owner: _form drops the
+        # field rather than offering a toggle their save would ignore.
+        if "is_public" in form.cleaned_data:
+            data["is_public"] = form.cleaned_data["is_public"]
 
         try:
             encounter = request.services.encounters.update_owned(
@@ -223,7 +239,7 @@ class EncounterDeleteActionView(_EncounterGate, LoginRequiredMixin, View):
             raise Http404 from exc
         messages.success(request, _("Encounter deleted."))
         # The deleted encounter's detail page is gone, so land on the feed.
-        return redirect(reverse("web:events"))
+        return redirect(reverse("web:index"))
 
 
 class EncounterDetailPageView(_EncounterGate, View):

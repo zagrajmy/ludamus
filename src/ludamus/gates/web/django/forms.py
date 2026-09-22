@@ -43,11 +43,6 @@ _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # The hero prints the address under the venue name, where a third line
 # pushes the CTAs off a phone screen.
 MAX_ADDRESS_LINES = 2
-# Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
-# and a comma-joined list of MIME types reads nothing like a sentence. Two of
-# them because an event cover also loses its sides to the full-bleed banner,
-# where a session cover keeps them; the dropzone guide
-# (components/file-dropzone.html) draws the matching shape.
 EDGES_COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
     "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
@@ -173,7 +168,7 @@ class EventSettingsForm(forms.Form):
             raise ValidationError(gettext("An address can have at most two lines."))
         return "\n".join(kept)
 
-    cover_image = cover_image_field(crop="edges")
+    cover_image = cover_image_field(crop="top-and-bottom")
     logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
@@ -237,6 +232,14 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    event_cover_buttons_at_bottom = forms.BooleanField(
+        required=False,
+        label=_("Place event cover buttons at the bottom right"),
+        help_text=_(
+            "Shows print and venue map buttons in a horizontal row at the bottom "
+            "right of event covers."
+        ),
+    )
     encounters_policy = forms.ChoiceField(
         choices=[
             (EncountersPolicy.NONE.value, _("Nobody (encounters are off here)")),
@@ -250,8 +253,6 @@ class SphereSettingsForm(forms.Form):
             "listed for everyone on the events page."
         ),
     )
-    # Set once the manager has seen the warning about hiding existing
-    # encounters, so saving again goes through.
     confirmed_encounters_disable = forms.BooleanField(
         required=False, widget=forms.HiddenInput
     )
