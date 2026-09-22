@@ -4,6 +4,15 @@ import { describe, expect, test } from "bun:test";
 
 import type { Rect } from "./snapshot";
 
+import {
+  fieldNamed,
+  type ListSwipeReading,
+  listSwipeVerdict,
+  MIN_LIST_SCROLL_PT,
+  optionNodes,
+  rowsBelow,
+  rowsOf,
+} from "./list-swipe";
 import { decodeEntities } from "./page";
 import {
   ABOVE_TOLERANCE_PT,
@@ -357,5 +366,92 @@ describe("pageEndVerdict", () => {
 
   test("does not read a geometric miss into a run that measured nothing", () => {
     expect(pageEndVerdict({ ...measured, shift: 0, pageEnd: 900 })).toMatch(/measured nothing/);
+  });
+});
+
+describe("optionNodes", () => {
+  const hosts = new Set(["Host 001", "Host 002", "Host 003"]);
+
+  test("keeps the named rows in top-to-bottom order, one per name", () => {
+    const nodes = optionNodes(
+      [at("Host 003", 300), at("Search hosts…", 100), at("Host 001", 200), at("Host 001", 200)],
+      hosts,
+    );
+    expect(nodes.map(labelOf)).toEqual(["Host 001", "Host 003"]);
+  });
+
+  test("drops a row without a rect, which nothing could swipe from", () => {
+    expect(optionNodes([node({ label: "Host 002" })], hosts)).toEqual([]);
+  });
+});
+
+describe("rowsBelow", () => {
+  test("keeps the rows from the given edge down", () => {
+    const rows = rowsOf([at("Host 001", 80), at("Host 002", 120), at("Host 003", 160)]);
+    expect(rowsBelow(rows, 120).map((row) => row.label)).toEqual(["Host 002", "Host 003"]);
+  });
+});
+
+describe("fieldNamed", () => {
+  const label = node({ label: "Host", rect: { x: 24, y: 300, width: 40, height: 20 } });
+  const field = node({ label: "Host", rect: { x: 24, y: 330, width: 354, height: 44 } });
+
+  test("prefers the node typed as a field over the label sharing its name", () => {
+    const typed = { ...field, type: "TextField", rect: { x: 24, y: 330, width: 10, height: 44 } };
+    expect(fieldNamed([label, typed], "Host")).toBe(typed);
+  });
+
+  test("falls back to the widest node of that name", () => {
+    expect(fieldNamed([label, field], "Host")).toBe(field);
+    expect(fieldNamed([label], "Track")).toBeNull();
+  });
+});
+
+describe("listSwipeVerdict", () => {
+  // The device's own shape: a swipe of three rows, then a tap on the third.
+  const measured: ListSwipeReading = {
+    rowsBefore: 10,
+    shift: -108,
+    valueBefore: "Search hosts…",
+    valueAfterSwipe: "Search hosts…",
+    openAfterSwipe: true,
+    tapped: "Host 004",
+    valueAfterTap: "Host 004",
+  };
+
+  test("is silent when the swipe scrolls and the tap picks", () => {
+    expect(listSwipeVerdict(measured)).toBeNull();
+  });
+
+  test("reports a swipe that picked, before anything else", () => {
+    const verdict = listSwipeVerdict({
+      ...measured,
+      valueAfterSwipe: "Host 002",
+      openAfterSwipe: false,
+      shift: null,
+    });
+    expect(verdict).toMatch(/^A swipe through the list picked an option/);
+    expect(verdict).toContain('"Host 002"');
+  });
+
+  test("reports a swipe that closed the list without picking", () => {
+    expect(listSwipeVerdict({ ...measured, openAfterSwipe: false, shift: null })).toMatch(
+      /closed it without picking/,
+    );
+  });
+
+  test("blames the harness, not the list, when the swipe did not scroll", () => {
+    expect(listSwipeVerdict({ ...measured, shift: MIN_LIST_SCROLL_PT - 1 })).toMatch(
+      /measured nothing/,
+    );
+    expect(listSwipeVerdict({ ...measured, shift: null })).toMatch(/unknown distance/);
+  });
+
+  test("reports a tap that no longer picks", () => {
+    const verdict = listSwipeVerdict({ ...measured, valueAfterTap: "Search hosts…" });
+    expect(verdict).toMatch(/^A tap on "Host 004" no longer picks it/);
+    expect(listSwipeVerdict({ ...measured, tapped: null, valueAfterTap: null })).toMatch(
+      /no row was below the field/,
+    );
   });
 });
