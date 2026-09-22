@@ -44,8 +44,17 @@ class DayTurnover:
         # window to each day it touches, clamped to that day's 24 hours.
         local_start = start.astimezone(tz)
         local_end = end.astimezone(tz)
-        first_date = self.date_of(start, tz)
-        last_date = self.date_of(end, tz)
+        first_date = self.date_of(local_start, tz)
+        last_date = self.date_of(local_end, tz)
+        if first_date == last_date:
+            # Nearly every session: within one day, nothing to clamp. The
+            # loop below would answer the same, at the cost of two openings
+            # and four timestamps per session on a page of a thousand.
+            # Timestamps, as below: two wall clocks in the repeated autumn
+            # hour compare by their fold-less naive value.
+            if local_start.timestamp() < local_end.timestamp():
+                return [(local_start, local_end)]
+            return []
         windows: list[Window] = []
         for offset in range((last_date - first_date).days + 1):
             cursor_date = first_date + timedelta(days=offset)
