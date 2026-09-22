@@ -1,10 +1,14 @@
 import type { SnapshotNode } from "agent-device";
 
-import { centreOnScreen, labelOf, type Placed, type Rect } from "./snapshot";
+import { centreOf, labelOf, type Placed, type Rect, scrollBars } from "./snapshot";
 
 // A row is 36pt; a swipe that lands moves the list by several. Under this the
 // finger did not scroll the list, and the run measured nothing.
 export const MIN_LIST_SCROLL_PT = 30;
+
+// The rows the list shows at once, kept in step with VISIBLE_ROWS in
+// combobox.ts. It renders more, as scroll slack past both edges of its box.
+export const VISIBLE_ROWS = 6;
 
 // The list's option nodes. Every row carries a host name and a name is one
 // row, so a label seen twice is the same row reported twice.
@@ -21,12 +25,45 @@ export const optionNodes = (
   });
 };
 
-// The rows a finger can reach, top to bottom. The list renders rows past both
-// edges of its box as scroll slack, an on-screen keyboard can flip the box
-// above the field, and a row the device reports beyond the screen is one a
-// gesture cannot land on; what is drawn on screen is all a swipe can use.
-export const rowsOnScreen = (rows: readonly Placed[], screen: Rect): Placed[] =>
-  rows.filter((row) => centreOnScreen(row.rect, screen)).sort((a, b) => a.rect.y - b.rect.y);
+export const byTop = (rows: readonly Placed[]): Placed[] =>
+  [...rows].sort((a, b) => a.rect.y - b.rect.y);
+
+const contains = (box: Rect, point: { x: number; y: number }): boolean =>
+  point.x >= box.x &&
+  point.x <= box.x + box.width &&
+  point.y >= box.y &&
+  point.y <= box.y + box.height;
+
+// The box the list shows its rows through. The device reports every row the
+// list rendered, the ones its box clips away included, and they sit where
+// the sheet's other controls and the keyboard are drawn: a finger lands on
+// those, never on the row. The box is the scroll view around the first row,
+// when the tree has one no taller than the rows it can show; a tree without
+// one gets the first VISIBLE_ROWS rows, which is what a list just opened
+// shows, since it opens at its top.
+export const listBox = (nodes: readonly SnapshotNode[], rows: readonly Placed[]): Rect | null => {
+  const sorted = byTop(rows);
+  const first = sorted[0];
+  if (!first) return null;
+  const second = sorted[1];
+  const pitch = second ? second.rect.y - first.rect.y : first.rect.height;
+  const centre = centreOf(first.rect);
+  const scroller = scrollBars(nodes)
+    .filter((rect) => contains(rect, centre) && rect.height <= (VISIBLE_ROWS + 1) * pitch)
+    .sort((a, b) => a.height - b.height)[0];
+  if (scroller) return scroller;
+  const last = sorted[Math.min(VISIBLE_ROWS, sorted.length) - 1];
+  return {
+    x: first.rect.x,
+    y: first.rect.y,
+    width: first.rect.width,
+    height: last.rect.y + last.rect.height - first.rect.y,
+  };
+};
+
+// The rows a finger can reach: drawn inside the box, top to bottom.
+export const rowsInBox = (rows: readonly Placed[], box: Rect): Placed[] =>
+  byTop(rows).filter((row) => contains(box, centreOf(row.rect)));
 
 const FIELD_TYPE = /field/i;
 
@@ -97,7 +134,7 @@ export const listSwipeVerdict = (reading: ListSwipeReading): string | null => {
     );
   }
   if (tapped === null) {
-    return `After the swipe no row was on screen to tap, so the tap could not be checked.`;
+    return `After the swipe no row was inside the list's box to tap, so the tap could not be checked.`;
   }
   if (valueAfterTap !== tapped) {
     return (

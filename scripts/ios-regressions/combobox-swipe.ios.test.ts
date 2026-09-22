@@ -3,7 +3,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import { createIosHarness, hookTimeoutMs, resolveEventUrl, sessionName } from "./harness";
-import { fieldNamed, listSwipeVerdict, optionNodes, rowsOnScreen } from "./list-swipe";
+import { byTop, fieldNamed, listBox, listSwipeVerdict, optionNodes, rowsInBox } from "./list-swipe";
 import { fetchReadyPage, namesFrom } from "./page";
 import {
   centreOf,
@@ -32,10 +32,10 @@ const FILTERS_LABEL = "Filters";
 const HOST_FIELD_LABEL = "Host";
 const CARD_HOSTS = /data-host="([^"]*)"/g;
 
-// The swipe runs from the lowest row on screen to the highest, so it is as
-// long as the box allows and never leaves it; three rows is the least worth
-// swiping through. The list may sit above the field or below it: with the
-// keyboard up there is rarely room below, and the placement flips.
+// The swipe runs from the lowest row in the list's box to the highest, so it
+// is as long as the box allows and never leaves it; three rows is the least
+// worth swiping through. The list may sit above the field or below it: with
+// the keyboard up there is rarely room below, and the placement flips.
 const MIN_VISIBLE_ROWS = 3;
 const SWIPE_DURATION_MS = 250;
 const SETTLE_MS = 800;
@@ -113,24 +113,38 @@ const inset = (node: SnapshotNode, screen: Rect): boolean =>
 type ListState = {
   screen: Rect;
   options: SnapshotNode[];
+  // The box the list shows its rows through, and the rows drawn inside it.
+  box: Rect | null;
+  shown: Placed[];
   value: string;
   keyboard: boolean;
 };
 
-const listFrom = (snapshot: CaptureSnapshotResult, names: ReadonlySet<string>): ListState => ({
-  screen: viewportOf(snapshot),
-  options: optionNodes(snapshot.nodes, names),
-  value: fieldNamed(snapshot.nodes, HOST_FIELD_LABEL)?.value ?? "",
-  keyboard: snapshot.nodes.some((node) => KEYBOARD.test(`${node.type ?? ""} ${labelOf(node)}`)),
-});
+const listFrom = (snapshot: CaptureSnapshotResult, names: ReadonlySet<string>): ListState => {
+  const options = optionNodes(snapshot.nodes, names);
+  const rows = placed(options);
+  const box = listBox(snapshot.nodes, rows);
+  return {
+    screen: viewportOf(snapshot),
+    options,
+    box,
+    shown: box ? rowsInBox(rows, box) : [],
+    value: fieldNamed(snapshot.nodes, HOST_FIELD_LABEL)?.value ?? "",
+    keyboard: snapshot.nodes.some((node) => KEYBOARD.test(`${node.type ?? ""} ${labelOf(node)}`)),
+  };
+};
 
 const readList = async (names: ReadonlySet<string>): Promise<ListState> =>
   listFrom(await takeSnapshot(), names);
 
+const describeBox = (box: Rect | null): string =>
+  box ? `${Math.round(box.y)}+${Math.round(box.height)}` : "none";
+
 const describeList = (state: ListState): string =>
   `screen=${Math.round(state.screen.width)}x${Math.round(state.screen.height)} ` +
   `keyboard=${String(state.keyboard)} value=${JSON.stringify(state.value)} ` +
-  `rows=${describeRows(placed(state.options).sort((a, b) => a.rect.y - b.rect.y))}`;
+  `box=${describeBox(state.box)} shown=${describeRows(state.shown)} ` +
+  `rendered=${describeRows(byTop(placed(state.options)))}`;
 
 let issue: string | null = null;
 
@@ -178,20 +192,18 @@ beforeAll(async () => {
   const before = await pollUntil(
     async () => {
       last.state = await readList(names);
-      const reachable = rowsOnScreen(placed(last.state.options), last.state.screen);
-      return reachable.length >= MIN_VISIBLE_ROWS ? last.state : null;
+      return last.state.shown.length >= MIN_VISIBLE_ROWS ? last.state : null;
     },
     { timeoutMs: WAIT_MS },
   );
   if (!before) {
-    const reachable = rowsOnScreen(placed(last.state.options), last.state.screen);
     throw new Error(
-      `Only ${reachable.length} of the list's ${last.state.options.length} rows are on screen ` +
-        `after ${WAIT_MS}ms, and the swipe needs ${MIN_VISIBLE_ROWS}: the list opened where a ` +
-        `finger cannot reach it. ${describeList(last.state)}.`,
+      `Only ${last.state.shown.length} of the list's ${last.state.options.length} rows are ` +
+        `inside its box after ${WAIT_MS}ms, and the swipe needs ${MIN_VISIBLE_ROWS}: the list ` +
+        `opened where a finger cannot reach it. ${describeList(last.state)}.`,
     );
   }
-  const rows = rowsOnScreen(placed(before.options), before.screen);
+  const rows = before.shown;
   const fromRow = rows[rows.length - 1];
   const toRow = rows[0];
   const from = centreOf(fromRow.rect);
@@ -210,10 +222,12 @@ beforeAll(async () => {
     `SWIPE travelled=${shift === null ? "?" : Math.round(shift)}pt ${describeList(after)}`,
   );
 
+  // The box does not move when its rows scroll, so the rows now inside the
+  // box before the swipe are the ones a finger can tap.
   let tapped: Placed | null = null;
   let valueAfterTap: string | null = null;
-  const visible = rowsOnScreen(placed(after.options), after.screen);
-  const target = visible[Math.floor(visible.length / 2)] ?? null;
+  const reachable = before.box ? rowsInBox(placed(after.options), before.box) : [];
+  const target = reachable[Math.floor(reachable.length / 2)] ?? null;
   if (after.value === before.value && target) {
     tapped = target;
     await tapCentre(target.rect, JSON.stringify(target.label));

@@ -9,8 +9,10 @@ import {
   type ListSwipeReading,
   listSwipeVerdict,
   MIN_LIST_SCROLL_PT,
+  listBox,
   optionNodes,
-  rowsOnScreen,
+  rowsInBox,
+  VISIBLE_ROWS,
 } from "./list-swipe";
 import { decodeEntities, namesFrom } from "./page";
 import {
@@ -392,16 +394,29 @@ describe("optionNodes", () => {
   });
 });
 
-describe("rowsOnScreen", () => {
-  test("keeps the rows drawn inside the screen, clear of its chrome, top to bottom", () => {
-    const rows = placed([
-      at("Host 004", 960),
-      at("Host 002", 400),
-      at("Host 001", 300),
-      at("Host 003", 800),
-      at("Host 000", 60),
-    ]);
-    expect(rowsOnScreen(rows, screen).map((row) => row.label)).toEqual(["Host 001", "Host 002"]);
+describe("listBox", () => {
+  // The device's own numbers: fourteen rendered rows from y=63, 36pt apart,
+  // six of them shown through a box the keyboard leaves above the field.
+  const rows = placed(Array.from({ length: 14 }, (_, i) => at(`Host ${i + 1}`, 63 + 36 * i, 36)));
+  const page = node({ label: "Vertical scroll bar, 2 pages", rect: screen });
+
+  test("is the scroll view around the first row, never the page's own", () => {
+    const box = { x: 33, y: 59, width: 336, height: 224 };
+    const scroller = node({ label: "Vertical scroll bar, 12 pages", rect: box });
+    expect(listBox([page, scroller], rows)).toEqual(box);
+  });
+
+  test("falls back to the first rows the list can show", () => {
+    expect(listBox([page], rows)).toEqual({ x: 0, y: 63, width: 300, height: 36 * VISIBLE_ROWS });
+    expect(listBox([page], [])).toBeNull();
+  });
+});
+
+describe("rowsInBox", () => {
+  test("keeps the rows drawn inside the box, top to bottom", () => {
+    const rows = placed([at("Host 003", 135), at("Host 001", 63), at("Host 007", 279)]);
+    const box = { x: 0, y: 59, width: 300, height: 224 };
+    expect(rowsInBox(rows, box).map((row) => row.label)).toEqual(["Host 001", "Host 003"]);
   });
 });
 
@@ -467,7 +482,7 @@ describe("listSwipeVerdict", () => {
     const verdict = listSwipeVerdict({ ...measured, valueAfterTap: "Search hosts…" });
     expect(verdict).toMatch(/^A tap on "Host 004" no longer picks it/);
     expect(listSwipeVerdict({ ...measured, tapped: null, valueAfterTap: null })).toMatch(
-      /no row was on screen/,
+      /no row was inside the list's box/,
     );
   });
 });
