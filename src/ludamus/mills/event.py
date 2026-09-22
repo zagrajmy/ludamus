@@ -433,6 +433,9 @@ class LandingService(LandingServiceProtocol):
     def conventions(self) -> list[LandingConventionDTO]:
         return self._stats.list_conventions(LANDING_CONVENTIONS)
 
+    def showcase_slug(self, sphere_id: int) -> str | None:
+        return self._stats.read_newest_published_slug(sphere_id)
+
 
 class EventsService(EventsServiceProtocol):
     def __init__(
