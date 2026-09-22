@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated
 
@@ -19,6 +20,24 @@ if TYPE_CHECKING:
 type NonBlankName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
+
+# Every event URL routes through Django's <slug:slug> converter, which rejects
+# anything outside this alphabet — so a slug it will not match makes the event
+# unreachable from both the panel and the site.
+SLUG_MAX_LENGTH = 50
+
+
+def validate_slug(value: str) -> str:
+    """Check a slug against the alphabet the URL converter accepts.
+
+    Returns:
+        The slug, stripped.
+    """
+    stripped = value.strip()
+    if re.fullmatch(r"[-a-zA-Z0-9_]+", stripped) is None:
+        msg = "slug must contain only letters, numbers, hyphens, or underscores"
+        raise ValueError(msg)
+    return stripped
 
 
 class EmptyInput(BaseModel):

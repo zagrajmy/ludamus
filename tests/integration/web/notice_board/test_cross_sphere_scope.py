@@ -87,11 +87,14 @@ class TestForeignSphereEncounter:
         assert_response_404(response)
         foreign_encounter.refresh_from_db()
 
-    def test_public_feed_lists_only_this_sphere(self, client, sphere):
+    def test_public_feed_lists_only_this_sphere(self, client, non_root_sphere):
         creator = UserFactory(username="pub_organizer", name="Pub Organizer")
         start_time = datetime.now(UTC) + timedelta(days=3)
         mine = EncounterFactory(
-            sphere=sphere, creator=creator, is_public=True, start_time=start_time
+            sphere=non_root_sphere,
+            creator=creator,
+            is_public=True,
+            start_time=start_time,
         )
         EncounterFactory(
             sphere=SphereFactory(),
@@ -100,8 +103,12 @@ class TestForeignSphereEncounter:
             start_time=start_time,
         )
 
-        response = client.get(reverse("web:notice-board:index"))
+        response = client.get(
+            reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
+        )
 
         assert [
-            item.encounter.pk for item in response.context_data["public_encounters"]
+            item.entry.encounter.pk
+            for item in response.context_data["upcoming"]
+            if item.kind == "encounter"
         ] == [mine.pk]

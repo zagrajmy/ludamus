@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
+    LANDING_CONVENTIONS,
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
@@ -21,6 +22,10 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    LandingConventionDTO,
+    LandingServiceProtocol,
+    LandingStatsDTO,
+    LandingStatsRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -415,6 +420,17 @@ class EventPanelService(EventPanelServiceProtocol):
             is_proposal_active=current_event.is_proposal_active,
             stats=build_panel_stats(stats_data),
         )
+
+
+class LandingService(LandingServiceProtocol):
+    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
+        self._stats = stats
+
+    def stats(self) -> LandingStatsDTO:
+        return self._stats.count_landing_stats()
+
+    def conventions(self) -> list[LandingConventionDTO]:
+        return self._stats.list_conventions(LANDING_CONVENTIONS)
 
 
 class EventsService(EventsServiceProtocol):

@@ -32,7 +32,7 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
-from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit

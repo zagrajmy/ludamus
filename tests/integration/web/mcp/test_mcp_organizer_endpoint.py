@@ -20,10 +20,12 @@ from ludamus.links.db.django.models import (
     SphereMembership,
     Track,
 )
+from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import (
     AgendaItemFactory,
+    EncounterFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
@@ -861,6 +863,78 @@ class TestOrganizerProgrammeTools:
         assert result["content"][0]["text"] == "start_not_before_end"
 
 
+class TestOrganizerSphereSettingsTool:
+    """What the sphere tool does beyond writing a field.
+
+    Setting values and refusing an empty call are covered with the rest of
+    `update_sphere_settings` below; these are the paths either side of the
+    encounters-hiding confirmation.
+    """
+
+    def test_a_patch_keeps_what_it_was_not_given(self, client, org_token, sphere):
+        # An omitted setting never reaches the UPDATE, so it cannot be
+        # rewritten with the value this call happened to read.
+        sphere.allow_facilitator_session_edit = False
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+
+        call_org_json(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {"encounters_policy": "managers"},
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.allow_facilitator_session_edit is False
+        assert sphere.encounters_policy == EncountersPolicy.MANAGERS
+
+    def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
+        # The flag answers a question about a write; on its own there is none.
+        response = call_org_tool(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {"confirmed_encounters_disable": True},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "at least one" in result["content"][0]["text"]
+
+    def test_will_not_hide_existing_encounters_unasked(
+        self, client, org_token, sphere, active_user
+    ):
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+        EncounterFactory(sphere=sphere, creator=active_user)
+
+        response = call_org_tool(
+            client, org_token, "update_sphere_settings", {"encounters_policy": "none"}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "confirmed_encounters_disable" in result["content"][0]["text"]
+        sphere.refresh_from_db()
+        assert sphere.encounters_policy == EncountersPolicy.EVERYONE
+
+    def test_hides_them_once_asked_twice(self, client, org_token, sphere, active_user):
+        sphere.encounters_policy = EncountersPolicy.EVERYONE
+        sphere.save()
+        EncounterFactory(sphere=sphere, creator=active_user)
+
+        call_org_json(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {"encounters_policy": "none", "confirmed_encounters_disable": True},
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.encounters_policy == EncountersPolicy.NONE
+
+
 class TestOrganizerEventSettingsTools:
     def test_update_event_changes_only_provided_fields(self, client, org_token, event):
         new_end = event.end_time + timedelta(hours=2)
@@ -882,7 +956,7 @@ class TestOrganizerEventSettingsTools:
         assert event.publication_time is not None
 
         updated = call_org_json(
-            client, org_token, "update_event", {"clear_publication_time": True}
+            client, org_token, "update_event", {"publication_time": None}
         )
 
         event.refresh_from_db()
@@ -904,6 +978,161 @@ class TestOrganizerEventSettingsTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert "timezone-aware" in result["content"][0]["text"]
+
+    def test_update_event_sets_the_rest_of_the_settings(self, client, org_token, event):
+        # The fields the tool grew: everything the settings page can change
+        # apart from the two images, which have their own tool.
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {
+                "name": "Bachanalia 2027",
+                "address": "Wrocław, Rynek 1",
+                "auto_confirm_sessions": True,
+                "use_participants_label": True,
+                "use_session_cover_placeholders": True,
+                "allow_facilitator_session_edit": False,
+            },
+        )
+
+        event.refresh_from_db()
+        assert event.name == "Bachanalia 2027"
+        assert event.address == "Wrocław, Rynek 1"
+        assert event.auto_confirm_sessions is True
+        assert event.use_participants_label is True
+        assert event.use_session_cover_placeholders is True
+        assert event.allow_facilitator_session_edit is False
+        assert updated["name"] == "Bachanalia 2027"
+
+    def test_update_event_moves_the_whole_schedule(self, client, org_token, event):
+        # The setting half of the nullable fields, opposite the clear_* flags
+        # below: moving an event keeps publication_time <= start_time <
+        # end_time, which the table's own check constraint enforces.
+        start = event.start_time + timedelta(days=30)
+        window_opens = start - timedelta(days=20)
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {
+                "start_time": start.isoformat(),
+                "end_time": (start + timedelta(hours=8)).isoformat(),
+                "publication_time": window_opens.isoformat(),
+                "proposal_start_time": window_opens.isoformat(),
+                "proposal_end_time": (start - timedelta(days=6)).isoformat(),
+            },
+        )
+
+        event.refresh_from_db()
+        assert event.start_time == start
+        assert event.publication_time == window_opens
+        assert event.proposal_start_time == window_opens
+        assert event.proposal_end_time == start - timedelta(days=6)
+        assert updated["start_time"] == start.isoformat().replace("+00:00", "Z")
+
+    def test_update_event_can_hand_facilitator_editing_back_to_the_sphere(
+        self, client, org_token, event
+    ):
+        # None is the stored "follow the sphere", so it needs a word of its
+        # own — an omitted field means keep, not inherit.
+        event.allow_facilitator_session_edit = False
+        event.save(update_fields=["allow_facilitator_session_edit"])
+
+        call_org_json(
+            client, org_token, "update_event", {"allow_facilitator_session_edit": None}
+        )
+
+        event.refresh_from_db()
+        assert event.allow_facilitator_session_edit is None
+
+    def test_update_event_clears_the_proposal_window(self, client, org_token, event):
+        assert event.proposal_start_time is not None
+
+        call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {"proposal_start_time": None, "proposal_end_time": None},
+        )
+
+        event.refresh_from_db()
+        assert event.proposal_start_time is None
+        assert event.proposal_end_time is None
+
+    def test_update_event_clears_one_end_of_the_proposal_window(
+        self, client, org_token, event
+    ):
+        # Half a window was inexpressible while one flag cleared both ends.
+        call_org_json(client, org_token, "update_event", {"proposal_end_time": None})
+
+        event.refresh_from_db()
+        assert event.proposal_end_time is None
+        assert event.proposal_start_time is not None
+
+    def test_update_event_refuses_a_slug_the_url_router_cannot_match(
+        self, client, org_token, event
+    ):
+        # <slug:slug> rejects spaces and non-ASCII, so accepting one here
+        # would leave the event unreachable from both the panel and the site.
+        response = call_org_tool(
+            client, org_token, "update_event", {"slug": "Hello World! 💥"}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "letters, numbers, hyphens" in result["content"][0]["text"]
+        event.refresh_from_db()
+        assert event.slug != "Hello World! 💥"
+
+    def test_update_event_refuses_dates_that_would_invert(
+        self, client, org_token, event
+    ):
+        # The check constraint would raise deep in the ORM; the caller gets
+        # the same sentence create_event gives instead.
+        response = call_org_tool(
+            client,
+            org_token,
+            "update_event",
+            {"end_time": (event.start_time - timedelta(hours=1)).isoformat()},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "end_time must be after start_time"
+        event.refresh_from_db()
+        assert event.end_time > event.start_time
+
+    def test_update_event_refuses_publishing_after_the_event_starts(
+        self, client, org_token, event
+    ):
+        response = call_org_tool(
+            client,
+            org_token,
+            "update_event",
+            {"publication_time": (event.start_time + timedelta(days=1)).isoformat()},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert (
+            result["content"][0]["text"]
+            == "publication_time must not be after start_time"
+        )
+
+    def test_update_event_refuses_a_slug_another_event_holds(
+        self, client, org_token, event, sphere
+    ):
+        EventFactory(sphere=sphere, slug="taken")
+
+        response = call_org_tool(client, org_token, "update_event", {"slug": "taken"})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "already uses the slug" in result["content"][0]["text"]
+        event.refresh_from_db()
+        assert event.slug != "taken"
 
     def test_set_event_cover_image(self, client, org_token, event):
         updated = call_org_json(
@@ -960,6 +1189,55 @@ class TestOrganizerEventSettingsTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert "Unsupported image format" in result["content"][0]["text"]
+
+    @pytest.mark.parametrize("at_bottom", (True, False))
+    def test_update_sphere_settings(self, client, org_token, sphere, *, at_bottom):
+        sphere.event_cover_buttons_at_bottom = not at_bottom
+        sphere.allow_facilitator_session_edit = at_bottom
+        sphere.save(
+            update_fields=[
+                "event_cover_buttons_at_bottom",
+                "allow_facilitator_session_edit",
+            ]
+        )
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_sphere_settings",
+            {
+                "event_cover_buttons_at_bottom": at_bottom,
+                "allow_facilitator_session_edit": not at_bottom,
+                "encounters_policy": "managers",
+            },
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.event_cover_buttons_at_bottom is at_bottom
+        assert sphere.allow_facilitator_session_edit is not at_bottom
+        assert sphere.encounters_policy == "managers"
+        assert updated["event_cover_buttons_at_bottom"] is at_bottom
+        assert updated["allow_facilitator_session_edit"] is not at_bottom
+        assert updated["encounters_policy"] == "managers"
+
+    @pytest.mark.parametrize(
+        ("arguments", "message"),
+        (
+            ({}, "Provide at least one sphere setting to update"),
+            (
+                {"event_cover_buttons_at_bottom": None},
+                "Omit unchanged settings instead of passing null",
+            ),
+        ),
+    )
+    def test_update_sphere_settings_rejects_empty_values(
+        self, client, org_token, *, arguments, message
+    ):
+        response = call_org_tool(client, org_token, "update_sphere_settings", arguments)
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert message in result["content"][0]["text"]
 
     def test_set_sphere_logo_rejects_scripted_svg(self, client, org_token, sphere):
         scripted = base64.b64encode(
