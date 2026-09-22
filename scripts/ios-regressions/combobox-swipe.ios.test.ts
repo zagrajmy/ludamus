@@ -1,4 +1,4 @@
-import type { SnapshotNode } from "agent-device";
+import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
@@ -14,6 +14,7 @@ import {
   placed,
   pollUntil,
   type Rect,
+  viewportOf,
 } from "./snapshot";
 
 // The reported symptom: on an iPhone the host list could not be scrolled,
@@ -65,27 +66,43 @@ const tapCentre = async (rect: Rect, what: string): Promise<void> => {
 // Polled, not slept: the sheet and the list both animate in, and a snapshot
 // taken mid-way reads what is about to be there as missing. A snapshot taken
 // while Safari is still settling throws; that is a state to wait out, not to
-// end the run on.
+// end the run on. The failure dump is capped, and the page's own chrome fills
+// that cap before the sheet begins, so a wait names the nodes worth dumping.
 const waitFor = async <T>(
   what: string,
   probe: (nodes: readonly SnapshotNode[]) => T | null,
+  relevant: (node: SnapshotNode, screen: Rect) => boolean = () => true,
 ): Promise<T> => {
-  let last: readonly SnapshotNode[] = [];
+  const last: { snapshot: CaptureSnapshotResult | null } = { snapshot: null };
   const found = await pollUntil(
     async () => {
       try {
-        last = (await takeSnapshot()).nodes;
+        last.snapshot = await takeSnapshot();
       } catch (error) {
         console.warn("Snapshot failed while the page was settling; retrying.", error);
         return null;
       }
-      return probe(last);
+      return probe(last.snapshot.nodes);
     },
     { timeoutMs: WAIT_MS },
   );
   if (found !== null) return found;
-  throw new Error(`${what} did not appear in ${WAIT_MS}ms. Nodes: ${describeTree(last)}.`);
+  const seen = last.snapshot;
+  const shown = seen ? seen.nodes.filter((node) => relevant(node, viewportOf(seen))) : [];
+  throw new Error(`${what} did not appear in ${WAIT_MS}ms. Nodes: ${describeTree(shown)}.`);
 };
+
+// Drawn inside the window rather than spanning it, which is what tells the
+// sheet's nodes from the page containers above it in the tree.
+const inset = (node: SnapshotNode, screen: Rect): boolean =>
+  node.rect !== undefined &&
+  node.rect.y > screen.y &&
+  node.rect.y + node.rect.height <= screen.y + screen.height;
+
+const below =
+  (top: number) =>
+  (node: SnapshotNode): boolean =>
+    (node.rect?.y ?? -1) >= top;
 
 type ListState = { options: SnapshotNode[]; value: string };
 
@@ -118,20 +135,24 @@ beforeAll(async () => {
   );
   await tapCentre(rectOf(filters, "the Filters button"), "the Filters button");
 
-  const field = await waitFor(`The ${JSON.stringify(HOST_FIELD_LABEL)} field`, (nodes) =>
-    fieldNamed(nodes, HOST_FIELD_LABEL),
+  const field = await waitFor(
+    `The ${JSON.stringify(HOST_FIELD_LABEL)} field`,
+    (nodes) => fieldNamed(nodes, HOST_FIELD_LABEL),
+    inset,
   );
-  // Logged so a device run says which way fieldNamed told the field from its
-  // label, and the other way can go once one run has.
   console.log(`Host field: ${describeNode(field)}`);
   const fieldRect = rectOf(field, "the host field");
   await tapCentre(fieldRect, "the host field");
   const fieldBottom = fieldRect.y + fieldRect.height;
 
-  const before = await waitFor(`The host list's first ${MIN_ROWS} rows`, (nodes) => {
-    const state = listFrom(nodes, names);
-    return state.options.length >= MIN_ROWS ? state : null;
-  });
+  const before = await waitFor(
+    `The host list's first ${MIN_ROWS} rows`,
+    (nodes) => {
+      const state = listFrom(nodes, names);
+      return state.options.length >= MIN_ROWS ? state : null;
+    },
+    below(fieldBottom),
+  );
   const rows = rowsBelow(placed(before.options), fieldBottom);
   if (rows.length < MIN_ROWS) {
     throw new Error(

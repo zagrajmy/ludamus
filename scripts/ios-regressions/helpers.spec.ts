@@ -400,17 +400,20 @@ describe("rowsBelow", () => {
 });
 
 describe("fieldNamed", () => {
-  const label = node({ label: "Host", rect: { x: 24, y: 300, width: 40, height: 20 } });
-  const field = node({ label: "Host", rect: { x: 24, y: 330, width: 354, height: 44 } });
-
-  test("prefers the node typed as a field over the label sharing its name", () => {
-    const typed = { ...field, type: "TextField", rect: { x: 24, y: 330, width: 10, height: 44 } };
-    expect(fieldNamed([label, typed], "Host")).toBe(typed);
+  const label = node({ label: "HOST", rect: { x: 24, y: 300, width: 40, height: 20 } });
+  const field = node({
+    type: "TextField",
+    label: "HOST",
+    rect: { x: 24, y: 330, width: 354, height: 44 },
   });
 
-  test("falls back to the widest node of that name", () => {
+  test("picks the node typed as a field, whatever case the device reports its name in", () => {
     expect(fieldNamed([label, field], "Host")).toBe(field);
-    expect(fieldNamed([label], "Track")).toBeNull();
+  });
+
+  test("never settles for the label sharing the field's name", () => {
+    expect(fieldNamed([label], "Host")).toBeNull();
+    expect(fieldNamed([label, field], "Track")).toBeNull();
   });
 });
 

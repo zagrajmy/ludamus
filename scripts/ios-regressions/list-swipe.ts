@@ -30,15 +30,17 @@ export const rowsBelow = (rows: readonly Placed[], top: number): Placed[] =>
 const FIELD_TYPE = /field/i;
 
 // The text field named `name`. Its <label> carries the same name, so the two
-// are told apart by type, and failing a typed node, by width: the field spans
-// the sheet and the label is a word.
+// are told apart by type: the device reports the field as a TextField and the
+// label as text. NOTE: the label's CSS `uppercase` reaches the accessibility
+// name, so the device says "HOST" for a label that reads Host; the comparison
+// ignores case for that reason alone.
 export const fieldNamed = (nodes: readonly SnapshotNode[], name: string): SnapshotNode | null => {
-  const named = nodes.filter((node) => node.rect && labelOf(node) === name);
-  const typed = named.find((node) => FIELD_TYPE.test(node.type ?? ""));
-  if (typed) return typed;
-  return named.reduce<SnapshotNode | null>(
-    (widest, node) => ((node.rect?.width ?? 0) > (widest?.rect?.width ?? 0) ? node : widest),
-    null,
+  const wanted = name.toLowerCase();
+  return (
+    nodes.find(
+      (node) =>
+        node.rect && FIELD_TYPE.test(node.type ?? "") && labelOf(node).toLowerCase() === wanted,
+    ) ?? null
   );
 };
 
