@@ -11,7 +11,6 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.gates.web.django.landing import SHOWCASE_EVENT_URL
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.dashboard import DashboardDTO
@@ -29,6 +28,10 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+
+# Pinned rather than imported from the view, so a wrong production link
+# fails here instead of being asserted back to itself.
+KAPITULARZ_URL = "https://kapitularz.zagrajmy.net/"
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -67,7 +70,7 @@ class TestIndexRedirectView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
-                "showcase_url": SHOWCASE_EVENT_URL,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
@@ -86,7 +89,7 @@ class TestIndexRedirectView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": False,
-                "showcase_url": SHOWCASE_EVENT_URL,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
@@ -863,7 +866,7 @@ class TestLandingPageView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
-                "showcase_url": SHOWCASE_EVENT_URL,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
@@ -926,7 +929,7 @@ class TestLandingPageView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
-                "showcase_url": SHOWCASE_EVENT_URL,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )

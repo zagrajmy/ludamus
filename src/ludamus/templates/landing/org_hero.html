@@ -25,10 +25,12 @@
             {% comment %}
                 A phone's button is as wide as the screen, and the full line
                 runs past it; the short one is the same ask without the brand.
+                One label is the default and the other its override: Tailwind's
+                max-* is inclusive, so a max/min pair hides both at the bound.
             {% endcomment %}
             <a class="btn btn-primary"
                href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">
-                <span class="max-[30rem]:hidden">{% translate "Run your event with Zagrajmy" %}</span>
+                <span class="hidden min-[30rem]:inline">{% translate "Run your event with Zagrajmy" %}</span>
                 <span class="min-[30rem]:hidden">{% translate "Run your event" %}</span>
             </a>
             <a class="btn btn-secondary"

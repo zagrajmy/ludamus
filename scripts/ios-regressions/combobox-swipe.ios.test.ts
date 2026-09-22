@@ -191,7 +191,12 @@ beforeAll(async () => {
   const last = { state: opened };
   const before = await pollUntil(
     async () => {
-      last.state = await readList(names);
+      try {
+        last.state = await readList(names);
+      } catch (error) {
+        console.warn("Snapshot failed while the list was settling; retrying.", error);
+        return null;
+      }
       return last.state.shown.length >= MIN_VISIBLE_ROWS ? last.state : null;
     },
     { timeoutMs: WAIT_MS },

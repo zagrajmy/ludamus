@@ -8,12 +8,12 @@ from django.utils.csp import CSP
 
 from ludamus.edges.settings import CSP_POLICY
 from ludamus.gates.web.django.events import EventsPageView
-from ludamus.gates.web.django.landing import SHOWCASE_EVENT_URL
 from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
 ENFORCE_HEADER = "Content-Security-Policy"
+KAPITULARZ_URL = "https://kapitularz.zagrajmy.net/"
 
 
 # A sphere with nothing on: the smallest rendered surface these headers can be
@@ -125,7 +125,7 @@ class TestCSPNonce:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
-                "showcase_url": SHOWCASE_EVENT_URL,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
