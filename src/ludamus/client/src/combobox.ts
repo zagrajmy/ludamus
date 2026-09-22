@@ -682,16 +682,41 @@ const upgrade = (root: HTMLElement): void => {
     input.select();
   });
 
+  // A pick is a pointer lifted from the row it landed on, without having
+  // moved. Not the landing itself: on a phone every scroll of the list begins
+  // with a finger on a row, and committing there toggled whatever the swipe
+  // started from. Not the click either: WebKit drops the click that would
+  // follow a cancelled pointerdown, and the cancel is what keeps the input
+  // focused. A swipe the browser takes for scrolling ends in pointercancel;
+  // one it has nothing to scroll for still lifts, so the distance decides.
+  // A touch pointer is captured by the row it lands on and reports that row
+  // wherever the finger goes, which is why the row alone cannot.
+  const TAP_SLOP_PX = 10;
+  let pressed: { row: Row; x: number; y: number } | undefined;
   listbox.addEventListener("pointerdown", (event: PointerEvent) => {
     // Before the click, so the input never loses focus to the option.
     event.preventDefault();
     const row = rowAt(optionUnder(event.target));
-    if (!row) return;
+    pressed = row ? { row, x: event.clientX, y: event.clientY } : undefined;
+  });
+
+  listbox.addEventListener("pointercancel", () => {
+    pressed = undefined;
+  });
+
+  listbox.addEventListener("pointerup", (event: PointerEvent) => {
+    const row = rowAt(optionUnder(event.target));
+    const landing = pressed;
+    pressed = undefined;
+    if (!row || row.value !== landing?.row.value) return;
     commit(row);
     releaseIfKeyboardIsInTheWay();
   });
 
   listbox.addEventListener("pointermove", (event: PointerEvent) => {
+    if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > TAP_SLOP_PX) {
+      pressed = undefined;
+    }
     // Hovering moves the active option, as both Base UI and cmdk do.
     const el = optionUnder(event.target);
     const index = Number(el instanceof HTMLElement ? el.dataset.index : Number.NaN);
