@@ -94,7 +94,17 @@ class TestPermissionsPolicy:
     def test_header_sent_on_every_response(self, client):
         response = client.get(reverse("web:index"))
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": True,
+            },
+            template_name=["landing_page.html"],
+        )
         assert response.headers["Permissions-Policy"] == (
             "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
             "display-capture=()"
