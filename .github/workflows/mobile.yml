@@ -72,22 +72,20 @@ jobs:
 
       # The runner sets ImageVersion in its own environment, which the Actions
       # `env` context does not carry — that holds only what the workflow set.
-      # Reading it here is what lets the cache key below move with the image.
+      # Unset is fatal rather than defaulted: a placeholder would key every
+      # image alike, which is the thing the key exists to prevent.
       - id: runner-image
-        run: echo "version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+        run: echo "version=${ImageVersion:?runner set no ImageVersion}" >> "$GITHUB_OUTPUT"
 
       - uses: jdx/mise-action@v2
-        # Bounded because a tool download can now retry for ~2 min (mise.toml's
-        # http_retries): past this, setup fails inside the budget above and the
-        # log upload still runs, which a job-level timeout would skip.
+        # Bounded because a tool download can retry for over two minutes
+        # (mise.toml's http_retries): past this, setup fails inside the budget
+        # above and the log upload still runs, which a job cap would skip.
         timeout-minutes: 5
         with:
-          # The cache went off because a restored macOS build could meet a
-          # runner image it was not built against — dyld "Library not loaded",
-          # Abort trap 6. At this tag the key is prefix, target and a hash of
-          # mise.toml, with nothing about the image in it, so a build would
-          # otherwise outlive every image it was made for. In the prefix, the
-          # image version is the one part that moves when that happens.
+          # The action's key is prefix, target and a hash of mise.toml —
+          # nothing about the runner image, so a macOS build would otherwise
+          # outlive the image it was made for.
           cache_key_prefix: mise-${{ steps.runner-image.outputs.version }}
 
       - uses: oven-sh/setup-bun@v2
