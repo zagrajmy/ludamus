@@ -175,6 +175,15 @@ description = "Mint maintainer and organizer MCP tokens into .local/mcp-tokens.j
 run = "aubr varlock python -m scripts.mint_mcp_tokens"
 raw_args = true
 
+["perf:event-page"]
+description = "Benchmark the public event page on a seeded 1000-session event: wall time, query count and bytes for the anonymous list, rooms and logged-in views"
+run = "python -m scripts.perf_event_page"
+raw_args = true
+# .env.test gives the testserver host that Vite dev mode and the seeded Site
+# both key on; the overrides turn zeal off (prod pays no zeal cost) and point
+# the database at a scratch file so the seed survives between runs.
+env = { _.file = '.env.test', DB_NAME = "{{ config_root }}/.local/perf-event-page.sqlite3", IN_TESTS = "False", ZEAL_RAISE = "False", PYTHONPATH = "src:." }
+
 [control-ludamus]
 description = "Drive the local ludamus instance for agent verification (doctor, open, screenshot, mcp)"
 run = "aubr varlock python -m scripts.control_ludamus"

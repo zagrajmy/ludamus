@@ -37,7 +37,7 @@ class TestEncounterDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=((constants.SUCCESS, "Encounter deleted."),),
-            url=reverse("web:events"),
+            url=reverse("web:index"),
         )
         assert not Encounter.objects.filter(pk=encounter.pk).exists()
 
