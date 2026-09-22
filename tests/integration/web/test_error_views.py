@@ -156,7 +156,7 @@ class TestSemantic404Recovery:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
@@ -166,7 +166,7 @@ class TestSemantic404Recovery:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
@@ -182,7 +182,7 @@ class TestSemantic404Recovery:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
@@ -225,13 +225,13 @@ class TestSemantic404Recovery:
         assert_response(
             Client().get(url),
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
         assert_response(
             Client().head(url),
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
