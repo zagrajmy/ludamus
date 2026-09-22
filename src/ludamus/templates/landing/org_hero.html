@@ -6,7 +6,9 @@
             Floated so it sits on the h1's first line at desktop width instead
             of stacking a near-empty row above it.
         {% endcomment %}
-        <div class="ld d1 mb-6 flex justify-end lg:float-right lg:mb-0 lg:ml-8">{% include "landing/_aud_switch.html" %}</div>
+        <div class="ld d1 mb-6 flex justify-end max-[30rem]:justify-center lg:float-right lg:mb-0 lg:ml-8">
+            {% include "landing/_aud_switch.html" %}
+        </div>
         <h1 id="landing-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
             {% translate "Event organization" %}
@@ -20,8 +22,15 @@
             {% translate "Bring the event. We help set up proposals, programme, enrollment, and the public page in Zagrajmy." %}
         </p>
         <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
+            {% comment %}
+                A phone's button is as wide as the screen, and the full line
+                runs past it; the short one is the same ask without the brand.
+            {% endcomment %}
             <a class="btn btn-primary"
-               href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
+               href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">
+                <span class="max-[30rem]:hidden">{% translate "Run your event with Zagrajmy" %}</span>
+                <span class="min-[30rem]:hidden">{% translate "Run your event" %}</span>
+            </a>
             <a class="btn btn-secondary"
                href="{{ showcase_url }}"
                target="_blank"
@@ -31,7 +40,7 @@
         <div class="ld d5 mt-12 grid grid-cols-[1.08fr_auto_1fr] items-stretch gap-6 max-[56rem]:grid-cols-1 max-[56rem]:gap-5">
             <div>
                 <p class="text-xs font-semibold tracking-[0.1em] uppercase text-foreground-muted mb-[0.625rem] flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-border">
-                    {% translate "Before" %} <span aria-hidden="true">: program_FINAL_2(1).xlsx</span>
+                    <span>{% translate "Before" %}<span aria-hidden="true">: program_FINAL_2(1).xlsx</span></span>
                 </p>
                 {% translate "A caricature of a spreadsheet full of errors, crossed out in red like an editor's proof" as t_sheet %}
                 <div class="relative" role="img" aria-label="{{ t_sheet }}">
