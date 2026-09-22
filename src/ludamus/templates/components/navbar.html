@@ -4,27 +4,35 @@
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 panel:max-w-none lg:panel:px-4">
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
-                <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200"
-                   data-brand-hover="tuck-in">
-                    {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
-                    <span class="sr-only sm:hidden">zagrajmy</span>
-                    {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
-                    <span class="flex items-center gap-2 text-xl font-semibold tracking-tight{% if not current_sphere.logo_url and current_sphere.enabled_pages|length > 1 %} max-sm:hidden{% endif %}">
-                        <span class="text-foreground-muted" aria-hidden="true">/</span>
-                        {% if current_sphere.logo_url %}
-                            <img src="{{ current_sphere.logo_url }}"
-                                 alt=""
-                                 width="24"
-                                 height="24"
-                                 class="h-6 w-[35px] rounded object-contain">
-                        {% endif %}
-                        <span class="{% if current_sphere.logo_url or current_sphere.enabled_pages|length > 1 %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
-                    </span>
-                </a>
-                {% if current_sphere.enabled_pages|length > 1 %}
-                    {% include "components/navbar_pages.html" %}
-                {% endif %}
+                {% comment %}
+                    Two destinations, so two links: the mark goes home to
+                    zagrajmy.net, the sphere half to the sphere you are in. On
+                    the root sphere they would be the same page, so only the
+                    mark renders there.
+                {% endcomment %}
+                <div class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
+                    <a href="{{ request.scheme }}://{{ root_site.domain }}{% url 'web:index' %}"
+                       class="flex items-center gap-1"
+                       data-brand-hover="tuck-in">
+                        {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
+                        <span class="sr-only sm:hidden">zagrajmy</span>
+                        {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
+                    </a>
+                    {% if not is_root_sphere %}
+                        <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
+                           class="flex items-center gap-2 text-xl font-semibold tracking-tight">
+                            <span class="text-foreground-muted" aria-hidden="true">/</span>
+                            {% if current_sphere.logo_url %}
+                                <img src="{{ current_sphere.logo_url }}"
+                                     alt=""
+                                     width="24"
+                                     height="24"
+                                     class="h-6 w-[35px] rounded object-contain">
+                            {% endif %}
+                            <span class="{% if current_sphere.logo_url %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
+                        </a>
+                    {% endif %}
+                </div>
             </div>
             <div class="flex items-center gap-2 -translate-y-px">
                 {% if request.user.is_authenticated %}
@@ -63,6 +71,15 @@
                                         {% translate "Panel" %}
                                     </a>
                                 {% endif %}
+                                {% comment %}
+                                    The dashboard reads across every sphere, so it
+                                    lives on the root domain and is linked absolutely.
+                                {% endcomment %}
+                                <a href="{{ request.scheme }}://{{ root_site.domain }}{% url 'web:dashboard' %}"
+                                   class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                    {% icon "home" class="w-4 h-4 opacity-60" %}
+                                    {% translate "Your dashboard" %}
+                                </a>
                                 <a href="{% url 'web:crowd:profile' %}"
                                    class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                     {% icon "user-circle" class="w-4 h-4 opacity-60" %}

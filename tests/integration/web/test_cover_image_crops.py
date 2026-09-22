@@ -11,8 +11,8 @@ from ludamus.gates.web.django.notice_board.forms import EncounterForm
 
 
 class TestCoverImageCrops:
-    def test_event_cover_meets_a_full_bleed_banner(self) -> None:
-        assert EventSettingsForm().fields["cover_image"].widget.crop == "edges"
+    def test_event_cover_only_crops_vertically(self) -> None:
+        assert EventSettingsForm().fields["cover_image"].widget.crop == "top-and-bottom"
 
     def test_session_covers_keep_their_width(self) -> None:
         assert SessionEditForm().fields["cover_image"].widget.crop == "top-and-bottom"

@@ -6,11 +6,11 @@
 {# the depth — a drop shadow on top would replace that edge rather than add to #}
 {# it. Beside the CTAs the page already provides the surface, and the button #}
 {# matches the lg CTAs it sits beside: 48px on a 16px radius. On the cover it #}
-{# is a chip on someone's photograph, so it gives 4px back. Stacked on a #}
-{# phone, side by side from tablets up. #}
+{# is a chip on someone's photograph, so it gives 4px back. It stacks on a #}
+{# phone unless the sphere pins a horizontal row to the cover's bottom edge. #}
 {% translate "Print the program" as t_print_program %}
 {% translate "Venue maps" as t_venue_maps %}
-<div class="flex flex-col gap-1 max-sm:basis-full sm:flex-row">
+<div class="flex gap-1 {% if horizontal %}flex-row{% else %}flex-col max-sm:basis-full sm:flex-row{% endif %}">
     <a href="{{ print_url }}"
        class="icon-btn shrink-0 justify-center overflow-hidden {% if on_cover %}size-11 rounded-xl bg-bg-secondary{% else %}size-12 rounded-2xl{% endif %}"
        title="{{ t_print_program }}">

@@ -27,6 +27,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
   resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
   publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
+- No redundant migrations: if something can be done with a settings toggle or a
+  single MCP call, it does not require a migration.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;

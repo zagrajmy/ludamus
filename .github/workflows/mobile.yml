@@ -71,6 +71,11 @@ jobs:
           fi
 
       - uses: jdx/mise-action@v2
+        # This job caches no tools, so it downloads them all every run — which
+        # is why it is the one that met the outage. Retries make that survivable
+        # without letting a long one eat the slack this job is sized with: past
+        # this, setup fails inside its budget and the log upload still runs.
+        timeout-minutes: 5
         with:
           # ponytail: macOS poetry venv links to Homebrew's python framework;
           # caching it breaks when the runner image bumps python@3.14's patch
@@ -79,7 +84,6 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - run: mise install
       - run: mise exec -- poetry install
 
       # Split from the join below: booting takes ~2min of pure waiting that

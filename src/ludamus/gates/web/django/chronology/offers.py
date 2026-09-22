@@ -30,7 +30,7 @@ class SessionOfferClaimView(View):
             messages.error(
                 request, _("This offer is no longer available or has expired.")
             )
-            return redirect("web:events")
+            return redirect("web:index")
         return TemplateResponse(
             request, "chronology/offer_claim.html", {"offer": offer, "token": token}
         )
@@ -44,7 +44,7 @@ class SessionOfferClaimView(View):
             )
             return redirect("web:chronology:event", slug=result.event_slug)
         messages.error(request, _("This offer has expired or was already claimed."))
-        return redirect("web:events")
+        return redirect("web:index")
 
 
 class SessionOfferDeclineView(View):
@@ -61,7 +61,7 @@ class SessionOfferDeclineView(View):
             messages.success(request, _("Offer declined — the seat was released."))
             return redirect("web:chronology:event", slug=result.event_slug)
         messages.error(request, _("This offer is no longer available or has expired."))
-        return redirect("web:events")
+        return redirect("web:index")
 
 
 class NotificationsMarkReadView(LoginRequiredMixin, View):

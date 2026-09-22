@@ -2,15 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.links.db.django.repositories import EventRepository
-from ludamus.pacts.event import EventCreateData
+from ludamus.links.db.django.repositories import EventRepository, LandingStatsRepository
+from ludamus.pacts.event import EventCreateData, LandingStatsDTO
 from ludamus.pacts.services import DatabaseConstraintError
-
-
-@pytest.mark.usefixtures("event")
-def test_exists_for_sphere_ignores_other_spheres(sphere, non_root_sphere):
-    assert EventRepository.exists_for_sphere(sphere.pk) is True
-    assert EventRepository.exists_for_sphere(non_root_sphere.pk) is False
+from tests.integration.conftest import EventFactory, SessionFactory
 
 
 def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):
@@ -27,3 +22,62 @@ def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):
 
     with pytest.raises(DatabaseConstraintError):
         EventRepository.create(sphere.pk, data)
+
+
+class TestLandingStatsRepository:
+    def test_counts_every_event_and_live_session(self, sphere, event):
+        SessionFactory(category__event=event)
+        deleted = SessionFactory(category__event=event)
+        deleted.soft_delete()
+        EventFactory(sphere=sphere, publication_time=None)
+
+        stats = LandingStatsRepository.count_landing_stats()
+
+        assert stats == LandingStatsDTO(events=2, sessions=1)
+
+    def test_conventions_carry_the_newest_event_cover(
+        self, sphere, non_root_sphere, event
+    ):
+        del event
+        now = datetime.now(UTC)
+        EventFactory(
+            sphere=non_root_sphere,
+            start_time=now - timedelta(days=30),
+            cover_image="events/old.png",
+        )
+        EventFactory(
+            sphere=non_root_sphere, start_time=now, cover_image="events/newest.png"
+        )
+
+        conventions = LandingStatsRepository.list_conventions(3)
+
+        assert [c.name for c in conventions] == [non_root_sphere.name]
+        assert conventions[0].cover_image_url.endswith("events/newest.png")
+        assert conventions[0].domain == non_root_sphere.site.domain
+
+    def test_conventions_skip_spheres_without_events(self, sphere, non_root_sphere):
+        del sphere, non_root_sphere
+
+        assert LandingStatsRepository.list_conventions(3) == []
+
+    def test_conventions_never_carry_an_unpublished_event_cover(
+        self, sphere, non_root_sphere, event
+    ):
+        del event
+        now = datetime.now(UTC)
+        EventFactory(
+            sphere=non_root_sphere,
+            start_time=now - timedelta(days=30),
+            cover_image="events/published.png",
+        )
+        EventFactory(
+            sphere=non_root_sphere,
+            start_time=now + timedelta(days=1),
+            publication_time=now + timedelta(days=1),
+            cover_image="events/draft.png",
+        )
+
+        conventions = LandingStatsRepository.list_conventions(3)
+
+        assert [c.name for c in conventions] == [non_root_sphere.name]
+        assert conventions[0].cover_image_url.endswith("events/published.png")
