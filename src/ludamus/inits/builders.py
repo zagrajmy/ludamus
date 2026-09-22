@@ -20,6 +20,7 @@ from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
 from ludamus.mills.crowd import EmailVerificationService
+from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.printing import PrintablesReminderService
@@ -55,6 +56,14 @@ def build_email_verification() -> EmailVerificationService:
         users=repos.active_users,
         reminders=repos.verification_reminders,
         tokens=DjangoEmailTokenCodec(),
+        notifier=DjangoUserNotifier(),
+    )
+
+
+def build_sphere_subscriptions() -> SphereSubscriptionService:
+    return SphereSubscriptionService(
+        transaction=DjangoTransaction(),
+        subscriptions=Repositories().sphere_subscriptions,
         notifier=DjangoUserNotifier(),
     )
 

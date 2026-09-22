@@ -74,6 +74,9 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
         DBOS.start_workflow(
             scheduler_module.konwencik_export_tick, now, now
         ).get_result()
+        DBOS.start_workflow(
+            scheduler_module.sphere_announcements_tick, now, now
+        ).get_result()
     finally:
         DBOS.destroy()
 

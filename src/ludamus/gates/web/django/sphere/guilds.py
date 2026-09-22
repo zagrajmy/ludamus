@@ -24,8 +24,7 @@ from ludamus.pacts.guild import (
     GuildFacilitatorMemberDTO,
     GuildMembershipMemberDTO,
 )
-from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

@@ -309,7 +309,7 @@ class TestOfferClaimAndExpiry:
             messages=[
                 (messages.ERROR, "This offer is no longer available or has expired.")
             ],
-            url=reverse("web:events"),
+            url=reverse("web:index"),
         )
 
     def test_claim_view_unknown_token_redirects(self, client):
@@ -323,7 +323,7 @@ class TestOfferClaimAndExpiry:
             messages=[
                 (messages.ERROR, "This offer has expired or was already claimed.")
             ],
-            url=reverse("web:events"),
+            url=reverse("web:index"),
         )
 
     def test_decline_view_drops_offer_and_rolls_on(
@@ -364,7 +364,7 @@ class TestOfferClaimAndExpiry:
             messages=[
                 (messages.ERROR, "This offer is no longer available or has expired.")
             ],
-            url=reverse("web:events"),
+            url=reverse("web:index"),
         )
 
     def test_claim_page_offers_a_decline_way_out(self, client, session, event, waiter):

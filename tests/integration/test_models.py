@@ -43,26 +43,11 @@ class TestEventIsPublished:
 
 
 class TestSphereClean:
-    def test_rejects_non_list_enabled_pages(self, sphere):
-        # A JSON object coerces through membership checks ({"events": true}
-        # has "events" as a key) but breaks SphereDTO validation on read.
-        sphere.enabled_pages = {"events": True}
+    def test_rejects_unknown_encounters_policy(self, sphere):
+        sphere.encounters_policy = "sometimes"
         with pytest.raises(ValidationError) as exc_info:
             sphere.full_clean()
-        assert "enabled_pages" in exc_info.value.message_dict
-
-    def test_rejects_unknown_page_slug(self, sphere):
-        sphere.enabled_pages = ["events", "unknown"]
-        with pytest.raises(ValidationError) as exc_info:
-            sphere.full_clean()
-        assert "enabled_pages" in exc_info.value.message_dict
-
-    def test_rejects_default_page_not_enabled(self, sphere):
-        sphere.enabled_pages = ["encounters"]
-        sphere.default_page = "events"
-        with pytest.raises(ValidationError) as exc_info:
-            sphere.full_clean()
-        assert "default_page" in exc_info.value.message_dict
+        assert "encounters_policy" in exc_info.value.message_dict
 
 
 class TestTimeSlot:

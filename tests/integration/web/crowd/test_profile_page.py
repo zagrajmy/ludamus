@@ -104,13 +104,13 @@ class TestProfilePageView:
             "email": active_user.email,
             "user_type": UserType.ACTIVE,
         }
-        response = authenticated_client.post(f"{self.URL}?next=/events/", data=data)
+        response = authenticated_client.post(f"{self.URL}?next=/", data=data)
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/events/",
+            url="/",
         )
 
     def test_post_ignores_external_next(self, authenticated_client, active_user, faker):

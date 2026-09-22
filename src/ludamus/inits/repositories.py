@@ -26,6 +26,7 @@ from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
+from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
 from ludamus.pacts.crowd import UserType
 
 
@@ -92,6 +93,10 @@ class Repositories:
         return repositories.EventRepository()
 
     @cached_property
+    def landing_stats(self) -> repositories.LandingStatsRepository:
+        return repositories.LandingStatsRepository()
+
+    @cached_property
     def event_settings(self) -> repositories.EventSettingsRepository:
         return repositories.EventSettingsRepository()
 
@@ -154,6 +159,14 @@ class Repositories:
     @cached_property
     def verification_reminders(self) -> EmailVerificationReminderRepository:
         return EmailVerificationReminderRepository()
+
+    @cached_property
+    def dashboard(self) -> repositories.DashboardRepository:
+        return repositories.DashboardRepository()
+
+    @cached_property
+    def sphere_subscriptions(self) -> SphereSubscriptionRepository:
+        return SphereSubscriptionRepository()
 
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:
