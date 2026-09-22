@@ -9,22 +9,22 @@ to run repeatedly; already resolved offers are no-ops.
 
 from __future__ import annotations
 
-import logging
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from django.core.management.base import BaseCommand
-
+from ludamus.gates.cli.django.management.commands._sweep import SweepCommand
 from ludamus.inits.services import Services
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
-class Command(BaseCommand):
+class Command(SweepCommand):
     help = "Expire lapsed waiting-list offers and promote the next waiter."
 
-    def handle(self, *_args: object, **_options: object) -> None:
-        expired = Services().waitlist_promotion.expire_lapsed_offers(
-            now=datetime.now(UTC)
-        )
-        logger.info("expire_offers: processed %s lapsed offer(s)", expired)
-        self.stdout.write(self.style.SUCCESS(f"Processed {expired} lapsed offer(s)."))
+    @staticmethod
+    def sweep(*, now: datetime) -> int:
+        return Services().waitlist_promotion.expire_lapsed_offers(now=now)
+
+    @staticmethod
+    def report(handled: int) -> str:
+        return f"Processed {handled} lapsed offer(s)."
