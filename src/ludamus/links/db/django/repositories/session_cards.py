@@ -78,11 +78,11 @@ class _SessionRow(BaseModel):
     title: str
     cover_image: str
     cover_image_original_name: str
+    schedule_confirmed: bool
     category__name: str | None
     agenda_item__pk: int
     agenda_item__start_time: datetime
     agenda_item__end_time: datetime
-    agenda_item__session_confirmed: bool
     agenda_item__space_id: int
     enrolled_count_cached: int
     waiting_count_cached: int
@@ -142,7 +142,7 @@ def _agenda_item_dto(row: _SessionRow) -> AgendaItemDTO:
         pk=row.agenda_item__pk,
         start_time=row.agenda_item__start_time,
         end_time=row.agenda_item__end_time,
-        session_confirmed=row.agenda_item__session_confirmed,
+        schedule_confirmed=row.schedule_confirmed,
         space_id=row.agenda_item__space_id,
         session_id=row.pk,
     )
