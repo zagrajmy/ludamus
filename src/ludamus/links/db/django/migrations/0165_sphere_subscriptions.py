@@ -26,7 +26,10 @@ def unmark_events(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0164_sphere_event_cover_buttons_at_bottom")]
+    dependencies = [
+        ("db_main", "0163_merge_announcements_notified_and_space_programme_order"),
+        ("db_main", "0164_sphere_event_cover_buttons_at_bottom"),
+    ]
 
     operations = [
         migrations.AddField(
