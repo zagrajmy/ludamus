@@ -13,7 +13,7 @@ shipped pattern lands here.
 
 - **Loading / pending UI.** Most views are server-rendered, so there's no
   established skeleton/spinner pattern. As htmx adoption grows
-  (`docs/refactors/htmx-adoption.md`), we'll need one. Until then: keep partials
+  (#10), we'll need one. Until then: keep partials
   fast and avoid layout shift; don't introduce a bespoke spinner per page.
 - **Toast / transient notifications.** *Resolved for page-load messages.* Django
   `messages` render via `components/flash-messages.html` (one source for both

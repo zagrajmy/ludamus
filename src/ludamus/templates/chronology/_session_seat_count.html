@@ -1,8 +1,0 @@
-{# The muted seat statement, shared by the card and the compact row, for the #}
-{# two places sign-up is not on offer: a shut window, and a proposal that #}
-{# has no seats to offer yet. Which of the two things it says — a cap, or #}
-{# what is free of one — is SessionData.seats_label's to decide. #}
-{# Variables: data, extra_class (the caller's type scale). #}
-<span class="{% if extra_class %}{{ extra_class }} {% endif %}font-semibold tabular-nums text-foreground-muted">
-    {{ data.seats_label }}
-</span>
