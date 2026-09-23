@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Rect } from "./snapshot";
 
 import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
-import { decodeEntities, fetchReadyPage } from "./page";
+import { decodeEntities, fetchReadyPage, namesFrom } from "./page";
 import {
   centreOnScreen,
   collapse,
@@ -44,11 +44,6 @@ const railSlotAnchor = (html: string): string => {
 };
 
 type RailHour = { label: string; rect: Rect };
-
-const namesFrom = (html: string, pattern: RegExp): Set<string> =>
-  new Set(
-    [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
-  );
 
 // This page overflows the runner's 300-node snapshot budget, and the rail nav
 // is the last element in the document — an unscoped snapshot truncates before
