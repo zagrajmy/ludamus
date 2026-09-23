@@ -27,6 +27,12 @@ interface ConfirmOptions {
   variant?: string | null;
 }
 
+const confirmOptions = (dataset: DOMStringMap): ConfirmOptions => ({
+  icon: dataset.confirmIcon,
+  title: dataset.confirmTitle,
+  variant: dataset.confirmVariant,
+});
+
 export const requestConfirm = (
   message: string,
   acceptLabel: string | null,
@@ -104,11 +110,7 @@ document.addEventListener(
         confirmedForms.add(form);
         form.requestSubmit(submitter);
       },
-      {
-        icon: form.dataset.confirmIcon,
-        title: form.dataset.confirmTitle,
-        variant: form.dataset.confirmVariant,
-      },
+      confirmOptions(form.dataset),
     );
   },
   true,
@@ -133,11 +135,7 @@ document.addEventListener(
       () => {
         globalThis.location.assign(link.href);
       },
-      {
-        icon: link.dataset.confirmIcon,
-        title: link.dataset.confirmTitle,
-        variant: link.dataset.confirmVariant,
-      },
+      confirmOptions(link.dataset),
     );
   },
   true,
