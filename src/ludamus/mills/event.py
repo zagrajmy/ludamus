@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
+    LANDING_CONVENTIONS,
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
@@ -21,6 +22,10 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    LandingConventionDTO,
+    LandingServiceProtocol,
+    LandingStatsDTO,
+    LandingStatsRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -62,7 +67,7 @@ def require_session_in_event(
 
 
 def widen_event_dates(
-    *, events: EventRepositoryProtocol, event: EventDTO, start: datetime, end: datetime
+    *, events: EventRepositoryProtocol, event_pk: int, start: datetime, end: datetime
 ) -> bool:
     """Grow the event's dates until the range fits; say whether they grew.
 
@@ -70,6 +75,11 @@ def widen_event_dates(
     the edges follow it rather than refusing. Publication is the one edge
     that cannot move on its own: an event cannot start before it is public.
     """
+    # SAFETY: compare against the locked row, not the caller's copy. Two
+    # placements widening at once would otherwise let the later write shrink
+    # the dates the earlier one had just grown.
+    events.lock(event_pk)
+    event = events.read(event_pk)
     data: EventUpdateData = {}
     if start < event.start_time:
         if event.publication_time is not None and start < event.publication_time:
@@ -79,7 +89,7 @@ def widen_event_dates(
         data["end_time"] = end
     if not data:
         return False
-    events.update(event.pk, data)
+    events.update(event_pk, data)
     return True
 
 
@@ -441,6 +451,17 @@ class EventPanelService(EventPanelServiceProtocol):
             is_proposal_active=current_event.is_proposal_active,
             stats=build_panel_stats(stats_data),
         )
+
+
+class LandingService(LandingServiceProtocol):
+    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
+        self._stats = stats
+
+    def stats(self) -> LandingStatsDTO:
+        return self._stats.count_landing_stats()
+
+    def conventions(self) -> list[LandingConventionDTO]:
+        return self._stats.list_conventions(LANDING_CONVENTIONS)
 
 
 class EventsService(EventsServiceProtocol):

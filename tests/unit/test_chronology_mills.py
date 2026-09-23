@@ -553,8 +553,11 @@ class TestProposalAcceptanceService:
         return MagicMock()
 
     @pytest.fixture
-    def events(self):
-        return MagicMock()
+    def events(self, sessions):
+        events = MagicMock()
+        # Widening re-reads the event under its lock; that row is the session's.
+        events.read.side_effect = lambda _pk: sessions.read_event.return_value
+        return events
 
     @pytest.fixture
     def transaction(self):
@@ -713,6 +716,7 @@ class TestProposalAcceptanceService:
             session_id=5, space_id=7, start_time=_NOW, user_slug="manager", sphere_id=3
         )
 
+        events.lock.assert_called_once_with(9)
         events.update.assert_called_once_with(9, {"end_time": _END})
 
     def test_accept_session_raises_on_space_time_conflict(

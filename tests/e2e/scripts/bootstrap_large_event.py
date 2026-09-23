@@ -4,7 +4,8 @@
 Builds a dedicated ``perf-marathon`` event spanning a weekend
 (Fri 16:00-22:00, Sat 10:00-22:00, Sun 10:00-16:00) with a full
 building/floor/space hierarchy, several tracks and proposal categories, and
-600 accepted sessions each scheduled into its own (space, time-slot) cell.
+``LARGE_EVENT_SESSIONS`` (default 600) accepted sessions each scheduled into
+its own (space, window) cell. The space grid widens to fit the target.
 
 Faker generates the human-readable strings; a fixed seed keeps the data
 reproducible so perf numbers are comparable between runs.
@@ -13,10 +14,14 @@ Run after ``bootstrap_data.py`` (it reuses the sphere that script creates).
 
 Usage:
     mise run test:e2e:boot tests/e2e/scripts/bootstrap_large_event.py
+    LARGE_EVENT_SESSIONS=1000 mise run test:e2e:boot \
+        tests/e2e/scripts/bootstrap_large_event.py
 """
 
 from __future__ import annotations
 
+import math
+import os
 import sys
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -42,16 +47,17 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     Space,
+    Sphere,
     Track,
 )
 
-TARGET_SESSIONS = 600
+TARGET_SESSIONS = int(os.environ.get("LARGE_EVENT_SESSIONS", "600"))
 SLOT_HOURS = 2
 # (day offset from Friday, first slot start hour, day end hour)
 DAY_RANGES = ((0, 16, 22), (1, 10, 22), (2, 10, 16))
 BUILDINGS = 5
 FLOORS_PER_BUILDING = 3
-SPACES_PER_FLOOR = 4
+MIN_SPACES_PER_FLOOR = 4
 CATEGORIES = ("RPG", "Board Games", "Workshops", "LARP")
 
 fake = Faker()
@@ -81,7 +87,18 @@ def _windows(event: Event) -> list[Window]:
     ]
 
 
-def _spaces_and_tracks(event: Event) -> tuple[list[Space], dict[int, Track]]:
+def _spaces_per_floor(*, target_sessions: int, window_count: int) -> int:
+    # Enough rooms that every session gets its own (space, window) cell; the
+    # default grid stays at 600 so the numbers stay comparable across runs.
+    needed = math.ceil(
+        target_sessions / (BUILDINGS * FLOORS_PER_BUILDING * window_count)
+    )
+    return max(MIN_SPACES_PER_FLOOR, needed)
+
+
+def _spaces_and_tracks(
+    event: Event, *, spaces_per_floor: int
+) -> tuple[list[Space], dict[int, Track]]:
     # Building -> floor -> space hierarchy; one track per building.
     leaves: list[Space] = []
     tracks: dict[int, Track] = {}
@@ -107,7 +124,7 @@ def _spaces_and_tracks(event: Event) -> tuple[list[Space], dict[int, Track]]:
                 name=f"Floor {f + 1}",
                 slug=f"building-{b}-floor-{f}",
             )
-            for s in range(SPACES_PER_FLOOR):
+            for s in range(spaces_per_floor):
                 space = Space.objects.create(
                     event=event,
                     parent=floor,
@@ -125,9 +142,8 @@ def _building_of(space: Space) -> int:
     return int(space.slug.split("-")[1])
 
 
-def main() -> None:
-    sphere = Event.objects.get(slug="autumn-open").sphere
-
+def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
+    """Seed the perf-marathon event into ``sphere`` and return it."""
     Faker.seed(20260715)
     local_tz = get_current_timezone()
     now = timezone.now()
@@ -149,7 +165,12 @@ def main() -> None:
     )
 
     windows = _windows(event)
-    spaces, tracks = _spaces_and_tracks(event)
+    spaces, tracks = _spaces_and_tracks(
+        event,
+        spaces_per_floor=_spaces_per_floor(
+            target_sessions=target_sessions, window_count=len(windows)
+        ),
+    )
 
     categories = [
         ProposalCategory.objects.create(
@@ -164,11 +185,11 @@ def main() -> None:
     ]
 
     cells = [(space, window) for space in spaces for window in windows]
-    if len(cells) < TARGET_SESSIONS:
-        msg = f"grid holds {len(cells)} cells, need {TARGET_SESSIONS}"
+    if len(cells) < target_sessions:
+        msg = f"grid holds {len(cells)} cells, need {target_sessions}"
         raise SystemExit(msg)
     fake.random.shuffle(cells)
-    cells = cells[:TARGET_SESSIONS]
+    cells = cells[:target_sessions]
 
     sessions = [
         Session(
@@ -183,7 +204,7 @@ def main() -> None:
             min_age=fake.random.choice([0, 12, 16, 18]),
             status="accepted",
         )
-        for i in range(TARGET_SESSIONS)
+        for i in range(target_sessions)
     ]
     Session.objects.bulk_create(sessions)
 
@@ -205,11 +226,17 @@ def main() -> None:
     )
 
     scheduled = AgendaItem.objects.filter(session__event=event).count()
-    assert scheduled == TARGET_SESSIONS, (scheduled, TARGET_SESSIONS)
+    assert scheduled == target_sessions, (scheduled, target_sessions)
     print(
         f"Seeded '{event.slug}': {scheduled} sessions across "
         f"{len(spaces)} spaces and {len(windows)} programme hours."
     )
+    return event
+
+
+def main() -> None:
+    sphere = Event.objects.get(slug="autumn-open").sphere
+    seed_large_event(sphere=sphere, target_sessions=TARGET_SESSIONS)
 
 
 if __name__ == "__main__":

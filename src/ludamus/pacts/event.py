@@ -201,3 +201,32 @@ class EventConfirmationsServiceProtocol(Protocol):
         contact_email: str | None = None,
         agenda_item_pk: int | None = None,
     ) -> None: ...
+
+
+class LandingStatsDTO(BaseModel):
+    events: int
+    sessions: int
+
+
+class LandingConventionDTO(BaseModel):
+    """A convention to show on the landing, with its newest event's cover."""
+
+    name: str
+    domain: str
+    cover_image_url: str
+
+
+# How many convention cards the landing's grid holds.
+LANDING_CONVENTIONS = 3
+
+
+class LandingStatsRepositoryProtocol(Protocol):
+    @staticmethod
+    def count_landing_stats() -> LandingStatsDTO: ...
+    @staticmethod
+    def list_conventions(limit: int) -> list[LandingConventionDTO]: ...
+
+
+class LandingServiceProtocol(Protocol):
+    def stats(self) -> LandingStatsDTO: ...
+    def conventions(self) -> list[LandingConventionDTO]: ...

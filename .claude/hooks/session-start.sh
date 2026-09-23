@@ -86,6 +86,16 @@ if ! command -v python3.14 > /dev/null 2>&1 \
     || echo "WARN: apt-get install python3.14/pipx failed; Python tooling may be unavailable"
 fi
 
+# GNU gettext (msguniq) is what `mise run messages` shells out to; the image
+# ships only pygettext3. Guarded on its own so an image that already has
+# python3.14 and pipx still gets it.
+if ! command -v msguniq > /dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  { apt-get update -q --allow-releaseinfo-change > /dev/null \
+    && apt-get install -y -q gettext > /dev/null; } \
+    || echo "WARN: apt-get install gettext failed; mise run messages will not extract strings"
+fi
+
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)
 # must not abort the whole hook. Warn and continue so the rest of the session
 # setup still runs.

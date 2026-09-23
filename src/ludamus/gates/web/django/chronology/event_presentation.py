@@ -255,7 +255,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         # practice.
         # ponytail: names with ':' or ';' would break parsing, same as the
         # existing tag values; track/category names never contain them.
-        parts = [self.public_tag_categories] if self.public_tag_categories else []
+        parts = [categories] if (categories := self.public_tag_categories) else []
         parts.extend(f"__track:{name}" for name in self.track_names)
         if self.category_name:
             parts.append(f"__category:{self.category_name}")

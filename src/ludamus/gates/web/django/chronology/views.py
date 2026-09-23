@@ -17,11 +17,11 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
@@ -73,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
+class SessionEditView(LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -209,7 +209,7 @@ class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
+class SessionBookmarkToggleView(View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -235,7 +235,7 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     return None
 
 
-class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
+class ProposalAcceptPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(
@@ -264,6 +264,15 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         except SpaceTimeConflictError:
             form.add_error(
                 None, _("There is already a session scheduled at this space and time.")
+            )
+            return self._render(request, context, form)
+        except EventPublicationInvalidError:
+            form.add_error(
+                "start_time",
+                _(
+                    "This is before the event is published. "
+                    "Move the publication time in the event settings first."
+                ),
             )
             return self._render(request, context, form)
 

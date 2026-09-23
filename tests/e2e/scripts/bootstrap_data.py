@@ -32,6 +32,7 @@ from django.utils.timezone import get_current_timezone
 from ludamus.pacts.availability import DayPart, programme_date
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Announcement,
     Connection,
     Encounter,
     EnrollmentConfig,
@@ -54,6 +55,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -1295,6 +1297,8 @@ def main() -> None:
 
     # Seed encounter owned by the e2e-tester user. Used by e2e tests covering
     # the organizer-only QR-share dialog on the notice-board encounter detail.
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save(update_fields=["encounters_policy"])
     Encounter.objects.create(
         sphere=sphere,
         creator=tester,
@@ -1317,6 +1321,17 @@ def main() -> None:
         start_offset=timedelta(days=30),
         duration_hours=8,
         publication_offset=timedelta(days=1),
+    )
+    # Announcements belong to a sphere that runs a programme: they sit above
+    # its feed, for people who came for that feed. The root sphere has none of
+    # that, so this is where the rendering is covered.
+    Announcement.objects.get_or_create(
+        sphere=foreign_sphere,
+        title="Doors open at 9:00",
+        defaults={
+            "content": "Badge pickup is in the main hall, right past the desk.",
+            "is_published": True,
+        },
     )
 
 

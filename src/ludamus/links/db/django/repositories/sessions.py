@@ -56,7 +56,7 @@ from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     SessionModalDTO,
     SessionModalRepositoryProtocol,
-    SessionModalSeatDTO,
+    SessionSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import ConfirmationSessionRow
@@ -233,7 +233,7 @@ def _session_modal_dto(
             user_dto(session.presenter) if session.presenter is not None else None
         ),
         participations=[
-            SessionModalSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,

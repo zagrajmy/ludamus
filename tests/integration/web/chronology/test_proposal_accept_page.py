@@ -583,6 +583,44 @@ class TestProposalAcceptPageView:
             template_name="chronology/accept_proposal.html",
         )
 
+    def test_post_before_publication_is_refused_on_the_start_time(
+        self, event, pending_session, space, manager_client
+    ):
+        event_dates = (event.start_time, event.end_time)
+        start = localtime(event.publication_time) - timedelta(hours=2)
+
+        response = manager_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug),
+            data={"space": space.id, "start_time": start.strftime(POSTED_START)},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "availability": [],
+                "field_values": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+        assert response.context["form"].errors == {
+            "start_time": [
+                (
+                    "This is before the event is published. "
+                    "Move the publication time in the event settings first."
+                )
+            ]
+        }
+        event.refresh_from_db()
+        assert (event.start_time, event.end_time) == event_dates
+        assert Session.objects.get(pk=pending_session.pk).status == "pending"
+        assert not AgendaItem.objects.filter(session=pending_session).exists()
+
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_select_field_values(
         self, event, pending_session, manager_client

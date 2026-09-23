@@ -69,6 +69,7 @@ ORGANIZER_TOOL_NAMES = [
     "update_space",
     "update_event",
     "set_event_image",
+    "update_sphere_settings",
     "set_sphere_logo",
     "list_maps",
     "create_map",

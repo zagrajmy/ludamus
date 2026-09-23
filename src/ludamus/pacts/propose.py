@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
         EventDTO,
         EventProposalSettingsDTO,
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
         SessionRepositoryProtocol,
         TrackDTO,
         TrackRepositoryProtocol,
-        UploadedFileProtocol,
         WizardData,
     )
 

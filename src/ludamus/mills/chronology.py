@@ -32,7 +32,7 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, duration_minutes, parse_duration
-from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
@@ -255,7 +255,7 @@ class ProposalAcceptanceService:
             # Accepting on to a time the event does not cover yet moves the
             # event, the same way dragging a card past its edge does.
             widen_event_dates(
-                events=self._events, event=event, start=start_time, end=end_time
+                events=self._events, event_pk=event.pk, start=start_time, end=end_time
             )
             if self._agenda_items.list_overlapping_in_space(
                 space_id, start_time, end_time, exclude_session_pk=session_id

@@ -44,6 +44,7 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
@@ -431,6 +432,21 @@ class TimetableService(TimetableServiceProtocol):
         if space_pk not in leaf_pks:
             raise NotFoundError
 
+    def _widen_event_around(self, placement: SessionPlacement, event_pk: int) -> None:
+        try:
+            widen_event_dates(
+                events=self._repos.events,
+                event_pk=event_pk,
+                start=placement.start_time,
+                end=placement.end_time,
+            )
+        except EventPublicationInvalidError as error:
+            raise PlacementRejectedError(
+                PlacementRejection.BEFORE_PUBLICATION,
+                "start_time is before the event's publication_time; move the "
+                "publication first (update_event)",
+            ) from error
+
     @staticmethod
     def _require_placeable(placement: SessionPlacement) -> None:
         if (
@@ -467,15 +483,7 @@ class TimetableService(TimetableServiceProtocol):
             )
             self._repos.sessions.lock(session_pk)
             self._require_space_in_event(placement.space_pk, event_pk)
-            # Programme placed past the event's edges moves the edges; the
-            # grid's hours follow the items, so nothing else has to be told.
             event = self._repos.sessions.read_event(session_pk)
-            widen_event_dates(
-                events=self._repos.events,
-                event=event,
-                start=placement.start_time,
-                end=placement.end_time,
-            )
             self._repos.spaces.lock(placement.space_pk)
             existing = self._repos.agenda_items.read_by_session(session_pk)
             if existing is not None and (
@@ -492,6 +500,9 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
+            # Programme placed past the event's edges moves the edges; the
+            # grid's hours follow the items, so nothing else has to be told.
+            self._widen_event_around(placement, event_pk)
             self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,

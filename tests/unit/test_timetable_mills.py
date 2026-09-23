@@ -26,7 +26,6 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.timetable import (
     PlacementRejectedError,
     PlacementRejection,
@@ -805,6 +804,7 @@ class TestAssignUnassignScope:
         event.end_time = placement.end_time + timedelta(days=1)
         event.publication_time = None
         mock_uow.sessions.read_event.return_value = event
+        mock_uow.events.read.return_value = event
         space = MagicMock()
         space.pk = 1
         space.parent_id = None
@@ -860,8 +860,10 @@ class TestAssignUnassignScope:
         event.end_time = placement.end_time + timedelta(days=1)
         event.publication_time = placement.start_time + timedelta(minutes=30)
 
-        with pytest.raises(EventPublicationInvalidError):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.BEFORE_PUBLICATION
 
         mock_uow.events.update.assert_not_called()
         mock_uow.agenda_items.create.assert_not_called()

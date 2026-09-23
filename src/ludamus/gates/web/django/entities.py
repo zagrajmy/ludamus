@@ -46,13 +46,13 @@ class UserInfo:
         )
 
 
-class AuthenticatedRootRequest(HttpRequest):
-    context: AuthenticatedRequestContext
-    di: DependencyInjectorProtocol
-    services: ServicesProtocol
-
-
 class RootRequest(HttpRequest):
     context: RequestContext
     di: DependencyInjectorProtocol
     services: ServicesProtocol
+
+
+class AuthenticatedRootRequest(RootRequest):
+    # Same request, one fact more: a view behind a login gate knows the
+    # context carries a user, so anything typed on RootRequest still takes it.
+    context: AuthenticatedRequestContext
