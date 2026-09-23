@@ -70,7 +70,7 @@ set once here and inherited by the forms below.
                             {% tessera_copy copy_payload class="w-auto" %}
                                 {% icon "clipboard-document" variant="solid" class="size-4" %}
                                 {{ t_copy }}
-                            {% endtessera_copy %}
+                            {% end_tessera_copy %}
                             <form hx-post="{{ confirm_url }}">
                                 {% csrf_token %}
                                 <input type="hidden" name="scope" value="email">
