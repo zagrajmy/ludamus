@@ -73,14 +73,19 @@ class FacilitatorListItemDTO(BaseModel):
 
 class TimeSlotValidationError(StrEnum):
     START_NOT_BEFORE_END = "start_not_before_end"
-    OUTSIDE_EVENT_DATES = "outside_event_dates"
     OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
+    STARTS_BEFORE_PUBLICATION = "starts_before_publication"
 
 
 class TimeSlotRejectedError(Exception):
     def __init__(self, errors: list[TimeSlotValidationError]) -> None:
         super().__init__(", ".join(error.value for error in errors))
         self.errors = errors
+
+
+class TimeSlotSavedDTO(BaseModel):
+    slot: TimeSlotDTO
+    event_dates_widened: bool
 
 
 class EventPanelContextDTO(BaseModel):
@@ -223,10 +228,10 @@ class PanelTimeSlotsServiceProtocol(Protocol):
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> TimeSlotDTO: ...
+    ) -> TimeSlotSavedDTO: ...
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> None: ...
+    ) -> TimeSlotSavedDTO: ...
     def delete(self, *, event_id: int, pk: int) -> bool: ...
 
 
