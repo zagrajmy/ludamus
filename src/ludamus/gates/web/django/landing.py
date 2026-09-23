@@ -62,3 +62,18 @@ def landing_page(request: RootRequest) -> HttpResponse:
             ),
         },
     )
+
+
+def about_page(request: RootRequest) -> HttpResponse:
+    """Render what Zagrajmy is, who runs it, and the facts behind the claims.
+
+    Returns:
+        The about page, with the live counts and conventions its key facts
+        cite, so the numbers never go stale in the copy.
+    """
+    landing = request.services.landing
+    return TemplateResponse(
+        request,
+        ["about.html"],
+        {"stats": landing.stats(), "conventions": landing.conventions()},
+    )

@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "About Zagrajmy" %}
+{% endblock title %}
+{% block title_suffix %}
+{% endblock title_suffix %}
+{% block meta_description %}
+    {% translate "Zagrajmy is an event programme platform that runs proposals, the schedule, enrollment, and print for organizers of conventions, conferences, and meetups." %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% translate "Zagrajmy is an event programme platform that runs proposals, the schedule, enrollment, and print for organizers of conventions, conferences, and meetups." %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% translate "Zagrajmy is an event programme platform that runs proposals, the schedule, enrollment, and print for organizers of conventions, conferences, and meetups." %}
+{% endblock twitter_description %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    {% comment %}
+        Plain headings and a definition list on purpose: search engines and AI
+        answer engines quote this page, and they read structure, not styling.
+    {% endcomment %}
+    <article class="max-w-3xl mx-auto w-full text-foreground-secondary text-[1.02rem] leading-[1.6] [&_h2]:mt-16 [&_h2]:mb-5 [&_h2]:scroll-mt-20 [&_h2]:text-[clamp(1.45rem,3vw,1.9rem)] [&_h2]:font-extrabold [&_h2]:tracking-[-0.02em] [&_h2]:leading-[1.15] [&_h2]:text-foreground [&_h3]:mt-7 [&_h3]:mb-1.5 [&_h3]:text-[1.1rem] [&_h3]:font-bold [&_h3]:tracking-[-0.01em] [&_h3]:text-foreground [&_a:not(.btn)]:text-primary [&_a:not(.btn)]:underline [&_a:not(.btn)]:decoration-primary/40 [&_a:not(.btn):hover]:decoration-primary">
+        <header class="pt-4">
+            <h1 class="text-[clamp(2rem,5vw,2.9rem)] font-extrabold tracking-[-0.03em] leading-[1.08] text-foreground">
+                {% translate "About Zagrajmy" %}
+            </h1>
+            <p class="mt-5 text-[1.2rem] leading-[1.5] text-foreground">
+                {% translate "Zagrajmy is an event programme platform that runs proposals, the schedule, enrollment, and print for organizers of conventions, conferences, and meetups." %}
+            </p>
+            <p class="mt-3">
+                {% translate "Bring the event. We help set up proposals, programme, enrollment, and the public page in Zagrajmy." %}
+            </p>
+        </header>
+        <section aria-labelledby="about-does">
+            <h2 id="about-does">{% translate "What Zagrajmy does" %}</h2>
+            <h3>{% translate "Programme proposals and review" %}</h3>
+            <p>
+                {% translate "Programme creators send proposals through a form with your own questions. Every proposal lands in one inbox, where your team accepts it, puts it on hold, or rejects it." %}
+            </p>
+            <h3>{% translate "Scheduling" %}</h3>
+            <p>
+                {% translate "You build the grid from tracks, rooms, and time slots. Two programme items in one room at the same time? Zagrajmy highlights the conflict before attendees see it." %}
+            </p>
+            <h3>{% translate "The event page" %}</h3>
+            <p>
+                {% translate "Attendees get one address with the current programme, descriptions, and free seats. A change made in the organizer panel shows up on the page right away." %}
+            </p>
+            <h3>{% translate "Enrollment and waiting lists" %}</h3>
+            <p>
+                {% translate "You set seat limits, and Zagrajmy runs enrollment and the waiting list. When a seat frees up, the next person in line gets it without anyone rewriting a list by hand." %}
+            </p>
+            <h3>{% translate "Print" context "landing walkthrough step" %}</h3>
+            <p>
+                {% translate "The full schedule, day plans, and door cards for every room print straight from the browser. A programme change means a fresh printout instead of an evening of rebuilding files." %}
+            </p>
+            <h3>{% translate "Encounters" %}</h3>
+            <p>
+                {% translate "Players post a game night, send friends one link, and see who is coming and how many seats are left. It needs no organizer and no setup." %}
+            </p>
+        </section>
+        <section aria-labelledby="about-different">
+            <h2 id="about-different">{% translate "What makes Zagrajmy different" %}</h2>
+            <h3>{% translate "We set up your event with you" %}</h3>
+            <p>
+                {% translate "Most event tools hand you an empty account and a help centre. We start with a call about how your event works and prepare the first version of proposals, rooms, and time slots together with you." %}
+            </p>
+            <h3>{% translate "Groups stay together on the waiting list" %}</h3>
+            <p>
+                {% translate "Friends who enroll together wait together and move up together, and nobody skips past them. RSVP tools that count seats one by one split such a group up as soon as a single seat frees up." %}
+            </p>
+            <h3>{% translate "Your spreadsheet is a starting point" %}</h3>
+            <p>
+                {% translate "If your programme already lives in Google Sheets or Google Forms, we import it instead of making you retype it. A finished programme can also be exported to Konwencik." %}
+            </p>
+            <h3>{% translate "Open source, no lock-in" %}</h3>
+            <p>
+                {% blocktranslate trimmed with source_url="https://github.com/zagrajmy/ludamus" %}
+                    All of Zagrajmy's code is <a href="{{ source_url }}">public on GitHub</a> under the AGPL-3.0 license. Your programme is never locked in a closed service: you can take it and run Zagrajmy yourself.
+                {% endblocktranslate %}
+            </p>
+            <h3>{% translate "Free for attendees and small meetups" %}</h3>
+            <p>
+                {% translate "Attendees never pay Zagrajmy to enroll, and small meetups and Encounters cost nothing. Conventions and conferences get a written proposal before anything is agreed." %}
+            </p>
+        </section>
+        <section aria-labelledby="about-who">
+            <h2 id="about-who">{% translate "Who uses Zagrajmy" %}</h2>
+            <ul class="list-disc pl-5 grid gap-2 marker:text-foreground-muted">
+                <li>
+                    {% translate "Organizers of fan conventions (board games, RPGs, fantasy) with a multi-day programme across many rooms" %}
+                </li>
+                <li>{% translate "Conference organizers who collect talk proposals and build a room grid" %}</li>
+                <li>{% translate "Organizers of meetups and clubs who need an event page with seat limits" %}</li>
+                <li>{% translate "Programme creators and game masters who submit programme items to an event" %}</li>
+                <li>{% translate "Attendees who enroll in programme items, alone or with friends" %}</li>
+                <li>{% translate "Players who invite others to a game night with an Encounter" %}</li>
+            </ul>
+        </section>
+        <section aria-labelledby="about-team">
+            <h2 id="about-team">{% translate "The team behind Zagrajmy" %}</h2>
+            <p>
+                {% translate "Zagrajmy started in June 2025 as enrollment for tabletop game conventions, where the programme lived in spreadsheets and chat threads. It has grown to cover the whole programme: proposals, the schedule, the event page, and print." %}
+            </p>
+            <p class="mt-3">
+                {% translate "Two developers build and run Zagrajmy, with contributions from the open-source community on GitHub." %}
+            </p>
+            <h3>Radosław Ganczarek</h3>
+            <p>{% translate "Writes code, songs, and games. Owner and administrator of Zagrajmy." %}</p>
+            <p class="mt-1.5 flex flex-wrap gap-x-4">
+                <a href="https://fancysnake.dev/">fancysnake.dev</a>
+                <a href="https://github.com/fancysnake">GitHub</a>
+                <a href="https://www.linkedin.com/in/radoslawganczarek/">LinkedIn</a>
+            </p>
+            <h3>Piotr Monwid-Olechnowicz</h3>
+            <p>
+                {% translate "Writes software with care for the details of human–computer interaction. Has built Zagrajmy since November 2025, mostly its interface." %}
+            </p>
+            <p class="mt-1.5 flex flex-wrap gap-x-4">
+                <a href="https://haspar.us/">haspar.us</a>
+                <a href="https://github.com/hasparus">GitHub</a>
+            </p>
+        </section>
+        <section aria-labelledby="about-how">
+            <h2 id="about-how">{% translate "How Zagrajmy works" %}</h2>
+            <p>
+                {% translate "You work directly with the people who build Zagrajmy: no account managers and no ticket queue between you and the code." %}
+            </p>
+            <ol class="mt-4 list-decimal pl-5 grid gap-2 marker:text-foreground-muted marker:font-semibold">
+                <li>{% translate "We reply and set up a short call about how your event works." %}</li>
+                <li>{% translate "We set up the first version: proposals, rooms, time slots, the page." %}</li>
+                <li>{% translate "You click through it with us and we publish when you decide it is ready." %}</li>
+            </ol>
+            <p class="mt-4">
+                {% translate "After that, your team runs the event in the organizer panel on its own, and the event gets its own address on zagrajmy.net." %}
+            </p>
+            <div class="mt-6 flex flex-wrap items-stretch gap-3">
+                <a class="btn btn-primary"
+                   href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
+                {% translate "Copy the address" as copy_address_label %}
+                {% tessera_copy "kontakt@zagrajmy.net" class="w-auto!" %}
+                    <code class="text-[0.9375rem] text-box-trim-both">kontakt@zagrajmy.net</code>
+                    {% icon "clipboard" variant="outline" class="size-4 text-foreground-muted" %}
+                    <span class="sr-only">{{ copy_address_label }}</span>
+                {% endtessera_copy %}
+            </div>
+            <p class="mt-3 text-[0.95rem] text-foreground-muted">
+                {% translate "We reply with a concrete plan for your event, and asking commits you to nothing." %}
+            </p>
+        </section>
+        <section aria-labelledby="about-facts">
+            <h2 id="about-facts">{% translate "Key facts" %}</h2>
+            <dl class="border-t border-border [&>div]:grid [&>div]:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] max-sm:[&>div]:grid-cols-1 [&>div]:gap-x-6 [&>div]:gap-y-0.5 [&>div]:py-3 [&>div]:border-b [&>div]:border-border [&_dt]:font-semibold [&_dt]:text-foreground">
+                <div>
+                    <dt>{% translate "Name" context "about key facts" %}</dt>
+                    <dd>
+                        Zagrajmy
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Type" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Open-source event programme platform, set up together with organizers" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Founded" context "about key facts" %}</dt>
+                    <dd>
+                        2025
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Founder" context "about key facts" %}</dt>
+                    <dd>
+                        Radosław Ganczarek
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Team" context "about key facts" %}</dt>
+                    <dd>
+                        Radosław Ganczarek, Piotr Monwid-Olechnowicz
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Headquarters" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Poland" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Website" context "about key facts" %}</dt>
+                    <dd>
+                        <a href="https://zagrajmy.net/">zagrajmy.net</a>
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Core offering" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Running an event's programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Pricing" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Free for attendees, small meetups, and Encounters; conventions and conferences get a written proposal matched to the event's scale" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Contract terms" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Agreed per event, in writing, before you commit to anything" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Services" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Event setup, import from Google Sheets and Google Forms, proposal forms, scheduling, event pages, enrollment and waiting lists, print materials, export to Konwencik" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Communication" context "about key facts" %}</dt>
+                    <dd>
+                        {% blocktranslate trimmed with email="kontakt@zagrajmy.net" %}
+                            Email at <a href="mailto:{{ email }}">{{ email }}</a> and a call during setup
+                        {% endblocktranslate %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Languages" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Polish, English" %}
+                    </dd>
+                </div>
+                {% if conventions %}
+                    <div>
+                        <dt>{% translate "Notable clients" context "about key facts" %}</dt>
+                        <dd>
+                            {% for convention in conventions %}
+                                <a href="https://{{ convention.domain }}/">{{ convention.name }}</a>{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        </dd>
+                    </div>
+                {% endif %}
+                <div>
+                    <dt>{% translate "Events in Zagrajmy" context "about key facts" %}</dt>
+                    <dd>
+                        {{ stats.events }}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Programme items" context "about key facts" %}</dt>
+                    <dd>
+                        {{ stats.sessions }}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Alternatives" context "about key facts" %}</dt>
+                    <dd>
+                        {% translate "Spreadsheets with Google Forms, Sessionize, pretalx" %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "License" context "about key facts" %}</dt>
+                    <dd>
+                        <a href="https://github.com/zagrajmy/ludamus/blob/main/LICENSE">AGPL-3.0</a>
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% translate "Social" context "about key facts" %}</dt>
+                    <dd>
+                        <a href="https://github.com/zagrajmy">GitHub</a>
+                    </dd>
+                </div>
+            </dl>
+        </section>
+        <section aria-labelledby="about-faq">
+            <h2 id="about-faq">{% translate "Frequently asked questions" %}</h2>
+            <h3>{% translate "Is Zagrajmy only for board games and RPGs?" %}</h3>
+            <p>
+                {% translate "No. It grew out of tabletop game conventions, but talks, workshops, and panels fit the same programme. Rooms, tracks, time slots, and seat limits work the same way for any kind of programme item." %}
+            </p>
+            <h3>{% translate "Can I set up an event on my own?" %}</h3>
+            <p>
+                {% translate "A convention or conference we set up together with you, so the first version fits how your event works. A game night you can post yourself as an Encounter, right away and for free." %}
+            </p>
+            <h3>{% translate "How much does it cost?" %}</h3>
+            <p>
+                {% translate "Small meetups — free. For conventions and conferences we agree on terms matched to the scale of the event; before you decide anything, you get a concrete written proposal." %}
+            </p>
+            <h3>{% translate "Do I have to retype everything from spreadsheets?" %}</h3>
+            <p>
+                {% translate "Zagrajmy can collect session proposals, but it can also import your existing data from Google Sheets. You come in with what you already have instead of starting from an empty table." %}
+            </p>
+            <h3>{% translate "Do attendees need an account?" %}</h3>
+            <p>
+                {% translate "Not to browse the programme. To enroll, yes: signing in takes a minute, and a nickname is enough as a name." %}
+            </p>
+            <h3>{% translate "Can I run Zagrajmy on my own server?" %}</h3>
+            <p>
+                {% translate "Yes. The code is public on GitHub under the AGPL-3.0 license, so you can run your own copy. If you change it and offer it to others, the license asks you to share those changes too." %}
+            </p>
+        </section>
+    </article>
+{% endblock body %}
