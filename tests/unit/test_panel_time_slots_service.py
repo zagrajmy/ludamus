@@ -5,11 +5,7 @@ import pytest
 
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.pacts import EventDTO, NotFoundError, TimeSlotDTO
-from ludamus.pacts.event import (
-    EventPublicationInvalidError,
-    TimeSlotRejectedError,
-    TimeSlotValidationError,
-)
+from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
 
 _EVENT_ID = 42
 
@@ -47,7 +43,9 @@ class TestPanelTimeSlotsService:
 
     @pytest.fixture
     def events(self):
-        return MagicMock()
+        repo = MagicMock()
+        repo.read.return_value = _event()
+        return repo
 
     @pytest.fixture
     def transaction(self):
@@ -155,14 +153,36 @@ class TestPanelTimeSlotsService:
         event = _event().model_copy(
             update={"publication_time": datetime(2026, 5, 31, 12, 0, tzinfo=UTC)}
         )
+        events.read.return_value = event
         start = datetime(2026, 5, 31, 8, 0, tzinfo=UTC)
         end = datetime(2026, 5, 31, 10, 0, tzinfo=UTC)
 
-        with pytest.raises(EventPublicationInvalidError):
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
             service.create(event=event, start_time=start, end_time=end)
+
+        assert excinfo.value.errors == [
+            TimeSlotValidationError.STARTS_BEFORE_PUBLICATION
+        ]
 
         events.update.assert_not_called()
         time_slots.create.assert_not_called()
+
+    def test_create_widens_from_the_locked_row_not_the_callers_copy(
+        self, service, time_slots, events
+    ):
+        time_slots.list_by_event.return_value = []
+        end = datetime(2026, 6, 3, 23, 0, tzinfo=UTC)
+        events.read.return_value = _event().model_copy(update={"end_time": end})
+
+        saved = service.create(
+            event=_event(),
+            start_time=datetime(2026, 6, 3, 21, 0, tzinfo=UTC),
+            end_time=end,
+        )
+
+        assert saved.event_dates_widened is False
+        events.lock.assert_called_once_with(_EVENT_ID)
+        events.update.assert_not_called()
 
     def test_create_accumulates_every_broken_rule(self, service, time_slots):
         time_slots.list_by_event.return_value = [_slot(pk=1)]

@@ -49,8 +49,10 @@ are none, so that an empty page explains itself.
 
 - `slot_windows_by_local_date` and `_shared_day_span` take windows derived
   from `Event.start_time`/`Event.end_time` and `DayTurnover`;
-  `build_heatmap` too. Remove `_require_placement_in_time_slots` and
-  `PlacementRejection.OUTSIDE_TIME_SLOTS`; keep event-date bounds.
+  `build_heatmap` too. `PlacementRejection.OUTSIDE_TIME_SLOTS` is already
+  gone (#1312): a placement past the slots stretches them and widens the
+  event dates. Remove the stretching (`_widen_time_slots_around`) once the
+  grid reads the event; keep `widen_event_dates`.
 - Only once the timetable stops reading slots: drop the overlap check in
   `TimeSlot.validate_unique`, `PanelTimeSlotsService`, and
   `TimeSlotValidationError.OVERLAPS_EXISTING_SLOT`.

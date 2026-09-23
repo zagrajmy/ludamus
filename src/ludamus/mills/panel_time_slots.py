@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.event import widen_event_dates
 from ludamus.pacts.event import (
+    EventPublicationInvalidError,
     PanelTimeSlotsServiceProtocol,
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
@@ -73,6 +74,18 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO:
         return self._time_slots.read_by_event(event_id, pk)
 
+    def _widen_event_dates(
+        self, *, event_pk: int, start: datetime, end: datetime
+    ) -> bool:
+        try:
+            return widen_event_dates(
+                events=self._events, event_pk=event_pk, start=start, end=end
+            )
+        except EventPublicationInvalidError as error:
+            raise TimeSlotRejectedError(
+                [TimeSlotValidationError.STARTS_BEFORE_PUBLICATION]
+            ) from error
+
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
     ) -> TimeSlotSavedDTO:
@@ -87,8 +100,8 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
             )
             if errors:
                 raise TimeSlotRejectedError(errors)
-            widened = widen_event_dates(
-                events=self._events, event=event, start=start_time, end=end_time
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
             )
             slot = self._time_slots.create(event.pk, start_time, end_time)
             return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
@@ -111,8 +124,8 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
             )
             if errors:
                 raise TimeSlotRejectedError(errors)
-            widened = widen_event_dates(
-                events=self._events, event=event, start=start_time, end=end_time
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
             )
             slot = self._time_slots.update(pk, start_time, end_time)
             return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)

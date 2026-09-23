@@ -530,8 +530,7 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
-    # 1-based positions of the rendered rooms among all of them, so the pager
-    # can say "Rooms 6–10 of 11" rather than make the reader count pages.
+    # 1-based, for "Rooms 6–10 of 11".
     first_space_number: int
     last_space_number: int
     total_columns: int

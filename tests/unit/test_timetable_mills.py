@@ -26,7 +26,6 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.timetable import (
     PlacementRejectedError,
     PlacementRejection,
@@ -775,6 +774,7 @@ class TestAssignUnassignScope:
         event.end_time = placement.end_time + timedelta(days=1)
         event.publication_time = None
         mock_uow.sessions.read_event.return_value = event
+        mock_uow.events.read.return_value = event
         space = MagicMock()
         space.pk = 1
         space.parent_id = None
@@ -811,9 +811,7 @@ class TestAssignUnassignScope:
         mock_uow.time_slots.create.assert_not_called()
         mock_uow.events.update.assert_not_called()
 
-    def test_assign_past_the_day_stretches_the_nearest_slot_to_it(
-        self, service, mock_uow
-    ):
+    def test_assign_away_from_every_slot_opens_its_own_window(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
         placement = self._placement()
         morning = _slot_from(1, placement.start_time - timedelta(hours=4), hours=2)
@@ -822,10 +820,26 @@ class TestAssignUnassignScope:
 
         service.assign_session(session_pk=1, placement=placement, event_pk=1)
 
-        mock_uow.time_slots.update.assert_called_once_with(
-            2, afternoon.start_time, placement.end_time
+        mock_uow.time_slots.update.assert_not_called()
+        mock_uow.time_slots.create.assert_called_once_with(
+            1, placement.start_time, placement.end_time
         )
         mock_uow.agenda_items.create.assert_called_once()
+
+    def test_assign_touching_a_slot_stretches_it_to_the_placement(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        before = _slot_from(1, placement.start_time - timedelta(hours=1), hours=1)
+        mock_uow.time_slots.list_by_event.return_value = [before]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.time_slots.update.assert_called_once_with(
+            1, before.start_time, placement.end_time
+        )
+        mock_uow.time_slots.create.assert_not_called()
 
     def test_assign_across_a_gap_closes_it(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
@@ -881,8 +895,10 @@ class TestAssignUnassignScope:
             _slot_from(1, event.start_time, hours=1)
         ]
 
-        with pytest.raises(EventPublicationInvalidError):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.BEFORE_PUBLICATION
 
         mock_uow.events.update.assert_not_called()
         mock_uow.time_slots.update.assert_not_called()

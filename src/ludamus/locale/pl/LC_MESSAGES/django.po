@@ -1816,25 +1816,25 @@ msgid "Used by proposals"
 msgstr "Używany przez zgłoszenia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
-msgid "Time slot created successfully."
-msgstr "Przedział czasowy został utworzony."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot created. The event dates now cover it."
 msgstr "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot created successfully."
+msgstr "Przedział czasowy został utworzony."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot not found."
 msgstr "Przedział czasowy nie został znaleziony."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
-msgid "Time slot updated successfully."
-msgstr "Przedział czasowy został zaktualizowany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot updated. The event dates now cover it."
 msgstr ""
 "Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go obejmują."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot updated successfully."
+msgstr "Przedział czasowy został zaktualizowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Cannot delete time slot used in proposals."
@@ -1849,16 +1849,16 @@ msgid "Only accepted sessions can be placed on the schedule."
 msgstr "W harmonogramie można umieszczać tylko zaakceptowane punkty programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
-msgid "This placement is invalid."
-msgstr "To umiejscowienie jest nieprawidłowe."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid ""
 "This is before the event is published. Move the publication time in the "
 "event settings first."
 msgstr ""
 "To jest przed publikacją wydarzenia. Najpierw przesuń czas publikacji w "
 "ustawieniach wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
+msgid "This placement is invalid."
+msgstr "To umiejscowienie jest nieprawidłowe."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
 msgid "A track with this name already exists in this event. Pick another name."

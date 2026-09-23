@@ -74,6 +74,7 @@ class FacilitatorListItemDTO(BaseModel):
 class TimeSlotValidationError(StrEnum):
     START_NOT_BEFORE_END = "start_not_before_end"
     OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
+    STARTS_BEFORE_PUBLICATION = "starts_before_publication"
 
 
 class TimeSlotRejectedError(Exception):
@@ -84,8 +85,6 @@ class TimeSlotRejectedError(Exception):
 
 class TimeSlotSavedDTO(BaseModel):
     slot: TimeSlotDTO
-    # A slot outside the event dates widens them rather than being refused;
-    # the organizer is told, since the public event page moves with them.
     event_dates_widened: bool
 
 

@@ -12,12 +12,7 @@
     </div>
 {% else %}
     {% if grid.total_pages > 1 %}
-        {% comment %}
-        Rooms come five to a page. The slider is the pager's map: its length
-        says how much of the venue is off screen, which the two arrows alone
-        never did. It names a page rather than linking to one, so timetable.ts
-        supplies the URL to push; the arrows carry theirs inline.
-        {% endcomment %}
+        {% comment %}NOTE: the slider names a page, not a URL; timetable.ts sets its hx-push-url.{% endcomment %}
         <div class="mb-4 flex items-center gap-2">
             <label for="timetable-room-page" class="text-sm text-foreground-muted">
                 {% blocktranslate with first=grid.first_space_number last=grid.last_space_number total=grid.total_spaces %}Rooms {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}

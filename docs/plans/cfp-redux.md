@@ -25,7 +25,7 @@ across three places and the category badge lies about it.
 
 `TimeSlot` is documented in `mills/timeslots.py` as a proposer availability
 window, but five timetable paths treat it as the programme's shape: placement
-validation (`PlacementRejection.OUTSIDE_TIME_SLOTS`), the timetable's day tabs
+(which stretches the slots to fit since #1312), the timetable's day tabs
 and vertical span, the occupancy heatmap, the capacity KPI, and the legacy
 accept page, which copies a slot's edges into the agenda item. The model also
 refuses overlapping slots, which stops kinds with different granularity from
@@ -108,7 +108,8 @@ overhead in the other.
 **The timetable gets its shape from the event.** Days and the daily span come
 from `Event.start_time` and `Event.end_time` — the programme runs from the
 first instant of the event to the last, and `DayTurnover` decides where one
-day ends and the next begins. Placement is bounded by event dates only. The
+day ends and the next begins. A placement past the event's dates widens them
+(#1312); only the publication time bounds it. The
 overview counts scheduled hours and rooms; capacity, hours-to-fill and the
 filled percentage all go, because all three divide by a denominator that
 includes every empty night hour.

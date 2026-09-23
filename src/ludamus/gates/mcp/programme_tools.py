@@ -23,11 +23,7 @@ from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_rast
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.event import (
-    EventPublicationInvalidError,
-    FacilitatorListItemDTO,
-    TimeSlotRejectedError,
-)
+from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
@@ -297,12 +293,6 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-_STARTS_BEFORE_PUBLICATION = (
-    "start_time is before the event's publication_time; move the publication "
-    "first (update_event)"
-)
-
-
 class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
@@ -325,8 +315,6 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
             )
         except TimeSlotRejectedError as error:
             raise ToolError(str(error)) from error
-        except EventPublicationInvalidError as error:
-            raise ToolError(_STARTS_BEFORE_PUBLICATION) from error
         return saved.model_dump_json(indent=2)
 
 
@@ -672,8 +660,6 @@ def _assign_session(
         )
     except PlacementRejectedError as error:
         raise ToolError(str(error)) from error
-    except EventPublicationInvalidError as error:
-        raise ToolError(_STARTS_BEFORE_PUBLICATION) from error
     placement: JsonDict = {"session_id": data.session_id, "space_id": data.space_id}
     return json.dumps(placement)
 

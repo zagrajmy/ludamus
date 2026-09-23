@@ -180,7 +180,7 @@ class TestTimetableAssignView:
         assert session.status == "accepted"
         assert session.agenda_item.session_confirmed is True
 
-    def test_assign_past_the_time_slot_stretches_it_and_the_event(
+    def test_assign_away_from_the_time_slot_opens_one_and_widens_the_event(
         self, panel_client, event, proposal_category
     ):
         slot = TimeSlotFactory(
@@ -205,7 +205,13 @@ class TestTimetableAssignView:
         assert_response(response, HTTPStatus.NO_CONTENT)
         slot.refresh_from_db()
         event.refresh_from_db()
-        assert (slot.start_time, slot.end_time) == (event.start_time, end_time)
+        assert (slot.start_time, slot.end_time) == (
+            event.start_time,
+            event.start_time + timedelta(hours=2),
+        )
+        assert event.time_slots.filter(
+            start_time=start_time, end_time=end_time
+        ).exists()
         assert event.end_time == end_time
         assert AgendaItem.objects.get(session=session).start_time == start_time
 
