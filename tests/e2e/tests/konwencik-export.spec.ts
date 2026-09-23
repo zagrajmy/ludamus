@@ -154,22 +154,37 @@ test.describe("Konwencik export", () => {
   }
 
   for (const width of [390, 768, 1440]) {
-    // NOTE: page.setViewportSize() mid-test occasionally wedges Firefox's
-    // resize round trip indefinitely (seen hanging past 6x the default
-    // timeout locally, and timing out on CI) even on a freshly-loaded page,
-    // for no CPU-contention reason we could pin down. Sizing the context at
-    // creation time instead avoids that runtime call altogether.
-    test.describe(`at ${width}px`, () => {
-      test.use({ viewport: { width, height: 900 } });
+    test(`preview fits and stays accessible at ${width}px`, async ({ page, context }) => {
+      // Firefox occasionally wedges its driver connection for a fresh page
+      // right after `beforeEach`'s login — the same class of hang worked
+      // around in sound.spec.ts's reload fix. setViewportSize has no timeout
+      // option of its own, and a wedged call can't be safely retried on the
+      // same connection (a stale in-flight request could still land after a
+      // later retry succeeds), so give up on the page and retry against a
+      // fresh one in the same, already-authenticated context instead.
+      let activePage = page;
+      await expect(async () => {
+        const stalePage = activePage;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = await Promise.race([
+          stalePage.setViewportSize({ width, height: 900 }).then(() => false),
+          new Promise<true>((resolve) => {
+            timeoutId = setTimeout(() => resolve(true), 20_000);
+          }),
+        ]).finally(() => clearTimeout(timeoutId));
 
-      test("preview fits and stays accessible", async ({ page }) => {
-        await page.goto("/panel/event/konwencik-preview/export/");
-        await expect(page.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await analyzePageAccessibility(page, { include: "main" });
-      });
+        if (timedOut) {
+          activePage = await context.newPage();
+          throw new Error("setViewportSize timed out");
+        }
+      }).toPass({ timeout: 60_000 });
+
+      await activePage.goto("/panel/event/konwencik-preview/export/");
+      await expect(activePage.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
+      expect(
+        await activePage.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      await analyzePageAccessibility(activePage, { include: "main" });
     });
   }
 });
