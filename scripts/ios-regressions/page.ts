@@ -1,4 +1,4 @@
-import { pollUntil } from "./snapshot";
+import { collapse, pollUntil } from "./snapshot";
 
 // Attribute values arrive escaped. `&amp;` goes last: unescaping it first would
 // turn a served `&amp;lt;` (the literal text "&lt;") into "<" -- CodeQL's
@@ -11,6 +11,13 @@ export const decodeEntities = (value: string): string =>
     .replaceAll("&#x27;", "'")
     .replaceAll("&#39;", "'")
     .replaceAll("&amp;", "&");
+
+// The names a pattern's first group captures in the markup, normalized the
+// way device labels are read, so membership checks compare like with like.
+export const namesFrom = (html: string, pattern: RegExp): Set<string> =>
+  new Set(
+    [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
+  );
 
 // Waits for the page to serve `contains`, then hands back the body. A caller
 // that needs a landmark from the markup -- a scrubber slot anchor, the
