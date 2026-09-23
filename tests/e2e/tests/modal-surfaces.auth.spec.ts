@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
 import { expectCappedToViewport } from "./helpers/modal-cap";
+import { settleViewTransitions } from "./helpers/view-transitions";
 
 const expectPageScrollLocked = async (page: Page) => {
   const pageScrollLocked = await page.evaluate(() => {
@@ -47,6 +48,9 @@ test.describe("Modal surfaces using page scroll lock", () => {
 
     const dialog = page.getByRole("dialog", { name: "Own Table Demo" });
     await expect(dialog).toBeVisible();
+    // The footer morphs in via a view transition; reading geometry before it
+    // settles catches the footer mid-resize and makes this assertion flaky.
+    await settleViewTransitions(page);
 
     // Edit keeps its accessible name but shows only the pencil, as a square
     // at the tap-target floor, so it never pushes the enroll control onto a
