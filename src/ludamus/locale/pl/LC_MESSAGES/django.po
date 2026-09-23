@@ -6769,6 +6769,10 @@ msgstr ""
 "i stronę wydarzenia w Zagrajmy."
 
 #: src/ludamus/templates/landing/org_hero.html
+msgid "Run your event"
+msgstr "Zorganizuj wydarzenie"
+
+#: src/ludamus/templates/landing/org_hero.html
 msgid "See a real event's page"
 msgstr "Zobacz stronę prawdziwego wydarzenia"
 
