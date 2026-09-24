@@ -1,0 +1,33 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Privacy" %}
+{% endblock title %}
+{% block profile_content %}
+    <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-1">
+        {% icon "chart-bar" class="w-4 h-4" %}
+        {% translate "Analytics" %}
+    </h6>
+    {% if posthog_config %}
+        {% include "components/consent-copy.html" %}
+        {# prologue.ts fills [data-consent-state] from localStorage — the choice lives in this browser, not on the server. #}
+        <p class="text-sm mt-3">
+            {% translate "Your current choice:" %}
+            <strong data-consent-state
+                    data-label-accepted="{% translate "analytics allowed" %}"
+                    data-label-declined="{% translate "analytics declined" %}"
+                    data-label-unset="{% translate "not decided yet" %}"></strong>
+        </p>
+        <p class="text-xs text-foreground-muted mt-1">
+            {% translate "The choice is stored only in this browser — on another device or after clearing site data you will be asked again." %}
+        </p>
+        <div class="mt-4">
+            {% translate "Change your choice" as t_change %}
+            {% tessera_button t_change button_type="button" variant="secondary" data_consent_reopen="true" %}
+        </div>
+    {% else %}
+        <p class="text-sm text-foreground-muted">
+            {% translate "Analytics are not configured on this server. Nothing is collected, so there is nothing to decide here." %}
+        </p>
+    {% endif %}
+{% endblock profile_content %}

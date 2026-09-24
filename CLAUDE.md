@@ -151,6 +151,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
   integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
+- [Agent employees](docs/agents/employees.md) — Kobold/Goblin decision record:
+  platform, gateway doctrine, verification tiers, merge tiers
 - [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
   Cloudflare MCP triage
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
