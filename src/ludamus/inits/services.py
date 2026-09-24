@@ -293,7 +293,9 @@ class Services:
     @cached_property
     def panel_time_slots(self) -> PanelTimeSlotsService:
         return PanelTimeSlotsService(
-            transaction=self._transaction, time_slots=self._repos.time_slots
+            transaction=self._transaction,
+            time_slots=self._repos.time_slots,
+            events=self._repos.events,
         )
 
     @cached_property
@@ -646,6 +648,7 @@ class Services:
     @cached_property
     def _timetable_repos(self) -> TimetableRepos:
         return TimetableRepos(
+            events=self._repos.events,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,
