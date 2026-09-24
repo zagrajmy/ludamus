@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Trial II — the pre-review verification image.
 #
 # A disposable container with the full repo toolchain (mise, poetry, aube,
@@ -36,7 +37,12 @@ COPY .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
 COPY src/ludamus/client/package.json ./src/ludamus/client/
 COPY tests/e2e/package.json ./tests/e2e/
 
-RUN mise trust && mise install
+# NOTE: mise install fetches GitHub artifact attestations for several tools;
+# anonymous requests share GitHub's low unauthenticated rate limit and can
+# 403 mid-build. The optional secret raises that limit — CI wires it in,
+# a local build without it still works, just closer to the limit.
+RUN --mount=type=secret,id=github_token \
+    sh -c 'export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)"; mise trust && mise install'
 RUN mise exec -- poetry install --no-root
 RUN mise exec -- aube install --frozen-lockfile
 RUN mise exec -- aube exec -C tests/e2e playwright install --with-deps chromium
