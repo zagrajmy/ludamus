@@ -8,7 +8,6 @@ from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     HeldSeatData,
     OfferDTO,
-    OfferRecipientDTO,
     PromotionStateDTO,
     SeatHoldRequest,
     WaitingParticipantDTO,
@@ -128,7 +127,6 @@ def _wp(pid, *, sponsor_id=None, party_id=None, order=0):
         has_conflict=False,
         owner_slots_remaining=UNLIMITED_SLOTS,
         recipient_user_id=sponsor_id if sponsor_id is not None else pid,
-        recipient_email=f"r{sponsor_id if sponsor_id is not None else pid}@e.com",
     )
 
 
@@ -222,7 +220,7 @@ class TestClaimOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
 
@@ -265,7 +263,7 @@ class TestExpireOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
 
@@ -314,7 +312,7 @@ class TestExpireLapsedOffers:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            recipients=[_MANAGER_ID],
             offer_expires_at=_NOW - timedelta(minutes=1),
         )
         service, repo, notifier, _ = _build(states=[None], offer=offer)
@@ -361,7 +359,6 @@ class TestHoldSeat:
                 session_id=_SESSION_ID,
                 session_title="Dragons",
                 user_id=_MEMBER_ID,
-                user_email="mira@example.com",
                 party_id=5,
                 actor_name="Lea Leader",
             )
@@ -380,7 +377,6 @@ class TestHoldSeat:
         assert len(notifier.held) == 1
         held = notifier.held[0]
         assert held.recipient_user_id == _MEMBER_ID
-        assert held.recipient_email == "mira@example.com"
         assert held.actor_name == "Lea Leader"
         assert held.claim_token == "tok-xyz"
         assert held.offer_expires_at == _NOW + timedelta(hours=24)
@@ -394,7 +390,7 @@ class TestDeclineOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            recipients=[_MANAGER_ID],
             offer_expires_at=_NOW + timedelta(hours=1),
         )
 

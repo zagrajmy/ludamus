@@ -74,11 +74,11 @@ class ShadowbanService:
             return
 
         name_by_id = dict(signed_up)
-        names_by_recipient: dict[UserId, tuple[str, list[str], list[str]]] = {}
+        names_by_recipient: dict[UserId, tuple[list[str], list[str]]] = {}
         seen_by_recipient: dict[UserId, set[UserId]] = {}
         for hit in data.hits:
-            _email, event_names, session_names = names_by_recipient.setdefault(
-                hit.recipient_id, (hit.recipient_email, [], [])
+            event_names, session_names = names_by_recipient.setdefault(
+                hit.recipient_id, ([], [])
             )
             seen = seen_by_recipient.setdefault(hit.recipient_id, set())
             # Dedupe by banned user id, not name: two distinct players sharing
@@ -89,17 +89,12 @@ class ShadowbanService:
             if name := name_by_id.get(hit.banned_user_id):
                 (session_names if hit.in_session else event_names).append(name)
 
-        for recipient_id, (
-            email,
-            event_names,
-            session_names,
-        ) in names_by_recipient.items():
+        for recipient_id, (event_names, session_names) in names_by_recipient.items():
             if not event_names and not session_names:
                 continue
             self._notifier.notify_shadowbanned_signup(
                 ShadowbanSignupNotification(
                     recipient_user_id=recipient_id,
-                    recipient_email=email,
                     event_slug=data.event_slug,
                     event_name=data.event_name,
                     session_title=data.session_title,

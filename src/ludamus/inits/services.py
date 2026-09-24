@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_email_verification,
     build_konwencik_export,
     build_printables_reminder,
     build_sphere_subscriptions,
@@ -36,6 +37,7 @@ from ludamus.mills.crowd import (
     ClaimService,
     CompanionsService,
     CrowdAuthService,
+    EmailVerificationService,
     ProfileService,
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
@@ -190,6 +192,10 @@ class Services:
     @cached_property
     def companions(self) -> CompanionsService:
         return CompanionsService(self._transaction, self._repos.companions)
+
+    @cached_property
+    def email_verification(self) -> EmailVerificationService:
+        return build_email_verification()
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:

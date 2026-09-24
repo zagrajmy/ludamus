@@ -46,9 +46,8 @@ def _companion_dto(**overrides) -> CompanionDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=()):
+    def __init__(self, *, users=()):
         self._users = list(users)
-        self._existing_emails = set(existing_emails)
         self.updated = []
 
     def read(self, slug):
@@ -62,17 +61,6 @@ class FakeUsers:
         for index, user in enumerate(self._users):
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
-
-    def email_exists(self, email, exclude_slug=None):
-        if not email:
-            return False
-        return (
-            any(
-                user.email == email and user.slug != exclude_slug
-                for user in self._users
-            )
-            or email in self._existing_emails
-        )
 
 
 class FakeParticipations:
@@ -137,13 +125,6 @@ class TestProfileService:
         )
 
         assert service.confirmed_participations_count(7) == expected
-
-    def test_email_in_use_excludes_own_slug(self):
-        users = FakeUsers(users=[user_dto(email="mine@example.com")])
-        service = _profile_service(users=users)
-
-        assert service.email_in_use("mine@example.com", exclude_slug="manager") is False
-        assert service.email_in_use("mine@example.com", exclude_slug="other") is True
 
     def test_update_writes_in_transaction(self):
         users = FakeUsers(users=[user_dto()])

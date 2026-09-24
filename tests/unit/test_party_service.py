@@ -160,7 +160,6 @@ class TestInvite:
         assert len(notifier.sent) == 1
         notification = notifier.sent[0]
         assert notification.recipient_user_id == FRIEND_PK
-        assert notification.recipient_email == "f@e.com"
         assert notification.party_name == "Ekipa"
         assert notification.actor_name == "Ivy Inviter"
 

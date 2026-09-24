@@ -7,6 +7,7 @@ from ludamus.links.db.django.content_change_log import ContentChangeLogRepositor
 from ludamus.links.db.django.crowd import (
     ClaimRepository,
     CompanionRepository,
+    EmailVerificationReminderRepository,
     ProfileStatsRepository,
     UserRepository,
 )
@@ -154,6 +155,10 @@ class Repositories:
     @cached_property
     def printables_reminders(self) -> PrintablesReminderRepository:
         return PrintablesReminderRepository()
+
+    @cached_property
+    def verification_reminders(self) -> EmailVerificationReminderRepository:
+        return EmailVerificationReminderRepository()
 
     @cached_property
     def dashboard(self) -> repositories.DashboardRepository:
