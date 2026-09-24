@@ -8,13 +8,18 @@ business invariants hold for MCP callers exactly as they do for views.
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
-from ludamus.gates.mcp.inputs import EmptyInput, NonBlankName, require_aware_datetime
+from ludamus.gates.mcp.inputs import (
+    SLUG_MAX_LENGTH,
+    EmptyInput,
+    NonBlankName,
+    require_aware_datetime,
+    validate_slug,
+)
 from ludamus.gates.mcp.konwencik_tools import (
     OrganizerGetKonwencikSettingsTool,
     OrganizerUpdateKonwencikStylesTool,
@@ -42,15 +47,6 @@ if TYPE_CHECKING:
 _SPHERE_LIST = TypeAdapter(list[SphereListItemDTO])
 _EVENT_LIST = TypeAdapter(list[EventListItemDTO])
 _ANNOUNCEMENT_LIST = TypeAdapter(list[AnnouncementDTO])
-
-
-def _validate_slug(value: str) -> str:
-    stripped = value.strip()
-    if re.fullmatch(r"[-a-zA-Z0-9_]+", stripped) is None:
-        raise ValueError(
-            "slug must contain only letters, numbers, hyphens, or underscores"
-        )
-    return stripped
 
 
 def _render_sphere(services: ServicesProtocol, sphere_id: int) -> str:
@@ -313,7 +309,9 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 class _CreateEventInput(_SphereInput):
     name: NonBlankName = Field(description="Public event name")
-    slug: str = Field(max_length=50, description="URL slug; unique within the sphere")
+    slug: str = Field(
+        max_length=SLUG_MAX_LENGTH, description="URL slug; unique within the sphere"
+    )
     description: str = Field(default="", description="Public event description")
     start_time: datetime = Field(
         description="Timezone-aware ISO-8601 start (naive values are rejected)"
@@ -336,7 +334,7 @@ class _CreateEventInput(_SphereInput):
     @field_validator("slug")
     @classmethod
     def _valid_slug(cls, value: str) -> str:
-        return _validate_slug(value)
+        return validate_slug(value)
 
     @field_validator("start_time", "end_time")
     @classmethod

@@ -68,10 +68,14 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   // B (the waiter) sees the in-app notification in the navbar dropdown.
   const waiterContext = await browser.newContext({ storageState: waiterState });
   const waiterPage = await waiterContext.newPage();
-  await waiterPage.goto("/events/");
+  await waiterPage.goto("/");
   await waiterPage.getByRole("button", { name: /Notifications/ }).click();
+  // Scoped to the dropdown: the root domain serves the dashboard to a
+  // signed-in visitor, and the session they were just promoted into is on it.
   await expect(
-    waiterPage.getByRole("link", { name: new RegExp(scenario.session_title) }),
+    waiterPage
+      .locator("#navbar-notifications-panel")
+      .getByRole("link", { name: new RegExp(scenario.session_title) }),
   ).toBeVisible();
   await waiterContext.close();
 });
