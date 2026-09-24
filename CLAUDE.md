@@ -120,8 +120,7 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - Panel access proves you manage the current sphere/event, not the objects the
   request names. Scope every request-supplied id (URL pk/slug and body ids)
   to `current_event`/sphere before read or write. Do it in the service, not
-  the view, and test that a foreign id 404/422s without side effects. See
-  [panel object-scope authz](docs/refactors/panel-object-scope-authz.md).
+  the view, and test that a foreign id 404/422s without side effects.
 - Keep `__init__.py` empty and import each symbol from the module that defines
   it. The allowed facade exceptions are listed in the `glimpse` skill.
 - Client IP comes only from `get_client_ip` in `gates/web/django/helpers.py`.
@@ -156,6 +155,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
   integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
+- [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
+  Cloudflare MCP triage
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
