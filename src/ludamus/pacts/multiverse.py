@@ -184,6 +184,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,

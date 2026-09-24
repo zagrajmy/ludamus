@@ -66,6 +66,7 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            parley_enabled=False,
             event_cover_buttons_at_bottom=True,
             encounters_policy=EncountersPolicy.MANAGERS,
         )
@@ -75,6 +76,7 @@ class TestSpherePanelServiceUpdateSettings:
             3,
             {
                 "allow_facilitator_session_edit": True,
+                "parley_enabled": False,
                 "event_cover_buttons_at_bottom": True,
                 "encounters_policy": "managers",
             },
@@ -84,6 +86,7 @@ class TestSpherePanelServiceUpdateSettings:
         service.update_settings(
             3,
             allow_facilitator_session_edit=False,
+            parley_enabled=False,
             event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.EVERYONE,
             logo="",
@@ -115,6 +118,7 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            parley_enabled=False,
             event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.NONE,
         )
@@ -129,6 +133,7 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            parley_enabled=False,
             event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.NONE,
             confirmed_encounters_disable=True,

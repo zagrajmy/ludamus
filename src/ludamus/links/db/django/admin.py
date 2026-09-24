@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     Notification,
+    ParleyReport,
     ProposalCategory,
     Session,
     SessionFieldValue,
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
 
     from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
+
+
+admin.site.register(ParleyReport)
 
 
 @admin.register(AgendaItem)

@@ -60,6 +60,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
         include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
+    path("parley/", include("ludamus.gates.web.django.parley.urls")),
     path("admin/", admin.site.urls),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
     # These were flatpages under /page/, and that URL is in sent email and on

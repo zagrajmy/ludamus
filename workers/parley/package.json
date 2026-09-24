@@ -1,0 +1,30 @@
+{
+  "name": "@ludamus/parley-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "agents": "0.20.1",
+    "jose": "6.2.3"
+  },
+  "aube": {
+    "allowBuilds": {
+      "esbuild": true,
+      "core-js-pure": false,
+      "workerd": true
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.20.1",
+    "@cloudflare/workers-types": "5.20260801.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.9",
+    "wrangler": "4.118.0"
+  }
+}

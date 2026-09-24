@@ -2931,6 +2931,15 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enable Parley conversations"
+msgstr "Włącz rozmowy Parley"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Show the sphere room and eligible program-item rooms to active users."
+msgstr ""
+"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Place event cover buttons at the bottom right"
 msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
 
@@ -3554,6 +3563,175 @@ msgstr "Regulamin"
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley"
+msgstr "Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Close Parley"
+msgstr "Zamknij Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Gathering conversations…"
+msgstr "Zbieramy rozmowy…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley lost the thread. Reconnecting…"
+msgstr "Parley zgubiło wątek. Łączymy ponownie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Quiet in here. Say hello before someone starts a rules debate."
+msgstr "Ale tu cicho. Przywitaj się, zanim ktoś zacznie dyskusję o zasadach."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You found the table first. Leave a note for the others."
+msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This parley has ended, but you can still read what was said."
+msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "people around"
+msgstr "osób tutaj"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message"
+msgstr "Wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages"
+msgstr "Wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Send message"
+msgstr "Wyślij wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Conversations"
+msgstr "Rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Back to conversations"
+msgstr "Wróć do rozmów"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Load earlier messages"
+msgstr "Wczytaj wcześniejsze wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message deleted"
+msgstr "Wiadomość usunięta"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Try again"
+msgstr "Spróbuj ponownie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Sending…"
+msgstr "Wysyłanie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write a message…"
+msgstr "Napisz wiadomość…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Could not connect to Parley."
+msgstr "Nie udało się połączyć z Parley."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages can be up to 1,000 characters."
+msgstr "Wiadomość może mieć najwyżej 1000 znaków."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This conversation is archived."
+msgstr "Ta rozmowa została zarchiwizowana."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your Parley access expired. Reopen Parley to continue."
+msgstr "Twój dostęp do Parley wygasł. Otwórz Parley ponownie, aby kontynuować."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You do not have permission to do that."
+msgstr "Nie masz uprawnień, aby to zrobić."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "That message could not be sent."
+msgstr "Nie udało się wysłać tej wiadomości."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your writing access is currently muted."
+msgstr "Nie możesz obecnie pisać w tej rozmowie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Too many messages. Wait a moment and try again."
+msgstr "Za dużo wiadomości. Zaczekaj chwilę i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Something went wrong. Try again."
+msgstr "Coś poszło nie tak. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete message"
+msgstr "Usuń wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "online"
+msgstr "online"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Programme point"
+msgstr "Punkt programu"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Common room"
+msgstr "Pokój wspólny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete as moderator"
+msgstr "Usuń jako moderator"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 1 hour"
+msgstr "Wycisz na godzinę"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 24 hours"
+msgstr "Wycisz na 24 godziny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 7 days"
+msgstr "Wycisz na 7 dni"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute indefinitely"
+msgstr "Wycisz bezterminowo"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Change writing access"
+msgstr "Zmień dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Restore writing access"
+msgstr "Przywróć dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/notifications/index.html
+msgid "Unread"
+msgstr "Nieprzeczytane"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Copy message link"
+msgstr "Kopiuj link do wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Report message"
+msgstr "Zgłoś wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message reported."
+msgstr "Wiadomość została zgłoszona."
+
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
 msgstr "Nazwa gildii"
@@ -4040,6 +4218,10 @@ msgstr "Marka"
 #: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
+
+#: src/ludamus/templates/base.html
+msgid "Open Parley"
+msgstr "Otwórz Parley"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -7822,10 +8004,6 @@ msgid "Edit Encounter"
 msgstr "Edycja spotkania"
 
 #: src/ludamus/templates/notifications/index.html
-msgid "Unread"
-msgstr "Nieprzeczytane"
-
-#: src/ludamus/templates/notifications/index.html
 msgid "No notifications yet"
 msgstr "Brak powiadomień"
 
@@ -11216,36 +11394,14 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid ""
-#~ "We reply with a concrete plan for setting up your event. No commitment."
-#~ msgstr ""
-#~ "Odpowiadamy z konkretnym planem ustawienia Twojego wydarzenia. Bez "
-#~ "zobowiązań."
+#~ msgid "Time slot must be within event dates."
+#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
 
-#~ msgid "After — in Zagrajmy"
-#~ msgstr "Po — w Zagrajmy"
+#~ msgid "Place the session inside one of the event's time slots."
+#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
 
-#~ msgid ""
-#~ "A meetup gets the full kit from day one: the event page, enrollment, and "
-#~ "seat limits. Setup is one short call, and when you grow into speaker "
-#~ "proposals and a room grid, the same process grows with you."
-#~ msgstr ""
-#~ "Meetup dostaje komplet od pierwszego dnia: stronę wydarzenia, zapisy i "
-#~ "limity miejsc. Ustawienie to jedna krótka rozmowa, a kiedy urośniesz do "
-#~ "zgłoszeń prelegentów i siatki sal, ten sam proces rośnie razem z Tobą."
-
-#~ msgid ""
-#~ "A preview of an encounter page: Brass: Birmingham on Thursday — tiles "
-#~ "with the game, time, place, and free seats, a participant list, a "
-#~ "countdown of 2 days, 7 hours and 58 minutes left until the encounter, and "
-#~ "a link to share."
-#~ msgstr ""
-#~ "Podgląd strony spotkania: Brass: Birmingham na czwartek — kafelki z grą, "
-#~ "terminem, miejscem i wolnymi miejscami, lista uczestników, odliczanie 2 "
-#~ "dni, 7 godzin i 58 minut do spotkania, i link do udostępnienia."
-
-#~ msgid "See open Encounters at zagrajmy.net/encounters"
-#~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
+#~ msgid "total"
+#~ msgstr "łącznie"
 
 #~ msgid "Enabled pages"
 #~ msgstr "Włączone strony"
@@ -11378,6 +11534,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Back to Timeline"
 #~ msgstr "Powrót do osi czasu"
 
+#~ msgid "Link preview card"
+#~ msgstr "Karta podglądu linku"
+
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
 
@@ -11439,67 +11598,15 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "No upcoming events or encounters."
 #~ msgstr "Brak nadchodzących wydarzeń i spotkań."
 
-#~ msgid "For conference and meetup organizers"
-#~ msgstr "Dla organizatorów konferencji i meetupów"
-
-#~ msgid "All locations"
-#~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Link preview card"
-#~ msgstr "Karta podglądu linku"
-
-#~ msgid "Time slot must be within event dates."
-#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
-
-#~ msgid "Place the session inside one of the event's time slots."
-#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
-
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
 #~ msgstr "Wszystkie rodzaje atrakcji"
 
+#~ msgid "All locations"
+#~ msgstr "Wszystkie lokalizacje"
+
 #~ msgid "All hosts"
 #~ msgstr "Wszyscy prowadzący"
-
-#~ msgid ""
-#~ "Cached name from the submission wizard. The canonical byline is the "
-#~ "proposal's display name."
-#~ msgstr ""
-#~ "Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest "
-#~ "nazwa wyświetlana zgłoszenia."
-
-#~ msgid ""
-#~ "Cached name from the submission wizard — edit the proposal's display name "
-#~ "to change the byline."
-#~ msgstr ""
-#~ "Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
-#~ "zgłoszenia, aby zmienić byline."
-
-#~ msgid "This spot is waiting for organizers who have shipped a programme"
-#~ msgstr "To miejsce czeka na organizatorów, którzy dowieźli program"
-
-#~ msgid "What did Zagrajmy replace for you?"
-#~ msgstr "Co Zagrajmy u Ciebie zastąpiło?"
-
-#~ msgid "name · role · event"
-#~ msgstr "imię · rola · wydarzenie"
-
-#~ msgid "Which step saved the most time?"
-#~ msgstr "Który krok oszczędził najwięcej czasu?"
-
-#~ msgid "What changed for attendees?"
-#~ msgstr "Co się zmieniło dla uczestników?"
-
-#~ msgid ""
-#~ "We are collecting quote permissions from organizers of real events. This "
-#~ "section is waiting for their words, and we would rather wait than invent "
-#~ "opinions."
-#~ msgstr ""
-#~ "Zbieramy zgody na cytaty od organizatorów prawdziwych wydarzeń. Ta sekcja "
-#~ "czeka na ich słowa i wolimy poczekać, niż wymyślać opinie."
 
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
@@ -11563,6 +11670,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 #~ "utwórz przedziały czasowe."
 
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
 #, python-format
 #~ msgid "%(limit)s seat"
 #~ msgid_plural "%(limit)s seats"
@@ -11591,64 +11701,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #, python-format
 #~ msgid ""
-#~ "Combined access: Individual enrollment passes + domain access "
-#~ "(@%(domain)s)."
-#~ msgstr ""
-#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
-#~ "(@%(domain)s)."
-
-#, python-format
-#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
-#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
-
-#~ msgid "Each person can be enrolled in multiple sessions."
-#~ msgstr "Każda osoba może być zapisana na wiele punktów programu."
-
-#~ msgid "You may be able to enroll using your manager's enrollment passes."
-#~ msgstr ""
-#~ "Możesz móc się zapisać używając przepustek zapisu swojego kierownika."
-
-#~ msgid "Contact your manager for enrollment assistance."
-#~ msgstr "Skontaktuj się ze swoim kierownikiem w sprawie pomocy przy zapisie."
-
-#~ msgid "You don't have any enrollment passes."
-#~ msgstr "Nie masz żadnych przepustek zapisu."
-
-#~ msgid "You can enroll when general enrollment opens."
-#~ msgstr "Możesz się zapisać, gdy rozpoczną się zapisy ogólne."
-
-#~ msgid "Login to check your enrollment options."
-#~ msgstr "Zaloguj się, aby sprawdzić swoje opcje zapisu."
-
-#~ msgid "You may have enrollment passes available after logging in."
-#~ msgstr "Po zalogowaniu możesz mieć dostępne przepustki zapisu."
-
-#~ msgid "This is the current status."
-#~ msgstr "To jest obecny status."
-
-#~ msgid "Are you sure you want to reject this proposal?"
-#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
-
-#~ msgid ""
-#~ "Are you sure you want to delete this session? It will be removed from the "
-#~ "schedule."
-#~ msgstr ""
-#~ "Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
-#~ "harmonogramu."
-
-#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
-
-#~ msgid "Pick a space and time, then add it to the agenda."
-#~ msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
-
-#~ msgid "Select a space and time to add this session to the event agenda."
-#~ msgstr ""
-#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
-#~ "harmonogramu wydarzenia."
-
-#, python-format
-#~ msgid ""
 #~ "\n"
 #~ "                                                Combined access: "
 #~ "Individual enrollment passes + domain access (@%(domain)s).\n"
@@ -11671,6 +11723,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
 #~ "                                            "
 
+#~ msgid "Each person can be enrolled in multiple sessions."
+#~ msgstr "Każda osoba może być zapisana na wiele punktów programu."
+
 #, python-format
 #~ msgid ""
 #~ "\n"
@@ -11683,6 +11738,25 @@ msgstr "Brak przechwyconych e-maili."
 #~ "z @%(domain)s mają dostęp do zapisu.\n"
 #~ "                                        "
 
+#~ msgid "You may be able to enroll using your manager's enrollment passes."
+#~ msgstr ""
+#~ "Możesz móc się zapisać używając przepustek zapisu swojego kierownika."
+
+#~ msgid "Contact your manager for enrollment assistance."
+#~ msgstr "Skontaktuj się ze swoim kierownikiem w sprawie pomocy przy zapisie."
+
+#~ msgid "You don't have any enrollment passes."
+#~ msgstr "Nie masz żadnych przepustek zapisu."
+
+#~ msgid "You can enroll when general enrollment opens."
+#~ msgstr "Możesz się zapisać, gdy rozpoczną się zapisy ogólne."
+
+#~ msgid "Login to check your enrollment options."
+#~ msgstr "Zaloguj się, aby sprawdzić swoje opcje zapisu."
+
+#~ msgid "You may have enrollment passes available after logging in."
+#~ msgstr "Po zalogowaniu możesz mieć dostępne przepustki zapisu."
+
 #, python-format
 #~ msgid ""
 #~ "\n"
@@ -11694,8 +11768,42 @@ msgstr "Brak przechwyconych e-maili."
 #~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
 #~ "                "
 
+#~ msgid "This is the current status."
+#~ msgstr "To jest obecny status."
+
+#~ msgid "Are you sure you want to reject this proposal?"
+#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
+
+#~ msgid ""
+#~ "Are you sure you want to delete this session? It will be removed from the "
+#~ "schedule."
+#~ msgstr ""
+#~ "Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
+#~ "harmonogramu."
+
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
+
+#~ msgid "Pick a space and time, then add it to the agenda."
+#~ msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
+
+#~ msgid "Select a space and time to add this session to the event agenda."
+#~ msgstr ""
+#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
+#~ "harmonogramu wydarzenia."
+
+#~ msgid ""
+#~ "Writes every facilitator with their accreditation type and discount into "
+#~ "the first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#~ msgid "Required age"
+#~ msgstr "Wymagany wiek"
+
+#~ msgid "Age ≥"
+#~ msgstr "Wiek ≥"
 
 #~ msgid "Search sessions..."
 #~ msgstr "Szukaj punktów programu..."
@@ -11709,18 +11817,8 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Max"
 #~ msgstr "Max"
 
-#~ msgid "Age ≥"
-#~ msgstr "Wiek ≥"
-
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
-
-#~ msgid ""
-#~ "Writes every facilitator with their accreditation type and discount into "
-#~ "the first tab of the selected spreadsheet, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
@@ -11744,11 +11842,16 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "announced by %(who)s"
 #~ msgstr "ogłoszone przez: %(who)s"
 
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
 
-#~ msgid "Enrollment required"
-#~ msgstr "Wymagane zapisy"
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Public tracks are shown to proposers in the submission wizard."
+#~ msgstr ""
+#~ "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
+#~ "propozycji."
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -11762,47 +11865,46 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "Analytics consent"
-#~ msgstr "Zgoda na analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "With your consent we use PostHog analytics — including session replays "
-#~ "with all inputs masked — to see how the site is used and to fix errors "
-#~ "faster. Nothing is stored before you agree. Details in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
-#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
-#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
-#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
-
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
-
 #~ msgid "Open"
 #~ msgstr "Otwarte"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
 
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
 
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid "Toggle category"
+#~ msgstr "Przełącz kategorię"
+
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
+
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
 
 #~ msgid "Flagged for deletion only"
 #~ msgstr "Tylko oznaczeni do usunięcia"
@@ -11827,18 +11929,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
 
-#~ msgid "2 days, 7 hours and 58 minutes left until the encounter."
-#~ msgstr "Do spotkania zostały 2 dni, 7 godzin i 58 minut."
-
-#~ msgid "They trusted us"
-#~ msgstr "Zaufali nam"
-
-#~ msgid "Run a conference or meetup"
-#~ msgstr "Zorganizuj konferencję albo meetup"
-
-#~ msgid "Or run an Encounter at zagrajmy.net/encounters"
-#~ msgstr "Albo zorganizuj Spotkanie na zagrajmy.net/encounters"
-
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
 #~ "min). Answers without a mapping are skipped at import time."
@@ -11848,9 +11938,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "ISO 8601 duration"
 #~ msgstr "Czas trwania ISO 8601"
-
-#~ msgid "Toggle category"
-#~ msgstr "Przełącz kategorię"
 
 #, python-format
 #~ msgid ""
@@ -11872,30 +11959,20 @@ msgstr "Brak przechwyconych e-maili."
 #~ "                            Zaimportowano przez %(name)s — %(at)s\n"
 #~ "                        "
 
-#~ msgid "Nothing to filter by yet."
-#~ msgstr "Nie ma jeszcze czego filtrować."
-
-#, python-format
-#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
-#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
-
-#~ msgid "Statistics"
-#~ msgstr "Statystyki"
-
-#~ msgid "Submissions"
-#~ msgstr "Zgłoszenia"
-
-#~ msgid "Set minimum and maximum participant limits for this category."
-#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
-
-#~ msgid "That is more people than we can store."
-#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
-
 #~ msgid "Confirm block"
 #~ msgstr "Potwierdź blok"
 
 #~ msgid "Confirm all"
 #~ msgstr "Potwierdź wszystkie"
+
+#~ msgid ""
+#~ "Tracks let you group proposals by thematic area. Public tracks are shown "
+#~ "to proposers in the submission wizard; private tracks are for internal "
+#~ "categorization only."
+#~ msgstr ""
+#~ "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne "
+#~ "bloki są widoczne dla zgłaszających w kreatorze propozycji; prywatne "
+#~ "służą wyłącznie do wewnętrznej kategoryzacji."
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
@@ -11997,9 +12074,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Create Session"
 #~ msgstr "Utwórz punkt programu"
-
-#~ msgid "Apply"
-#~ msgstr "Zastosuj"
 
 #~ msgid "comma separated"
 #~ msgstr "oddzielone przecinkami"
@@ -12122,11 +12196,57 @@ msgstr "Brak przechwyconych e-maili."
 #~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
 #~ "powiązane konta."
 
-#~ msgid "Session deleted."
-#~ msgstr "Punkt programu został usunięty."
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "With your consent we use PostHog analytics — including session replays "
+#~ "with all inputs masked — to see how the site is used and to fix errors "
+#~ "faster. Nothing is stored before you agree. Details in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
+#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
+
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
+
+#~ msgid "Nothing to filter by yet."
+#~ msgstr "Nie ma jeszcze czego filtrować."
 
 #, python-format
 #~ msgid "%(count)d facilitator runs sessions and was kept."
@@ -12140,18 +12260,15 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr[3] ""
 #~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
 
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
-
 #, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+
+#~ msgid "Session deleted."
+#~ msgstr "Punkt programu został usunięty."
 
 #, python-format
 #~ msgid ""
@@ -12168,9 +12285,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
 #~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
-#~ msgid "Required age"
-#~ msgstr "Wymagany wiek"
-
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
 
@@ -12179,13 +12293,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "This does not belong to the event."
 #~ msgstr "To nie należy do tego wydarzenia."
-
-#~ msgid ""
-#~ "Physical venue address, shown on the event page with a map link. Two "
-#~ "lines at most."
-#~ msgstr ""
-#~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
-#~ "linkiem do mapy. Maksymalnie dwie linie."
 
 #, python-format
 #~ msgid "Select every venue under %(name)s"
@@ -12216,6 +12323,25 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Map"
 #~ msgstr "Mapa"
+
+#, python-format
+#~ msgid ""
+#~ "Combined access: Individual enrollment passes + domain access "
+#~ "(@%(domain)s)."
+#~ msgstr ""
+#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
+#~ "(@%(domain)s)."
+
+#, python-format
+#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
+#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
+
+#~ msgid ""
+#~ "Physical venue address, shown on the event page with a map link. Two "
+#~ "lines at most."
+#~ msgstr ""
+#~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
+#~ "linkiem do mapy. Maksymalnie dwie linie."
 
 #~ msgid "Click to collapse or expand; drag to reorder"
 #~ msgstr ""
@@ -12261,3 +12387,89 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid ""
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
+
+#~ msgid ""
+#~ "We reply with a concrete plan for setting up your event. No commitment."
+#~ msgstr ""
+#~ "Odpowiadamy z konkretnym planem ustawienia Twojego wydarzenia. Bez "
+#~ "zobowiązań."
+
+#~ msgid "After — in Zagrajmy"
+#~ msgstr "Po — w Zagrajmy"
+
+#~ msgid ""
+#~ "A meetup gets the full kit from day one: the event page, enrollment, and "
+#~ "seat limits. Setup is one short call, and when you grow into speaker "
+#~ "proposals and a room grid, the same process grows with you."
+#~ msgstr ""
+#~ "Meetup dostaje komplet od pierwszego dnia: stronę wydarzenia, zapisy i "
+#~ "limity miejsc. Ustawienie to jedna krótka rozmowa, a kiedy urośniesz do "
+#~ "zgłoszeń prelegentów i siatki sal, ten sam proces rośnie razem z Tobą."
+
+#~ msgid ""
+#~ "A preview of an encounter page: Brass: Birmingham on Thursday — tiles "
+#~ "with the game, time, place, and free seats, a participant list, a "
+#~ "countdown of 2 days, 7 hours and 58 minutes left until the encounter, and "
+#~ "a link to share."
+#~ msgstr ""
+#~ "Podgląd strony spotkania: Brass: Birmingham na czwartek — kafelki z grą, "
+#~ "terminem, miejscem i wolnymi miejscami, lista uczestników, odliczanie 2 "
+#~ "dni, 7 godzin i 58 minut do spotkania, i link do udostępnienia."
+
+#~ msgid "See open Encounters at zagrajmy.net/encounters"
+#~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
+
+#~ msgid "For conference and meetup organizers"
+#~ msgstr "Dla organizatorów konferencji i meetupów"
+
+#~ msgid ""
+#~ "Cached name from the submission wizard. The canonical byline is the "
+#~ "proposal's display name."
+#~ msgstr ""
+#~ "Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest "
+#~ "nazwa wyświetlana zgłoszenia."
+
+#~ msgid ""
+#~ "Cached name from the submission wizard — edit the proposal's display name "
+#~ "to change the byline."
+#~ msgstr ""
+#~ "Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
+#~ "zgłoszenia, aby zmienić byline."
+
+#~ msgid "This spot is waiting for organizers who have shipped a programme"
+#~ msgstr "To miejsce czeka na organizatorów, którzy dowieźli program"
+
+#~ msgid "What did Zagrajmy replace for you?"
+#~ msgstr "Co Zagrajmy u Ciebie zastąpiło?"
+
+#~ msgid "name · role · event"
+#~ msgstr "imię · rola · wydarzenie"
+
+#~ msgid "Which step saved the most time?"
+#~ msgstr "Który krok oszczędził najwięcej czasu?"
+
+#~ msgid "What changed for attendees?"
+#~ msgstr "Co się zmieniło dla uczestników?"
+
+#~ msgid ""
+#~ "We are collecting quote permissions from organizers of real events. This "
+#~ "section is waiting for their words, and we would rather wait than invent "
+#~ "opinions."
+#~ msgstr ""
+#~ "Zbieramy zgody na cytaty od organizatorów prawdziwych wydarzeń. Ta sekcja "
+#~ "czeka na ich słowa i wolimy poczekać, niż wymyślać opinie."
+
+#~ msgid "2 days, 7 hours and 58 minutes left until the encounter."
+#~ msgstr "Do spotkania zostały 2 dni, 7 godzin i 58 minut."
+
+#~ msgid "They trusted us"
+#~ msgstr "Zaufali nam"
+
+#~ msgid "Run a conference or meetup"
+#~ msgstr "Zorganizuj konferencję albo meetup"
+
+#~ msgid "Or run an Encounter at zagrajmy.net/encounters"
+#~ msgstr "Albo zorganizuj Spotkanie na zagrajmy.net/encounters"
+
+#~ msgid "Apply"
+#~ msgstr "Zastosuj"
