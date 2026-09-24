@@ -49,7 +49,8 @@
               data-confirm="{{ subscribe_prompt }}"
               data-confirm-title="{{ subscribe_title }}"
               data-confirm-action="{{ subscribe_label }}"
-              data-confirm-variant="primary">
+              data-confirm-variant="primary"
+              data-confirm-icon="bell-alert">
             {% csrf_token %}
             {% tessera_button subscribe_label size="sm" icon="bell-alert" full_width_mobile=False %}
         </form>
