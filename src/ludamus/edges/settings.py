@@ -441,10 +441,12 @@ INTERNAL_IPS = [
 # old @import needed. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
-# No report-uri/report-to is configured: there is no violation-ingestion
-# endpoint yet (plan 007's Maintenance notes flagged this as deferred).
-# Violations that slip through can only be seen via browser devtools for
-# now; wiring a collector is a separate, human-scoped follow-up.
+# No report-uri/report-to is configured: a violation report carries
+# document-uri verbatim, so aiming it at a third party would ship the tokens
+# that claim and offer URLs authenticate with, past
+# links/analytics/redaction.py — which only covers what the server and the
+# page send. A same-origin collector running safe_path before it forwards is
+# the way in. Until then violations are only visible in browser devtools.
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
