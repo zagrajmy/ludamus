@@ -20,7 +20,6 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -31,6 +30,10 @@ from ludamus.adapters.web.django.forms import (
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
 from ludamus.gates.web.django.access import has_panel_access, panel_access
+from ludamus.gates.web.django.cache import (
+    EVENT_PAGE_CACHE_SECONDS,
+    AudienceCachedResponseMixin,
+)
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -118,6 +121,8 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet
+
+MINIMUM_ALLOWED_USER_AGE = 16
 
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
@@ -207,12 +212,12 @@ def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventPageView(DetailView):  # type: ignore [type-arg]
+class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
     request: RootRequest
+    audience_cache_max_age = EVENT_PAGE_CACHE_SECONDS
 
     def get_queryset(self) -> QuerySet[Event]:
         # Only enrollment_configs: the schedule is read through
