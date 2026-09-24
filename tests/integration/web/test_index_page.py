@@ -5,6 +5,7 @@ from unittest.mock import ANY
 import pytest
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.event_presentation import EventInfo
@@ -14,7 +15,7 @@ from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
-from ludamus.pacts.event import LandingStatsDTO
+from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -27,6 +28,10 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+
+# Pinned rather than imported from the view, so a wrong production link
+# fails here instead of being asserted back to itself.
+KAPITULARZ_URL = "https://kapitularz.zagrajmy.net/"
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -65,6 +70,7 @@ class TestIndexRedirectView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
@@ -83,6 +89,7 @@ class TestIndexRedirectView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": False,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
@@ -859,6 +866,70 @@ class TestLandingPageView:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
+            },
+            template_name=["landing_page.html"],
+        )
+
+    @override_settings(IS_STAGING=True)
+    def test_staging_shows_the_root_sphere_newest_published_event(
+        self, client, sphere, non_root_sphere
+    ):
+        now = datetime.now(UTC)
+        EventFactory(sphere=sphere, slug="older", start_time=now + timedelta(days=1))
+        newest = EventFactory(
+            sphere=sphere, slug="newest", start_time=now + timedelta(days=30)
+        )
+        EventFactory(
+            sphere=sphere,
+            slug="draft",
+            start_time=now + timedelta(days=60),
+            publication_time=now + timedelta(days=1),
+        )
+        EventFactory(
+            sphere=non_root_sphere, slug="foreign", start_time=now + timedelta(days=90)
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "stats": LandingStatsDTO(events=4, sessions=0),
+                "conventions": [
+                    LandingConventionDTO(
+                        name=non_root_sphere.name,
+                        domain=non_root_sphere.site.domain,
+                        cover_image_url="",
+                    )
+                ],
+                "encounters": [],
+                "encounters_enabled": True,
+                "showcase_url": reverse(
+                    "web:chronology:event", kwargs={"slug": newest.slug}
+                ),
+            },
+            template_name=["landing_page.html"],
+        )
+
+    @override_settings(IS_STAGING=True)
+    def test_staging_without_a_published_event_falls_back_to_production(
+        self, client, sphere
+    ):
+        EventFactory(sphere=sphere, publication_time=None)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "stats": LandingStatsDTO(events=1, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )

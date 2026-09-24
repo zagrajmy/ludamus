@@ -225,7 +225,7 @@ class TestTimeSlotCreatePageView:
         )
         assert TimeSlot.objects.filter(event=event).count() == 0
 
-    def test_post_rejects_slot_outside_event_dates(self, panel_client, event):
+    def test_post_widens_event_start_for_slot_before_event(self, panel_client, event):
         before_event = (event.start_time - timedelta(days=5)).date().isoformat()
 
         response = panel_client.post(
@@ -238,15 +238,21 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        _assert_modal_reopens(
+        assert_response(
             response,
-            event=event,
-            form=FormErrorsMatcher(__all__=["Time slot must be within event dates."]),
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+            ],
+            url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
-        assert TimeSlot.objects.filter(event=event).count() == 0
+        slot = TimeSlot.objects.get(event=event)
+        event.refresh_from_db()
+        assert event.start_time == slot.start_time
 
-    def test_post_rejects_slot_after_event_end(self, panel_client, event):
+    def test_post_widens_event_end_for_slot_after_event(self, panel_client, event):
         after_event = (event.end_time + timedelta(days=5)).date().isoformat()
+        original_start = event.start_time
 
         response = panel_client.post(
             self.get_url(event),
@@ -258,10 +264,45 @@ class TestTimeSlotCreatePageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+            ],
+            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+        )
+        slot = TimeSlot.objects.get(event=event)
+        event.refresh_from_db()
+        assert event.end_time == slot.end_time
+        assert event.start_time == original_start
+
+    def test_post_rejects_slot_before_publication(self, panel_client, event):
+        before_publication = (
+            (event.publication_time - timedelta(days=1)).date().isoformat()
+        )
+
+        response = panel_client.post(
+            self.get_url(event),
+            {
+                "date": before_publication,
+                "end_date": before_publication,
+                "start_time": "10:00",
+                "end_time": "12:00",
+            },
+        )
+
         _assert_modal_reopens(
             response,
             event=event,
-            form=FormErrorsMatcher(__all__=["Time slot must be within event dates."]),
+            form=FormErrorsMatcher(
+                __all__=[
+                    (
+                        "The time slot starts before the event is published. "
+                        "Move the publication time in the event settings first."
+                    )
+                ]
+            ),
         )
         assert TimeSlot.objects.filter(event=event).count() == 0
 
@@ -345,7 +386,7 @@ class TestTimeSlotCreatePageView:
         assert slot.start_time.date() == event.start_time.date()
         assert slot.end_time.date() == (event.start_time + timedelta(days=1)).date()
 
-    def test_post_rejects_multi_day_slot_outside_event(self, panel_client, event):
+    def test_post_widens_event_around_multi_day_slot(self, panel_client, event):
         start_date = event.start_time.date().isoformat()
         end_date = (event.end_time + timedelta(days=5)).date().isoformat()
 
@@ -359,9 +400,14 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        _assert_modal_reopens(
+        assert_response(
             response,
-            event=event,
-            form=FormErrorsMatcher(__all__=["Time slot must be within event dates."]),
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+            ],
+            url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
-        assert TimeSlot.objects.filter(event=event).count() == 0
+        slot = TimeSlot.objects.get(event=event)
+        event.refresh_from_db()
+        assert event.end_time == slot.end_time

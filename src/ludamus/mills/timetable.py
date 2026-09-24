@@ -6,7 +6,11 @@ from datetime import date, datetime, timedelta, tzinfo
 from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
-from ludamus.mills.event import require_session_in_event, require_track_in_event
+from ludamus.mills.event import (
+    require_session_in_event,
+    require_track_in_event,
+    widen_event_dates,
+)
 from ludamus.mills.timeslots import Window, slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -40,6 +44,7 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
@@ -56,7 +61,7 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.timetable import TimetableRepos
 
@@ -316,6 +321,8 @@ class TimetableService(TimetableServiceProtocol):
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
+            first_space_number=start + 1,
+            last_space_number=start + len(spaces),
             # Every day renders the same page of spaces -- `groups` already
             # relies on that -- so the calendar's flat track list is just the
             # page repeated once per day.
@@ -429,18 +436,58 @@ class TimetableService(TimetableServiceProtocol):
         if space_pk not in leaf_pks:
             raise NotFoundError
 
-    def _require_placement_in_time_slots(
-        self, placement: SessionPlacement, event_pk: int
+    def _widen_time_slots_around(
+        self, placement: SessionPlacement, event: EventDTO
     ) -> None:
-        ranges = _merged_slot_ranges(self._repos.time_slots.list_by_event(event_pk))
-        if not any(
-            placement.start_time >= start and placement.end_time <= end
-            for start, end in ranges
+        # NOTE: a drop past the day's hours is the organizer extending the
+        # day, so the slots and the event's dates grow to fit it.
+        slots = sorted(self._repos.time_slots.list_by_event(event.pk), key=_slot_start)
+        if any(
+            start <= placement.start_time and placement.end_time <= end
+            for start, end in _merged_slot_ranges(slots)
         ):
-            raise PlacementRejectedError(
-                PlacementRejection.OUTSIDE_TIME_SLOTS,
-                "placement must fit within an event time-slot window",
+            return
+        try:
+            widen_event_dates(
+                events=self._repos.events,
+                event_pk=event.pk,
+                start=placement.start_time,
+                end=placement.end_time,
             )
+        except EventPublicationInvalidError as error:
+            raise PlacementRejectedError(
+                PlacementRejection.BEFORE_PUBLICATION,
+                "start_time is before the event's publication_time; move the "
+                "publication first (update_event)",
+            ) from error
+        touched = [
+            slot
+            for slot in slots
+            if slot.start_time <= placement.end_time
+            and slot.end_time >= placement.start_time
+        ]
+        # NOTE: slots are shared with the proposals that picked them, so a drop
+        # away from every slot opens its own window instead of dragging the
+        # nearest one (and those picks) across the gap.
+        if not touched:
+            self._repos.time_slots.create(
+                event.pk, placement.start_time, placement.end_time
+            )
+            return
+        # Stretch the first touched slot back to the placement's start and
+        # the last one out to its end; the ones between close their gaps so
+        # the windows merge into one that holds the whole placement.
+        first, *rest = touched
+        reaches = [slot.start_time for slot in rest] + [placement.end_time]
+        for slot, reach in zip(touched, reaches, strict=True):
+            start = (
+                min(slot.start_time, placement.start_time)
+                if slot is first
+                else slot.start_time
+            )
+            end = max(slot.end_time, reach)
+            if (start, end) != (slot.start_time, slot.end_time):
+                self._repos.time_slots.update(slot.pk, start, end)
 
     @staticmethod
     def _require_placeable(placement: SessionPlacement) -> None:
@@ -478,7 +525,7 @@ class TimetableService(TimetableServiceProtocol):
             )
             self._repos.sessions.lock(session_pk)
             self._require_space_in_event(placement.space_pk, event_pk)
-            self._require_placement_in_time_slots(placement, event_pk)
+            event = self._repos.sessions.read_event(session_pk)
             self._repos.spaces.lock(placement.space_pk)
             existing = self._repos.agenda_items.read_by_session(session_pk)
             if existing is not None and (
@@ -495,7 +542,7 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
-            event = self._repos.sessions.read_event(session_pk)
+            self._widen_time_slots_around(placement, event)
             self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,

@@ -13,6 +13,7 @@ from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
 ENFORCE_HEADER = "Content-Security-Policy"
+KAPITULARZ_URL = "https://kapitularz.zagrajmy.net/"
 
 
 # A sphere with nothing on: the smallest rendered surface these headers can be
@@ -124,6 +125,7 @@ class TestCSPNonce:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
