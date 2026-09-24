@@ -257,6 +257,21 @@ Enrollment behaviour currently bolted onto the `Session` model
 `is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
 `enroll` mills/specs, not on the model.
 
+#### Pages: Events feed
+
+The sphere's front page and its only feed: announcements, then upcoming
+events and the encounters this visitor may see merged chronologically, then
+the past. `/` redirects here.
+
+- **URLs:** `/events/` (`web:events`); `/timeline/` and `/encounters/`
+  redirect to it
+- **Views:** `gates/web/django/events.py` — `EventsPageView`, with the merge
+  in `_merge()` and the item shapes `FeedEvent` / `FeedEncounter`
+- **Templates:** `templates/index.html`, `components/feed_grid.html`,
+  `components/event_card.html`, `components/encounter_card.html`
+- **Services:** `events.list_for_sphere()`, `encounters.list_feed()`,
+  `announcements.list_published()`
+
 #### Pages: Public event pages
 
 What visitors see: event details, session list, session cards.
@@ -405,22 +420,30 @@ from the formal event/session lifecycle.
 #### Pages: Encounters
 
 Users create one-off encounters (game sessions, meetups) and others RSVP
-to join them. Includes the public share page, RSVP actions, and calendar
+to join them. There is no encounters index: they are listed on the events
+feed (see Pages: Events), alongside the sphere's events. What remains here
+is the create/edit forms, the public share page, RSVP actions, and calendar
 exports.
 
-- **URLs:** `/encounters/` (authenticated), `/e/<share_code>/` (public,
-  namespace `notice-board`)
+The sphere setting `encounters_policy` (`none` / `managers` / `everyone`)
+decides who may create one; `none` turns the feature off and 404s every
+route below.
+
+- **URLs:** `/encounters/create/`, `/encounters/<pk>/edit/` (authenticated),
+  `/e/<share_code>/` (public, namespace `notice-board`). `/encounters/`
+  itself redirects to the events feed.
 - **Views:** `gates/web/django/notice_board/views.py` —
-  `EncountersIndexPageView`, `EncounterCreatePageView`,
-  `EncounterEditPageView`, `EncounterDeleteActionView`,
-  `EncounterDetailPageView`, `EncounterRSVPActionView`,
-  `EncounterCancelRSVPActionView`, `EncounterQrView`, `EncounterIcsView`
+  `EncounterCreatePageView`, `EncounterEditPageView`,
+  `EncounterDeleteActionView`, `EncounterDetailPageView`,
+  `EncounterRSVPActionView`, `EncounterCancelRSVPActionView`,
+  `EncounterQrView`, `EncounterIcsView`, all behind `_EncounterGate`
 - **Templates:** `templates/notice_board/`
 - **Service:** `EncounterService` — `build_detail()` (encounter + RSVPs +
-  computed availability), `build_index()` (upcoming/past split, own vs
-  RSVP'd)
+  computed availability), `list_feed()` (what a given visitor may see:
+  listed encounters plus their own and their RSVPs), `can_create()`,
+  `enabled()`
 - **DTOs:** `EncounterDTO`, `EncounterRSVPDTO`, `EncounterDetailResult`,
-  `EncounterIndexItem`, `EncounterIndexResult`, `EncounterData`
+  `EncounterIndexItem`, `EncounterFeed`, `EncounterData`
 - **Repositories:** `EncounterRepository`, `EncounterRSVPRepository`
 - **External integrations:** Google Calendar and Outlook deep links,
   iCalendar `.ics` export, QR code generation

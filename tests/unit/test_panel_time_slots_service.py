@@ -36,15 +36,26 @@ def _slot(pk=1, hour_start=10, hour_end=12):
 class TestPanelTimeSlotsService:
     @pytest.fixture
     def time_slots(self):
-        return MagicMock()
+        repo = MagicMock()
+        repo.create.return_value = _slot(pk=9)
+        repo.update.return_value = _slot(pk=1)
+        return repo
+
+    @pytest.fixture
+    def events(self):
+        repo = MagicMock()
+        repo.read.return_value = _event()
+        return repo
 
     @pytest.fixture
     def transaction(self):
         return MagicMock()
 
     @pytest.fixture
-    def service(self, transaction, time_slots):
-        return PanelTimeSlotsService(transaction=transaction, time_slots=time_slots)
+    def service(self, transaction, time_slots, events):
+        return PanelTimeSlotsService(
+            transaction=transaction, time_slots=time_slots, events=events
+        )
 
     def test_list_for_event_delegates_to_repo(self, service, time_slots):
         slots = [_slot(pk=1), _slot(pk=2, hour_start=13, hour_end=14)]
@@ -79,9 +90,10 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
 
-        created = service.create(event=_event(), start_time=start, end_time=end)
+        saved = service.create(event=_event(), start_time=start, end_time=end)
 
-        assert created is created_slot
+        assert saved.slot is created_slot
+        assert saved.event_dates_widened is False
         transaction.atomic.assert_called_once_with()
         time_slots.list_by_event.assert_called_once_with(_EVENT_ID)
         time_slots.create.assert_called_once_with(_EVENT_ID, start, end)
@@ -97,30 +109,92 @@ class TestPanelTimeSlotsService:
         assert excinfo.value.errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
         time_slots.create.assert_not_called()
 
-    def test_create_returns_outside_event_dates_for_slot_before_event(
-        self, service, time_slots
+    def test_create_keeps_event_dates_for_slot_inside_them(
+        self, service, time_slots, events
+    ):
+        time_slots.list_by_event.return_value = []
+        start = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
+
+        saved = service.create(event=_event(), start_time=start, end_time=end)
+
+        assert saved.event_dates_widened is False
+        events.update.assert_not_called()
+
+    def test_create_widens_event_start_for_slot_before_event(
+        self, service, time_slots, events
     ):
         time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 9, 30, tzinfo=UTC)
+        start = datetime(2026, 5, 30, 8, 0, tzinfo=UTC)
+        end = datetime(2026, 5, 30, 9, 30, tzinfo=UTC)
+
+        saved = service.create(event=_event(), start_time=start, end_time=end)
+
+        assert saved.event_dates_widened is True
+        events.update.assert_called_once_with(_EVENT_ID, {"start_time": start})
+        time_slots.create.assert_called_once_with(_EVENT_ID, start, end)
+
+    def test_create_widens_event_end_for_slot_after_event(
+        self, service, time_slots, events
+    ):
+        time_slots.list_by_event.return_value = [_slot(pk=1)]
+        start = datetime(2026, 6, 3, 17, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 3, 23, 0, tzinfo=UTC)
+
+        saved = service.create(event=_event(), start_time=start, end_time=end)
+
+        assert saved.event_dates_widened is True
+        events.update.assert_called_once_with(_EVENT_ID, {"end_time": end})
+
+    def test_create_refuses_slot_before_publication_without_writing(
+        self, service, time_slots, events
+    ):
+        time_slots.list_by_event.return_value = []
+        event = _event().model_copy(
+            update={"publication_time": datetime(2026, 5, 31, 12, 0, tzinfo=UTC)}
+        )
+        events.read.return_value = event
+        start = datetime(2026, 5, 31, 8, 0, tzinfo=UTC)
+        end = datetime(2026, 5, 31, 10, 0, tzinfo=UTC)
 
         with pytest.raises(TimeSlotRejectedError) as excinfo:
-            service.create(event=_event(), start_time=start, end_time=end)
+            service.create(event=event, start_time=start, end_time=end)
 
-        assert excinfo.value.errors == [TimeSlotValidationError.OUTSIDE_EVENT_DATES]
+        assert excinfo.value.errors == [
+            TimeSlotValidationError.STARTS_BEFORE_PUBLICATION
+        ]
+
+        events.update.assert_not_called()
         time_slots.create.assert_not_called()
+
+    def test_create_widens_from_the_locked_row_not_the_callers_copy(
+        self, service, time_slots, events
+    ):
+        time_slots.list_by_event.return_value = []
+        end = datetime(2026, 6, 3, 23, 0, tzinfo=UTC)
+        events.read.return_value = _event().model_copy(update={"end_time": end})
+
+        saved = service.create(
+            event=_event(),
+            start_time=datetime(2026, 6, 3, 21, 0, tzinfo=UTC),
+            end_time=end,
+        )
+
+        assert saved.event_dates_widened is False
+        events.lock.assert_called_once_with(_EVENT_ID)
+        events.update.assert_not_called()
 
     def test_create_accumulates_every_broken_rule(self, service, time_slots):
         time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 7, 0, tzinfo=UTC)
+        start = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 1, 10, 30, tzinfo=UTC)
 
         with pytest.raises(TimeSlotRejectedError) as excinfo:
             service.create(event=_event(), start_time=start, end_time=end)
 
         assert excinfo.value.errors == [
             TimeSlotValidationError.START_NOT_BEFORE_END,
-            TimeSlotValidationError.OUTSIDE_EVENT_DATES,
+            TimeSlotValidationError.OVERLAPS_EXISTING_SLOT,
         ]
         time_slots.create.assert_not_called()
 
@@ -149,6 +223,22 @@ class TestPanelTimeSlotsService:
 
         service.update(event=_event(), pk=1, start_time=start, end_time=end)
 
+        time_slots.update.assert_called_once_with(1, start, end)
+
+    def test_update_widens_event_dates_around_the_slot(
+        self, service, time_slots, events
+    ):
+        time_slots.read_by_event.return_value = _slot(pk=1)
+        time_slots.list_by_event.return_value = [_slot(pk=1)]
+        start = datetime(2026, 5, 31, 22, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 3, 20, 0, tzinfo=UTC)
+
+        saved = service.update(event=_event(), pk=1, start_time=start, end_time=end)
+
+        assert saved.event_dates_widened is True
+        events.update.assert_called_once_with(
+            _EVENT_ID, {"start_time": start, "end_time": end}
+        )
         time_slots.update.assert_called_once_with(1, start, end)
 
     def test_update_rejects_a_broken_slot_without_writing(self, service, time_slots):
