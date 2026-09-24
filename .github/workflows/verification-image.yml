@@ -35,6 +35,10 @@ jobs:
           tags: ludamus-verify:smoke
           cache-from: type=gha,scope=verification
           cache-to: type=gha,mode=max,scope=verification
+          # Raises mise install's GitHub API rate limit inside the build
+          # (anonymous requests hit it fetching artifact attestations).
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
       - name: Toolchain smoke
         run: |
