@@ -915,7 +915,6 @@ msgid "Implementation"
 msgstr "Implementacja"
 
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Connection"
 msgstr "Połączenie"
@@ -1042,6 +1041,7 @@ msgid "Sessions"
 msgstr "Punkty programu"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Accreditation"
@@ -1145,43 +1145,6 @@ msgstr ""
 "Zastosowano agendę: oznaczono twórców programu: %(marked)d, odznaczono: "
 "%(unmarked)d, przyznano zniżek: %(set)d, wycofano: %(cleared)d."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-msgid "Discount kind"
-msgstr "Rodzaj zniżki"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-msgid "Discount value"
-msgstr "Wartość zniżki"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Note"
-msgstr "Notatka"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
-msgid "Connection not found."
-msgstr "Połączenie nie zostało znalezione."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#, python-format
-msgid "Export failed: %(hint)s"
-msgstr "Eksport nie powiódł się: %(hint)s"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#, python-format
-msgid "Accreditation sheet exported (%(count)d creator)."
-msgid_plural "Accreditation sheet exported (%(count)d creators)."
-msgstr[0] ""
-"Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
-msgstr[1] ""
-"Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-msgstr[2] ""
-"Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-msgstr[3] ""
-"Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
-
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "allowed"
 msgstr "dozwolone"
@@ -1225,6 +1188,103 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Pick at least one column to export."
+msgstr "Wybierz przynajmniej jedną kolumnę do eksportu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled"
+msgstr "Zaplanowane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/landing/scena.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/proposal-columns.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Proposals"
+msgstr "Zgłoszenia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Export proposals"
+msgstr "Eksport zgłoszeń"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid ""
+"Tick the columns the file gets, and order them top to bottom. Every proposal "
+"the list's current filters match is exported, not just the page on screen."
+msgstr ""
+"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
+"dołu. Eksportowane są wszystkie zgłoszenia pasujące do bieżących filtrów "
+"listy, nie tylko strona na ekranie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Discount kind"
+msgstr "Rodzaj zniżki"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Discount value"
+msgstr "Wartość zniżki"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Note"
+msgstr "Notatka"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Scheduled sessions"
+msgstr "Zaplanowane punkty programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled hours"
+msgstr "Godziny zaplanowane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Facilitators"
+msgstr "Twórcy programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Export facilitators"
+msgstr "Eksport twórców programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid ""
+"Tick the columns the file gets, and order them top to bottom. Every "
+"facilitator the list's current filters match is exported, not just the page "
+"on screen."
+msgstr ""
+"Zaznacz kolumny, które trafią do pliku, i ustaw ich kolejność od góry do "
+"dołu. Eksportowani są wszyscy twórcy programu pasujący do bieżących filtrów "
+"listy, nie tylko strona na ekranie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/export.py
+msgid "Accreditation sheet"
+msgstr "Arkusz akredytacji"
+
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
@@ -1249,24 +1309,6 @@ msgid ""
 msgstr ""
 "Każdy z tych twórców programu ma powiązane konto użytkownika. Przed "
 "scaleniem odłącz wszystkie oprócz jednego."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-form.html
-#: src/ludamus/templates/panel/timetable-confirmations.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Facilitators"
-msgstr "Twórcy programu"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
@@ -1666,24 +1708,6 @@ msgstr "Rezerwa"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Scheduled"
-msgstr "Zaplanowane"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/templates/landing/scena.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/proposal-columns.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-form.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Proposals"
-msgstr "Zgłoszenia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal moved back to pending."
@@ -2296,7 +2320,6 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discount-rule-form.html
 #: src/ludamus/templates/panel/discounts/edit.html
-#: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-window-form.html
 #: src/ludamus/templates/panel/facilitator-create.html
@@ -3364,43 +3387,6 @@ msgstr "Wartość jest wymagana."
 msgid "Value must be greater than zero."
 msgstr "Wartość musi być większa niż zero."
 
-#: src/ludamus/gates/web/django/forms.py
-msgid "Google Sheets link"
-msgstr "Link do arkusza Google"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Paste the spreadsheet link (or its ID) from the address bar."
-msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Tab name"
-msgstr "Nazwa zakładki"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "The tab has to exist already; the export replaces its content."
-msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/_facilitator_tabs.html
-#: src/ludamus/templates/panel/_proposal_tabs.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/parts/_columns_chooser.html
-#: src/ludamus/templates/panel/proposal-columns.html
-msgid "Columns"
-msgstr "Kolumny"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Facilitator and personal data written before the discount columns. Pick what "
-"this sheet needs; nothing is exported by default."
-msgstr ""
-"Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
-"Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy niczego."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enter a Google Sheets link or a spreadsheet ID."
-msgstr "Podaj link do arkusza Google lub ID arkusza."
-
 #: src/ludamus/gates/web/django/multiverse/access.py
 msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
@@ -3453,6 +3439,10 @@ msgstr "Ogłoszenie zostało usunięte."
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "A connection with this display name already exists."
 msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
+msgid "Connection not found."
+msgstr "Połączenie nie zostało znalezione."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "Connection created successfully."
@@ -7915,6 +7905,19 @@ msgid "Merge"
 msgstr "Scal"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/_proposal_tabs.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid "Columns"
+msgstr "Kolumny"
+
+#: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/_proposal_tabs.html
+#: src/ludamus/templates/panel/list-export.html
+msgid "Export"
+msgstr "Eksportuj"
+
+#: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid "Bin"
 msgstr "Kosz"
@@ -8606,56 +8609,14 @@ msgstr "Dodaj regułę, aby zniżki przyznawały się na podstawie agendy."
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
 
-#: src/ludamus/templates/panel/discounts/export.html
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Export accreditation sheet"
-msgstr "Eksport arkusza akredytacji"
-
-#: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Facilitator discounts"
 msgstr "Zniżki twórców programu"
 
-#: src/ludamus/templates/panel/discounts/export.html
-msgid ""
-"Writes every accredited facilitator with their discount into the chosen tab, "
-"replacing its current content."
-msgstr ""
-"Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej zakładki, "
-"zastępując jej obecną zawartość."
-
-#: src/ludamus/templates/panel/discounts/export.html
-#, python-format
-msgid ""
-"Share the spreadsheet with the service account e-mail of %(name)s as an "
-"editor first."
-msgstr ""
-"Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi połączenia "
-"%(name)s."
-
-#: src/ludamus/templates/panel/discounts/export.html
-msgid ""
-"Share the spreadsheet with the connection's service account e-mail as an "
-"editor first."
-msgstr ""
-"Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
-"połączenia."
-
-#: src/ludamus/templates/panel/discounts/export.html
-msgid "Export"
-msgstr "Eksportuj"
-
-#: src/ludamus/templates/panel/discounts/export.html
-msgid ""
-"No connections yet. Add a Google service account connection to export the "
-"accreditation sheet."
-msgstr ""
-"Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
-"arkusz akredytacji."
-
-#: src/ludamus/templates/panel/discounts/export.html
-msgid "Go to connections"
-msgstr "Przejdź do połączeń"
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "All accreditations"
+msgstr "Wszystkie akredytacje"
 
 #: src/ludamus/templates/panel/discounts/list.html
 msgid ""
@@ -8671,6 +8632,10 @@ msgstr ""
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Apply agenda"
 msgstr "Zastosuj agendę"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Export accreditation sheet"
+msgstr "Eksport arkusza akredytacji"
 
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "From rules"
@@ -9160,10 +9125,6 @@ msgstr "Nazwa, użytkownik lub wartości pól"
 #: src/ludamus/templates/panel/parts/facilitator-picker.html
 msgid "No facilitators match your search."
 msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "All accreditations"
-msgstr "Wszystkie akredytacje"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "All organizers"
@@ -9706,6 +9667,10 @@ msgstr ""
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid "Synchronisation"
 msgstr "Synchronizacja"
+
+#: src/ludamus/templates/panel/list-export.html
+msgid "Download .ods"
+msgstr "Pobierz .ods"
 
 #: src/ludamus/templates/panel/mcp-token.html
 #, python-format
@@ -10998,10 +10963,6 @@ msgid "Hours to fill"
 msgstr "Godziny do zapełnienia"
 
 #: src/ludamus/templates/panel/timetable-overview.html
-msgid "Scheduled hours"
-msgstr "Godziny zaplanowane"
-
-#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Capacity hours"
 msgstr "Godziny dostępne"
 
@@ -11444,6 +11405,77 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
+
+#, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+
+#~ msgid ""
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
+#~ msgstr ""
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
+
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
+
+#~ msgid ""
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"

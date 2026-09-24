@@ -17,6 +17,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelRequest,
 )
 from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.mills.panel_columns import FIELD_KEY_PREFIX
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -54,6 +56,26 @@ def format_field_value(
     return by_value.get(value or "") or value or ""
 
 
+def read_field_filters(request: HttpRequest) -> dict[int, str]:
+    # `?field_<pk>=value`, one entry per configurable column the organizer
+    # narrowed by. The pk is the mill's to resolve — a field this event does
+    # not have drops out there, not here.
+    return {
+        int(key.removeprefix(FIELD_KEY_PREFIX)): request.GET.get(key, "")
+        for key in request.GET
+        if key.startswith(FIELD_KEY_PREFIX)
+        and key.removeprefix(FIELD_KEY_PREFIX).isdigit()
+    }
+
+
+def read_accreditation_filter(request: HttpRequest) -> str:
+    # A tampered value falls back to "all", so no toolbar ever shows a selected
+    # option the list is not actually filtered by. The options beside it are
+    # `ACCREDITATION_TYPE_CHOICES` — the list the form already renders.
+    raw = request.GET.get("accreditation", "").strip()
+    return raw if raw in AccreditationType else ""
+
+
 class PanelRequest(EventPanelRequest):
     """Request type for panel views with UoW and context."""
 
@@ -64,6 +86,43 @@ class PanelAccessMixin(EventPanelAccessMixin):
     request: PanelRequest
 
 
+def track_filter_context(
+    request: PanelRequest, event_pk: int
+) -> tuple[list[Any], set[int], int | None]:
+    """Return track filter context tuple for track switcher.
+
+    Auto-selects a single managed track when track GET param is absent.
+
+    Returns:
+        Tuple of (sorted_tracks, managed_track_pks, filter_track_pk).
+
+    Raises:
+        Http404: the `track` GET param names a track of another event.
+    """
+    all_tracks = request.di.uow.tracks.list_by_event(event_pk)
+    managed_tracks = request.di.uow.tracks.list_by_manager(
+        request.context.current_user_id, event_pk=event_pk
+    )
+    managed_pks = {t.pk for t in managed_tracks}
+
+    track_param = request.GET.get("track", "").strip()
+    # Panel access proves this organizer manages the event, not that a pk
+    # in the query string belongs to it. The services scope it again before
+    # they read anything; refusing here too costs no query — `all_tracks`
+    # is already loaded — and stops a stale link from quietly rendering the
+    # unfiltered page as if the filter had applied.
+    if "track" not in request.GET and len(managed_tracks) == 1:
+        filter_track_pk: int | None = managed_tracks[0].pk
+    elif track_param.isdigit():
+        if (filter_track_pk := int(track_param)) not in {t.pk for t in all_tracks}:
+            raise Http404
+    else:
+        filter_track_pk = None
+
+    sorted_tracks = sorted(all_tracks, key=lambda t: (t.pk not in managed_pks, t.name))
+    return sorted_tracks, managed_pks, filter_track_pk
+
+
 class EventContextMixin(EventPanelContextMixin):
     """Adds the legacy UoW-backed helpers to the shared event context mixin."""
 
@@ -72,40 +131,7 @@ class EventContextMixin(EventPanelContextMixin):
     def get_track_filter_context(
         self, event_pk: int
     ) -> tuple[list[Any], set[int], int | None]:
-        """Return track filter context tuple for track switcher.
-
-        Auto-selects a single managed track when track GET param is absent.
-
-        Returns:
-            Tuple of (sorted_tracks, managed_track_pks, filter_track_pk).
-
-        Raises:
-            Http404: the `track` GET param names a track of another event.
-        """
-        all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
-        managed_tracks = self.request.di.uow.tracks.list_by_manager(
-            self.request.context.current_user_id, event_pk=event_pk
-        )
-        managed_pks = {t.pk for t in managed_tracks}
-
-        track_param = self.request.GET.get("track", "").strip()
-        # Panel access proves this organizer manages the event, not that a pk
-        # in the query string belongs to it. The services scope it again before
-        # they read anything; refusing here too costs no query — `all_tracks`
-        # is already loaded — and stops a stale link from quietly rendering the
-        # unfiltered page as if the filter had applied.
-        if "track" not in self.request.GET and len(managed_tracks) == 1:
-            filter_track_pk: int | None = managed_tracks[0].pk
-        elif track_param.isdigit():
-            if (filter_track_pk := int(track_param)) not in {t.pk for t in all_tracks}:
-                raise Http404
-        else:
-            filter_track_pk = None
-
-        sorted_tracks = sorted(
-            all_tracks, key=lambda t: (t.pk not in managed_pks, t.name)
-        )
-        return sorted_tracks, managed_pks, filter_track_pk
+        return track_filter_context(self.request, event_pk)
 
 
 def cfp_tab_urls(slug: str) -> dict[str, str]:
@@ -122,6 +148,7 @@ def facilitator_tab_urls(slug: str) -> dict[str, str]:
         "list": reverse("panel:facilitators", kwargs={"slug": slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": slug}),
     }
 
@@ -130,6 +157,7 @@ def proposal_tab_urls(slug: str) -> dict[str, str]:
     return {
         "list": reverse("panel:proposals", kwargs={"slug": slug}),
         "columns": reverse("panel:proposal-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:proposal-export", kwargs={"slug": slug}),
     }
 
 

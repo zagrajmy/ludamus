@@ -32,10 +32,7 @@ if TYPE_CHECKING:
         DashboardServiceProtocol,
         SphereSubscriptionServiceProtocol,
     )
-    from ludamus.pacts.discounts import (
-        DiscountsExportServiceProtocol,
-        DiscountsServiceProtocol,
-    )
+    from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
@@ -211,8 +208,6 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
-    @property
-    def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
     @property

@@ -9,7 +9,6 @@ from ludamus.pacts.discounts import (
     DiscountKind,
     DiscountMethod,
     DiscountRosterEntryDTO,
-    DiscountsExportServiceProtocol,
     DiscountsServiceProtocol,
     DiscountSyncResultDTO,
 )
@@ -19,8 +18,6 @@ from ludamus.pacts.submissions import AccreditationType
 if TYPE_CHECKING:
     from ludamus.pacts.discounts import (
         DiscountDTO,
-        DiscountExportColumns,
-        DiscountExportLabels,
         DiscountRepositoryProtocol,
         DiscountRuleData,
         DiscountRuleDTO,
@@ -34,12 +31,7 @@ if TYPE_CHECKING:
         FacilitatorDTO,
         FacilitatorRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import (
-        ConnectionsRepositoryProtocol,
-        DecryptorProtocol,
-    )
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.sheets import SheetWriterProtocol
 
 
 def _roster(
@@ -185,12 +177,11 @@ class DiscountsService(DiscountsServiceProtocol):
         self._schedule = schedule
         self._facilitator_change_logs = facilitator_change_logs
 
-    def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]:
-        return _roster(
-            discounts=self._discounts,
-            facilitators=self._facilitators,
-            event_pk=event_pk,
-        )
+    def list_discounts(self, event_pk: int) -> list[DiscountDTO]:
+        return self._discounts.list_by_event(event_pk)
+
+    def list_facilitator_schedule(self, event_pk: int) -> list[FacilitatorScheduleRow]:
+        return self._schedule.list_facilitator_schedule(event_pk)
 
     def list_rules(self, event_pk: int) -> list[DiscountRuleDTO]:
         return self._rules.list_for_event(event_pk)
@@ -302,63 +293,3 @@ class DiscountsService(DiscountsServiceProtocol):
     def soft_delete(self, pk: int) -> None:
         with self._transaction.atomic():
             self._discounts.soft_delete(pk)
-
-
-class DiscountsExportService(DiscountsExportServiceProtocol):
-    def __init__(
-        self,
-        *,
-        discounts: DiscountRepositoryProtocol,
-        facilitators: FacilitatorRepositoryProtocol,
-        connections: ConnectionsRepositoryProtocol,
-        decryptor: DecryptorProtocol,
-        sheet_writer: SheetWriterProtocol,
-    ) -> None:
-        self._discounts = discounts
-        self._facilitators = facilitators
-        self._connections = connections
-        self._decryptor = decryptor
-        self._sheet_writer = sheet_writer
-
-    def export_to_sheet(
-        self,
-        *,
-        sphere_id: int,
-        event_pk: int,
-        connection_id: int,
-        spreadsheet_id: str,
-        tab_title: str,
-        labels: DiscountExportLabels,
-        columns: DiscountExportColumns,
-    ) -> int:
-        # `read_secret` raises NotFoundError for a connection outside the
-        # sphere, so a forged connection id cannot borrow another sphere's
-        # credentials.
-        blob = self._connections.read_secret(sphere_id, connection_id)
-        secret = self._decryptor.decrypt(blob) if blob else b""
-        # Accreditation "none" means the person gets nothing at the desk, so
-        # they have no line on the accreditation sheet either.
-        entries = [
-            entry
-            for entry in _roster(
-                discounts=self._discounts,
-                facilitators=self._facilitators,
-                event_pk=event_pk,
-            )
-            if entry.facilitator.accreditation_type != AccreditationType.NONE
-        ]
-        rows = [[*columns.headers, *labels.headers]]
-        for entry in entries:
-            facilitator, discount = entry.facilitator, entry.discount
-            rows.append(
-                [
-                    *columns.cells.get(facilitator.pk, []),
-                    labels.kinds.get(discount.kind, discount.kind) if discount else "",
-                    str(discount.value) if discount else "",
-                    discount.note if discount else "",
-                ]
-            )
-        self._sheet_writer.write_rows(
-            secret=secret, spreadsheet_id=spreadsheet_id, rows=rows, tab=tab_title
-        )
-        return len(entries)

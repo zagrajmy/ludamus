@@ -154,32 +154,19 @@
                                        class="block text-xs font-medium text-foreground-muted mb-1 truncate">
                                     {{ field.name }}
                                 </label>
-                                {% if field.field_type == "select" %}
-                                    <select id="filter-field-{{ field.pk }}"
-                                            name="field_{{ field.pk }}"
-                                            class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                                        <option value="">—</option>
-                                        {% for option in field.options %}
-                                            <option value="{{ option.value }}"
-                                                    {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
-                                                {{ option.label }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                {% elif field.field_type == "checkbox" %}
-                                    <input type="checkbox"
-                                           id="filter-field-{{ field.pk }}"
-                                           name="field_{{ field.pk }}"
-                                           value="true"
-                                           {% if filter_fields|get_item:field.pk %}checked{% endif %}
-                                           class="filter-input rounded border-border">
-                                {% else %}
-                                    <input type="text"
-                                           id="filter-field-{{ field.pk }}"
-                                           name="field_{{ field.pk }}"
-                                           value="{{ filter_fields|get_item:field.pk }}"
-                                           class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
-                                {% endif %}
+                                {# Only select fields are filterable, so every #}
+                                {# field here is one. #}
+                                <select id="filter-field-{{ field.pk }}"
+                                        name="field_{{ field.pk }}"
+                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                    <option value="">—</option>
+                                    {% for option in field.options %}
+                                        <option value="{{ option.value }}"
+                                                {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         {% endfor %}
                         <div class="flex items-center gap-2">

@@ -48,6 +48,7 @@ unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.8.0"
 posthog = "^7.44.2"
+odfpy = "^1.4.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -230,6 +231,10 @@ module = ["markdown"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["odf.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["zeal.*"]
 ignore_missing_imports = true
 
@@ -244,6 +249,7 @@ module = [
     "ludamus.links.google_auth",
     "ludamus.links.google_forms",
     "ludamus.links.google_sheets",
+    "ludamus.links.ods",
     "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false

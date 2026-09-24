@@ -28,6 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.mills.panel_columns import FACILITATOR_BUILTIN_KEYS, PROPOSAL_BUILTIN_KEYS
+from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
 from ludamus.pacts.panel import EmptyColumnSelectionError
 from ludamus.pacts.submissions import AccreditationType
 
@@ -38,7 +39,6 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.panel import PanelNav
-    from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         PanelColumnDTO,
@@ -200,10 +200,10 @@ def facilitator_column_values(
 
 
 @dataclass(frozen=True)
-class PanelColumnSet:
+class PanelColumnSet[RowT: PanelRowProtocol]:
     """Everything one list's columns chooser differs by."""
 
-    builtins: Mapping[str, ColumnMetaProtocol]
+    builtins: Mapping[str, BuiltinColumn[RowT]]
     active_nav: PanelNav
     tab_urls: Callable[[str], dict[str, str]]
     template: str
@@ -211,11 +211,13 @@ class PanelColumnSet:
     service: Callable[[PanelRequest], PanelColumnServiceProtocol]
 
 
-class PanelColumnsPageView(PanelAccessMixin, EventContextMixin, View):
+class PanelColumnsPageView[RowT: PanelRowProtocol](
+    PanelAccessMixin, EventContextMixin, View
+):
     """Choose which columns a panel list shows, for either list."""
 
     request: PanelRequest
-    column_set: PanelColumnSet
+    column_set: PanelColumnSet[RowT]
 
     def _render(
         self, *, context: dict[str, Any], slug: str, event_pk: int, error: str | None
@@ -265,27 +267,32 @@ class PanelColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect(self.column_set.list_route, slug=slug)
 
 
-class FacilitatorColumnsPageView(PanelColumnsPageView):
+FACILITATOR_COLUMN_SET = PanelColumnSet(
+    builtins=FACILITATOR_COLUMNS,
+    active_nav="facilitators",
+    tab_urls=facilitator_tab_urls,
+    template="panel/facilitator-columns.html",
+    list_route="panel:facilitators",
+    service=lambda request: request.services.facilitator_panel,
+)
+
+PROPOSAL_COLUMN_SET = PanelColumnSet(
+    builtins=PROPOSAL_COLUMNS,
+    active_nav="proposals",
+    tab_urls=proposal_tab_urls,
+    template="panel/proposal-columns.html",
+    list_route="panel:proposals",
+    service=lambda request: request.services.proposal_panel,
+)
+
+
+class FacilitatorColumnsPageView(PanelColumnsPageView[FacilitatorListItemDTO]):
     """Choose which personal-data fields show as columns on the list."""
 
-    column_set = PanelColumnSet(
-        builtins=FACILITATOR_COLUMNS,
-        active_nav="facilitators",
-        tab_urls=facilitator_tab_urls,
-        template="panel/facilitator-columns.html",
-        list_route="panel:facilitators",
-        service=lambda request: request.services.facilitator_panel,
-    )
+    column_set = FACILITATOR_COLUMN_SET
 
 
-class ProposalColumnsPageView(PanelColumnsPageView):
+class ProposalColumnsPageView(PanelColumnsPageView[SessionListItemDTO]):
     """Choose which session fields show as columns on the proposals list."""
 
-    column_set = PanelColumnSet(
-        builtins=PROPOSAL_COLUMNS,
-        active_nav="proposals",
-        tab_urls=proposal_tab_urls,
-        template="panel/proposal-columns.html",
-        list_route="panel:proposals",
-        service=lambda request: request.services.proposal_panel,
-    )
+    column_set = PROPOSAL_COLUMN_SET

@@ -9,6 +9,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     columns,
     discounts,
     event_settings,
+    export,
     facilitators,
     google_docs_import,
     index,
@@ -305,6 +306,11 @@ urlpatterns = [
         name="proposal-columns",
     ),
     path(
+        "event/<slug:slug>/proposals/export/",
+        export.ProposalExportPageView.as_view(),
+        name="proposal-export",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/history/",
         proposals.ProposalHistoryPageView.as_view(),
         name="proposal-history",
@@ -452,6 +458,11 @@ urlpatterns = [
         name="facilitator-columns",
     ),
     path(
+        "event/<slug:slug>/facilitators/export/",
+        export.FacilitatorExportPageView.as_view(),
+        name="facilitator-export",
+    ),
+    path(
         "event/<slug:slug>/facilitators/do/bulk-action",
         facilitators.FacilitatorBulkActionView.as_view(),
         name="facilitator-bulk-action",
@@ -523,7 +534,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/discounts/export/",
-        discounts.DiscountExportPageView.as_view(),
+        export.DiscountExportPageView.as_view(),
         name="discount-export",
     ),
     path(

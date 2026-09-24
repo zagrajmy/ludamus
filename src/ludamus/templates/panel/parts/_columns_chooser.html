@@ -2,14 +2,23 @@
 {% load django_vite %}
 {% load cfp_tags %}
 {# Columns chooser card: `action_url` receives the checked keys in DOM order, `help_text` names the list. #}
-<form id="columns-form"
-      method="post"
+{# A "get" `method` re-emits `hidden_params` so the filters survive the submit; "post" carries the CSRF token. #}
+<form id="{{ form_id }}"
+      method="{{ method }}"
       action="{{ action_url }}"
       class="max-w-2xl">
-    {% csrf_token %}
+    {% if method == "get" %}
+        {# Always-present empty key: unticking everything is a submit with no column, not a fresh visit. #}
+        <input type="hidden" name="columns" value="">
+        {% for name, value in hidden_params %}
+            <input type="hidden" name="{{ name }}" value="{{ value }}">
+        {% endfor %}
+    {% else %}
+        {% csrf_token %}
+    {% endif %}
     <div class="card">
         <div class="card-body">
-            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
+            <h3 class="text-lg font-semibold text-foreground mb-2">{{ heading }}</h3>
             <p id="columns-help" class="text-sm text-foreground-muted mb-6">{{ help_text }}</p>
             {% if error %}<div class="card p-4 mb-6 text-sm text-danger" role="alert">{{ error }}</div>{% endif %}
             <ul data-column-list
