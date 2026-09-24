@@ -329,6 +329,40 @@ def main() -> None:
         all_days_session.facilitators.add(bob)
         all_days_session.time_slots.set(slots)
 
+    _seed_room_pager_event(sphere=sphere, event_day=event_day)
+
+
+def _seed_room_pager_event(*, sphere, event_day) -> None:
+    # Rooms paginate five to a page, so the pager only shows on a venue bigger
+    # than that. Its own event, with nothing to schedule, keeps the pager test
+    # off the rooms the assign/unassign tests count on sunhaven-festival.
+    local_tz = get_current_timezone()
+    start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
+    event, _ = Event.objects.get_or_create(
+        sphere=sphere,
+        slug="harbor-con",
+        defaults={
+            "name": "Harbor Con",
+            "description": "A seven-room convention for the room pager.",
+            "start_time": start,
+            "end_time": start + timedelta(hours=8),
+            "publication_time": timezone.now() - timedelta(days=2),
+        },
+    )
+    hall, _ = Space.objects.get_or_create(
+        event=event, parent=None, slug="pier-hall", defaults={"name": "Pier Hall"}
+    )
+    for index in range(1, 8):
+        Space.objects.get_or_create(
+            event=event,
+            parent=hall,
+            slug=f"berth-{index}",
+            defaults={"name": f"Berth {index}", "order": index},
+        )
+    TimeSlot.objects.get_or_create(
+        event=event, start_time=start, end_time=start + timedelta(hours=2)
+    )
+
 
 if __name__ == "__main__":
     main()

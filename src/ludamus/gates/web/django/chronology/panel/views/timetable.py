@@ -106,10 +106,13 @@ def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
 
 
 def _placement_rejection_message(error: PlacementRejectedError) -> str:
-    if error.reason is PlacementRejection.OUTSIDE_TIME_SLOTS:
-        return _("Place the session inside one of the event's time slots.")
     if error.reason is PlacementRejection.SESSION_NOT_ACCEPTED:
         return _("Only accepted sessions can be placed on the schedule.")
+    if error.reason is PlacementRejection.BEFORE_PUBLICATION:
+        return _(
+            "This is before the event is published. "
+            "Move the publication time in the event settings first."
+        )
     return _("This placement is invalid.")
 
 
