@@ -103,6 +103,7 @@ class TestPermissionsPolicy:
                 "conventions": [],
                 "encounters": [],
                 "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
         )
