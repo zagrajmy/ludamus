@@ -7,16 +7,16 @@ steps in [LOCAL_DEV.md](../LOCAL_DEV.md)) and are enforced by `importlinter`.
 
 ## Layers
 
-| Layer | Location | Purpose |
-| ----- | -------- | ------- |
-| pacts | `pacts/{noun}.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
-| specs | `specs/{noun}.py` | Business invariants — pure constants, no IO |
-| mills | `mills/{noun}.py` | Business logic, Django-free |
-| links | `links/` | Repositories, UoW, external clients |
-| gates | `gates/` | Views, forms, URLs, templatetags |
-| inits | `inits/` | DI container, middleware wiring |
-| edges | `edges/` | settings, wsgi/asgi — outside GLIMPSE |
-| adapters | `adapters/` | Legacy — new code goes into GLIMPSE layers |
+| Layer    | Location          | Purpose                                               |
+| -------- | ----------------- | ----------------------------------------------------- |
+| pacts    | `pacts/{noun}.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
+| specs    | `specs/{noun}.py` | Business invariants — pure constants, no IO           |
+| mills    | `mills/{noun}.py` | Business logic, Django-free                           |
+| links    | `links/`          | Repositories, UoW, external clients                   |
+| gates    | `gates/`          | Views, forms, URLs, templatetags                      |
+| inits    | `inits/`          | DI container, middleware wiring                       |
+| edges    | `edges/`          | settings, wsgi/asgi — outside GLIMPSE                 |
+| adapters | `adapters/`       | Legacy — new code goes into GLIMPSE layers            |
 
 ## Repository Pattern
 
@@ -232,14 +232,14 @@ Some directory, URL, template, and test paths still carry the legacy subdomain
 names; they are renamed opportunistically, tracked by the
 `old-subdomain-files` tingle metric. New code slices by noun.
 
-| Legacy subdomain | Noun | Scope |
-| ---------------- | ---- | ----- |
-| Chronology | event | Scheduling, venues, enrollment, public event pages |
-| Submissions | event | Proposal intake: CFP config, curation, `Session` lifecycle |
-| Crowd | user | Authentication, profiles, delegate accounts |
-| Multiverse | sphere | Sphere and concepts depending only on Sphere |
-| Notice Board | encounter | Informal gatherings decoupled from events |
-| — (RFC 0001) | party | The drużyna: the group that enrolls together |
+| Legacy subdomain | Noun      | Scope                                                      |
+| ---------------- | --------- | ---------------------------------------------------------- |
+| Chronology       | event     | Scheduling, venues, enrollment, public event pages         |
+| Submissions      | event     | Proposal intake: CFP config, curation, `Session` lifecycle |
+| Crowd            | user      | Authentication, profiles, delegate accounts                |
+| Multiverse       | sphere    | Sphere and concepts depending only on Sphere               |
+| Notice Board     | encounter | Informal gatherings decoupled from events                  |
+| — (RFC 0001)     | party     | The drużyna: the group that enrolls together               |
 
 ---
 
@@ -288,7 +288,7 @@ Venue plans an organizer uploads (a site plan, a floor), each tied to the
 spaces it shows. One page for everyone: viewers see the plans with a file
 tree of their venues linking into the schedule filtered to that venue;
 organizers see the same page plus "Add map", per-map edit and delete, and
-"Attach venue", each an addressable modal. The panel sidebar only links
+"Attach or detach venue", each an addressable modal. The panel sidebar only links
 here. The hero and session modal link into it.
 
 - **URLs:** `/chronology/event/<slug>/maps/` (page),
@@ -366,19 +366,19 @@ group, no ownership split.
 
 <!-- markdownlint-disable MD013 -->
 
-| Area | Views | Templates |
-| ---- | ----- | --------- |
-| Proposal categories | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html` |
-| Proposals / sessions | `panel/views/proposals.py` | `proposal-*.html` |
-| Personal data fields | `panel/views/personal_data_fields.py` | `personal-data-field-*.html` |
-| Session fields | `panel/views/session_fields.py` | `session-field-*.html` |
-| Facilitators | `panel/views/facilitators.py` | `facilitator-*.html` |
-| Event settings | `chronology/panel/views/event_settings.py` | `settings.html` |
-| Enrollment settings | `event/panel/views/enrollment_settings.py` | `enrollment-*.html` |
-| Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
-| Tracks | `panel/views/tracks.py` | `track-*.html` |
-| Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
-| Confirmations | `event/panel/views/confirmations.py` | `timetable-confirmations.html`, `parts/confirmation-*.html` |
+| Area                 | Views                                                                   | Templates                                                   |
+| -------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Proposal categories  | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html`                                                |
+| Proposals / sessions | `panel/views/proposals.py`                                              | `proposal-*.html`                                           |
+| Personal data fields | `panel/views/personal_data_fields.py`                                   | `personal-data-field-*.html`                                |
+| Session fields       | `panel/views/session_fields.py`                                         | `session-field-*.html`                                      |
+| Facilitators         | `panel/views/facilitators.py`                                           | `facilitator-*.html`                                        |
+| Event settings       | `chronology/panel/views/event_settings.py`                              | `settings.html`                                             |
+| Enrollment settings  | `event/panel/views/enrollment_settings.py`                              | `enrollment-*.html`                                         |
+| Time slots           | `panel/views/time_slots.py`                                             | `time-slot*.html`                                           |
+| Tracks               | `panel/views/tracks.py`                                                 | `track-*.html`                                              |
+| Venues (Space tree)  | `panel/views/venues.py`                                                 | `spaces.html`, `_space_tree_node.html`, `space-*.html`      |
+| Confirmations        | `event/panel/views/confirmations.py`                                    | `timetable-confirmations.html`, `parts/confirmation-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -515,13 +515,13 @@ owns them.
 
 <!-- markdownlint-disable MD013 -->
 
-| Noun | Models |
-| ---- | ------ |
-| user | `User` |
-| sphere | `Sphere`, `Connection` |
-| encounter | `Encounter`, `EncounterRSVP` |
-| party | `Party`, `PartyMembership` |
-| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 

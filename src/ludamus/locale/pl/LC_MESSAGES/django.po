@@ -4221,8 +4221,8 @@ msgid "Venues on %(name)s"
 msgstr "Lokalizacje na mapie %(name)s"
 
 #: src/ludamus/templates/chronology/_map_card.html
-msgid "Attach venue"
-msgstr "Dołącz lokalizację"
+msgid "Attach or detach venue"
+msgstr "Przypnij lub odepnij lokalizację"
 
 #: src/ludamus/templates/chronology/_map_card.html
 msgid "Edit map"
