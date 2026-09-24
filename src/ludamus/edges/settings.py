@@ -438,8 +438,12 @@ INTERNAL_IPS = [
 # the Outfit font is self-hosted (src/ludamus/client/src/fonts). img-src
 # stays broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
-# No report-uri/report-to is configured: there is no violation-ingestion
-# endpoint yet, so violations are only visible in browser devtools.
+# No report-uri/report-to is configured: a violation report carries
+# document-uri verbatim, so aiming it at a third party would ship the tokens
+# that claim and offer URLs authenticate with, past
+# links/analytics/redaction.py — which only covers what the server and the
+# page send. A same-origin collector running safe_path before it forwards is
+# the way in. Until then violations are only visible in browser devtools.
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.NONE],
     "script-src": [CSP.SELF, CSP.NONCE],

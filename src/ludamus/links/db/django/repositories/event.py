@@ -58,3 +58,24 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
             )
             for sphere in spheres
         ]
+
+    @staticmethod
+    def read_newest_published_slug(sphere_id: int) -> str | None:
+        """Name the sphere's newest event a visitor can already open.
+
+        Returns:
+            The slug of the published event with the latest start, or None
+            when the sphere runs no published event.
+        """
+        # Same predicate as Event.is_published: a draft is not a page anyone
+        # can be sent to.
+        return (
+            Event.objects.filter(
+                sphere_id=sphere_id,
+                publication_time__isnull=False,
+                publication_time__lte=timezone.now(),
+            )
+            .order_by("-start_time")
+            .values_list("slug", flat=True)
+            .first()
+        )
