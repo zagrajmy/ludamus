@@ -294,8 +294,9 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
         "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends, lie inside the event dates, and not overlap "
-        "an existing slot; a rejection names which rule failed."
+        "must start before it ends and not overlap an existing slot; a "
+        "rejection names which rule failed. A window past the event dates "
+        "widens them, which the result reports as event_dates_widened."
     )
     scope = ToolScope.ORGANIZER
     input_model = AwareDatetimeRange
@@ -304,14 +305,14 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     def handle(call: ToolCall[AwareDatetimeRange]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         try:
-            created = call.services.panel_time_slots.create(
+            saved = call.services.panel_time_slots.create(
                 event=event,
                 start_time=call.data.start_time,
                 end_time=call.data.end_time,
             )
         except TimeSlotRejectedError as error:
             raise ToolError(str(error)) from error
-        return created.model_dump_json(indent=2)
+        return saved.model_dump_json(indent=2)
 
 
 class _CreateTrackInput(BaseModel):
@@ -663,7 +664,9 @@ def _assign_session(
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
     name = "assign_session"
     description = (
-        "Place an accepted session of this token's event into a space and time window."
+        "Place an accepted session of this token's event into a space and time "
+        "window. A placement past the time slots widens them (and the event "
+        "dates behind them) rather than being refused."
     )
     scope = ToolScope.ORGANIZER
     input_model = _AssignSessionInput

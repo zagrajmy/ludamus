@@ -402,7 +402,7 @@ def test_assign_session_converts_placement_rejection_to_tool_error():
     with pytest.raises(ToolError, match="placement rejected"):
         _assign_session_call(
             side_effect=PlacementRejectedError(
-                PlacementRejection.OUTSIDE_TIME_SLOTS, "placement rejected"
+                PlacementRejection.SESSION_NOT_ACCEPTED, "placement rejected"
             )
         )
 

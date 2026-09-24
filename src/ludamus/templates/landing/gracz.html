@@ -2,7 +2,9 @@
 <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-10 pb-[4.5rem] max-[30rem]:pt-6"
          aria-labelledby="g-hero-heading">
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-        <div class="ld d1 mb-6 flex justify-end lg:float-right lg:mb-0 lg:ml-8">{% include "landing/_aud_switch.html" %}</div>
+        <div class="ld d1 mb-6 flex justify-end max-[30rem]:justify-center lg:float-right lg:mb-0 lg:ml-8">
+            {% include "landing/_aud_switch.html" %}
+        </div>
         <h1 id="g-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
             {% translate "Your table, your game," %} <span class="text-primary-hover dark:text-primary">{% translate "one link" %}</span>.

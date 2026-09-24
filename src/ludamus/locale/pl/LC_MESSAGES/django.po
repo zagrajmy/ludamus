@@ -1828,16 +1828,24 @@ msgid "Start must be before end."
 msgstr "Początek musi być przed końcem."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
-msgid "Time slot must be within event dates."
-msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot overlaps with an existing slot."
 msgstr "Przedział czasowy nakłada się na istniejący przedział."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid ""
+"The time slot starts before the event is published. Move the publication "
+"time in the event settings first."
+msgstr ""
+"Przedział czasowy zaczyna się przed publikacją wydarzenia. Najpierw przesuń "
+"czas publikacji w ustawieniach wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Used by proposals"
 msgstr "Używany przez zgłoszenia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot created. The event dates now cover it."
+msgstr "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot created successfully."
@@ -1846,6 +1854,11 @@ msgstr "Przedział czasowy został utworzony."
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot not found."
 msgstr "Przedział czasowy nie został znaleziony."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot updated. The event dates now cover it."
+msgstr ""
+"Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go obejmują."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot updated successfully."
@@ -1860,12 +1873,16 @@ msgid "Time slot deleted successfully."
 msgstr "Przedział czasowy został usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
-msgid "Place the session inside one of the event's time slots."
-msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid "Only accepted sessions can be placed on the schedule."
 msgstr "W harmonogramie można umieszczać tylko zaakceptowane punkty programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
+msgid ""
+"This is before the event is published. Move the publication time in the "
+"event settings first."
+msgstr ""
+"To jest przed publikacją wydarzenia. Najpierw przesuń czas publikacji w "
+"ustawieniach wydarzenia."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid "This placement is invalid."
@@ -4299,7 +4316,6 @@ msgstr "Lista"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 #: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable-overview.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "Rooms"
@@ -5171,14 +5187,12 @@ msgstr "Na stronę:"
 
 #: src/ludamus/templates/components/_pagination.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Previous"
 msgstr "Poprzednia"
 
 #: src/ludamus/templates/components/_pagination.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
@@ -6793,6 +6807,10 @@ msgid ""
 msgstr ""
 "Przychodzisz z wydarzeniem. My pomagamy ustawić zgłoszenia, program, zapisy "
 "i stronę wydarzenia w Zagrajmy."
+
+#: src/ludamus/templates/landing/org_hero.html
+msgid "Run your event"
+msgstr "Zorganizuj wydarzenie"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "See a real event's page"
@@ -10129,8 +10147,17 @@ msgid "Add time slots to see the schedule grid."
 msgstr "Dodaj przedziały czasowe, aby zobaczyć siatkę harmonogramu."
 
 #: src/ludamus/templates/panel/parts/timetable-grid.html
-msgid "total"
-msgstr "łącznie"
+#, python-format
+msgid "Rooms %(first)s–%(last)s of %(total)s"
+msgstr "Sale %(first)s–%(last)s z %(total)s"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Previous rooms"
+msgstr "Poprzednie sale"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Next rooms"
+msgstr "Następne sale"
 
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "Column width"
@@ -11452,6 +11479,15 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
+
+#~ msgid "Time slot must be within event dates."
+#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#~ msgid "Place the session inside one of the event's time slots."
+#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
+
+#~ msgid "total"
+#~ msgstr "łącznie"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
