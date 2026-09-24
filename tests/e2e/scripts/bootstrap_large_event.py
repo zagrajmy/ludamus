@@ -198,6 +198,7 @@ def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
             participants_limit=fake.random.randint(4, 20),
             min_age=fake.random.choice([0, 12, 16, 18]),
             status="accepted",
+            schedule_confirmed=True,
         )
         for i in range(target_sessions)
     ]

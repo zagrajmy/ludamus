@@ -39,11 +39,11 @@ def _session(
     title: str = "Dragons",
     status: SessionStatus = SessionStatus.ACCEPTED,
     email: str = "ada@example.com",
-    agenda_item_pk: int | None = 100,
+    is_scheduled: bool = True,
     is_confirmed: bool = False,
     hour: int = 10,
 ) -> ConfirmationSessionRow:
-    placed = agenda_item_pk is not None
+    placed = is_scheduled
     return ConfirmationSessionRow(
         facilitator_pk=facilitator_pk,
         session_pk=session_pk,
@@ -51,7 +51,7 @@ def _session(
         status=status,
         contact_email=email,
         category_name="RPG session",
-        agenda_item_pk=agenda_item_pk,
+        is_scheduled=is_scheduled,
         is_confirmed=is_confirmed,
         start_time=datetime(2026, 8, 1, hour, tzinfo=UTC) if placed else None,
         end_time=datetime(2026, 8, 1, hour + 2, tzinfo=UTC) if placed else None,
@@ -158,27 +158,27 @@ class FakeFacilitatorReads:
         )
 
 
-class FakeAgendaWrites:
+class FakeSessionWrites:
     def __init__(self, matched: int = 1) -> None:
         self._matched = matched
         self.calls: list[dict[str, object]] = []
 
-    def set_confirmed_for_facilitator(self, **kwargs: object) -> int:
+    def set_schedule_confirmed_for_facilitator(self, **kwargs: object) -> int:
         self.calls.append(kwargs)
         return self._matched
 
 
 def _write_service(
     *, event_id: int | None = _EVENT, matched: int = 1
-) -> tuple[EventConfirmationsService, FakeAgendaWrites]:
-    agenda_items = FakeAgendaWrites(matched)
+) -> tuple[EventConfirmationsService, FakeSessionWrites]:
+    sessions = FakeSessionWrites(matched)
     service = EventConfirmationsService(
         facilitators=FakeFacilitatorReads(event_id=event_id),
-        agenda_items=agenda_items,
+        agenda_items=None,
         tracks=None,
-        sessions=None,
+        sessions=sessions,
     )
-    return service, agenda_items
+    return service, sessions
 
 
 class FakeTrackReads:
@@ -202,7 +202,7 @@ class TestFacilitatorCard:
     def test_refuses_a_track_from_another_event(self):
         service = EventConfirmationsService(
             facilitators=FakeFacilitatorReads(event_id=_EVENT),
-            agenda_items=FakeAgendaWrites(),
+            agenda_items=FakeAgendaCounts(),
             tracks=FakeTrackReads(event_id=_FOREIGN_EVENT),
             sessions=FakeSessions([]),
         )
@@ -216,7 +216,7 @@ class TestFacilitatorCard:
         sessions = FakeSessions([_session(session_pk=1)])
         service = EventConfirmationsService(
             facilitators=FakeFacilitatorReads(event_id=_EVENT),
-            agenda_items=FakeAgendaWrites(),
+            agenda_items=FakeAgendaCounts(),
             tracks=FakeTrackReads(event_id=_EVENT),
             sessions=sessions,
         )
@@ -231,48 +231,48 @@ class TestFacilitatorCard:
 
 class TestSetConfirmed:
     def test_writes_the_named_scope(self):
-        service, agenda_items = _write_service()
+        service, sessions = _write_service()
 
         service.set_confirmed(
             event_pk=_EVENT,
             facilitator_pk=_ADA,
             confirmed=True,
             contact_email="ada@example.com",
-            agenda_item_pk=100,
+            session_pk=100,
         )
 
-        assert agenda_items.calls == [
+        assert sessions.calls == [
             {
                 "event_pk": _EVENT,
                 "facilitator_pk": _ADA,
                 "confirmed": True,
                 "contact_email": "ada@example.com",
-                "agenda_item_pk": 100,
+                "session_pk": 100,
             }
         ]
 
     def test_refuses_a_facilitator_from_another_event_without_writing(self):
-        service, agenda_items = _write_service(event_id=_FOREIGN_EVENT)
+        service, sessions = _write_service(event_id=_FOREIGN_EVENT)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
 
-        assert not agenda_items.calls
+        assert not sessions.calls
 
     def test_refuses_an_unknown_facilitator_without_writing(self):
-        service, agenda_items = _write_service(event_id=None)
+        service, sessions = _write_service(event_id=None)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
 
-        assert not agenda_items.calls
+        assert not sessions.calls
 
     def test_naming_an_item_that_matches_nothing_is_an_error(self):
         service, _ = _write_service(matched=0)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(
-                event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True, agenda_item_pk=100
+                event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True, session_pk=100
             )
 
     def test_a_scope_wide_call_matching_nothing_is_fine(self):
@@ -300,7 +300,7 @@ class TestTrackView:
                     session_pk=3,
                     title="Maybe",
                     status=SessionStatus.ON_HOLD,
-                    agenda_item_pk=None,
+                    is_scheduled=False,
                 ),
                 _session(session_pk=4, title="Club night", email="club@example.org"),
             ],
@@ -341,12 +341,12 @@ class TestTrackView:
         service, _, _ = _service(
             sessions=[
                 _session(session_pk=1),
-                _session(session_pk=2, title="Later", agenda_item_pk=None),
+                _session(session_pk=2, title="Later", is_scheduled=False),
                 _session(
                     session_pk=3,
                     title="Idea",
                     status=SessionStatus.PENDING,
-                    agenda_item_pk=None,
+                    is_scheduled=False,
                 ),
             ]
         )
@@ -372,13 +372,13 @@ class TestTrackView:
                     session_pk=1,
                     title="Maybe",
                     status=SessionStatus.ON_HOLD,
-                    agenda_item_pk=None,
+                    is_scheduled=False,
                 ),
                 _session(
                     session_pk=2,
                     title="Old idea",
                     status=SessionStatus.REJECTED,
-                    agenda_item_pk=None,
+                    is_scheduled=False,
                 ),
             ]
         )
@@ -390,9 +390,7 @@ class TestTrackView:
         groups = facilitator.email_groups[0].status_groups
         assert [group.status for group in groups] == ["on_hold", "rejected"]
         assert all(
-            session.agenda_item_pk is None
-            for group in groups
-            for session in group.sessions
+            not session.is_scheduled for group in groups for session in group.sessions
         )
         assert facilitator.email_groups[0].confirmable_count == 0
         assert facilitator.scheduled_count == 0

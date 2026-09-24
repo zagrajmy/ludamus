@@ -63,6 +63,7 @@ def _session(
     status: str,
     email: str,
     facilitator: Facilitator | None = None,
+    schedule_confirmed: bool = False,
 ) -> Session:
     session, created = Session.objects.get_or_create(
         event=event,
@@ -77,6 +78,7 @@ def _session(
             "status": status,
             "category": category,
             "contact_email": email,
+            "schedule_confirmed": schedule_confirmed,
         },
     )
     if created:
@@ -155,6 +157,7 @@ def main() -> None:
             status="accepted",
             email=email,
             facilitator=ada,
+            schedule_confirmed=confirmed,
         )
         placed_sessions[slug] = session
         AgendaItem.objects.get_or_create(
@@ -212,6 +215,7 @@ def main() -> None:
         status="accepted",
         email=BEN_EMAIL,
         facilitator=ben,
+        schedule_confirmed=True,
     )
     AgendaItem.objects.get_or_create(
         session=ben_session,

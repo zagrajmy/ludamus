@@ -142,6 +142,9 @@ def main() -> None:
             "min_age": 0,
             "status": "pending",
             "category": cat,
+            # Both columns, the way production writes them: the session's flag
+            # is the one read, the item's mirrors it until it is dropped.
+            "schedule_confirmed": True,
         },
     )
     AgendaItem.objects.get_or_create(

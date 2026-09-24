@@ -43,7 +43,7 @@ def _item(**overrides):
     defaults = {
         "pk": 1,
         "session_id": SESSION_PK,
-        "session_confirmed": True,
+        "schedule_confirmed": True,
         "start_time": datetime(2026, 8, 15, 8, 0, tzinfo=UTC),
         "end_time": datetime(2026, 8, 15, 10, 0, tzinfo=UTC),
         "space_id": 50,

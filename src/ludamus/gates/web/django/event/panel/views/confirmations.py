@@ -72,12 +72,12 @@ class ConfirmationsConfirmActionView(PanelAccessMixin, EventContextMixin, View):
         scope = post.get("scope", "")
         facilitator_raw = post.get("facilitator_pk", "")
         track_raw = post.get("track_pk", "")
-        agenda_item_raw = post.get("agenda_item_pk", "")
+        session_raw = post.get("session_pk", "")
         if (
             scope not in _SCOPES
             or not facilitator_raw.isdigit()
             or not track_raw.isdigit()
-            or (scope == "session" and not agenda_item_raw.isdigit())
+            or (scope == "session" and not session_raw.isdigit())
         ):
             return HttpResponse(status=422)
 
@@ -93,7 +93,7 @@ class ConfirmationsConfirmActionView(PanelAccessMixin, EventContextMixin, View):
                 contact_email=(
                     post.get("contact_email", "") if scope == "email" else None
                 ),
-                agenda_item_pk=int(agenda_item_raw) if scope == "session" else None,
+                session_pk=int(session_raw) if scope == "session" else None,
             )
             facilitator = self.request.services.confirmations.facilitator_card(
                 event_pk=current_event.pk,

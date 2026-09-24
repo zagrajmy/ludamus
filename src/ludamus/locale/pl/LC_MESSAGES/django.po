@@ -9546,9 +9546,6 @@ msgid "Mapping"
 msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
-#: src/ludamus/templates/panel/parts/timetable-session-card.html
-#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -9849,6 +9846,13 @@ msgstr[0] "Potwierdź ten punkt"
 msgstr[1] "Potwierdź te %(count)s punkty"
 msgstr[2] "Potwierdź te %(count)s punktów"
 msgstr[3] "Potwierdź te %(count)s punktu"
+
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Schedule confirmed"
+msgstr "Termin potwierdzony"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "no place in the schedule"
@@ -10231,20 +10235,16 @@ msgid "Unassign"
 msgstr "Usuń z harmonogramu"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Program item confirmed"
-msgstr "Punkt programu potwierdzony"
-
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Undo confirmation"
 msgstr "Cofnij potwierdzenie"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Program item not confirmed"
-msgstr "Punkt programu niepotwierdzony"
+msgid "Schedule not confirmed"
+msgstr "Termin niepotwierdzony"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Confirm program item"
-msgstr "Potwierdź punkt programu"
+msgid "Confirm schedule"
+msgstr "Potwierdź termin"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Not assigned"
@@ -10923,8 +10923,8 @@ msgstr ""
 "skonfigurować harmonogram wydarzenia."
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
-msgid "confirmed program items in this track"
-msgstr "potwierdzonych punktów programu w tym bloku"
+msgid "program items with a confirmed schedule in this track"
+msgstr "punktów programu z potwierdzonym terminem w tym bloku"
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "facilitators in this track"
@@ -10944,8 +10944,8 @@ msgstr ""
 "Potwierdzenia pojawią się tutaj, kiedy ułożysz punkty programu tego bloku."
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
-msgid "confirmed program items"
-msgstr "potwierdzonych punktów programu"
+msgid "program items with a confirmed schedule"
+msgstr "punktów programu z potwierdzonym terminem"
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "confirmation progress"
@@ -11106,9 +11106,12 @@ msgid "Search facilitators"
 msgstr "Szukaj twórców programu"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "This program item is confirmed. Moving it will clear the confirmation."
+msgid ""
+"The schedule of this program item is confirmed. Moving it will clear the "
+"confirmation."
 msgstr ""
-"Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+"Termin tego punktu programu jest potwierdzony. Przeniesienie go cofnie "
+"potwierdzenie."
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Move"

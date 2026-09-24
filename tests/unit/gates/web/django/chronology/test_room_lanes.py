@@ -38,7 +38,7 @@ class TestNightSessions:
                 start_time=datetime(2026, 7, 10, 22, tzinfo=tz),
                 end_time=datetime(2026, 7, 11, 2, tzinfo=tz),
                 pk=1,
-                session_confirmed=True,
+                schedule_confirmed=True,
             ),
             loc=location(
                 space_id=2,
@@ -57,7 +57,7 @@ class TestNightSessions:
                 start_time=datetime(2026, 7, 11, 4, tzinfo=tz),
                 end_time=datetime(2026, 7, 11, 8, tzinfo=tz),
                 pk=2,
-                session_confirmed=True,
+                schedule_confirmed=True,
             ),
             loc=location(
                 space_id=2,
@@ -119,7 +119,7 @@ class TestRoomLaneFolds:
     def _session(*, pk: int, start: datetime, end: datetime) -> SessionData:
         return make_session_data(
             agenda_item=AgendaItemDTO(
-                start_time=start, end_time=end, pk=pk, session_confirmed=True
+                start_time=start, end_time=end, pk=pk, schedule_confirmed=True
             ),
             loc=location(
                 space_id=1,
@@ -244,7 +244,7 @@ class TestDaylightSavingRows:
     def _session(*, start: datetime, end: datetime) -> SessionData:
         return make_session_data(
             agenda_item=AgendaItemDTO(
-                start_time=start, end_time=end, pk=1, session_confirmed=True
+                start_time=start, end_time=end, pk=1, schedule_confirmed=True
             ),
             loc=location(
                 space_id=2,
@@ -405,7 +405,7 @@ class TestRoomLaneColumns:
                 start_time=datetime(2026, 7, day, 10, tzinfo=tz),
                 end_time=datetime(2026, 7, day, 11, tzinfo=tz),
                 pk=day,
-                session_confirmed=True,
+                schedule_confirmed=True,
             ),
             loc=location(
                 space_id=space_id,
@@ -484,7 +484,7 @@ class TestRoomLaneConflicts:
                 start_time=datetime(2026, 7, 10, start_hour, start_minute, tzinfo=tz),
                 end_time=datetime(2026, 7, 10, end_hour, end_minute, tzinfo=tz),
                 pk=pk,
-                session_confirmed=True,
+                schedule_confirmed=True,
             ),
             session=MagicMock(pk=pk, title=f"Session {pk}"),
             loc=location(
@@ -604,7 +604,7 @@ class TestRoomLaneOrdering:
                 start_time=datetime(2026, 7, 10, 10, tzinfo=tz),
                 end_time=datetime(2026, 7, 10, 11, tzinfo=tz),
                 pk=1,
-                session_confirmed=True,
+                schedule_confirmed=True,
             ),
             loc=location(
                 parent_id=parent_id,

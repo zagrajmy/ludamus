@@ -178,7 +178,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         in_track = [
             row
             for row in session_rows
-            if row["agenda_item_pk"] is not None
+            if row["is_scheduled"]
             and track_pk in track_names.get(row["session_pk"], {})
         ]
         scheduled = len({row["session_pk"] for row in in_track})
@@ -225,7 +225,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         facilitator_pk: int,
         confirmed: bool,
         contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
+        session_pk: int | None = None,
     ) -> None:
         # Panel access proves this organizer manages the event, not that the
         # ids in the request belong to it — resolve the facilitator inside the
@@ -233,18 +233,17 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         self._read_facilitator_in_event(
             event_pk=event_pk, facilitator_pk=facilitator_pk
         )
-        # One UPDATE, so no transaction to open around it.
-        matched = self._agenda_items.set_confirmed_for_facilitator(
+        matched = self._sessions.set_schedule_confirmed_for_facilitator(
             event_pk=event_pk,
             facilitator_pk=facilitator_pk,
             confirmed=confirmed,
             contact_email=contact_email,
-            agenda_item_pk=agenda_item_pk,
+            session_pk=session_pk,
         )
-        # Naming one item and hitting nothing means the item is not this
+        # Naming one session and hitting nothing means it is not this
         # facilitator's (or not placed at all) — say so instead of reporting a
         # write that never happened. A scope-wide call legitimately matches none.
-        if agenda_item_pk is not None and not matched:
+        if session_pk is not None and not matched:
             raise NotFoundError
 
     def _read_facilitator_in_event(
@@ -307,7 +306,7 @@ def _session_dto(
         room_name=row["room_name"],
         start_time=row["start_time"],
         end_time=row["end_time"],
-        agenda_item_pk=row["agenda_item_pk"],
+        is_scheduled=row["is_scheduled"],
         is_confirmed=row["is_confirmed"],
         co_facilitator_names=[
             name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
@@ -319,7 +318,7 @@ def _session_dto(
 def _status_key(row: ConfirmationSessionRow) -> str:
     # Grouping runs on status alone. Confirmation is a checkbox on the row, so
     # ticking one never moves it into another group.
-    if row["agenda_item_pk"] is not None:
+    if row["is_scheduled"]:
         return SCHEDULED_STATUS
     return str(row["status"])
 
@@ -376,12 +375,12 @@ def _facilitator(
     listed: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
     counted: Counter[SessionStatus] = Counter()
     for session in sessions:
-        if session["agenda_item_pk"] is None and session["status"] in COUNTED_UNPLACED:
+        if not session["is_scheduled"] and session["status"] in COUNTED_UNPLACED:
             counted[session["status"]] += 1
         else:
             listed[session["contact_email"]].append(session)
 
-    scheduled_count = sum(1 for s in sessions if s["agenda_item_pk"] is not None)
+    scheduled_count = sum(1 for s in sessions if s["is_scheduled"])
     confirmed_count = sum(1 for s in sessions if s["is_confirmed"])
     return ConfirmationFacilitatorDTO(
         pk=row["pk"],

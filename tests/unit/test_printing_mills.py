@@ -50,7 +50,7 @@ def _item(
 ):
     return AgendaItemDTO(
         pk=pk,
-        session_confirmed=confirmed,
+        schedule_confirmed=confirmed,
         start_time=datetime(2026, 6, day, start_hour, 0, tzinfo=UTC),
         end_time=datetime(2026, 6, day, end_hour, 0, tzinfo=UTC),
         space_id=space_id,
@@ -242,7 +242,7 @@ class TestBuildTimetable:
         second = datetime(2026, 10, 25, 2, 0, tzinfo=tz, fold=1)
         item = AgendaItemDTO(
             pk=1,
-            session_confirmed=True,
+            schedule_confirmed=True,
             start_time=first,
             end_time=second,
             space_id=1,

@@ -34,7 +34,7 @@
             </div>
             {% if track_view %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {% translate "confirmed program items in this track" as t_track_confirmed %}
+                    {% translate "program items with a confirmed schedule in this track" as t_track_confirmed %}
                     {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed %}
                     {% translate "facilitators in this track" as t_track_facilitators %}
                     {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators %}
@@ -61,7 +61,7 @@
                 {% include "panel/parts/confirmation-orphan-warning.html" with count=track_view.without_facilitator_count %}
             {% else %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {% translate "confirmed program items" as t_confirmed %}
+                    {% translate "program items with a confirmed schedule" as t_confirmed %}
                     {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed %}
                     {% translate "confirmation progress" as t_progress %}
                     {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress %}
@@ -79,7 +79,7 @@
                                     <tr class="border-b border-border text-left">
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Organizer" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
-                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Schedule confirmed" %}</th>
                                         <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
                                     </tr>
                                 </thead>
@@ -117,7 +117,7 @@
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Track" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Managed by" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
-                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Schedule confirmed" %}</th>
                                         <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
                                     </tr>
                                 </thead>
