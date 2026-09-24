@@ -7115,11 +7115,11 @@ msgstr "Jedno wydarzenie, sześć aktów. Te same karty programu grają w każdy
 
 #: src/ludamus/templates/landing/scena.html
 msgid ""
-"Seven programme items of Board Game Days 2026 travel before your eyes from "
-"loose proposals to a printout on the room door. Pick an act."
+"Zagrajmy accompanies you from CFPs to printing the door cards, and online "
+"seat reservations during the event."
 msgstr ""
-"Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich oczach "
-"od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
+"Zagrajmy towarzyszy Ci od naboru zgłoszeń po druk kart na drzwi i rezerwację "
+"miejsc online w trakcie wydarzenia."
 
 #: src/ludamus/templates/landing/scena.html
 msgid "Pick an act."

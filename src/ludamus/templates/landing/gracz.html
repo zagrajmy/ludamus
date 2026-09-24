@@ -23,7 +23,7 @@
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
             <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
+               href="#events">{% translate "Browse events" %}</a>
         </p>
     </div>
 </section>
@@ -468,7 +468,7 @@
                        href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
                 {% else %}
                     <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
-                       href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
+                       href="#events">{% translate "Browse events" %}</a>
                 {% endif %}
             </div>
             <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:hidden">
@@ -494,7 +494,7 @@
         <div class="reveal mt-6">{% include "landing/_convention_cards.html" %}</div>
         <p class="reveal mt-[1.6rem] text-[0.95rem]">
             <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
+               href="#events">{% translate "Browse events" %}</a>
         </p>
     </div>
 </section>

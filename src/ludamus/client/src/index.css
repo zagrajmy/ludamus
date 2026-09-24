@@ -635,7 +635,6 @@ button:active {
     --shade: hsla(30deg, 20.6%, 23%, 0.25);
     --hl1: rgba(255, 255, 255, 0.085);
     --hl2: transparent;
-    --lip: var(--bg);
 
     position: relative;
     display: inline-flex;
@@ -643,7 +642,6 @@ button:active {
     justify-content: center;
     gap: 0.5rem;
     border-radius: 1rem;
-    border: 1px solid transparent;
     padding: 0.625rem 1rem;
     font-weight: 500;
     transition:
@@ -656,7 +654,7 @@ button:active {
       inset 0 1px 0 0 var(--hl1),
       inset 0 3px 5px -3px var(--hl2),
       0 var(--y) 0 0 var(--shade),
-      0 var(--y) 0 0 var(--lip);
+      0 var(--y) 0 0 var(--bg);
 
     &:hover {
       @apply translate-y-px;
@@ -720,16 +718,14 @@ button:active {
     --bg: var(--color-bg-secondary);
     --shade: hsla(30deg, 20.6%, 35%, 0.25);
     --hl1: transparent;
-    --lip: color-mix(in srgb, var(--color-foreground) 22%, var(--bg));
 
-    border-color: var(--color-border);
+    border: 1px solid var(--color-border);
     color: var(--color-foreground);
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0.02));
   }
 
   .dark .btn-secondary {
     --shade: hsla(30deg, 0%, 28%, 0.35);
-    --lip: color-mix(in srgb, black 55%, var(--bg));
 
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.06));
   }

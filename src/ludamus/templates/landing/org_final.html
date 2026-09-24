@@ -17,14 +17,14 @@
                 items-stretch, and a transparent border on the primary to match
                 btn-secondary's 1px: the two then share one box by construction
                 rather than by hand-tuned padding. Only colours are overridden
-                below — the card is dark in both themes, so the themed
-                btn-secondary would read wrong on it in the light one.
+                below. The card is dark in both themes, so the light-theme
+                secondary gradient and lip would wash this button out.
             {% endcomment %}
             <div class="mt-[2.2rem] flex flex-wrap items-stretch gap-3 sm:justify-center sm:gap-4">
                 <a class="btn btn-primary border border-transparent [--shade:rgba(0,0,0,0.5)]"
                    href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
                 {% translate "Copy the address" as copy_address_label %}
-                {% tessera_copy "kontakt@zagrajmy.net" class="w-auto! border-warm-700 bg-warm-800 text-warm-50 hover:bg-[#4a433d] print:bg-transparent print:border-border print:text-foreground" %}
+                {% tessera_copy "kontakt@zagrajmy.net" class="w-auto! border-warm-700 bg-warm-800 [--bg:#3d3732] [--shade:hsla(30,0%,28%,0.35)] [--hl1:transparent] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(0,0,0,0.06))] text-warm-50 hover:bg-[#4a433d] print:bg-transparent print:border-border print:text-foreground print:bg-none" %}
                     <code class="text-[0.9375rem] text-box-trim-both">kontakt@zagrajmy.net</code>
                     {% icon "clipboard" variant="outline" class="size-4 text-warm-500" %}
                     <span class="sr-only">{{ copy_address_label }}</span>

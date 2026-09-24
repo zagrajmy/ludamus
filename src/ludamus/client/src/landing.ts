@@ -10,13 +10,17 @@ if (org && gracz) {
   if (location.hash === "#gracze") gracz.checked = true;
 
   const sync = () => {
-    history.replaceState(null, "", gracz.checked ? "#gracze" : location.pathname + location.search);
+    const hash = gracz.checked ? "#gracze" : location.hash === "#events" ? "#events" : "";
+    history.replaceState(null, "", hash || location.pathname + location.search);
   };
   org.addEventListener("change", sync);
   gracz.addEventListener("change", sync);
   addEventListener("hashchange", () => {
     if (location.hash === "#gracze") gracz.checked = true;
-    else if (location.hash === "" || location.hash === "#") org.checked = true;
+    else if (location.hash === "#events") {
+      org.checked = true;
+      document.getElementById("events")?.scrollIntoView();
+    } else if (location.hash === "" || location.hash === "#") org.checked = true;
   });
 }
 

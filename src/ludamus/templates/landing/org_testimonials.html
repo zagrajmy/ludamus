@@ -1,0 +1,37 @@
+{% load i18n %}
+<section class="py-16 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="quotes-heading">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+        <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+            {% translate "Organizers' words" %}
+        </p>
+        <h2 id="quotes-heading"
+            class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+            {% translate "From the people who shipped a programme with it" %}
+        </h2>
+        {% comment %}
+            Verbatim, in the language they were written in — a quote that has
+            been translated is no longer the person's words.
+        {% endcomment %}
+        <div class="mt-9 grid grid-cols-3 max-[64rem]:grid-cols-1 max-[64rem]:max-w-[40rem] gap-5">
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <blockquote class="text-foreground-secondary text-[0.98rem] flex-1">
+                    Wreszcie system, który jest dobry zarówno w nawigacji od zewnątrz, jak i wprowadzaniu danych od wewnątrz. Prezentacja danych lepsza niż w innych aplikacjach, jest nawet integracja z Konwencikiem. Nic, tylko czekać na więcej zaskakujących bajerów.
+                </blockquote>
+                <figcaption class="text-[0.82rem] text-foreground-muted">Hory-portier · Kapitularz</figcaption>
+            </figure>
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <blockquote class="text-foreground-secondary text-[0.98rem] flex-1">
+                    Teraz używam Zagrajmy po raz pierwszy w sposób docelowy, czyli klepanie programu, i choć wcześniej lekko się obawiałam, czy ogarnę i czy będzie działać, to TAK, jest spoczi pod kątem experience!
+                </blockquote>
+                <figcaption class="text-[0.82rem] text-foreground-muted">Gosia · Kapitularz</figcaption>
+            </figure>
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <blockquote class="text-foreground-secondary text-[0.98rem] flex-1">
+                    Widzę jaki potencjał i pomoc jest w takiej aplikacji. Fajna sprawa. Wcześniej wszystko analogowo było. Pewnie trzeba by trzymać większy reżim w pewnych sprawach przy wprowadzaniu danych, jest kilka rzeczy których nie do końca czuję, ale wygoda jest.
+                </blockquote>
+                <figcaption class="text-[0.82rem] text-foreground-muted">Mamert · Bachanalia Fantastyczne</figcaption>
+            </figure>
+        </div>
+    </div>
+</section>

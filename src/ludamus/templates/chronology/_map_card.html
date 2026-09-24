@@ -91,7 +91,7 @@
                         class="font-semibold text-foreground">{% translate "Edit map" %}</h3>
                     <div class="mt-4">{% tessera_form card.edit_form %}</div>
                 </div>
-                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                     {% translate "Cancel" as t_cancel %}
                     {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="edit-map-modal-"|add:event_map.pk|stringformat:"s" %}
                     {% translate "Save map" as t_save_map %}
@@ -117,7 +117,7 @@
                         </p>
                     {% endif %}
                 </div>
-                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                     {% translate "Cancel" as t_cancel %}
                     {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="attach-modal-"|add:event_map.pk|stringformat:"s" %}
                     {% translate "Save venues" as t_save_venues %}
