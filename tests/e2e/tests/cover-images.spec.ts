@@ -20,6 +20,7 @@ const coverImageInput = (page: Page) => page.getByLabel("Cover image", { exact: 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
 const coverDropzone = (page: Page) => labeledDropzone(page, "Cover image");
 const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
+const EVENT_COVER_NAME = "Cover image for Lakeside Tabletop Weekend";
 
 test.describe.configure({ mode: "serial" });
 
@@ -76,6 +77,70 @@ test.describe("Event cover image upload", () => {
     expect(ogImage).not.toContain("og-image.jpg");
   });
 
+  test("public event shows the whole cover on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto("/event/lakeside-weekend/");
+
+    const image = page.getByRole("img", { name: EVENT_COVER_NAME });
+    await expect(image).toBeVisible();
+    const dimensions = await image.evaluate((element: HTMLImageElement) => {
+      const box = element.getBoundingClientRect();
+      return {
+        naturalRatio: element.naturalWidth / element.naturalHeight,
+        renderedRatio: box.width / box.height,
+      };
+    });
+
+    expect(dimensions.renderedRatio).toBeCloseTo(dimensions.naturalRatio, 2);
+
+    await page.setViewportSize({ width: 900, height: 900 });
+    const desktopCover = await image.boundingBox();
+    if (!desktopCover) throw new Error("event cover has no box");
+    expect(desktopCover.height).toBeCloseTo(288, 0);
+  });
+
+  test("sphere can move cover buttons to a horizontal bottom-right row", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
+
+    await page.goto("/multiverse/panel/");
+    const positionSetting = page.getByLabel("Place event cover buttons at the bottom right");
+    await positionSetting.check();
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+
+    try {
+      await page.setViewportSize({ width: 390, height: 900 });
+      await page.goto("/event/lakeside-weekend/");
+
+      const cover = await page.getByRole("img", { name: EVENT_COVER_NAME }).boundingBox();
+      const printButton = page.getByRole("link", { name: "Print the program" });
+      const printButtonBox = await printButton.boundingBox();
+      if (!cover || !printButtonBox) throw new Error("event cover controls have no box");
+
+      expect(cover.x + cover.width - (printButtonBox.x + printButtonBox.width)).toBeCloseTo(16, 0);
+      expect(cover.y + cover.height - (printButtonBox.y + printButtonBox.height)).toBeCloseTo(
+        16,
+        0,
+      );
+      const flexDirection = await printButton.evaluate((element) =>
+        getComputedStyle(element.parentElement!).getPropertyValue("flex-direction"),
+      );
+      expect(flexDirection).toBe("row");
+    } finally {
+      await page.goto("/multiverse/panel/");
+      await page.getByLabel("Place event cover buttons at the bottom right").uncheck();
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+    }
+  });
+
   test("safe zone keeps its share of the preview at every width", async ({ page }) => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await coverImageInput(page).setInputFiles({
@@ -97,7 +162,7 @@ test.describe("Event cover image upload", () => {
       // The guide is only honest while the preview shows the upload at the
       // shape the help text asks for.
       expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
-      expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
+      expect(guideBox.width / previewBox.width).toBeCloseTo(0.96, 2);
       expect(guideBox.height / previewBox.height).toBeCloseTo(0.28, 2);
     }
   });
@@ -191,13 +256,13 @@ test.describe("Event cover image upload", () => {
 
   // Last in a serial describe: read-only, and a failure here should not skip
   // the upload tests above it.
-  test("a session cover is asked for a different crop than an event cover", async ({ page }) => {
+  test("cover fields describe their remaining vertical crops", async ({ page }) => {
     // The guide over the preview is decorative (aria-hidden), so the sentence
     // under the field is what actually tells an uploader which way their image
     // will be cut. Only the cover fields carry that sentence, so a page-wide
     // match cannot pick up the logo dropzone sharing the settings page.
     await page.goto("/panel/event/lakeside-weekend/settings/");
-    await expect(page.getByText(/We crop the edges/)).toBeVisible();
+    await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();
 
     await page.goto("/panel/event/lakeside-weekend/proposals/create/");
     await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();

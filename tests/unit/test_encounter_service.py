@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills.encounter import PAST_FEED_LIMIT, EncounterService
+from ludamus.mills.encounter import EncounterService
 from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
     EncountersPolicy,
     RSVPOutcome,
@@ -95,13 +96,18 @@ class TestEncounterService:
         return collaborators.spheres
 
     @pytest.fixture
-    def service(self, transaction, encounters, rsvps, users, spheres):
+    def sites(self, collaborators):
+        return collaborators.sites
+
+    @pytest.fixture
+    def service(self, transaction, encounters, rsvps, users, spheres, sites):
         return EncounterService(
             transaction=transaction,
             encounters=encounters,
             rsvps=rsvps,
             users=users,
             spheres=spheres,
+            sites=sites,
         )
 
     def test_list_feed_presents_both_buckets(self, service, encounters, rsvps, users):
@@ -128,7 +134,7 @@ class TestEncounterService:
         assert rsvps.count_by_encounters.call_count == FEED_LIST_COUNT
         encounters.list_visible_upcoming.assert_called_once_with(SPHERE_ID, CREATOR_ID)
         encounters.list_visible_past.assert_called_once_with(
-            SPHERE_ID, CREATOR_ID, PAST_FEED_LIMIT
+            SPHERE_ID, CREATOR_ID, limit=PAST_FEED_LIMIT
         )
 
     def test_list_feed_falls_back_when_the_creator_is_gone(
@@ -147,9 +153,9 @@ class TestEncounterService:
         assert [item.is_mine for item in result.past] == [False]
 
     def test_list_feed_is_empty_while_the_sphere_runs_no_encounters(
-        self, service, encounters, spheres
+        self, service, encounters, sites
     ):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.NONE
+        sites.read.return_value.encounters_policy = EncountersPolicy.NONE
 
         result = service.list_feed(sphere_id=SPHERE_ID, user_id=None)
 
@@ -213,9 +219,9 @@ class TestEncounterService:
         rsvps.user_has_rsvpd.assert_not_called()
 
     def test_create_delegates_single_insert_without_transaction(
-        self, service, transaction, encounters, spheres
+        self, service, transaction, encounters, sites
     ):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
+        sites.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
         created = _encounter(7)
         encounters.create.return_value = created
         data = {
@@ -242,18 +248,18 @@ class TestEncounterService:
         ),
     )
     def test_can_create_follows_policy_and_role(
-        self, service, spheres, users, policy, role, expected
+        self, service, sites, spheres, users, policy, role, expected
     ):
-        spheres.read.return_value.encounters_policy = policy
+        sites.read.return_value.encounters_policy = policy
         spheres.manager_role.return_value = role
         users.read_by_id.return_value = _user(CREATOR_ID)
 
         assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID) is expected
 
     def test_create_refused_when_the_policy_does_not_cover_the_author(
-        self, service, encounters, spheres
+        self, service, encounters, sites
     ):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.NONE
+        sites.read.return_value.encounters_policy = EncountersPolicy.NONE
         data = {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID, "is_public": True}
 
         with pytest.raises(NotFoundError):

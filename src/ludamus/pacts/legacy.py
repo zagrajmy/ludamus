@@ -270,6 +270,7 @@ class NotificationKind(StrEnum):
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
     PRINTABLES_READY = auto()
+    SPHERE_EVENT_PUBLISHED = auto()
 
 
 class SpaceDTO(BaseModel):
@@ -409,6 +410,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    event_cover_buttons_at_bottom: bool = False
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
     parley_enabled: bool = False
@@ -420,6 +422,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    event_cover_buttons_at_bottom: bool
     encounters_policy: str
     logo: UploadedFileProtocol | str
     parley_enabled: bool
@@ -973,6 +976,8 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
+    @staticmethod
+    def lock(event_id: int) -> None: ...
 
 
 class SpaceRepositoryProtocol(Protocol):

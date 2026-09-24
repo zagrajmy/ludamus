@@ -31,6 +31,7 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Announcement,
     Connection,
     Encounter,
     EnrollmentConfig,
@@ -1322,6 +1323,17 @@ def main() -> None:
         start_offset=timedelta(days=30),
         duration_hours=8,
         publication_offset=timedelta(days=1),
+    )
+    # Announcements belong to a sphere that runs a programme: they sit above
+    # its feed, for people who came for that feed. The root sphere has none of
+    # that, so this is where the rendering is covered.
+    Announcement.objects.get_or_create(
+        sphere=foreign_sphere,
+        title="Doors open at 9:00",
+        defaults={
+            "content": "Badge pickup is in the main hall, right past the desk.",
+            "is_published": True,
+        },
     )
 
 

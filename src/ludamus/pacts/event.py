@@ -73,14 +73,19 @@ class FacilitatorListItemDTO(BaseModel):
 
 class TimeSlotValidationError(StrEnum):
     START_NOT_BEFORE_END = "start_not_before_end"
-    OUTSIDE_EVENT_DATES = "outside_event_dates"
     OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
+    STARTS_BEFORE_PUBLICATION = "starts_before_publication"
 
 
 class TimeSlotRejectedError(Exception):
     def __init__(self, errors: list[TimeSlotValidationError]) -> None:
         super().__init__(", ".join(error.value for error in errors))
         self.errors = errors
+
+
+class TimeSlotSavedDTO(BaseModel):
+    slot: TimeSlotDTO
+    event_dates_widened: bool
 
 
 class EventPanelContextDTO(BaseModel):
@@ -223,8 +228,40 @@ class PanelTimeSlotsServiceProtocol(Protocol):
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> TimeSlotDTO: ...
+    ) -> TimeSlotSavedDTO: ...
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> None: ...
+    ) -> TimeSlotSavedDTO: ...
     def delete(self, *, event_id: int, pk: int) -> bool: ...
+
+
+class LandingStatsDTO(BaseModel):
+    events: int
+    sessions: int
+
+
+class LandingConventionDTO(BaseModel):
+    """A convention to show on the landing, with its newest event's cover."""
+
+    name: str
+    domain: str
+    cover_image_url: str
+
+
+# How many convention cards the landing's grid holds.
+LANDING_CONVENTIONS = 3
+
+
+class LandingStatsRepositoryProtocol(Protocol):
+    @staticmethod
+    def count_landing_stats() -> LandingStatsDTO: ...
+    @staticmethod
+    def list_conventions(limit: int) -> list[LandingConventionDTO]: ...
+    @staticmethod
+    def read_newest_published_slug(sphere_id: int) -> str | None: ...
+
+
+class LandingServiceProtocol(Protocol):
+    def stats(self) -> LandingStatsDTO: ...
+    def conventions(self) -> list[LandingConventionDTO]: ...
+    def showcase_slug(self, sphere_id: int) -> str | None: ...

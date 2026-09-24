@@ -4,7 +4,17 @@ import { describe, expect, test } from "bun:test";
 
 import type { Rect } from "./snapshot";
 
-import { decodeEntities } from "./page";
+import {
+  fieldNamed,
+  type ListSwipeReading,
+  listSwipeVerdict,
+  MIN_LIST_SCROLL_PT,
+  listBox,
+  optionNodes,
+  rowsInBox,
+  VISIBLE_ROWS,
+} from "./list-swipe";
+import { decodeEntities, namesFrom } from "./page";
 import {
   ABOVE_TOLERANCE_PT,
   MIN_SCROLL_PT,
@@ -20,6 +30,7 @@ import {
   lowestNodes,
   matchesScopeLabel,
   medianShift,
+  placed,
   pollUntil,
   scrollBars,
   scrollerViewport,
@@ -357,5 +368,121 @@ describe("pageEndVerdict", () => {
 
   test("does not read a geometric miss into a run that measured nothing", () => {
     expect(pageEndVerdict({ ...measured, shift: 0, pageEnd: 900 })).toMatch(/measured nothing/);
+  });
+});
+
+describe("namesFrom", () => {
+  test("collects the captured names, decoded and collapsed", () => {
+    const html = '<a data-host="Ann  &amp; Bo"></a><a data-host="Cy"></a><a data-host=""></a>';
+    expect(namesFrom(html, /data-host="([^"]*)"/g)).toEqual(new Set(["Ann & Bo", "Cy"]));
+  });
+});
+
+describe("optionNodes", () => {
+  const hosts = new Set(["Host 001", "Host 002", "Host 003"]);
+
+  test("keeps the named rows, one per name", () => {
+    const nodes = optionNodes(
+      [at("Host 003", 300), at("Search hosts…", 100), at("Host 001", 200), at("Host 001", 200)],
+      hosts,
+    );
+    expect(nodes.map(labelOf)).toEqual(["Host 003", "Host 001"]);
+  });
+
+  test("drops a row without a rect, which nothing could swipe from", () => {
+    expect(optionNodes([node({ label: "Host 002" })], hosts)).toEqual([]);
+  });
+});
+
+describe("listBox", () => {
+  // The device's own numbers: fourteen rendered rows from y=63, 36pt apart,
+  // six of them shown through a box the keyboard leaves above the field.
+  const rows = placed(Array.from({ length: 14 }, (_, i) => at(`Host ${i + 1}`, 63 + 36 * i, 36)));
+  const page = node({ label: "Vertical scroll bar, 2 pages", rect: screen });
+
+  test("is the scroll view around the first row, never the page's own", () => {
+    const box = { x: 33, y: 59, width: 336, height: 224 };
+    const scroller = node({ label: "Vertical scroll bar, 12 pages", rect: box });
+    expect(listBox([page, scroller], rows)).toEqual(box);
+  });
+
+  test("falls back to the first rows the list can show", () => {
+    expect(listBox([page], rows)).toEqual({ x: 0, y: 63, width: 300, height: 36 * VISIBLE_ROWS });
+    expect(listBox([page], [])).toBeNull();
+  });
+});
+
+describe("rowsInBox", () => {
+  test("keeps the rows drawn inside the box, top to bottom", () => {
+    const rows = placed([at("Host 003", 135), at("Host 001", 63), at("Host 007", 279)]);
+    const box = { x: 0, y: 59, width: 300, height: 224 };
+    expect(rowsInBox(rows, box).map((row) => row.label)).toEqual(["Host 001", "Host 003"]);
+  });
+});
+
+describe("fieldNamed", () => {
+  const label = node({ label: "HOST", rect: { x: 24, y: 300, width: 40, height: 20 } });
+  const field = node({
+    type: "TextField",
+    label: "HOST",
+    rect: { x: 24, y: 330, width: 354, height: 44 },
+  });
+
+  test("picks the node typed as a field, whatever case the device reports its name in", () => {
+    expect(fieldNamed([label, field], "Host")).toBe(field);
+  });
+
+  test("never settles for the label sharing the field's name", () => {
+    expect(fieldNamed([label], "Host")).toBeNull();
+    expect(fieldNamed([label, field], "Track")).toBeNull();
+  });
+});
+
+describe("listSwipeVerdict", () => {
+  // The device's own shape: a swipe of three rows, then a tap on the third.
+  const measured: ListSwipeReading = {
+    rowsBefore: 10,
+    shift: -108,
+    valueBefore: "Search hosts…",
+    valueAfterSwipe: "Search hosts…",
+    openAfterSwipe: true,
+    tapped: "Host 004",
+    valueAfterTap: "Host 004",
+  };
+
+  test("is silent when the swipe scrolls and the tap picks", () => {
+    expect(listSwipeVerdict(measured)).toBeNull();
+  });
+
+  test("reports a swipe that picked, before anything else", () => {
+    const verdict = listSwipeVerdict({
+      ...measured,
+      valueAfterSwipe: "Host 002",
+      openAfterSwipe: false,
+      shift: null,
+    });
+    expect(verdict).toMatch(/^A swipe through the list picked an option/);
+    expect(verdict).toContain('"Host 002"');
+  });
+
+  test("reports a swipe that closed the list without picking", () => {
+    expect(listSwipeVerdict({ ...measured, openAfterSwipe: false, shift: null })).toMatch(
+      /closed it without picking/,
+    );
+  });
+
+  test("blames the harness, not the list, when the swipe did not scroll", () => {
+    expect(listSwipeVerdict({ ...measured, shift: MIN_LIST_SCROLL_PT - 1 })).toMatch(
+      /measured nothing/,
+    );
+    expect(listSwipeVerdict({ ...measured, shift: null })).toMatch(/unknown distance/);
+  });
+
+  test("reports a tap that no longer picks", () => {
+    const verdict = listSwipeVerdict({ ...measured, valueAfterTap: "Search hosts…" });
+    expect(verdict).toMatch(/^A tap on "Host 004" no longer picks it/);
+    expect(listSwipeVerdict({ ...measured, tapped: null, valueAfterTap: null })).toMatch(
+      /no row was inside the list's box/,
+    );
   });
 });

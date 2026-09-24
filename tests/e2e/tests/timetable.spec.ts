@@ -723,6 +723,31 @@ test.describe("Timetable", () => {
     expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
   });
 
+  // --- Room pager ---
+
+  test("room pager slider moves between pages and keeps the URL in step", async ({ page }) => {
+    await page.goto("/panel/event/harbor-con/timetable/");
+
+    const slider = page.getByRole("slider", { name: "Rooms 1–5 of 7" });
+    await expect(slider).toHaveValue("1");
+    await expect(page.getByRole("button", { name: "Previous rooms" })).toBeDisabled();
+    expect(await roomNames(page)).toHaveLength(5);
+
+    await page.screenshot({ path: "test-results/timetable-room-pager.png", fullPage: true });
+
+    await slider.fill("2");
+
+    await expect(page).toHaveURL(/room_page=2/);
+    await expect(page.getByRole("slider", { name: "Rooms 6–7 of 7" })).toHaveValue("2");
+    await expect(page.getByRole("button", { name: "Next rooms" })).toBeDisabled();
+    expect(await roomNames(page)).toEqual(["Berth 6", "Berth 7"]);
+
+    await page.getByRole("button", { name: "Previous rooms" }).click();
+
+    await expect(page).toHaveURL(/room_page=1/);
+    expect(await roomNames(page)).toHaveLength(5);
+  });
+
   // --- Facilitator filter ---
 
   test("facilitator filter searches on the server and narrows the grid", async ({ page }) => {

@@ -204,7 +204,7 @@ class Auth0LoginCallbackActionView(RedirectView):
         if not (user.name or "").strip():
             messages.success(self.request, _("Please complete your profile."))
             profile_path = reverse("web:crowd:profile")
-            onboarding = f"{profile_path}?{urlencode({'next': reverse('web:events')})}"
+            onboarding = f"{profile_path}?{urlencode({'next': reverse('web:index')})}"
             if redirect_to:
                 parsed = urlparse(redirect_to)
                 return f"{parsed.scheme}://{parsed.netloc}{onboarding}"

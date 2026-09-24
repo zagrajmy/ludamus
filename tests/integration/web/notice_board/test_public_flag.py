@@ -109,6 +109,49 @@ class TestEncounterPublicFlagOnEdit:
         encounter.refresh_from_db()
         assert encounter.is_public is False
 
+    @pytest.mark.parametrize("policy", ("managers",), indirect=True)
+    def test_owner_the_policy_dropped_is_not_offered_the_toggle(
+        self, authenticated_client, encounter, policy
+    ):
+        response = authenticated_client.get(
+            reverse("web:notice-board:edit", kwargs={"pk": encounter.pk})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY, "encounter": ANY},
+            template_name="notice_board/edit.html",
+        )
+        assert "is_public" not in response.context["form"].fields
+
+    @pytest.mark.parametrize("policy", ("managers",), indirect=True)
+    def test_a_forged_flag_from_that_owner_does_not_publish(
+        self, authenticated_client, encounter, policy
+    ):
+        encounter.is_public = False
+        encounter.save()
+
+        response = self._post(authenticated_client, encounter, is_public="on")
+
+        _assert_redirects_to_detail(
+            response, encounter, messages=[(messages.SUCCESS, "Encounter updated.")]
+        )
+        encounter.refresh_from_db()
+        assert encounter.is_public is False
+
+    @pytest.mark.parametrize("policy", ("managers",), indirect=True)
+    def test_narrowing_the_policy_never_unpublishes_what_is_already_out(
+        self, authenticated_client, encounter, policy
+    ):
+        response = self._post(authenticated_client, encounter)
+
+        _assert_redirects_to_detail(
+            response, encounter, messages=[(messages.SUCCESS, "Encounter updated.")]
+        )
+        encounter.refresh_from_db()
+        assert encounter.is_public is True
+
     @pytest.mark.parametrize("policy", ("everyone",), indirect=True)
     def test_creator_can_publish(self, authenticated_client, encounter, policy):
         encounter.is_public = False

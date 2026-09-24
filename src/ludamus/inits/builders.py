@@ -18,6 +18,7 @@ from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
+from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.printing import PrintablesReminderService
@@ -42,6 +43,14 @@ def build_printables_reminder() -> PrintablesReminderService:
     return PrintablesReminderService(
         transaction=DjangoTransaction(),
         reminders=Repositories().printables_reminders,
+        notifier=DjangoUserNotifier(),
+    )
+
+
+def build_sphere_subscriptions() -> SphereSubscriptionService:
+    return SphereSubscriptionService(
+        transaction=DjangoTransaction(),
+        subscriptions=Repositories().sphere_subscriptions,
         notifier=DjangoUserNotifier(),
     )
 

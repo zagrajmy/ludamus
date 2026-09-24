@@ -5,38 +5,53 @@ from django.db import migrations, models
 logger = logging.getLogger(__name__)
 
 
+def policy_for(pages, old_policy, *, has_encounters):
+    """Pick the sphere's new policy from the two settings it replaces.
+
+    Two settings became one. `enabled_pages` decided which pages the sphere
+    served; `encounter_public_policy` decided who could list an encounter
+    publicly. The events feed is now the only page, and `encounters_policy`
+    decides who may create encounters for it.
+
+    So the question each sphere is asked is "who could reach the create form
+    before?", which the two old settings answered together:
+
+      - The encounters page carried an unconditional create button, so every
+        member could, whatever the publish policy said.
+      - The timeline carried one too, but only for whoever the publish policy
+        let publish — nobody, under `disabled`, though the form itself stayed
+        reachable by URL.
+      - With neither page, every encounter route 404'd.
+
+    Returns:
+        A timeline-only sphere under `disabled` offered the form to nobody,
+        but its encounter routes were all reachable, so `none` would 404
+        share links that are live today: it keeps `managers` while rows
+        exist.
+    """
+    if "encounters" in pages:
+        return "everyone"
+    if "timeline" not in pages:
+        return "none"
+    if old_policy != "disabled":
+        return old_policy
+    return "managers" if has_encounters else "none"
+
+
 def fold_pages_into_policy(apps, schema_editor):
     del schema_editor
-    # Two settings became one. `enabled_pages` decided which pages the sphere
-    # served; `encounter_public_policy` decided who could list an encounter
-    # publicly. The events feed is now the only page, and `encounters_policy`
-    # decides who may create encounters for it.
-    #
-    # Encounters were reachable from the encounters page *or* the timeline —
-    # every encounter route was `reachable_via_timeline`, and the timeline
-    # itself carried the create button. Reading `enabled_pages` alone would
-    # 404 live share links on every timeline-only sphere, so both count.
-    #
-    # `disabled` maps to `everyone`: it never stopped anyone from creating an
-    # encounter, only from listing one publicly, and "encounters, but none of
-    # them listed" is not a state the new setting can hold. Preserving who may
-    # create costs a wider publish surface; landing on `managers` instead
-    # would take the feature away from everyone who had it. The log records
-    # each sphere so it can be dialled back from the panel.
     sphere_model = apps.get_model("db_main", "Sphere")
     for sphere in sphere_model.objects.iterator():
         pages = sphere.enabled_pages
-        if "encounters" not in pages and "timeline" not in pages:
-            policy = "none"
-        elif sphere.encounters_policy == "managers":
-            policy = "managers"
-        else:
-            policy = "everyone"
+        old_policy = sphere.encounters_policy
+        policy = policy_for(
+            pages, old_policy, has_encounters=sphere.encounters.exists()
+        )
         logger.info(
             "0163: sphere %s pages %r + policy %r -> %r",
             sphere.pk,
-            sphere.enabled_pages,
-            sphere.encounters_policy,
+            pages,
+            old_policy,
             policy,
         )
         sphere.encounters_policy = policy

@@ -90,16 +90,14 @@ class TestAuth0LoginActionView:
 
     def test_error_non_root_domain_preserves_screen_hint(self, client, non_root_sphere):
         domain = non_root_sphere.site.domain
-        response = client.get(
-            f"{self.URL}?screen_hint=signup&next=/events/", HTTP_HOST=domain
-        )
+        response = client.get(f"{self.URL}?screen_hint=signup&next=/", HTTP_HOST=domain)
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=(
                 "http://testserver/crowd/auth0/do/login"
-                f"?next=http%3A%2F%2F{domain}%2Fevents%2F&screen_hint=signup"
+                f"?next=http%3A%2F%2F{domain}%2F&screen_hint=signup"
             ),
         )
 
