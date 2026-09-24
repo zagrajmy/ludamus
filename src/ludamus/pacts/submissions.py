@@ -25,7 +25,6 @@ if TYPE_CHECKING:
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
-        FieldUsageSummary,
         PersonalDataFieldCreateData,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
@@ -345,20 +344,11 @@ class ImportFieldLayoutServiceProtocol(Protocol):
 
 
 @dataclass
-class PersonalDataFieldFormContextDTO:
-    """Read aggregate for the personal-data-field create form."""
-
-    categories: list[ProposalCategoryDTO]
-
-
-@dataclass
-class PersonalDataFieldEditContextDTO:
-    """Read aggregate for the personal-data-field edit form."""
+class PersonalFieldSummary:
+    """A personal-data field with how many people have answered it."""
 
     field: OrganizerFieldDTO
-    categories: list[ProposalCategoryDTO]
-    required_category_pks: set[int]
-    optional_category_pks: set[int]
+    answer_count: int
 
 
 class OrganizerActionRefusal(StrEnum):
@@ -429,16 +419,12 @@ class ProposalCategorySettingsData(BaseModel):
     max_participants_limit: int
     promotion_mode: PromotionMode | None
     offer_claim_window: timedelta | None
-    personal_fields: RequirementSelectionDTO
     session_fields: RequirementSelectionDTO
     time_slots: RequirementSelectionDTO
 
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[OrganizerFieldDTO]
-    field_requirements: dict[int, bool]
-    field_order: list[int]
     available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
@@ -451,7 +437,6 @@ class ProposalCategoryEditContextDTO(BaseModel):
 @dataclass
 class ProposalCategorySettingsRepos:
     categories: ProposalCategoryRepositoryProtocol
-    personal_fields: PersonalDataFieldRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     sessions: SessionRepositoryProtocol
@@ -464,19 +449,6 @@ class ProposalCategorySettingsServiceProtocol(Protocol):
     def update(
         self, *, event_id: int, category_slug: str, data: ProposalCategorySettingsData
     ) -> None: ...
-
-
-class CFPFieldRepositoryProtocol[CreateT, UpdateT, DtoT](Protocol):
-    def create(self, event_id: int, data: CreateT) -> DtoT: ...
-    def read_by_slug(self, event_id: int, slug: str) -> DtoT: ...
-    def update(self, pk: int, data: UpdateT) -> DtoT: ...
-    def list_by_event(self, event_id: int) -> list[DtoT]: ...
-    @staticmethod
-    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
-    @staticmethod
-    def has_requirements(pk: int) -> bool: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
 
 
 class CFPSessionFieldServiceProtocol(Protocol):
@@ -498,27 +470,13 @@ class CFPSessionFieldServiceProtocol(Protocol):
 
 
 class CFPPersonalDataFieldServiceProtocol(Protocol):
-    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
-    def get_create_form_context(
-        self, event_pk: int
-    ) -> PersonalDataFieldFormContextDTO: ...
-    def get_edit_form_context(
-        self, event_pk: int, field_slug: str
-    ) -> PersonalDataFieldEditContextDTO: ...
+    def list_summaries(self, event_pk: int) -> list[PersonalFieldSummary]: ...
+    def read(self, event_pk: int, field_slug: str) -> OrganizerFieldDTO: ...
     def create(
-        self,
-        *,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: RequirementSelectionDTO,
+        self, event_pk: int, data: PersonalDataFieldCreateData
     ) -> OrganizerFieldDTO: ...
     def update(
-        self,
-        *,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: RequirementSelectionDTO,
+        self, *, event_pk: int, field_slug: str, data: PersonalDataFieldUpdateData
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
 

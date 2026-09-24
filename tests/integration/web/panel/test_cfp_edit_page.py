@@ -6,10 +6,6 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
-    Facilitator,
-    PersonalDataField,
-    PersonalDataFieldRequirement,
-    PersonalDataFieldValue,
     ProposalCategory,
     SessionField,
     SessionFieldRequirement,
@@ -22,7 +18,7 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     TimeSlotDTO,
 )
-from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
+from tests.integration.conftest import EventFactory, SessionFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
     assert_login_required,
@@ -81,9 +77,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -224,12 +217,9 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "field_order": [],
-                "field_requirements": {},
                 "proposal_count": 0,
                 "session_field_order": [],
                 "session_field_requirements": {},
-                "available_fields": [],
                 "available_session_fields": [],
                 "available_time_slots": [],
                 "time_slot_requirements": {},
@@ -313,9 +303,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -345,9 +332,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -405,9 +389,6 @@ class TestProposalCategorySettingsPageView:
                         "Set how long a held seat waits for confirmation."
                     ]
                 ),
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -471,362 +452,6 @@ class TestProposalCategorySettingsPageView:
         assert category.start_time is None
         assert category.end_time is None
 
-    # Field requirements tests
-
-    def test_get_includes_available_fields_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [
-                    OrganizerFieldDTO(
-                        pk=email_field.pk,
-                        name="Email",
-                        question="What is your email?",
-                        slug="email",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                    OrganizerFieldDTO(
-                        pk=phone_field.pk,
-                        name="Phone",
-                        question="What is your phone?",
-                        slug="phone",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                ],
-                "field_requirements": {},
-                "field_order": [],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_includes_field_requirements_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=phone_field, is_required=False
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [
-                    OrganizerFieldDTO(
-                        pk=email_field.pk,
-                        name="Email",
-                        question="What is your email?",
-                        slug="email",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                    OrganizerFieldDTO(
-                        pk=phone_field.pk,
-                        name="Phone",
-                        question="What is your phone?",
-                        slug="phone",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                ],
-                "field_requirements": {email_field.pk: True, phone_field.pk: False},
-                "field_order": [email_field.pk, phone_field.pk],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_returns_empty_field_requirements_when_none_configured(
-        self, panel_client, event
-    ):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [
-                    OrganizerFieldDTO(
-                        pk=email_field.pk,
-                        name="Email",
-                        question="What is your email?",
-                        slug="email",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    )
-                ],
-                "field_requirements": {},
-                "field_order": [],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_post_drops_requirement_pks_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """Field/session-field/time-slot pks from another event are not linked."""
-        sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        other_event = EventFactory(sphere=sphere)
-        foreign_field = PersonalDataField.objects.create(
-            event=other_event, name="Email", question="?", slug="email"
-        )
-        foreign_session_field = SessionField.objects.create(
-            event=other_event, name="Genre", question="?", slug="genre"
-        )
-        foreign_slot = TimeSlot.objects.create(
-            event=other_event,
-            start_time=other_event.start_time,
-            end_time=other_event.start_time + timedelta(hours=1),
-        )
-
-        response = authenticated_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"field_{foreign_field.pk}": "required",
-                f"session_field_{foreign_session_field.pk}": "required",
-                f"time_slot_{foreign_slot.pk}": "required",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        assert not PersonalDataFieldRequirement.objects.filter(
-            category=category, field=foreign_field
-        ).exists()
-        assert not SessionFieldRequirement.objects.filter(
-            category=category, field=foreign_session_field
-        ).exists()
-        assert not TimeSlotRequirement.objects.filter(
-            category=category, time_slot=foreign_slot
-        ).exists()
-
-    def test_post_saves_field_requirement_as_required(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions", f"field_{email_field.pk}": "required"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        requirement = PersonalDataFieldRequirement.objects.get(
-            category=category, field=email_field
-        )
-        assert requirement.is_required is True
-
-    def test_post_saves_field_requirement_as_optional(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions", f"field_{phone_field.pk}": "optional"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        requirement = PersonalDataFieldRequirement.objects.get(
-            category=category, field=phone_field
-        )
-        assert requirement.is_required is False
-
-    def test_post_removes_field_requirement_when_set_to_none(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions", f"field_{email_field.pk}": "none"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        assert not PersonalDataFieldRequirement.objects.filter(
-            category=category, field=email_field
-        ).exists()
-
-    def test_post_updates_existing_requirement_from_required_to_optional(
-        self, panel_client, event
-    ):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions", f"field_{email_field.pk}": "optional"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        requirement = PersonalDataFieldRequirement.objects.get(
-            category=category, field=email_field
-        )
-        assert requirement.is_required is False
-
-    def test_post_saves_multiple_field_requirements(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-        bio_field = PersonalDataField.objects.create(
-            event=event, name="Bio", question="Tell us about yourself", slug="bio"
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"field_{email_field.pk}": "required",
-                f"field_{phone_field.pk}": "optional",
-                f"field_{bio_field.pk}": "none",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        assert (
-            PersonalDataFieldRequirement.objects.filter(category=category).count()
-            == 1 + 1  # email + phone (bio is "none")
-        )
-        email_req = PersonalDataFieldRequirement.objects.get(
-            category=category, field=email_field
-        )
-        phone_req = PersonalDataFieldRequirement.objects.get(
-            category=category, field=phone_field
-        )
-        assert email_req.is_required is True
-        assert phone_req.is_required is False
-        assert not PersonalDataFieldRequirement.objects.filter(
-            category=category, field=bio_field
-        ).exists()
-
     # Duration configuration tests
 
     def test_get_includes_durations_in_context(self, panel_client, event):
@@ -847,9 +472,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -878,9 +500,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1023,9 +642,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [
                     OrganizerFieldDTO(
                         pk=difficulty_field.pk,
@@ -1088,9 +704,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [
                     OrganizerFieldDTO(
                         pk=genre_field.pk,
@@ -1144,9 +757,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [
                     OrganizerFieldDTO(
                         pk=genre_field.pk,
@@ -1306,202 +916,6 @@ class TestProposalCategorySettingsPageView:
             category=category, field=system_field
         ).exists()
 
-    # Field ordering tests
-
-    def test_get_includes_field_order_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True, order=1
-        )
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=phone_field, is_required=False, order=0
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        # Order should be [phone, email] based on order field
-        # (phone has order=0, email has order=1)
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [
-                    OrganizerFieldDTO(
-                        pk=phone_field.pk,
-                        name="Phone",
-                        question="What is your phone?",
-                        slug="phone",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                    OrganizerFieldDTO(
-                        pk=email_field.pk,
-                        name="Email",
-                        question="What is your email?",
-                        slug="email",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                ],
-                "field_requirements": {email_field.pk: True, phone_field.pk: False},
-                "field_order": [phone_field.pk, email_field.pk],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_places_new_fields_after_ordered_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """New fields not in saved order should appear after ordered fields."""
-        sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-        # Only email has a saved order requirement
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True, order=0
-        )
-        # Phone is available but NOT in order (simulates new field added)
-
-        response = authenticated_client.get(self.get_url(event, category))
-
-        # Email should be first (has order),
-        # Phone should be after - verified by field_order
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [
-                    OrganizerFieldDTO(
-                        pk=email_field.pk,
-                        name="Email",
-                        question="What is your email?",
-                        slug="email",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                    OrganizerFieldDTO(
-                        pk=phone_field.pk,
-                        name="Phone",
-                        question="What is your phone?",
-                        slug="phone",
-                        field_type="text",
-                        order=0,
-                        options=[],
-                    ),
-                ],
-                "field_requirements": {email_field.pk: True},
-                "field_order": [email_field.pk],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_returns_empty_field_order_when_none_configured(
-        self, panel_client, event
-    ):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_post_saves_field_order(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        phone_field = PersonalDataField.objects.create(
-            event=event, name="Phone", question="What is your phone?", slug="phone"
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"field_{email_field.pk}": "required",
-                f"field_{phone_field.pk}": "optional",
-                "field_order": f"{phone_field.pk},{email_field.pk}",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        email_req = PersonalDataFieldRequirement.objects.get(
-            category=category, field=email_field
-        )
-        phone_req = PersonalDataFieldRequirement.objects.get(
-            category=category, field=phone_field
-        )
-        assert phone_req.order == 0
-        assert email_req.order == 1
-
     def test_get_includes_session_field_order_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
@@ -1533,9 +947,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [
                     OrganizerFieldDTO(
                         pk=difficulty_field.pk,
@@ -1603,9 +1014,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [
                     OrganizerFieldDTO(
                         pk=genre_field.pk,
@@ -1653,9 +1061,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1725,9 +1130,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1766,9 +1168,6 @@ class TestProposalCategorySettingsPageView:
                 ),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1810,9 +1209,6 @@ class TestProposalCategorySettingsPageView:
                 ),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1823,88 +1219,6 @@ class TestProposalCategorySettingsPageView:
                 "proposal_count": 1 + 1,  # Only 2 in this category
             },
         )
-
-    # Data preservation tests
-
-    def test_post_removing_field_requirement_preserves_existing_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """When a field requirement is removed, existing host data should be kept."""
-        sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", field_type="text"
-        )
-        # Setup: field is required and a host has filled in data
-        PersonalDataFieldRequirement.objects.create(
-            category=category, field=email_field, is_required=True
-        )
-        host = UserFactory.create()
-        facilitator = Facilitator.objects.create(
-            event=event, user=host, display_name=host.name, slug="host"
-        )
-        PersonalDataFieldValue.objects.create(
-            facilitator=facilitator,
-            event=event,
-            field=email_field,
-            value="host@example.com",
-        )
-        SessionFactory.create(category=category, presenter=host)
-
-        # Action: remove the field requirement (don't include it in POST)
-        authenticated_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions"},  # No field_* entries
-        )
-
-        # Assert: requirement is gone but data is preserved
-        assert not PersonalDataFieldRequirement.objects.filter(
-            category=category, field=email_field
-        ).exists()
-        assert PersonalDataFieldValue.objects.filter(
-            facilitator=facilitator,
-            event=event,
-            field=email_field,
-            value="host@example.com",
-        ).exists()
-
-    def test_post_adding_field_requirement_does_not_create_data_for_existing_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        """Adding field requirement doesn't create data for existing proposals."""
-        sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        email_field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", field_type="text"
-        )
-        # Setup: existing proposal without the field requirement
-        host = UserFactory.create()
-        SessionFactory.create(category=category, presenter=host)
-        assert not PersonalDataFieldValue.objects.filter(
-            event=event, field=email_field
-        ).exists()
-
-        # Action: add a new field requirement
-        authenticated_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"field_{email_field.pk}": "required",
-                "field_order": str(email_field.pk),
-            },
-        )
-
-        # Assert: requirement exists but no data was auto-created for existing host
-        assert PersonalDataFieldRequirement.objects.filter(
-            category=category, field=email_field, is_required=True
-        ).exists()
-        assert not PersonalDataFieldValue.objects.filter(
-            event=event, field=email_field
-        ).exists()
 
     # Time slot requirement tests
 
@@ -1932,9 +1246,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -1979,9 +1290,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -2017,9 +1325,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
@@ -2197,9 +1502,6 @@ class TestProposalCategorySettingsPageView:
                 **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
-                "available_fields": [],
-                "field_requirements": {},
-                "field_order": [],
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],

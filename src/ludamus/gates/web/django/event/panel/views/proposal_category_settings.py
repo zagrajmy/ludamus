@@ -82,9 +82,6 @@ def _settings_data(
             if cleaned.get("offer_claim_window_minutes")
             else None
         ),
-        personal_fields=parse_requirement_selection(
-            request.POST, prefix="field_", order_key="field_order"
-        ),
         session_fields=parse_requirement_selection(
             request.POST, prefix="session_field_", order_key="session_field_order"
         ),
@@ -105,9 +102,6 @@ def _render(
         active_nav="cfp",
         category=page.category,
         form=form,
-        available_fields=page.available_fields,
-        field_requirements=page.field_requirements,
-        field_order=page.field_order,
         available_session_fields=page.available_session_fields,
         session_field_requirements=page.session_field_requirements,
         session_field_order=page.session_field_order,

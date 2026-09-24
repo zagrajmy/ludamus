@@ -274,7 +274,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
         context["field_descriptors"] = personal_descriptors(
-            fields, personal_fields_form(fields=fields)
+            fields=fields, form=personal_fields_form(fields=fields)
         )
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
@@ -290,7 +290,9 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if not form.is_valid() or not fields_form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
-            context["field_descriptors"] = personal_descriptors(fields, fields_form)
+            context["field_descriptors"] = personal_descriptors(
+                fields=fields, form=fields_form
+            )
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )

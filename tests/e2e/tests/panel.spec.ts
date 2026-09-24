@@ -588,28 +588,31 @@ test.describe("Backoffice Panel", () => {
   });
 
   test('field create forms hide "Required" for checkbox fields', async ({ page }) => {
-    for (const path of [
-      "/panel/event/frostfire-con/cfp/personal-data/create/",
-      "/panel/event/frostfire-con/cfp/session-fields/create/",
-    ]) {
-      await page.goto(path);
+    await page.goto("/panel/event/frostfire-con/cfp/personal-data/create/");
+    const requiredBox = page.locator("#id_is_required");
+    await page.locator("#id_field_type").selectOption("text");
+    await requiredBox.check();
+    await expect(requiredBox).toBeVisible();
+    await page.locator("#id_field_type").selectOption("checkbox");
+    await expect(requiredBox).toBeHidden();
+    await expect(requiredBox).not.toBeChecked();
 
-      const requirementSelect = firstCategoryRequirementSelect(page);
-      await page.locator("#id_field_type").selectOption("text");
-      await requirementSelect.selectOption("required");
-      await expectRequiredOption(requirementSelect, {
-        hidden: false,
-        disabled: false,
-      });
-      await expect(requirementSelect).toHaveValue("required");
+    await page.goto("/panel/event/frostfire-con/cfp/session-fields/create/");
+    const requirementSelect = firstCategoryRequirementSelect(page);
+    await page.locator("#id_field_type").selectOption("text");
+    await requirementSelect.selectOption("required");
+    await expectRequiredOption(requirementSelect, {
+      hidden: false,
+      disabled: false,
+    });
+    await expect(requirementSelect).toHaveValue("required");
 
-      await page.locator("#id_field_type").selectOption("checkbox");
-      await expectRequiredOption(requirementSelect, {
-        hidden: true,
-        disabled: true,
-      });
-      await expect(requirementSelect).toHaveValue("optional");
-    }
+    await page.locator("#id_field_type").selectOption("checkbox");
+    await expectRequiredOption(requirementSelect, {
+      hidden: true,
+      disabled: true,
+    });
+    await expect(requirementSelect).toHaveValue("optional");
   });
 
   test("cfp picker shows checkbox fields as optional only", async ({ page }, testInfo) => {
@@ -648,7 +651,6 @@ test.describe("Backoffice Panel", () => {
       await expect(chosen.locator(".optional-label")).toHaveText("Optional");
     };
 
-    await assertOptionalOnly("#host-fields-list", hostFieldName);
     await assertOptionalOnly("#session-fields-list", sessionFieldName);
 
     await page.goto("/panel/event/frostfire-con/cfp/personal-data/");
@@ -866,7 +868,7 @@ test.describe("Backoffice Panel", () => {
       await page.goto("/panel/event/frostfire-con/cfp/personal-data/create/");
       await page.locator("#id_name").fill(cityName);
       await page.locator("#id_question").fill("What city are you from?");
-      await sessionTypeRequirementSelect(page, proposalCategoryName).selectOption("required");
+      await page.locator("#id_is_required").check();
       await page.getByRole("button", { name: "Create" }).click();
       await expect(page.getByText("Personal data field created successfully.")).toBeVisible();
 
@@ -877,7 +879,7 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_field_type").selectOption("select");
       await expect(page.locator("#options-container")).toBeVisible();
       await page.locator("#id_options").fill("Beginner\nIntermediate\nAdvanced");
-      await sessionTypeRequirementSelect(page, proposalCategoryName).selectOption("required");
+      await page.locator("#id_is_required").check();
       await page.getByRole("button", { name: "Create" }).click();
       await expect(page.getByText("Personal data field created successfully.")).toBeVisible();
 
@@ -886,7 +888,7 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_name").fill(newsletterName);
       await page.locator("#id_question").fill("Subscribe to newsletter?");
       await page.locator("#id_field_type").selectOption("checkbox");
-      await sessionTypeRequirementSelect(page, proposalCategoryName).selectOption("optional");
+      await expect(page.locator("#id_is_required")).toBeHidden();
       await page.getByRole("button", { name: "Create" }).click();
       await expect(page.getByText("Personal data field created successfully.")).toBeVisible();
     });
@@ -981,10 +983,6 @@ test.describe("Backoffice Panel", () => {
         await expect(chosen).toBeVisible();
       };
 
-      for (const fieldName of [cityName, experienceName, newsletterName]) {
-        await ensureChosen("#host-fields-list", fieldName);
-      }
-
       for (const fieldName of [gameSystemName, genreName, languagesName, beginnerName]) {
         await ensureChosen("#session-fields-list", fieldName);
       }
@@ -1023,19 +1021,11 @@ test.describe("Backoffice Panel", () => {
     });
 
     test("says why Delete is unavailable on a field a category asks for", async ({ page }) => {
-      // The category above now requires these fields, so delete refuses them.
-      // Both pages share the partial and the helper that builds the sentence.
-      const cases = [
-        ["/panel/event/frostfire-con/cfp/session-fields/", gameSystemName],
-        ["/panel/event/frostfire-con/cfp/personal-data/", cityName],
-      ] as const;
-
-      for (const [url, fieldName] of cases) {
-        await page.goto(url);
-        const row = page.locator("tr", { hasText: fieldName });
-        await expect(row.getByText("Used by categories")).toBeVisible();
-        await expect(row.getByRole("button", { name: /Delete/i })).toHaveCount(0);
-      }
+      // The category above now requires this field, so delete refuses it.
+      await page.goto("/panel/event/frostfire-con/cfp/session-fields/");
+      const row = page.locator("tr", { hasText: gameSystemName });
+      await expect(row.getByText("Used by categories")).toBeVisible();
+      await expect(row.getByRole("button", { name: /Delete/i })).toHaveCount(0);
     });
 
     test("submits a proposal through the public wizard", async ({ browser }) => {
@@ -1047,12 +1037,8 @@ test.describe("Backoffice Panel", () => {
       });
       const page = await context.newPage();
 
-      // Step 1: Category
+      // Step 1: Personal Data
       await page.goto("/event/frostfire-con/session/propose/");
-      await proposalCategoryOption(page, proposalCategoryName).click();
-      await page.getByRole("button", { name: /Continue/ }).click();
-
-      // Step 2: Personal Data
       await expect(
         page.locator("#wizard-content").getByRole("heading", {
           name: "Your Information",
@@ -1065,6 +1051,10 @@ test.describe("Backoffice Panel", () => {
         .locator(`select[name="personal_${slugify(experienceName)}"]`)
         .selectOption("Intermediate");
       await page.getByLabel("Subscribe to newsletter?").check();
+      await page.getByRole("button", { name: /Continue/ }).click();
+
+      // Step 2: Category
+      await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       // Step 3: Time Slots
@@ -1146,15 +1136,15 @@ test.describe("Backoffice Panel", () => {
       const page = await context.newPage();
 
       await page.goto("/event/frostfire-con/session/propose/");
-      await proposalCategoryOption(page, proposalCategoryName).click();
-      await page.getByRole("button", { name: /Continue/ }).click();
-
       await page.locator("#id_contact_email").fill("regression@example.com");
       await page.locator(`input[name="personal_${slugify(cityName)}"]`).fill("Wroclaw");
       await page
         .locator(`select[name="personal_${slugify(experienceName)}"]`)
         .selectOption("Advanced");
       await page.getByLabel("Subscribe to newsletter?").check();
+      await page.getByRole("button", { name: /Continue/ }).click();
+
+      await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       const slotLabels = page.locator('label:has(input[name="time_slot_ids"])');
@@ -1213,6 +1203,15 @@ test.describe("Backoffice Panel", () => {
       const rows = await page.getByRole("link", { name: "Edit", exact: true }).count();
       const deletable = await page.getByRole("button", { name: "Delete", exact: true }).count();
       expect((await spokenFor.count()) + deletable).toBe(rows);
+    });
+
+    test("says why Delete is unavailable on an answered personal data field", async ({ page }) => {
+      // Personal data fields belong to the event, not to a category, so the
+      // sentence beside the row is about answers the wizard above filed.
+      await page.goto("/panel/event/frostfire-con/cfp/personal-data/");
+      const row = page.locator("tr", { hasText: cityName });
+      await expect(row.getByText("Already answered")).toBeVisible();
+      await expect(row.getByRole("button", { name: /Delete/i })).toHaveCount(0);
     });
 
     test("verifies proposal in panel proposals list and detail", async ({ page }) => {

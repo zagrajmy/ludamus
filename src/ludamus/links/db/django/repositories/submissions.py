@@ -9,7 +9,6 @@ from ludamus.links.db.django.models import (
     ImportLogEntry,
     PersonalDataField,
     PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
@@ -31,7 +30,6 @@ from ludamus.pacts import (
     PersonalDataFieldUpdateData,
     PersonalDataFieldValueData,
     PersonalDataFieldValueRepositoryProtocol,
-    PersonalFieldRequirementDTO,
     ProposalCategoryData,
     ProposalCategoryDTO,
     ProposalCategoryRepositoryProtocol,
@@ -56,15 +54,16 @@ _FieldType = Literal["text", "select", "checkbox"]
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
     # Personal-data fields carry no icon, so the DTO's empty default stands.
-    return _field_dto(field, icon="")
+    return _field_dto(field, icon="", is_required=field.is_required)
 
 
 def _session_field_dto(field: SessionField) -> OrganizerFieldDTO:
-    return _field_dto(field, icon=field.icon)
+    # Session fields are required per kind, so the field itself never is.
+    return _field_dto(field, icon=field.icon, is_required=False)
 
 
 def _field_dto(
-    field: PersonalDataField | SessionField, *, icon: str
+    field: PersonalDataField | SessionField, *, icon: str, is_required: bool
 ) -> OrganizerFieldDTO:
     # One builder for both tables: they hang off different owners but every
     # column downstream of here is the same, so a column added to one and
@@ -76,6 +75,7 @@ def _field_dto(
         icon=icon,
         is_multiple=field.is_multiple,
         is_public=field.is_public,
+        is_required=is_required,
         max_length=field.max_length,
         name=field.name,
         options=[
@@ -235,55 +235,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return [ProposalCategoryDTO.model_validate(c) for c in categories]
 
     @staticmethod
-    def get_field_requirements(category_id: int) -> dict[int, bool]:
-        """Get field requirements for a category.
-
-        Returns:
-            Dict mapping field_id to is_required boolean.
-        """
-        requirements = PersonalDataFieldRequirement.objects.filter(
-            category_id=category_id
-        )
-        return {req.field_id: req.is_required for req in requirements}
-
-    @staticmethod
-    def get_field_order(category_id: int) -> list[int]:
-        """Get ordered list of field IDs for a category.
-
-        Returns:
-            List of field IDs ordered by their order field.
-        """
-        requirements = PersonalDataFieldRequirement.objects.filter(
-            category_id=category_id
-        ).order_by("order")
-        return [req.field_id for req in requirements]
-
-    @staticmethod
-    def set_field_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None:
-        """Set field requirements for a category.
-
-        Replaces all existing requirements with the provided ones.
-
-        Args:
-            category_id: The category to set requirements for.
-            requirements: Dict mapping field_id to is_required boolean.
-            order: Optional list of field IDs defining the order.
-        """
-        PersonalDataFieldRequirement.objects.filter(category_id=category_id).delete()
-
-        order_map = {fid: idx for idx, fid in enumerate(order or [])}
-
-        for field_id, is_required in requirements.items():
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=order_map.get(field_id, 0),
-            )
-
-    @staticmethod
     def get_session_field_requirements(category_id: int) -> dict[int, bool]:
         """Get session field requirements for a category.
 
@@ -328,30 +279,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
                 field_id=field_id,
                 is_required=is_required,
                 order=order_map.get(field_id, 0),
-            )
-
-    @staticmethod
-    def get_personal_field_categories(field_id: int) -> dict[int, bool]:
-        reqs = PersonalDataFieldRequirement.objects.filter(field_id=field_id)
-        return {req.category_id: req.is_required for req in reqs}
-
-    @staticmethod
-    def set_personal_field_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        PersonalDataFieldRequirement.objects.filter(field_id=field_id).delete()
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
             )
 
     @staticmethod
@@ -434,28 +361,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
         return ProposalCategoryDTO.model_validate(category)
 
     @staticmethod
-    def list_personal_field_requirements(
-        category_id: int,
-    ) -> list[PersonalFieldRequirementDTO]:
-        requirements = (
-            PersonalDataFieldRequirement.objects.filter(category_id=category_id)
-            .select_related("field")
-            .prefetch_related(
-                Prefetch(
-                    "field__options",
-                    queryset=PersonalDataFieldOption.objects.order_by("order", "label"),
-                )
-            )
-            .order_by("order", "field__name")
-        )
-        return [
-            PersonalFieldRequirementDTO(
-                field=_personal_field_dto(req.field), is_required=req.is_required
-            )
-            for req in requirements
-        ]
-
-    @staticmethod
     def list_session_field_requirements(
         category_id: int,
     ) -> list[SessionFieldRequirementDTO]:
@@ -527,6 +432,8 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
             max_length=data["max_length"],
             help_text=data["help_text"],
             is_public=data["is_public"],
+            is_required=data["is_required"],
+            order=data["order"],
         )
 
         if field_type == "select" and options:
@@ -557,28 +464,17 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         return deleted
 
     @staticmethod
-    def has_requirements(pk: int) -> bool:
-        """Check if a personal data field is used in any category requirements.
-
-        Returns:
-            True if the field is used in at least one category requirement.
-        """
-        return PersonalDataFieldRequirement.objects.filter(field_id=pk).exists()
+    def has_values(pk: int) -> bool:
+        return PersonalDataFieldValue.objects.filter(field_id=pk).exists()
 
     @staticmethod
-    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]:
+    def count_values(event_id: int) -> dict[int, int]:
         rows = (
-            PersonalDataFieldRequirement.objects.filter(field__event_id=event_id)
+            PersonalDataFieldValue.objects.filter(field__event_id=event_id)
             .values("field_id")
-            .annotate(
-                required=Count("pk", filter=Q(is_required=True)),
-                optional=Count("pk", filter=Q(is_required=False)),
-            )
+            .annotate(answers=Count("pk"))
         )
-        return {
-            row["field_id"]: {"required": row["required"], "optional": row["optional"]}
-            for row in rows
-        }
+        return {row["field_id"]: row["answers"] for row in rows}
 
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         fields = PersonalDataField.objects.filter(event_id=event_id).prefetch_related(
@@ -611,6 +507,8 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
+        field.is_required = data["is_required"]
+        field.order = data["order"]
         field.is_multiple = (
             data["is_multiple"] if field.field_type == "select" else False
         )
@@ -619,10 +517,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         )
         field.save()
 
-        options = data["options"]
-        if options is not None and field.field_type == "select":
+        # The type is fixed at creation, so `data["field_type"]` is ignored and
+        # the stored one decides whether options mean anything here. Emptying
+        # the box clears them.
+        if field.field_type == "select":
             field.options.all().delete()
-            for order, raw_option in enumerate(options):
+            for order, raw_option in enumerate(data["options"] or []):
                 if option_label := raw_option.strip():
                     PersonalDataFieldOption.objects.create(
                         field=field, label=option_label, value=option_label, order=order

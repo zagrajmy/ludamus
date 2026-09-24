@@ -25,9 +25,12 @@ def personal_fields_form(
     fields: Sequence[OrganizerFieldDTO],
     data: QueryDict | None = None,
     values: Mapping[str, FieldValue] | None = None,
+    prefix: str = PERSONAL_PREFIX,
 ) -> forms.Form:
+    # Nobody recording data on someone else's behalf is forced to answer, so
+    # the field's own required flag never binds here.
     return dynamic_fields_form(
-        prefix=PERSONAL_PREFIX,
+        prefix=prefix,
         fields=[(field, False) for field in fields],
         data=data,
         initial=values or {},
@@ -35,10 +38,13 @@ def personal_fields_form(
 
 
 def personal_descriptors(
-    fields: Sequence[OrganizerFieldDTO], form: forms.Form
+    *,
+    fields: Sequence[OrganizerFieldDTO],
+    form: forms.Form,
+    prefix: str = PERSONAL_PREFIX,
 ) -> list[FieldDescriptor]:
     return field_descriptors(
-        prefix=PERSONAL_PREFIX, fields=[(field, False) for field in fields], form=form
+        prefix=prefix, fields=[(field, False) for field in fields], form=form
     )
 
 
@@ -47,8 +53,8 @@ def stored_descriptors(
 ) -> list[FieldDescriptor]:
     fields = [field for field, _value in items]
     return personal_descriptors(
-        fields,
-        personal_fields_form(
+        fields=fields,
+        form=personal_fields_form(
             fields=fields,
             values={field.slug: value for field, value in items if value is not None},
         ),

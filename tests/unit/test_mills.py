@@ -60,8 +60,6 @@ from ludamus.pacts.submissions import (
     ImportRepos,
     ImportRow,
     ImportSettings,
-    PersonalDataFieldEditContextDTO,
-    PersonalDataFieldFormContextDTO,
     QuestionTarget,
     RequirementSelectionDTO,
 )
@@ -99,85 +97,37 @@ class TestCFPPersonalDataFieldService:
         return MagicMock()
 
     @pytest.fixture
-    def categories(self):
-        return MagicMock()
-
-    @pytest.fixture
     def transaction(self):
         return MagicMock()
 
     @pytest.fixture
-    def service(self, transaction, fields, categories):
-        return CFPPersonalDataFieldService(
-            transaction=transaction, fields=fields, categories=categories
-        )
+    def service(self, transaction, fields):
+        return CFPPersonalDataFieldService(transaction=transaction, fields=fields)
 
-    def test_list_summaries_combines_fields_with_usage_counts(self, service, fields):
+    def test_list_summaries_combines_fields_with_answer_counts(self, service, fields):
         field_a = _personal_data_field(pk=1, slug="a")
         field_b = _personal_data_field(pk=2, slug="b")
-        required_a = 3
-        optional_a = 2
+        answers_a = 3
         fields.list_by_event.return_value = [field_a, field_b]
-        fields.get_usage_counts.return_value = {
-            1: {"required": required_a, "optional": optional_a}
-        }
+        fields.count_values.return_value = {1: answers_a}
 
         summaries = service.list_summaries(event_pk=42)
 
-        assert len(summaries) == len([field_a, field_b])
-        assert summaries[0].field is field_a
-        assert summaries[0].required_count == required_a
-        assert summaries[0].optional_count == optional_a
-        # Field with no usage row falls back to zero counts
-        assert summaries[1].required_count == 0
-        assert summaries[1].optional_count == 0
+        assert [s.field for s in summaries] == [field_a, field_b]
+        assert summaries[0].answer_count == answers_a
+        assert summaries[1].answer_count == 0
         fields.list_by_event.assert_called_once_with(42)
-        fields.get_usage_counts.assert_called_once_with(42)
+        fields.count_values.assert_called_once_with(42)
 
-    def test_get_create_form_context_returns_categories(self, service, categories):
-        cats = [category(pk=1), category(pk=2)]
-        categories.list_by_event.return_value = cats
-
-        ctx = service.get_create_form_context(event_pk=7)
-
-        assert isinstance(ctx, PersonalDataFieldFormContextDTO)
-        assert ctx.categories is cats
-        categories.list_by_event.assert_called_once_with(7)
-
-    def test_get_edit_form_context_splits_requirements(
-        self, service, fields, categories
-    ):
-        field = _personal_data_field(pk=10)
-        cats = [category()]
-        fields.read_by_slug.return_value = field
-        categories.list_by_event.return_value = cats
-        categories.get_personal_field_categories.return_value = {
-            1: True,
-            2: False,
-            3: True,
-        }
-
-        ctx = service.get_edit_form_context(event_pk=5, field_slug="email")
-
-        assert isinstance(ctx, PersonalDataFieldEditContextDTO)
-        assert ctx.field is field
-        assert ctx.categories is cats
-        assert ctx.required_category_pks == {1, 3}
-        assert ctx.optional_category_pks == {2}
-        fields.read_by_slug.assert_called_once_with(5, "email")
-
-    def test_get_edit_form_context_propagates_not_found(self, service, fields):
+    def test_read_propagates_not_found(self, service, fields):
         fields.read_by_slug.side_effect = NotFoundError
 
         with pytest.raises(NotFoundError):
-            service.get_edit_form_context(event_pk=5, field_slug="missing")
+            service.read(5, "missing")
 
-    def test_create_persists_field_and_categories_in_transaction(
-        self, service, transaction, fields, categories
-    ):
+    def test_create_persists_field_in_transaction(self, service, transaction, fields):
         created = _personal_data_field(pk=99)
         fields.create.return_value = created
-        categories.list_by_event.return_value = [category(pk=1), category(pk=2)]
         data = {
             "name": "Email",
             "question": "Q",
@@ -188,90 +138,36 @@ class TestCFPPersonalDataFieldService:
             "max_length": 50,
             "help_text": "",
             "is_public": False,
+            "is_required": True,
+            "order": 2,
         }
 
-        result = service.create(
-            event_pk=7, data=data, category_requirements=_selection({1: True, 2: False})
-        )
+        result = service.create(7, data)
 
         assert result is created
         transaction.atomic.assert_called_once()
         fields.create.assert_called_once_with(7, data)
-        categories.set_personal_field_categories.assert_called_once_with(
-            99, {1: True, 2: False}
-        )
 
-    def test_create_drops_categories_from_another_event(
-        self, service, fields, categories
-    ):
-        fields.create.return_value = _personal_data_field(pk=99)
-        categories.list_by_event.return_value = [category(pk=1)]
-        data = {
-            "name": "Email",
-            "question": "Q",
-            "field_type": "text",
-            "options": None,
-            "is_multiple": False,
-            "allow_custom": False,
-            "max_length": 50,
-            "help_text": "",
-            "is_public": False,
-        }
-
-        service.create(
-            event_pk=7,
-            data=data,
-            category_requirements=_selection({1: True, 999: True}),
-        )
-
-        # The foreign category pk (999) is dropped before persisting.
-        categories.set_personal_field_categories.assert_called_once_with(99, {1: True})
-
-    def test_create_skips_category_assignment_when_no_requirements(
-        self, service, fields, categories
-    ):
-        fields.create.return_value = _personal_data_field(pk=99)
-        data = {
-            "name": "Email",
-            "question": "Q",
-            "field_type": "text",
-            "options": None,
-            "is_multiple": False,
-            "allow_custom": False,
-            "max_length": 50,
-            "help_text": "",
-            "is_public": False,
-        }
-
-        service.create(event_pk=7, data=data, category_requirements=_selection({}))
-
-        categories.set_personal_field_categories.assert_not_called()
-
-    def test_update_writes_field_and_sets_categories_in_transaction(
-        self, service, transaction, fields, categories
-    ):
-        field = _personal_data_field(pk=10)
-        fields.read_by_slug.return_value = field
-        categories.list_by_event.return_value = [category(pk=1)]
+    def test_update_writes_field_in_transaction(self, service, transaction, fields):
+        fields.read_by_slug.return_value = _personal_data_field(pk=10)
         update_data = {
             "name": "Email",
             "question": "Q",
             "max_length": 50,
             "help_text": "",
             "is_public": False,
+            "is_required": False,
+            "order": 0,
             "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
         }
 
-        service.update(
-            event_pk=5,
-            field_slug="email",
-            data=update_data,
-            category_requirements=_selection({1: True}),
-        )
+        service.update(event_pk=5, field_slug="email", data=update_data)
 
         transaction.atomic.assert_called_once()
+        fields.read_by_slug.assert_called_once_with(5, "email")
         fields.update.assert_called_once_with(10, update_data)
-        categories.set_personal_field_categories.assert_called_once_with(10, {1: True})
 
     def test_update_raises_when_field_missing(self, service, fields):
         fields.read_by_slug.side_effect = NotFoundError
@@ -286,23 +182,27 @@ class TestCFPPersonalDataFieldService:
                     "max_length": 0,
                     "help_text": "",
                     "is_public": False,
+                    "is_required": False,
+                    "order": 0,
                     "options": None,
+                    "is_multiple": False,
+                    "allow_custom": False,
                 },
-                category_requirements=_selection({}),
             )
+        fields.update.assert_not_called()
 
-    def test_delete_returns_false_when_field_has_requirements(self, service, fields):
+    def test_delete_returns_false_when_field_has_answers(self, service, fields):
         fields.read_by_slug.return_value = _personal_data_field(pk=10)
-        fields.has_requirements.return_value = True
+        fields.has_values.return_value = True
 
         result = service.delete(event_pk=5, field_slug="email")
 
         assert result is False
         fields.delete.assert_not_called()
 
-    def test_delete_removes_field_when_unused(self, service, fields):
+    def test_delete_removes_field_when_unanswered(self, service, fields):
         fields.read_by_slug.return_value = _personal_data_field(pk=10)
-        fields.has_requirements.return_value = False
+        fields.has_values.return_value = False
 
         result = service.delete(event_pk=5, field_slug="email")
 
@@ -2327,6 +2227,8 @@ class TestProposalImportService(_ImportServiceMocks):
                 "max_length": 255,
                 "help_text": "",
                 "is_public": False,
+                "is_required": False,
+                "order": 0,
             },
         )
         session_fields.create.assert_not_called()
@@ -3519,7 +3421,6 @@ class TestCFPSessionFieldService:
         )
 
         categories.set_session_field_categories.assert_called_once_with(99, {1: True})
-        categories.set_personal_field_categories.assert_not_called()
 
     def test_update_writes_to_the_session_field_link_table(self, service, categories):
         service.update(
@@ -3530,4 +3431,3 @@ class TestCFPSessionFieldService:
         )
 
         categories.set_session_field_categories.assert_called_once_with(99, {1: False})
-        categories.set_personal_field_categories.assert_not_called()

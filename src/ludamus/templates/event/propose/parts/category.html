@@ -2,7 +2,6 @@
 <div id="wizard-content">
     {% include "event/propose/parts/_proposal_description.html" %}
     {% include "event/propose/parts/_stepper.html" %}
-    {% include "event/propose/parts/_login_nudge.html" %}
     <h2 class="text-lg font-semibold mb-1">{% translate "What would you like to propose?" %}</h2>
     <p class="text-sm text-foreground-muted mb-5">{% translate "Choose the type of session you want to run." %}</p>
     {% if error|default:"" %}<div class="alert backdrop-blur-lg alert-danger mb-4">{{ error }}</div>{% endif %}
@@ -27,7 +26,13 @@
                     </label>
                 {% endfor %}
             </div>
-            <div class="flex justify-end pt-6">
+            <div class="flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3 pt-6">
+                <button type="button"
+                        class="btn btn-secondary"
+                        hx-post="{% url 'web:event:session-propose-personal' event_slug=event.slug %}"
+                        hx-target="#wizard-content"
+                        hx-swap="outerHTML show:#wizard-content:top"
+                        hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>
                 <button type="submit" class="btn btn-primary">{% translate "Continue" %} →</button>
             </div>
         </form>

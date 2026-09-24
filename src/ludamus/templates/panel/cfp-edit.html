@@ -267,7 +267,7 @@
                         });
                     })();
                 </script>
-                {% if proposal_count > 0 and available_fields or proposal_count > 0 and available_session_fields %}
+                {% if proposal_count > 0 and available_session_fields %}
                     <div class="alert backdrop-blur-lg alert-warning mt-6">
                         <div class="flex items-start gap-3">
                             <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
@@ -280,50 +280,6 @@
                                 </p>
                             </div>
                         </div>
-                    </div>
-                {% endif %}
-                {% if available_fields %}
-                    <div class="card mt-6">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Host Data Fields" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-6">
-                                {% translate "Select which personal data fields hosts must provide." %}
-                            </p>
-                            <input type="hidden"
-                                   name="field_order"
-                                   id="field-order"
-                                   value="{{ field_order|join:',' }}">
-                            <div id="host-fields-list" class="space-y-2">
-                                {% for field in available_fields %}
-                                    <div data-field-item
-                                         class="flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
-                                         data-field-id="{{ field.pk }}"
-                                         data-field-type="{{ field.field_type }}"
-                                         data-original-index="{{ forloop.counter0 }}">
-                                        <span class="text-sm font-medium text-foreground-secondary flex-1">{{ field.name }}</span>
-                                        <select name="field_{{ field.pk }}" data-field-select class="hidden">
-                                            <option value="none"
-                                                    {% if field.pk not in field_requirements %}selected{% endif %}>
-                                                {% translate "Not included" %}
-                                            </option>
-                                            {% if field.field_type != "checkbox" %}
-                                                <option value="required"
-                                                        {% if field_requirements|get_item:field.pk is True %}selected{% endif %}>
-                                                    {% translate "Required" %}
-                                                </option>
-                                            {% endif %}
-                                            <option value="optional" {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %} {% else %} {% if field_requirements|get_item:field.pk is False %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
-                                        </select>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="bg-bg-tertiary rounded-xl border border-border p-6 mt-6 text-center">
-                        <p class="text-sm text-foreground-muted mb-2">{% translate "No personal data fields defined for this event." %}</p>
-                        <a href="{% url 'panel:personal-data-fields' slug=current_event.slug %}"
-                           class="text-sm text-primary hover:text-primary/80">{% translate "Configure host data fields" %}</a>
                     </div>
                 {% endif %}
                 {% if available_session_fields %}
@@ -726,9 +682,6 @@
                             syncOrder();
                         }
 
-                        setupFieldPicker('host-fields-list', 'field-order', {
-                            hasRequiredOptional: true
-                        });
                         setupFieldPicker('session-fields-list', 'session-field-order', {
                             hasRequiredOptional: true
                         });
