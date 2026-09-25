@@ -20,7 +20,7 @@ test("an unverifiable MCP client gets a readable error instead of a redirect", a
   expect(page.url()).toContain("/mcp/oauth/authorize/");
   await expect(page.getByRole("heading", { name: "This client can't connect" })).toBeVisible();
   await expect(
-    page.getByText("The client_id must be an https URL of a client metadata document."),
+    page.getByText("The client did not identify itself with a metadata document URL."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Connect/ })).toHaveCount(0);
 });
