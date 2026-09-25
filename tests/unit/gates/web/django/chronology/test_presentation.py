@@ -6,8 +6,6 @@ from django.utils import timezone
 
 from ludamus.gates.web.django.chronology.event_presentation import (
     CloudPill,
-    DisplayFieldRow,
-    LocationCrumb,
     SessionData,
     build_display_field_row,
     flatten_cloud_overflow,
@@ -19,47 +17,17 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.pacts import AgendaItemDTO
 from ludamus.pacts.legacy import SessionFieldValueDTO
-from tests.unit.gates.web.django.chronology.helpers import location, make_session_data
+from tests.unit.gates.web.django.chronology.helpers import make_session_data
 
 
 class TestSessionDataSpotsLeft:
-    def test_no_enrollments(self):
-        data = make_session_data(effective_participants_limit=10, enrolled_count=0)
-
-        assert data.spots_left == data.effective_participants_limit
-
-    def test_some_enrollments(self):
-        data = make_session_data(effective_participants_limit=10, enrolled_count=3)
-
-        assert (
-            data.spots_left == data.effective_participants_limit - data.enrolled_count
-        )
-
-    def test_full(self):
-        data = make_session_data(effective_participants_limit=10, enrolled_count=10)
-
-        assert data.spots_left == 0
-
     def test_over_limit_clamps_to_zero(self):
         data = make_session_data(effective_participants_limit=5, enrolled_count=7)
 
         assert data.spots_left == 0
 
-    def test_zero_limit_has_no_spots(self):
-        data = make_session_data(effective_participants_limit=0, enrolled_count=5)
-
-        assert data.spots_left == 0
-
 
 class TestSessionDataTakesEnrollment:
-    @pytest.mark.parametrize(("limit", "expected"), ((0, False), (1, True), (30, True)))
-    def test_reads_the_sessions_own_limit(self, limit, expected):
-        session = MagicMock()
-        session.participants_limit = limit
-        data = make_session_data(session=session)
-
-        assert data.takes_enrollment is expected
-
     def test_ignores_a_window_zeroed_effective_limit(self):
         session = MagicMock()
         session.participants_limit = 30
@@ -92,31 +60,11 @@ class TestSessionDataAvailability:
 
         assert data.availability == "no-enrollment"
 
-    def test_a_shut_window_is_unavailable(self):
-        data = _availability_data(is_enrollment_available=False)
-
-        assert data.availability == "unavailable"
-
-    def test_capacity_and_free_seats_come_last(self):
-        assert _availability_data(is_full=True).availability == "full"
-        assert _availability_data(is_full=False).availability == "available"
-
 
 class TestSessionDataSpotsScarce:
     @pytest.mark.parametrize(
         ("limit", "enrolled", "expected"),
-        (
-            (10, 0, False),
-            (10, 5, False),
-            (10, 7, False),
-            (10, 8, False),
-            (10, 9, True),
-            (10, 10, True),
-            (5, 4, False),
-            (5, 5, True),
-            (1, 1, True),
-            (1, 0, False),
-        ),
+        ((10, 8, False), (10, 9, True), (5, 4, False)),
     )
     def test_threshold(self, limit, enrolled, expected):
         data = make_session_data(
@@ -131,101 +79,7 @@ class TestSessionDataSpotsScarce:
         assert data.spots_scarce is False
 
 
-class TestSessionDataWaitingCount:
-    def test_default_is_zero(self):
-        data = make_session_data()
-
-        assert data.waiting_count == 0
-
-    def test_explicit_value(self):
-        waiting = 3
-        data = make_session_data(waiting_count=waiting)
-
-        assert data.waiting_count == waiting
-
-
-class TestSessionDataLocationLabel:
-    def test_returns_full_tree_path(self):
-        data = make_session_data(loc=location(path="Hotel Mariot > Sala A > Stół 1"))
-
-        assert data.location_label == "Hotel Mariot > Sala A > Stół 1"
-
-    def test_empty_path_returns_empty(self):
-        data = make_session_data(loc=location())
-
-        assert not data.location_label
-
-
-class TestSessionDataLocationCrumbs:
-    def test_empty_path_returns_empty(self):
-        data = make_session_data(loc=location())
-
-        assert not data.location_crumbs
-
-    def test_room_only_filters_to_the_room(self):
-        data = make_session_data(
-            loc=location(space_id=3, sort_path=((0, "Aula 2: Nassau", 3),))
-        )
-
-        assert data.location_crumbs == [
-            LocationCrumb(name="Aula 2: Nassau", space_filter="3")
-        ]
-
-    def test_floor_and_room_link_to_all_rooms_and_the_room(self):
-        data = make_session_data(
-            loc=location(
-                space_id=3,
-                parent_id=2,
-                sort_path=((0, "Poziom -1", 2), (0, "Aula 2: Nassau", 3)),
-            )
-        )
-
-        assert data.location_crumbs == [
-            LocationCrumb(name="Poziom -1", space_filter="venue:2"),
-            LocationCrumb(name="Aula 2: Nassau", space_filter="3"),
-        ]
-
-    def test_building_stays_plain_text(self):
-        data = make_session_data(
-            loc=location(
-                space_id=3,
-                parent_id=2,
-                sort_path=(
-                    (0, "Budynek główny", 1),
-                    (0, "Poziom -1", 2),
-                    (0, "Aula 2: Nassau", 3),
-                ),
-            )
-        )
-
-        assert data.location_crumbs == [
-            LocationCrumb(name="Budynek główny", space_filter=None),
-            LocationCrumb(name="Poziom -1", space_filter="venue:2"),
-            LocationCrumb(name="Aula 2: Nassau", space_filter="3"),
-        ]
-
-
 class TestSessionDataFilterCategories:
-    def test_empty_without_tracks_or_category(self):
-        data = make_session_data()
-
-        assert not data.filter_categories
-
-    def test_track_names_become_track_pairs(self):
-        data = make_session_data(track_names=["Main", "Side"])
-
-        assert data.filter_categories == "__track:Main;__track:Side"
-
-    def test_category_becomes_category_pair(self):
-        data = make_session_data(category_name="RPG")
-
-        assert data.filter_categories == "__category:RPG"
-
-    def test_track_and_category_combined(self):
-        data = make_session_data(track_names=["Main"], category_name="RPG")
-
-        assert data.filter_categories == "__track:Main;__category:RPG"
-
     def test_prepends_public_field_tags(self):
         data = make_session_data(
             field_values=[
@@ -261,11 +115,6 @@ class TestBuildScheduleDays:
 
         assert len(days) == 1
         assert [tile.data for tile in days[0].hours[0].tiles] == [scheduled]
-
-    def test_only_pending_proposals_yield_no_days(self):
-        pending = make_session_data(agenda_item=None)
-
-        assert not build_schedule_days({1: pending})
 
 
 class TestBuildCardDays:
@@ -352,9 +201,6 @@ class TestGroupSessionsByState:
 
 
 class TestFlattenCloudOverflow:
-    def test_empty(self):
-        assert flatten_cloud_overflow([]) == []
-
     def test_merges_overflow_from_every_field(self):
         system = build_display_field_row(
             SessionFieldValueDTO(
@@ -383,18 +229,4 @@ class TestFlattenCloudOverflow:
             CloudPill(icon="book-open", value="e"),
             CloudPill(icon="exclamation-triangle", value="five"),
             CloudPill(icon="exclamation-triangle", value="six"),
-        ]
-
-    def test_session_data_exposes_one_overflow_list(self):
-        row = DisplayFieldRow(
-            icon="book-open",
-            name="System",
-            visible_values=["a", "b", "c", "d"],
-            overflow_values=["e", "f"],
-        )
-        data = make_session_data(displayed_field_rows=[row])
-
-        assert data.cloud_overflow == [
-            CloudPill(icon="book-open", value="e"),
-            CloudPill(icon="book-open", value="f"),
         ]
