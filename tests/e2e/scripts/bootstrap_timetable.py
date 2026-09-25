@@ -46,6 +46,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     TimeSlotRequirement,
     Track,
+    User,
 )
 
 
@@ -327,6 +328,7 @@ def main() -> None:
         all_days_session.time_slots.set(slots)
 
     _seed_room_pager_event(sphere=sphere, event_day=event_day)
+    _seed_problems_event(sphere=sphere, event_day=event_day)
 
 
 def _seed_room_pager_event(*, sphere, event_day) -> None:
@@ -359,6 +361,113 @@ def _seed_room_pager_event(*, sphere, event_day) -> None:
     TimeSlot.objects.get_or_create(
         event=event, start_time=start, end_time=start + timedelta(hours=2)
     )
+
+
+def _seed_problems_event(*, sphere, event_day) -> None:
+    # One of every scheduling problem, for timetable-problems.spec: a room
+    # double-booked, a facilitator in two rooms at once, a session bigger than
+    # its room and one placed outside the slot it asked for. Two tracks with
+    # rooms of their own, so filtering by one hides the other's sessions. The
+    # spec unassigns a session and reverts it, so it needs an event of its own.
+    local_tz = get_current_timezone()
+
+    def at(hour: int, minute: int = 0) -> datetime:
+        return datetime.combine(event_day, time(hour, minute), tzinfo=local_tz)
+
+    event, _ = Event.objects.get_or_create(
+        sphere=sphere,
+        slug="emberfall-con",
+        defaults={
+            "name": "Emberfall Convention",
+            "description": "A one-day convention with a schedule full of problems.",
+            "start_time": at(10),
+            "end_time": at(16),
+            "publication_time": timezone.now() - timedelta(days=2),
+        },
+    )
+    hall, _ = Space.objects.get_or_create(
+        event=event, parent=None, slug="ember-hall", defaults={"name": "Ember Hall"}
+    )
+    rooms = {
+        name: Space.objects.get_or_create(
+            event=event,
+            parent=hall,
+            slug=name.lower().replace(" ", "-"),
+            defaults={"name": name, "capacity": capacity, "order": order},
+        )[0]
+        for order, (name, capacity) in enumerate(
+            (("Amber Room", 6), ("Basalt Room", 10), ("Cobalt Room", 8))
+        )
+    }
+    morning, _ = TimeSlot.objects.get_or_create(
+        event=event, start_time=at(10), end_time=at(12)
+    )
+    TimeSlot.objects.get_or_create(event=event, start_time=at(13), end_time=at(16))
+    category, _ = ProposalCategory.objects.get_or_create(
+        event=event, slug="rpg", defaults={"name": "RPG"}
+    )
+
+    story_games, _ = Track.objects.get_or_create(
+        event=event,
+        slug="story-games",
+        defaults={"name": "Story Games", "is_public": False},
+    )
+    story_games.spaces.set([rooms["Amber Room"], rooms["Cobalt Room"]])
+    # Not e2e-manager, who logs in: a single managed track is pre-selected on
+    # the timetable, and the spec starts from the unfiltered view.
+    story_games.managers.set([User.objects.get(username="auth0|local-manager")])
+    miniatures, _ = Track.objects.get_or_create(
+        event=event,
+        slug="miniatures",
+        defaults={"name": "Miniatures", "is_public": False},
+    )
+    miniatures.spaces.set([rooms["Basalt Room"]])
+
+    facilitators = {
+        name: Facilitator.objects.get_or_create(
+            event=event,
+            slug=name.lower().replace(" ", "-"),
+            defaults={"display_name": name, "user": None},
+        )[0]
+        for name in ("Ivy Marsh", "Otto Brandt", "Rowan Hale", "Sage Lyle", "Juno Park")
+    }
+    schedule = (
+        # title, track, room, start (every session runs an hour), facilitator,
+        # participants limit
+        ("Clockwork Heist", story_games, "Amber Room", at(10), "Ivy Marsh", 5),
+        ("Ghost Ship Salvage", story_games, "Amber Room", at(10, 30), "Otto Brandt", 5),
+        ("Tidepool Tales", story_games, "Cobalt Room", at(10), "Rowan Hale", 4),
+        ("Moonlit Duel", story_games, "Cobalt Room", at(14), "Sage Lyle", 4),
+        ("Lantern Market", miniatures, "Basalt Room", at(10), "Rowan Hale", 6),
+        ("Giant Mech Brawl", miniatures, "Basalt Room", at(14), "Juno Park", 20),
+    )
+    for title, track, room, start, facilitator, limit in schedule:
+        session, _ = Session.objects.get_or_create(
+            event=event,
+            slug=title.lower().replace(" ", "-"),
+            defaults={
+                "title": title,
+                "facilitator_name": facilitator,
+                "description": f"{title}, seeded for the problems page.",
+                "duration": "PT1H",
+                "participants_limit": limit,
+                "min_age": 0,
+                "status": "accepted",
+                "category": category,
+            },
+        )
+        session.tracks.set([track])
+        session.facilitators.set([facilitators[facilitator]])
+        AgendaItem.objects.get_or_create(
+            session=session,
+            defaults={
+                "space": rooms[room],
+                "start_time": start,
+                "end_time": start + timedelta(hours=1),
+            },
+        )
+    # Asked for the morning, placed in the afternoon.
+    Session.objects.get(event=event, slug="moonlit-duel").time_slots.set([morning])
 
 
 if __name__ == "__main__":

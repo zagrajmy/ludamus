@@ -920,6 +920,29 @@ def _create_panel_crud_event(sphere: Sphere) -> Event:
     return event
 
 
+# Dedicated event for panel-tracks.spec: a venue with rooms and no tracks yet,
+# so the track form offers its room checklist and the walkthrough owns every
+# row on the tracks list. The spec deletes the track it makes, and nothing
+# else reads this event.
+def _create_track_setup_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Thornwood Tabletop Days",
+        slug="thornwood-days",
+        description="A lodge weekend of one-shots, used to set up tracks.",
+        start_offset=timedelta(days=26),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    lodge = _create_venue(event, name="Thornwood Lodge", slug="thornwood-lodge")
+    ground_floor = _create_area(lodge, name="Ground Floor", slug="ground-floor")
+    for name in ("Oak Room", "Birch Room", "Cedar Room"):
+        _create_space(
+            ground_floor, name=name, slug=name.lower().replace(" ", "-"), capacity=8
+        )
+    return event
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -1311,6 +1334,7 @@ def main() -> None:
     _create_panel_lab_event(sphere)
     _create_konwencik_preview_event(sphere)
     _create_panel_crud_event(sphere)
+    _create_track_setup_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_accept_lab_event(sphere)
