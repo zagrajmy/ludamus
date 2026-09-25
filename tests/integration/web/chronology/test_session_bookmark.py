@@ -11,7 +11,9 @@ from ludamus.gates.web.django.chronology.schedule import (
     RoomLanes,
     RoomLaneTile,
 )
+from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.models import SessionBookmark
+from ludamus.pacts.bookmarks import BookmarkStateDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -245,3 +247,34 @@ class TestEventPageBookmarkCounts:
             ),
             template_name=["chronology/event.html"],
         )
+
+
+class TestBookmarkRepositorySessionState:
+    def test_counts_every_bookmark_and_flags_the_viewers(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=True, count=2)
+
+    def test_anonymous_viewer_sees_the_count_only(self, session):
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=None, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=1)
+
+    def test_session_of_another_event_reads_as_empty(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        other_event = EventFactory(sphere=session.event.sphere)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=other_event.pk
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=0)
