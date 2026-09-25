@@ -100,18 +100,32 @@ test("a seatless session's modal offers the bookmark beside its time", async ({
   expect(bookmarkBox.x + bookmarkBox.width).toBeCloseTo(closeBox.x + closeBox.width, 0);
   expect(bookmarkBox.y + bookmarkBox.height).toBeCloseTo(timeBox.y + timeBox.height, 0);
 
+  // Each toggle paints twice (optimistic, then settled), and the settled paint
+  // runs in the same tick that releases the in-flight guard. Counting paints
+  // keeps the second click from landing while the first is still settling.
+  await page.evaluate(() => {
+    const scope = globalThis as unknown as { __bookmarkPaints: number };
+    scope.__bookmarkPaints = 0;
+    document.addEventListener("session:bookmark-changed", () => {
+      scope.__bookmarkPaints += 1;
+    });
+  });
+  const paints = () =>
+    page.evaluate(() => (globalThis as unknown as { __bookmarkPaints: number }).__bookmarkPaints);
+
   const was = await bookmark.getAttribute("aria-pressed");
-  const flipped = String(was !== "true");
   const toggled = page.waitForResponse(/\/bookmark\/$/);
   await bookmark.click();
   expect((await toggled).ok()).toBe(true);
-  await expect(bookmark).toHaveAttribute("aria-pressed", flipped);
+  await expect.poll(paints).toBe(2);
+  await expect(bookmark).toHaveAttribute("aria-pressed", String(was !== "true"));
   // The count showing up or going away must not reflow the time box.
   expect((await time.boundingBox())?.width).toBe(timeBox.width);
 
   const restored = page.waitForResponse(/\/bookmark\/$/);
   await bookmark.click();
   expect((await restored).ok()).toBe(true);
+  await expect.poll(paints).toBe(4);
   await expect(bookmark).toHaveAttribute("aria-pressed", String(was));
 
   await context.close();
