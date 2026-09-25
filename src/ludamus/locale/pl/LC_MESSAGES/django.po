@@ -4077,13 +4077,15 @@ msgstr ""
 msgid "Encounters"
 msgstr "Spotkania"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"Players post a game night, send friends one link, and see who is coming and "
-"how many seats are left. It needs no organizer and no setup."
+"Players post a game night, send friends one link, and see who's coming and "
+"how many seats are left. It takes less time than setting up the board."
 msgstr ""
 "Gracze ogłaszają wieczór z grą, wysyłają znajomym jeden link i widzą, kto "
-"przyjdzie i ile zostało miejsc. Nie trzeba organizatora ani konfiguracji."
+"przyjdzie i ile zostało miejsc. Zajmuje to mniej czasu niż rozłożenie "
+"planszy."
 
 #: src/ludamus/templates/about.html
 msgid "What makes Zagrajmy different"
@@ -4094,15 +4096,16 @@ msgstr "Czym Zagrajmy się wyróżnia"
 msgid "We set up your event with you"
 msgstr "Ustawiamy wydarzenie razem z Tobą"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"Most event tools hand you an empty account and a help centre. We start with "
-"a call about how your event works and prepare the first version of "
-"proposals, rooms, and time slots together with you."
+"Before you ever see an empty form, we get on a call about how your event "
+"works. Then we set up the first version of proposals, rooms, and time slots "
+"with you."
 msgstr ""
-"Większość narzędzi do wydarzeń daje Ci puste konto i centrum pomocy. My "
-"zaczynamy od rozmowy o tym, jak działa Twoje wydarzenie, i razem z Tobą "
-"przygotowujemy pierwszą wersję zgłoszeń, sal i przedziałów czasowych."
+"Zanim zobaczysz pusty formularz, rozmawiamy o tym, jak działa Twoje "
+"wydarzenie. Potem razem z Tobą ustawiamy pierwszą wersję zgłoszeń, sal i "
+"przedziałów czasowych."
 
 #
 #: src/ludamus/templates/about.html
@@ -4111,13 +4114,15 @@ msgstr "Grupa zostaje razem na liście oczekujących"
 
 #: src/ludamus/templates/about.html
 msgid ""
-"Friends who enroll together wait together and move up together, and nobody "
-"skips past them. RSVP tools that count seats one by one split such a group "
-"up as soon as a single seat frees up."
+"Friends who enroll as a group wait as a group. When enough seats free up, "
+"they get them together, and nobody further down the list jumps ahead. Tools "
+"that count seats one at a time would split them up the moment one seat "
+"opened."
 msgstr ""
-"Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
-"wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, rozdzielają "
-"taką grupę, gdy tylko zwolni się jedno miejsce."
+"Znajomi zapisani jako grupa czekają jako grupa. Gdy zwolni się dość miejsc, "
+"dostają je razem, a nikt z dalszej części listy ich nie wyprzedza. "
+"Narzędzia, które liczą miejsca pojedynczo, rozdzieliłyby ich, gdy tylko "
+"zwolniłoby się jedno miejsce."
 
 #: src/ludamus/templates/about.html
 msgid "Your spreadsheet is a starting point"
@@ -4133,9 +4138,10 @@ msgstr ""
 "importujemy go, zamiast kazać Ci go przepisywać. Gotowy program można też "
 "wyeksportować do Konwencika."
 
+#
 #: src/ludamus/templates/about.html
-msgid "Open source, no lock-in"
-msgstr "Otwarty kod, bez uwiązania"
+msgid "Open source, so you can always leave"
+msgstr "Otwarty kod, więc zawsze możesz odejść"
 
 #: src/ludamus/templates/about.html
 #, python-format
@@ -4152,15 +4158,16 @@ msgstr ""
 msgid "Free for attendees and small meetups"
 msgstr "Za darmo dla uczestników i małych meetupów"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
 "Attendees never pay Zagrajmy to enroll, and small meetups and Encounters "
-"cost nothing. Conventions and conferences get a written proposal before "
-"anything is agreed."
+"cost nothing. For conventions and conferences we send a written proposal "
+"first, and you decide from there."
 msgstr ""
 "Uczestnicy nigdy nie płacą Zagrajmy za zapisy, a małe meetupy i Spotkania "
-"nic nie kosztują. Konwenty i konferencje dostają pisemną propozycję, zanim "
-"cokolwiek zostanie ustalone."
+"nic nie kosztują. Konwentom i konferencjom najpierw wysyłamy pisemną "
+"propozycję, a decyzja należy do Ciebie."
 
 #: src/ludamus/templates/about.html
 msgid "Who uses Zagrajmy"
@@ -4225,14 +4232,14 @@ msgid ""
 "We first tried to build it in 2020, then other things took over. In June "
 "2025 we picked it back up, starting with enrollment for tabletop game "
 "conventions, where the programme still lived in spreadsheets and chat "
-"threads. It has grown from there into the whole programme: proposals, the "
-"schedule, the event page, and print."
+"threads. By now it covers everything from the first proposal to the printout "
+"on the room door."
 msgstr ""
 "Pierwszy raz próbowaliśmy je zbudować w 2020 roku, ale wtedy wygrały inne "
 "sprawy. W czerwcu 2025 wróciliśmy do niego, zaczynając od zapisów na "
 "konwenty gier bez prądu, na których program wciąż żył w arkuszach i wątkach "
-"na czacie. Od tamtej pory urosło do całego programu: zgłoszeń, harmonogramu, "
-"strony wydarzenia i druku."
+"na czacie. Dziś obejmuje wszystko, od pierwszego zgłoszenia po wydruk na "
+"drzwiach sali."
 
 #: src/ludamus/templates/about.html
 msgid ""
@@ -4280,12 +4287,8 @@ msgid "How Zagrajmy works"
 msgstr "Jak działa współpraca z Zagrajmy"
 
 #: src/ludamus/templates/about.html
-msgid ""
-"You work directly with the people who build Zagrajmy: no account managers "
-"and no ticket queue between you and the code."
-msgstr ""
-"Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
-"klienta i bez kolejki zgłoszeń między Tobą a kodem."
+msgid "You talk directly to us, the people who write the code."
+msgstr "Rozmawiasz bezpośrednio z nami, czyli z ludźmi, którzy piszą kod."
 
 #: src/ludamus/templates/about.html
 #: src/ludamus/templates/landing/org_objections.html
@@ -4305,13 +4308,14 @@ msgid ""
 "You click through it with us and we publish when you decide it is ready."
 msgstr "Przeklikujesz ją z nami i publikujemy, kiedy uznasz, że jest gotowa."
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"After that, your team runs the event in the organizer panel on its own, and "
-"the event gets its own address on zagrajmy.net."
+"After that, the event is yours to run from the organizer panel, at its own "
+"address on zagrajmy.net."
 msgstr ""
-"Potem Twój zespół samodzielnie prowadzi wydarzenie w panelu organizatora, a "
-"wydarzenie dostaje własny adres w zagrajmy.net."
+"Potem wydarzenie prowadzi już Twój zespół w panelu organizatora, pod własnym "
+"adresem w zagrajmy.net."
 
 #: src/ludamus/templates/about.html
 #: src/ludamus/templates/landing/org_final.html
@@ -4530,15 +4534,16 @@ msgstr ""
 msgid "Can I set up an event on my own?"
 msgstr "Czy mogę samodzielnie założyć wydarzenie?"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"A convention or conference we set up together with you, so the first version "
-"fits how your event works. A game night you can post yourself as an "
+"Not a convention or conference, not yet: we set those up with you, so the "
+"first version fits how your event works. A game night, yes: post it as an "
 "Encounter, right away and for free."
 msgstr ""
-"Konwent albo konferencję ustawiamy razem z Tobą, żeby pierwsza wersja "
-"pasowała do tego, jak działa Twoje wydarzenie. Wieczór z grą ogłosisz "
-"samodzielnie jako Spotkanie, od razu i za darmo."
+"Konwentu ani konferencji jeszcze nie: te ustawiamy razem z Tobą, żeby "
+"pierwsza wersja pasowała do tego, jak działa Twoje wydarzenie. Wieczór z grą "
+"tak: ogłoś go jako Spotkanie, od razu i za darmo."
 
 #: src/ludamus/templates/about.html
 #: src/ludamus/templates/landing/org_objections.html
@@ -11731,6 +11736,22 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Friends who enroll together wait together and move up together, and "
+#~ "nobody skips past them. RSVP tools that count seats one by one split such "
+#~ "a group up as soon as a single seat frees up."
+#~ msgstr ""
+#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
+#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
+#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
+
+#~ msgid ""
+#~ "You work directly with the people who build Zagrajmy: no account managers "
+#~ "and no ticket queue between you and the code."
+#~ msgstr ""
+#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
+#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
 
 #~ msgid ""
 #~ "Radek writes code, songs, and games. He designs his own roleplaying games "
