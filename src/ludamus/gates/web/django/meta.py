@@ -39,9 +39,8 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
     return " ".join(parts)
 
 
-# A messenger preview shows a title and a line or two of description, and
-# crawlers run no JS, so the ?session= modal never opens for them. Lead with
-# what someone deciding whether to come needs: which session, when, where.
+# NOTE: link-preview crawlers run no JS, so the ?session= modal never opens for
+# them, and a messenger shows only a line or two of the description.
 def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
     session = data.session
     parts = []

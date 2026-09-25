@@ -371,8 +371,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         return context
 
-    # Only a session the schedule already lists: a private or unpublished one
-    # never reaches sessions_data, so its title can't leak through the card.
+    # SAFETY: only a session the schedule already lists. A private or
+    # unpublished one never reaches sessions_data, so its title can't leak.
     def _session_link_preview(
         self, sessions_data: dict[int, SessionData]
     ) -> LinkPreview:
