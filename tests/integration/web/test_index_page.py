@@ -107,6 +107,24 @@ class TestIndexRedirectView:
         )
 
 
+class TestLegacyFeedRedirects:
+    # Shared links carry filters and UTM tags; the move to the sphere root
+    # must not strip them.
+    @pytest.mark.parametrize("path", ("/events/", "/timeline/", "/encounters/"))
+    def test_keeps_the_query_string(self, authenticated_client, path):
+        response = authenticated_client.get(f"{path}?utm_source=fb&day=sat")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url="/?utm_source=fb&day=sat"
+        )
+
+    @pytest.mark.parametrize("path", ("/events/", "/timeline/", "/encounters/"))
+    def test_lands_on_the_bare_root_without_a_query(self, authenticated_client, path):
+        response = authenticated_client.get(path)
+
+        assert_response(response, HTTPStatus.MOVED_PERMANENTLY, url="/")
+
+
 @pytest.mark.usefixtures("_on_a_sphere_domain")
 class TestEventsPageView:
     URL = reverse("web:index")
