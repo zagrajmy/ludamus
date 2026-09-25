@@ -97,6 +97,11 @@ has the per-file recipe. New code must use `request.services`; never extend the
   repeatable artifact.
 - If you must test a system in isolation, first write down all the ways it
   could fail, then write the code.
+- Tautological tests considered harmful: a test that restates the code it
+  checks always passes and catches nothing.
+- Change-detector tests considered harmful: a test that breaks on every
+  refactor without a behavior change (asserting call sequences, mock
+  arguments, field-by-field mapping) costs more than it guards.
 
 ## Rules
 
