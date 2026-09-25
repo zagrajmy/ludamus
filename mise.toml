@@ -220,6 +220,10 @@ set -eu
 # interactive sessions.
 manifest="src/ludamus/static/vite/manifest.json"
 mtime() { stat -c %Y "$manifest" 2>/dev/null || echo missing; }
+# The offline stand-in for WorkOS that .env.e2e's WORKOS_BASE_URL names.
+python scripts/workos_simulator.py &
+simulator=$!
+trap 'kill "$simulator" 2>/dev/null' EXIT
 while true; do
   seen=$(mtime)
   coverage run --source=src -m django runserver --insecure --noreload localhost:8000 &
@@ -402,8 +406,8 @@ dir = "{{ config_root }}"
 run = "node scripts/og-image/build.mjs"
 
 [tasks.kill]
-description = "Kill dev servers (Django on :8000, Vite on :5173)"
-run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :8000, Vite on :5173, WorkOS simulator on :4400)"
+run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
 
 [tasks.ts-check]

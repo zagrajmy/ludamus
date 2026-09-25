@@ -32,6 +32,7 @@ env = environ.Env(
     # WorkOS AuthKit
     WORKOS_API_KEY=(str, ""),
     WORKOS_CLIENT_ID=(str, ""),
+    WORKOS_BASE_URL=(str, ""),
     # Database
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
@@ -402,6 +403,8 @@ SITE_ID = env("SITE_ID")
 
 WORKOS_API_KEY = env("WORKOS_API_KEY")
 WORKOS_CLIENT_ID = env("WORKOS_CLIENT_ID")
+# Empty means the real API; dev and e2e point it at scripts/workos_simulator.py.
+WORKOS_BASE_URL = env("WORKOS_BASE_URL")
 
 # Support
 

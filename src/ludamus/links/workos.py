@@ -32,13 +32,18 @@ _CLAIMS = TypeAdapter(_AccessTokenClaims)
 
 
 class WorkOSIdentityProvider(IdentityProviderProtocol):
-    def __init__(self, *, api_key: str, client_id: str) -> None:
+    def __init__(
+        self, *, api_key: str, client_id: str, base_url: str | None = None
+    ) -> None:
         self._api_key = api_key
         self._client_id = client_id
+        self._base_url = base_url
 
     @cached_property
     def _client(self) -> WorkOSClient:
-        return WorkOSClient(api_key=self._api_key, client_id=self._client_id)
+        return WorkOSClient(
+            api_key=self._api_key, client_id=self._client_id, base_url=self._base_url
+        )
 
     def authorization_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
         return self._client.user_management.get_authorization_url(

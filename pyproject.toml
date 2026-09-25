@@ -552,6 +552,9 @@ ignore_names = [
     "handle_data",
     "handle_endtag",
     "handle_starttag",
+    # BaseHTTPRequestHandler dispatches requests to do_<METHOD>
+    "do_GET",
+    "do_POST",
     # Django
     "*Config",
     "add_arguments",
