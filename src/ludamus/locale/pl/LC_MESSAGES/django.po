@@ -4420,8 +4420,8 @@ msgid "Headquarters"
 msgstr "Siedziba"
 
 #: src/ludamus/templates/about.html
-msgid "Poland"
-msgstr "Polska"
+msgid "Wrocław, Poland"
+msgstr "Wrocław, Polska"
 
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
@@ -11873,6 +11873,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Poland"
+#~ msgstr "Polska"
 
 #~ msgid "Invalid redirect URL."
 #~ msgstr "Nieprawidłowy adres URL przekierowania."
