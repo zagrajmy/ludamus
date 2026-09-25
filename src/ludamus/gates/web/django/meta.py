@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import unescape
 from typing import TYPE_CHECKING
 
@@ -8,10 +9,27 @@ from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from django.utils.timezone import localtime
 
+from ludamus.mills.legacy import render_markdown
+
 if TYPE_CHECKING:
+    from ludamus.gates.web.django.chronology.event_presentation import SessionData
     from ludamus.pacts import EncounterDTO
 
 SUMMARY_WORDS = 20
+
+
+# What a page's URL names inside it, for link previews to show instead of the
+# page itself. The empty preview overrides nothing, so a template reads its
+# fields with a fallback and no branch.
+@dataclass(frozen=True)
+class LinkPreview:
+    title: str = ""
+    description: str = ""
+    image_url: str = ""
+
+
+def _summary(description_html: str) -> str:
+    return Truncator(unescape(strip_tags(description_html))).words(SUMMARY_WORDS)
 
 
 def encounter_description(encounter: EncounterDTO, description_html: str) -> str:
@@ -20,6 +38,29 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
     if encounter.place:
         parts.append(f"— {encounter.place}")
     if description_html:
-        summary = unescape(strip_tags(description_html))
-        parts.append(f"| {Truncator(summary).words(SUMMARY_WORDS)}")
+        parts.append(f"| {_summary(description_html)}")
     return " ".join(parts)
+
+
+# A messenger preview shows a title and a line or two of description, and
+# crawlers run no JS, so the ?session= modal never opens for them. Lead with
+# what someone deciding whether to come needs: which session, when, where.
+def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
+    session = data.session
+    parts = []
+    if (agenda_item := data.agenda_item) is not None:
+        start = localtime(agenda_item.start_time)
+        end = localtime(agenda_item.end_time)
+        parts.append(
+            f"{date_format(start, 'l, j E')} · "
+            f"{time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
+        )
+    if place := data.loc.get("path", ""):
+        parts.append(f"— {place}")
+    if session.description:
+        parts.append(f"| {_summary(render_markdown(session.description))}")
+    return LinkPreview(
+        title=f"{session.title} • {event_name}",
+        description=" ".join(parts),
+        image_url=session.cover_image_url,
+    )

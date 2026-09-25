@@ -1,10 +1,19 @@
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 
 import ludamus
-from tests.integration.conftest import EncounterFactory, EventFactory
+from ludamus.links.db.django.models import Track
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EncounterFactory,
+    EventFactory,
+    SessionFactory,
+    SpaceFactory,
+)
 from tests.integration.utils import assert_rendered
 
 PRODUCT_PITCH = (
@@ -246,3 +255,99 @@ class TestMetaDescription:
         assert "—" not in description
         assert "|" not in description
         assert str(encounter.start_time.year) in description
+
+
+class TestSessionLinkPreview:
+    def _share(self, client, event, session_param):
+        return _get_ok(
+            client,
+            f'{reverse("web:chronology:event", kwargs={"slug": event.slug})}'
+            f"?session={session_param}",
+            ["chronology/event.html"],
+        )
+
+    def _scheduled(self, event, **session_fields):
+        start = datetime(2031, 5, 17, 14, 0, tzinfo=get_current_timezone())
+        return AgendaItemFactory(
+            session=SessionFactory(event=event, category=None, **session_fields),
+            space=SpaceFactory(event=event, name="Sala Lustrzana"),
+            start_time=start,
+            end_time=start + timedelta(hours=2, minutes=30),
+        ).session
+
+    def test_names_the_session_and_its_event(self, client, sphere):
+        event = EventFactory(sphere=sphere, name="Kapitularz")
+        session = self._scheduled(event, title="Zew Cthulhu")
+
+        response = self._share(client, event, session.pk)
+
+        assert _titles(response) == [
+            f"Kapitularz • {sphere.name}",
+            "Zew Cthulhu • Kapitularz",
+            "Zew Cthulhu • Kapitularz",
+        ]
+
+    def test_describes_when_where_and_what(self, client, sphere):
+        event = EventFactory(sphere=sphere, description="Konwent gier")
+        session = self._scheduled(
+            event, description="Śledztwo w **Arkham** & okolicach."
+        )
+
+        response = self._share(client, event, session.pk)
+
+        expected = (
+            "Saturday, 17 May · 14:00–16:30 — Sala Lustrzana"
+            " | Śledztwo w Arkham &amp; okolicach."
+        )
+        assert _descriptions(response) == [expected] * 3
+
+    def test_shows_the_session_cover_over_the_event_cover(self, client, sphere):
+        event = EventFactory(sphere=sphere, cover_image="events/hall.png")
+        session = self._scheduled(event, cover_image="sessions/cthulhu.png")
+
+        response = self._share(client, event, session.pk)
+
+        assert _meta(response, "property", "og:image").endswith("/sessions/cthulhu.png")
+        assert _meta(response, "name", "twitter:image").endswith(
+            "/sessions/cthulhu.png"
+        )
+
+    def test_session_without_a_cover_shows_the_event_cover(self, client, sphere):
+        event = EventFactory(sphere=sphere, cover_image="events/hall.png")
+        session = self._scheduled(event)
+
+        response = self._share(client, event, session.pk)
+
+        assert _meta(response, "property", "og:image").endswith("/events/hall.png")
+
+    def test_session_hidden_by_a_private_track_keeps_the_event_preview(
+        self, client, sphere
+    ):
+        event = EventFactory(sphere=sphere, name="Kapitularz", description="Konwent")
+        session = self._scheduled(event, title="Tajne spotkanie")
+        session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = self._share(client, event, session.pk)
+
+        assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
+        assert _descriptions(response) == ["Konwent"] * 3
+
+    def test_session_of_another_event_keeps_the_event_preview(self, client, sphere):
+        event = EventFactory(sphere=sphere, name="Kapitularz", description="Konwent")
+        foreign = self._scheduled(EventFactory(sphere=sphere), title="Obcy punkt")
+
+        response = self._share(client, event, foreign.pk)
+
+        assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
+        assert _descriptions(response) == ["Konwent"] * 3
+
+    def test_malformed_session_param_keeps_the_event_preview(self, client, sphere):
+        event = EventFactory(sphere=sphere, name="Kapitularz", description="Konwent")
+
+        response = self._share(client, event, "abc")
+
+        assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
