@@ -35,8 +35,16 @@ redeem once. There are no refresh tokens: after 30 days the client runs the
 flow again.
 
 The metadata fetch (`links/client_metadata.py`) goes to a URL a stranger
-chose, so it resolves the host first and refuses non-public addresses. It
-also follows no redirects, times out after 5 s, and caps the body at 5 KB.
+chose. It resolves the host once, refuses unless every address is public,
+and connects to the address it checked, so a DNS answer that changes between
+check and connect can't point it inward. TLS still verifies the real
+hostname. It follows no redirects, stops after 5 s in total, caps the body
+at 5 KB, and tells the user only that the fetch failed, never the status.
+
+The vetted request waits in the session between the consent page and the
+decision, so approving neither refetches the document nor trusts echoed
+form fields. The rules (who may grant, which events, PKCE, single use) live
+in `McpAuthorizationService`; the gate maps HTTP onto it.
 
 ### Manual token
 

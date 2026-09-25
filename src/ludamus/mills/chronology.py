@@ -6,11 +6,13 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from datetime import timedelta
+from functools import partial
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
 from ludamus.mills.event import require_session_in_event
+from ludamus.mills.multiverse import can_write_programme
 from ludamus.pacts import (
     EventDTO,
     NotFoundError,
@@ -33,7 +35,6 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.images import resolve_uploaded_file_field
-from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
@@ -231,10 +232,10 @@ class ProposalAcceptanceService:
         )
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
-        user = self._active_users.read(user_slug)
-        if user.is_superuser:
-            return True
-        return self._spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
+        return can_write_programme(
+            is_superuser=self._active_users.read(user_slug).is_superuser,
+            manager_role=partial(self._spheres.manager_role, sphere_id, user_slug),
+        )
 
     def accept_session(
         self,

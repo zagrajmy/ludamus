@@ -314,7 +314,10 @@ class Services:
     @cached_property
     def mcp_authorization(self) -> McpAuthorizationService:
         return McpAuthorizationService(
-            fetcher=HttpClientMetadataFetcher(), codes=CacheAuthorizationCodeStore()
+            fetcher=HttpClientMetadataFetcher(),
+            codes=CacheAuthorizationCodeStore(),
+            spheres=self.sphere_panel,
+            users=self._repos.active_users,
         )
 
     @cached_property
@@ -324,6 +327,7 @@ class Services:
             self._repos.spheres,
             self._repos.events,
             self._repos.encounters,
+            self._repos.active_users,
         )
 
     @cached_property

@@ -69,13 +69,13 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path(
         ".well-known/oauth-protected-resource/mcp/",
         protected_resource_metadata,
-        {"scope": ToolScope.MAINTAINER.value},
+        {"scope": ToolScope.MAINTAINER},
         name="oauth-protected-resource-maintainer",
     ),
     path(
         ".well-known/oauth-protected-resource/mcp/organizer/",
         protected_resource_metadata,
-        {"scope": ToolScope.ORGANIZER.value},
+        {"scope": ToolScope.ORGANIZER},
         name="oauth-protected-resource-organizer",
     ),
     path(
