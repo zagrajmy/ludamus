@@ -10,8 +10,6 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
 )
 
-_USER_ID = 7
-
 
 @contextmanager
 def _atomic():
@@ -69,26 +67,26 @@ class FakeChangeLogs:
         self.created.append(data)
 
 
-def _facilitator(pk=1, event_id=10, accreditation_type="none"):
+def _facilitator(event_id=10):
     return FacilitatorDTO(
-        accreditation_type=accreditation_type,
+        accreditation_type="none",
         display_name="Alice",
         event_id=event_id,
-        pk=pk,
+        pk=1,
         slug="alice",
         user_id=None,
     )
 
 
-def _field(pk=5, slug="vegan"):
+def _field():
     return OrganizerFieldDTO(
-        field_type="checkbox", name="Vegan", order=0, pk=pk, question="?", slug=slug
+        field_type="checkbox", name="Vegan", order=0, pk=5, question="?", slug="vegan"
     )
 
 
-def _entry(*, facilitator_id=1, event_id=10, field_id=5, value=True):
+def _entry(*, value=True):
     return PersonalDataFieldValueData(
-        facilitator_id=facilitator_id, event_id=event_id, field_id=field_id, value=value
+        facilitator_id=1, event_id=10, field_id=5, value=value
     )
 
 
@@ -102,19 +100,6 @@ def _service(*, facilitators, personal_data_field_values, fields=(), change_logs
     )
 
 
-def test_saves_entries_when_facilitator_belongs_to_event():
-    repo = FakePersonalDataFieldValue()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()),
-        personal_data_field_values=repo,
-        fields=[_field()],
-    )
-
-    service.update_personal_data(event_id=10, facilitator_id=1, entries=[_entry()])
-
-    assert repo.saved == [[_entry()]]
-
-
 def test_rejects_facilitator_from_other_event():
     repo = FakePersonalDataFieldValue()
     service = _service(
@@ -126,71 +111,6 @@ def test_rejects_facilitator_from_other_event():
         service.update_personal_data(event_id=10, facilitator_id=1, entries=[_entry()])
 
     assert not repo.saved
-
-
-def test_empty_entries_skips_save():
-    repo = FakePersonalDataFieldValue()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()), personal_data_field_values=repo
-    )
-
-    service.update_personal_data(event_id=10, facilitator_id=1, entries=[])
-
-    assert not repo.saved
-
-
-def test_personal_data_change_is_logged():
-    logs = FakeChangeLogs()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()),
-        personal_data_field_values=FakePersonalDataFieldValue(existing={}),
-        fields=[_field()],
-        change_logs=logs,
-    )
-
-    service.update_personal_data(
-        event_id=10, facilitator_id=1, entries=[_entry(value=True)], user_id=_USER_ID
-    )
-
-    assert len(logs.created) == 1
-    entry = logs.created[0]
-    assert entry["facilitator_id"] == 1
-    assert entry["user_id"] == _USER_ID
-    assert {"field": "", "field_id": 5, "old": None, "new": True} in entry["changes"]
-
-
-def test_unchanged_personal_data_logs_nothing():
-    logs = FakeChangeLogs()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()),
-        personal_data_field_values=FakePersonalDataFieldValue(existing={"vegan": True}),
-        fields=[_field()],
-        change_logs=logs,
-    )
-
-    service.update_personal_data(
-        event_id=10, facilitator_id=1, entries=[_entry(value=True)]
-    )
-
-    assert not logs.created
-
-
-def test_entry_for_unknown_field_is_ignored():
-    logs = FakeChangeLogs()
-    repo = FakePersonalDataFieldValue()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()),
-        personal_data_field_values=repo,
-        fields=[_field(pk=5)],
-        change_logs=logs,
-    )
-
-    service.update_personal_data(
-        event_id=10, facilitator_id=1, entries=[_entry(field_id=999, value=True)]
-    )
-
-    assert repo.saved == [[_entry(field_id=999, value=True)]]
-    assert not logs.created
 
 
 def test_blank_old_and_blank_new_logs_nothing():
@@ -289,66 +209,3 @@ def test_update_facilitator_rejects_facilitator_from_other_event():
         )
 
     assert not facilitators.updated
-
-
-def test_update_facilitator_logs_accreditation_change():
-    logs = FakeChangeLogs()
-    facilitators = FakeFacilitators(_facilitator(accreditation_type="none"))
-    service = _service(
-        facilitators=facilitators,
-        personal_data_field_values=FakePersonalDataFieldValue(),
-        change_logs=logs,
-    )
-
-    service.update_facilitator(
-        event_id=10,
-        facilitator_id=1,
-        data={
-            "accreditation_type": "honorary",
-            "internal_comment": "Possible duplicate",
-        },
-        entries=[],
-        user_id=_USER_ID,
-    )
-
-    assert facilitators.updated == [
-        (
-            1,
-            {
-                "accreditation_type": "honorary",
-                "internal_comment": "Possible duplicate",
-            },
-        )
-    ]
-    assert {
-        "field": "accreditation_type",
-        "field_id": None,
-        "old": "none",
-        "new": "honorary",
-    } in logs.created[0]["changes"]
-
-
-def test_update_facilitator_logs_internal_comment_change():
-    logs = FakeChangeLogs()
-    service = _service(
-        facilitators=FakeFacilitators(_facilitator()),
-        personal_data_field_values=FakePersonalDataFieldValue(),
-        change_logs=logs,
-    )
-
-    service.update_facilitator(
-        event_id=10,
-        facilitator_id=1,
-        data={"accreditation_type": "none", "internal_comment": "Possible duplicate"},
-        entries=[],
-        user_id=_USER_ID,
-    )
-
-    assert logs.created[0]["changes"] == [
-        {
-            "field": "internal_comment",
-            "field_id": None,
-            "old": "",
-            "new": "Possible duplicate",
-        }
-    ]

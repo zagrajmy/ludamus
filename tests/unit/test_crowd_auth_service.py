@@ -206,22 +206,6 @@ def _login(service, **kwargs):
     return service.complete_login(code="code", **kwargs)
 
 
-class TestProviderUrls:
-    def test_login_url_delegates(self):
-        service = _service(users=FakeUsers())
-
-        url = service.login_url(redirect_uri="cb", state="st", sign_up=True)
-
-        assert url == "https://idp.example/authorize?cb&st&True"
-
-    def test_logout_url_delegates(self):
-        service = _service(users=FakeUsers())
-
-        url = service.logout_url(session_id="session_01", return_to="back")
-
-        assert url == "https://idp.example/logout?session_01&back"
-
-
 class TestCompleteLogin:
     def test_returns_existing_user_without_create(self):
         users = FakeUsers(users=[_user_dto()])

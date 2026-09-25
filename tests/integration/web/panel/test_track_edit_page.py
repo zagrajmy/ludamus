@@ -9,7 +9,7 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Track
 from ludamus.pacts import TrackDTO
 from ludamus.pacts.crowd import UserDTO
-from tests.integration.conftest import SpaceFactory, UserFactory
+from tests.integration.conftest import EventFactory, SpaceFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -31,6 +31,15 @@ class TestTrackEditPageView:
     def make_track(event):
         return Track.objects.create(
             event=event, name="Alpha Track", slug="alpha-track", is_public=True
+        )
+
+    @staticmethod
+    def make_foreign_track(sphere):
+        return Track.objects.create(
+            event=EventFactory(sphere=sphere),
+            name="Foreign Track",
+            slug="foreign",
+            is_public=False,
         )
 
     # GET tests
@@ -63,6 +72,24 @@ class TestTrackEditPageView:
     def test_get_redirects_on_invalid_track_slug(self, panel_client, event):
         url = reverse(
             "panel:track-edit", kwargs={"slug": event.slug, "track_slug": "nonexistent"}
+        )
+
+        response = panel_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+
+    def test_get_redirects_on_track_slug_from_another_event(
+        self, panel_client, sphere, event
+    ):
+        foreign_track = self.make_foreign_track(sphere)
+        url = reverse(
+            "panel:track-edit",
+            kwargs={"slug": event.slug, "track_slug": foreign_track.slug},
         )
 
         response = panel_client.get(url)
@@ -245,6 +272,27 @@ class TestTrackEditPageView:
             messages=[(messages.ERROR, "Track not found.")],
             url=f"/panel/event/{event.slug}/tracks/",
         )
+
+    def test_post_redirects_on_track_slug_from_another_event(
+        self, panel_client, sphere, event
+    ):
+        foreign_track = self.make_foreign_track(sphere)
+        url = reverse(
+            "panel:track-edit",
+            kwargs={"slug": event.slug, "track_slug": foreign_track.slug},
+        )
+
+        response = panel_client.post(url, data={"name": "Hijacked", "is_public": "on"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+        foreign_track.refresh_from_db()
+        assert foreign_track.name == "Foreign Track"
+        assert not foreign_track.is_public
 
     def test_post_redirects_on_invalid_track_slug_with_a_rejected_form(
         self, panel_client, event

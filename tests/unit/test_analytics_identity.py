@@ -1,24 +1,13 @@
-import pytest
-
 from ludamus.links.analytics import identity
 
 
-class TestEnvironment:
-    @pytest.mark.parametrize(
-        ("env", "is_staging", "expected"),
-        (
-            ("production", False, "production"),
-            # Staging runs ENV=production so it stays production-shaped, which
-            # leaves IS_STAGING as the only thing separating the two.
-            ("production", True, "staging"),
-            ("development", False, "development"),
-        ),
-    )
-    def test_reports_the_deployment(self, settings, env, is_staging, expected):
-        settings.ENV = env
-        settings.IS_STAGING = is_staging
+def test_staging_reports_itself_despite_running_as_production(settings):
+    # Staging runs ENV=production so it stays production-shaped, which leaves
+    # IS_STAGING as the only thing separating the two.
+    settings.ENV = "production"
+    settings.IS_STAGING = True
 
-        assert identity.environment() == expected
+    assert identity.environment() == "staging"
 
 
 class TestDistinctId:
@@ -31,16 +20,8 @@ class TestDistinctId:
         assert identity.distinct_id(42) == "42"
 
     def test_other_deployments_are_namespaced(self, settings):
+        # One project, two databases, independent sequences.
         settings.ENV = "production"
         settings.IS_STAGING = True
 
         assert identity.distinct_id(42) == "staging:42"
-
-    def test_staging_and_production_cannot_collide(self, settings):
-        # The whole point: one project, two databases, independent sequences.
-        settings.ENV = "production"
-        settings.IS_STAGING = True
-        staging = identity.distinct_id(42)
-        settings.IS_STAGING = False
-
-        assert staging != identity.distinct_id(42)

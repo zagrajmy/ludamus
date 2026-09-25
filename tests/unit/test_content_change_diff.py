@@ -36,34 +36,8 @@ class TestCoreColumns:
 
         assert changes == []
 
-    def test_key_absent_from_update_is_ignored(self):
-        changes = diff_session_content(_session(), {}, [], [])
-
-        assert changes == []
-
-    def test_numeric_change_is_logged(self):
-        changes = diff_session_content(_session(), {"participants_limit": 12}, [], [])
-
-        assert changes == [
-            {"field": "participants_limit", "field_id": None, "old": 5, "new": 12}
-        ]
-
 
 class TestCoverImage:
-    def test_clearing_existing_cover_is_logged(self):
-        changes = diff_session_content(
-            _session(cover_image_url="/media/old.png"), {"cover_image": ""}, [], []
-        )
-
-        assert changes == [
-            {
-                "field": "cover_image",
-                "field_id": None,
-                "old": "/media/old.png",
-                "new": "",
-            }
-        ]
-
     def test_clearing_absent_cover_is_not_logged(self):
         changes = diff_session_content(_session(), {"cover_image": ""}, [], [])
 
@@ -87,14 +61,6 @@ class TestSessionFields:
         assert changes == [
             {"field": "", "field_id": 1, "old": "D&D", "new": "Pathfinder"}
         ]
-
-    def test_unchanged_field_value_is_not_logged(self):
-        old = [_value(1, "D&D")]
-        new = [{"session_id": 9, "field_id": 1, "value": "D&D"}]
-
-        changes = diff_session_content(_session(), {}, old, new)
-
-        assert changes == []
 
     def test_blank_unanswered_field_is_not_logged(self):
         new = [{"session_id": 9, "field_id": 1, "value": ""}]

@@ -242,3 +242,16 @@ class TestEnrollmentWindowEditAndDelete:
             url=_list_url(event),
         )
         assert not EnrollmentConfig.objects.filter(pk=window.pk).exists()
+
+    def test_cannot_delete_window_from_another_event(self, panel_client, sphere, event):
+        other_window = _window(EventFactory(sphere=sphere))
+
+        response = panel_client.post(_delete_url(event, other_window))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Enrollment window not found.")],
+            url=_list_url(event),
+        )
+        assert EnrollmentConfig.objects.filter(pk=other_window.pk).exists()
