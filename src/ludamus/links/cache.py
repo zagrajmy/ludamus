@@ -2,7 +2,7 @@ import hashlib
 
 from django.core.cache import cache
 
-from ludamus.pacts.mcp import AuthorizationCodeStoreProtocol, McpAuthorizationData
+from ludamus.pacts.mcp import AuthorizationCodeStoreProtocol, McpIssuedCode
 
 
 class DjangoCache:
@@ -23,18 +23,18 @@ class CacheAuthorizationCodeStore(AuthorizationCodeStoreProtocol):
     """
 
     @staticmethod
-    def put(code: str, data: McpAuthorizationData, *, ttl_seconds: int) -> None:
-        cache.set(_code_key(code), data, ttl_seconds)
+    def put(code: str, issued: McpIssuedCode, *, ttl_seconds: int) -> None:
+        cache.set(_code_key(code), issued, ttl_seconds)
 
     @staticmethod
-    def take(code: str) -> McpAuthorizationData | None:
+    def take(code: str) -> McpIssuedCode | None:
         key = _code_key(code)
-        data: McpAuthorizationData | None = cache.get(key)
+        issued: McpIssuedCode | None = cache.get(key)
         # `delete` reports whether this call removed the row, so of two
         # concurrent redemptions only one sees True.
-        if data is None or not cache.delete(key):
+        if issued is None or not cache.delete(key):
             return None
-        return data
+        return issued
 
 
 def _code_key(code: str) -> str:

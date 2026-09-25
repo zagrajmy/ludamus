@@ -42,7 +42,7 @@
             {% endif %}
             <form method="post" class="flex flex-col gap-4">
                 {% csrf_token %}
-                {% for name, value in params.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+                <input type="hidden" name="pending" value="{{ pending }}">
                 {% if form %}
                     {% tessera_errors form %}
                     {% tessera_field form.event %}

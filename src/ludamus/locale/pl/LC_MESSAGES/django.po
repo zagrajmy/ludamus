@@ -3403,13 +3403,49 @@ msgid "Enter a Google Sheets link or a spreadsheet ID."
 msgstr "Podaj link do arkusza Google lub ID arkusza."
 
 #: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client did not identify itself with a metadata document URL."
+msgstr "Klient nie przedstawił się adresem dokumentu z metadanymi."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client's metadata document could not be fetched."
+msgstr "Nie udało się pobrać dokumentu z metadanymi klienta."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client's metadata document is not on a public address."
+msgstr "Dokument z metadanymi klienta nie leży pod publicznym adresem."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client's metadata document is not valid."
+msgstr "Dokument z metadanymi klienta jest nieprawidłowy."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client's metadata document describes a different client."
+msgstr "Dokument z metadanymi opisuje innego klienta."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "Only public clients can connect, and this one expects a secret."
+msgstr "Połączyć się mogą tylko klienci publiczni, a ten wymaga sekretu."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client's metadata document lists no redirect addresses."
+msgstr "Dokument z metadanymi klienta nie podaje adresów powrotu."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client asked to return to an address that can't be used."
+msgstr "Klient chce wrócić pod adres, którego nie można użyć."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "The client asked to return to an address its metadata doesn't list."
+msgstr "Klient chce wrócić pod adres, którego nie ma w jego metadanych."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "This connection request expired. Start again from your client."
+msgstr "To żądanie połączenia wygasło. Zacznij od nowa w swoim kliencie."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
 #: src/ludamus/templates/panel/base.html
 msgid "Event"
 msgstr "Wydarzenie"
-
-#: src/ludamus/gates/web/django/mcp/oauth.py
-msgid "This event is not in this sphere."
-msgstr "To wydarzenie nie należy do tej sfery."
 
 #: src/ludamus/gates/web/django/multiverse/access.py
 msgid "You don't have permission to access the sphere panel."
@@ -11294,6 +11330,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."

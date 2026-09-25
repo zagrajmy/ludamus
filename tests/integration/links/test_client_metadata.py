@@ -1,63 +1,88 @@
-import json
 import socket
 
 import pytest
-import requests
-import responses
+from urllib3.exceptions import NewConnectionError
 
 from ludamus.links.cache import CacheAuthorizationCodeStore
 from ludamus.links.client_metadata import MAX_DOCUMENT_BYTES, HttpClientMetadataFetcher
-from ludamus.pacts.mcp import McpClientRejectedError, ToolScope
+from ludamus.pacts.mcp import (
+    ClientRejection,
+    MaintainerGrant,
+    McpClientRejectedError,
+    McpIssuedCode,
+)
+from tests.integration.cimd import PUBLIC_ADDRESS, FetchRecord, install
 
 URL = "https://client.example/oauth/metadata.json"
+PATH = "/oauth/metadata.json"
+DOCUMENT = {"client_id": URL, "redirect_uris": ["http://127.0.0.1/cb"]}
 
 
-def _resolves_to(*addresses):
-    def resolve(_host, port):
-        return [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))
-            for address in addresses
+@pytest.fixture(name="server")
+def server_fixture(monkeypatch):
+    return install(monkeypatch)
+
+
+def _rejection(url=URL):
+    with pytest.raises(McpClientRejectedError) as caught:
+        HttpClientMetadataFetcher.fetch(url)
+    return caught.value.reason
+
+
+class TestHttpClientMetadataFetcher:
+    def test_fetches_from_the_vetted_address_with_the_real_hostname(self, server):
+        server.serve(f"{PATH}?v=2", document=DOCUMENT)
+
+        document = HttpClientMetadataFetcher.fetch(f"{URL}?v=2")
+
+        assert document == DOCUMENT
+        assert server.fetches == [
+            FetchRecord(
+                address=PUBLIC_ADDRESS,
+                port=443,
+                path=f"{PATH}?v=2",
+                headers={"Host": "client.example", "Accept": "application/json"},
+                server_hostname="client.example",
+            )
         ]
 
-    return resolve
-
-
-@pytest.fixture(name="public_dns")
-def public_dns_fixture(monkeypatch):
-    monkeypatch.setattr(socket, "getaddrinfo", _resolves_to("93.184.216.34"))
-
-
-@pytest.mark.usefixtures("public_dns")
-class TestHttpClientMetadataFetcher:
-    @responses.activate
-    def test_returns_document(self):
-        document = {"client_id": URL, "redirect_uris": ["http://127.0.0.1/cb"]}
-        responses.get(URL, json=document)
-
-        assert HttpClientMetadataFetcher().fetch(URL) == document
-
-    @responses.activate
     @pytest.mark.parametrize(
-        ("kwargs", "reason"),
+        ("route", "reason"),
         (
-            ({"status": 404}, "HTTP 404"),
-            ({"status": 302, "headers": {"Location": "http://10.0.0.1/"}}, "HTTP 302"),
-            ({"body": "x" * (MAX_DOCUMENT_BYTES + 1)}, "larger than 5 KB"),
-            ({"body": "{not json"}, "not valid client metadata"),
-            ({"body": json.dumps(["a"])}, "not valid client metadata"),
-            ({"json": {"redirect_uris": "http://x/"}}, "not valid client metadata"),
-            ({"body": requests.ConnectionError("down")}, "could not be fetched"),
+            ({"status": 404, "body": b"nope"}, ClientRejection.UNREACHABLE),
+            ({"status": 302, "body": b""}, ClientRejection.UNREACHABLE),
+            (
+                {"body": b"x" * (MAX_DOCUMENT_BYTES + 1)},
+                ClientRejection.INVALID_DOCUMENT,
+            ),
+            ({"body": b"{not json"}, ClientRejection.INVALID_DOCUMENT),
+            ({"body": b'["a"]'}, ClientRejection.INVALID_DOCUMENT),
+            (
+                {"document": {"redirect_uris": "http://x/"}},
+                ClientRejection.INVALID_DOCUMENT,
+            ),
+            (
+                {"error": NewConnectionError(None, "refused")},
+                ClientRejection.UNREACHABLE,
+            ),
         ),
     )
-    def test_rejects_bad_answers(self, kwargs, reason):
-        responses.get(URL, **kwargs)
+    def test_rejects_bad_answers(self, server, route, reason):
+        server.serve(PATH, **route)
 
-        with pytest.raises(McpClientRejectedError, match=reason):
-            HttpClientMetadataFetcher().fetch(URL)
+        assert _rejection() == reason
+
+    def test_slow_trickle_hits_the_deadline(self, server, monkeypatch):
+        server.serve(PATH, body=b" " * 3000)
+        ticks = iter([0.0, 1.0, 99.0, 99.0, 99.0])
+        monkeypatch.setattr(
+            "ludamus.links.client_metadata.time.monotonic", lambda: next(ticks)
+        )
+
+        assert _rejection() == ClientRejection.UNREACHABLE
 
 
 class TestPublicHostGuard:
-    @responses.activate
     @pytest.mark.parametrize(
         "addresses",
         (
@@ -69,37 +94,33 @@ class TestPublicHostGuard:
         ),
     )
     def test_refuses_non_public_hosts_without_connecting(self, monkeypatch, addresses):
-        monkeypatch.setattr(socket, "getaddrinfo", _resolves_to(*addresses))
+        server = install(monkeypatch, *addresses)
 
-        with pytest.raises(McpClientRejectedError, match="not a public address"):
-            HttpClientMetadataFetcher().fetch(URL)
-
-        assert len(responses.calls) == 0
+        assert _rejection() == ClientRejection.NOT_PUBLIC
+        assert not server.fetches
 
     def test_refuses_unresolvable_host(self, monkeypatch):
-        def fail(host, _port):
+        server = install(monkeypatch)
+
+        def fail(host, _port, **_kwargs):
             raise socket.gaierror(host)
 
         monkeypatch.setattr(socket, "getaddrinfo", fail)
 
-        with pytest.raises(McpClientRejectedError, match="does not resolve"):
-            HttpClientMetadataFetcher().fetch(URL)
+        assert _rejection() == ClientRejection.UNREACHABLE
+        assert not server.fetches
 
 
 class TestCacheAuthorizationCodeStore:
     def test_code_redeems_once(self):
-        store = CacheAuthorizationCodeStore()
-        data = {
-            "client_id": URL,
-            "redirect_uri": "http://127.0.0.1/cb",
-            "code_challenge": "c",
-            "user_id": 1,
-            "scope": ToolScope.MAINTAINER,
-            "sphere_id": None,
-            "event_id": None,
-        }
-        store.put("code-1", data, ttl_seconds=60)
+        issued = McpIssuedCode(
+            client_id=URL,
+            redirect_uri="http://127.0.0.1/cb",
+            code_challenge="c",
+            grant=MaintainerGrant(user_id=1),
+        )
+        CacheAuthorizationCodeStore.put("code-1", issued, ttl_seconds=60)
 
-        assert store.take("code-1") == data
-        assert store.take("code-1") is None
-        assert store.take("never-issued") is None
+        assert CacheAuthorizationCodeStore.take("code-1") == issued
+        assert CacheAuthorizationCodeStore.take("code-1") is None
+        assert CacheAuthorizationCodeStore.take("never-issued") is None

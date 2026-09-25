@@ -3,14 +3,13 @@
 Any MCP client that publishes a Client ID Metadata Document can connect: the
 user signs in, approves the client on the consent page, and the token endpoint
 hands back the same signed Bearer token `/mcp/token/` mints by hand. The
-resource the client asks for picks the tier; the organizer tier also asks the
-user which event the token may write.
+rules live in `McpAuthorizationService`; this module maps HTTP onto it.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import secrets
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
@@ -31,19 +30,33 @@ from ludamus.gates.web.django.mcp.tokens import (
     mint_organizer_token,
     mint_token,
 )
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.mcp import McpClientRejectedError, McpGrantRejectedError, ToolScope
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.mcp import (
+    ClientRejection,
+    MaintainerGrant,
+    McpAuthorizationRejectedError,
+    McpClientRejectedError,
+    McpGrantRejectedError,
+    McpPendingAuthorizationDTO,
+    OrganizerGrant,
+    ToolScope,
+)
 
 if TYPE_CHECKING:
     from django.http import QueryDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
-    from ludamus.pacts.mcp import McpClientDTO, McpGrantDTO
+    from ludamus.pacts.mcp import (
+        McpAuthorizationRequest,
+        McpConsentDTO,
+        McpEventChoiceDTO,
+        McpGrant,
+    )
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "mcp/authorize.html"
+PENDING_SESSION_PREFIX = "mcp_oauth_pending:"
 
 _ENDPOINT_URL_NAMES = {
     ToolScope.MAINTAINER: "mcp:endpoint",
@@ -53,6 +66,34 @@ _METADATA_URL_NAMES = {
     ToolScope.MAINTAINER: "oauth-protected-resource-maintainer",
     ToolScope.ORGANIZER: "oauth-protected-resource-organizer",
 }
+_CLIENT_REJECTIONS: dict[ClientRejection, _StrPromise] = {
+    ClientRejection.BAD_CLIENT_ID: _(
+        "The client did not identify itself with a metadata document URL."
+    ),
+    ClientRejection.UNREACHABLE: _(
+        "The client's metadata document could not be fetched."
+    ),
+    ClientRejection.NOT_PUBLIC: _(
+        "The client's metadata document is not on a public address."
+    ),
+    ClientRejection.INVALID_DOCUMENT: _("The client's metadata document is not valid."),
+    ClientRejection.CLIENT_ID_MISMATCH: _(
+        "The client's metadata document describes a different client."
+    ),
+    ClientRejection.CONFIDENTIAL_CLIENT: _(
+        "Only public clients can connect, and this one expects a secret."
+    ),
+    ClientRejection.NO_REDIRECT_URIS: _(
+        "The client's metadata document lists no redirect addresses."
+    ),
+    ClientRejection.BAD_REDIRECT_URI: _(
+        "The client asked to return to an address that can't be used."
+    ),
+    ClientRejection.REDIRECT_NOT_LISTED: _(
+        "The client asked to return to an address its metadata doesn't list."
+    ),
+}
+_EXPIRED = _("This connection request expired. Start again from your client.")
 
 
 def issuer(request: RootRequest) -> str:
@@ -75,11 +116,11 @@ def _scope_for_resource(request: RootRequest, resource: str) -> ToolScope | None
 
 
 @require_GET
-def protected_resource_metadata(request: RootRequest, scope: str) -> JsonResponse:
+def protected_resource_metadata(request: RootRequest, scope: ToolScope) -> JsonResponse:
     """RFC 9728: tells a client which authorization server guards the endpoint."""
     return JsonResponse(
         {
-            "resource": _resource_url(request, ToolScope(scope)),
+            "resource": _resource_url(request, scope),
             "authorization_servers": [issuer(request)],
             "bearer_methods_supported": ["header"],
             "resource_name": f"Zagrajmy MCP ({scope})",
@@ -107,189 +148,155 @@ def authorization_server_metadata(request: RootRequest) -> JsonResponse:
     )
 
 
-@dataclass(frozen=True, slots=True)
-class _Authorization:
-    client: McpClientDTO
-    scope: ToolScope
-    code_challenge: str
-    state: str | None
-
-
 class McpConsentForm(forms.Form):
     def __init__(
-        self, data: QueryDict | None = None, *, events: list[tuple[str, str]]
+        self, data: QueryDict | None = None, *, events: list[McpEventChoiceDTO]
     ) -> None:
         super().__init__(data)
-        self.fields["event"] = forms.ChoiceField(label=_("Event"), choices=events)
+        self.fields["event"] = forms.TypedChoiceField(
+            label=_("Event"),
+            coerce=int,
+            choices=[(event.pk, event.name) for event in events],
+        )
 
 
 @method_decorator(never_cache, name="dispatch")
 class McpAuthorizeView(LoginRequiredMixin, View):
+    """GET vets the request and asks; POST carries out the user's decision.
+
+    The vetted request waits in the session between the two, so the POST
+    neither refetches the client's metadata nor trusts echoed form fields.
+    """
+
     request: AuthenticatedRootRequest
 
     def get(self, request: AuthenticatedRootRequest) -> HttpResponse:
-        authorization = self._begin(request.GET)
-        if isinstance(authorization, HttpResponse):
-            return authorization
-        return self._consent(authorization)
+        try:
+            pending = request.services.mcp_authorization.begin(
+                _authorization_request(request)
+            )
+        except McpClientRejectedError as exc:
+            return self._client_error(exc.reason)
+        except McpAuthorizationRejectedError as exc:
+            return _reject(request, exc)
+        pending_id = secrets.token_urlsafe(16)
+        request.session[PENDING_SESSION_PREFIX + pending_id] = pending.model_dump(
+            mode="json"
+        )
+        return self._consent(pending, pending_id=pending_id)
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
-        authorization = self._begin(request.POST)
-        if isinstance(authorization, HttpResponse):
-            return authorization
+        pending_id = request.POST.get("pending", "")
+        raw = request.session.pop(PENDING_SESSION_PREFIX + pending_id, None)
+        if raw is None:
+            return TemplateResponse(
+                request, TEMPLATE, {"client_error": _EXPIRED}, status=400
+            )
+        pending = McpPendingAuthorizationDTO.model_validate(raw)
         if request.POST.get("decision") != "approve":
             logger.info(
                 "MCP OAuth consent denied: user=%s client=%s",
                 request.context.current_user_id,
-                authorization.client.client_id,
+                pending.client.client_id,
             )
-            return _redirect_error(
-                authorization,
+            return _redirect(
+                request,
+                pending,
                 error="access_denied",
-                description="The user denied access.",
-                issuer_url=issuer(request),
+                error_description="The user denied access.",
             )
-        if not self._may_grant(authorization.scope):
-            return self._consent(authorization)
-        sphere_id = event_id = None
-        if authorization.scope is ToolScope.ORGANIZER:
-            form = McpConsentForm(request.POST, events=self._events())
+        consent = self._read_consent(pending)
+        event_id = None
+        if consent.events:
+            form = McpConsentForm(request.POST, events=consent.events)
             if not form.is_valid():
-                return self._consent(authorization, form=form)
-            sphere_id = request.context.current_sphere_id
-            try:
-                event_id = request.services.events.read_by_slug(
-                    sphere_id, form.cleaned_data["event"]
-                ).pk
-            except NotFoundError:
-                form.add_error("event", _("This event is not in this sphere."))
-                return self._consent(authorization, form=form)
-        code = request.services.mcp_authorization.issue_code(
-            {
-                "client_id": authorization.client.client_id,
-                "redirect_uri": authorization.client.redirect_uri,
-                "code_challenge": authorization.code_challenge,
-                "user_id": request.context.current_user_id,
-                "scope": authorization.scope,
-                "sphere_id": sphere_id,
-                "event_id": event_id,
-            }
-        )
+                request.session[PENDING_SESSION_PREFIX + pending_id] = raw
+                return self._render(pending, pending_id, consent=consent, form=form)
+            event_id = form.cleaned_data["event"]
+        try:
+            code = request.services.mcp_authorization.approve(
+                pending,
+                user_id=request.context.current_user_id,
+                user_slug=request.context.current_user_slug,
+                sphere_id=request.context.current_sphere_id,
+                event_id=event_id,
+            )
+        except McpAuthorizationRejectedError as exc:
+            return _reject(request, exc)
         logger.info(
             "MCP OAuth consent granted: user=%s client=%s scope=%s event=%s",
             request.context.current_user_id,
-            authorization.client.client_id,
-            authorization.scope,
+            pending.client.client_id,
+            pending.scope,
             event_id,
         )
-        return _redirect(authorization, params={"code": code, "iss": issuer(request)})
+        return _redirect(request, pending, code=code)
 
-    def _begin(self, params: QueryDict) -> _Authorization | HttpResponse:
-        try:
-            client = self.request.services.mcp_authorization.resolve_client(
-                client_id=params.get("client_id", ""),
-                redirect_uri=params.get("redirect_uri", ""),
-            )
-        except McpClientRejectedError as exc:
-            # Without a verified redirect_uri there is nowhere safe to send
-            # the error, so the user reads it here.
-            logger.info(
-                "MCP OAuth client rejected: client=%s reason=%s",
-                params.get("client_id", ""),
-                exc,
-            )
-            return TemplateResponse(
-                self.request, TEMPLATE, {"client_error": str(exc)}, status=400
-            )
-        state = params.get("state")
-        scope = _scope_for_resource(self.request, params.get("resource", ""))
-        partial = _Authorization(
-            client=client,
-            scope=scope or ToolScope.MAINTAINER,
-            code_challenge=params.get("code_challenge", ""),
-            state=state,
+    def _read_consent(self, pending: McpPendingAuthorizationDTO) -> McpConsentDTO:
+        return self.request.services.mcp_authorization.consent(
+            pending,
+            sphere_id=self.request.context.current_sphere_id,
+            user_slug=self.request.context.current_user_slug,
         )
-        if params.get("response_type") != "code":
-            return _redirect_error(
-                partial,
-                error="unsupported_response_type",
-                description="Only response_type=code is supported.",
-                issuer_url=issuer(self.request),
-            )
-        if params.get("code_challenge_method") != "S256" or not partial.code_challenge:
-            return _redirect_error(
-                partial,
-                error="invalid_request",
-                description="PKCE with code_challenge_method=S256 is required.",
-                issuer_url=issuer(self.request),
-            )
-        if scope is None:
-            return _redirect_error(
-                partial,
-                error="invalid_target",
-                description="The resource must be this site's /mcp/ endpoint.",
-                issuer_url=issuer(self.request),
-            )
-        return partial
-
-    def _may_grant(self, scope: ToolScope) -> bool:
-        if self.request.user.is_superuser:
-            return True
-        if scope is ToolScope.MAINTAINER:
-            return False
-        # Organizer tools write, so a comms member's read-only role isn't enough.
-        role = self.request.services.sphere_panel.manager_role(
-            self.request.context.current_sphere_id,
-            self.request.context.current_user_slug,
-        )
-        return role is SphereRole.MANAGER
-
-    def _events(self) -> list[tuple[str, str]]:
-        events = self.request.services.events.list_for_sphere(
-            self.request.context.current_sphere_id, include_unpublished=True
-        )
-        # The first choice is the default, so lead with what's coming up
-        # soonest and push past events to the end, newest first.
-        events.sort(
-            key=lambda event: (
-                event.is_ended,
-                (-1 if event.is_ended else 1) * event.start_time.timestamp(),
-            )
-        )
-        return [(event.slug, event.name) for event in events]
 
     def _consent(
-        self, authorization: _Authorization, *, form: McpConsentForm | None = None
+        self, pending: McpPendingAuthorizationDTO, *, pending_id: str
     ) -> TemplateResponse:
-        may_grant = self._may_grant(authorization.scope)
-        wants_event = may_grant and authorization.scope is ToolScope.ORGANIZER
-        events = self._events() if wants_event else []
-        if events and form is None:
-            form = McpConsentForm(events=events)
+        consent = self._read_consent(pending)
+        form = McpConsentForm(events=consent.events) if consent.events else None
+        return self._render(pending, pending_id, consent=consent, form=form)
+
+    def _render(
+        self,
+        pending: McpPendingAuthorizationDTO,
+        pending_id: str,
+        *,
+        consent: McpConsentDTO,
+        form: McpConsentForm | None,
+    ) -> TemplateResponse:
+        wants_event = consent.may_grant and pending.scope is ToolScope.ORGANIZER
         return TemplateResponse(
             self.request,
             TEMPLATE,
             {
                 "client_error": None,
-                "client": authorization.client,
-                "scope": authorization.scope.value,
-                "may_grant": may_grant,
+                "client": pending.client,
+                "scope": pending.scope.value,
+                "may_grant": consent.may_grant,
                 "wants_event": wants_event,
-                "form": form if events else None,
-                "can_approve": may_grant and (not wants_event or bool(events)),
-                "params": {
-                    "response_type": "code",
-                    "client_id": authorization.client.client_id,
-                    "redirect_uri": authorization.client.redirect_uri,
-                    "code_challenge": authorization.code_challenge,
-                    "code_challenge_method": "S256",
-                    "state": authorization.state or "",
-                    "resource": _resource_url(self.request, authorization.scope),
-                },
+                "form": form,
+                "can_approve": (
+                    consent.may_grant and (not wants_event or form is not None)
+                ),
+                "pending": pending_id,
                 "token_max_age_days": TOKEN_MAX_AGE_DAYS,
             },
-            status=200 if may_grant else 403,
+            status=200 if consent.may_grant else 403,
         )
+
+    def _client_error(self, reason: ClientRejection) -> TemplateResponse:
+        # Without a verified redirect_uri there is nowhere safe to send the
+        # error, so the user reads it here.
+        logger.info("MCP OAuth client rejected: %s", reason)
+        return TemplateResponse(
+            self.request,
+            TEMPLATE,
+            {"client_error": _CLIENT_REJECTIONS[reason]},
+            status=400,
+        )
+
+
+def _authorization_request(request: RootRequest) -> McpAuthorizationRequest:
+    params = request.GET
+    return {
+        "client_id": params.get("client_id", ""),
+        "redirect_uri": params.get("redirect_uri", ""),
+        "response_type": params.get("response_type", ""),
+        "code_challenge": params.get("code_challenge", ""),
+        "code_challenge_method": params.get("code_challenge_method", ""),
+        "state": params.get("state"),
+        "scope": _scope_for_resource(request, params.get("resource", "")),
+    }
 
 
 class _ClientRedirect(HttpResponse):
@@ -310,20 +317,29 @@ class _ClientRedirect(HttpResponse):
         return self["Location"]
 
 
-def _redirect(authorization: _Authorization, *, params: dict[str, str]) -> HttpResponse:
-    if authorization.state is not None:
-        params["state"] = authorization.state
-    parts = urlsplit(authorization.client.redirect_uri)
-    query = f"{parts.query}&{urlencode(params)}" if parts.query else urlencode(params)
-    return _ClientRedirect(urlunsplit(parts._replace(query=query)))
+def _redirect(
+    request: RootRequest, pending: McpPendingAuthorizationDTO, **params: str
+) -> HttpResponse:
+    query = params | {"iss": issuer(request)}
+    if pending.state is not None:
+        query |= {"state": pending.state}
+    parts = urlsplit(pending.client.redirect_uri)
+    encoded = urlencode(query)
+    return _ClientRedirect(
+        urlunsplit(
+            parts._replace(query=f"{parts.query}&{encoded}" if parts.query else encoded)
+        )
+    )
 
 
-def _redirect_error(
-    authorization: _Authorization, *, error: str, description: str, issuer_url: str
+def _reject(
+    request: RootRequest, rejection: McpAuthorizationRejectedError
 ) -> HttpResponse:
     return _redirect(
-        authorization,
-        params={"error": error, "error_description": description, "iss": issuer_url},
+        request,
+        rejection.pending,
+        error=rejection.error,
+        error_description=rejection.description,
     )
 
 
@@ -340,29 +356,24 @@ class McpTokenView(View):
                 "unsupported_grant_type", "Only authorization_code is supported."
             )
         try:
-            grant = request.services.mcp_authorization.redeem_code(
+            grant = request.services.mcp_authorization.redeem(
                 code=request.POST.get("code", ""),
                 client_id=request.POST.get("client_id", ""),
                 redirect_uri=request.POST.get("redirect_uri", ""),
                 code_verifier=request.POST.get("code_verifier", ""),
             )
-            access_token = _mint(grant)
-        except McpGrantRejectedError as exc:
+        except McpGrantRejectedError:
             logger.info(
-                "MCP OAuth token refused: client=%s reason=%s",
-                request.POST.get("client_id", ""),
-                exc,
+                "MCP OAuth token refused: client=%s", request.POST.get("client_id", "")
             )
-            return _token_error("invalid_grant", str(exc))
-        logger.info(
-            "MCP OAuth token issued: user=%s client=%s scope=%s",
-            grant.user_id,
-            grant.client_id,
-            grant.scope,
-        )
+            return _token_error(
+                "invalid_grant",
+                "The authorization code is invalid or was issued for another request.",
+            )
+        logger.info("MCP OAuth token issued: user=%s", grant.user_id)
         response = JsonResponse(
             {
-                "access_token": access_token,
+                "access_token": _mint(grant),
                 "token_type": "Bearer",
                 "expires_in": TOKEN_MAX_AGE_DAYS * 24 * 60 * 60,
             }
@@ -371,15 +382,14 @@ class McpTokenView(View):
         return response
 
 
-def _mint(grant: McpGrantDTO) -> str:
-    if grant.scope is ToolScope.MAINTAINER:
-        return mint_token(grant.user_id)
-    if grant.sphere_id is None or grant.event_id is None:
-        msg = "The organizer grant names no event."
-        raise McpGrantRejectedError(msg)
-    return mint_organizer_token(
-        user_id=grant.user_id, sphere_id=grant.sphere_id, event_id=grant.event_id
-    )
+def _mint(grant: McpGrant) -> str:
+    match grant:
+        case MaintainerGrant(user_id=user_id):
+            return mint_token(user_id)
+        case OrganizerGrant(user_id=user_id, sphere_id=sphere_id, event_id=event_id):
+            return mint_organizer_token(
+                user_id=user_id, sphere_id=sphere_id, event_id=event_id
+            )
 
 
 def _token_error(error: str, description: str) -> JsonResponse:

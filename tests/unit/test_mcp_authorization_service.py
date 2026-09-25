@@ -1,15 +1,25 @@
 import base64
 import hashlib
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from ludamus.mills.mcp import AUTHORIZATION_CODE_TTL_SECONDS, McpAuthorizationService
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.mcp import (
+    ClientRejection,
+    MaintainerGrant,
+    McpAuthorizationRejectedError,
     McpClientDTO,
     McpClientRejectedError,
-    McpGrantDTO,
+    McpConsentDTO,
+    McpEventChoiceDTO,
     McpGrantRejectedError,
+    McpIssuedCode,
+    McpPendingAuthorizationDTO,
+    OrganizerGrant,
     ToolScope,
 )
 
@@ -21,6 +31,12 @@ CHALLENGE = (
     .rstrip(b"=")
     .decode()
 )
+CLIENT = McpClientDTO(
+    client_id=CLIENT_ID,
+    client_name="Example Agent",
+    client_host="client.example",
+    redirect_uri=LOOPBACK_REDIRECT,
+)
 
 
 def _document(**overrides):
@@ -31,64 +47,88 @@ def _document(**overrides):
     } | overrides
 
 
-def _service(document=None, stored=None):
-    fetcher = MagicMock()
-    fetcher.fetch.return_value = _document() if document is None else document
-    codes = MagicMock()
-    codes.take.return_value = stored
-    return McpAuthorizationService(fetcher=fetcher, codes=codes), fetcher, codes
-
-
-def _stored(**overrides):
+def _request(**overrides):
     return {
         "client_id": CLIENT_ID,
         "redirect_uri": LOOPBACK_REDIRECT,
+        "response_type": "code",
         "code_challenge": CHALLENGE,
-        "user_id": 7,
-        "scope": ToolScope.ORGANIZER,
-        "sphere_id": 3,
-        "event_id": 11,
+        "code_challenge_method": "S256",
+        "state": "xyz",
+        "scope": ToolScope.MAINTAINER,
     } | overrides
 
 
-class TestResolveClient:
-    def test_returns_client_for_listed_redirect(self):
-        service, fetcher, _codes = _service()
+def _pending(scope=ToolScope.MAINTAINER):
+    return McpPendingAuthorizationDTO(
+        client=CLIENT, scope=scope, code_challenge=CHALLENGE, state="xyz"
+    )
 
-        client = service.resolve_client(
-            client_id=CLIENT_ID, redirect_uri="https://client.example/callback"
+
+def _event(pk, *, days):
+    start = datetime.now(UTC) + timedelta(days=days)
+    return SimpleNamespace(
+        pk=pk, name=f"Event {pk}", start_time=start, end_time=start + timedelta(hours=8)
+    )
+
+
+def _issued(**overrides):
+    return McpIssuedCode(
+        **{
+            "client_id": CLIENT_ID,
+            "redirect_uri": LOOPBACK_REDIRECT,
+            "code_challenge": CHALLENGE,
+            "grant": OrganizerGrant(user_id=7, sphere_id=3, event_id=11),
+        }
+        | overrides
+    )
+
+
+class _Deps:
+    def __init__(
+        self, *, document=None, stored=None, superuser=True, manager=True, events=()
+    ):
+        self.fetcher = MagicMock()
+        self.fetcher.fetch.return_value = _document() if document is None else document
+        self.codes = MagicMock()
+        self.codes.take.return_value = stored
+        self.spheres = MagicMock()
+        self.spheres.can_write_programme.return_value = manager
+        self.spheres.list_events.return_value = list(events)
+        self.users = MagicMock()
+        self.users.read.return_value.is_superuser = superuser
+        self.service = McpAuthorizationService(
+            fetcher=self.fetcher,
+            codes=self.codes,
+            spheres=self.spheres,
+            users=self.users,
         )
 
-        assert client == McpClientDTO(
-            client_id=CLIENT_ID,
-            client_name="Example Agent",
-            client_host="client.example",
-            redirect_uri="https://client.example/callback",
-        )
-        fetcher.fetch.assert_called_once_with(CLIENT_ID)
+
+class TestBegin:
+    def test_returns_pending_authorization(self):
+        deps = _Deps()
+
+        pending = deps.service.begin(_request())
+
+        assert pending == _pending()
+        deps.fetcher.fetch.assert_called_once_with(CLIENT_ID)
 
     def test_loopback_redirect_matches_on_any_port(self):
-        service, _fetcher, _codes = _service()
+        deps = _Deps()
 
-        client = service.resolve_client(
-            client_id=CLIENT_ID, redirect_uri="http://127.0.0.1:49152/callback"
+        pending = deps.service.begin(
+            _request(redirect_uri="http://127.0.0.1:49152/callback")
         )
 
-        assert client.redirect_uri == "http://127.0.0.1:49152/callback"
+        assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
 
     def test_name_falls_back_to_host_and_is_capped(self):
-        service, _fetcher, _codes = _service(_document(client_name="  "))
-        long_service, _f, _c = _service(_document(client_name="x" * 300))
+        unnamed = _Deps(document=_document(client_name="  ")).service
+        long_named = _Deps(document=_document(client_name="x" * 300)).service
 
-        unnamed = service.resolve_client(
-            client_id=CLIENT_ID, redirect_uri=LOOPBACK_REDIRECT
-        )
-        long_named = long_service.resolve_client(
-            client_id=CLIENT_ID, redirect_uri=LOOPBACK_REDIRECT
-        )
-
-        assert unnamed.client_name == "client.example"
-        assert long_named.client_name == "x" * 100
+        assert unnamed.begin(_request()).client.client_name == "client.example"
+        assert long_named.begin(_request()).client.client_name == "x" * 100
 
     @pytest.mark.parametrize(
         "client_id",
@@ -103,124 +143,208 @@ class TestResolveClient:
         ),
     )
     def test_rejects_malformed_client_id_without_fetching(self, client_id):
-        service, fetcher, _codes = _service()
+        deps = _Deps()
 
-        with pytest.raises(McpClientRejectedError):
-            service.resolve_client(client_id=client_id, redirect_uri=LOOPBACK_REDIRECT)
+        with pytest.raises(McpClientRejectedError) as caught:
+            deps.service.begin(_request(client_id=client_id))
 
-        fetcher.fetch.assert_not_called()
+        assert caught.value.reason == ClientRejection.BAD_CLIENT_ID
+        deps.fetcher.fetch.assert_not_called()
 
     @pytest.mark.parametrize(
         ("document", "reason"),
         (
-            (_document(client_id="https://other.example/m.json"), "different"),
-            (_document(token_endpoint_auth_method="private_key_jwt"), "public"),
-            (_document(redirect_uris=[]), "redirect_uris"),
-            ({"client_id": CLIENT_ID}, "redirect_uris"),
+            (
+                _document(client_id="https://other.example/m.json"),
+                ClientRejection.CLIENT_ID_MISMATCH,
+            ),
+            (
+                _document(token_endpoint_auth_method="private_key_jwt"),
+                ClientRejection.CONFIDENTIAL_CLIENT,
+            ),
+            (_document(redirect_uris=[]), ClientRejection.NO_REDIRECT_URIS),
+            ({"client_id": CLIENT_ID}, ClientRejection.NO_REDIRECT_URIS),
         ),
     )
     def test_rejects_unusable_document(self, document, reason):
-        service, _fetcher, _codes = _service(document)
+        deps = _Deps(document=document)
 
-        with pytest.raises(McpClientRejectedError, match=reason):
-            service.resolve_client(client_id=CLIENT_ID, redirect_uri=LOOPBACK_REDIRECT)
+        with pytest.raises(McpClientRejectedError) as caught:
+            deps.service.begin(_request())
+
+        assert caught.value.reason == reason
 
     @pytest.mark.parametrize(
-        "redirect_uri",
+        ("redirect_uri", "reason"),
         (
-            "https://evil.example/callback",
-            "http://127.0.0.1:5000/other",
-            "http://localhost/callback",
-            "javascript:alert(1)",
-            "https://client.example/callback#x",
-            "http://client.example/callback",
-            "",
+            ("https://evil.example/callback", ClientRejection.REDIRECT_NOT_LISTED),
+            ("http://127.0.0.1:5000/other", ClientRejection.REDIRECT_NOT_LISTED),
+            ("http://localhost/callback", ClientRejection.REDIRECT_NOT_LISTED),
+            ("javascript:alert(1)", ClientRejection.BAD_REDIRECT_URI),
+            ("https://client.example/callback#x", ClientRejection.BAD_REDIRECT_URI),
+            ("http://client.example/callback", ClientRejection.BAD_REDIRECT_URI),
+            ("", ClientRejection.BAD_REDIRECT_URI),
         ),
     )
-    def test_rejects_redirect_uri(self, redirect_uri):
-        document = _document(
-            redirect_uris=[
-                LOOPBACK_REDIRECT,
-                "https://client.example/callback",
-                "http://client.example/callback",
-                "javascript:alert(1)",
-            ]
+    def test_rejects_redirect_uri(self, redirect_uri, reason):
+        deps = _Deps()
+
+        with pytest.raises(McpClientRejectedError) as caught:
+            deps.service.begin(_request(redirect_uri=redirect_uri))
+
+        assert caught.value.reason == reason
+
+    @pytest.mark.parametrize(
+        ("overrides", "error"),
+        (
+            ({"response_type": "token"}, "unsupported_response_type"),
+            ({"code_challenge_method": "plain"}, "invalid_request"),
+            ({"code_challenge": ""}, "invalid_request"),
+            ({"scope": None}, "invalid_target"),
+        ),
+    )
+    def test_bad_request_is_sent_back_to_the_verified_client(self, overrides, error):
+        deps = _Deps()
+
+        with pytest.raises(McpAuthorizationRejectedError) as caught:
+            deps.service.begin(_request(**overrides))
+
+        assert caught.value.error == error
+        assert caught.value.pending.client == CLIENT
+
+
+class TestConsent:
+    def test_maintainer_needs_superuser(self):
+        allowed = _Deps(superuser=True).service
+        refused = _Deps(superuser=False).service
+
+        assert allowed.consent(_pending(), sphere_id=3, user_slug="me") == (
+            McpConsentDTO(may_grant=True, events=[])
         )
-        service, _fetcher, _codes = _service(document)
-
-        with pytest.raises(McpClientRejectedError):
-            service.resolve_client(client_id=CLIENT_ID, redirect_uri=redirect_uri)
-
-
-class TestIssueCode:
-    def test_stores_grant_under_fresh_code(self):
-        service, _fetcher, codes = _service()
-        data = _stored()
-
-        code = service.issue_code(data)
-
-        codes.put.assert_called_once_with(
-            code, data, ttl_seconds=AUTHORIZATION_CODE_TTL_SECONDS
+        assert refused.consent(_pending(), sphere_id=3, user_slug="me") == (
+            McpConsentDTO(may_grant=False, events=[])
         )
 
+    def test_organizer_lists_upcoming_events_soonest_first(self):
+        deps = _Deps(
+            events=[_event(1, days=-30), _event(2, days=20), _event(3, days=5)]
+        )
 
-class TestRedeemCode:
+        consent = deps.service.consent(
+            _pending(ToolScope.ORGANIZER), sphere_id=3, user_slug="me"
+        )
+
+        assert consent == McpConsentDTO(
+            may_grant=True,
+            events=[
+                McpEventChoiceDTO(pk=3, name="Event 3"),
+                McpEventChoiceDTO(pk=2, name="Event 2"),
+                McpEventChoiceDTO(pk=1, name="Event 1"),
+            ],
+        )
+        deps.spheres.can_write_programme.assert_called_once_with(3, "me")
+
+    def test_organizer_without_manager_role_is_refused(self):
+        deps = _Deps(manager=False, events=[_event(1, days=5)])
+
+        consent = deps.service.consent(
+            _pending(ToolScope.ORGANIZER), sphere_id=3, user_slug="me"
+        )
+
+        assert consent == McpConsentDTO(may_grant=False, events=[])
+
+
+class TestApprove:
+    def test_maintainer_code_is_stored(self):
+        deps = _Deps()
+
+        code = deps.service.approve(
+            _pending(), user_id=7, user_slug="me", sphere_id=3, event_id=None
+        )
+
+        deps.codes.put.assert_called_once_with(
+            code,
+            _issued(grant=MaintainerGrant(user_id=7)),
+            ttl_seconds=AUTHORIZATION_CODE_TTL_SECONDS,
+        )
+
+    def test_organizer_code_names_the_event(self):
+        deps = _Deps(events=[_event(11, days=5)])
+
+        code = deps.service.approve(
+            _pending(ToolScope.ORGANIZER),
+            user_id=7,
+            user_slug="me",
+            sphere_id=3,
+            event_id=11,
+        )
+
+        deps.codes.put.assert_called_once_with(
+            code, _issued(), ttl_seconds=AUTHORIZATION_CODE_TTL_SECONDS
+        )
+
+    @pytest.mark.parametrize("event_id", (99, None))
+    def test_foreign_or_missing_event_stores_nothing(self, event_id):
+        deps = _Deps(events=[_event(11, days=5)])
+
+        with pytest.raises(NotFoundError):
+            deps.service.approve(
+                _pending(ToolScope.ORGANIZER),
+                user_id=7,
+                user_slug="me",
+                sphere_id=3,
+                event_id=event_id,
+            )
+
+        deps.codes.put.assert_not_called()
+
+    def test_user_who_may_not_grant_is_refused(self):
+        deps = _Deps(superuser=False)
+
+        with pytest.raises(McpAuthorizationRejectedError) as caught:
+            deps.service.approve(
+                _pending(), user_id=7, user_slug="me", sphere_id=3, event_id=None
+            )
+
+        assert caught.value.error == "access_denied"
+        deps.codes.put.assert_not_called()
+
+
+class TestRedeem:
     def test_returns_grant(self):
-        service, _fetcher, codes = _service(stored=_stored())
+        deps = _Deps(stored=_issued())
 
-        grant = service.redeem_code(
+        grant = deps.service.redeem(
             code="abc",
             client_id=CLIENT_ID,
             redirect_uri=LOOPBACK_REDIRECT,
             code_verifier=VERIFIER,
         )
 
-        assert grant == McpGrantDTO(
-            client_id=CLIENT_ID,
-            user_id=7,
-            scope=ToolScope.ORGANIZER,
-            sphere_id=3,
-            event_id=11,
-        )
-        codes.take.assert_called_once_with("abc")
-
-    def test_unknown_code(self):
-        service, _fetcher, _codes = _service(stored=None)
-
-        with pytest.raises(McpGrantRejectedError, match="invalid"):
-            service.redeem_code(
-                code="abc",
-                client_id=CLIENT_ID,
-                redirect_uri=LOOPBACK_REDIRECT,
-                code_verifier=VERIFIER,
-            )
+        assert grant == OrganizerGrant(user_id=7, sphere_id=3, event_id=11)
+        deps.codes.take.assert_called_once_with("abc")
 
     @pytest.mark.parametrize(
-        ("client_id", "redirect_uri"),
+        ("stored", "overrides"),
         (
-            ("https://other.example/m.json", LOOPBACK_REDIRECT),
-            (CLIENT_ID, "http://127.0.0.1:9/callback"),
+            (None, {}),
+            (_issued(), {"client_id": "https://other.example/m.json"}),
+            (_issued(), {"redirect_uri": "http://127.0.0.1:9/callback"}),
+            (_issued(), {"code_verifier": "w" * 43}),
+            (_issued(), {"code_verifier": "short"}),
+            (_issued(), {"code_verifier": "v" * 42 + "!"}),
         ),
     )
-    def test_code_bound_to_client(self, client_id, redirect_uri):
-        service, _fetcher, _codes = _service(stored=_stored())
+    def test_mismatch_is_rejected(self, stored, overrides):
+        deps = _Deps(stored=stored)
 
-        with pytest.raises(McpGrantRejectedError, match="different client"):
-            service.redeem_code(
-                code="abc",
-                client_id=client_id,
-                redirect_uri=redirect_uri,
-                code_verifier=VERIFIER,
-            )
-
-    @pytest.mark.parametrize("verifier", ("w" * 43, "short", "v" * 42 + "!"))
-    def test_wrong_verifier(self, verifier):
-        service, _fetcher, _codes = _service(stored=_stored())
-
-        with pytest.raises(McpGrantRejectedError, match="code_verifier"):
-            service.redeem_code(
-                code="abc",
-                client_id=CLIENT_ID,
-                redirect_uri=LOOPBACK_REDIRECT,
-                code_verifier=verifier,
+        with pytest.raises(McpGrantRejectedError):
+            deps.service.redeem(
+                **{
+                    "code": "abc",
+                    "client_id": CLIENT_ID,
+                    "redirect_uri": LOOPBACK_REDIRECT,
+                    "code_verifier": VERIFIER,
+                }
+                | overrides
             )
