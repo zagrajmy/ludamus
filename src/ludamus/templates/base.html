@@ -26,10 +26,9 @@
         the sphere (landing) empty out title_suffix instead, and panel pages swap
         it for the event they manage. The root sphere is Zagrajmy, so it takes no
         brand tail. Captured once here so the document title and the link-preview
-        titles below can never drift apart. A page whose URL names one thing
-        inside it (the event page's ?session=) may override the preview title
-        blocks with that thing: the tab stays the page's, since closing the
-        modal leaves the reader on the page.{% endcomment %}
+        titles below can never drift apart. A ?session= link may override the
+        preview title blocks alone: closing its modal leaves the reader on the
+        page the tab names.{% endcomment %}
         {% document_title %}
             {% block title %}
             {% endblock title %}

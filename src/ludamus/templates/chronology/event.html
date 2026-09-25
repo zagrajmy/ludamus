@@ -9,9 +9,6 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
-{% comment %}A ?session= link is shared to show one session, and link-preview
-crawlers never run the script that opens its modal, so the preview names the
-session instead of the event whenever the view found one.{% endcomment %}
 {% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
 {% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
 {% block meta_description %}

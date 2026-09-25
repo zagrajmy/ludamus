@@ -301,6 +301,17 @@ class TestSessionLinkPreview:
         )
         assert _descriptions(response) == [expected] * 3
 
+    def test_session_without_a_description_stops_at_the_room(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        session = self._scheduled(event, description="")
+
+        response = self._share(client, event, session.pk)
+
+        assert (
+            _descriptions(response)
+            == ["Saturday, 17 May · 14:00–16:30 — Sala Lustrzana"] * 3
+        )
+
     def test_shows_the_session_cover_over_the_event_cover(self, client, sphere):
         event = EventFactory(sphere=sphere, cover_image="events/hall.png")
         session = self._scheduled(event, cover_image="sessions/cthulhu.png")

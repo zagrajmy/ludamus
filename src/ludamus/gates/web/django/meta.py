@@ -18,9 +18,6 @@ if TYPE_CHECKING:
 SUMMARY_WORDS = 20
 
 
-# What a page's URL names inside it, for link previews to show instead of the
-# page itself. The empty preview overrides nothing, so a template reads its
-# fields with a fallback and no branch.
 @dataclass(frozen=True)
 class LinkPreview:
     title: str = ""
@@ -55,7 +52,7 @@ def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
             f"{date_format(start, 'l, j E')} · "
             f"{time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
         )
-    if place := data.loc.get("path", ""):
+    if place := data.location_label:
         parts.append(f"— {place}")
     if session.description:
         parts.append(f"| {_summary(render_markdown(session.description))}")
