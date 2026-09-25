@@ -6,6 +6,7 @@ from django.urls import reverse
 from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
 from tests.integration.conftest import EventFactory, SessionFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.landing_context import CONTACT_EMAIL
 
 
 class TestAboutPage:
@@ -21,6 +22,7 @@ class TestAboutPage:
             context_data={
                 "stats": LandingStatsDTO(events=0, sessions=0),
                 "conventions": [],
+                "contact_email": CONTACT_EMAIL,
             },
         )
 
@@ -47,5 +49,19 @@ class TestAboutPage:
                         cover_image_url=event.cover_image.url,
                     )
                 ],
+                "contact_email": CONTACT_EMAIL,
             },
+        )
+
+    def test_convention_domain_redirects_to_the_root_copy(
+        self, client, non_root_sphere, settings
+    ):
+        # One indexed copy: on a sphere's domain the page would render the
+        # same text under the convention's name and chrome.
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
+
+        assert_response(
+            response,
+            HTTPStatus.MOVED_PERMANENTLY,
+            url=f"http://{settings.ROOT_DOMAIN}/about/",
         )

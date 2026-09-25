@@ -28,10 +28,10 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.landing_context import CONTACT_EMAIL, landing_context
 
 # Pinned rather than imported from the view, so a wrong production link
 # fails here instead of being asserted back to itself.
-KAPITULARZ_URL = "https://kapitularz.zagrajmy.net/"
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -65,13 +65,7 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-                "showcase_url": KAPITULARZ_URL,
-            },
+            context_data=landing_context(),
             template_name=["landing_page.html"],
         )
 
@@ -84,13 +78,7 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": False,
-                "showcase_url": KAPITULARZ_URL,
-            },
+            context_data=landing_context(encounters_enabled=False),
             template_name=["landing_page.html"],
         )
 
@@ -861,13 +849,7 @@ class TestLandingPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-                "showcase_url": KAPITULARZ_URL,
-            },
+            context_data=landing_context(),
             template_name=["landing_page.html"],
         )
 
@@ -909,6 +891,7 @@ class TestLandingPageView:
                 "showcase_url": reverse(
                     "web:chronology:event", kwargs={"slug": newest.slug}
                 ),
+                "contact_email": CONTACT_EMAIL,
             },
             template_name=["landing_page.html"],
         )
@@ -924,12 +907,6 @@ class TestLandingPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=1, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-                "showcase_url": KAPITULARZ_URL,
-            },
+            context_data=landing_context(stats=LandingStatsDTO(events=1, sessions=0)),
             template_name=["landing_page.html"],
         )

@@ -22,15 +22,13 @@
         Plain headings and a definition list on purpose: search engines and AI
         answer engines quote this page, and they read structure, not styling.
     {% endcomment %}
-    <article class="max-w-3xl mx-auto w-full text-foreground-secondary text-[1.02rem] leading-[1.6] [&_h2]:mt-16 [&_h2]:mb-5 [&_h2]:scroll-mt-20 [&_h2]:text-[clamp(1.45rem,3vw,1.9rem)] [&_h2]:font-extrabold [&_h2]:tracking-[-0.02em] [&_h2]:leading-[1.15] [&_h2]:text-foreground [&_h3]:mt-7 [&_h3]:mb-1.5 [&_h3]:text-[1.1rem] [&_h3]:font-bold [&_h3]:tracking-[-0.01em] [&_h3]:text-foreground [&_a:not(.btn)]:text-primary [&_a:not(.btn)]:underline [&_a:not(.btn)]:decoration-primary/40 [&_a:not(.btn):hover]:decoration-primary">
-        <header class="pt-4">
-            <h1 class="text-[clamp(2rem,5vw,2.9rem)] font-extrabold tracking-[-0.03em] leading-[1.08] text-foreground">
-                {% translate "About Zagrajmy" %}
-            </h1>
-            <p class="mt-5 text-[1.2rem] leading-[1.5] text-foreground">
+    <article class="prose dark:prose-invert max-w-3xl mx-auto w-full pt-4 prose-headings:text-foreground prose-headings:tracking-tight prose-h1:font-extrabold prose-h2:font-extrabold prose-lead:text-foreground prose-p:text-foreground-secondary prose-li:text-foreground-secondary prose-a:text-primary prose-a:decoration-primary/40 hover:prose-a:decoration-primary">
+        <header>
+            <h1>{% translate "About Zagrajmy" %}</h1>
+            <p class="lead">
                 {% translate "Zagrajmy is an event programme platform that runs proposals, the schedule, enrollment, and print for organizers of conventions, conferences, and meetups." %}
             </p>
-            <p class="mt-3">
+            <p>
                 {% translate "Bring the event. We help set up proposals, programme, enrollment, and the public page in Zagrajmy." %}
             </p>
         </header>
@@ -88,7 +86,7 @@
         </section>
         <section aria-labelledby="about-who">
             <h2 id="about-who">{% translate "Who uses Zagrajmy" %}</h2>
-            <ul class="list-disc pl-5 grid gap-2 marker:text-foreground-muted">
+            <ul>
                 <li>
                     {% translate "Organizers of fan conventions (board games, RPGs, fantasy) with a multi-day programme across many rooms" %}
                 </li>
@@ -104,10 +102,10 @@
             <p>
                 {% translate "We're Radek and Piotrek. Radek is the one with the guitar, and Piotrek is the one with the tattoos. We both play tabletop roleplaying games and write our own, and Zagrajmy (Polish for “let's play”) is the tool we wanted on both sides of the convention table." %}
             </p>
-            <p class="mt-3">
+            <p>
                 {% translate "We first tried to build it in 2020, then other things took over. In June 2025 we picked it back up, starting with enrollment for tabletop game conventions, where the programme still lived in spreadsheets and chat threads. By now it covers everything from the first proposal to the printout on the room door." %}
             </p>
-            <p class="mt-3">
+            <p>
                 {% translate "It's still the two of us, plus people who send fixes on GitHub. Write to us, and one of us writes back." %}
             </p>
             <h3>Radosław Ganczarek</h3>
@@ -116,58 +114,46 @@
                     Radek has been running tabletop RPGs for more than twenty years. He writes his own games, like the narrative RPG <a href="{{ tern_url }}"><cite>Tern</cite></a> and the dungeon crawl <a href="{{ labirynty_url }}"><cite>Labirynty Szalonej Zagłady</cite></a>, and sings RPG songs on YouTube as Radek MG.
                 {% endblocktranslate %}
             </p>
-            <p class="mt-1.5 flex flex-wrap gap-x-4">
-                <a href="https://www.youtube.com/@radekmgyt">YouTube</a>
-                <a href="https://radekmg.itch.io/">itch.io</a>
-                <a href="https://fancysnake.dev/">fancysnake.dev</a>
-                <a href="https://github.com/fancysnake">GitHub</a>
-                <a href="https://www.linkedin.com/in/radoslawganczarek/">LinkedIn</a>
-            </p>
+            <ul class="flex flex-wrap gap-x-4 list-none ps-0 [&>li]:my-0 [&>li]:ps-0">
+                <li><a href="https://www.youtube.com/@radekmgyt">YouTube</a></li>
+                <li><a href="https://radekmg.itch.io/">itch.io</a></li>
+                <li><a href="https://fancysnake.dev/">fancysnake.dev</a></li>
+                <li><a href="https://github.com/fancysnake">GitHub</a></li>
+                <li><a href="https://www.linkedin.com/in/radoslawganczarek/">LinkedIn</a></li>
+            </ul>
             <h3>Piotr Monwid-Olechnowicz</h3>
             <p>
                 {% translate "Piotrek cares about the small details of how software feels to use, which is most of the reason Zagrajmy's interface looks the way it does." %}
             </p>
-            <p class="mt-1.5">
+            <p>
                 {% blocktranslate trimmed with game_url="https://hasparus.itch.io/why-dragon" %}
                     Piotrek's own games are small: <a href="{{ game_url }}"><cite>Why Would You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and sacrifice.
                 {% endblocktranslate %}
             </p>
-            <p class="mt-1.5 flex flex-wrap gap-x-4">
-                <a href="https://haspar.us/">haspar.us</a>
-                <a href="https://lol.haspar.us/">lol.haspar.us</a>
-                <a href="https://hasparus.itch.io/">itch.io</a>
-                <a href="https://bsky.app/profile/haspar.us">Bluesky</a>
-                <a href="https://github.com/hasparus">GitHub</a>
-            </p>
+            <ul class="flex flex-wrap gap-x-4 list-none ps-0 [&>li]:my-0 [&>li]:ps-0">
+                <li><a href="https://haspar.us/">haspar.us</a></li>
+                <li><a href="https://lol.haspar.us/">lol.haspar.us</a></li>
+                <li><a href="https://hasparus.itch.io/">itch.io</a></li>
+                <li><a href="https://bsky.app/profile/haspar.us">Bluesky</a></li>
+                <li><a href="https://github.com/hasparus">GitHub</a></li>
+            </ul>
         </section>
         <section aria-labelledby="about-how">
             <h2 id="about-how">{% translate "How Zagrajmy works" %}</h2>
             <p>{% translate "You talk directly to us, the people who write the code." %}</p>
-            <ol class="mt-4 list-decimal pl-5 grid gap-2 marker:text-foreground-muted marker:font-semibold">
+            <ol>
                 <li>{% translate "We reply and set up a short call about how your event works." %}</li>
                 <li>{% translate "We set up the first version: proposals, rooms, time slots, the page." %}</li>
                 <li>{% translate "You click through it with us and we publish when you decide it is ready." %}</li>
             </ol>
-            <p class="mt-4">
+            <p>
                 {% translate "After that, the event is yours to run from the organizer panel, at its own address on zagrajmy.net." %}
             </p>
-            <div class="mt-6 flex flex-wrap items-stretch gap-3">
-                <a class="btn btn-primary"
-                   href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-                {% translate "Copy the address" as copy_address_label %}
-                {% tessera_copy "kontakt@zagrajmy.net" class="w-auto!" %}
-                    <code class="text-[0.9375rem] text-box-trim-both">kontakt@zagrajmy.net</code>
-                    {% icon "clipboard" variant="outline" class="size-4 text-foreground-muted" %}
-                    <span class="sr-only">{{ copy_address_label }}</span>
-                {% endtessera_copy %}
-            </div>
-            <p class="mt-3 text-[0.95rem] text-foreground-muted">
-                {% translate "We reply with a concrete plan for your event, and asking commits you to nothing." %}
-            </p>
+            <div class="not-prose mt-6">{% include "components/contact_cta.html" %}</div>
         </section>
         <section aria-labelledby="about-facts">
             <h2 id="about-facts">{% translate "Key facts" %}</h2>
-            <dl class="border-t border-border [&>div]:grid [&>div]:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] max-sm:[&>div]:grid-cols-1 [&>div]:gap-x-6 [&>div]:gap-y-0.5 [&>div]:py-3 [&>div]:border-b [&>div]:border-border [&_dt]:font-semibold [&_dt]:text-foreground">
+            <dl class="not-prose text-foreground-secondary [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/40 border-t border-border [&>div]:grid [&>div]:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] max-sm:[&>div]:grid-cols-1 [&>div]:gap-x-6 [&>div]:gap-y-0.5 [&>div]:py-3 [&>div]:border-b [&>div]:border-border [&_dt]:font-semibold [&_dt]:text-foreground">
                 <div>
                     <dt>{% translate "Name" context "about key facts" %}</dt>
                     <dd>
@@ -231,7 +217,7 @@
                 <div>
                     <dt>{% translate "Communication" context "about key facts" %}</dt>
                     <dd>
-                        {% blocktranslate trimmed with email="kontakt@zagrajmy.net" %}
+                        {% blocktranslate trimmed with email=contact_email %}
                             Email at <a href="mailto:{{ email }}">{{ email }}</a> and a call during setup
                         {% endblocktranslate %}
                     </dd>

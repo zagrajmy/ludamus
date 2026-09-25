@@ -4335,33 +4335,6 @@ msgstr ""
 "adresem w zagrajmy.net."
 
 #: src/ludamus/templates/about.html
-#: src/ludamus/templates/landing/org_final.html
-#: src/ludamus/templates/landing/org_hero.html
-msgid "My event in Zagrajmy"
-msgstr "Moje wydarzenie w Zagrajmy"
-
-#: src/ludamus/templates/about.html
-#: src/ludamus/templates/landing/org_final.html
-#: src/ludamus/templates/landing/org_hero.html
-#: src/ludamus/templates/landing/org_pitch.html
-msgid "Run your event with Zagrajmy"
-msgstr "Zorganizuj wydarzenie z Zagrajmy"
-
-#: src/ludamus/templates/about.html
-#: src/ludamus/templates/landing/org_final.html
-msgid "Copy the address"
-msgstr "Skopiuj adres"
-
-#: src/ludamus/templates/about.html
-#: src/ludamus/templates/landing/org_final.html
-msgid ""
-"We reply with a concrete plan for your event, and asking commits you to "
-"nothing."
-msgstr ""
-"Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
-"niczego Cię nie zobowiązuje."
-
-#: src/ludamus/templates/about.html
 msgid "Key facts"
 msgstr "Najważniejsze fakty"
 
@@ -5884,6 +5857,29 @@ msgstr "Żadnych ciastek!"
 #: src/ludamus/templates/components/consent-banner.html
 msgid "Cool"
 msgstr "Spoko"
+
+#: src/ludamus/templates/components/contact_cta.html
+msgid "Copy the address"
+msgstr "Skopiuj adres"
+
+#: src/ludamus/templates/components/contact_cta.html
+#: src/ludamus/templates/landing/org_hero.html
+msgid "My event in Zagrajmy"
+msgstr "Moje wydarzenie w Zagrajmy"
+
+#: src/ludamus/templates/components/contact_cta.html
+#: src/ludamus/templates/landing/org_hero.html
+#: src/ludamus/templates/landing/org_pitch.html
+msgid "Run your event with Zagrajmy"
+msgstr "Zorganizuj wydarzenie z Zagrajmy"
+
+#: src/ludamus/templates/components/contact_cta.html
+msgid ""
+"We reply with a concrete plan for your event, and asking commits you to "
+"nothing."
+msgstr ""
+"Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
+"niczego Cię nie zobowiązuje."
 
 #: src/ludamus/templates/components/create_encounter_button.html
 #: src/ludamus/templates/notice_board/create.html

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
@@ -20,6 +21,10 @@ LANDING_ENCOUNTERS = 4
 # The event page the pitch sends a visitor to as its proof. Kapitularz runs
 # on its own sphere, so the production landing links across domains.
 SHOWCASE_EVENT_URL = "https://kapitularz.zagrajmy.net/"
+
+# Where organizers write to start an event. Not SUPPORT_EMAIL: that one takes
+# account and data requests, this one is the sales conversation.
+CONTACT_EMAIL = "kontakt@zagrajmy.net"
 
 
 def index_page(request: RootRequest) -> HttpResponse:
@@ -67,6 +72,7 @@ def landing_page(request: RootRequest) -> HttpResponse:
                 context.current_sphere_id
             ),
             "showcase_url": _showcase_url(request),
+            "contact_email": CONTACT_EMAIL,
         },
     )
 
@@ -88,11 +94,24 @@ def about_page(request: RootRequest) -> HttpResponse:
 
     Returns:
         The about page, with the live counts and conventions its key facts
-        cite, so the numbers never go stale in the copy.
+        cite, so the numbers never go stale in the copy. On a convention's
+        domain, a permanent redirect to the root domain's copy: the page is
+        about Zagrajmy, and one address keeps crawlers from indexing a
+        duplicate under every sphere's name.
     """
+    context = request.context
+    if context.current_sphere_id != context.root_sphere_id:
+        root_domain = request.services.sites.read(context.root_sphere_id).site.domain
+        return HttpResponsePermanentRedirect(
+            f"{request.scheme}://{root_domain}{reverse('about')}"
+        )
     landing = request.services.landing
     return TemplateResponse(
         request,
         ["about.html"],
-        {"stats": landing.stats(), "conventions": landing.conventions()},
+        {
+            "stats": landing.stats(),
+            "conventions": landing.conventions(),
+            "contact_email": CONTACT_EMAIL,
+        },
     )
