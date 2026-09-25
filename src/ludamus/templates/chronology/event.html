@@ -105,7 +105,7 @@
                             {% url 'web:chronology:event-ics' slug=event.slug as ics_url %}
                             {% tessera_action_dropdown_item t_google_calendar href=google_calendar_url icon="calendar-days" external=True %}
                             {% tessera_action_dropdown_item t_other_calendars href=ics_url icon="arrow-down-tray" %}
-                        {% endtessera_action_dropdown %}
+                        {% end_tessera_action_dropdown %}
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
                                 {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
@@ -365,7 +365,7 @@
                                             {% if current_user and compact_schedule %}
                                                 <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
                                             {% endif %}
-                                        {% endselect %}
+                                        {% end_select %}
                                     </div>
                                     {# One control for the whole space tree: the #}
                                     {# venues are its groups and selectable as a #}
@@ -381,7 +381,7 @@
                                                for="space-filter">{% translate "Location" %}</label>
                                         {% translate "Search locations…" as t_location_search %}
                                         {% tessera_combobox id="space-filter" multiple=True placeholder=t_location_search %}
-                                        {% endtessera_combobox %}
+                                        {% end_tessera_combobox %}
                                     </div>
                                     {# Two ends of the one number a session carries. "Participant #}
                                     {# age" answers "what can this person join" — a session stays #}
@@ -400,7 +400,7 @@
                                                    for="min-age-filter">{% translate "Age from" %}</label>
                                             {% select id="min-age-filter" name="age-min" class=select_class %}
                                                 <option value="">{% translate "Any age" %}</option>
-                                            {% endselect %}
+                                            {% end_select %}
                                         </div>
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
@@ -409,14 +409,14 @@
                                                    for="day-filter">{% translate "Day" %}</label>
                                             {% select id="day-filter" class=select_class %}
                                                 <option value="">{% translate "All days" %}</option>
-                                            {% endselect %}
+                                            {% end_select %}
                                         </div>
                                         <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
                                             <label class="{{ label_class }}"
                                                    for="hour-filter">{% translate "Hour" %}</label>
                                             {% select id="hour-filter" class=select_class %}
                                                 <option value="">{% translate "All hours" %}</option>
-                                            {% endselect %}
+                                            {% end_select %}
                                         </div>
                                     </div>
                                     {% if track_filter_names %}
@@ -426,7 +426,7 @@
                                             {% translate "Search tracks…" as t_track_search %}
                                             {% tessera_combobox id="tag-filter-__track" multiple=True placeholder=t_track_search data_category="__track" %}
                                                 {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                            {% endtessera_combobox %}
+                                            {% end_tessera_combobox %}
                                         </div>
                                     {% endif %}
                                     {% if category_filter_names %}
@@ -436,7 +436,7 @@
                                             {% translate "Search categories…" context "participant filter" as t_category_search %}
                                             {% tessera_combobox id="tag-filter-__category" multiple=True placeholder=t_category_search data_category="__category" %}
                                                 {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                            {% endtessera_combobox %}
+                                            {% end_tessera_combobox %}
                                         </div>
                                     {% endif %}
                                     <div id="tag-filters" class="contents">
@@ -449,7 +449,7 @@
                                                     {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
                                                     {# The value, not the label: cards, modal and search all carry the raw value. #}
                                                     {% for option in field.sorted_options %}<option value="{{ option.value }}">{{ option.value }}</option>{% endfor %}
-                                                {% endselect %}
+                                                {% end_select %}
                                             </div>
                                         {% endfor %}
                                     </div>
@@ -465,7 +465,7 @@
                                         {% translate "No host matches your search." as t_host_empty %}
                                         {% translate "Show hosts" as t_host_toggle %}
                                         {% tessera_combobox id="host-filter" multiple=True placeholder=t_host_search empty_text=t_host_empty toggle_label=t_host_toggle %}
-                                        {% endtessera_combobox %}
+                                        {% end_tessera_combobox %}
                                     </div>
                                 </div>
                             {% endwith %}

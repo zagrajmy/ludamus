@@ -123,7 +123,7 @@ class TestCopyPopover:
 class TestCopyBlock:
     def test_button_variant_by_default(self) -> None:
         tpl = Template(
-            "{% load tessera %}{% tessera_copy url %}Copy link{% endtessera_copy %}"
+            "{% load tessera %}{% tessera_copy url %}Copy link{% end_tessera_copy %}"
         )
         html = tpl.render(Context({"url": "https://x.test/e/1/"}))
         assert 'data-copy="https://x.test/e/1/"' in html
@@ -137,7 +137,7 @@ class TestCopyBlock:
         tpl = Template(
             "{% load tessera %}"
             '{% tessera_copy url variant="menu-item" class="rounded-t-lg" %}'
-            "Copy link{% endtessera_copy %}"
+            "Copy link{% end_tessera_copy %}"
         )
         html = tpl.render(Context({"url": "/e/1/"}))
         assert "hover:bg-bg-tertiary" in html
@@ -147,14 +147,14 @@ class TestCopyBlock:
     def test_origin_relative_paths_are_marked(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            "{% tessera_copy path origin=True %}Copy{% endtessera_copy %}"
+            "{% tessera_copy path origin=True %}Copy{% end_tessera_copy %}"
         )
         html = tpl.render(Context({"path": "/e/abc/"}))
         assert "data-copy-origin" in html
 
     def test_escapes_xss_in_payload(self) -> None:
         tpl = Template(
-            "{% load tessera %}{% tessera_copy bad %}Copy{% endtessera_copy %}"
+            "{% load tessera %}{% tessera_copy bad %}Copy{% end_tessera_copy %}"
         )
         html = tpl.render(Context({"bad": '"><script>alert(1)</script>'}))
         assert "<script>alert" not in html
@@ -163,7 +163,7 @@ class TestCopyBlock:
         tpl = Template(
             "{% load tessera %}"
             "{% copy_lines 'Title' 'Room 5' as payload %}"
-            "{% tessera_copy payload %}Copy details{% endtessera_copy %}"
+            "{% tessera_copy payload %}Copy details{% end_tessera_copy %}"
         )
         html = tpl.render(Context())
         assert 'data-copy="Title\nRoom 5"' in html
@@ -171,7 +171,7 @@ class TestCopyBlock:
     def test_copied_label_override(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            "{% tessera_copy url copied_label='Got it' %}Copy{% endtessera_copy %}"
+            "{% tessera_copy url copied_label='Got it' %}Copy{% end_tessera_copy %}"
         )
         html = tpl.render(Context({"url": "/e/1/"}))
         assert 'data-copied-label="Got it"' in html
@@ -179,7 +179,7 @@ class TestCopyBlock:
     def test_unknown_kwargs_raise_instead_of_vanishing(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            "{% tessera_copy url copied_lable='typo' %}Copy{% endtessera_copy %}"
+            "{% tessera_copy url copied_lable='typo' %}Copy{% end_tessera_copy %}"
         )
         with pytest.raises(TemplateSyntaxError, match="copied_lable"):
             tpl.render(Context({"url": "/e/1/"}))
@@ -187,7 +187,7 @@ class TestCopyBlock:
     def test_unknown_variant_raises(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tessera_copy url variant="menu_item" %}Copy{% endtessera_copy %}'
+            '{% tessera_copy url variant="menu_item" %}Copy{% end_tessera_copy %}'
         )
         with pytest.raises(TemplateSyntaxError, match="menu_item"):
             tpl.render(Context({"url": "/e/1/"}))
@@ -209,7 +209,7 @@ class TestSelect:
             "{% load tessera %}"
             '{% select id="color" name="color" %}'
             '<option value="r">Red</option>'
-            "{% endselect %}"
+            "{% end_select %}"
         )
         html = tpl.render(Context())
         assert "<select" in html
@@ -220,7 +220,7 @@ class TestSelect:
         assert "</select>" in html
 
     def test_applies_ds_classes(self) -> None:
-        tpl = Template('{% load tessera %}{% select name="x" %}{% endselect %}')
+        tpl = Template('{% load tessera %}{% select name="x" %}{% end_select %}')
         html = tpl.render(Context())
         assert "rounded-lg" in html
         assert "border-border" in html
@@ -228,14 +228,14 @@ class TestSelect:
 
     def test_required_attribute(self) -> None:
         tpl = Template(
-            '{% load tessera %}{% select name="x" required=True %}{% endselect %}'
+            '{% load tessera %}{% select name="x" required=True %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert "required" in html
 
     def test_multiple_attribute(self) -> None:
         tpl = Template(
-            '{% load tessera %}{% select name="x" multiple=True %}{% endselect %}'
+            '{% load tessera %}{% select name="x" multiple=True %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert "multiple" in html
@@ -244,7 +244,7 @@ class TestSelect:
         tpl = Template(
             "{% load tessera %}"
             '{% select id="m" name="x" onchange="this.form.submit()" '
-            'aria_label="Material" data_role="picker" %}{% endselect %}'
+            'aria_label="Material" data_role="picker" %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert 'onchange="this.form.submit()"' in html
@@ -253,7 +253,7 @@ class TestSelect:
 
     def test_disabled_attribute(self) -> None:
         tpl = Template(
-            '{% load tessera %}{% select name="x" disabled=True %}{% endselect %}'
+            '{% load tessera %}{% select name="x" disabled=True %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert re.search(r"\sdisabled(?=[\s>])", html)
@@ -261,7 +261,7 @@ class TestSelect:
     def test_skips_falsy_attributes(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% select name="x" required=False data_role="" %}{% endselect %}'
+            '{% select name="x" required=False data_role="" %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert "required" not in html
@@ -269,7 +269,7 @@ class TestSelect:
 
     def test_extra_class(self) -> None:
         tpl = Template(
-            '{% load tessera %}{% select name="x" class="mt-4" %}{% endselect %}'
+            '{% load tessera %}{% select name="x" class="mt-4" %}{% end_select %}'
         )
         html = tpl.render(Context())
         assert "mt-4" in html
@@ -281,7 +281,7 @@ class TestSelect:
             "{% for opt in options %}"
             '<option value="{{ opt.0 }}">{{ opt.1 }}</option>'
             "{% endfor %}"
-            "{% endselect %}"
+            "{% end_select %}"
         )
         html = tpl.render(Context({"options": [("a", "Alpha"), ("b", "Beta")]}))
         assert 'value="a"' in html
@@ -293,7 +293,7 @@ class TestSelect:
             "{% load tessera %}"
             '{% select name="x" %}'
             '<option value="{{ val }}">{{ label }}</option>'
-            "{% endselect %}"
+            "{% end_select %}"
         )
         html = tpl.render(
             Context({"val": '"><script>alert(1)</script>', "label": "<b>bad</b>"})
@@ -309,7 +309,7 @@ class TestCombobox:
     ) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="fruit" multiple=multiple %}'
-            '<option value="a">Apple</option>{% endtessera_combobox %}'
+            '<option value="a">Apple</option>{% end_tessera_combobox %}'
         )
         html = tpl.render(Context({"multiple": multiple}))
         select = re.search(r"<select\b[^>]*>", html)
@@ -324,7 +324,7 @@ class TestCombobox:
             "{% load tessera %}"
             '{% tessera_combobox id="host" name="host" %}'
             '<option value="ada">Ada</option>'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert 'data-combobox-name="host"' in html
@@ -339,7 +339,7 @@ class TestCombobox:
             "{% load tessera %}"
             '{% tessera_combobox id="host-filter" %}'
             '<option value="ada">Ada</option>'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         assert 'data-combobox-name=""' in tpl.render(Context())
 
@@ -348,7 +348,7 @@ class TestCombobox:
             "{% load tessera %}"
             '{% tessera_combobox id="host" name="host" %}'
             '<option value="ada">Ada</option>'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert "<select" in html
@@ -360,7 +360,7 @@ class TestCombobox:
     def test_input_carries_the_combobox_aria_contract(self) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert 'role="combobox"' in html
@@ -376,7 +376,7 @@ class TestCombobox:
     def test_option_row_template_carries_the_option_role(self) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert "<template" in html
@@ -388,7 +388,7 @@ class TestCombobox:
         # hidden live region announces nothing.
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert "data-combobox-empty" in html
@@ -398,7 +398,7 @@ class TestCombobox:
     def test_toggle_is_out_of_the_tab_sequence(self) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert 'tabindex="-1"' in html
@@ -408,7 +408,7 @@ class TestCombobox:
             "{% load tessera %}"
             '{% tessera_combobox id="host" name="host" placeholder="Find a host" '
             'empty_text="No hosts" toggle_label="Open hosts" %}'
-            "{% endtessera_combobox %}"
+            "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context())
         assert 'placeholder="Find a host"' in html
@@ -418,7 +418,7 @@ class TestCombobox:
     def test_class_lands_on_both_controls(self) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" '
-            'class="filter-input" %}{% endtessera_combobox %}'
+            'class="filter-input" %}{% end_tessera_combobox %}'
         )
         html = tpl.render(Context())
         # The select and the input it is upgraded into.
@@ -428,7 +428,7 @@ class TestCombobox:
     def test_forwards_arbitrary_attributes_to_the_select(self) -> None:
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" '
-            'required=True data_category="who" %}{% endtessera_combobox %}'
+            'required=True data_category="who" %}{% end_tessera_combobox %}'
         )
         html = tpl.render(Context())
         assert "required" in html
@@ -439,7 +439,7 @@ class TestTabs:
     def test_renders_tabs_nav(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" href="/a/" active=True %}A{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
         assert '<nav class="tab-nav flex items-end gap-1"' in html
@@ -452,7 +452,7 @@ class TestTabs:
     def test_inactive_tab(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "b" href="/b/" %}B{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "b" href="/b/" %}B{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
         assert 'aria-selected="false"' in html
@@ -461,7 +461,7 @@ class TestTabs:
     def test_active_tab_uses_shared_link_class(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" href="/a/" active=True %}A{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
         assert 'class="tab-nav-link ' in html
@@ -470,9 +470,9 @@ class TestTabs:
     def test_active_tab_from_context(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" href="/a/" %}A{% endtab %}'
-            '{% tab "b" href="/b/" %}B{% endtab %}'
-            "{% endtabs %}"
+            '{% tabs %}{% tab "a" href="/a/" %}A{% end_tab %}'
+            '{% tab "b" href="/b/" %}B{% end_tab %}'
+            "{% end_tabs %}"
         )
         html = tpl.render(Context({"active_tab": "b"}))
         assert 'aria-selected="false"' in html.split('href="/a/"')[1][:120]
@@ -481,7 +481,7 @@ class TestTabs:
     def test_tab_with_icon(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" icon="user" href="/a/" %}A{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "a" icon="user" href="/a/" %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
         assert "<svg" in html
@@ -490,8 +490,8 @@ class TestTabs:
         tpl = Template(
             "{% load tessera %}"
             '{% tabs class="px-6 pt-4" %}'
-            '{% tab "a" href="/" %}A{% endtab %}'
-            "{% endtabs %}"
+            '{% tab "a" href="/" %}A{% end_tab %}'
+            "{% end_tabs %}"
         )
         html = tpl.render(Context())
         assert "px-6 pt-4" in html
@@ -499,7 +499,7 @@ class TestTabs:
     def test_tab_href_from_context(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" href=my_url %}A{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "a" href=my_url %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context({"my_url": "/dynamic/"}))
         assert 'href="/dynamic/"' in html
@@ -507,21 +507,23 @@ class TestTabs:
     def test_tab_escapes_href(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tabs %}{% tab "a" href=bad_url %}A{% endtab %}{% endtabs %}'
+            '{% tabs %}{% tab "a" href=bad_url %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context({"bad_url": '"><script>alert(1)</script>'}))
         assert "<script>" not in html
 
     def test_tab_missing_key_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="requires at least a key"):
-            Template("{% load tessera %}{% tabs %}{% tab %}X{% endtab %}{% endtabs %}")
+            Template(
+                "{% load tessera %}{% tabs %}{% tab %}X{% end_tab %}{% end_tabs %}"
+            )
 
 
 class TestTabShellBody:
     def test_renders_wrapper_with_content(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% tab_shell_body class="space-y-4" %}Hello{% endtab_shell_body %}'
+            '{% tab_shell_body class="space-y-4" %}Hello{% end_tab_shell_body %}'
         )
         html = tpl.render(Context())
         assert "bg-bg-secondary" in html
@@ -541,8 +543,8 @@ class TestTabShellBody:
         tpl = Template(
             "{% load tessera %}"
             '{% tab_shell "components/design/_tab_shell_tabs.html" %}'
-            "{% tab_shell_body %}Hello{% endtab_shell_body %}"
-            "{% endtab_shell %}"
+            "{% tab_shell_body %}Hello{% end_tab_shell_body %}"
+            "{% end_tab_shell %}"
         )
         html = tpl.render(Context())
         assert "overflow-hidden rounded-2xl border border-border" in html
@@ -729,10 +731,10 @@ class TestSwitcher:
             "{% load tessera %}"
             '{% tessera_switcher name="theme" selected="' + selected + '" %}'
             '{% tessera_segment "system" icon="computer-desktop" %}System'
-            "{% endtessera_segment %}"
-            '{% tessera_segment "light" icon="sun" %}Light{% endtessera_segment %}'
-            '{% tessera_segment "dark" icon="moon" %}Dark{% endtessera_segment %}'
-            "{% endtessera_switcher %}"
+            "{% end_tessera_segment %}"
+            '{% tessera_segment "light" icon="sun" %}Light{% end_tessera_segment %}'
+            '{% tessera_segment "dark" icon="moon" %}Dark{% end_tessera_segment %}'
+            "{% end_tessera_switcher %}"
         )
         return tpl.render(Context())
 
@@ -769,22 +771,22 @@ class TestSwitcher:
         with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
             Template(
                 "{% load tessera %}{% tessera_switcher %}"
-                "{% tessera_segment %}X{% endtessera_segment %}"
-                "{% endtessera_switcher %}"
+                "{% tessera_segment %}X{% end_tessera_segment %}"
+                "{% end_tessera_switcher %}"
             )
 
     def test_requires_name(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="requires a name"):
             Template(
                 "{% load tessera %}{% tessera_switcher %}"
-                '{% tessera_segment "a" %}A{% endtessera_segment %}'
-                "{% endtessera_switcher %}"
+                '{% tessera_segment "a" %}A{% end_tessera_segment %}'
+                "{% end_tessera_switcher %}"
             ).render(Context())
 
     def test_segment_outside_switcher_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="must be used inside"):
             Template(
-                '{% load tessera %}{% tessera_segment "a" %}A{% endtessera_segment %}'
+                '{% load tessera %}{% tessera_segment "a" %}A{% end_tessera_segment %}'
             ).render(Context())
 
 
@@ -801,7 +803,7 @@ class TestActionDropdown:
         '{% tessera_action_dropdown_item "Google" href="https://g.example"'
         ' icon="calendar-days" external=True %}'
         '{% tessera_action_dropdown_item "Download" href="/f.ics" %}'
-        "{% endtessera_action_dropdown %}"
+        "{% end_tessera_action_dropdown %}"
     )
 
     def test_wires_trigger_and_panel_to_the_menu_behavior(self) -> None:
@@ -820,7 +822,7 @@ class TestActionDropdown:
             '{% tessera_action_dropdown id="m" trigger_variant="secondary" %}t'
             "{% action_dropdown_menu %}"
             '{% tessera_action_dropdown_item "Plain" href="/x" %}'
-            "{% endtessera_action_dropdown %}"
+            "{% end_tessera_action_dropdown %}"
         ).render(Context())
         trigger = html.split("</button>")[0]
 
@@ -835,7 +837,7 @@ class TestActionDropdown:
                 '{% tessera_action_dropdown id="m" trigger_variant="ghost" %}t'
                 "{% action_dropdown_menu %}"
                 '{% tessera_action_dropdown_item "Plain" href="/x" %}'
-                "{% endtessera_action_dropdown %}"
+                "{% end_tessera_action_dropdown %}"
             ).render(Context())
 
     def test_hover_false_leaves_a_click_only_menu(self) -> None:
@@ -861,7 +863,7 @@ class TestActionDropdown:
             '{% tessera_action_dropdown id="m" align="end" %}t'
             "{% action_dropdown_menu %}"
             '{% tessera_action_dropdown_item "Plain" href="/x" data_kind="plain" %}'
-            "{% endtessera_action_dropdown %}"
+            "{% end_tessera_action_dropdown %}"
         ).render(Context())
 
         assert 'data-kind="plain"' in html
@@ -874,7 +876,7 @@ class TestActionDropdown:
             '{% tessera_action_dropdown id="m" %}t'
             "{% action_dropdown_menu %}"
             '{% tessera_action_dropdown_item "Hold" form="hold-form" %}'
-            "{% endtessera_action_dropdown %}"
+            "{% end_tessera_action_dropdown %}"
         ).render(Context())
 
         assert '<button type="submit" form="hold-form"' in html
@@ -890,7 +892,7 @@ class TestActionDropdown:
                 "{% action_dropdown_menu %}"
                 '{% tessera_action_dropdown_item "Hold" form="hold-form"'
                 " external=True %}"
-                "{% endtessera_action_dropdown %}"
+                "{% end_tessera_action_dropdown %}"
             ).render(Context())
 
     def test_item_without_destination_is_a_plain_button(self) -> None:
@@ -899,7 +901,7 @@ class TestActionDropdown:
             '{% tessera_action_dropdown id="m" %}t'
             "{% action_dropdown_menu %}"
             '{% tessera_action_dropdown_item "QR" data_show_qr="qr-modal" %}'
-            "{% endtessera_action_dropdown %}"
+            "{% end_tessera_action_dropdown %}"
         ).render(Context())
         assert '<button type="button" class="' in html
         assert 'data-show-qr="qr-modal"' in html
@@ -912,19 +914,19 @@ class TestActionDropdown:
                 '{% tessera_action_dropdown id="m" %}t'
                 "{% action_dropdown_menu %}"
                 '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}'
-                "{% endtessera_action_dropdown %}"
+                "{% end_tessera_action_dropdown %}"
             ).render(Context())
 
     def test_missing_id_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="needs an id"):
             Template(
                 "{% load tessera %}{% tessera_action_dropdown %}t"
-                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
+                "{% action_dropdown_menu %}{% end_tessera_action_dropdown %}"
             ).render(Context())
 
     def test_unknown_align_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="align must be one of"):
             Template(
                 '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
-                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
+                "{% action_dropdown_menu %}{% end_tessera_action_dropdown %}"
             ).render(Context())
