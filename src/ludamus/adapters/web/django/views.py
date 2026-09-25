@@ -76,9 +76,7 @@ from ludamus.links.db.django.repositories.sessions import (
     own_pending_proposals,
     review_inbox_proposals,
 )
-from ludamus.links.db.django.session_visibility import (
-    is_publicly_scheduled,
-)
+from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.mills.calendar import google_calendar_url
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
