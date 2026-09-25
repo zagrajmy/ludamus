@@ -24,6 +24,7 @@ from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExport
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.links.workos import WorkOSIdentityProvider
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     ProposalAcceptanceService,
@@ -195,11 +196,14 @@ class Services:
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
+        api_key: str = settings.WORKOS_API_KEY
+        client_id: str = settings.WORKOS_CLIENT_ID
         return CrowdAuthService(
             transaction=self._transaction,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            identity=WorkOSIdentityProvider(api_key=api_key, client_id=client_id),
         )
 
     @cached_property

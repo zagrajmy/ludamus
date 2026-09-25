@@ -68,7 +68,7 @@ git clone <repo-url> && cd ludamus
 # 3. Override the committed .env baseline with production values
 #    Use .env.docker as a starting point, then set:
 #    ENV=production, DEBUG=false, a real SECRET_KEY,
-#    ALLOWED_HOSTS, Auth0 credentials, DB credentials, etc.
+#    ALLOWED_HOSTS, WorkOS credentials, DB credentials, etc.
 cp .env.docker .env.local
 # Edit .env.local with production values (gitignored, layered on top of .env)
 
@@ -153,11 +153,10 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 - `DB_HOST` — PostgreSQL host (`db` in Docker) — L(pg) D P
 - `DB_PORT` — PostgreSQL port — L(pg) D P
 
-**Auth0** (all scopes):
+**WorkOS AuthKit** (all scopes):
 
-- `AUTH0_CLIENT_ID` — application client ID — L D P
-- `AUTH0_CLIENT_SECRET` — application client secret — L D P
-- `AUTH0_DOMAIN` — tenant domain — L D P
+- `WORKOS_CLIENT_ID` — environment client ID (GitHub variable) — L D P
+- `WORKOS_API_KEY` — environment API key (GitHub secret) — L D P
 
 **Static/Media files:**
 
@@ -234,3 +233,32 @@ mise run build-frontend       # Build production CSS + JS
 # Inside production container
 mise run gunicorn             # Gunicorn (4 workers, 2 threads, :8000)
 ```
+
+## Moving users from Auth0 to WorkOS
+
+A one-time cutover. The code links old accounts itself, so the steps are
+data and dashboard work:
+
+1. **WorkOS dashboard (production environment):** enable AuthKit with the
+   same sign-in methods Auth0 offered (email + password, Google,
+   Facebook). Add the redirect URI
+   `https://<ROOT_DOMAIN>/crowd/auth/do/login/callback` and the sign-out
+   redirect `https://<ROOT_DOMAIN>/crowd/auth/do/logout/redirect`.
+2. **Import users:** `npx workos migrations export auth0 --domain ...`
+   followed by `import-package`. The export sets each WorkOS user's
+   `external_id` to the Auth0 `user_id`, which is how the first WorkOS
+   login finds the old `auth0|<user_id>` account. To keep passwords
+   working, ask Auth0 support for the bcrypt hash export (it can take a
+   week) and `merge-passwords` it into the package before importing.
+   Without the hashes, password users reset their password once.
+3. **Configure the deploy:** set the `WORKOS_CLIENT_ID` variable and the
+   `WORKOS_API_KEY` secret in each GitHub Environment, then drop the
+   `AUTH0_*` ones.
+4. **Deploy.** On each person's first WorkOS login, their account is
+   renamed from `auth0|…` to `workos|<id>`. Anyone the import missed is
+   matched by a verified email, but only to an account still on an
+   `auth0|` username.
+5. After a quiet period, delete the Auth0 tenant.
+
+Existing Django sessions survive the deploy. Logging out of a session
+from before WorkOS skips the AuthKit sign-out, since there is none to end.

@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 21.08.2026**
+**Data ostatniej aktualizacji: 25.09.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -28,7 +28,7 @@ Użyte w Regulaminie pojęcia oznaczają:
 ### 2.1 Zasady rejestracji
 
 1. Korzystanie z Serwisu wymaga założenia Konta.
-2. Rejestracja odbywa się poprzez system Auth0 z możliwością logowania przez Google, Facebook lub bezpośrednie założenie konta.
+2. Rejestracja odbywa się poprzez system WorkOS z możliwością logowania przez Google, Facebook lub bezpośrednie założenie konta.
 3. Podczas rejestracji Użytkownik podaje:
    - pseudonim (nie musi być prawdziwym imieniem i nazwiskiem)
    - adres email

@@ -4,17 +4,17 @@ from django.views.generic import RedirectView
 from ludamus.gates.web.django.auth_pages import login_required_page
 from ludamus.gates.web.django.crowd import auth, profile, views
 
-auth0_urlpatterns = [
-    path("do/login", auth.Auth0LoginActionView.as_view(), name="login"),
+auth_urlpatterns = [
+    path("do/login", auth.LoginActionView.as_view(), name="login"),
     path(
         "do/login/callback",
-        auth.Auth0LoginCallbackActionView.as_view(),
+        auth.LoginCallbackActionView.as_view(),
         name="login-callback",
     ),
-    path("do/logout", auth.Auth0LogoutActionView.as_view(), name="logout"),
+    path("do/logout", auth.LogoutActionView.as_view(), name="logout"),
     path(
         "do/logout/redirect",
-        auth.Auth0LogoutRedirectActionView.as_view(),
+        auth.LogoutRedirectActionView.as_view(),
         name="logout-redirect",
     ),
 ]
@@ -86,7 +86,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
         views.PartyInviteDeclineActionView.as_view(),
         name="party-invites-decline",
     ),
-    path("auth0/", include((auth0_urlpatterns, "auth0"), namespace="auth0")),
+    path("auth/", include((auth_urlpatterns, "auth"), namespace="auth")),
     path("login-required/", login_required_page, name="login-required"),
     path("profile/", profile.ProfilePageView.as_view(), name="profile"),
     path(

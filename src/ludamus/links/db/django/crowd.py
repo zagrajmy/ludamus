@@ -37,7 +37,8 @@ class UserRepository(UserRepositoryProtocol):
 
     @staticmethod
     def create(user_data: UserData) -> None:
-        User.objects.create(**user_data)
+        # Accounts sign in through the identity provider, never a password.
+        User.objects.create(**({"password": make_password(None)} | user_data))
 
     def read(self, slug: str) -> UserDTO:
         try:
@@ -65,6 +66,16 @@ class UserRepository(UserRepositoryProtocol):
     def read_by_username(self, username: str) -> UserDTO:
         try:
             user = User.objects.get(username=username, user_type=self._user_type)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return UserDTO.model_validate(user)
+
+    def read_by_email(self, email: str) -> UserDTO:
+        # Only non-empty addresses are unique; blanks match many rows.
+        if not email:
+            raise NotFoundError
+        try:
+            user = User.objects.get(email__iexact=email, user_type=self._user_type)
         except User.DoesNotExist as exception:
             raise NotFoundError from exception
         return UserDTO.model_validate(user)

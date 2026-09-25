@@ -165,7 +165,7 @@ class TestProfileService:
 
         assert avatar.user.slug == "manager"
         assert avatar.gravatar_url == "https://gravatar/a@b.c"
-        assert avatar.has_auth0_avatar is True
+        assert avatar.has_provider_avatar is True
 
     def test_read_avatar_without_auth0_picture(self):
         service = _profile_service(users=FakeUsers(users=[user_dto(email="")]))
@@ -173,7 +173,7 @@ class TestProfileService:
         avatar = service.read_avatar("manager")
 
         assert avatar.gravatar_url is None
-        assert avatar.has_auth0_avatar is False
+        assert avatar.has_provider_avatar is False
 
     def test_set_avatar_preference_writes_in_transaction(self):
         users = FakeUsers(users=[user_dto()])

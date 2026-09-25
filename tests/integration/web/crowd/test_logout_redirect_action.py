@@ -2,14 +2,15 @@ from http import HTTPStatus
 
 from django.contrib import messages
 from django.contrib.sites.models import Site
+from django.core import signing
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Sphere
 from tests.integration.utils import assert_response
 
 
-class TestAuth0LogoutRedirectActionView:
-    URL = reverse("web:crowd:auth0:logout-redirect")
+class TestLogoutRedirectActionView:
+    URL = reverse("web:crowd:auth:logout-redirect")
 
     def test_ok_with_domain(self, client):
         domain = "example.com"
@@ -18,6 +19,26 @@ class TestAuth0LogoutRedirectActionView:
         response = client.get(self.URL, {"last_domain": domain, "redirect_to": "/test"})
 
         assert_response(response, HTTPStatus.FOUND, url="http://example.com/test")
+
+    def test_ok_with_target_cookie(self, client):
+        client.cookies["logout_target"] = signing.dumps(
+            {"last_domain": "sub.testserver", "redirect_to": "/test"},
+            salt="logout_target",
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(response, HTTPStatus.FOUND, url="http://sub.testserver/test")
+        assert not response.cookies["logout_target"].value
+
+    def test_tampered_target_cookie_is_ignored(self, client):
+        client.cookies["logout_target"] = signing.dumps(
+            {"last_domain": "evil.com", "redirect_to": "/"}, salt="another-purpose"
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_ok_without_params(self, client):
         response = client.get(self.URL)
