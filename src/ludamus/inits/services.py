@@ -13,7 +13,8 @@ from ludamus.inits.builders import (
 )
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import DjangoCache
+from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
+from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -61,6 +62,7 @@ from ludamus.mills.integrations import (
     IntegrationImplementations,
 )
 from ludamus.mills.maps import EventMapsService
+from ludamus.mills.mcp import McpAuthorizationService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -303,6 +305,12 @@ class Services:
     def event_maps(self) -> EventMapsService:
         return EventMapsService(
             self._transaction, self._repos.event_maps, self._repos.spaces
+        )
+
+    @cached_property
+    def mcp_authorization(self) -> McpAuthorizationService:
+        return McpAuthorizationService(
+            fetcher=HttpClientMetadataFetcher(), codes=CacheAuthorizationCodeStore()
         )
 
     @cached_property

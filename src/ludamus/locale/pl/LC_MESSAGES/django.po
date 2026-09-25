@@ -2283,6 +2283,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/components/confirm-dialog.html
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/mcp/authorize.html
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
@@ -3400,6 +3401,15 @@ msgstr ""
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter a Google Sheets link or a spreadsheet ID."
 msgstr "Podaj link do arkusza Google lub ID arkusza."
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+#: src/ludamus/templates/panel/base.html
+msgid "Event"
+msgstr "Wydarzenie"
+
+#: src/ludamus/gates/web/django/mcp/oauth.py
+msgid "This event is not in this sphere."
+msgstr "To wydarzenie nie należy do tej sfery."
 
 #: src/ludamus/gates/web/django/multiverse/access.py
 msgid "You don't have permission to access the sphere panel."
@@ -7445,6 +7455,79 @@ msgstr "Skopiuj token teraz — zostanie pokazany tylko raz."
 msgid "Connect an MCP client with the token as a Bearer header, for example:"
 msgstr "Połącz klienta MCP, przekazując token w nagłówku Bearer, na przykład:"
 
+#: src/ludamus/templates/mcp/authorize.html
+msgid "Connect an MCP client"
+msgstr "Połącz klienta MCP"
+
+#: src/ludamus/templates/mcp/authorize.html
+msgid "This client can't connect"
+msgstr "Ten klient nie może się połączyć"
+
+#: src/ludamus/templates/mcp/authorize.html
+msgid ""
+"Nothing was shared. Close this tab and tell the client's developer about the "
+"error above."
+msgstr ""
+"Nic nie zostało udostępnione. Zamknij tę kartę i przekaż twórcom klienta "
+"powyższy błąd."
+
+#: src/ludamus/templates/mcp/authorize.html
+#, python-format
+msgid "Connect %(name)s?"
+msgstr "Połączyć %(name)s?"
+
+#: src/ludamus/templates/mcp/authorize.html
+#, python-format
+msgid ""
+"Published by <strong class=\"text-foreground\">%(host)s</strong>. Connect "
+"only if you trust this site."
+msgstr ""
+"Opublikowane przez <strong class=\"text-foreground\">%(host)s</strong>. "
+"Połącz tylko, jeśli ufasz tej stronie."
+
+#: src/ludamus/templates/mcp/authorize.html
+msgid "Only maintainers can connect clients to the maintainer tools."
+msgstr ""
+"Tylko opiekunowie serwisu mogą łączyć klientów z narzędziami opiekunów."
+
+#: src/ludamus/templates/mcp/authorize.html
+msgid ""
+"Only managers of this sphere can connect clients to the organizer tools."
+msgstr ""
+"Tylko menedżerowie tej sfery mogą łączyć klientów z narzędziami organizatora."
+
+#: src/ludamus/templates/mcp/authorize.html
+msgid ""
+"This sphere has no events yet. Create one in the panel, then connect again."
+msgstr ""
+"Ta sfera nie ma jeszcze wydarzeń. Utwórz wydarzenie w panelu i połącz "
+"ponownie."
+
+#: src/ludamus/templates/mcp/authorize.html
+#, python-format
+msgid ""
+"It will act as you with maintainer permissions for %(token_max_age_days)s "
+"days, or until you stop being a superuser."
+msgstr ""
+"Będzie działać w Twoim imieniu z uprawnieniami opiekuna serwisu przez "
+"%(token_max_age_days)s dni albo do chwili, gdy przestaniesz być "
+"superużytkownikiem."
+
+#: src/ludamus/templates/mcp/authorize.html
+#, python-format
+msgid ""
+"It will read this whole sphere and change the programme of one event, as "
+"you, for %(token_max_age_days)s days or until you stop managing this sphere."
+msgstr ""
+"Będzie w Twoim imieniu czytać całą sferę i zmieniać program jednego "
+"wydarzenia przez %(token_max_age_days)s dni albo do chwili, gdy przestaniesz "
+"zarządzać tą sferą."
+
+#: src/ludamus/templates/mcp/authorize.html
+#, python-format
+msgid "Connect %(name)s"
+msgstr "Połącz %(name)s"
+
 #: src/ludamus/templates/mcp/token.html
 #: src/ludamus/templates/panel/mcp-token.html
 msgid "MCP access token"
@@ -8191,10 +8274,6 @@ msgstr "Ładowanie strony"
 #: src/ludamus/templates/panel/base.html
 msgid "Close navigation"
 msgstr "Zamknij nawigację"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"

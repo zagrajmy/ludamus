@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Connect an MCP client" %}
+{% endblock title %}
+{% block body %}
+    <div class="w-full max-w-xl mx-auto px-4 py-10">
+        {% if client_error %}
+            <h1 class="text-3xl font-bold mb-3 text-foreground">{% translate "This client can't connect" %}</h1>
+            <p class="text-foreground-muted mb-3">{{ client_error }}</p>
+            <p class="text-foreground-muted">
+                {% translate "Nothing was shared. Close this tab and tell the client's developer about the error above." %}
+            </p>
+        {% else %}
+            <h1 class="text-3xl font-bold mb-3 text-foreground">
+                {% blocktranslate with name=client.client_name %}Connect {{ name }}?{% endblocktranslate %}
+            </h1>
+            <p class="text-foreground-muted mb-6">
+                {% blocktranslate with host=client.client_host %}Published by <strong class="text-foreground">{{ host }}</strong>. Connect only if you trust this site.{% endblocktranslate %}
+            </p>
+            {% if not may_grant %}
+                <p class="text-foreground-muted mb-6">
+                    {% if scope == "maintainer" %}
+                        {% translate "Only maintainers can connect clients to the maintainer tools." %}
+                    {% else %}
+                        {% translate "Only managers of this sphere can connect clients to the organizer tools." %}
+                    {% endif %}
+                </p>
+            {% elif wants_event and not form %}
+                <p class="text-foreground-muted mb-6">
+                    {% translate "This sphere has no events yet. Create one in the panel, then connect again." %}
+                </p>
+            {% elif scope == "maintainer" %}
+                <p class="text-foreground-muted mb-6">
+                    {% blocktranslate %}It will act as you with maintainer permissions for {{ token_max_age_days }} days, or until you stop being a superuser.{% endblocktranslate %}
+                </p>
+            {% else %}
+                <p class="text-foreground-muted mb-6">
+                    {% blocktranslate %}It will read this whole sphere and change the programme of one event, as you, for {{ token_max_age_days }} days or until you stop managing this sphere.{% endblocktranslate %}
+                </p>
+            {% endif %}
+            <form method="post" class="flex flex-col gap-4">
+                {% csrf_token %}
+                {% for name, value in params.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+                {% if form %}
+                    {% tessera_errors form %}
+                    {% tessera_field form.event %}
+                {% endif %}
+                <div class="flex flex-wrap gap-3">
+                    {% if can_approve %}
+                        {% blocktranslate with name=client.client_name asvar approve_label %}Connect {{ name }}{% endblocktranslate %}
+                        {% tessera_button approve_label variant="primary" name="decision" value="approve" %}
+                    {% endif %}
+                    {% translate "Cancel" as deny_label %}
+                    {% tessera_button deny_label variant="secondary" name="decision" value="deny" formnovalidate=True %}
+                </div>
+            </form>
+        {% endif %}
+    </div>
+{% endblock body %}
