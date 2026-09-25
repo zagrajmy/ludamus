@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 
 from ludamus.mills.bookmarks import BookmarkService
-from ludamus.pacts.bookmarks import BookmarkToggleDTO
+from ludamus.pacts.bookmarks import BookmarkStateDTO
 
 
 @contextmanager
@@ -39,9 +39,15 @@ class FakeRepo:
         self.counts_calls.append(event_id)
         return self._counts
 
+    def session_state(self, *, user_id, session_id):
+        return BookmarkStateDTO(
+            bookmarked=user_id in self._bookmarked_ids,
+            count=self._counts.get(session_id, 0),
+        )
+
 
 def test_toggle_runs_in_transaction_and_returns_repo_state():
-    toggle_result = BookmarkToggleDTO(bookmarked=False, count=4)
+    toggle_result = BookmarkStateDTO(bookmarked=False, count=4)
     repo = FakeRepo(toggle_result=toggle_result)
     transaction = FakeTransaction()
     service = BookmarkService(transaction, repo)
@@ -84,3 +90,14 @@ def test_bookmark_counts_delegates_without_transaction():
     assert result == {1: 2, 3: 5}
     assert transaction.entered == 0
     assert repo.counts_calls == [11]
+
+
+def test_session_state_delegates_without_transaction():
+    repo = FakeRepo(bookmarked_ids={7}, counts={42: 3})
+    transaction = FakeTransaction()
+    service = BookmarkService(transaction, repo)
+
+    result = service.session_state(user_id=7, session_id=42)
+
+    assert result == BookmarkStateDTO(bookmarked=True, count=3)
+    assert transaction.entered == 0

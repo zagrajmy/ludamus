@@ -49,6 +49,15 @@ class SessionModalComponentView(View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
+        if not data.takes_enrollment:
+            # With no seats to take, a bookmark is the one way to say "I'm
+            # going", so the modal offers the toggle the schedule rows carry.
+            bookmark = request.services.bookmarks.session_state(
+                user_id=request.context.current_user_id,
+                session_id=SessionId(session_id),
+            )
+            data.user_bookmarked = bookmark.bookmarked
+            data.bookmark_count = bookmark.count
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=not data.is_unscheduled,

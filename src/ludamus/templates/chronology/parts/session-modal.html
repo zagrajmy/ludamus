@@ -1,4 +1,4 @@
-{% load i18n tessera cfp_tags date_tags markdown_tags %}
+{% load i18n tessera cfp_tags date_tags markdown_tags schedule_tags %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
@@ -126,7 +126,9 @@
                     <div class="mb-6">{% include "components/_session_field_values.html" with field_values=data.field_values %}</div>
                 {% endif %}
                 <!-- Details grid -->
-                <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="grid grid-cols-2 gap-3 mb-6"
+                     data-csrf="{{ csrf_token }}"
+                     data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
                     <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
                         <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
                         <div class="font-medium text-foreground">
@@ -153,6 +155,12 @@
                             <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
                             <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
                         </div>
+                    {% endif %}
+                    {# With no seats there is no enroll button; the bookmark stands in #}
+                    {# for it, level with the bottom of the time box and flush with the #}
+                    {# close button. A minimum-age box pushes it to the next row. #}
+                    {% if not data.takes_enrollment %}
+                        {% session_bookmark data "col-start-2 self-end justify-self-end" %}
                     {% endif %}
                 </div>
                 <!-- Enrollment Status for Authenticated Users -->
