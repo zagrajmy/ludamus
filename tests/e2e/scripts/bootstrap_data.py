@@ -679,6 +679,51 @@ def _create_early_access_scenario(sphere: Sphere) -> None:
     )
 
 
+# A session whose description is hostile markup next to ordinary markdown, on
+# an event of its own so no other spec's session counts move. The hostile half
+# must come out of render_markdown inert; the benign half must still render.
+# Driven by markdown-sanitising.spec.ts.
+_HOSTILE_DESCRIPTION = """Plain **bold claim** and a [safe link](https://example.com/rules).
+
+<script>window.__xss = 0;</script>
+
+<img src="x" onerror="window.__xss = 1; alert('xss')">
+
+[click me](javascript:window.__xss=2)
+
+<strong onmouseover="window.__xss = 3">hover target</strong>
+
+<iframe src="javascript:window.__xss=4"></iframe>
+"""
+
+
+def _create_markdown_sanitising_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Markdown Sanitising Lab",
+        slug="markdown-sanitising",
+        description="One session whose description tries to run code.",
+        start_offset=timedelta(days=26),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Sanitising Venue", slug="sanitising-venue")
+    area = _create_area(venue, name="Sanitising Area", slug="sanitising-area")
+    space = _create_space(
+        area, name="Sanitising Room", slug="sanitising-room", capacity=4
+    )
+    _scheduled_session(
+        event,
+        space,
+        title="Hostile Markdown Demo",
+        slug="hostile-markdown-demo",
+        presenter="Sanitising GM",
+        description=_HOSTILE_DESCRIPTION,
+        seats=4,
+        hour=0,
+    )
+
+
 # A public select field that allows custom answers, for the event-filter e2e:
 # two of its three choices are picked, one is picked by nobody, and one session
 # writes in a value of its own. The filter must offer the two picked choices
@@ -1040,6 +1085,9 @@ def main() -> None:
 
     # A half-seating window the reader is not in, for the seat-count e2e.
     _create_early_access_scenario(sphere)
+
+    # A session description full of hostile markup, for the sanitiser e2e.
+    _create_markdown_sanitising_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(

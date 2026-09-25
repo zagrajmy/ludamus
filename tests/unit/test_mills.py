@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills import render_markdown
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -84,30 +83,6 @@ class TestIsProposalActive:
         event = EventDTO(**base_event_data)
 
         assert event.is_proposal_active is False
-
-
-class TestRenderMarkdown:
-    def test_strips_script_tag(self):
-        result = render_markdown("hi<script>alert(1)</script>")
-
-        assert "<script>" not in result
-        assert "alert(1)" not in result
-
-    def test_strips_event_handler_attribute(self):
-        result = render_markdown('<p onclick="steal()">click</p>')
-
-        assert "onclick" not in result
-        assert "<p>click</p>" in result
-
-    def test_strips_javascript_url_scheme(self):
-        result = render_markdown("[x](javascript:alert(1))")
-
-        assert "javascript:" not in result
-
-    def test_strips_image_tag(self):
-        result = render_markdown("![alt](https://example.com/x.png)")
-
-        assert "<img" not in result
 
 
 class TestImportRow:
