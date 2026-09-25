@@ -71,9 +71,9 @@ Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
 ## Logging in locally (WorkOS staging)
 
-Login goes through WorkOS AuthKit. The committed `.env.development` only
-has a placeholder client ID, so the app boots but the login button can't
-sign anyone in. To log in:
+Login goes through WorkOS AuthKit. The WorkOS keys are optional outside
+production, so the app boots without them, but the login button can't sign
+anyone in. To log in:
 
 1. In the WorkOS dashboard, open the **staging** environment (free, separate
    from production) and copy its API key and client ID into `.env.local`:

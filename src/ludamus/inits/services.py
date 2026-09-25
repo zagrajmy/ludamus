@@ -38,6 +38,7 @@ from ludamus.mills.crowd import (
     ClaimService,
     CompanionsService,
     CrowdAuthService,
+    LegacyAccountLinker,
     ProfileService,
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
@@ -204,6 +205,7 @@ class Services:
             spheres=self._repos.spheres,
             claims=self.claims,
             identity=WorkOSIdentityProvider(api_key=api_key, client_id=client_id),
+            legacy_accounts=LegacyAccountLinker(users=self._repos.active_users),
         )
 
     @cached_property

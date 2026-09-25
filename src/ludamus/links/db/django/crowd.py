@@ -37,8 +37,10 @@ class UserRepository(UserRepositoryProtocol):
 
     @staticmethod
     def create(user_data: UserData) -> None:
-        # Accounts sign in through the identity provider, never a password.
-        User.objects.create(**({"password": make_password(None)} | user_data))
+        user = User(**user_data)
+        if "password" not in user_data:
+            user.set_unusable_password()
+        user.save()
 
     def read(self, slug: str) -> UserDTO:
         try:

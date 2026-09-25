@@ -4,7 +4,7 @@ import pytest
 from workos import AuthenticationError
 
 from ludamus.links.workos import WorkOSIdentityProvider
-from ludamus.pacts.crowd import IdentityDTO, IdentityRejectedError
+from ludamus.pacts.crowd import AuthenticationDTO, IdentityDTO, IdentityRejectedError
 from tests.integration.web.crowd.workos_responses import (
     AUTHENTICATE,
     SESSION_ID,
@@ -29,16 +29,18 @@ class TestAuthenticate:
             external_id="google-oauth2|42",
         )
 
-        identity = _provider().authenticate("code-1")
+        authentication = _provider().authenticate("code-1")
 
         authenticate.assert_called_once_with(code="code-1")
-        assert identity == IdentityDTO(
-            provider_user_id="user_01ABC",
-            email="jan@example.com",
-            email_verified=False,
-            name="Jan Kowalski",
-            avatar_url="https://img.example/jan.png",
-            legacy_id="google-oauth2|42",
+        assert authentication == AuthenticationDTO(
+            identity=IdentityDTO(
+                provider_user_id="user_01ABC",
+                email="jan@example.com",
+                email_verified=False,
+                name="Jan Kowalski",
+                avatar_url="https://img.example/jan.png",
+                legacy_id="google-oauth2|42",
+            ),
             session_id=SESSION_ID,
         )
 
@@ -55,7 +57,7 @@ class TestAuthenticate:
     def test_display_name(self, authenticate, user, name):
         authenticate.return_value = authenticate_response("user_01ABC", **user)
 
-        assert _provider().authenticate("code").name == name
+        assert _provider().authenticate("code").identity.name == name
 
     @patch(AUTHENTICATE)
     def test_rejected_code(self, authenticate):
@@ -71,7 +73,7 @@ class TestAuthenticate:
         response.access_token = token
         authenticate.return_value = response
 
-        with pytest.raises(IdentityRejectedError, match="rejected the login"):
+        with pytest.raises(IdentityRejectedError, match="no session id"):
             _provider().authenticate("code")
 
 

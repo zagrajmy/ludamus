@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.generic.base import RedirectView, View
+from pydantic import TypeAdapter, ValidationError
 
 from ludamus.pacts import RedirectError
 from ludamus.pacts.crowd import ClaimOutcome, IdentityRejectedError
@@ -220,37 +221,33 @@ class LoginCallbackActionView(RedirectView):
 class LogoutActionView(View):
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        redirect_to = reverse("web:index")
         session_id = request.session.get(SESSION_ID_KEY, "")
         django_logout(request)
-
         last_domain = request.services.sites.read(
             request.context.current_sphere_id
         ).site.domain
+        if not session_id:
+            # No AuthKit session to end (it predates WorkOS), so skip the hop.
+            return HttpResponseRedirect(
+                f"{request.scheme}://{last_domain}{reverse('web:index')}"
+            )
         root_domain = request.services.sites.read(
             request.context.root_sphere_id
         ).site.domain
-        return_to = (
-            f"{request.scheme}://{root_domain}"
-            f"{reverse('web:crowd:auth:logout-redirect')}"
-        )
-        if not session_id:
-            # No AuthKit session to end (it predates WorkOS), so skip the hop.
-            query = urlencode({"last_domain": last_domain, "redirect_to": redirect_to})
-            return HttpResponseRedirect(f"{return_to}?{query}")
         # NOTE: WorkOS refuses sign-out redirect URIs that carry a query in
-        # production, so where to land afterwards rides in a cookie instead.
+        # production, so the domain to land on rides in a cookie instead.
         response = HttpResponseRedirect(
             request.services.crowd_auth.logout_url(
-                session_id=session_id, return_to=return_to
+                session_id=session_id,
+                return_to=(
+                    f"{request.scheme}://{root_domain}"
+                    f"{reverse('web:crowd:auth:logout-redirect')}"
+                ),
             )
         )
         response.set_cookie(
             LOGOUT_TARGET_COOKIE,
-            signing.dumps(
-                {"last_domain": last_domain, "redirect_to": redirect_to},
-                salt=LOGOUT_TARGET_COOKIE,
-            ),
+            signing.dumps({"last_domain": last_domain}, salt=LOGOUT_TARGET_COOKIE),
             max_age=LOGOUT_TARGET_MAX_AGE,
             domain=settings.SESSION_COOKIE_DOMAIN,
             secure=request.is_secure(),
@@ -260,68 +257,49 @@ class LogoutActionView(View):
         return response
 
 
-class LogoutRedirectActionView(View):
-    request: RootRequest
+class _LogoutTarget(TypedDict):
+    last_domain: str
 
-    def get(self, _request: RootRequest) -> HttpResponse:
-        response = HttpResponseRedirect(self._redirect_url())
+
+_LOGOUT_TARGET = TypeAdapter(_LogoutTarget)
+
+
+class LogoutRedirectActionView(View):
+    """Where AuthKit returns after sign-out: back to the sphere left from."""
+
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        index = reverse("web:index")
+        destination = index
+        if last_domain := _logout_domain(request):
+            if _may_land_on(request, last_domain):
+                destination = f"{request.scheme}://{last_domain}{index}"
+            else:
+                messages.warning(request, _("Invalid domain for redirect."))
+        response = HttpResponseRedirect(destination)
         response.delete_cookie(
             LOGOUT_TARGET_COOKIE, domain=settings.SESSION_COOKIE_DOMAIN
         )
         return response
 
-    def _target(self) -> dict[str, str]:
-        if "redirect_to" in self.request.GET or "last_domain" in self.request.GET:
-            return {
-                key: self.request.GET.get(key, "")
-                for key in ("last_domain", "redirect_to")
-            }
-        try:
-            target = signing.loads(
-                self.request.COOKIES.get(LOGOUT_TARGET_COOKIE, ""),
-                salt=LOGOUT_TARGET_COOKIE,
-                max_age=LOGOUT_TARGET_MAX_AGE,
-            )
-        except signing.BadSignature:
-            return {}
-        if not isinstance(target, dict):
-            return {}
-        return {key: str(target.get(key, "")) for key in ("last_domain", "redirect_to")}
 
-    def _redirect_url(self) -> str:
-        redirect_url = reverse("web:index")
-        target = self._target()
+def _logout_domain(request: RootRequest) -> str:
+    try:
+        raw = signing.loads(
+            request.COOKIES.get(LOGOUT_TARGET_COOKIE, ""),
+            salt=LOGOUT_TARGET_COOKIE,
+            max_age=LOGOUT_TARGET_MAX_AGE,
+        )
+        return _LOGOUT_TARGET.validate_python(raw)["last_domain"]
+    except signing.BadSignature, ValidationError:
+        return ""
 
-        # Get the redirect_to parameter. url_has_allowed_host_and_scheme accepts
-        # only same-host relative targets, closing the `//evil.com` and
-        # backslash (`/\evil.com`) bypasses a hand-rolled prefix check would miss.
-        if redirect_to := target.get("redirect_to"):
-            if url_has_allowed_host_and_scheme(
-                redirect_to, allowed_hosts=None, require_https=self.request.is_secure()
-            ):
-                redirect_url = redirect_to
-            else:
-                messages.warning(self.request, _("Invalid redirect URL."))
 
-        # Handle last_domain parameter for multi-site redirects. Reject anything
-        # that is not a bare hostname before the suffix/allowlist checks, so a
-        # value like `evil.com#x.ROOT_DOMAIN` cannot satisfy the suffix match.
-        if last_domain := target.get("last_domain"):
-            if not _HOSTNAME_RE.match(last_domain):
-                messages.warning(self.request, _("Invalid domain for redirect."))
-                return redirect_url
-
-            # Also allow subdomains of ROOT_DOMAIN if configured
-            if (
-                last_domain.endswith(f".{settings.ROOT_DOMAIN}")
-                or last_domain == settings.ROOT_DOMAIN
-            ):
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            # Check against explicitly allowed domains
-            if self.request.services.crowd_auth.is_known_sphere_domain(last_domain):
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            messages.warning(self.request, _("Invalid domain for redirect."))
-
-        return redirect_url
+def _may_land_on(request: RootRequest, domain: str) -> bool:
+    # A bare hostname only, so `evil.com#x.ROOT_DOMAIN` can't pass the
+    # suffix match below. The cookie is signed; this is defence in depth.
+    if not _HOSTNAME_RE.match(domain):
+        return False
+    if domain == settings.ROOT_DOMAIN or domain.endswith(f".{settings.ROOT_DOMAIN}"):
+        return True
+    return request.services.crowd_auth.is_known_sphere_domain(domain)

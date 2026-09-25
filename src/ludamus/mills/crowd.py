@@ -7,12 +7,11 @@ plus a transaction. First feature: claiming a managed profile.
 from __future__ import annotations
 
 import logging
-import re
 import secrets
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from ludamus.mills.slugs import unique_slug
+from ludamus.mills.slugs import slug_base, unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
@@ -49,7 +48,6 @@ logger = logging.getLogger(__name__)
 
 AUTH0_USERNAME_PREFIX = "auth0|"
 WORKOS_USERNAME_PREFIX = "workos|"
-_NON_SLUG = re.compile(r"[^a-z0-9_-]")
 
 
 def _token() -> str:
@@ -92,6 +90,44 @@ class ClaimService(ClaimServiceProtocol):
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)
 
 
+class LegacyAccountLinker:
+    """Finds the Auth0-era account behind a first WorkOS login and claims it.
+
+    TODO: https://github.com/zagrajmy/ludamus/issues/1402 — delete once no
+    active account is left on an auth0| username.
+    """
+
+    def __init__(self, *, users: UserRepositoryProtocol) -> None:
+        self._users = users
+
+    def adopt(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
+        if (legacy := self._find(identity)) is None:
+            return None
+        self._users.update(legacy.slug, {"username": username})
+        logger.info("Linked legacy account %s to %s", legacy.slug, username)
+        return self._users.read(legacy.slug)
+
+    def _find(self, identity: IdentityDTO) -> UserDTO | None:
+        # The import's external_id is authoritative: when it is set but its
+        # account is gone, an email match would land on someone else's row.
+        if identity.legacy_id:
+            with suppress(NotFoundError):
+                return self._users.read_by_username(
+                    f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
+                )
+            return None
+        if not identity.email_verified or not identity.email:
+            return None
+        with suppress(NotFoundError):
+            user = self._users.read_by_email(identity.email)
+            if user.username.startswith(AUTH0_USERNAME_PREFIX):
+                # SAFETY: Auth0 never verified the stored address, so this
+                # match is weaker than external_id; keep it visible.
+                logger.warning("Linking legacy account %s by verified email", user.slug)
+                return user
+        return None
+
+
 class CrowdAuthService(CrowdAuthServiceProtocol):
     def __init__(
         self,
@@ -101,12 +137,14 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
         identity: IdentityProviderProtocol,
+        legacy_accounts: LegacyAccountLinker,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
         self._identity = identity
+        self._legacy_accounts = legacy_accounts
 
     def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
         return self._identity.authorization_url(
@@ -117,62 +155,39 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         return self._identity.logout_url(session_id=session_id, return_to=return_to)
 
     def complete_login(self, *, code: str, claim_token: str = "") -> LoginDTO:
-        identity = self._identity.authenticate(code)
+        authentication = self._identity.authenticate(code)
+        identity = authentication.identity
         username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
         avatar_url = _avatar_url(identity)
-        user = self._existing_account(identity, username=username)
-        claim_outcome: ClaimOutcome | None = None
-        if claim_token:
-            result = self._claims.redeem(token=claim_token, username=username)
-            claim_outcome = result.outcome
-            if result.outcome == ClaimOutcome.CONVERTED:
-                user = self._users.read(result.user_slug)
-        if user is None:
-            user = self._create_user(
-                username=username,
-                create_data=UserData(
-                    slug=_NON_SLUG.sub("", identity.provider_user_id.lower()),
-                    username=username,
-                    email=identity.email,
-                    avatar_url=avatar_url,
-                    name=identity.name,
-                ),
+        with self._transaction.atomic():
+            user = self._read_by_username(username) or self._legacy_accounts.adopt(
+                identity, username=username
             )
-        user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
+            claim_outcome: ClaimOutcome | None = None
+            if claim_token:
+                result = self._claims.redeem(token=claim_token, username=username)
+                claim_outcome = result.outcome
+                if result.outcome == ClaimOutcome.CONVERTED:
+                    user = self._users.read(result.user_slug)
+            if user is None:
+                user = self._create_user(
+                    username=username,
+                    create_data=UserData(
+                        slug=slug_base(identity.provider_user_id),
+                        username=username,
+                        email=identity.email,
+                        avatar_url=avatar_url,
+                        name=identity.name,
+                    ),
+                )
+            user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
         return LoginDTO(
-            user=user, claim_outcome=claim_outcome, session_id=identity.session_id
+            user=user, claim_outcome=claim_outcome, session_id=authentication.session_id
         )
 
-    def _existing_account(
-        self, identity: IdentityDTO, *, username: str
-    ) -> UserDTO | None:
+    def _read_by_username(self, username: str) -> UserDTO | None:
         with suppress(NotFoundError):
             return self._users.read_by_username(username)
-        if (legacy := self._legacy_account(identity)) is None:
-            return None
-        # Rename once, so every later login finds the account by its WorkOS id.
-        with self._transaction.atomic():
-            self._users.update(legacy.slug, {"username": username})
-        logger.info(
-            "Linked legacy account %s to WorkOS user %s",
-            legacy.slug,
-            identity.provider_user_id,
-        )
-        return self._users.read(legacy.slug)
-
-    def _legacy_account(self, identity: IdentityDTO) -> UserDTO | None:
-        if identity.legacy_id:
-            with suppress(NotFoundError):
-                return self._users.read_by_username(
-                    f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
-                )
-        # Anyone the import missed: a verified address proves the same person,
-        # and only accounts no WorkOS login has claimed yet are up for grabs.
-        if identity.email_verified and identity.email:
-            with suppress(NotFoundError):
-                user = self._users.read_by_email(identity.email)
-                if user.username.startswith(AUTH0_USERNAME_PREFIX):
-                    return user
         return None
 
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
@@ -214,8 +229,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             updates["name"] = identity.name
         if not updates:
             return user
-        with self._transaction.atomic():
-            self._users.update(user.slug, updates)
+        self._users.update(user.slug, updates)
         return self._users.read(user.slug)
 
     def is_known_sphere_domain(self, domain: str) -> bool:
