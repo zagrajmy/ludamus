@@ -11,6 +11,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol
 
 
+# How far back the feed reads. Enforced twice — the repository stops
+# fetching, the page stops rendering — so both halves cut at the same row.
+PAST_FEED_LIMIT = 24
+
+
 class EncountersPolicy(StrEnum):
     """Who may create encounters in a sphere. NONE turns the feature off."""
 
@@ -92,7 +97,7 @@ class EncounterRepositoryProtocol(Protocol):
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def list_visible_past(
-        sphere_id: int, user_id: int | None, limit: int
+        sphere_id: int, user_id: int | None, *, limit: int
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def update(pk: int, data: EncounterData) -> None: ...

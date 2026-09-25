@@ -1,0 +1,17 @@
+{% load i18n %}
+{% include "landing/style.html" %}
+<div class="landing group/aud leading-[1.55]">
+    {# CSS-only audience switch: the radios drive the org/player sections via group-has on this root. #}
+    <input class="sr-only" type="radio" name="landing-aud" id="aud-org" checked>
+    <input class="sr-only" type="radio" name="landing-aud" id="aud-gracz">
+    {% include "landing/org_hero.html" %}
+    {% include "landing/org_proof.html" %}
+    {% include "landing/org_problem.html" %}
+    {% include "landing/scena.html" %}
+    {% include "landing/org_pitch.html" %}
+    {% include "landing/zapisy_grupowe.html" %}
+    {% include "landing/druk.html" %}
+    {% include "landing/org_objections.html" %}
+    {% include "landing/org_final.html" %}
+    {% include "landing/gracz.html" %}
+</div>
