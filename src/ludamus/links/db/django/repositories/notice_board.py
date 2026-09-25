@@ -79,7 +79,7 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
     @staticmethod
     def list_visible_past(
-        sphere_id: int, user_id: int | None, limit: int
+        sphere_id: int, user_id: int | None, *, limit: int
     ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     UserEnrollmentConfig,
+    effective_participants_limit,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
@@ -50,8 +51,8 @@ from ludamus.pacts.chronology import (
     PartyEventHistoryDTO,
     PartySessionHistoryDTO,
     PartySessionHistoryRepositoryProtocol,
-    PartySessionSeatDTO,
     SessionCardStatsDTO,
+    SessionSeatDTO,
 )
 from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
@@ -62,6 +63,8 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
+    from collections.abc import Collection, Sequence
+
     from ludamus.pacts.event import EventCreateData
 
 
@@ -131,18 +134,38 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
         )
 
 
-def location_data(space: Space) -> LocationData:
-    chain = (*reversed(tuple(space.iter_ancestors())), space)
-    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
+class SpaceNode(Protocol):
+    # What a space contributes to a location, whether it is a loaded Space
+    # or a values() row of one.
+    pk: int
+    parent_id: int | None
+    name: str
+    order: int
+    programme_order: int
+
+
+def location_from_chain(chain: Sequence[SpaceNode]) -> LocationData:
+    """Describe the last space of a root-to-leaf chain.
+
+    Returns:
+        The room, its venue (the space above it) and the path and sort key
+        down to it: the location every card and filter reads.
+    """
+    space = chain[-1]
+    parent = chain[-2] if len(chain) > 1 else None
     return LocationData(
         space_id=space.pk,
         parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_name=space.parent.name if space.parent else "",
-        path=str(space),
-        sort_path=sort_path,
+        parent_name=parent.name if parent else "",
+        path=" > ".join(node.name for node in chain),
+        sort_path=tuple((node.order, node.name, node.pk) for node in chain),
         programme_order=space.programme_order,
     )
+
+
+def location_data(space: Space) -> LocationData:
+    return location_from_chain((*reversed(tuple(space.iter_ancestors())), space))
 
 
 def eligible_window_ids(session: Session) -> frozenset[int]:
@@ -156,13 +179,47 @@ def eligible_window_ids(session: Session) -> frozenset[int]:
     )
 
 
-def session_card_stats(session: Session) -> SessionCardStatsDTO:
+def card_stats(
+    *,
+    participants_limit: int,
+    start_time: datetime | None,
+    enrolled_count: int,
+    waiting_count: int,
+    active_configs: Collection[EnrollmentConfig],
+) -> SessionCardStatsDTO:
+    """State a session's seats from the facts Session's own properties read.
+
+    Returns:
+        The counts, whether it is full, the windows that can seat it and the
+        cap they leave: what a card, a row read or an instance, prints.
+    """
+    eligible = [
+        config
+        for config in active_configs
+        if config.can_seat(participants_limit=participants_limit, start_time=start_time)
+    ]
+    effective = effective_participants_limit(
+        participants_limit=participants_limit, eligible_configs=eligible
+    )
     return SessionCardStatsDTO(
+        enrolled_count=enrolled_count,
+        waiting_count=waiting_count,
+        # Session.is_full: there was a seat, and it is taken. A session that
+        # takes no enrollment never had one.
+        is_full=participants_limit != 0 and enrolled_count >= effective,
+        enrollment_window_ids=frozenset(config.pk for config in eligible),
+        effective_participants_limit=effective,
+    )
+
+
+def session_card_stats(session: Session) -> SessionCardStatsDTO:
+    agenda_item = getattr(session, "agenda_item", None)
+    return card_stats(
+        participants_limit=session.participants_limit,
+        start_time=None if agenda_item is None else agenda_item.start_time,
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
-        is_full=session.is_full,
-        enrollment_window_ids=eligible_window_ids(session),
-        effective_participants_limit=session.effective_participants_limit,
+        active_configs=session.event.get_active_enrollment_configs(),
     )
 
 
@@ -188,7 +245,7 @@ def _party_session_history(
             user_dto(session.presenter) if session.presenter is not None else None
         ),
         participations=[
-            PartySessionSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,

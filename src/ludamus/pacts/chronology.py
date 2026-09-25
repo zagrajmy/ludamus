@@ -322,7 +322,9 @@ class ProposalAcceptanceServiceProtocol(Protocol):
     ) -> None: ...
 
 
-class PartySessionSeatDTO(BaseModel):
+class SessionSeatDTO(BaseModel):
+    # One held seat, as every card-shaped read lists them: the party's
+    # history, the detail modal and the event page's cards.
     user: UserDTO
     status: SessionParticipationStatus
     creation_time: datetime
@@ -344,7 +346,7 @@ class PartySessionHistoryDTO(SessionCardStatsDTO):
     session: SessionDTO
     agenda_item: AgendaItemDTO
     presenter: UserDTO | None
-    participations: list[PartySessionSeatDTO]
+    participations: list[SessionSeatDTO]
     location: LocationData
     viewer_enrolled: bool
 
@@ -374,17 +376,11 @@ class PartySessionHistoryServiceProtocol(Protocol):
     ) -> PartyDetailDTO | None: ...
 
 
-class SessionModalSeatDTO(BaseModel):
-    user: UserDTO
-    status: SessionParticipationStatus
-    creation_time: datetime
-
-
 class SessionModalDTO(SessionCardStatsDTO):
     session: SessionDTO
     agenda_item: AgendaItemDTO
     presenter: UserDTO | None
-    participations: list[SessionModalSeatDTO]
+    participations: list[SessionSeatDTO]
     location: LocationData
     field_values: list[SessionFieldValueDTO]
     viewer_enrolled: bool
@@ -392,6 +388,27 @@ class SessionModalDTO(SessionCardStatsDTO):
     can_edit: bool
     is_ongoing: bool
     is_ended: bool
+
+
+class SessionCardDTO(SessionCardStatsDTO):
+    """One session as the event page's card, ledger row or room tile reads it."""
+
+    session: SessionDTO
+    # None while a proposal waits for a slot; every other field is filled
+    # either way, so one card shape serves the schedule and the review queue.
+    agenda_item: AgendaItemDTO | None
+    presenter: UserDTO | None
+    location: LocationData
+    # Public fields only, in the organizer's field order.
+    field_values: list[SessionFieldValueDTO]
+    track_names: list[str]
+    category_name: str
+    # Empty when the reader asked for no roster: the card grid draws the first
+    # seat holders, the compact ledger draws none and a big event has many.
+    participations: list[SessionSeatDTO]
+    # A proposal's acceptable slots, earliest first. A scheduled session states
+    # its time through agenda_item and carries none.
+    preferred_time_slots: list[TimeSlotDTO]
 
 
 class SessionModalRepositoryProtocol(Protocol):
@@ -530,6 +547,9 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
+    # 1-based, for "Rooms 6–10 of 11".
+    first_space_number: int
+    last_space_number: int
     total_columns: int
     available_dates: list[date] = []
     date_selection: DateSelection = "all"

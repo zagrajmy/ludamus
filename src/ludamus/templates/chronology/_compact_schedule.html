@@ -1,6 +1,7 @@
 {% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
+{% load schedule_tags %}
 {% load tz %}
 {# Compact schedule for big events: a dense chronological ledger (or the #}
 {# rooms grid) paired with a sticky hour scrubber. Reuses the .session / #}
@@ -46,7 +47,7 @@
                                     {# row when session-filters.ts hides the rows after it (index.css). #}
                                     <div class="session-grid divide-y-visible relative">
                                         {% for tile in hour.tiles %}
-                                            {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
+                                            {% compact_session_row tile %}
                                         {% endfor %}
                                     </div>
                                 </div>

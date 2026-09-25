@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
         SphereRole,
+        SphereSettingsPatch,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -151,11 +152,24 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
-        """Save the sphere's settings, refusing an unconfirmed hide.
+        """Save the settings the caller named, refusing an unconfirmed hide.
+
+        Every argument is a patch: None means "leave this as it stands", and
+        a caller that only wants to swap the logo says so rather than reading
+        the other two and handing them back. That read-then-write is a lost
+        update waiting to happen — between the read and the write another
+        manager changes the policy, and the stale value overwrites theirs.
+
+        This closes the hazard for a partial write, which is what the MCP
+        tools do. A full form still asserts every field it carries, so the
+        panel keeps last-write-wins; closing that needs a version round-
+        tripped through the form. The confirmation gate below is likewise
+        check-then-act, but losing that race costs a round trip, not data.
 
         Returns:
             NEEDS_CONFIRMATION when the save would turn encounters off while
@@ -164,6 +178,7 @@ class SpherePanelService:
         """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
@@ -179,6 +194,38 @@ class SpherePanelService:
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
             self._spheres.update(sphere_id, data)
+            return SphereSettingsOutcome.SAVED
+
+    def patch_settings(
+        self,
+        sphere_id: int,
+        *,
+        changes: SphereSettingsPatch,
+        confirmed_encounters_disable: bool = False,
+    ) -> SphereSettingsOutcome:
+        data: SphereUpdateData = {}
+        if "allow_facilitator_session_edit" in changes:
+            data["allow_facilitator_session_edit"] = changes[
+                "allow_facilitator_session_edit"
+            ]
+        if "event_cover_buttons_at_bottom" in changes:
+            data["event_cover_buttons_at_bottom"] = changes[
+                "event_cover_buttons_at_bottom"
+            ]
+        if (encounters_policy := changes.get("encounters_policy")) is not None:
+            data["encounters_policy"] = encounters_policy.value
+
+        with self._transaction.atomic():
+            if (
+                not confirmed_encounters_disable
+                and encounters_policy is EncountersPolicy.NONE
+                and self._spheres.read(sphere_id).encounters_policy
+                is not EncountersPolicy.NONE
+                and self._encounters.exists_for_sphere(sphere_id)
+            ):
+                return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if data:
+                self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
 
     def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:

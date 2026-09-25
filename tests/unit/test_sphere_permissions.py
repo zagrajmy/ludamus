@@ -66,23 +66,45 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            event_cover_buttons_at_bottom=True,
             encounters_policy=EncountersPolicy.MANAGERS,
         )
 
         assert outcome is SphereSettingsOutcome.SAVED
         spheres.update.assert_called_once_with(
-            3, {"allow_facilitator_session_edit": True, "encounters_policy": "managers"}
+            3,
+            {
+                "allow_facilitator_session_edit": True,
+                "event_cover_buttons_at_bottom": True,
+                "encounters_policy": "managers",
+            },
         )
 
     def test_logo_included_only_when_given(self, service, spheres):
         service.update_settings(
             3,
             allow_facilitator_session_edit=False,
+            event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.EVERYONE,
             logo="",
         )
 
         assert not spheres.update.call_args.args[1]["logo"]
+
+    def test_a_patch_writes_only_what_it_names(self, service, spheres):
+        # The point of the patch shape: a caller changing one setting must not
+        # carry the others along, because it would be carrying whatever it
+        # read a moment ago and overwriting a change made in between.
+        service.patch_settings(
+            3, changes={"encounters_policy": EncountersPolicy.MANAGERS}
+        )
+
+        spheres.update.assert_called_once_with(3, {"encounters_policy": "managers"})
+
+    def test_a_logo_swap_touches_only_the_logo(self, service, spheres):
+        service.update_logo(3, "banner.svg")
+
+        spheres.update.assert_called_once_with(3, {"logo": "banner.svg"})
 
     def test_refuses_to_hide_existing_encounters_unconfirmed(
         self, service, spheres, encounters
@@ -93,6 +115,7 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.NONE,
         )
 
@@ -106,12 +129,43 @@ class TestSpherePanelServiceUpdateSettings:
         outcome = service.update_settings(
             3,
             allow_facilitator_session_edit=True,
+            event_cover_buttons_at_bottom=False,
             encounters_policy=EncountersPolicy.NONE,
             confirmed_encounters_disable=True,
         )
 
         assert outcome is SphereSettingsOutcome.SAVED
         spheres.update.assert_called_once()
+
+
+class TestSpherePanelServicePatchSettings:
+    def test_writes_only_supplied_settings(self, service, spheres):
+        outcome = service.patch_settings(
+            3,
+            changes={
+                "event_cover_buttons_at_bottom": True,
+                "encounters_policy": EncountersPolicy.MANAGERS,
+            },
+        )
+
+        assert outcome is SphereSettingsOutcome.SAVED
+        spheres.update.assert_called_once_with(
+            3, {"event_cover_buttons_at_bottom": True, "encounters_policy": "managers"}
+        )
+        spheres.read.assert_not_called()
+
+    def test_refuses_to_hide_existing_encounters_unconfirmed(
+        self, service, spheres, encounters
+    ):
+        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
+        encounters.exists_for_sphere.return_value = True
+
+        outcome = service.patch_settings(
+            3, changes={"encounters_policy": EncountersPolicy.NONE}
+        )
+
+        assert outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION
+        spheres.update.assert_not_called()
 
 
 class TestSpherePanelServiceUpdateLogo:

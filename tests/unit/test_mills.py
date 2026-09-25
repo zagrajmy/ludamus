@@ -11,7 +11,7 @@ from ludamus.mills import (
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.mills.event import build_panel_stats
+from ludamus.mills.event import LandingService, build_panel_stats
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -366,6 +366,15 @@ class TestBuildPanelStats:
 
         assert stats.hosts_count == 0
         assert stats.total_sessions == 0
+
+
+class TestLandingService:
+    def test_showcase_slug_asks_the_sphere_for_its_newest_published_event(self):
+        stats = MagicMock()
+        stats.read_newest_published_slug.return_value = "newest"
+
+        assert LandingService(stats).showcase_slug(7) == "newest"
+        stats.read_newest_published_slug.assert_called_once_with(7)
 
 
 class TestIsProposalActive:

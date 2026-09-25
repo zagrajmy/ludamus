@@ -1,0 +1,13 @@
+{% comment %}
+    A card's cover, as a tinted background box.
+
+    The tint is what makes a cover legible in dark mode, and a grid mixing
+    events, encounters and dashboard rows has to tint them all identically or
+    the cards read as different weights. One partial so that stays true.
+
+    Variables:
+      url          the cover image
+      extra_class  the caller's box: height, and any layout around it
+{% endcomment %}
+<div class="mx-1 mt-1 rounded-xl bg-cover bg-center [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)] {{ extra_class }}"
+     style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ url }}')"></div>

@@ -307,6 +307,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    event_cover_buttons_at_bottom = models.BooleanField(default=False)
     encounters_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncountersPolicy],
@@ -322,6 +323,33 @@ class Sphere(models.Model):
     @property
     def logo_url(self) -> str:
         return self.logo.url if self.logo else ""
+
+
+class SphereSubscription(models.Model):
+    """A player asking to hear when a sphere announces something.
+
+    Distinct from `SphereMembership`, which grants panel rights: subscribing
+    is a reader's choice and carries no access at all.
+    """
+
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="subscriptions"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sphere_subscriptions"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sphere_subscription"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("sphere", "user"), name="sphere_subscription_unique_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} subscribes to sphere {self.sphere_id}"
 
 
 class SphereMembership(models.Model):
@@ -448,6 +476,9 @@ class Event(models.Model):
     # pre-event reminder sweep — organizers who already printed are skipped.
     printables_last_printed_at = models.DateTimeField(blank=True, null=True)
     printables_reminder_sent_at = models.DateTimeField(blank=True, null=True)
+    # When the sphere's subscribers were told this event exists. Set once, by
+    # the announcement sweep, so a republished event never notifies twice.
+    subscribers_announced_at = models.DateTimeField(blank=True, null=True)
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
@@ -546,12 +577,6 @@ class Event(models.Model):
             if config.is_session_eligible(session)
         ]
 
-    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
-            return None
-
-        return max(eligible_configs, key=lambda c: c.percentage_slots)
-
 
 class EventProposalSettings(models.Model):
     event = models.OneToOneField(
@@ -630,16 +655,44 @@ class EnrollmentConfig(models.Model):
         Returns:
             True if session can be enrolled in under this config.
         """
+        agenda_item = getattr(session, "agenda_item", None)
+        return self.can_seat(
+            participants_limit=session.participants_limit,
+            start_time=None if agenda_item is None else agenda_item.start_time,
+        )
+
+    def can_seat(self, *, participants_limit: int, start_time: datetime | None) -> bool:
+        """Answer is_session_eligible from the two facts it reads off a session.
+
+        Returns:
+            True if a session with that limit and start can be enrolled in
+            under this config.
+        """
         # A limit of 0 means the session takes no enrollment at all, so no
         # config can make it eligible. The single gate for that rule.
-        if session.participants_limit == 0:
+        if participants_limit == 0:
             return False
 
         if self.limit_to_end_time:
-            agenda_item = getattr(session, "agenda_item", None)
-            return agenda_item is not None and agenda_item.start_time < self.end_time
+            return start_time is not None and start_time < self.end_time
 
         return True
+
+
+def effective_participants_limit(
+    *, participants_limit: int, eligible_configs: Collection[EnrollmentConfig]
+) -> int:
+    """Scale a session's limit by the most liberal window that can seat it.
+
+    Returns:
+        The seats on offer now: 0 for a session that takes no enrollment, the
+        limit itself when no window seats it.
+    """
+    if participants_limit == 0:
+        return 0
+    if percentage := max((c.percentage_slots for c in eligible_configs), default=0):
+        return math.ceil(participants_limit * percentage / 100)
+    return participants_limit
 
 
 class UserEnrollmentConfig(models.Model):
@@ -1133,14 +1186,10 @@ class Session(SoftDeleteModel):
 
     @property
     def effective_participants_limit(self) -> int:
-        if self.participants_limit == 0:
-            return 0
-        event = self.event
-        if enrollment_config := event.get_most_liberal_config(self):
-            return math.ceil(
-                self.participants_limit * enrollment_config.percentage_slots / 100
-            )
-        return self.participants_limit
+        return effective_participants_limit(
+            participants_limit=self.participants_limit,
+            eligible_configs=self.event.get_eligible_enrollment_configs(self),
+        )
 
     @property
     def seats_left(self) -> int:

@@ -1,0 +1,58 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    A sphere you could follow. The button is a toggle, so the card stays put
+    after you subscribe — it is the only place the choice can be undone.
+{% endcomment %}
+<article class="card flex flex-col gap-3 p-5">
+    <div class="flex items-start justify-between gap-3">
+        <a href="{{ sphere.url }}" class="flex items-center gap-3 min-w-0">
+            {% if sphere.logo_url %}
+                <img src="{{ sphere.logo_url }}"
+                     alt=""
+                     width="40"
+                     height="40"
+                     loading="lazy"
+                     class="h-10 w-10 shrink-0 rounded-xl object-cover">
+            {% endif %}
+            <span class="min-w-0">
+                <span class="block truncate font-semibold text-foreground">{{ sphere.name }}</span>
+                <span class="block text-xs text-foreground-muted">
+                    {% blocktranslate count counter=sphere.upcoming_count %}
+                        {{ counter }} event coming up
+                    {% plural %}
+                        {{ counter }} events coming up
+                    {% endblocktranslate %}
+                </span>
+            </span>
+        </a>
+    </div>
+    {% if sphere.is_subscribed %}
+        <form method="post"
+              action="{% url 'web:sphere-unsubscribe' pk=sphere.pk %}"
+              class="mt-auto">
+            {% csrf_token %}
+            {% translate "Subscribed" as unsubscribe_label %}
+            {% tessera_button unsubscribe_label variant="secondary" size="sm" icon="check" full_width_mobile=False %}
+        </form>
+    {% else %}
+        {% blocktranslate asvar subscribe_prompt with name=sphere.name %}
+            We'll notify you whenever {{ name }} publishes a new event. You can unsubscribe here any time.
+        {% endblocktranslate %}
+        {% blocktranslate asvar subscribe_title with name=sphere.name %}
+            Subscribe to {{ name }}?
+        {% endblocktranslate %}
+        {% translate "Subscribe" as subscribe_label %}
+        <form method="post"
+              action="{% url 'web:sphere-subscribe' pk=sphere.pk %}"
+              class="mt-auto"
+              data-confirm="{{ subscribe_prompt }}"
+              data-confirm-title="{{ subscribe_title }}"
+              data-confirm-action="{{ subscribe_label }}"
+              data-confirm-variant="primary"
+              data-confirm-icon="bell-alert">
+            {% csrf_token %}
+            {% tessera_button subscribe_label size="sm" icon="bell-alert" full_width_mobile=False %}
+        </form>
+    {% endif %}
+</article>

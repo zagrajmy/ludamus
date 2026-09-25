@@ -26,7 +26,7 @@ jobs:
   ios-regressions:
     runs-on: macos-latest
     # See IOS_SPEC_BUDGET.
-    timeout-minutes: 68
+    timeout-minutes: 82
     env:
       # Every runner command is an HTTP request capped by
       # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
@@ -50,7 +50,7 @@ jobs:
       # 6.5 min of setup, 15 min warm-up cap and 1.5 min of teardown around it
       # plus 3 min of slack, so the step timeouts bind first. Actions cannot derive timeout-minutes
       # from an env value; raise the three together.
-      IOS_SPEC_BUDGET: 3
+      IOS_SPEC_BUDGET: 4
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
       SESSION: ios-regressions
@@ -71,6 +71,11 @@ jobs:
           fi
 
       - uses: jdx/mise-action@v2
+        # This job caches no tools, so it downloads them all every run — which
+        # is why it is the one that met the outage. Retries make that survivable
+        # without letting a long one eat the slack this job is sized with: past
+        # this, setup fails inside its budget and the log upload still runs.
+        timeout-minutes: 5
         with:
           # ponytail: macOS poetry venv links to Homebrew's python framework;
           # caching it breaks when the runner image bumps python@3.14's patch
@@ -79,7 +84,6 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - run: mise install
       - run: mise exec -- poetry install
 
       # Split from the join below: booting takes ~2min of pure waiting that
@@ -153,7 +157,7 @@ jobs:
 
       - name: Run iOS Safari regressions
         # IOS_SPEC_BUDGET × 14.
-        timeout-minutes: 42
+        timeout-minutes: 56
         env:
           # Per-attempt cap: two attempts per spec of this plus the 30s afterAll
           # fit the step budget above.

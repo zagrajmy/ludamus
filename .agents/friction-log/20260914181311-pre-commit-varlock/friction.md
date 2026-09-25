@@ -1,6 +1,7 @@
 ---
 title: 'pre-commit varlock hook fails in sandbox worktree with symlinked node_modules'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1304'
 ---
 
 ## Expected Behavior

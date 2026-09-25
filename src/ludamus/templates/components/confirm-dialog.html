@@ -7,8 +7,10 @@
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message">
     <div class="flex items-start gap-3 px-6 py-4">
-        <span class="mt-0.5 flex-shrink-0 text-danger"
-              data-confirm-icon>{% icon "exclamation-triangle" class="w-6 h-6" %}</span>
+        <span class="mt-0.5 flex-shrink-0 text-danger" data-confirm-icon-slot>
+            <span data-confirm-icon="exclamation-triangle">{% icon "exclamation-triangle" class="w-6 h-6" %}</span>
+            <span data-confirm-icon="bell-alert" hidden>{% icon "bell-alert" class="w-6 h-6" %}</span>
+        </span>
         <div>
             <h3 id="confirm-dialog-title"
                 data-confirm-title

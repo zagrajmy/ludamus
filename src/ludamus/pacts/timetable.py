@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Protocol
 class PlacementRejection(StrEnum):
     NAIVE_DATETIME = "naive_datetime"
     END_NOT_AFTER_START = "end_not_after_start"
-    OUTSIDE_TIME_SLOTS = "outside_time_slots"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
+    BEFORE_PUBLICATION = "before_publication"
 
 
 if TYPE_CHECKING:
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         AgendaItemDTO,
         AgendaItemRepositoryProtocol,
+        EventRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
         SessionRepositoryProtocol,
         SpaceDTO,
@@ -46,6 +47,7 @@ class PlacementRejectedError(Exception):
 
 @dataclass
 class TimetableRepos:
+    events: EventRepositoryProtocol
     sessions: SessionRepositoryProtocol
     agenda_items: AgendaItemRepositoryProtocol
     spaces: SpaceRepositoryProtocol

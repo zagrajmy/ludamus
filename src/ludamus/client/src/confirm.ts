@@ -2,8 +2,10 @@
 // actions. Put `data-confirm="<message>"` on a <form> or an <a href> and the
 // action is gated behind the shared #confirm-dialog modal (see
 // components/confirm-dialog.html). `data-confirm-action` optionally overrides
-// the accept button label. With no #confirm-dialog on the page, falls back to
-// native confirm() so the action is never silently let through.
+// the accept button label; `data-confirm-icon` picks one of the icons
+// pre-rendered in the dialog (default: the warning triangle). With no
+// #confirm-dialog on the page, falls back to native confirm() so the action is
+// never silently let through.
 //
 // This module only consumes modal.ts's public API; modal.ts knows nothing
 // about it.
@@ -20,9 +22,16 @@ const getConfirmDialog = (): HTMLDialogElement | null => {
 };
 
 interface ConfirmOptions {
+  icon?: string | null;
   title?: string | null;
   variant?: string | null;
 }
+
+const confirmOptions = (dataset: DOMStringMap): ConfirmOptions => ({
+  icon: dataset.confirmIcon,
+  title: dataset.confirmTitle,
+  variant: dataset.confirmVariant,
+});
 
 export const requestConfirm = (
   message: string,
@@ -61,10 +70,13 @@ export const requestConfirm = (
     acceptEl.classList.toggle("btn-danger", !primary);
   }
 
-  const iconEl = dialog.querySelector<HTMLElement>("[data-confirm-icon]");
-  if (iconEl) {
-    iconEl.classList.toggle("text-primary", primary);
-    iconEl.classList.toggle("text-danger", !primary);
+  const iconSlot = dialog.querySelector<HTMLElement>("[data-confirm-icon-slot]");
+  if (iconSlot) {
+    iconSlot.classList.toggle("text-primary", primary);
+    iconSlot.classList.toggle("text-danger", !primary);
+    const icons = [...iconSlot.querySelectorAll<HTMLElement>("[data-confirm-icon]")];
+    const wanted = icons.find((icon) => icon.dataset.confirmIcon === options.icon) ?? icons[0];
+    for (const icon of icons) icon.hidden = icon !== wanted;
   }
 
   pendingConfirm = run;
@@ -98,7 +110,7 @@ document.addEventListener(
         confirmedForms.add(form);
         form.requestSubmit(submitter);
       },
-      { title: form.dataset.confirmTitle, variant: form.dataset.confirmVariant },
+      confirmOptions(form.dataset),
     );
   },
   true,
@@ -123,7 +135,7 @@ document.addEventListener(
       () => {
         globalThis.location.assign(link.href);
       },
-      { title: link.dataset.confirmTitle, variant: link.dataset.confirmVariant },
+      confirmOptions(link.dataset),
     );
   },
   true,
