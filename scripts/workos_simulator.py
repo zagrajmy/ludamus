@@ -60,6 +60,10 @@ def _first(query: dict[str, list[str]], key: str) -> str:
 
 
 def _is_local(url: str) -> bool:
+    # parse_qs decodes %0d%0a, so a control character here would split the
+    # Location header into a second, attacker-chosen one.
+    if not url.isprintable():
+        return False
     host = urlsplit(url).hostname or ""
     return host in LOOPBACK_HOSTS or host.endswith(".localhost")
 
