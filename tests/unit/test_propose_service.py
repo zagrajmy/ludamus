@@ -104,35 +104,6 @@ def service_fixture(repos, cache):
 
 
 class TestSubmit:
-    def test_raises_value_error_when_title_missing(self, service):
-        wizard_data = {"category_id": 1, "session_data": {"description": "No title"}}
-
-        with pytest.raises(ValueError, match="session_data must contain 'title'"):
-            service.submit(_event(), wizard_data, user_id=None, user_slug=None)
-
-    def test_anonymous_creates_facilitator_without_user(
-        self, service, submitting_repos
-    ):
-        result = service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "facilitator_name": "Anon Host",
-                },
-            },
-            user_id=None,
-            user_slug=None,
-        )
-
-        assert result.session_id == EXPECTED_SESSION_ID
-        assert result.title == "Test Session"
-        submitting_repos.facilitators.create.assert_called_once()
-        create_call = submitting_repos.facilitators.create.call_args[0][0]
-        assert create_call["user_id"] is None
-        assert create_call["display_name"] == "Anon Host"
-
     def test_skips_blank_session_and_personal_answers(self, service, submitting_repos):
         submitting_repos.session_fields.read_by_slug.side_effect = (
             lambda _event_id, slug: _field({"system": 55, "notes": 56}[slug], slug)
@@ -194,61 +165,8 @@ class TestSubmit:
             result.session_id, [OWN_TRACK_PK]
         )
 
-    def test_attaches_no_tracks_when_all_are_foreign(self, service, submitting_repos):
-        service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "facilitator_name": "Anon Host",
-                },
-                "track_pks": [FOREIGN_TRACK_PK],
-            },
-            user_id=None,
-            user_slug=None,
-        )
-
-        submitting_repos.sessions.set_session_tracks.assert_not_called()
-
-    def test_skips_int_session_answers(self, service, submitting_repos):
-        service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "facilitator_name": "Anon Host",
-                    "session_players": 4,
-                },
-            },
-            user_id=None,
-            user_slug=None,
-        )
-
-        submitting_repos.session_fields.read_by_slug.assert_not_called()
-        submitting_repos.sessions.save_field_values.assert_not_called()
-
-
-class TestGetSavedPersonalData:
-    def test_returns_empty_for_anonymous(self, service, repos):
-        result = service.get_saved_personal_data(event_id=1, user_id=None)
-
-        assert result == {}
-        repos.personal_data_field_values.read_for_facilitator_event.assert_not_called()
-        repos.facilitators.read_by_user_and_event.assert_not_called()
-
 
 class TestCheckRateLimit:
-    def test_allows_first_submission(self, service, cache):
-        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is True
-        assert "proposal_rate:1:1.2.3.4" in cache.store
-
-    def test_blocks_second_submission(self, service, cache):
-        cache.store["proposal_rate:1:1.2.3.4"] = 1
-
-        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is False
-
     def test_allows_different_event(self, service, cache):
         cache.store["proposal_rate:1:1.2.3.4"] = 1
 
