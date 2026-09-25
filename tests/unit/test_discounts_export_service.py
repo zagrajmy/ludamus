@@ -110,3 +110,15 @@ class TestDiscountsExportService:
 
         assert not decryptor.blobs
         assert writer.calls[0][0] == b""
+
+    def test_facilitator_missing_from_column_cells_keeps_the_row_aligned(self):
+        # The gate reads the roster before the service does; a facilitator
+        # added in between has no cells and must not shift the discount left.
+        facilitators = FakeFacilitators([_facilitator(1)])
+        writer = FakeWriter()
+        columns = DiscountExportColumns(headers=["Imię", "Nazwisko"], cells={})
+
+        _export(_service(facilitators=facilitators, writer=writer), columns=columns)
+
+        header, row = writer.calls[0][3]
+        assert len(row) == len(header)
