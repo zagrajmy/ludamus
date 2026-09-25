@@ -90,6 +90,7 @@ def _session_id(access_token: str) -> str:
     try:
         claims = _CLAIMS.validate_json(base64.urlsafe_b64decode(payload + "=" * 4))
     except (binascii.Error, ValidationError) as exc:
+        logger.warning("WorkOS access token carried no session id: %s", exc)
         msg = "The access token carries no session id."
         raise IdentityRejectedError(msg) from exc
     return claims["sid"]
