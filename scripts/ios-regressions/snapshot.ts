@@ -35,11 +35,11 @@ export const pollUntil = async <T>(
 // Safari's web content.
 const CHROME_INSET = 120;
 
-type Placed = { rect: Rect; label: string };
+export type Placed = { rect: Rect; label: string };
 
 // Labelled nodes with a rect, which is every node the geometry helpers below
 // can reason about.
-const placed = (nodes: readonly SnapshotNode[]): Placed[] =>
+export const placed = (nodes: readonly SnapshotNode[]): Placed[] =>
   nodes.flatMap((node) => {
     const label = labelOf(node);
     return node.rect && label ? [{ rect: node.rect, label }] : [];
@@ -121,9 +121,13 @@ export const toolbarTop = (nodes: readonly SnapshotNode[], screen: Rect): number
   return tops.length === 0 ? null : Math.min(...tops);
 };
 
+export const centreOf = (rect: Rect): { x: number; y: number } => ({
+  x: rect.x + rect.width / 2,
+  y: rect.y + rect.height / 2,
+});
+
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
-  const centreX = rect.x + rect.width / 2;
-  const centreY = rect.y + rect.height / 2;
+  const { x: centreX, y: centreY } = centreOf(rect);
   return (
     centreX >= viewport.x &&
     centreX <= viewport.x + viewport.width &&

@@ -81,3 +81,32 @@ class TestLandingStatsRepository:
 
         assert [c.name for c in conventions] == [non_root_sphere.name]
         assert conventions[0].cover_image_url.endswith("events/published.png")
+
+    def test_newest_published_slug_is_the_latest_start_a_visitor_can_open(
+        self, sphere, non_root_sphere
+    ):
+        now = datetime.now(UTC)
+        EventFactory(sphere=sphere, slug="older", start_time=now - timedelta(days=30))
+        EventFactory(sphere=sphere, slug="newest", start_time=now + timedelta(days=7))
+        EventFactory(
+            sphere=sphere,
+            slug="draft",
+            start_time=now + timedelta(days=60),
+            publication_time=None,
+        )
+        EventFactory(
+            sphere=sphere,
+            slug="scheduled",
+            start_time=now + timedelta(days=60),
+            publication_time=now + timedelta(days=1),
+        )
+        EventFactory(
+            sphere=non_root_sphere, slug="foreign", start_time=now + timedelta(days=90)
+        )
+
+        assert LandingStatsRepository.read_newest_published_slug(sphere.pk) == "newest"
+
+    def test_newest_published_slug_is_none_without_a_published_event(self, sphere):
+        EventFactory(sphere=sphere, publication_time=None)
+
+        assert LandingStatsRepository.read_newest_published_slug(sphere.pk) is None

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.template.response import TemplateResponse
+from django.urls import reverse
 
 from ludamus.gates.web.django.dashboard import dashboard_page
 from ludamus.gates.web.django.events import EventsPageView
@@ -14,6 +16,10 @@ if TYPE_CHECKING:
 
 # How many open encounters the landing lists before sending you to the feed.
 LANDING_ENCOUNTERS = 4
+
+# The event page the pitch sends a visitor to as its proof. Kapitularz runs
+# on its own sphere, so the production landing links across domains.
+SHOWCASE_EVENT_URL = "https://kapitularz.zagrajmy.net/"
 
 
 def index_page(request: RootRequest) -> HttpResponse:
@@ -60,8 +66,21 @@ def landing_page(request: RootRequest) -> HttpResponse:
             "encounters_enabled": request.services.encounters.enabled(
                 context.current_sphere_id
             ),
+            "showcase_url": _showcase_url(request),
         },
     )
+
+
+def _showcase_url(request: RootRequest) -> str:
+    # Staging has no Kapitularz of its own, and its root sphere is where the
+    # seeded events live, so the pitch shows one of those instead of sending
+    # a tester off to production. A staging root sphere with nothing
+    # published yet still gets the production page rather than a 404.
+    if settings.IS_STAGING:
+        slug = request.services.landing.showcase_slug(request.context.root_sphere_id)
+        if slug is not None:
+            return reverse("web:chronology:event", kwargs={"slug": slug})
+    return SHOWCASE_EVENT_URL
 
 
 def about_page(request: RootRequest) -> HttpResponse:
