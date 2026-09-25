@@ -60,11 +60,17 @@ class TestAuthentication:
     def test_missing_token(self, client):
         response = post_message(client, {"jsonrpc": "2.0", "id": 1, "method": "ping"})
 
-        assert_response(response, HTTPStatus.UNAUTHORIZED)
-        assert response["WWW-Authenticate"] == "Bearer"
-        assert response.json() == {
-            "error": "A valid maintainer Bearer token is required."
-        }
+        assert_response(
+            response,
+            HTTPStatus.UNAUTHORIZED,
+            headers={
+                "WWW-Authenticate": (
+                    'Bearer resource_metadata="http://testserver/.well-known/'
+                    'oauth-protected-resource/mcp/"'
+                )
+            },
+            json={"error": "A valid maintainer Bearer token is required."},
+        )
 
     def test_garbage_token(self, client):
         response = post_message(
@@ -184,7 +190,9 @@ class TestProtocol:
             client, {"jsonrpc": "2.0", "id": 7, "method": "ping"}, token=token
         )
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 7, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 7, "result": {}}
+        )
 
     def test_tools_list(self, client, token):
         response = post_message(

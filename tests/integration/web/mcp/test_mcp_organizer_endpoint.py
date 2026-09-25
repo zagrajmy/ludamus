@@ -127,10 +127,11 @@ class TestOrganizerAuthentication:
     def test_missing_token(self, client):
         response = post_org(client, PING)
 
-        assert_response(response, HTTPStatus.UNAUTHORIZED)
-        assert response.json() == {
-            "error": "A valid organizer Bearer token is required."
-        }
+        assert_response(
+            response,
+            HTTPStatus.UNAUTHORIZED,
+            json={"error": "A valid organizer Bearer token is required."},
+        )
 
     def test_maintainer_token_is_rejected(self, client):
         superuser = UserFactory(username="root", is_superuser=True)
@@ -218,7 +219,9 @@ class TestOrganizerAuthentication:
     def test_manager_can_ping(self, client, org_token):
         response = post_org(client, PING, token=org_token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_non_manager_superuser_can_ping(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True)
@@ -228,7 +231,9 @@ class TestOrganizerAuthentication:
 
         response = post_org(client, PING, token=token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_deactivated_superuser(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True, is_active=False)
