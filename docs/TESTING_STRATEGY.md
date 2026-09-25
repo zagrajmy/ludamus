@@ -57,8 +57,8 @@ Rules:
 
 - mock at lowest level, or not at all — use test db, `responses`, or dedicated
   mock package
-- assert outbound calls to external systems (the request is the contract);
-  don't assert internal call sequences
+- assert outbound calls to external systems (the request is the contract), not
+  internal call sequences
 - assert all side effects
 
 ### Database fixtures

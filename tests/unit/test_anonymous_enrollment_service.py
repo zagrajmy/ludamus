@@ -138,11 +138,8 @@ class FakeRepo:
 
 
 class FakePromotion:
-    def __init__(self):
-        self.filled: list[int] = []
-
     def fill_freed_seats(self, *, session_id):
-        self.filled.append(session_id)
+        pass
 
 
 def _service(

@@ -42,7 +42,6 @@ class FakeRepo:
     def __init__(self, states=None, offer=None):
         self._states = list(states or [])
         self._offer = offer
-        self.confirmed: list[list[int]] = []
         self.offered: list[dict] = []
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
@@ -55,7 +54,7 @@ class FakeRepo:
         return self._states.pop(0) if self._states else None
 
     def confirm(self, ids):
-        self.confirmed.append(ids)
+        pass
 
     def offer(self, ids, *, offer_expires_at, claim_token, **_kwargs):
         self.offered.append({"ids": ids, "token": claim_token, "exp": offer_expires_at})
@@ -86,11 +85,8 @@ class FakeNotifier:
 
 
 class FakeScheduler:
-    def __init__(self):
-        self.scheduled = []
-
     def schedule_expiry(self, *, participation_id, run_at):
-        self.scheduled.append((participation_id, run_at))
+        pass
 
 
 def _wp(pid, *, sponsor_id=None, party_id=None, order=0):

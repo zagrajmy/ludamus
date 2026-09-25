@@ -95,14 +95,12 @@ class _TicketingFetchImpl:
     config_model = _MembershipConfig
 
     def __init__(self, membership_count):
-        self.seen = []
         self._membership_count = membership_count
 
     def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
     def fetch_membership_count(self, *, secret, config, user_email):
-        self.seen.append((secret, config.base_url, user_email))
         return self._membership_count
 
 
