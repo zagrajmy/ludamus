@@ -46,10 +46,10 @@
                                 <p class="text-sm text-foreground-muted mb-4">
                                     {% translate "Sessions of all selected facilitators move to the target; the other facilitators are deleted." %}
                                 </p>
-                                <fieldset class="space-y-2">
+                                <fieldset id="merge-target" class="space-y-2">
                                     <legend class="sr-only">{% translate "Merge target" %}</legend>
-                                    {% for facilitator in facilitators %}
-                                        {% radio name="target_slug" value=facilitator.slug checked=forloop.first %}
+                                    {% for facilitator, is_target in target_choices %}
+                                        {% radio name="target_slug" value=facilitator.slug checked=is_target %}
                                             {{ facilitator.display_name }}
                                             {% if facilitator.user_id %}
                                                 <span class="text-foreground-muted">· {% translate "Linked" %}</span>
@@ -60,7 +60,18 @@
                             </div>
                         </div>
                         {% if name_choices or accreditation_choices or field_choices %}
-                            <div class="card">
+                            {% comment %}
+                            NOTE: the choices default to the target's own answers, so picking
+                            another target fetches them again.
+                            {% endcomment %}
+                            <div id="merge-reconcile"
+                                 class="card"
+                                 hx-get="{% url 'panel:facilitator-merge' slug=current_event.slug %}?confirm=1{% for facilitator in facilitators %}&amp;facilitator_slugs={{ facilitator.slug }}{% endfor %}"
+                                 hx-trigger="change from:#merge-target"
+                                 hx-include="#merge-target"
+                                 hx-select="#merge-reconcile"
+                                 hx-swap="outerHTML"
+                                 hx-replace-url="true">
                                 <div class="card-body">
                                     <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Reconcile values" %}</h3>
                                     <p class="text-sm text-foreground-muted mb-4">

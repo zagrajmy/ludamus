@@ -4424,8 +4424,8 @@ msgid "Headquarters"
 msgstr "Siedziba"
 
 #: src/ludamus/templates/about.html
-msgid "Poland"
-msgstr "Polska"
+msgid "Wrocław, Poland"
+msgstr "Wrocław, Polska"
 
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
@@ -10766,12 +10766,6 @@ msgid "Loading…"
 msgstr "Ładowanie…"
 
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "All clear"
-msgstr "Brak problemów"
-
-#: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
-#: src/ludamus/templates/panel/timetable.html
 #, python-format
 msgid "%(count)s conflict"
 msgid_plural "%(count)s conflicts"
@@ -10779,6 +10773,10 @@ msgstr[0] "%(count)s konflikt"
 msgstr[1] "%(count)s konflikty"
 msgstr[2] "%(count)s konfliktów"
 msgstr[3] "%(count)s konfliktów"
+
+#: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
+msgid "All clear"
+msgstr "Brak problemów"
 
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
 #: src/ludamus/templates/panel/timetable-problems.html
@@ -11877,6 +11875,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Poland"
+#~ msgstr "Polska"
 
 #~ msgid "Time slot must be within event dates."
 #~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
