@@ -19,9 +19,12 @@ test.describe("About page", () => {
     }
 
     const facts = page.locator("dl");
-    await expect(facts.getByRole("term").filter({ hasText: "Founder" })).toBeVisible();
+    await expect(facts.getByRole("term").filter({ hasText: "Founders" })).toBeVisible();
     await expect(
-      facts.getByRole("definition").filter({ hasText: "Radosław Ganczarek" }).first(),
+      facts
+        .getByRole("definition")
+        .filter({ hasText: "Radosław Ganczarek, Piotr Monwid-Olechnowicz" })
+        .first(),
     ).toBeVisible();
     await expect(facts.getByRole("term").filter({ hasText: "Events in Zagrajmy" })).toBeVisible();
   });

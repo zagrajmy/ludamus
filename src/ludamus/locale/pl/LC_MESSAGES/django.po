@@ -4209,34 +4209,61 @@ msgstr "Zespół Zagrajmy"
 
 #: src/ludamus/templates/about.html
 msgid ""
-"Zagrajmy started in June 2025 as enrollment for tabletop game conventions, "
-"where the programme lived in spreadsheets and chat threads. It has grown to "
-"cover the whole programme: proposals, the schedule, the event page, and "
-"print."
+"We're Radek and Piotr. We both play tabletop roleplaying games and write our "
+"own, and Zagrajmy (Polish for “let's play”) is the tool we wanted on both "
+"sides of the convention table."
 msgstr ""
-"Zagrajmy wystartowało w czerwcu 2025 jako system zapisów na konwenty gier "
-"bez prądu, na których program żył w arkuszach i wątkach na czacie. Dziś "
-"obejmuje cały program: zgłoszenia, harmonogram, stronę wydarzenia i druk."
+"Jesteśmy Radek i Piotr. Gramy w gry fabularne i piszemy własne, a Zagrajmy "
+"to narzędzie, którego sami chcieliśmy po obu stronach konwentowego stołu."
+
+#
+#: src/ludamus/templates/about.html
+msgid ""
+"We first tried to build it in 2020, then other things took over. In June "
+"2025 we picked it back up, starting with enrollment for tabletop game "
+"conventions, where the programme still lived in spreadsheets and chat "
+"threads. It has grown from there into the whole programme: proposals, the "
+"schedule, the event page, and print."
+msgstr ""
+"Pierwszy raz próbowaliśmy je zbudować w 2020 roku, ale wtedy wygrały inne "
+"sprawy. W czerwcu 2025 wróciliśmy do niego, zaczynając od zapisów na "
+"konwenty gier bez prądu, na których program wciąż żył w arkuszach i wątkach "
+"na czacie. Od tamtej pory urosło do całego programu: zgłoszeń, harmonogramu, "
+"strony wydarzenia i druku."
 
 #: src/ludamus/templates/about.html
 msgid ""
-"Two developers build and run Zagrajmy, with contributions from the open-"
-"source community on GitHub."
+"It's still the two of us, plus people who send fixes on GitHub. Write to us, "
+"and one of us writes back."
 msgstr ""
-"Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
-"source na GitHubie."
-
-#: src/ludamus/templates/about.html
-msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
-msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
+"Wciąż robimy to we dwójkę, z pomocą osób, które przysyłają poprawki na "
+"GitHubie. Kiedy do nas napiszesz, odpisze ktoś z nas."
 
 #: src/ludamus/templates/about.html
 msgid ""
-"Writes software with care for the details of human–computer interaction. Has "
-"built Zagrajmy since November 2025, mostly its interface."
+"Radek writes code, songs, and games. He designs his own roleplaying games "
+"and sings RPG songs on his YouTube channel."
 msgstr ""
-"Pisze oprogramowanie z dbałością o detale interakcji człowieka z komputerem. "
-"Współtworzy Zagrajmy od listopada 2025, przede wszystkim interfejs."
+"Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
+"erpegowe piosenki na swoim kanale na YouTubie."
+
+#: src/ludamus/templates/about.html
+msgid ""
+"Piotr cares about the small details of how software feels to use, which is "
+"most of the reason Zagrajmy's interface looks the way it does."
+msgstr ""
+"Piotr dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i to "
+"głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+
+#: src/ludamus/templates/about.html
+#, python-format
+msgid ""
+"Piotr's own games are small: <a href=\"%(game_url)s\"><cite>Why Would You "
+"Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+"sacrifice."
+msgstr ""
+"Gry Piotra są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+"Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i poświęceniu."
 
 #: src/ludamus/templates/about.html
 msgid "How Zagrajmy works"
@@ -4331,16 +4358,15 @@ msgctxt "about key facts"
 msgid "Founded"
 msgstr "Rok założenia"
 
+#: src/ludamus/templates/about.html
+msgid "2020; relaunched in 2025"
+msgstr "2020; ponowny start w 2025"
+
 #
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
-msgid "Founder"
-msgstr "Założyciel"
-
-#: src/ludamus/templates/about.html
-msgctxt "about key facts"
-msgid "Team"
-msgstr "Zespół"
+msgid "Founders"
+msgstr "Założyciele"
 
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
@@ -11695,6 +11721,28 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Two developers build and run Zagrajmy, with contributions from the open-"
+#~ "source community on GitHub."
+#~ msgstr ""
+#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
+#~ "source na GitHubie."
+
+#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
+#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
+
+#~ msgid ""
+#~ "Writes software with care for the details of human–computer interaction. "
+#~ "Has built Zagrajmy since November 2025, mostly its interface."
+#~ msgstr ""
+#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
+#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
+#~ "interfejs."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."

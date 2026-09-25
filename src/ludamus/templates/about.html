@@ -102,13 +102,18 @@
         <section aria-labelledby="about-team">
             <h2 id="about-team">{% translate "The team behind Zagrajmy" %}</h2>
             <p>
-                {% translate "Zagrajmy started in June 2025 as enrollment for tabletop game conventions, where the programme lived in spreadsheets and chat threads. It has grown to cover the whole programme: proposals, the schedule, the event page, and print." %}
+                {% translate "We're Radek and Piotr. We both play tabletop roleplaying games and write our own, and Zagrajmy (Polish for “let's play”) is the tool we wanted on both sides of the convention table." %}
             </p>
             <p class="mt-3">
-                {% translate "Two developers build and run Zagrajmy, with contributions from the open-source community on GitHub." %}
+                {% translate "We first tried to build it in 2020, then other things took over. In June 2025 we picked it back up, starting with enrollment for tabletop game conventions, where the programme still lived in spreadsheets and chat threads. It has grown from there into the whole programme: proposals, the schedule, the event page, and print." %}
+            </p>
+            <p class="mt-3">
+                {% translate "It's still the two of us, plus people who send fixes on GitHub. Write to us, and one of us writes back." %}
             </p>
             <h3>Radosław Ganczarek</h3>
-            <p>{% translate "Writes code, songs, and games. Owner and administrator of Zagrajmy." %}</p>
+            <p>
+                {% translate "Radek writes code, songs, and games. He designs his own roleplaying games and sings RPG songs on his YouTube channel." %}
+            </p>
             <p class="mt-1.5 flex flex-wrap gap-x-4">
                 <a href="https://fancysnake.dev/">fancysnake.dev</a>
                 <a href="https://github.com/fancysnake">GitHub</a>
@@ -116,10 +121,18 @@
             </p>
             <h3>Piotr Monwid-Olechnowicz</h3>
             <p>
-                {% translate "Writes software with care for the details of human–computer interaction. Has built Zagrajmy since November 2025, mostly its interface." %}
+                {% translate "Piotr cares about the small details of how software feels to use, which is most of the reason Zagrajmy's interface looks the way it does." %}
+            </p>
+            <p class="mt-1.5">
+                {% blocktranslate trimmed with game_url="https://hasparus.itch.io/why-dragon" %}
+                    Piotr's own games are small: <a href="{{ game_url }}"><cite>Why Would You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and sacrifice.
+                {% endblocktranslate %}
             </p>
             <p class="mt-1.5 flex flex-wrap gap-x-4">
                 <a href="https://haspar.us/">haspar.us</a>
+                <a href="https://lol.haspar.us/">lol.haspar.us</a>
+                <a href="https://hasparus.itch.io/">itch.io</a>
+                <a href="https://bsky.app/profile/haspar.us">Bluesky</a>
                 <a href="https://github.com/hasparus">GitHub</a>
             </p>
         </section>
@@ -168,17 +181,11 @@
                 <div>
                     <dt>{% translate "Founded" context "about key facts" %}</dt>
                     <dd>
-                        2025
+                        {% translate "2020; relaunched in 2025" %}
                     </dd>
                 </div>
                 <div>
-                    <dt>{% translate "Founder" context "about key facts" %}</dt>
-                    <dd>
-                        Radosław Ganczarek
-                    </dd>
-                </div>
-                <div>
-                    <dt>{% translate "Team" context "about key facts" %}</dt>
+                    <dt>{% translate "Founders" context "about key facts" %}</dt>
                     <dd>
                         Radosław Ganczarek, Piotr Monwid-Olechnowicz
                     </dd>
