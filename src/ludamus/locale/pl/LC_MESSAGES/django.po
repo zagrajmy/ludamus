@@ -4207,14 +4207,17 @@ msgstr "Gracze, którzy zapraszają innych na wieczór z grą przez Spotkanie"
 msgid "The team behind Zagrajmy"
 msgstr "Zespół Zagrajmy"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"We're Radek and Piotr. We both play tabletop roleplaying games and write our "
-"own, and Zagrajmy (Polish for “let's play”) is the tool we wanted on both "
-"sides of the convention table."
+"We're Radek and Piotrek. Radek is the one with the guitar, and Piotrek is "
+"the one with the tattoos. We both play tabletop roleplaying games and write "
+"our own, and Zagrajmy (Polish for “let's play”) is the tool we wanted on "
+"both sides of the convention table."
 msgstr ""
-"Jesteśmy Radek i Piotr. Gramy w gry fabularne i piszemy własne, a Zagrajmy "
-"to narzędzie, którego sami chcieliśmy po obu stronach konwentowego stołu."
+"Jesteśmy Radek i Piotrek. Radek to ten z gitarą, a Piotrek to ten "
+"wytatuowany. Gramy w gry fabularne i piszemy własne, a Zagrajmy to "
+"narzędzie, którego sami chcieliśmy po obu stronach konwentowego stołu."
 
 #
 #: src/ludamus/templates/about.html
@@ -4253,22 +4256,23 @@ msgstr ""
 "<a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, a "
 "na YouTubie jako Radek MG śpiewa erpegowe piosenki."
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"Piotr cares about the small details of how software feels to use, which is "
+"Piotrek cares about the small details of how software feels to use, which is "
 "most of the reason Zagrajmy's interface looks the way it does."
 msgstr ""
-"Piotr dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i to "
+"Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i to "
 "głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
 
 #: src/ludamus/templates/about.html
 #, python-format
 msgid ""
-"Piotr's own games are small: <a href=\"%(game_url)s\"><cite>Why Would You "
+"Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would You "
 "Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
 "sacrifice."
 msgstr ""
-"Gry Piotra są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+"Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
 "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i poświęceniu."
 
 #: src/ludamus/templates/about.html
