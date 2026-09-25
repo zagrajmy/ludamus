@@ -4240,12 +4240,18 @@ msgstr ""
 "GitHubie. Kiedy do nas napiszesz, odpisze ktoś z nas."
 
 #: src/ludamus/templates/about.html
+#, python-format
 msgid ""
-"Radek writes code, songs, and games. He designs his own roleplaying games "
-"and sings RPG songs on his YouTube channel."
+"Radek has been running tabletop RPGs for more than twenty years. He writes "
+"his own games, like the narrative RPG <a href=\"%(tern_url)s\"><cite>Tern</"
+"cite></a> and the dungeon crawl <a "
+"href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, and "
+"sings RPG songs on YouTube as Radek MG."
 msgstr ""
-"Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
-"erpegowe piosenki na swoim kanale na YouTubie."
+"Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+"narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy eksploracyjne "
+"<a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, a "
+"na YouTubie jako Radek MG śpiewa erpegowe piosenki."
 
 #: src/ludamus/templates/about.html
 msgid ""
@@ -11721,6 +11727,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
+#~ "and sings RPG songs on his YouTube channel."
+#~ msgstr ""
+#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
+#~ "erpegowe piosenki na swoim kanale na YouTubie."
 
 #~ msgid ""
 #~ "Two developers build and run Zagrajmy, with contributions from the open-"
