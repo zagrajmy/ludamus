@@ -38,7 +38,9 @@ from ludamus.links.db.django.models import (
     Event,
     EventIntegration,
     EventProposalSettings,
+    Facilitator,
     Notification,
+    PersonalDataField,
     ProposalCategory,
     Session,
     SessionField,
@@ -54,6 +56,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
@@ -943,6 +946,128 @@ def _create_track_setup_event(sphere: Sphere) -> Event:
     return event
 
 
+# Dedicated to guild-roster.spec.ts. Mira Kestrel was imported twice, so the
+# programme holds two facilitator rows under her name and no account behind
+# either: adding her to a guild places both rows at once.
+def _create_guild_roster_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Saltmarsh Moot",
+        slug="saltmarsh-moot",
+        description="A harbour weekend whose presenters join guilds.",
+        start_offset=timedelta(days=27),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    for slug in ("mira-kestrel", "mira-kestrel-2"):
+        Facilitator.objects.create(event=event, slug=slug, display_name="Mira Kestrel")
+    return event
+
+
+# Dedicated to facilitator-merge.spec.ts, which creates and merges its own
+# facilitators here. The two text answers are what the merge has to reconcile.
+def _create_merge_reconcile_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Emberfall Moot",
+        slug="emberfall-moot",
+        description="A mountain moot whose presenters signed up more than once.",
+        start_offset=timedelta(days=28),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    for order, (name, slug) in enumerate(
+        (("T-shirt size", "t-shirt-size"), ("Diet", "diet"))
+    ):
+        PersonalDataField.objects.create(
+            event=event, name=name, question=name, slug=slug, order=order
+        )
+    return event
+
+
+# A participant of their own for profile-edit.auth.spec.ts, which renames them
+# and tries a taken email: the shared e2e-tester's name and email are read by
+# other specs. The one confirmed seat is what the profile page counts.
+def _create_profile_editor_scenario(sphere: Sphere) -> None:
+    editor = User.objects.create_user(
+        username="e2e-profile",
+        email="e2e-profile@test.local",
+        password="e2e-profile-123",
+        name="Wren Hollis",
+        slug="e2e-profile",
+    )
+    event = _create_event(
+        sphere,
+        name="Tidewater Games Night",
+        slug="tidewater-night",
+        description="An evening of one-shots, with one seat already taken.",
+        start_offset=timedelta(days=29),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    venue = _create_venue(event, name="Tidewater Hall", slug="tidewater-hall")
+    area = _create_area(venue, name="Upper Deck", slug="upper-deck")
+    space = _create_space(area, name="Chart Room", slug="chart-room", capacity=6)
+    session = _scheduled_session(
+        event,
+        space,
+        title="Lighthouse Mysteries",
+        slug="lighthouse-mysteries",
+        presenter="Ines Varga",
+        description="A one-shot about a keeper who never comes down.",
+        seats=6,
+        hour=1,
+    )
+    _seat(session, editor, SessionParticipationStatus.CONFIRMED)
+    _write_storage_state(
+        editor,
+        domain=urlparse(
+            os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+        ).hostname
+        or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-profile.json",
+    )
+
+
+# A party leader and the person they invite, for party-refusals.auth.spec.ts.
+# The leader's two companions share a name, which the party's "Add companion"
+# cannot tell apart.
+def _create_party_refusals_scenario() -> None:
+    domain = (
+        urlparse(os.environ.get("E2E_BASE_URL", "http://localhost:8000")).hostname
+        or "localhost"
+    )
+    leader = User.objects.create_user(
+        username="e2e-party-leader",
+        email="e2e-party-leader@test.local",
+        password="e2e-party-leader-123",
+        name="Oona Brisk",
+        slug="e2e-party-leader",
+    )
+    for index in (1, 2):
+        User.objects.create_user(
+            username=f"connected|e2e-pip-{index}",
+            slug=f"e2e-pip-{index}",
+            name="Pip",
+            user_type=UserType.CONNECTED,
+            manager=leader,
+        )
+    invitee = User.objects.create_user(
+        username="e2e-party-invitee",
+        email="e2e-party-invitee@test.local",
+        password="e2e-party-invitee-123",
+        name="Tamsin Reed",
+        slug="e2e-party-invitee",
+    )
+    for user, state in (
+        (leader, ".auth-state-party-leader.json"),
+        (invitee, ".auth-state-party-invitee.json"),
+    ):
+        _write_storage_state(
+            user, domain=domain, path=REPO_ROOT / "tests" / "e2e" / state
+        )
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -1335,6 +1460,10 @@ def main() -> None:
     _create_konwencik_preview_event(sphere)
     _create_panel_crud_event(sphere)
     _create_track_setup_event(sphere)
+    _create_guild_roster_event(sphere)
+    _create_merge_reconcile_event(sphere)
+    _create_profile_editor_scenario(sphere)
+    _create_party_refusals_scenario()
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_accept_lab_event(sphere)
