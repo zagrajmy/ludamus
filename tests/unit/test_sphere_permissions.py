@@ -24,7 +24,7 @@ def encounters_fixture():
 
 @pytest.fixture(name="service")
 def service_fixture(spheres, events, encounters):
-    return SpherePanelService(MagicMock(), spheres, events, encounters)
+    return SpherePanelService(MagicMock(), spheres, events, encounters, MagicMock())
 
 
 class TestSpherePanelServiceAccess:

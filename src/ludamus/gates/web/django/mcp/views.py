@@ -20,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR, error_response, handle_message
 from ludamus.gates.mcp.tools import build_registry
+from ludamus.gates.web.django.mcp.oauth import resource_metadata_url
 from ludamus.gates.web.django.mcp.tokens import (
     TOKEN_MAX_AGE_DAYS,
     authenticate_maintainer,
@@ -37,11 +38,13 @@ _MAINTAINER_REGISTRY = build_registry(ToolScope.MAINTAINER)
 _ORGANIZER_REGISTRY = build_registry(ToolScope.ORGANIZER)
 
 
-def _unauthorized(missing: str) -> JsonResponse:
+def _unauthorized(request: RootRequest, scope: ToolScope) -> JsonResponse:
     response = JsonResponse(
-        {"error": f"A valid {missing} Bearer token is required."}, status=401
+        {"error": f"A valid {scope} Bearer token is required."}, status=401
     )
-    response["WWW-Authenticate"] = "Bearer"
+    # RFC 9728 §5.1: the pointer MCP clients follow to start OAuth.
+    metadata_url = resource_metadata_url(request, scope)
+    response["WWW-Authenticate"] = f'Bearer resource_metadata="{metadata_url}"'
     return response
 
 
@@ -80,7 +83,7 @@ class McpEndpointView(View):
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
         if (actor := authenticate_maintainer(request)) is None:
-            return _unauthorized("maintainer")
+            return _unauthorized(request, ToolScope.MAINTAINER)
         return _dispatch(request=request, registry=_MAINTAINER_REGISTRY, actor=actor)
 
 
@@ -93,7 +96,7 @@ class McpOrganizerEndpointView(View):
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
         if (actor := authenticate_organizer(request)) is None:
-            return _unauthorized("organizer")
+            return _unauthorized(request, ToolScope.ORGANIZER)
         return _dispatch(request=request, registry=_ORGANIZER_REGISTRY, actor=actor)
 
 
