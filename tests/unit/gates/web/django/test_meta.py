@@ -9,7 +9,12 @@ class TestSessionLinkPreview:
         data = make_session_data(
             agenda_item=None,
             loc=location(),
-            session=MagicMock(title="Zew Cthulhu", description="", cover_image_url=""),
+            session=MagicMock(
+                title="Zew Cthulhu",
+                description="",
+                facilitator_name="",
+                cover_image_url="",
+            ),
         )
 
         preview = session_link_preview(data=data, event_name="Kapitularz")

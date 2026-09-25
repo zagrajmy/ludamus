@@ -13,6 +13,7 @@ from tests.integration.conftest import (
     EventFactory,
     SessionFactory,
     SpaceFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_rendered
 
@@ -269,7 +270,11 @@ class TestSessionLinkPreview:
     def _scheduled(self, event, **session_fields):
         start = datetime(2031, 5, 17, 14, 0, tzinfo=get_current_timezone())
         return AgendaItemFactory(
-            session=SessionFactory(event=event, category=None, **session_fields),
+            session=SessionFactory(
+                event=event,
+                category=None,
+                **({"presenter": None, "facilitator_name": ""} | session_fields),
+            ),
             space=SpaceFactory(event=event, name="Sala Lustrzana"),
             start_time=start,
             end_time=start + timedelta(hours=2, minutes=30),
@@ -310,6 +315,34 @@ class TestSessionLinkPreview:
         assert (
             _descriptions(response)
             == ["Saturday, 17 May · 14:00–16:30 — Sala Lustrzana"] * 3
+        )
+
+    def test_names_the_facilitator_after_the_room(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        session = self._scheduled(
+            event,
+            presenter=UserFactory(name="Anna Nowak"),
+            facilitator_name="Anna Nowak",
+            description="Śledztwo.",
+        )
+
+        response = self._share(client, event, session.pk)
+
+        expected = (
+            "Saturday, 17 May · 14:00–16:30 — Sala Lustrzana · Anna Nowak | Śledztwo."
+        )
+        assert _descriptions(response) == [expected] * 3
+
+    def test_names_a_facilitator_without_an_account(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        session = self._scheduled(
+            event, facilitator_name="Jan Kowalski", description=""
+        )
+
+        response = self._share(client, event, session.pk)
+
+        assert _meta(response, "property", "og:description").endswith(
+            "— Sala Lustrzana · Jan Kowalski"
         )
 
     def test_shows_the_session_cover_over_the_event_cover(self, client, sphere):
