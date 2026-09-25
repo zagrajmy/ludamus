@@ -1,13 +1,16 @@
 import math
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
+
+if TYPE_CHECKING:
+    from ludamus.pacts.crowd import UserDTO
 
 
 @contextmanager
@@ -16,16 +19,12 @@ def _atomic():
 
 
 class FakeTransaction:
-    def __init__(self):
-        self.entered = 0
-        self.savepoints = 0
-
-    def atomic(self):
-        self.entered += 1
+    @staticmethod
+    def atomic():
         return _atomic()
 
-    def savepoint(self):
-        self.savepoints += 1
+    @staticmethod
+    def savepoint():
         return _atomic()
 
 
@@ -34,9 +33,8 @@ def _user_dto(**overrides) -> UserDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=()):
+    def __init__(self, *, users=()):
         self._users = list(users)
-        self._existing_emails = set(existing_emails)
         self.updated = []
 
     def read(self, slug):
@@ -54,12 +52,8 @@ class FakeUsers:
     def email_exists(self, email, exclude_slug=None):
         if not email:
             return False
-        return (
-            any(
-                user.email == email and user.slug != exclude_slug
-                for user in self._users
-            )
-            or email in self._existing_emails
+        return any(
+            user.email == email and user.slug != exclude_slug for user in self._users
         )
 
 
@@ -96,35 +90,22 @@ class _RacingUsers:
 
 
 class FakeClaims:
-    def __init__(self, result=None):
-        self._result = result or ClaimResultDTO(outcome=ClaimOutcome.INVALID)
-        self.redeemed = []
-
-    def issue(self, *, manager_slug, user_slug):
-        raise NotImplementedError
-
-    def read_claimable(self, token):
-        raise NotImplementedError
-
-    def redeem(self, *, token, username):
-        self.redeemed.append((token, username))
-        return self._result
+    pass
 
 
 class FakeSpheres:
-    def __init__(self, domains=()):
-        self._domains = set(domains)
+    @staticmethod
+    def domain_exists(domain):
+        _ = domain
+        return False
 
-    def domain_exists(self, domain):
-        return domain in self._domains
 
-
-def _service(*, users, claims=None, spheres=None, transaction=None):
+def _service(*, users):
     return CrowdAuthService(
-        transaction=transaction or FakeTransaction(),
+        transaction=FakeTransaction(),
         users=users,
-        spheres=spheres or FakeSpheres(),
-        claims=claims or FakeClaims(),
+        spheres=FakeSpheres(),
+        claims=FakeClaims(),
     )
 
 

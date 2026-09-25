@@ -2,8 +2,6 @@
 
 from ludamus.gates.web.django.forms import ProposalCategoryForm
 
-CLAIM_WINDOW_MINUTES = 15
-
 
 class TestProposalCategoryFormParticipantLimits:
     def test_invalid_when_min_exceeds_max(self):

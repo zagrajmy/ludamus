@@ -10,7 +10,8 @@
   test, produce a verifiable and repeatable artifact (a screenshot, a
   downloaded export, a printed PDF, a DB state dump) that a reviewer can check.
 - If you must test a system in isolation, first write down all the ways it
-  could fail, then write the code. Each failure mode becomes one test.
+  could fail, then write the code. Each failure mode becomes one test. A
+  regression test that reproduces a bug before the fix is test-first too.
 
 A unit test earns its place only when it would catch a real bug the E2E and
 integration suites miss: tricky pure logic (time boundaries, capacity and
@@ -56,7 +57,8 @@ Rules:
 
 - mock at lowest level, or not at all — use test db, `responses`, or dedicated
   mock package
-- assert all mock calls
+- assert outbound calls to external systems (the request is the contract);
+  don't assert internal call sequences
 - assert all side effects
 
 ### Database fixtures
@@ -129,7 +131,7 @@ gets an integration test, never a unit test.
 
 ## End-to-end tests
 
-Cover: gates. Playwright (TypeScript).
+Cover: every feature a user can reach, first. Playwright (TypeScript).
 
 Verify **features work** in a real browser.
 

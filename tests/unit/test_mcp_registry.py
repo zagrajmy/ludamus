@@ -29,43 +29,6 @@ class _FakeServices:
     pass
 
 
-ORGANIZER_TOOL_NAMES = [
-    "get_sphere",
-    "list_events",
-    "get_event",
-    "get_current_event",
-    "list_spaces",
-    "list_time_slots",
-    "list_tracks",
-    "list_proposal_categories",
-    "list_sessions",
-    "list_facilitators",
-    "create_space",
-    "create_time_slot",
-    "create_track",
-    "create_proposal_category",
-    "find_or_create_facilitator",
-    "create_session",
-    "create_sessions",
-    "assign_session",
-    "assign_sessions",
-    "update_session",
-    "update_space",
-    "update_event",
-    "set_event_image",
-    "update_sphere_settings",
-    "set_sphere_logo",
-    "list_maps",
-    "create_map",
-    "update_map",
-    "set_map_spaces",
-    "delete_map",
-    "get_konwencik_settings",
-    "update_konwencik_styles",
-    "list_announcements",
-]
-
-
 def test_invalid_arguments_message_hides_input_values():
     registry = ToolRegistry([_EchoActorTool()])
     actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER)

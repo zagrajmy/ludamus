@@ -1,5 +1,13 @@
+from datetime import UTC, datetime
+from decimal import Decimal
+
 from ludamus.mills.discounts import DiscountsExportService
-from ludamus.pacts.discounts import DiscountExportColumns, DiscountExportLabels
+from ludamus.pacts.discounts import (
+    DiscountDTO,
+    DiscountExportColumns,
+    DiscountExportLabels,
+    DiscountKind,
+)
 from ludamus.pacts.event import FacilitatorListItemDTO
 
 LABELS = DiscountExportLabels(
@@ -20,11 +28,28 @@ def _facilitator(pk, *, display_name="Alice", accreditation_type="guest"):
     )
 
 
+def _discount(facilitator_id, *, value, note):
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    return DiscountDTO(
+        pk=facilitator_id,
+        event_id=1,
+        facilitator_id=facilitator_id,
+        kind=DiscountKind.PERCENT,
+        value=value,
+        note=note,
+        from_rules=False,
+        creation_time=now,
+        modification_time=now,
+    )
+
+
 class FakeDiscounts:
-    @staticmethod
-    def list_by_event(event_pk):
+    def __init__(self, items=()):
+        self._items = list(items)
+
+    def list_by_event(self, event_pk):
         _ = event_pk
-        return []
+        return list(self._items)
 
 
 class FakeFacilitators:
@@ -62,9 +87,11 @@ class FakeWriter:
         self.calls.append((secret, spreadsheet_id, tab, rows))
 
 
-def _service(*, facilitators=None, connections=None, decryptor=None, writer=None):
+def _service(
+    *, discounts=None, facilitators=None, connections=None, decryptor=None, writer=None
+):
     return DiscountsExportService(
-        discounts=FakeDiscounts(),
+        discounts=discounts or FakeDiscounts(),
         facilitators=facilitators or FakeFacilitators(),
         connections=connections or FakeConnections(),
         decryptor=decryptor or FakeDecryptor(),
@@ -112,13 +139,18 @@ class TestDiscountsExportService:
         assert writer.calls[0][0] == b""
 
     def test_facilitator_missing_from_column_cells_keeps_the_row_aligned(self):
-        # The gate reads the roster before the service does; a facilitator
-        # added in between has no cells and must not shift the discount left.
-        facilitators = FakeFacilitators([_facilitator(1)])
+        discounts = FakeDiscounts([_discount(1, value=Decimal("15.50"), note="VIP")])
         writer = FakeWriter()
+        service = _service(
+            discounts=discounts,
+            facilitators=FakeFacilitators([_facilitator(1)]),
+            writer=writer,
+        )
         columns = DiscountExportColumns(headers=["Imię", "Nazwisko"], cells={})
 
-        _export(_service(facilitators=facilitators, writer=writer), columns=columns)
+        _export(service, columns=columns)
 
-        header, row = writer.calls[0][3]
-        assert len(row) == len(header)
+        assert writer.calls[0][3] == [
+            ["Imię", "Nazwisko", "Rodzaj", "Wartość", "Notatka"],
+            ["", "", "Procent", "15.50", "VIP"],
+        ]

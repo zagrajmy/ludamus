@@ -36,9 +36,43 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
-from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
+ORGANIZER_TOOL_NAMES = [
+    "get_sphere",
+    "list_events",
+    "get_event",
+    "get_current_event",
+    "list_spaces",
+    "list_time_slots",
+    "list_tracks",
+    "list_proposal_categories",
+    "list_sessions",
+    "list_facilitators",
+    "create_space",
+    "create_time_slot",
+    "create_track",
+    "create_proposal_category",
+    "find_or_create_facilitator",
+    "create_session",
+    "create_sessions",
+    "assign_session",
+    "assign_sessions",
+    "update_session",
+    "update_space",
+    "update_event",
+    "set_event_image",
+    "update_sphere_settings",
+    "set_sphere_logo",
+    "list_maps",
+    "create_map",
+    "update_map",
+    "set_map_spaces",
+    "delete_map",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
+    "list_announcements",
+]
 WRITE_TOOLS = {
     name for name in ORGANIZER_TOOL_NAMES if not name.startswith(("list_", "get_"))
 }

@@ -70,7 +70,7 @@ The `personal_data_fields` family is the canonical example to copy.
   `src/ludamus/inits/repositories.py`,
   `src/ludamus/inits/middleware.py`
 - **view:** `src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py`
-- **tests:** `tests/unit/test_mills.py` — `TestCFPPersonalDataFieldService`
+- **tests:** `tests/integration/web/panel/test_personal_data_field*_page.py`
 
 ## What never crosses the migration
 
