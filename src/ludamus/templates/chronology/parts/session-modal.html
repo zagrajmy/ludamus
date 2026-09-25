@@ -2,6 +2,8 @@
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
+        data-csrf="{{ csrf_token }}"
+        data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
@@ -126,9 +128,7 @@
                     <div class="mb-6">{% include "components/_session_field_values.html" with field_values=data.field_values %}</div>
                 {% endif %}
                 <!-- Details grid -->
-                <div class="grid grid-cols-2 gap-3 mb-6"
-                     data-csrf="{{ csrf_token }}"
-                     data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
+                <div class="grid grid-cols-2 gap-3 mb-6">
                     <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
                         <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
                         <div class="font-medium text-foreground">

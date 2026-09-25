@@ -1,4 +1,4 @@
-from django.db.models import Count
+from django.db.models import Count, Q, QuerySet
 
 from ludamus.links.db.django.models import Session, SessionBookmark
 from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol, BookmarkStateDTO
@@ -27,9 +27,8 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
             )
         # The fresh total rides back so the client can paint the real number
         # instead of guessing with ±1 arithmetic on the DOM.
-        return BookmarkStateDTO(
-            bookmarked=not deleted,
-            count=SessionBookmark.objects.filter(session_id=session_id).count(),
+        return _state(
+            SessionBookmark.objects.filter(session_id=session_id), user_id=user_id
         )
 
     @staticmethod
@@ -55,11 +54,20 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
 
     @staticmethod
     def session_state(
-        *, user_id: UserId | None, session_id: SessionId
+        *, user_id: UserId | None, session_id: SessionId, event_id: EventId
     ) -> BookmarkStateDTO:
-        bookmarks = SessionBookmark.objects.filter(session_id=session_id)
-        return BookmarkStateDTO(
-            bookmarked=user_id is not None
-            and bookmarks.filter(user_id=user_id).exists(),
-            count=bookmarks.count(),
+        return _state(
+            SessionBookmark.objects.filter(
+                session_id=session_id, session__event_id=event_id
+            ),
+            user_id=user_id,
         )
+
+
+def _state(
+    bookmarks: QuerySet[SessionBookmark], *, user_id: UserId | None
+) -> BookmarkStateDTO:
+    state = bookmarks.aggregate(
+        count=Count("id"), mine=Count("id", filter=Q(user_id=user_id))
+    )
+    return BookmarkStateDTO(bookmarked=bool(state["mine"]), count=state["count"])

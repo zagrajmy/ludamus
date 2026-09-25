@@ -34,6 +34,8 @@ class BookmarkService(BookmarkServiceProtocol):
         return self._repo.bookmark_counts(event_id=event_id)
 
     def session_state(
-        self, *, user_id: UserId | None, session_id: SessionId
+        self, *, user_id: UserId | None, session_id: SessionId, event_id: EventId
     ) -> BookmarkStateDTO:
-        return self._repo.session_state(user_id=user_id, session_id=session_id)
+        return self._repo.session_state(
+            user_id=user_id, session_id=session_id, event_id=event_id
+        )

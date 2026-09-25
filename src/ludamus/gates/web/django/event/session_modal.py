@@ -55,6 +55,7 @@ class SessionModalComponentView(View):
             bookmark = request.services.bookmarks.session_state(
                 user_id=request.context.current_user_id,
                 session_id=SessionId(session_id),
+                event_id=event.pk,
             )
             data.user_bookmarked = bookmark.bookmarked
             data.bookmark_count = bookmark.count
