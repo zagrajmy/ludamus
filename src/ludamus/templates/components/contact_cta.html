@@ -2,10 +2,9 @@
 {% comment %}
     The organizer contact CTA: mailto button, the address as a copy chip for
     webmail users whose mailto opens nothing, and the no-commitment line.
-    Needs `contact_email` in context. Takes `extra_class` for layout; the
-    landing's always-dark card also recolours the pieces through
-    `button_class`, `chip_class` (replaces the default `w-auto!`, so keep it)
-    and `note_class`.
+    Needs `contact_email` in context. `extra_class` places the row and
+    `note_class` the line under it; on a dark surface, put the `dark` class
+    on that surface instead of recolouring the pieces.
 
     items-stretch, and a transparent border on the primary to match
     btn-secondary's 1px: the button and the chip then share one box by
@@ -13,16 +12,17 @@
 {% endcomment %}
 {% translate "Copy the address" as copy_address_label %}
 <div class="flex flex-wrap items-stretch gap-3 {{ extra_class|default:"" }}">
-    <a class="btn btn-primary border border-transparent {{ button_class|default:"" }}"
+    <a class="btn btn-primary border border-transparent"
        href="mailto:{{ contact_email }}?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-    {% tessera_copy contact_email class=chip_class|default:"w-auto!" %}
+    {% tessera_copy contact_email class="w-auto!" %}
         <code class="text-[0.9375rem] text-box-trim-both">{{ contact_email }}</code>
         {% icon "clipboard" variant="outline" class="size-4 opacity-60" %}
         <span class="sr-only">{{ copy_address_label }}</span>
     {% endtessera_copy %}
 </div>
-<p class="mt-4 text-[0.95rem] flex items-start gap-1.5 {{ note_class|default:"text-foreground-muted" }}">
-    <svg class="flex-none mt-[0.2rem]"
+<p class="mt-4 text-[0.95rem] text-foreground-muted {{ note_class|default:"" }}">
+    {# Inline, not a flex row: in a centred block the icon stays on the text's first line. #}
+    <svg class="inline-block align-[-0.2em] mr-1"
          width="16"
          height="16"
          viewBox="0 0 16 16"

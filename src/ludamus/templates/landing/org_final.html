@@ -2,9 +2,8 @@
 <section class="pt-16 pb-4 group-has-[#aud-gracz:checked]/aud:hidden"
          aria-labelledby="final-heading">
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-        {# the closing card stays dark in both themes, deliberately #}
-        {# [&_code] keeps the copy chip readable on the always-dark card in the light theme #}
-        <div class="reveal bg-warm-900 text-warm-50 rounded-3xl px-6 py-10 text-left sm:px-8 sm:py-14 sm:text-center [&_:focus-visible]:outline-[#fdfcfb] [&_code]:text-warm-50 print:bg-transparent print:border print:border-border print:text-foreground print:[&_code]:text-foreground">
+        {# The closing card stays dark in both themes, deliberately: `dark` gives it the dark tokens, so the button and copy chip inside take their dark look instead of being recoloured by hand. #}
+        <div class="dark reveal bg-warm-900 text-warm-50 rounded-3xl px-6 py-10 text-left sm:px-8 sm:py-14 sm:text-center [&_:focus-visible]:outline-[#fdfcfb] print:bg-transparent print:border print:border-border print:text-foreground">
             <h2 id="final-heading"
                 class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-warm-50 print:text-foreground">
                 {% translate "Have an event to run?" %}
@@ -12,7 +11,7 @@
             <p class="mt-4 sm:mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:text-foreground-secondary">
                 {% translate "Write to us. We will map your process into Zagrajmy and prepare a first version of your event to click through." %}
             </p>
-            {% include "components/contact_cta.html" with extra_class="mt-[2.2rem] sm:justify-center sm:gap-4" button_class="[--shade:rgba(0,0,0,0.5)]" chip_class="w-auto! border-warm-700 bg-warm-800 text-warm-50 hover:bg-[#4a433d] print:bg-transparent print:border-border print:text-foreground" note_class="text-warm-500 max-w-[34rem] sm:justify-center sm:mx-auto print:text-foreground-secondary" %}
+            {% include "components/contact_cta.html" with extra_class="mt-[2.2rem] sm:justify-center sm:gap-4" note_class="max-w-[34rem] sm:mx-auto" %}
         </div>
     </div>
 </section>

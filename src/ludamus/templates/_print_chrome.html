@@ -1,7 +1,9 @@
 {% comment %}
     Print support for public pages: hide the interactive chrome and, for
     dark-mode visitors, print with the light palette (dark text instead of
-    light text on unprinted white).
+    light text on unprinted white). `.dark` rather than `html.dark`: a
+    section pinned dark in both themes (the landing's closing card) prints
+    light too.
 {% endcomment %}
 <style media="print">
     @page {
@@ -14,7 +16,7 @@
         display: none !important;
     }
 
-    html.dark {
+    .dark {
         color-scheme: light;
         --color-background: #f0f1f3;
         --color-bg-secondary: #fdfcfb;
