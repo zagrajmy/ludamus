@@ -41,7 +41,6 @@ test.describe.configure({ mode: "serial" });
 // The empty state only renders while the sphere holds no guild at all, and the
 // default sphere is shared with facilitator-guild.spec.ts, which keeps a guild
 // of its own alive for the length of its run. Empty Sphere is nobody else's.
-
 test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
   // Its manager signs in by the session cookie bootstrap_data.py wrote for that
   // host, the way panel.spec.ts reaches the same sphere.
