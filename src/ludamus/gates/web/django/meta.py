@@ -53,8 +53,8 @@ def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
         )
     if place := data.location_label:
         parts.append(f"— {place}")
-    if session.facilitator_name:
-        parts.append(f"· {data.presenter.full_name}")
+    if session.facilitator_name and (name := data.presenter.full_name):
+        parts.append(f"· {name}")
     if session.description:
         parts.append(f"| {_summary(render_markdown(session.description))}")
     return LinkPreview(

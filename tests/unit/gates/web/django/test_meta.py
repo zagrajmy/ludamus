@@ -20,3 +20,20 @@ class TestSessionLinkPreview:
         preview = session_link_preview(data=data, event_name="Kapitularz")
 
         assert preview == LinkPreview(title="Zew Cthulhu • Kapitularz")
+
+    def test_facilitator_account_without_a_name_leaves_no_separator(self):
+        data = make_session_data(
+            agenda_item=None,
+            loc=location(path="Sala Lustrzana"),
+            presenter=MagicMock(full_name=""),
+            session=MagicMock(
+                title="Zew Cthulhu",
+                description="",
+                facilitator_name="Anna",
+                cover_image_url="",
+            ),
+        )
+
+        preview = session_link_preview(data=data, event_name="Kapitularz")
+
+        assert preview.description == "— Sala Lustrzana"
