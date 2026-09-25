@@ -38,6 +38,11 @@ shipped pattern lands here.
 - **Numeric stepper.** No tessera component; a native number input (min/max
   passed through `render_input`) is the accepted minimal pattern (guests field,
   PR #498).
+- **Range slider.** No tessera component; a native `<input type="range">`
+  with `accent-primary`, a visible `<label for>`, and arrow buttons flanking it
+  is the accepted minimal pattern (the schedule's room pager,
+  `panel/parts/timetable-grid.html`). Promote it to a tag if a second one
+  appears.
 
 ## How to use this file
 
