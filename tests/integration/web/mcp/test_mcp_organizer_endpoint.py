@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
     EventMap,
+    Facilitator,
     ScheduleChangeLog,
     Session,
     Space,
@@ -156,7 +157,13 @@ PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
 BATCH_LIMIT = 250
 BATCH_SIZE_ERRORS = (
     (0, "List should have at least 1 item after validation, not 0"),
-    (BATCH_LIMIT + 1, "List should have at most 250 items after validation, not 251"),
+    (
+        BATCH_LIMIT + 1,
+        (
+            f"List should have at most {BATCH_LIMIT} items after validation, "
+            f"not {BATCH_LIMIT + 1}"
+        ),
+    ),
 )
 
 
@@ -429,6 +436,41 @@ class TestOrganizerProgrammeValidation:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
         assert not AgendaItem.objects.filter(session=session).exists()
+
+    @pytest.mark.parametrize("field", ("facilitator_ids", "track_ids"))
+    def test_create_session_rejects_reference_to_sibling_event(
+        self, client, org_token, sphere, event, field
+    ):
+        sibling = EventFactory(sphere=sphere)
+        foreign_ids = {
+            "facilitator_ids": (
+                Facilitator.objects.create(
+                    event=sibling, display_name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+            "track_ids": (
+                Track.objects.create(
+                    event=sibling, name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+        }
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "row-1",
+                "title": "Foreign reference",
+                "category_id": ProposalCategoryFactory(event=event).pk,
+                field: [foreign_ids[field]],
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Session.objects.filter(event=event).exists()
 
     @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
     def test_create_sessions_rejects_batch_out_of_bounds(
