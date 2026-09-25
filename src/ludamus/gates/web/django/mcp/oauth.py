@@ -56,7 +56,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "mcp/authorize.html"
-PENDING_SESSION_PREFIX = "mcp_oauth_pending:"
+# One slot: a new consent page replaces an abandoned one, and the id pins the
+# decision to the page the user actually saw.
+PENDING_SESSION_KEY = "mcp_oauth_pending"
 
 _ENDPOINT_URL_NAMES = {
     ToolScope.MAINTAINER: "mcp:endpoint",
@@ -180,19 +182,20 @@ class McpAuthorizeView(LoginRequiredMixin, View):
         except McpAuthorizationRejectedError as exc:
             return _reject(request, exc)
         pending_id = secrets.token_urlsafe(16)
-        request.session[PENDING_SESSION_PREFIX + pending_id] = pending.model_dump(
-            mode="json"
-        )
+        request.session[PENDING_SESSION_KEY] = {
+            "id": pending_id,
+            "pending": pending.model_dump(mode="json"),
+        }
         return self._consent(pending, pending_id=pending_id)
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
         pending_id = request.POST.get("pending", "")
-        raw = request.session.pop(PENDING_SESSION_PREFIX + pending_id, None)
-        if raw is None:
+        slot = request.session.pop(PENDING_SESSION_KEY, None)
+        if not slot or slot.get("id") != pending_id:
             return TemplateResponse(
                 request, TEMPLATE, {"client_error": _EXPIRED}, status=400
             )
-        pending = McpPendingAuthorizationDTO.model_validate(raw)
+        pending = McpPendingAuthorizationDTO.model_validate(slot["pending"])
         if request.POST.get("decision") != "approve":
             logger.info(
                 "MCP OAuth consent denied: user=%s client=%s",
@@ -201,16 +204,17 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             )
             return _redirect(
                 request,
-                pending,
+                redirect_uri=pending.client.redirect_uri,
+                state=pending.state,
                 error="access_denied",
                 error_description="The user denied access.",
             )
-        consent = self._read_consent(pending)
         event_id = None
+        consent = self._read_consent(pending)
         if consent.events:
             form = McpConsentForm(request.POST, events=consent.events)
             if not form.is_valid():
-                request.session[PENDING_SESSION_PREFIX + pending_id] = raw
+                request.session[PENDING_SESSION_KEY] = slot
                 return self._render(pending, pending_id, consent=consent, form=form)
             event_id = form.cleaned_data["event"]
         try:
@@ -230,7 +234,12 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             pending.scope,
             event_id,
         )
-        return _redirect(request, pending, code=code)
+        return _redirect(
+            request,
+            redirect_uri=pending.client.redirect_uri,
+            state=pending.state,
+            code=code,
+        )
 
     def _read_consent(self, pending: McpPendingAuthorizationDTO) -> McpConsentDTO:
         return self.request.services.mcp_authorization.consent(
@@ -318,12 +327,12 @@ class _ClientRedirect(HttpResponse):
 
 
 def _redirect(
-    request: RootRequest, pending: McpPendingAuthorizationDTO, **params: str
+    request: RootRequest, *, redirect_uri: str, state: str | None, **params: str
 ) -> HttpResponse:
     query = params | {"iss": issuer(request)}
-    if pending.state is not None:
-        query |= {"state": pending.state}
-    parts = urlsplit(pending.client.redirect_uri)
+    if state is not None:
+        query |= {"state": state}
+    parts = urlsplit(redirect_uri)
     encoded = urlencode(query)
     return _ClientRedirect(
         urlunsplit(
@@ -337,7 +346,8 @@ def _reject(
 ) -> HttpResponse:
     return _redirect(
         request,
-        rejection.pending,
+        redirect_uri=rejection.redirect_uri,
+        state=rejection.state,
         error=rejection.error,
         error_description=rejection.description,
     )

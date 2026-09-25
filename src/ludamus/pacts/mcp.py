@@ -90,12 +90,13 @@ class McpAuthorizationRejectedError(Exception):
     """An OAuth error to send back to the client's verified redirect_uri."""
 
     def __init__(
-        self, *, error: str, description: str, pending: McpPendingAuthorizationDTO
+        self, *, error: str, description: str, redirect_uri: str, state: str | None
     ) -> None:
         super().__init__(f"{error}: {description}")
         self.error = error
         self.description = description
-        self.pending = pending
+        self.redirect_uri = redirect_uri
+        self.state = state
 
 
 class McpEventChoiceDTO(BaseModel):

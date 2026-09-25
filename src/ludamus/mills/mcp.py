@@ -16,7 +16,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NoReturn
 from urllib.parse import urlsplit
 
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.mcp import (
     ClientRejection,
     MaintainerGrant,
@@ -72,19 +71,27 @@ class McpAuthorizationService:
         client = self._resolve_client(
             client_id=request["client_id"], redirect_uri=request["redirect_uri"]
         )
-        pending = McpPendingAuthorizationDTO(
+
+        def reject(error: str, description: str) -> NoReturn:
+            raise McpAuthorizationRejectedError(
+                error=error,
+                description=description,
+                redirect_uri=client.redirect_uri,
+                state=request["state"],
+            )
+
+        if request["response_type"] != "code":
+            reject("unsupported_response_type", "Only code is supported.")
+        if request["code_challenge_method"] != "S256" or not request["code_challenge"]:
+            reject("invalid_request", "PKCE with S256 is required.")
+        if (scope := request["scope"]) is None:
+            reject("invalid_target", "The resource must be /mcp/ here.")
+        return McpPendingAuthorizationDTO(
             client=client,
-            scope=request["scope"] or ToolScope.MAINTAINER,
+            scope=scope,
             code_challenge=request["code_challenge"],
             state=request["state"],
         )
-        if request["response_type"] != "code":
-            _reject(pending, "unsupported_response_type", "Only code is supported.")
-        if request["code_challenge_method"] != "S256" or not pending.code_challenge:
-            _reject(pending, "invalid_request", "PKCE with S256 is required.")
-        if request["scope"] is None:
-            _reject(pending, "invalid_target", "The resource must be /mcp/ here.")
-        return pending
 
     def consent(
         self, pending: McpPendingAuthorizationDTO, *, sphere_id: int, user_slug: str
@@ -116,7 +123,7 @@ class McpAuthorizationService:
         if pending.scope is ToolScope.ORGANIZER:
             sphere_events = {event.pk for event in self._spheres.list_events(sphere_id)}
             if event_id is None or event_id not in sphere_events:
-                raise NotFoundError
+                _reject(pending, "invalid_request", "The event is not in this sphere.")
             grant = OrganizerGrant(
                 user_id=user_id, sphere_id=sphere_id, event_id=event_id
             )
@@ -171,7 +178,10 @@ def _reject(
     pending: McpPendingAuthorizationDTO, error: str, description: str
 ) -> NoReturn:
     raise McpAuthorizationRejectedError(
-        error=error, description=description, pending=pending
+        error=error,
+        description=description,
+        redirect_uri=pending.client.redirect_uri,
+        state=pending.state,
     )
 
 
