@@ -22,23 +22,23 @@ _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
 
 
-def _user(pk, slug="viewer", email="viewer@example.com", name="Viewer"):
+def _user(pk, email="viewer@example.com"):
     return UserDTO(
         avatar_url="",
         date_joined=_NOW,
         discord_username="",
         email=email,
-        full_name=name,
+        full_name="Viewer",
         is_active=True,
         is_authenticated=True,
         is_staff=False,
         is_superuser=False,
-        name=name,
+        name="Viewer",
         pk=pk,
-        slug=slug,
+        slug="viewer",
         use_gravatar=False,
         user_type=UserType.ACTIVE,
-        username=slug,
+        username="viewer",
     )
 
 

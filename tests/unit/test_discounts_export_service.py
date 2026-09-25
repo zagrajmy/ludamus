@@ -47,8 +47,7 @@ class FakeDiscounts:
     def __init__(self, items=()):
         self._items = list(items)
 
-    def list_by_event(self, event_pk):
-        _ = event_pk
+    def list_by_event(self, _event_pk):
         return list(self._items)
 
 
@@ -56,8 +55,7 @@ class FakeFacilitators:
     def __init__(self, items=()):
         self._items = list(items)
 
-    def list_by_event(self, event_id):
-        _ = event_id
+    def list_by_event(self, _event_id):
         return list(self._items)
 
 
@@ -65,8 +63,7 @@ class FakeConnections:
     def __init__(self, blob=b"encrypted"):
         self._blob = blob
 
-    def read_secret(self, sphere_id, pk):
-        _ = (sphere_id, pk)
+    def read_secret(self, _sphere_id, _pk):
         return self._blob
 
 
@@ -99,14 +96,14 @@ def _service(
     )
 
 
-def _export(service, *, labels=LABELS, columns=NO_COLUMNS):
+def _export(service, *, columns=NO_COLUMNS):
     return service.export_to_sheet(
         sphere_id=3,
         event_pk=1,
         connection_id=7,
         spreadsheet_id="sheet-1",
         tab_title="Akredytacje",
-        labels=labels,
+        labels=LABELS,
         columns=columns,
     )
 

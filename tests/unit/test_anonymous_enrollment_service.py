@@ -50,18 +50,18 @@ class FakeTransaction:
         return _atomic()
 
 
-def _user(name="Ala") -> UserDTO:
+def _user() -> UserDTO:
     return UserDTO(
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",
         email="",
-        full_name=name,
+        full_name="Ala",
         is_active=False,
         is_authenticated=True,
         is_staff=False,
         is_superuser=False,
-        name=name,
+        name="Ala",
         pk=_USER_PK,
         slug=f"code_{_CODE}",
         use_gravatar=False,
@@ -143,16 +143,13 @@ class FakePromotion:
 
 
 def _service(
-    *,
-    repo: FakeRepo,
-    users: FakeUsers | None = None,
-    promotion: FakePromotion | None = None,
+    *, repo: FakeRepo, users: FakeUsers | None = None
 ) -> AnonymousEnrollmentService:
     return AnonymousEnrollmentService(
         transaction=FakeTransaction(),
         user_repository=users if users is not None else FakeUsers(_user()),
         enrollment_repository=repo,
-        waitlist_promotion=promotion if promotion is not None else FakePromotion(),
+        waitlist_promotion=FakePromotion(),
     )
 
 

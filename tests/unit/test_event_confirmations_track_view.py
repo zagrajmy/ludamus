@@ -31,25 +31,20 @@ def _session(
     session_pk: int,
     facilitator_pk: int = _ADA,
     title: str = "Dragons",
-    status: SessionStatus = SessionStatus.ACCEPTED,
-    email: str = "ada@example.com",
-    agenda_item_pk: int | None = 100,
     is_confirmed: bool = False,
-    hour: int = 10,
 ) -> ConfirmationSessionRow:
-    placed = agenda_item_pk is not None
     return ConfirmationSessionRow(
         facilitator_pk=facilitator_pk,
         session_pk=session_pk,
         title=title,
-        status=status,
-        contact_email=email,
+        status=SessionStatus.ACCEPTED,
+        contact_email="ada@example.com",
         category_name="RPG session",
-        agenda_item_pk=agenda_item_pk,
+        agenda_item_pk=100,
         is_confirmed=is_confirmed,
-        start_time=datetime(2026, 8, 1, hour, tzinfo=UTC) if placed else None,
-        end_time=datetime(2026, 8, 1, hour + 2, tzinfo=UTC) if placed else None,
-        room_name="Room 3" if placed else "",
+        start_time=datetime(2026, 8, 1, 10, tzinfo=UTC),
+        end_time=datetime(2026, 8, 1, 12, tzinfo=UTC),
+        room_name="Room 3",
     )
 
 

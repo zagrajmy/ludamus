@@ -25,11 +25,11 @@ def _event(pk=_EVENT_ID):
     )
 
 
-def _slot(pk=1, hour_start=10, hour_end=12):
+def _slot(pk=1):
     return TimeSlotDTO(
         pk=pk,
-        start_time=datetime(2026, 6, 1, hour_start, 0, tzinfo=UTC),
-        end_time=datetime(2026, 6, 1, hour_end, 0, tzinfo=UTC),
+        start_time=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
+        end_time=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
     )
 
 

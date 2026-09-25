@@ -31,10 +31,10 @@ def _space(pk, parent_id=None, name=None):
     )
 
 
-def _record(pk, space_pks, event_id=EVENT_PK):
+def _record(pk, space_pks):
     return EventMapRecordDTO(
         pk=pk,
-        event_id=event_id,
+        event_id=EVENT_PK,
         name=f"map-{pk}",
         pages=[EventMapPageDTO(pk=pk, image_url=f"/media/eventmaps/{pk}.png")],
         space_pks=list(space_pks),

@@ -10,12 +10,9 @@ from ludamus.pacts.tracks import (
 )
 
 
-def _data(*, name="Alpha", is_public=True, space_pks=(), manager_pks=()):
+def _data(*, space_pks=()):
     return TrackFormData(
-        name=name,
-        is_public=is_public,
-        space_pks=list(space_pks),
-        manager_pks=list(manager_pks),
+        name="Alpha", is_public=True, space_pks=list(space_pks), manager_pks=[]
     )
 
 

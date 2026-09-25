@@ -15,10 +15,10 @@ SPHERE_ID = 3
 START_TIME = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
 
 
-def _encounter(pk=1, *, creator_id=CREATOR_ID, max_participants=0, start_time=None):
+def _encounter(pk=1, *, max_participants=0):
     return EncounterDTO(
         creation_time=START_TIME - timedelta(days=7),
-        creator_id=creator_id,
+        creator_id=CREATOR_ID,
         description="",
         end_time=None,
         game="Gloomhaven",
@@ -27,28 +27,28 @@ def _encounter(pk=1, *, creator_id=CREATOR_ID, max_participants=0, start_time=No
         place="",
         share_code=f"CODE{pk}",
         sphere_id=SPHERE_ID,
-        start_time=start_time or START_TIME,
+        start_time=START_TIME,
         title=f"Encounter {pk}",
     )
 
 
-def _user(pk=CREATOR_ID, *, full_name="", name="", username="creator"):
+def _user(pk=CREATOR_ID):
     return UserDTO(
         avatar_url="",
         date_joined=START_TIME - timedelta(days=30),
         discord_username="",
         email=f"user{pk}@example.com",
-        full_name=full_name,
+        full_name="",
         is_active=True,
         is_authenticated=True,
         is_staff=False,
         is_superuser=False,
-        name=name,
+        name="",
         pk=pk,
         slug=f"user-{pk}",
         use_gravatar=True,
         user_type=UserType.ACTIVE,
-        username=username,
+        username="creator",
     )
 
 

@@ -44,7 +44,7 @@ class _HeaderStubImpl:
 _IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 
 
-def _make_service(*, imports=None, ticketing=None, exports=None):
+def _make_service(*, imports=None, ticketing=None):
     transaction = MagicMock()
     transaction.atomic.return_value.__enter__ = MagicMock(return_value=None)
     transaction.atomic.return_value.__exit__ = MagicMock(return_value=None)
@@ -57,7 +57,7 @@ def _make_service(*, imports=None, ticketing=None, exports=None):
         connections=connections,
         decryptor=decryptor,
         implementations=IntegrationImplementations(
-            imports=imports or {}, ticketing=ticketing or {}, exports=exports or {}
+            imports=imports or {}, ticketing=ticketing or {}, exports={}
         ),
     )
     return SimpleNamespace(

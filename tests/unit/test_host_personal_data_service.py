@@ -67,26 +67,26 @@ class FakeChangeLogs:
         self.created.append(data)
 
 
-def _facilitator(pk=1, event_id=10, accreditation_type="none"):
+def _facilitator(event_id=10):
     return FacilitatorDTO(
-        accreditation_type=accreditation_type,
+        accreditation_type="none",
         display_name="Alice",
         event_id=event_id,
-        pk=pk,
+        pk=1,
         slug="alice",
         user_id=None,
     )
 
 
-def _field(pk=5, slug="vegan"):
+def _field():
     return OrganizerFieldDTO(
-        field_type="checkbox", name="Vegan", order=0, pk=pk, question="?", slug=slug
+        field_type="checkbox", name="Vegan", order=0, pk=5, question="?", slug="vegan"
     )
 
 
-def _entry(*, facilitator_id=1, event_id=10, field_id=5, value=True):
+def _entry(*, value=True):
     return PersonalDataFieldValueData(
-        facilitator_id=facilitator_id, event_id=event_id, field_id=field_id, value=value
+        facilitator_id=1, event_id=10, field_id=5, value=value
     )
 
 

@@ -282,9 +282,7 @@ class TestOrganizerTools:
         )
 
         tools = response.json()["result"]["tools"]
-        tool_names = {tool["name"] for tool in tools}
-        assert tool_names >= WRITE_TOOLS
-        assert "create_event" not in tool_names
+        assert [tool["name"] for tool in tools] == ORGANIZER_TOOL_NAMES
         assert all(
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools

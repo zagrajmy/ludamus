@@ -45,12 +45,12 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _hit(recipient_id, email, banned_user_id, *, in_session=False):
+def _hit(recipient_id, email, banned_user_id):
     return ShadowbanHitDTO(
         recipient_id=recipient_id,
         recipient_email=email,
         banned_user_id=banned_user_id,
-        in_session=in_session,
+        in_session=False,
     )
 
 

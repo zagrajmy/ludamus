@@ -89,11 +89,11 @@ class FakeScheduler:
         pass
 
 
-def _wp(pid, *, sponsor_id=None, party_id=None, order=0):
+def _wp(pid, *, sponsor_id=None, order=0):
     return WaitingParticipantDTO(
         participation_id=pid,
         user_id=pid,
-        party_id=party_id,
+        party_id=None,
         sponsor_id=sponsor_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",

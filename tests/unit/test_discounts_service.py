@@ -127,16 +127,10 @@ class FakeChangeLogs:
 
 
 def _service(
-    *,
-    repo=None,
-    facilitators=None,
-    transaction=None,
-    rules=None,
-    schedule=None,
-    change_logs=None,
+    *, repo=None, facilitators=None, rules=None, schedule=None, change_logs=None
 ):
     return DiscountsService(
-        transaction=transaction or FakeTransaction(),
+        transaction=FakeTransaction(),
         discounts=repo or FakeRepo(),
         facilitators=facilitators or FakeFacilitators(),
         rules=rules or FakeRules(),
