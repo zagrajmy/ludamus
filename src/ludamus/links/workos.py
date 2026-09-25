@@ -12,6 +12,7 @@ from pydantic import TypeAdapter, ValidationError
 from workos import WorkOSClient, WorkOSError
 
 from ludamus.pacts.crowd import (
+    AuthenticationDTO,
     IdentityDTO,
     IdentityProviderProtocol,
     IdentityRejectedError,
@@ -47,23 +48,24 @@ class WorkOSIdentityProvider(IdentityProviderProtocol):
             screen_hint="sign-up" if sign_up else None,
         )
 
-    def authenticate(self, code: str) -> IdentityDTO:
+    def authenticate(self, code: str) -> AuthenticationDTO:
         try:
             response = self._client.user_management.authenticate_with_code(code=code)
-            session_id = _session_id(response.access_token)
-        except (WorkOSError, IdentityRejectedError) as exc:
+        except WorkOSError as exc:
             logger.warning("WorkOS rejected the authorization code: %s", exc)
             msg = "The identity provider rejected the login."
             raise IdentityRejectedError(msg) from exc
         user = response.user
-        return IdentityDTO(
-            provider_user_id=user.id,
-            email=user.email,
-            email_verified=user.email_verified,
-            name=_display_name(user),
-            avatar_url=user.profile_picture_url or "",
-            legacy_id=user.external_id or "",
-            session_id=session_id,
+        return AuthenticationDTO(
+            identity=IdentityDTO(
+                provider_user_id=user.id,
+                email=user.email,
+                email_verified=user.email_verified,
+                name=_display_name(user),
+                avatar_url=user.profile_picture_url or "",
+                legacy_id=user.external_id or "",
+            ),
+            session_id=_session_id(response.access_token),
         )
 
     def logout_url(self, *, session_id: str, return_to: str) -> str:
@@ -81,11 +83,13 @@ def _display_name(user: User) -> str:
 
 def _session_id(access_token: str) -> str:
     # NOTE: the token came straight from WorkOS over TLS in the code exchange,
-    # so reading the session id needs no signature check.
+    # so reading the session id needs no signature check. PyJWT would do the
+    # same decode, but its dict[str, Any] result fails this repo's mypy.
+    _header, _, rest = access_token.partition(".")
+    payload, _, _signature = rest.partition(".")
     try:
-        payload = access_token.split(".")[1]
         claims = _CLAIMS.validate_json(base64.urlsafe_b64decode(payload + "=" * 4))
-    except (IndexError, binascii.Error, ValidationError) as exc:
+    except (binascii.Error, ValidationError) as exc:
         msg = "The access token carries no session id."
         raise IdentityRejectedError(msg) from exc
     return claims["sid"]

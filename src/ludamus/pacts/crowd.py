@@ -145,6 +145,11 @@ class IdentityDTO(BaseModel):
     # The Auth0 user_id the WorkOS import carried over as external_id; empty
     # for anyone who signed up after the move.
     legacy_id: str
+
+
+class AuthenticationDTO(BaseModel):
+    identity: IdentityDTO
+    # The AuthKit session behind this login, needed to end it at logout.
     session_id: str
 
 
@@ -162,7 +167,7 @@ class IdentityProviderProtocol(Protocol):
     def authorization_url(
         self, *, redirect_uri: str, state: str, sign_up: bool
     ) -> str: ...
-    def authenticate(self, code: str) -> IdentityDTO: ...
+    def authenticate(self, code: str) -> AuthenticationDTO: ...
     def logout_url(self, *, session_id: str, return_to: str) -> str: ...
 
 

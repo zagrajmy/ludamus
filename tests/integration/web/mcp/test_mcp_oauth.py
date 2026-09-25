@@ -371,6 +371,34 @@ class TestMaintainerConsent:
             ),
         )
 
+    def test_stale_tab_leaves_the_current_request_alone(
+        self, superuser_client, monkeypatch
+    ):
+        superuser_client.get(AUTHORIZE_URL, _params())
+        monkeypatch.setattr("secrets.token_urlsafe", lambda _n=None: "newer-tab")
+        superuser_client.get(AUTHORIZE_URL, _params())
+
+        stale = superuser_client.post(
+            AUTHORIZE_URL, {"pending": TOKEN, "decision": "approve"}
+        )
+        current = superuser_client.post(
+            AUTHORIZE_URL, {"pending": "newer-tab", "decision": "deny"}
+        )
+
+        assert_response(
+            stale,
+            HTTPStatus.BAD_REQUEST,
+            template_name="mcp/authorize.html",
+            context_data={"client_error": EXPIRED},
+        )
+        assert_response(
+            current,
+            HTTPStatus.FOUND,
+            url=_client_redirect(
+                error="access_denied", error_description="The user denied access."
+            ),
+        )
+
     def test_decision_does_not_refetch_client_metadata(
         self, superuser_client, client_metadata
     ):

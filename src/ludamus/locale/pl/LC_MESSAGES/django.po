@@ -1977,10 +1977,6 @@ msgstr ""
 "osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid redirect URL."
-msgstr "Nieprawidłowy adres URL przekierowania."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid domain for redirect."
 msgstr "Nieprawidłowa domena do przekierowania."
 
@@ -11330,6 +11326,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
 #~ msgid "This event is not in this sphere."
 #~ msgstr "To wydarzenie nie należy do tej sfery."

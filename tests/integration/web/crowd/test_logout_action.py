@@ -28,8 +28,7 @@ class TestLogoutActionView:
         )
         cookie = response.cookies["logout_target"]
         assert signing.loads(cookie.value, salt="logout_target") == {
-            "last_domain": "testserver",
-            "redirect_to": "/",
+            "last_domain": "testserver"
         }
         assert cookie["httponly"]
         assert "_auth_user_id" not in authenticated_client.session
@@ -38,9 +37,6 @@ class TestLogoutActionView:
         response = authenticated_client.get(self.URL)
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[],
-            url=f"{REDIRECT}?last_domain=testserver&redirect_to=%2F",
+            response, HTTPStatus.FOUND, messages=[], url="http://testserver/"
         )
         assert "_auth_user_id" not in authenticated_client.session

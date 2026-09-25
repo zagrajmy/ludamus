@@ -3,10 +3,11 @@ from contextlib import contextmanager
 
 import pytest
 
-from ludamus.mills.crowd import CrowdAuthService
+from ludamus.mills.crowd import CrowdAuthService, LegacyAccountLinker
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
+    AuthenticationDTO,
     ClaimOutcome,
     ClaimResultDTO,
     IdentityDTO,
@@ -28,7 +29,6 @@ def _identity(**overrides) -> IdentityDTO:
             "name": "",
             "avatar_url": "",
             "legacy_id": "",
-            "session_id": "session_01",
         }
         | overrides
     )
@@ -184,7 +184,7 @@ class FakeIdentity:
 
     def authenticate(self, code):
         self.codes.append(code)
-        return self.identity
+        return AuthenticationDTO(identity=self.identity, session_id="session_01")
 
     @staticmethod
     def logout_url(*, session_id, return_to):
@@ -198,6 +198,7 @@ def _service(*, users, claims=None, spheres=None, transaction=None, identity=Non
         spheres=spheres or FakeSpheres(),
         claims=claims or FakeClaims(),
         identity=identity or FakeIdentity(),
+        legacy_accounts=LegacyAccountLinker(users=users),
     )
 
 
@@ -365,13 +366,11 @@ class TestSyncIdentity:
 
     def test_nothing_new_skips_update(self):
         users = FakeUsers(users=[_user_dto(name="Me", email="me@example.com")])
-        transaction = FakeTransaction()
         identity = FakeIdentity(_identity(email="me@example.com", name="Other"))
-        service = _service(users=users, transaction=transaction, identity=identity)
+        service = _service(users=users, identity=identity)
 
         _login(service)
 
-        assert transaction.entered == 0
         assert not users.updated
 
     def test_overlong_avatar_is_dropped(self):
@@ -427,6 +426,34 @@ class TestLegacyLinking:
 
         assert result.user.slug != "other"
         assert users.created[0]["username"] == USERNAME
+
+    def test_missing_import_link_does_not_fall_back_to_email(self):
+        other = _user_dto(slug="other", username="auth0|x", email="me@example.com")
+        users = FakeUsers(users=[other])
+        identity = FakeIdentity(
+            _identity(legacy_id="deleted-in-auth0", email="me@example.com")
+        )
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert result.user.slug != "other"
+        assert users.created[0]["username"] == USERNAME
+
+    def test_whole_login_runs_in_one_transaction(self):
+        legacy = _user_dto(slug="old", username="auth0|abc", name="")
+        users = FakeUsers(users=[legacy])
+        transaction = FakeTransaction()
+        identity = FakeIdentity(_identity(legacy_id="abc", name="New Name"))
+        service = _service(users=users, transaction=transaction, identity=identity)
+
+        _login(service)
+
+        assert transaction.entered == 1
+        assert users.updated == [
+            ("old", {"username": USERNAME}),
+            ("old", {"name": "New Name"}),
+        ]
 
     def test_linked_account_is_already_authenticated_for_claims(self):
         legacy = _user_dto(slug="old", username="auth0|abc")
