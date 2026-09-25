@@ -199,12 +199,15 @@ class Services:
     def crowd_auth(self) -> CrowdAuthService:
         api_key: str = settings.WORKOS_API_KEY
         client_id: str = settings.WORKOS_CLIENT_ID
+        base_url: str = settings.WORKOS_BASE_URL
         return CrowdAuthService(
             transaction=self._transaction,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
-            identity=WorkOSIdentityProvider(api_key=api_key, client_id=client_id),
+            identity=WorkOSIdentityProvider(
+                api_key=api_key, client_id=client_id, base_url=base_url or None
+            ),
             legacy_accounts=LegacyAccountLinker(users=self._repos.active_users),
         )
 

@@ -69,16 +69,35 @@ claude mcp add --transport http zagrajmy "$base/mcp/" \
 
 Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
-## Logging in locally (WorkOS staging)
+## Logging in locally
 
-Login goes through WorkOS AuthKit. The WorkOS keys are optional outside
-production, so the app boots without them, but the login button can't sign
-anyone in. To log in:
+Login goes through WorkOS AuthKit. In dev and e2e, `WORKOS_BASE_URL` points
+the WorkOS SDK at `scripts/workos_simulator.py`, an offline stand-in on
+`:4400` that `mise run start` and `mise run test:e2e` start for you. It needs
+no account or network: the login button opens its sign-in form, and any
+email signs in (a new one creates an account).
+
+The simulator keeps no state, so parallel worktrees share whichever copy
+holds `:4400`. It idles unless `WORKOS_BASE_URL` names a loopback address,
+and only redirects back to `localhost` / `*.localhost`.
+
+With a database seeded by `tests/e2e/scripts/bootstrap_data.py`, sign in as
+`default@example.com` (the form's default) and the first login links you to
+the seeded sphere manager (`auth0|local-manager`). The link works because the
+simulator reports the address as verified and that account predates WorkOS.
+
+`/admin/login/` still takes that seed's password logins (`admin` / `admin`,
+`e2e-manager` / `e2e-manager-123`).
+
+### Against a real WorkOS staging environment
+
+To test the hosted AuthKit pages themselves:
 
 1. In the WorkOS dashboard, open the **staging** environment (free, separate
-   from production) and copy its API key and client ID into `.env.local`:
+   from production) and put its keys in `.env.local`, clearing the simulator:
 
    ```bash
+   WORKOS_BASE_URL=
    WORKOS_API_KEY=sk_test_...
    WORKOS_CLIENT_ID=client_...
    ```
@@ -87,14 +106,6 @@ anyone in. To log in:
    (or your portless origin) as a redirect URI, and
    `http://localhost:8000/crowd/auth/do/logout/redirect` as a sign-out
    redirect.
-
-With a database seeded by `tests/e2e/scripts/bootstrap_data.py`, sign up
-with `default@example.com` and the first login links you to the seeded
-sphere manager (`auth0|local-manager`). The link works because the address
-is verified and that account predates WorkOS.
-
-Offline, or without a WorkOS account, use `/admin/login/` with that seed's
-password logins (`admin` / `admin`, `e2e-manager` / `e2e-manager-123`).
 
 ## Authenticated browser checks without a UI login (Playwright storageState)
 
