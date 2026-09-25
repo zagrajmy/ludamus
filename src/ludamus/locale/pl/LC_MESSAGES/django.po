@@ -4618,13 +4618,16 @@ msgstr ""
 msgid "Do attendees need an account?"
 msgstr "Czy uczestnicy potrzebują konta?"
 
+#
 #: src/ludamus/templates/about.html
 msgid ""
-"Not to browse the programme. To enroll, yes: signing in takes a minute, and "
-"a nickname is enough as a name."
+"Not to browse the programme. To enroll, usually yes: signing in takes a "
+"minute, and a nickname is enough as a name. Organizers can also let "
+"attendees enroll without an account."
 msgstr ""
-"Do przeglądania programu nie. Do zapisów tak: logowanie zajmuje minutę, a "
-"jako nazwa wystarczy pseudonim."
+"Do przeglądania programu nie. Do zapisów zwykle tak: logowanie zajmuje "
+"minutę, a jako nazwa wystarczy pseudonim. Organizator może też pozwolić na "
+"zapisy bez konta."
 
 #: src/ludamus/templates/about.html
 msgid "Can I run Zagrajmy on my own server?"
