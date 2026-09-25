@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.mcp import AUTHORIZATION_CODE_TTL_SECONDS, McpAuthorizationService
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.mcp import (
     ClientRejection,
     MaintainerGrant,
@@ -210,7 +209,8 @@ class TestBegin:
             deps.service.begin(_request(**overrides))
 
         assert caught.value.error == error
-        assert caught.value.pending.client == CLIENT
+        assert caught.value.redirect_uri == LOOPBACK_REDIRECT
+        assert caught.value.state == "xyz"
 
 
 class TestConsent:
@@ -287,7 +287,7 @@ class TestApprove:
     def test_foreign_or_missing_event_stores_nothing(self, event_id):
         deps = _Deps(events=[_event(11, days=5)])
 
-        with pytest.raises(NotFoundError):
+        with pytest.raises(McpAuthorizationRejectedError, match="invalid_request"):
             deps.service.approve(
                 _pending(ToolScope.ORGANIZER),
                 user_id=7,

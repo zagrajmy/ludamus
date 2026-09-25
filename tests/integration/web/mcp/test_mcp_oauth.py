@@ -493,6 +493,26 @@ class TestOrganizerConsent:
             ),
         )
 
+    def test_forged_approve_without_events_redirects_with_error(
+        self, manager_client, client
+    ):
+        response = _decide(manager_client, "approve", resource=ORGANIZER_RESOURCE)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_client_redirect(
+                error="invalid_request",
+                error_description="The event is not in this sphere.",
+            ),
+        )
+        assert_response(
+            _exchange(client),
+            HTTPStatus.BAD_REQUEST,
+            headers=NO_STORE,
+            json=INVALID_GRANT,
+        )
+
     def test_sphere_without_events_cannot_approve(self, manager_client):
         response = manager_client.get(
             AUTHORIZE_URL, _params(resource=ORGANIZER_RESOURCE)

@@ -6,7 +6,6 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from datetime import timedelta
-from functools import partial
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
@@ -233,8 +232,10 @@ class ProposalAcceptanceService:
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         return can_write_programme(
-            is_superuser=self._active_users.read(user_slug).is_superuser,
-            manager_role=partial(self._spheres.manager_role, sphere_id, user_slug),
+            users=self._active_users,
+            spheres=self._spheres,
+            sphere_id=sphere_id,
+            user_slug=user_slug,
         )
 
     def accept_session(

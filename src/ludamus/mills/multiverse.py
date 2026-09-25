@@ -5,7 +5,6 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 1000 lines.
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
@@ -13,8 +12,6 @@ from ludamus.pacts.multiverse import SphereAccessDTO, SphereRole, SphereSettings
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.encounter import EncounterRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
@@ -40,10 +37,17 @@ if TYPE_CHECKING:
 
 
 def can_write_programme(
-    *, is_superuser: bool, manager_role: Callable[[], SphereRole | None]
+    *,
+    users: UserRepositoryProtocol,
+    spheres: SphereRepositoryProtocol,
+    sphere_id: int,
+    user_slug: str,
 ) -> bool:
     # A comms member's read-only role reads the panel but never writes it.
-    return is_superuser or manager_role() is SphereRole.MANAGER
+    return (
+        users.read(user_slug).is_superuser
+        or spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
+    )
 
 
 class AnnouncementsService:
@@ -149,8 +153,10 @@ class SpherePanelService:
 
     def can_write_programme(self, sphere_id: int, user_slug: str) -> bool:
         return can_write_programme(
-            is_superuser=self._users.read(user_slug).is_superuser,
-            manager_role=partial(self._spheres.manager_role, sphere_id, user_slug),
+            users=self._users,
+            spheres=self._spheres,
+            sphere_id=sphere_id,
+            user_slug=user_slug,
         )
 
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO:
