@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import (
@@ -14,6 +15,7 @@ from ludamus.pacts.encounter import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.specs.encounter import ENCOUNTER_RSVP_THROTTLE_SECONDS
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.legacy import SphereRepositoryProtocol
+    from ludamus.pacts.legacy import CacheProtocol, SphereRepositoryProtocol
     from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
@@ -40,6 +42,7 @@ class EncounterService(EncounterServiceProtocol):
         users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         sites: SitesServiceProtocol,
+        cache: CacheProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
@@ -51,6 +54,7 @@ class EncounterService(EncounterServiceProtocol):
         # the method the view then calls — and that service already memoises
         # the current sphere for the request.
         self._sites = sites
+        self._cache = cache
 
     def _policy(self, sphere_id: int) -> EncountersPolicy:
         return self._sites.read(sphere_id).encounters_policy
@@ -199,12 +203,22 @@ class EncounterService(EncounterServiceProtocol):
                 and rsvp_count >= encounter.max_participants
             ):
                 return RSVPOutcome.FULL
-            if self._rsvps.recent_rsvp_exists(ip_address):
+            if self._recently_rsvpd(ip_address):
                 return RSVPOutcome.THROTTLED
             if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return RSVPOutcome.ALREADY_SIGNED_UP
-            self._rsvps.create(encounter.pk, ip_address, user_id)
+            self._rsvps.create(encounter.pk, user_id)
             return RSVPOutcome.CREATED
+
+    def _recently_rsvpd(self, ip_address: str) -> bool:
+        # The address lives in the cache for the length of the window and
+        # nowhere else. Reserving it here rather than reading a stored IP is
+        # what keeps the throttle from needing a column that outlives it.
+        key = f"encounter_rsvp_rate:{sha256(ip_address.encode()).hexdigest()}"
+        if self._cache.get(key) is not None:
+            return True
+        self._cache.set(key, 1, timeout=ENCOUNTER_RSVP_THROTTLE_SECONDS)
+        return False
 
     def cancel_rsvp(self, *, share_code: str, sphere_id: int, user_id: int) -> None:
         encounter = self._encounters.read_by_share_code(share_code, sphere_id)
