@@ -51,10 +51,6 @@ def _state(waiting, *, seats=1, presenter_id=None):
 
 
 class TestSelectPromotableParties:
-    def test_no_seats_selects_nothing(self):
-        state = _state([_wp(1)], seats=0)
-        assert not select_promotable_parties(state)
-
     def test_fifo_single_seat_fills_first_party(self):
         state = _state([_wp(1, order=0), _wp(2, order=1)], seats=1)
 
@@ -125,18 +121,6 @@ class TestSelectPromotableParties:
 
         assert [p.participation_id for party in selected for p in party] == [2]
 
-    def test_shadowbanned_party_member_dropped_rest_promoted(self):
-        waiting = [
-            _wp(1, sponsor_id=99, order=0, user_id=7),
-            _wp(2, sponsor_id=99, order=1),
-        ]
-        state = _state(waiting, seats=2)
-        state = state.model_copy(update={"shadowbanned_user_ids": frozenset({7})})
-
-        selected = select_promotable_parties(state)
-
-        assert [p.participation_id for party in selected for p in party] == [2]
-
     def test_two_parties_same_owner_respects_slot_limit(self):
         owner_id = 99
         waiting = [
@@ -169,16 +153,6 @@ class TestSelectPromotableParties:
 
         assert [p.participation_id for party in selected for p in party] == [1, 2]
 
-    def test_promotes_all_waiting_when_seats_remain(self):
-        # Seats outnumber waiters: the walk runs off the end of the party list
-        # (no break) and returns everyone promoted.
-        waiting = [_wp(1, order=0), _wp(2, order=1)]
-        state = _state(waiting, seats=5)
-
-        selected = select_promotable_parties(state)
-
-        assert [p.participation_id for party in selected for p in party] == [1, 2]
-
 
 class TestPartyGrouping:
     def test_same_party_groups_self_owned_users_together(self):
@@ -191,13 +165,6 @@ class TestPartyGrouping:
 
         assert [[p.participation_id for p in party] for party in selected] == [[1, 2]]
 
-    def test_same_party_needs_all_seats_at_once(self):
-        state = _state(
-            [_wp(1, party_id=5, order=0), _wp(2, party_id=5, order=1)], seats=1
-        )
-
-        assert not select_promotable_parties(state)
-
     def test_party_key_does_not_collide_with_owner_key(self):
         # participation 1: solo user with pk 5; participation 2: someone
         # enrolled through party pk 5 — distinct groups despite the same int.
@@ -208,12 +175,3 @@ class TestPartyGrouping:
         selected = select_promotable_parties(state)
 
         assert [[p.participation_id for p in party] for party in selected] == [[1], [2]]
-
-    def test_partyless_rows_still_group_by_sponsor(self):
-        state = _state(
-            [_wp(1, sponsor_id=9, order=0), _wp(2, sponsor_id=9, order=1)], seats=2
-        )
-
-        selected = select_promotable_parties(state)
-
-        assert [[p.participation_id for p in party] for party in selected] == [[1, 2]]

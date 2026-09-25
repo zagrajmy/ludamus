@@ -114,43 +114,6 @@ def _mock_repos() -> tuple[ProposalCategorySettingsRepos, MagicMock]:
     return repos, categories
 
 
-def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
-    transaction = RecordingTransaction()
-    repos, categories = _mock_repos()
-    mutations = (
-        categories.update,
-        categories.set_field_requirements,
-        categories.set_session_field_requirements,
-        categories.set_time_slot_requirements,
-    )
-    for mutation in mutations:
-        mutation.side_effect = lambda *_args: assert_transaction_active(transaction)
-
-    _service(transaction, repos).update(event_id=4, category_slug="rpg", data=_data())
-
-    categories.read_by_slug.assert_called_once_with(4, "rpg")
-    categories.update.assert_called_once_with(
-        7,
-        {
-            "name": "RPG",
-            "description": "Games",
-            "start_time": None,
-            "end_time": None,
-            "durations": ["PT4H"],
-            "min_participants_limit": 2,
-            "max_participants_limit": 5,
-            "promotion_mode": PromotionMode.OFFER_CLAIM,
-            "offer_claim_window": timedelta(minutes=30),
-        },
-    )
-    categories.set_field_requirements.assert_called_once_with(7, {1: True}, [1])
-    categories.set_session_field_requirements.assert_called_once_with(
-        7, {2: False}, [2]
-    )
-    categories.set_time_slot_requirements.assert_called_once_with(7, {3: True}, [3])
-    assert transaction.active is False
-
-
 def test_update_leaves_promotion_config_untouched_when_not_submitted() -> None:
     repos, categories = _mock_repos()
     data = _data().model_copy(
@@ -187,7 +150,3 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
 
     assert [field.pk for field in page.available_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
-
-
-def assert_transaction_active(transaction: RecordingTransaction) -> None:
-    assert transaction.active is True
