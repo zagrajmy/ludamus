@@ -268,7 +268,7 @@ class ClaimPageView(View):
         if request.services.claims.read_claimable(token) is None:
             return ClaimPageView._reject_invalid_link(request)
         request.session["pending_claim_token"] = token
-        login_url = reverse("web:crowd:auth0:login")
+        login_url = reverse("web:crowd:auth:login")
         next_url = reverse("web:crowd:profile")
         return redirect(f"{login_url}?{urlencode({'next': next_url})}")
 
@@ -285,7 +285,7 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
             {
                 "user": avatar.user,
                 "gravatar_url": avatar.gravatar_url,
-                "has_auth0_avatar": avatar.has_auth0_avatar,
+                "has_provider_avatar": avatar.has_provider_avatar,
                 "profile_active_tab": "avatar",
             },
         )

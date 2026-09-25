@@ -282,7 +282,7 @@ class GuildRepository(GuildRepositoryProtocol):
     def find_assignable_users(*, identifier: str) -> list[int]:
         # Mirrors PartyRepository.find_invitable_users: the same handles the
         # party invite accepts, resolved the same way. `username` is never
-        # typeable — every account gets a machine-generated one (auth0|...,
+        # typeable — every account gets a machine-generated one (workos|...,
         # connected|..., anon_...) — so the Discord column is the one to match.
         # Email is exact-and-unique, so a hit there wins outright; only a
         # Discord handle can be ambiguous, and the caller only needs to tell

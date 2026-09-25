@@ -71,6 +71,7 @@ class UserRepositoryProtocol(Protocol):
     def read_by_id(self, pk: int) -> UserDTO: ...
     def read_by_ids(self, pks: list[int]) -> list[UserDTO]: ...
     def read_by_username(self, username: str) -> UserDTO: ...
+    def read_by_email(self, email: str) -> UserDTO: ...
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None: ...
     @staticmethod
@@ -133,16 +134,42 @@ class SphereDomainRepositoryProtocol(Protocol):
     def domain_exists(domain: str) -> bool: ...
 
 
-class AuthProvisionDTO(BaseModel):
+class IdentityDTO(BaseModel):
+    """A signed-in person as the identity provider (WorkOS) reports them."""
+
+    provider_user_id: str
+    email: str
+    email_verified: bool
+    name: str
+    avatar_url: str
+    # The Auth0 user_id the WorkOS import carried over as external_id; empty
+    # for anyone who signed up after the move.
+    legacy_id: str
+    session_id: str
+
+
+class LoginDTO(BaseModel):
     user: UserDTO
     claim_outcome: ClaimOutcome | None = None
+    session_id: str
+
+
+class IdentityRejectedError(Exception):
+    """The identity provider refused the authorization code."""
+
+
+class IdentityProviderProtocol(Protocol):
+    def authorization_url(
+        self, *, redirect_uri: str, state: str, sign_up: bool
+    ) -> str: ...
+    def authenticate(self, code: str) -> IdentityDTO: ...
+    def logout_url(self, *, session_id: str, return_to: str) -> str: ...
 
 
 class CrowdAuthServiceProtocol(Protocol):
-    def provision_user(
-        self, *, username: str, create_data: UserData, claim_token: str = ""
-    ) -> AuthProvisionDTO: ...
-    def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO: ...
+    def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str: ...
+    def complete_login(self, *, code: str, claim_token: str = "") -> LoginDTO: ...
+    def logout_url(self, *, session_id: str, return_to: str) -> str: ...
     def is_known_sphere_domain(self, domain: str) -> bool: ...
 
 
@@ -158,7 +185,7 @@ class AvatarUrlProviderProtocol(Protocol):
 class AvatarPageDTO(BaseModel):
     user: UserDTO
     gravatar_url: str | None
-    has_auth0_avatar: bool
+    has_provider_avatar: bool
 
 
 class ProfileServiceProtocol(Protocol):

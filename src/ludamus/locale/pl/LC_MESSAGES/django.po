@@ -1961,6 +1961,10 @@ msgid "Invalid authentication state"
 msgstr "Nieprawidłowy stan uwierzytelnienia"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication failed"
+msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -1971,10 +1975,6 @@ msgid ""
 msgstr ""
 "Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
 "osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication failed"
-msgstr "Uwierzytelnienie nie powiodło się"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."

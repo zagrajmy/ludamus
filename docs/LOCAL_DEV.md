@@ -69,25 +69,32 @@ claude mcp add --transport http zagrajmy "$base/mcp/" \
 
 Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
-## Logging in locally (auth0-simulator)
+## Logging in locally (WorkOS staging)
 
-Auth0 is the real identity provider, so local login goes through a bundled
-**auth0-simulator** instead of the production tenant. It is enabled only when
-`AUTH0_DOMAIN` is local-shaped — `localhost`, `*.localhost`, `*.local`, or
-`auth0.local*` — and TLS certs exist at `~/.portless` (symlinked into
-`~/.simulacrum/certs`). With those in place, `mise run start` runs the simulator
-on `:4400` and the normal login flow works against it.
+Login goes through WorkOS AuthKit. The committed `.env.development` only
+has a placeholder client ID, so the app boots but the login button can't
+sign anyone in. To log in:
 
-The seeded sphere-manager login is:
+1. In the WorkOS dashboard, open the **staging** environment (free, separate
+   from production) and copy its API key and client ID into `.env.local`:
 
-```text
-Email: default@example.com
-Password: 12345
-```
+   ```bash
+   WORKOS_API_KEY=sk_test_...
+   WORKOS_CLIENT_ID=client_...
+   ```
 
-If `AUTH0_DOMAIN` points at a real tenant (the default in some `.env.local`
-files), the simulator stays idle and you cannot log in locally — switch
-`AUTH0_DOMAIN` to e.g. `auth0.localhost` for simulator-backed login.
+2. Under **Redirects**, add `http://localhost:8000/crowd/auth/do/login/callback`
+   (or your portless origin) as a redirect URI, and
+   `http://localhost:8000/crowd/auth/do/logout/redirect` as a sign-out
+   redirect.
+
+With a database seeded by `tests/e2e/scripts/bootstrap_data.py`, sign up
+with `default@example.com` and the first login links you to the seeded
+sphere manager (`auth0|local-manager`). The link works because the address
+is verified and that account predates WorkOS.
+
+Offline, or without a WorkOS account, use `/admin/login/` with that seed's
+password logins (`admin` / `admin`, `e2e-manager` / `e2e-manager-123`).
 
 ## Authenticated browser checks without a UI login (Playwright storageState)
 
@@ -101,7 +108,7 @@ mise run test:e2e:prep    # migrate + seed + build client; writes tests/e2e/.aut
 `tests/e2e/playwright.config.ts` starts the server itself (`webServer`, with
 `reuseExistingServer` off CI) and loads `tests/e2e/.auth-state.json`
 (`storageState`) — the `e2e-tester` session. Any Playwright script run under
-that config (or pointed at the same `storageState`) is logged in with no Auth0
+that config (or pointed at the same `storageState`) is logged in with no WorkOS
 round trip. Seeded logins: `e2e-tester` (member), `e2e-manager` (sphere
 manager), `admin`.
 
