@@ -108,8 +108,6 @@ class TestIndexRedirectView:
 
 
 class TestLegacyFeedRedirects:
-    # Shared links carry filters and UTM tags; the move to the sphere root
-    # must not strip them.
     @pytest.mark.parametrize("path", ("/events/", "/timeline/", "/encounters/"))
     def test_keeps_the_query_string(self, authenticated_client, path):
         response = authenticated_client.get(f"{path}?utm_source=fb&day=sat")

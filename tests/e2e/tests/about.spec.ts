@@ -1,7 +1,5 @@
 import { expect, test } from "./helpers/fixtures";
-
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:8000";
-const EMPTY_SPHERE = "http://another.localhost:8000";
+import { BASE_URL, EMPTY_SPHERE } from "./helpers/urls";
 
 test.describe("About page", () => {
   test("lays out the company in plain, crawlable sections", async ({ page }) => {

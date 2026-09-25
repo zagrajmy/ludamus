@@ -12,7 +12,11 @@ from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
-from ludamus.gates.web.django.landing import index_page, landing_page
+from ludamus.gates.web.django.landing import (
+    index_page,
+    landing_page,
+    legacy_feed_redirect,
+)
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -82,18 +86,8 @@ urlpatterns = [
     path("landing/", landing_page, name="landing"),
     # The feed lives at the sphere root now. /events/ and /timeline/ were
     # public, so they redirect permanently rather than 404.
-    path(
-        "events/",
-        RedirectView.as_view(
-            pattern_name="web:index", permanent=True, query_string=True
-        ),
-    ),
-    path(
-        "timeline/",
-        RedirectView.as_view(
-            pattern_name="web:index", permanent=True, query_string=True
-        ),
-    ),
+    path("events/", legacy_feed_redirect),
+    path("timeline/", legacy_feed_redirect),
     path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
     path(
         "dashboard/spheres/<int:pk>/do/subscribe",
