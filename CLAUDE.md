@@ -89,6 +89,15 @@ migration. [docs/agents/services-migration.md](docs/agents/services-migration.md
 has the per-file recipe. New code must use `request.services`; never extend the
 `request.di.uow` surface.
 
+## Testing
+
+- Never write unit tests after you write code.
+- Highly prefer E2E tests as the sole testing mechanism. Use them to verify
+  complex features work. At the end of E2E tests, produce a verifiable and
+  repeatable artifact.
+- If you must test a system in isolation, first write down all the ways it
+  could fail, then write the code.
+
 ## Rules
 
 - Functions/methods with 3+ parameters (excluding `self`) take them as
@@ -102,10 +111,9 @@ has the per-file recipe. New code must use `request.services`; never extend the
   split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
   deliberate deviation, `TODO:` known gap, issue link. No narration, no
   summaries, no work history microblogging.
-- Test type follows the layer under test: `mills` gets unit tests; `gates`,
-  `links`, `adapters.web`, and templates get integration tests. This holds
-  when raising coverage too. Details and the pure-helper exception:
-  [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
+- `gates`, `links`, `adapters.web`, and templates get integration tests when
+  they need a Python test at all. Never raise coverage with a mock-everything
+  unit test. Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - View tests use `assert_response`, never manual assertions, and use ANY only
   for forms/views, never for simple values ([], {}, booleans, strings, ints).
   Patterns: [docs/agents/testing-assertions.md](docs/agents/testing-assertions.md).
