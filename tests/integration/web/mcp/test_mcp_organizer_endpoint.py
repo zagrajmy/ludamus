@@ -16,6 +16,7 @@ from ludamus.links.db.django.models import (
     Announcement,
     EventMap,
     ScheduleChangeLog,
+    Session,
     Space,
     SphereMembership,
     Track,
@@ -152,6 +153,11 @@ def programme_fixture(client, org_token):
 
 
 PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+BATCH_LIMIT = 250
+BATCH_SIZE_ERRORS = (
+    (0, "List should have at least 1 item after validation, not 0"),
+    (BATCH_LIMIT + 1, "List should have at most 250 items after validation, not 251"),
+)
 
 
 class TestOrganizerAuthentication:
@@ -422,6 +428,60 @@ class TestOrganizerProgrammeValidation:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
+        assert not AgendaItem.objects.filter(session=session).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_create_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        category = ProposalCategoryFactory(event=event)
+        sessions = [
+            {
+                "source_row_id": f"row-{index}",
+                "title": f"Row {index}",
+                "category_id": category.pk,
+            }
+            for index in range(size)
+        ]
+
+        response = call_org_tool(
+            client, org_token, "create_sessions", {"sessions": sessions}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == f"Invalid arguments: sessions: {error}"
+        assert not Session.objects.filter(event=event).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_assign_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        session = SessionFactory(event=event, category=None, status="accepted")
+        space = SpaceFactory(event=event, parent=None)
+        # NOTE: one placeable session is enough to prove nothing was written;
+        # the rest only pad the batch with ids that would fail on their own.
+        missing_start = session.pk + 1
+        session_ids = [session.pk, *range(missing_start, missing_start + size)][:size]
+        assignments = [
+            {
+                "session_id": session_id,
+                "space_id": space.pk,
+                "start_time": (event.start_time + timedelta(hours=1)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=2)).isoformat(),
+            }
+            for session_id in session_ids
+        ]
+
+        response = call_org_tool(
+            client, org_token, "assign_sessions", {"assignments": assignments}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert (
+            result["content"][0]["text"] == f"Invalid arguments: assignments: {error}"
+        )
         assert not AgendaItem.objects.filter(session=session).exists()
 
 

@@ -8,11 +8,15 @@ from freezegun import freeze_time
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR
 from ludamus.gates.web.django.mcp.tokens import SIGNING_SALT, mint_token
-from ludamus.links.db.django.models import Announcement, Space
+from ludamus.links.db.django.models import Announcement, Event, Space
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
 URL = "/mcp/"
+INVALID_SLUG_ERROR = (
+    "Invalid arguments: slug: Value error, slug must contain only "
+    "letters, numbers, hyphens, or underscores"
+)
 
 
 @pytest.fixture(name="superuser")
@@ -391,6 +395,39 @@ class TestTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
+
+    @pytest.mark.parametrize(
+        ("overrides", "message"),
+        (
+            ({"slug": "not a slug"}, INVALID_SLUG_ERROR),
+            ({"slug": "   "}, INVALID_SLUG_ERROR),
+            (
+                {"start_time": "2026-09-25T10:00:00"},
+                "Invalid arguments: start_time: Value error, must be timezone-aware",
+            ),
+        ),
+    )
+    def test_create_event_rejects_invalid_input(
+        self, client, token, sphere, overrides, message
+    ):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Bad input",
+                "slug": "bad-input",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                **overrides,
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == message
+        assert not Event.objects.filter(name="Bad input").exists()
 
     def test_create_event_rejects_publication_after_start(self, client, token, sphere):
         response = call_tool(
