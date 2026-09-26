@@ -8,7 +8,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
@@ -24,12 +24,13 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ProposalCategory,
     Session,
+    SessionAvailability,
     SessionParticipation,
     SessionParticipationStatus,
     Space,
     Sphere,
-    TimeSlot,
 )
+from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
@@ -167,13 +168,16 @@ class SpaceFactory(DjangoModelFactory):
     event = SubFactory(EventFactory)
 
 
-class TimeSlotFactory(DjangoModelFactory):
+class SessionAvailabilityFactory(DjangoModelFactory):
     class Meta:
-        model = TimeSlot
+        model = SessionAvailability
 
-    event = SubFactory(EventFactory)
-    start_time = LazyAttribute(lambda o: o.event.start_time)
-    end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
+    day = LazyAttribute(
+        lambda o: programme_date(o.session.event.start_time, get_current_timezone())
+    )
+    part = LazyAttribute(
+        lambda o: part_of(o.session.event.start_time, get_current_timezone())
+    )
 
 
 class SessionFactory(DjangoModelFactory):
@@ -386,15 +390,6 @@ def enrollment_config_fixture(event):
 @pytest.fixture(name="space")
 def space_fixture(event):
     return SpaceFactory(event=event)
-
-
-@pytest.fixture
-def time_slot(event):
-    return TimeSlotFactory(
-        event=event,
-        start_time=event.start_time,
-        end_time=event.start_time + timedelta(hours=2),
-    )
 
 
 @pytest.fixture(name="session")

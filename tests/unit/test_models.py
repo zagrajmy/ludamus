@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -23,6 +23,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
+    SessionAvailability,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
@@ -32,12 +33,11 @@ from ludamus.links.db.django.models import (
     Shadowban,
     Space,
     Sphere,
-    TimeSlot,
-    TimeSlotRequirement,
     Track,
     User,
     UserEnrollmentConfig,
 )
+from ludamus.pacts.availability import DayPart
 
 
 class TestSphere:
@@ -154,33 +154,13 @@ class TestSpace:
         assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
-class TestTimeSlot:
-    def test_str(self, faker, time_zone):
+class TestSessionAvailability:
+    def test_str(self, faker):
         pk = faker.random_int(min=1)
 
         assert (
-            str(
-                TimeSlot(
-                    id=pk,
-                    start_time=datetime(2025, 1, 2, 3, 4, tzinfo=time_zone),
-                    end_time=datetime(2025, 1, 2, 5, 6, tzinfo=time_zone),
-                )
-            )
-            == f"2025-01-02 03:04 - 05:06 ({pk})"
-        )
-
-    def test_str_different_days(self, faker, time_zone):
-        pk = faker.random_int(min=1)
-
-        assert (
-            str(
-                TimeSlot(
-                    id=pk,
-                    start_time=datetime(2025, 1, 2, 3, 4, tzinfo=time_zone),
-                    end_time=datetime(2025, 5, 6, 7, 8, tzinfo=time_zone),
-                )
-            )
-            == f"2025-01-02 03:04 - 2025-05-06 07:08 ({pk})"
+            str(SessionAvailability(id=pk, day=date(2025, 1, 2), part=DayPart.EVENING))
+            == f"2025-01-02 evening ({pk})"
         )
 
 
@@ -333,26 +313,6 @@ class TestSessionFieldValue:
         sfv = SessionFieldValue(field=SessionField(name=field_name), value=value)
 
         assert str(sfv) == f"{field_name}: {value}"
-
-
-class TestTimeSlotRequirement:
-    def test_str_required(self, faker):
-        category_name = faker.word()
-
-        requirement = TimeSlotRequirement(
-            category=ProposalCategory(name=category_name), is_required=True
-        )
-
-        assert str(requirement) == f"Time slot (required) for {category_name}"
-
-    def test_str_optional(self, faker):
-        category_name = faker.word()
-
-        requirement = TimeSlotRequirement(
-            category=ProposalCategory(name=category_name), is_required=False
-        )
-
-        assert str(requirement) == f"Time slot (optional) for {category_name}"
 
 
 class TestEncounter:

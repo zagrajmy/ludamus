@@ -88,14 +88,8 @@ def outlook_calendar_url(encounter: EncounterDTO, url: str) -> str:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
 
-    from ludamus.pacts import (
-        DateTimeRangeProtocol,
-        EncounterDTO,
-        EventDTO,
-        UnitOfWorkProtocol,
-    )
+    from ludamus.pacts import EncounterDTO, UnitOfWorkProtocol
 
 
 class PanelService:
@@ -117,39 +111,3 @@ class PanelService:
             return False
         self._uow.session_fields.delete(field_pk)
         return True
-
-    def delete_time_slot(self, time_slot_pk: int) -> bool:
-        """Delete a time slot if not used in any proposals.
-
-        Args:
-            time_slot_pk: The time slot primary key.
-
-        Returns:
-            True if deleted, False if time slot has proposals.
-        """
-        if self._uow.time_slots.has_proposals(time_slot_pk):
-            return False
-        self._uow.time_slots.delete(time_slot_pk)
-        return True
-
-    @staticmethod
-    def validate_time_slot(
-        start: datetime,
-        end: datetime,
-        event: EventDTO,
-        existing_slots: Sequence[DateTimeRangeProtocol],
-    ) -> list[str]:
-        errors: list[str] = []
-
-        if start >= end:
-            errors.append("Start must be before end.")
-
-        if start < event.start_time or end > event.end_time:
-            errors.append("Time slot must be within event dates.")
-
-        for slot in existing_slots:
-            if start < slot.end_time and end > slot.start_time:
-                errors.append("Time slot overlaps with an existing slot.")
-                break
-
-        return errors

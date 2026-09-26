@@ -11,7 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import Window, slot_windows_by_local_date
+from ludamus.mills.timeslots import event_opening_hours
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -20,6 +20,7 @@ from ludamus.pacts import (
     SessionStatus,
     TrackSessionCountsDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, part_of, programme_date
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ConflictDTO,
@@ -31,8 +32,7 @@ from ludamus.pacts.chronology import (
     HeatmapDTO,
     HeatmapRowDTO,
     MultiselectOptionDTO,
-    PreferredSlotRangeDTO,
-    PreferredSlotViolationDTO,
+    OfferedTimeViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
     SessionPositionState,
@@ -61,7 +61,7 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts import FacilitatorDTO, SpaceDTO
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.timetable import TimetableRepos
 
@@ -78,7 +78,7 @@ def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
 
 
 def _card_states(
-    conflicts: Iterable[ConflictDTO], violations: Iterable[PreferredSlotViolationDTO]
+    conflicts: Iterable[ConflictDTO], violations: Iterable[OfferedTimeViolationDTO]
 ) -> dict[int, SessionPositionState]:
     # What each card warns about, resolved once per page so the grid stops
     # testing the same session against page-wide sets on every element. A clash
@@ -191,6 +191,9 @@ def _within_selected_spaces(
     return kept
 
 
+_DAY_MINUTES = 24 * 60
+
+
 def _day_range(
     day: date, span: tuple[int, int], tz: tzinfo
 ) -> tuple[datetime, datetime]:
@@ -264,21 +267,29 @@ class TimetableService(TimetableServiceProtocol):
         start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
-        all_slots = self._repos.time_slots.list_by_event(event_pk)
-        windows_by_date = slot_windows_by_local_date(all_slots, tz)
-        available_dates = sorted(windows_by_date)
-        if date_selection != "all" and date_selection not in windows_by_date:
+        # The grid shows everything scheduled in the rooms on screen, whoever
+        # booked it. A room's occupancy is what makes a clash visible *before*
+        # it is created, and hiding another track's booking is how two tracks
+        # end up in one room at once.
+        all_items = self._repos.agenda_items.list_by_event(event_pk)
+        event = self._repos.events.read(event_pk)
+        hours = event_opening_hours(
+            start=event.start_time,
+            end=event.end_time,
+            occupied=[(item.start_time, item.end_time) for item in all_items],
+            tz=tz,
+            snap_minutes=TIMETABLE_SLOT_MINUTES,
+            extend_before_hours=filters.extend_before_hours,
+            extend_after_hours=filters.extend_after_hours,
+        )
+        available_dates = hours.dates
+        if date_selection != "all" and date_selection not in available_dates:
             date_selection = available_dates[0] if available_dates else "all"
 
         groups = self._build_space_groups(spaces, node_name_by_pk)
         dates_to_render = (
             available_dates if date_selection == "all" else [date_selection]
         )
-        # The grid shows everything scheduled in the rooms on screen, whoever
-        # booked it. A room's occupancy is what makes a clash visible *before*
-        # it is created, and hiding another track's booking is how two tracks
-        # end up in one room at once.
-        all_items = self._repos.agenda_items.list_by_event(event_pk)
         # Fetched here rather than handed in: the full page and the partial
         # swap that replaces it have to mark the grid the same way, and passing
         # the warnings in left every caller free to forget them. The items and
@@ -286,7 +297,11 @@ class TimetableService(TimetableServiceProtocol):
         conflicts, violations = ConflictDetectionService(
             self._repos
         ).list_grid_warnings(
-            event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
+            event_pk=event_pk,
+            track_pk=track_pk,
+            items=all_items,
+            spaces=all_nodes,
+            tz=tz,
         )
         # The unscheduled list filters by facilitator in SQL, so the grid does
         # too -- same one clause, and a foreign pk is scoped out by the query
@@ -300,7 +315,7 @@ class TimetableService(TimetableServiceProtocol):
             else all_items
         )
         states = _card_states(conflicts, violations)
-        span = self._shared_day_span(dates_to_render, windows_by_date, tz)
+        span = hours.span
         days = [
             self._build_day_grid(
                 date_to_render=date_to_render,
@@ -321,6 +336,10 @@ class TimetableService(TimetableServiceProtocol):
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
+            extend_before_hours=filters.extend_before_hours,
+            extend_after_hours=filters.extend_after_hours,
+            can_extend_before=span[0] > 0,
+            can_extend_after=span[1] < _DAY_MINUTES,
             first_space_number=start + 1,
             last_space_number=start + len(spaces),
             # Every day renders the same page of spaces -- `groups` already
@@ -386,29 +405,6 @@ class TimetableService(TimetableServiceProtocol):
         )
 
     @staticmethod
-    def _shared_day_span(
-        days: list[date], windows_by_date: dict[date, list[Window]], tz: tzinfo
-    ) -> tuple[int, int]:
-        # One span for every rendered day, so 16:00 sits on the same row
-        # whether its day opens at 16:00 or at 10:00. Windows are already
-        # clamped to their local date, so both ends are minutes from midnight.
-        midnights = {
-            day: datetime.combine(day, datetime.min.time(), tzinfo=tz) for day in days
-        }
-        minutes = [
-            (edge - midnights[day]).total_seconds() / 60
-            for day in days
-            for window in windows_by_date[day]
-            for edge in window
-        ]
-        if not minutes:
-            return (0, 0)
-        return (
-            math.floor(min(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
-            math.ceil(max(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
-        )
-
-    @staticmethod
     def _build_space_groups(
         spaces: list[SpaceDTO], name_by_pk: dict[int, str]
     ) -> list[SpaceGroupDTO]:
@@ -436,21 +432,11 @@ class TimetableService(TimetableServiceProtocol):
         if space_pk not in leaf_pks:
             raise NotFoundError
 
-    def _widen_time_slots_around(
-        self, placement: SessionPlacement, event: EventDTO
-    ) -> None:
-        # NOTE: a drop past the day's hours is the organizer extending the
-        # day, so the slots and the event's dates grow to fit it.
-        slots = sorted(self._repos.time_slots.list_by_event(event.pk), key=_slot_start)
-        if any(
-            start <= placement.start_time and placement.end_time <= end
-            for start, end in _merged_slot_ranges(slots)
-        ):
-            return
+    def _widen_event_around(self, placement: SessionPlacement, event_pk: int) -> None:
         try:
             widen_event_dates(
                 events=self._repos.events,
-                event_pk=event.pk,
+                event_pk=event_pk,
                 start=placement.start_time,
                 end=placement.end_time,
             )
@@ -460,34 +446,6 @@ class TimetableService(TimetableServiceProtocol):
                 "start_time is before the event's publication_time; move the "
                 "publication first (update_event)",
             ) from error
-        touched = [
-            slot
-            for slot in slots
-            if slot.start_time <= placement.end_time
-            and slot.end_time >= placement.start_time
-        ]
-        # NOTE: slots are shared with the proposals that picked them, so a drop
-        # away from every slot opens its own window instead of dragging the
-        # nearest one (and those picks) across the gap.
-        if not touched:
-            self._repos.time_slots.create(
-                event.pk, placement.start_time, placement.end_time
-            )
-            return
-        # Stretch the first touched slot back to the placement's start and
-        # the last one out to its end; the ones between close their gaps so
-        # the windows merge into one that holds the whole placement.
-        first, *rest = touched
-        reaches = [slot.start_time for slot in rest] + [placement.end_time]
-        for slot, reach in zip(touched, reaches, strict=True):
-            start = (
-                min(slot.start_time, placement.start_time)
-                if slot is first
-                else slot.start_time
-            )
-            end = max(slot.end_time, reach)
-            if (start, end) != (slot.start_time, slot.end_time):
-                self._repos.time_slots.update(slot.pk, start, end)
 
     @staticmethod
     def _require_placeable(placement: SessionPlacement) -> None:
@@ -542,7 +500,9 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
-            self._widen_time_slots_around(placement, event)
+            # Programme placed past the event's edges moves the edges; the
+            # grid's hours follow the items, so nothing else has to be told.
+            self._widen_event_around(placement, event_pk)
             self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,
@@ -625,8 +585,8 @@ class TimetableService(TimetableServiceProtocol):
                     end_time=log.old_end_time,
                 )
                 # Undo restores a placement that was legitimate when it was
-                # made, so the time-slot windows are not re-checked here: a
-                # window edited afterwards must not strand the change log.
+                # made, so the event's own bounds are not re-checked here:
+                # dates edited afterwards must not strand the change log.
                 self._require_placeable(restored)
                 self._require_accepted(log.session_id)
                 self._repos.agenda_items.create(
@@ -657,20 +617,6 @@ class TimetableService(TimetableServiceProtocol):
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time
             self._repos.schedule_change_logs.create(revert_log)
-
-
-def _slot_start(slot: TimeSlotDTO) -> datetime:
-    return slot.start_time
-
-
-def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, datetime]]:
-    merged: list[tuple[datetime, datetime]] = []
-    for slot in sorted(slots, key=_slot_start):
-        if merged and slot.start_time <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], slot.end_time))
-        else:
-            merged.append((slot.start_time, slot.end_time))
-    return merged
 
 
 def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
@@ -727,7 +673,8 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         track_pk: int | None,
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
-    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]:
+        tz: tzinfo,
+    ) -> tuple[list[ConflictDTO], list[OfferedTimeViolationDTO]]:
         # The grid has already loaded the event's items and space nodes, and
         # both warnings run off the same subjects. Taking them as arguments
         # keeps one render to one load of each instead of three.
@@ -739,7 +686,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         subjects = self._subjects(context, track_pk)
         return (
             self._conflicts(subjects=subjects, context=context, track_pk=track_pk),
-            self._violations(subjects, track_pk),
+            self._violations(subjects, track_pk, tz),
         )
 
     def _subjects(
@@ -937,9 +884,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             result.append(conflict.model_copy(update=update))
         return result
 
-    def list_preferred_slot_violations(
-        self, event_pk: int, track_pk: int | None
-    ) -> list[PreferredSlotViolationDTO]:
+    def list_offered_time_violations(
+        self, *, event_pk: int, track_pk: int | None, tz: tzinfo
+    ) -> list[OfferedTimeViolationDTO]:
         if track_pk is not None:
             require_track_in_event(
                 tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
@@ -951,51 +898,46 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 else self._repos.agenda_items.list_by_track(track_pk)
             ),
             track_pk,
+            tz,
         )
 
     def _violations(
-        self, scheduled: list[AgendaItemDTO], track_pk: int | None
-    ) -> list[PreferredSlotViolationDTO]:
+        self, scheduled: list[AgendaItemDTO], track_pk: int | None, tz: tzinfo
+    ) -> list[OfferedTimeViolationDTO]:
         if not scheduled:
             return []
 
-        preferred_by_session = (
-            self._repos.sessions.read_preferred_time_slots_by_sessions(
-                {item.session_id for item in scheduled}
-            )
+        offered_by_session = self._repos.sessions.read_availability_by_sessions(
+            {item.session_id for item in scheduled}
         )
 
-        violating: list[tuple[AgendaItemDTO, list[TimeSlotDTO]]] = []
+        violating: list[tuple[AgendaItemDTO, list[AvailabilityDTO]]] = []
         for item in scheduled:
-            if not (preferred := preferred_by_session.get(item.session_id, [])):
+            if not (offered := offered_by_session.get(item.session_id, [])):
                 continue
-            if any(
-                start <= item.start_time and end >= item.end_time
-                for start, end in _merged_slot_ranges(preferred)
-            ):
+            # The facilitator answered about the programme day and the part of
+            # it, so a block opening at 01:00 is judged against the evening it
+            # grew out of, not against the next morning.
+            placed = (programme_date(item.start_time, tz), part_of(item.start_time, tz))
+            if placed in {(entry.day, entry.part) for entry in offered}:
                 continue
-            violating.append((item, preferred))
+            violating.append((item, offered))
         if not violating:
             return []
 
         attribution = self._foreign_track_attribution(
             {item.session_id for item, _ in violating}, track_pk
         )
-        violations: list[PreferredSlotViolationDTO] = []
-        for item, preferred in violating:
+        violations: list[OfferedTimeViolationDTO] = []
+        for item, offered in violating:
             track_name, managers = attribution.get(item.session_id, (None, []))
             violations.append(
-                PreferredSlotViolationDTO(
+                OfferedTimeViolationDTO(
                     session_pk=item.session_id,
                     session_title=item.session_title,
                     scheduled_start=item.start_time,
                     scheduled_end=item.end_time,
-                    preferred_slots=[
-                        PreferredSlotRangeDTO(
-                            start_time=slot.start_time, end_time=slot.end_time
-                        )
-                        for slot in preferred
-                    ],
+                    availability=list(offered),
                     track_name=track_name,
                     manager_names=managers,
                 )
@@ -1034,24 +976,21 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
             if item.space_id in space_pk_set:
                 space_items[item.space_id].append(item)
 
-        windows_by_date = slot_windows_by_local_date(
-            self._repos.time_slots.list_by_event(event_pk), tz
+        event = self._repos.events.read(event_pk)
+        hours = event_opening_hours(
+            start=event.start_time,
+            end=event.end_time,
+            occupied=[(item.start_time, item.end_time) for item in all_items],
+            tz=tz,
+            snap_minutes=TIMETABLE_SLOT_MINUTES,
         )
 
         slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
         days: list[HeatmapDayDTO] = []
         all_rows: list[HeatmapRowDTO] = []
 
-        for day_date in sorted(windows_by_date.keys()):
-            day_windows = windows_by_date[day_date]
-            day_start = min(w[0] for w in day_windows).replace(
-                minute=0, second=0, microsecond=0
-            )
-            latest_end = max(w[1] for w in day_windows)
-            day_end = latest_end.replace(minute=0, second=0, microsecond=0)
-            if latest_end != day_end:
-                day_end += slot_delta
-
+        for day_date in hours.dates:
+            day_start, day_end = _day_range(day_date, hours.span, tz)
             num_slots = int(
                 (day_end - day_start).total_seconds() / 60 / TIMETABLE_SLOT_MINUTES
             )
@@ -1131,21 +1070,30 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
             )
         return result
 
-    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
-        # Capacity = one program slot per room: every room is bookable for the
-        # whole of each event time slot. Scheduled = hours already occupied by
-        # placed agenda items in those rooms. Hours-to-fill is the remainder.
+    def capacity_hours(self, *, event_pk: int, tz: tzinfo) -> CapacityHoursDTO:
+        # Capacity = one programme hour per room per open hour. The event's
+        # own opening hours say how long a day runs; scheduled is what placed
+        # items already occupy in those rooms, and the rest is left to fill.
         rooms = _leaves_in_programme_order(self._repos.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 
-        slots = self._repos.time_slots.list_by_event(event_pk)
-        slot_hours = sum(_duration_hours(s.start_time, s.end_time) for s in slots)
+        items = self._repos.agenda_items.list_by_event(event_pk)
+        event = self._repos.events.read(event_pk)
+        hours = event_opening_hours(
+            start=event.start_time,
+            end=event.end_time,
+            occupied=[(item.start_time, item.end_time) for item in items],
+            tz=tz,
+            snap_minutes=TIMETABLE_SLOT_MINUTES,
+        )
+        span_start, span_end = hours.span
+        slot_hours = len(hours.dates) * (span_end - span_start) / 60
         capacity_hours = slot_hours * room_count
 
         room_pks = {s.pk for s in rooms}
         scheduled_hours = sum(
             _duration_hours(item.start_time, item.end_time)
-            for item in self._repos.agenda_items.list_by_event(event_pk)
+            for item in items
             if item.space_id in room_pks
         )
 

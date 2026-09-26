@@ -5,7 +5,7 @@ Builds a dedicated ``perf-marathon`` event spanning a weekend
 (Fri 16:00-22:00, Sat 10:00-22:00, Sun 10:00-16:00) with a full
 building/floor/space hierarchy, several tracks and proposal categories, and
 ``LARGE_EVENT_SESSIONS`` (default 600) accepted sessions each scheduled into
-its own (space, time-slot) cell. The space grid widens to fit the target.
+its own (space, window) cell. The space grid widens to fit the target.
 
 Faker generates the human-readable strings; a fixed seed keeps the data
 reproducible so perf numbers are comparable between runs.
@@ -48,7 +48,6 @@ from ludamus.links.db.django.models import (
     Session,
     Space,
     Sphere,
-    TimeSlot,
     Track,
 )
 
@@ -64,16 +63,20 @@ CATEGORIES = ("RPG", "Board Games", "Workshops", "LARP")
 fake = Faker()
 
 
-def _slots(event: Event) -> list[TimeSlot]:
+type Window = tuple[datetime, datetime]
+
+
+def _windows(event: Event) -> list[Window]:
+    # The programme's own cells. Nothing stores them any more: the grid reads
+    # its hours off the event and whatever ends up scheduled here.
     local_tz = get_current_timezone()
     friday = (event.start_time.astimezone(local_tz)).date()
-    return TimeSlot.objects.bulk_create(
-        TimeSlot(
-            event=event,
-            start_time=datetime.combine(
+    return [
+        (
+            datetime.combine(
                 friday + timedelta(days=day_offset), time(hour), tzinfo=local_tz
             ),
-            end_time=datetime.combine(
+            datetime.combine(
                 friday + timedelta(days=day_offset),
                 time(hour + SLOT_HOURS),
                 tzinfo=local_tz,
@@ -81,13 +84,15 @@ def _slots(event: Event) -> list[TimeSlot]:
         )
         for day_offset, start_hour, end_hour in DAY_RANGES
         for hour in range(start_hour, end_hour, SLOT_HOURS)
-    )
+    ]
 
 
-def _spaces_per_floor(*, target_sessions: int, slot_count: int) -> int:
-    # Enough rooms that every session gets its own (space, slot) cell; the
+def _spaces_per_floor(*, target_sessions: int, window_count: int) -> int:
+    # Enough rooms that every session gets its own (space, window) cell; the
     # default grid stays at 600 so the numbers stay comparable across runs.
-    needed = math.ceil(target_sessions / (BUILDINGS * FLOORS_PER_BUILDING * slot_count))
+    needed = math.ceil(
+        target_sessions / (BUILDINGS * FLOORS_PER_BUILDING * window_count)
+    )
     return max(MIN_SPACES_PER_FLOOR, needed)
 
 
@@ -159,11 +164,11 @@ def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
         },
     )
 
-    slots = _slots(event)
+    windows = _windows(event)
     spaces, tracks = _spaces_and_tracks(
         event,
         spaces_per_floor=_spaces_per_floor(
-            target_sessions=target_sessions, slot_count=len(slots)
+            target_sessions=target_sessions, window_count=len(windows)
         ),
     )
 
@@ -179,7 +184,7 @@ def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
         for name in CATEGORIES
     ]
 
-    cells = [(space, slot) for space in spaces for slot in slots]
+    cells = [(space, window) for space in spaces for window in windows]
     if len(cells) < target_sessions:
         msg = f"grid holds {len(cells)} cells, need {target_sessions}"
         raise SystemExit(msg)
@@ -208,23 +213,23 @@ def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
             space=space,
             session=session,
             session_confirmed=True,
-            start_time=slot.start_time,
-            end_time=slot.end_time,
+            start_time=window[0],
+            end_time=window[1],
         )
-        for session, (space, slot) in zip(sessions, cells, strict=True)
+        for session, (space, window) in zip(sessions, cells, strict=True)
     )
 
     through = Session.tracks.through
     through.objects.bulk_create(
         through(session_id=session.pk, track_id=tracks[_building_of(space)].pk)
-        for session, (space, _slot) in zip(sessions, cells, strict=True)
+        for session, (space, _window) in zip(sessions, cells, strict=True)
     )
 
     scheduled = AgendaItem.objects.filter(session__event=event).count()
     assert scheduled == target_sessions, (scheduled, target_sessions)
     print(
         f"Seeded '{event.slug}': {scheduled} sessions across "
-        f"{len(spaces)} spaces and {len(slots)} time slots."
+        f"{len(spaces)} spaces and {len(windows)} programme hours."
     )
     return event
 

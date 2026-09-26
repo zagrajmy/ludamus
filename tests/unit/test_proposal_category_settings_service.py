@@ -1,12 +1,12 @@
-from contextlib import nullcontext
-from datetime import UTC, datetime, timedelta
+from contextlib import contextmanager, nullcontext
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.pacts import OrganizerFieldDTO
-from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO
 from ludamus.pacts.submissions import (
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,
@@ -18,6 +18,19 @@ class FakeTransaction:
     @staticmethod
     def atomic():
         return nullcontext()
+
+
+class RecordingTransaction:
+    def __init__(self) -> None:
+        self.active = False
+
+    @contextmanager
+    def atomic(self):
+        self.active = True
+        try:
+            yield
+        finally:
+            self.active = False
 
 
 def _category() -> ProposalCategoryDTO:
@@ -56,11 +69,6 @@ def _session_field(pk: int) -> OrganizerFieldDTO:
     )
 
 
-def _time_slot(pk: int) -> TimeSlotDTO:
-    start = datetime(2026, 8, 28, 10, tzinfo=UTC)
-    return TimeSlotDTO(pk=pk, start_time=start, end_time=start + timedelta(hours=1))
-
-
 def _data() -> ProposalCategorySettingsData:
     return ProposalCategorySettingsData(
         name="RPG",
@@ -78,9 +86,7 @@ def _data() -> ProposalCategorySettingsData:
         session_fields=RequirementSelectionDTO(
             requirements={2: False, 999: False}, order=[2, 999]
         ),
-        time_slots=RequirementSelectionDTO(
-            requirements={3: True, 999: True}, order=[999, 3]
-        ),
+        asks_availability=True,
     )
 
 
@@ -95,16 +101,49 @@ def _mock_repos() -> tuple[ProposalCategorySettingsRepos, MagicMock]:
     personal_fields.list_by_event.return_value = [_personal_field(1)]
     session_fields = MagicMock()
     session_fields.list_by_event.return_value = [_session_field(2)]
-    time_slots = MagicMock()
-    time_slots.list_by_event.return_value = [_time_slot(3)]
     repos = ProposalCategorySettingsRepos(
         categories=categories,
         personal_fields=personal_fields,
         session_fields=session_fields,
-        time_slots=time_slots,
         sessions=MagicMock(),
     )
     return repos, categories
+
+
+def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
+    transaction = RecordingTransaction()
+    repos, categories = _mock_repos()
+    mutations = (
+        categories.update,
+        categories.set_field_requirements,
+        categories.set_session_field_requirements,
+    )
+    for mutation in mutations:
+        mutation.side_effect = lambda *_args: assert_transaction_active(transaction)
+
+    _service(transaction, repos).update(event_id=4, category_slug="rpg", data=_data())
+
+    categories.read_by_slug.assert_called_once_with(4, "rpg")
+    categories.update.assert_called_once_with(
+        7,
+        {
+            "name": "RPG",
+            "description": "Games",
+            "start_time": None,
+            "end_time": None,
+            "durations": ["PT4H"],
+            "min_participants_limit": 2,
+            "max_participants_limit": 5,
+            "promotion_mode": PromotionMode.OFFER_CLAIM,
+            "offer_claim_window": timedelta(minutes=30),
+            "asks_availability": True,
+        },
+    )
+    categories.set_field_requirements.assert_called_once_with(7, {1: True}, [1])
+    categories.set_session_field_requirements.assert_called_once_with(
+        7, {2: False}, [2]
+    )
+    assert transaction.active is False
 
 
 def test_update_leaves_promotion_config_untouched_when_not_submitted() -> None:
@@ -132,10 +171,8 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     ]
     categories.get_field_order.return_value = [3, 1]
     categories.get_session_field_order.return_value = []
-    categories.get_time_slot_order.return_value = []
     categories.get_field_requirements.return_value = {3: True}
     categories.get_session_field_requirements.return_value = {}
-    categories.get_time_slot_requirements.return_value = {}
     proposal_count = 5
     repos.sessions.count_by_category.return_value = proposal_count
 
@@ -143,3 +180,7 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
 
     assert [field.pk for field in page.available_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
+
+
+def assert_transaction_active(transaction: RecordingTransaction) -> None:
+    assert transaction.active is True

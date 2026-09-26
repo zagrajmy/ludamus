@@ -2,7 +2,7 @@
 """Seed timetable data for Playwright end-to-end tests.
 
 Creates a DEDICATED ``sunhaven-festival`` event (separate from the read-only
-``autumn-open`` event) with a track, spaces, a category, a time slot, and
+``autumn-open`` event) with a track, spaces, a category, and
 accepted (unscheduled) sessions so the timetable e2e tests can exercise
 search, assign, unassign, conflict detection, and log/revert.
 
@@ -20,7 +20,7 @@ Usage:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
@@ -37,6 +37,7 @@ django.setup()
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
+from ludamus.pacts.availability import DayPart
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -44,11 +45,22 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     Space,
-    TimeSlot,
-    TimeSlotRequirement,
+    SessionAvailability,
     Track,
     User,
 )
+
+
+def _offer_days(session: Session, days: list[date]) -> None:
+    # Morning is the part the seeded programme actually runs in, so an offered
+    # day reads as genuinely offered rather than as a violation.
+    SessionAvailability.objects.bulk_create(
+        (
+            SessionAvailability(session=session, day=day, part=DayPart.MORNING)
+            for day in days
+        ),
+        ignore_conflicts=True,
+    )
 
 
 class _Booking(NamedTuple):
@@ -110,32 +122,24 @@ def main() -> None:
         defaults={"name": "Willow Table", "capacity": 8},
     )
 
-    # Morning blocks on consecutive days exercise the all-days schedule.
-    slot_day_one, _ = TimeSlot.objects.get_or_create(
-        event=event,
-        start_time=datetime.combine(event_day, time(10, 0), tzinfo=local_tz),
-        end_time=datetime.combine(event_day, time(12, 0), tzinfo=local_tz),
-    )
+    # Two consecutive days exercise the all-days schedule. Nothing stores the
+    # windows any more; these are just the hours the seeded programme uses.
     second_day = event_day + timedelta(days=1)
-    slot_day_two, _ = TimeSlot.objects.get_or_create(
-        event=event,
-        start_time=datetime.combine(second_day, time(10, 0), tzinfo=local_tz),
-        end_time=datetime.combine(second_day, time(12, 0), tzinfo=local_tz),
-    )
-    slots: list[TimeSlot] = [slot_day_one, slot_day_two]
+    day_one_start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
+    day_one_end = datetime.combine(event_day, time(12, 0), tzinfo=local_tz)
+    day_two_start = datetime.combine(second_day, time(10, 0), tzinfo=local_tz)
+    day_two_end = datetime.combine(second_day, time(12, 0), tzinfo=local_tz)
+    event_days = [event_day, second_day]
 
     # Category
     cat, _ = ProposalCategory.objects.get_or_create(
         event=event, slug="rpg", defaults={"name": "RPG"}
     )
 
-    # Wire time slots to the category so the proposal form offers them
-    for order, slot in enumerate(slots):
-        TimeSlotRequirement.objects.get_or_create(
-            category=cat,
-            time_slot=slot,
-            defaults={"is_required": False, "order": order},
-        )
+    # Ask proposers in this category which days they could host.
+    if not cat.asks_availability:
+        cat.asks_availability = True
+        cat.save(update_fields=["asks_availability"])
 
     # A pre-scheduled, over-capacity session so the conflict panel exercises
     # its "conflict" rendering path (capacity_exceeded: a 24-seat session in an
@@ -160,8 +164,8 @@ def main() -> None:
         session=overflow,
         defaults={
             "session_confirmed": True,
-            "start_time": slot_day_one.start_time,
-            "end_time": slot_day_one.end_time,
+            "start_time": day_one_start,
+            "end_time": day_one_end,
         },
     )
 
@@ -205,8 +209,8 @@ def main() -> None:
         space=space_b,
         session=foreign_session,
         defaults={
-            "start_time": slot_day_two.start_time,
-            "end_time": slot_day_two.start_time + timedelta(hours=1),
+            "start_time": day_two_start,
+            "end_time": day_two_start + timedelta(hours=1),
         },
     )
 
@@ -247,7 +251,10 @@ def main() -> None:
     )
     misplaced.tracks.add(track)
     misplaced.facilitators.add(cleo)
-    misplaced.time_slots.set([slot_day_one])
+    # Offered for the first morning; it is placed on the second one.
+    SessionAvailability.objects.get_or_create(
+        session=misplaced, day=event_day, part=DayPart.MORNING
+    )
     AgendaItem.objects.get_or_create(
         space=space_b,
         session=misplaced,
@@ -255,8 +262,8 @@ def main() -> None:
             "session_confirmed": False,
             # The hour after the other track's booking, so the two share a room
             # without clashing -- a clash would outrank the slot warning.
-            "start_time": slot_day_two.start_time + timedelta(hours=1),
-            "end_time": slot_day_two.end_time,
+            "start_time": day_two_start + timedelta(hours=1),
+            "end_time": day_two_end,
         },
     )
 
@@ -278,7 +285,7 @@ def main() -> None:
     if created:
         s1.tracks.add(track)
         s1.facilitators.add(alice)
-        s1.time_slots.set(slots)  # prefers morning slot
+        _offer_days(s1, event_days)
 
     s2, created = Session.objects.get_or_create(
         event=event,
@@ -297,7 +304,7 @@ def main() -> None:
     if created:
         s2.tracks.add(track)
         s2.facilitators.add(alice)
-        s2.time_slots.set(slots)  # prefers morning slot
+        _offer_days(s2, event_days)
 
     s3, created = Session.objects.get_or_create(
         event=event,
@@ -316,7 +323,7 @@ def main() -> None:
     if created:
         s3.tracks.add(track)
         s3.facilitators.add(bob)
-        # no preferred time slot for s3
+        # s3 offers no days at all
 
     all_days_session, created = Session.objects.get_or_create(
         event=event,
@@ -335,7 +342,7 @@ def main() -> None:
     if created:
         all_days_session.tracks.add(track)
         all_days_session.facilitators.add(bob)
-        all_days_session.time_slots.set(slots)
+        _offer_days(all_days_session, event_days)
 
     _seed_room_pager_event(sphere=sphere, event_day=event_day)
     _seed_problems_event(sphere=sphere, event_day=event_day)
@@ -369,9 +376,6 @@ def _seed_room_pager_event(*, sphere, event_day) -> None:
             slug=f"berth-{index}",
             defaults={"name": f"Berth {index}", "order": index},
         )
-    TimeSlot.objects.get_or_create(
-        event=event, start_time=start, end_time=start + timedelta(hours=2)
-    )
 
 
 def _seed_problems_event(*, sphere, event_day) -> None:
@@ -408,10 +412,6 @@ def _seed_problems_event(*, sphere, event_day) -> None:
             (("Amber Room", 6), ("Basalt Room", 10), ("Cobalt Room", 8))
         )
     }
-    morning, _ = TimeSlot.objects.get_or_create(
-        event=event, start_time=at(10), end_time=at(12)
-    )
-    TimeSlot.objects.get_or_create(event=event, start_time=at(13), end_time=at(16))
     category, _ = ProposalCategory.objects.get_or_create(
         event=event, slug="rpg", defaults={"name": "RPG"}
     )
@@ -482,7 +482,7 @@ def _seed_problems_event(*, sphere, event_day) -> None:
                 "end_time": booking.start + timedelta(hours=1),
             },
         )
-    Session.objects.get(event=event, slug="moonlit-duel").time_slots.set([morning])
+    _offer_days(Session.objects.get(event=event, slug="moonlit-duel"), [event_day])
 
 
 def _seed_room_clash_event(*, sphere, event_day) -> None:
@@ -510,9 +510,6 @@ def _seed_room_clash_event(*, sphere, event_day) -> None:
         parent=hall,
         slug="heron-room",
         defaults={"name": "Heron Room", "capacity": 8},
-    )
-    TimeSlot.objects.get_or_create(
-        event=event, start_time=start, end_time=start + timedelta(hours=3)
     )
     category, _ = ProposalCategory.objects.get_or_create(
         event=event, slug="rpg", defaults={"name": "RPG"}

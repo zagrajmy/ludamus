@@ -1725,7 +1725,7 @@ class TestProposalDetailPageView:
                 ],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),

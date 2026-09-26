@@ -13,7 +13,6 @@ from django.db import models
 from django.db.models import F, Q
 from django.db.models.functions import Lower
 from django.utils import timezone
-from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.links.db.django.uploads import unique_upload_to
@@ -24,6 +23,7 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
@@ -884,47 +884,6 @@ class Space(models.Model):
             )
 
 
-class TimeSlot(models.Model):
-    # Owner
-    event = models.ForeignKey(
-        Event, on_delete=models.CASCADE, related_name="time_slots"
-    )
-    # Time
-    end_time = models.DateTimeField()
-    start_time = models.DateTimeField()
-
-    class Meta:
-        db_table = "time_slot"
-        constraints = (
-            models.UniqueConstraint(
-                fields=("event", "start_time", "end_time"),
-                name="timeslot_has_unique_times_for_event",
-            ),
-            models.CheckConstraint(
-                condition=Q(start_time__lt=F("end_time")), name="timeslot_date_times"
-            ),
-        )
-
-    def __str__(self) -> str:
-        ts_format = "%Y-%m-%d %H:%M"
-        start = localtime(self.start_time).strftime(ts_format)
-        if self.start_time.date() == self.end_time.date():
-            ts_format = "%H:%M"
-        end = localtime(self.end_time).strftime(ts_format)
-        return f"{start} - {end} ({self.id})"
-
-    def validate_unique(self, exclude: Collection[str] | None = None) -> None:
-        super().validate_unique(exclude)
-        event_slots = TimeSlot.objects.filter(event=self.event)
-        conflicted = event_slots.filter(
-            Q(start_time__gt=self.start_time, start_time__lt=self.end_time)
-            | Q(end_time__gt=self.start_time, end_time__lt=self.end_time)
-            | Q(start_time__lte=self.start_time, end_time__gte=self.end_time)
-        ).last()
-        if conflicted and conflicted != self:
-            raise ValidationError(_("Time slots can't overlap!"))
-
-
 class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -1125,8 +1084,6 @@ class Session(SoftDeleteModel):
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
-    # Preferences
-    time_slots = models.ManyToManyField(TimeSlot, blank=True)
     # Status
     status = models.CharField(
         max_length=15,
@@ -1225,6 +1182,38 @@ class Session(SoftDeleteModel):
         return any(config.is_session_eligible(self) for config in active_configs)
 
 
+class SessionAvailability(models.Model):
+    """A part of a programme day the facilitator could run this session in.
+
+    Availability belongs to the offer, so it lives on the session rather than
+    on the event, and it is answered in named parts rather than clock times:
+    the proposer knows they are free on Friday evening, not that the room
+    opens at 18:30. Days come from the event's own dates, so there is nothing
+    to configure before the question can be asked.
+    """
+
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="availability"
+    )
+    day = models.DateField()
+    part = models.CharField(
+        max_length=9, choices=[(part.value, part.name) for part in DayPart]
+    )
+
+    class Meta:
+        db_table = "session_availability"
+        ordering: ClassVar = ["day", "part"]
+        constraints = (
+            models.UniqueConstraint(
+                fields=("session", "day", "part"),
+                name="session_has_unique_availability",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.day.isoformat()} {self.part} ({self.id})"
+
+
 class AgendaItem(models.Model):
     space = models.ForeignKey(
         Space, on_delete=models.CASCADE, related_name="agenda_items"
@@ -1289,6 +1278,13 @@ class ProposalCategory(models.Model):
     # Settings
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
+    asks_availability = models.BooleanField(
+        default=False,
+        help_text=(
+            "Ask proposers when they could run this. Off by default:"
+            " most categories do not need it."
+        ),
+    )
     durations = models.JSONField(
         default=list
     )  # ISO 8601 durations, e.g. ["PT30M", "PT1H"]
@@ -1645,33 +1641,6 @@ class SessionFieldValue(models.Model):
     def __str__(self) -> str:
         value_preview = str(self.value)[:50]
         return f"{self.field.name}: {value_preview}"
-
-
-class TimeSlotRequirement(models.Model):
-    """Specifies which time slots are available for a proposal category."""
-
-    category = models.ForeignKey(
-        ProposalCategory,
-        on_delete=models.CASCADE,
-        related_name="time_slot_requirements",
-    )
-    time_slot = models.ForeignKey(
-        TimeSlot, on_delete=models.CASCADE, related_name="category_requirements"
-    )
-    is_required = models.BooleanField(default=True)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        db_table = "time_slot_requirement"
-        constraints = (
-            models.UniqueConstraint(
-                fields=("category", "time_slot"), name="unique_time_slot_per_category"
-            ),
-        )
-
-    def __str__(self) -> str:
-        req = "required" if self.is_required else "optional"
-        return f"Time slot ({req}) for {self.category.name}"
 
 
 class Encounter(models.Model):

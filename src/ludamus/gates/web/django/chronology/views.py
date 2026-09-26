@@ -21,6 +21,7 @@ from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
@@ -231,8 +232,6 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     # the venue unfinished gets the reason and the panel link, not a bounce.
     if not context.space_options:
         return "spaces"
-    if not context.time_slots:
-        return "time_slots"
     return None
 
 
@@ -258,13 +257,22 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
-                time_slot_id=form.cleaned_data["time_slot"],
+                start_time=form.cleaned_data["start_time"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(
                 None, _("There is already a session scheduled at this space and time.")
+            )
+            return self._render(request, context, form)
+        except EventPublicationInvalidError:
+            form.add_error(
+                "start_time",
+                _(
+                    "This is before the event is published. "
+                    "Move the publication time in the event settings first."
+                ),
             )
             return self._render(request, context, form)
 
@@ -315,8 +323,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "session": context.session,
                 "event": context.event,
                 "presenter": context.presenter,
-                "time_slots": context.time_slots,
-                "preferred_time_slot_ids": context.preferred_time_slot_ids,
+                "availability": context.availability,
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),

@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS
+from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS, event_opening_hours
 
 _TZ = ZoneInfo("Europe/Warsaw")
 
@@ -66,3 +66,92 @@ class TestProgrammeDays:
         assert PROGRAMME_DAYS.date_of(
             datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ
         ) == date(2026, 10, 24)
+
+
+class TestEventOpeningHours:
+    _SNAP = 60
+
+    def _hours(self, *, start, end, occupied=(), **extend):
+        return event_opening_hours(
+            start=start,
+            end=end,
+            occupied=occupied,
+            tz=_TZ,
+            snap_minutes=self._SNAP,
+            **extend,
+        )
+
+    def test_the_event_clock_times_set_the_span(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 11, 22, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11)]
+        assert hours.span == (16 * 60, 22 * 60)
+
+    def test_the_span_snaps_out_to_the_slot_grid(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, 20, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 21, 40, tzinfo=_TZ),
+        )
+
+        assert hours.span == (16 * 60, 22 * 60)
+
+    def test_something_scheduled_early_widens_the_span(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            occupied=[
+                (
+                    datetime(2026, 7, 10, 8, 30, tzinfo=_TZ),
+                    datetime(2026, 7, 10, 9, 30, tzinfo=_TZ),
+                )
+            ],
+        )
+
+        assert hours.span == (8 * 60, 22 * 60)
+
+    def test_something_scheduled_off_the_event_dates_adds_its_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            occupied=[
+                (
+                    datetime(2026, 7, 12, 9, tzinfo=_TZ),
+                    datetime(2026, 7, 12, 10, tzinfo=_TZ),
+                )
+            ],
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 12)]
+        assert hours.span == (9 * 60, 22 * 60)
+
+    def test_the_extend_arguments_reach_hours_nothing_occupies(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            extend_before_hours=2,
+            extend_after_hours=1,
+        )
+
+        assert hours.span == (14 * 60, 23 * 60)
+
+    def test_extending_stops_at_the_edges_of_the_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 2, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 23, tzinfo=_TZ),
+            extend_before_hours=5,
+            extend_after_hours=5,
+        )
+
+        assert hours.span == (0, 24 * 60)
+
+    def test_an_event_starting_and_ending_on_the_same_clock_time_still_opens(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 10, tzinfo=_TZ),
+            end=datetime(2026, 7, 12, 10, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11), date(2026, 7, 12)]
+        assert hours.span == (10 * 60, 18 * 60)

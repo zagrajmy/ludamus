@@ -14,6 +14,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.availability import availability_from_value
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
-        TimeSlotRequirementDTO,
         TrackDTO,
         UploadedFileProtocol,
         WizardData,
@@ -83,10 +83,8 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     ) -> list[SessionFieldRequirementDTO]:
         return self._repos.categories.list_session_field_requirements(category_id)
 
-    def get_timeslot_requirements(
-        self, category_id: int
-    ) -> list[TimeSlotRequirementDTO]:
-        return self._repos.categories.list_time_slot_requirements(category_id)
+    def asks_availability(self, category_id: int) -> bool:
+        return self._repos.categories.asks_availability(category_id)
 
     def get_public_tracks(self, event_id: int) -> list[TrackDTO]:
         return self._repos.tracks.list_public_by_event(event_id)
@@ -151,7 +149,11 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         raw_limit = session_data.get("participants_limit") or 0
         participants_limit = int(str(raw_limit))
         category_id = wizard_data["category_id"]
-        time_slot_ids = wizard_data.get("time_slot_ids", [])
+        offered = [
+            entry
+            for raw in wizard_data.get("availability", [])
+            if (entry := availability_from_value(raw)) is not None
+        ]
 
         if user_id is not None and user_slug is not None:
             current_user = self._repos.users.read(user_slug)
@@ -191,9 +193,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 create_data["cover_image"] = cover_image
 
             session_id = self._repos.sessions.create(
-                create_data,
-                time_slot_ids=time_slot_ids,
-                facilitator_ids=[facilitator.pk],
+                create_data, availability=offered, facilitator_ids=[facilitator.pk]
             )
 
             self._save_session_field_values(

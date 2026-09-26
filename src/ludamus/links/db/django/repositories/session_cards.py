@@ -43,8 +43,8 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SessionParticipationStatus,
     SessionStatus,
-    TimeSlotDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
 
 if TYPE_CHECKING:
@@ -314,7 +314,7 @@ def scheduled_session_cards(event: Event, *, roster_up_to: int) -> list[SessionC
             track_names=track_names.get(row.pk, []),
             category_name=row.category__name or "",
             participations=seats.get(row.pk, []),
-            preferred_time_slots=[],
+            offered_times=[],
             **_stats(row, active_configs=active_configs).model_dump(),
         )
         for row in rows
@@ -354,10 +354,13 @@ def _card_from_session(session: Session) -> SessionCardDTO:
             )
             for participation in session.session_participations.all()
         ],
-        preferred_time_slots=(
+        offered_times=(
             []
             if agenda_item is not None
-            else [TimeSlotDTO.model_validate(slot) for slot in session.time_slots.all()]
+            else [
+                AvailabilityDTO(day=row.day, part=DayPart(row.part))
+                for row in session.availability.all()
+            ]
         ),
         **session_card_stats(session).model_dump(),
     )
@@ -368,5 +371,5 @@ def proposal_cards(
 ) -> list[SessionCardDTO]:
     """Shape a review queue's proposals as cards, in the queue's order."""
     # Instances, not rows: the queue is short and comes with its relations
-    # prefetched (review_inbox_proposals), slots included.
+    # prefetched (review_inbox_proposals), availability included.
     return [_card_from_session(session) for session in proposals]

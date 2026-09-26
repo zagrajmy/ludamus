@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -19,24 +19,43 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
-    SLOT_MINUTES,
     assert_event_not_found,
     assert_not_a_manager,
     assign_payload,
-    empty_grid,
     event_day_start,
     grid_with,
     make_timetable_session,
 )
 
+OPEN_MINUTES = 8 * 60
 
-def _allow_assignments(event):
-    TimeSlotFactory(event=event, start_time=event.start_time, end_time=event.end_time)
+
+@pytest.fixture(name="event")
+def open_hours_event_fixture(sphere):
+    # The shared fixture runs from UTC midnight to a second short of the next
+    # one, which leaves its local clock window at a ragged 01:00-02:00. The
+    # grid is drawn from those hours, so pin them to whole local ones.
+    start = datetime(2026, 8, 6, 8, 0, tzinfo=UTC)  # 10:00 in Warsaw
+    return EventFactory(
+        sphere=sphere,
+        start_time=start,
+        end_time=start + timedelta(minutes=OPEN_MINUTES),
+    )
+
+
+def _event_grid(event, *, spaces, **overrides):
+    # Every day of the event, over the clock window the event itself opens --
+    # which leaves hours on both sides for the show-more controls.
+    return grid_with(
+        spaces=spaces,
+        day_start=event_day_start(event),
+        total_minutes=OPEN_MINUTES,
+        **overrides,
+    ).model_copy(update={"can_extend_before": True, "can_extend_after": True})
 
 
 class TestTimetableGridPartView:
@@ -68,7 +87,7 @@ class TestTimetableGridPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
             context_data={
-                "grid": empty_grid(),
+                "grid": _event_grid(event, spaces=[]),
                 "filter_track_pk": None,
                 "date_selection": "all",
                 "slug": event.slug,
@@ -83,21 +102,16 @@ class TestTimetableGridPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
             context_data={
-                "grid": empty_grid(),
+                "grid": _event_grid(event, spaces=[]),
                 "filter_track_pk": None,
                 "date_selection": "all",
                 "slug": event.slug,
             },
         )
 
-    def test_all_days_returns_each_day_grid(
-        self, panel_client, event, space, time_slot
-    ):
-        TimeSlotFactory(
-            event=event,
-            start_time=time_slot.start_time + timedelta(days=1),
-            end_time=time_slot.end_time + timedelta(days=1),
-        )
+    def test_all_days_returns_each_day_grid(self, panel_client, event, space):
+        event.end_time += timedelta(days=1)
+        event.save()
 
         response = panel_client.get(self.get_url(event), {"date": "all"})
 
@@ -106,12 +120,7 @@ class TestTimetableGridPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
             context_data={
-                "grid": grid_with(
-                    spaces=[space],
-                    day_start=event_day_start(event),
-                    extra_days=1,
-                    total_minutes=SLOT_MINUTES,
-                ),
+                "grid": _event_grid(event, spaces=[space], extra_days=1),
                 "filter_track_pk": None,
                 "date_selection": "all",
                 "slug": event.slug,
@@ -159,7 +168,6 @@ class TestTimetableAssignView:
     ):
         event.auto_confirm_sessions = True
         event.save()
-        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -180,14 +188,9 @@ class TestTimetableAssignView:
         assert session.status == "accepted"
         assert session.agenda_item.session_confirmed is True
 
-    def test_assign_away_from_the_time_slot_opens_one_and_widens_the_event(
+    def test_assign_past_the_event_end_stretches_the_event(
         self, panel_client, event, proposal_category
     ):
-        slot = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -203,22 +206,13 @@ class TestTimetableAssignView:
         )
 
         assert_response(response, HTTPStatus.NO_CONTENT)
-        slot.refresh_from_db()
         event.refresh_from_db()
-        assert (slot.start_time, slot.end_time) == (
-            event.start_time,
-            event.start_time + timedelta(hours=2),
-        )
-        assert event.time_slots.filter(
-            start_time=start_time, end_time=end_time
-        ).exists()
         assert event.end_time == end_time
         assert AgendaItem.objects.get(session=session).start_time == start_time
 
     def test_assign_before_publication_is_refused_with_a_reason(
         self, panel_client, event, proposal_category
     ):
-        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -247,7 +241,6 @@ class TestTimetableAssignView:
         self, panel_client, sphere
     ):
         event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
-        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
@@ -271,7 +264,6 @@ class TestTimetableAssignView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(self, panel_client, event, proposal_category):
-        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -320,7 +312,6 @@ class TestTimetableAssignView:
     def test_reassigns_already_scheduled_session_to_new_slot(
         self, panel_client, event, proposal_category
     ):
-        _allow_assignments(event)
         old_space = SpaceFactory(event=event)
         new_space = SpaceFactory(event=event)
         session = make_timetable_session(
@@ -365,7 +356,6 @@ class TestTimetableAssignView:
         # A concurrent unassign can remove the placement between the committed
         # write and the advisory conflict sweep; the response must stay 204.
         sphere.managers.add(active_user)
-        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,

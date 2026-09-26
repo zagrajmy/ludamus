@@ -1,0 +1,43 @@
+{% load i18n %}
+<div id="wizard-content">
+    {% include "event/propose/parts/_proposal_description.html" %}
+    {% include "event/propose/parts/_stepper.html" %}
+    {% if day_descriptors|default:"" %}
+        <h2 class="text-lg font-semibold mb-1">{% translate "When could you host?" %}</h2>
+        <p class="text-sm text-foreground-muted mb-5">{% translate "Tick every time that would work. We settle the exact hours later." %}</p>
+        {% if error|default:"" %}<div class="alert backdrop-blur-lg alert-danger mb-4">{{ error }}</div>{% endif %}
+        <form method="post"
+              hx-post="{% url 'web:event:session-propose-days' event_slug=event.slug %}"
+              hx-target="#wizard-content"
+              hx-swap="outerHTML show:#wizard-content:top">
+            {% csrf_token %}
+            <div class="space-y-5">
+                {% for entry in day_descriptors %}
+                    <div>
+                        <h3 class="text-sm font-medium text-foreground mb-2">{{ entry.day|date:"l, d M" }}</h3>
+                        {% include "components/choice-chips.html" with name="availability" options=entry.parts only %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3 pt-6">
+                <button type="button"
+                        class="btn btn-secondary"
+                        hx-post="{% url 'web:event:session-propose-personal' event_slug=event.slug %}"
+                        hx-target="#wizard-content"
+                        hx-swap="outerHTML show:#wizard-content:top"
+                        hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>
+                <button type="submit" class="btn btn-primary">{% translate "Continue" %} →</button>
+            </div>
+        </form>
+    {% elif submitted|default:False %}
+        <p class="text-sm text-foreground-muted">{% translate "Availability saved. Next step coming soon." %}</p>
+    {% else %}
+        <p class="text-sm text-foreground-muted">{% translate "No availability to pick. Proceeding to next step." %}</p>
+        <div hx-post="{% url 'web:event:session-propose-days' event_slug=event.slug %}"
+             hx-target="#wizard-content"
+             hx-swap="outerHTML show:#wizard-content:top"
+             hx-trigger="load"
+             hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+             hx-vals='{"skip": "1"}'></div>
+    {% endif %}
+</div>

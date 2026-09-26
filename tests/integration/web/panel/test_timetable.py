@@ -10,14 +10,12 @@ from django.utils.timezone import localtime
 from ludamus.links.db.django.models import Facilitator, Space, Track
 from ludamus.pacts import EventDTO, ProposalCategoryDTO, TrackDTO
 from ludamus.pacts.chronology import MultiselectOptionDTO, SpaceGroupDTO
-from ludamus.pacts.legacy import SpaceDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
 )
 from tests.integration.utils import (
     assert_login_required,
@@ -25,20 +23,55 @@ from tests.integration.utils import (
     assert_response_404,
 )
 from tests.integration.web.panel.helpers import (
-    SLOT_MINUTES,
     assert_event_not_found,
     assert_not_a_manager,
-    empty_grid,
     event_day_start,
     grid_with,
     panel_context,
-    schedule_outside_preferred_slot,
+    schedule_outside_offered_time,
     schedule_session,
     session_position,
     timetable_tab_urls,
 )
 
 HOUR_MINUTES = 60
+OPEN_MINUTES = 8 * HOUR_MINUTES
+
+
+@pytest.fixture(name="event")
+def open_hours_event_fixture(sphere):
+    # The shared fixture runs from UTC midnight to a second short of the next
+    # one, which leaves its local clock window at a ragged 01:00-02:00. The
+    # grid is drawn from those hours, so pin them to whole local ones.
+    start = datetime(2026, 8, 6, 8, 0, tzinfo=UTC)  # 10:00 in Warsaw
+    return EventFactory(
+        sphere=sphere,
+        start_time=start,
+        end_time=start + timedelta(minutes=OPEN_MINUTES),
+    )
+
+
+def _open_grid(*, spaces, day_start, total_minutes, **overrides):
+    # An event that opens after midnight and closes before it leaves hours on
+    # both sides, so both show-more controls are live.
+    return grid_with(
+        spaces=spaces, day_start=day_start, total_minutes=total_minutes, **overrides
+    ).model_copy(update={"can_extend_before": True, "can_extend_after": True})
+
+
+def _event_grid(event, *, spaces, **overrides):
+    # Every day of the event, over the clock window the event itself opens.
+    return _open_grid(
+        spaces=spaces,
+        day_start=event_day_start(event),
+        total_minutes=OPEN_MINUTES,
+        **overrides,
+    )
+
+
+def _add_a_day(event):
+    event.end_time += timedelta(days=1)
+    event.save()
 
 
 def _base_context(event, **stats):
@@ -60,18 +93,14 @@ def _flat_space_options(event):
     ]
 
 
-def _grid_under(room, *, parent):
-    # An event with no time slots renders no days, so the grid is its room
-    # columns and nothing else -- and a nested room's header cell names the
-    # parent it hangs under, which `grid_with` only spells for top-level rooms.
-    return empty_grid().model_copy(
+def _grid_under(event, room, *, parent):
+    # A nested room's header cell names the parent it hangs under, which
+    # `grid_with` only spells for top-level rooms.
+    return _event_grid(event, spaces=[room]).model_copy(
         update={
-            "spaces": [SpaceDTO.model_validate(room)],
             "groups": [
                 SpaceGroupDTO(parent_pk=parent.pk, parent_name=parent.name, span=1)
-            ],
-            "total_spaces": 1,
-            "last_space_number": 1,
+            ]
         }
     )
 
@@ -89,7 +118,7 @@ def _page_context(event, *, stats=None, **overrides):
     return {
         **_base_context(event, **(stats or {})),
         "room_page": 1,
-        "grid": empty_grid(),
+        "grid": _event_grid(event, spaces=[]),
         "conflicts": [],
         "conflicts_count": 0,
         "categories": [],
@@ -157,13 +186,13 @@ class TestTimetablePageView:
         )
 
     def test_print_link_carries_track_and_day_filters(
-        self, authenticated_client, active_user, sphere, event, space, time_slot
+        self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
-        day = time_slot.start_time.date()
+        day = event_day_start(event).date()
 
         response = authenticated_client.get(
             self.get_url(event), {"track": track.pk, "date": day.isoformat()}
@@ -185,20 +214,13 @@ class TestTimetablePageView:
                 filter_track_pk=track.pk,
                 # The track has no rooms, so filtering by it empties the grid
                 # while the day still sets its span.
-                grid=grid_with(
-                    spaces=[],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
-                    date_selection=day,
-                ),
+                grid=_event_grid(event, spaces=[], date_selection=day),
                 date_selection=day,
                 print_url=expected_print_url,
             ),
         )
 
-    def test_grid_shows_spaces_and_time_labels(
-        self, panel_client, event, space, time_slot
-    ):
+    def test_grid_shows_spaces_and_time_labels(self, panel_client, event, space):
         response = panel_client.get(self.get_url(event))
 
         assert_response(
@@ -206,20 +228,11 @@ class TestTimetablePageView:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(
-                event,
-                stats={"rooms_count": 1},
-                grid=grid_with(
-                    spaces=[space],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
-                ),
+                event, stats={"rooms_count": 1}, grid=_event_grid(event, spaces=[space])
             ),
         )
-        assert time_slot is not None
 
-    def test_grid_contains_scheduled_session(
-        self, panel_client, event, session, space, time_slot
-    ):
+    def test_grid_contains_scheduled_session(self, panel_client, event, session, space):
         item = schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
@@ -231,10 +244,9 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats=_scheduled_stats(1),
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=[space],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
                             session_position(
@@ -245,16 +257,11 @@ class TestTimetablePageView:
                 ),
             ),
         )
-        assert time_slot is not None
 
     def test_all_days_render_side_by_side_with_canonical_url_state(
-        self, panel_client, event, space, time_slot
+        self, panel_client, event, space
     ):
-        second_slot = TimeSlotFactory(
-            event=event,
-            start_time=time_slot.start_time + timedelta(days=1),
-            end_time=time_slot.end_time + timedelta(days=1),
-        )
+        _add_a_day(event)
 
         response = panel_client.get(self.get_url(event), {"date": "all"})
 
@@ -265,21 +272,11 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": 1},
-                grid=grid_with(
-                    spaces=[space],
-                    day_start=event_day_start(event),
-                    extra_days=1,
-                    total_minutes=SLOT_MINUTES,
-                ),
+                grid=_event_grid(event, spaces=[space], extra_days=1),
             ),
         )
-        assert second_slot.start_time.date() == time_slot.start_time.date() + timedelta(
-            days=1
-        )
 
-    def test_grid_declares_one_track_per_room_per_day(
-        self, panel_client, event, time_slot
-    ):
+    def test_grid_declares_one_track_per_room_per_day(self, panel_client, event):
         room_count = 3
         day_count = 2
         # Named so the repository's (order, name) ordering fixes which room
@@ -288,11 +285,7 @@ class TestTimetablePageView:
             SpaceFactory(event=event, name=f"Room {index:02d}")
             for index in range(room_count)
         ]
-        TimeSlotFactory(
-            event=event,
-            start_time=time_slot.start_time + timedelta(days=1),
-            end_time=time_slot.end_time + timedelta(days=1),
-        )
+        _add_a_day(event)
 
         response = panel_client.get(self.get_url(event), {"date": "all"})
 
@@ -305,18 +298,11 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": room_count},
-                grid=grid_with(
-                    spaces=rooms,
-                    day_start=event_day_start(event),
-                    extra_days=day_count - 1,
-                    total_minutes=SLOT_MINUTES,
-                ),
+                grid=_event_grid(event, spaces=rooms, extra_days=day_count - 1),
             ),
         )
 
-    def test_single_schedule_day_offers_no_choice_of_day(
-        self, panel_client, event, time_slot
-    ):
+    def test_single_schedule_day_offers_no_choice_of_day(self, panel_client, event):
         response = panel_client.get(self.get_url(event))
 
         # One available date is what hides the day selector; the e2e run
@@ -325,19 +311,11 @@ class TestTimetablePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=_page_context(
-                event,
-                grid=grid_with(
-                    spaces=[],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
-                ),
-            ),
+            context_data=_page_context(event, grid=_event_grid(event, spaces=[])),
         )
-        assert time_slot is not None
 
     def test_grid_session_is_draggable_with_placement_data(
-        self, panel_client, event, session, space, time_slot
+        self, panel_client, event, session, space
     ):
         item = schedule_session(session=session, space=space, start=event.start_time)
 
@@ -350,10 +328,9 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats=_scheduled_stats(1),
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=[space],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
                             session_position(
@@ -369,11 +346,8 @@ class TestTimetablePageView:
         assert f'data-session-pk="{session.pk}"' in content
         assert 'data-confirmed="false"' in content
         assert 'title="Confirmed"' not in content
-        assert time_slot is not None
 
-    def test_grid_marks_confirmed_session(
-        self, panel_client, event, session, space, time_slot
-    ):
+    def test_grid_marks_confirmed_session(self, panel_client, event, session, space):
         start = event.start_time
         end = start + timedelta(hours=1)
         item = AgendaItemFactory(
@@ -393,10 +367,9 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats=_scheduled_stats(1),
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=[space],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
                             session_position(
@@ -410,7 +383,6 @@ class TestTimetablePageView:
         content = response.content.decode()
         assert 'data-confirmed="true"' in content
         assert 'title="Confirmed"' in content
-        assert time_slot is not None
 
     def test_filters_by_track(self, panel_client, event, space):
         track = Track.objects.create(
@@ -428,7 +400,7 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": 2},
-                grid=grid_with(spaces=[space]),
+                grid=_event_grid(event, spaces=[space]),
                 # The track filter is carried into the print link.
                 print_url=_print_url(
                     event, material="track-timetable", track=track.slug
@@ -473,7 +445,7 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=_grid_under(room, parent=floor),
+                grid=_grid_under(event, room, parent=floor),
                 space_options=[
                     MultiselectOptionDTO(value=space.pk, label="Aula", depth=0),
                     MultiselectOptionDTO(value=floor.pk, label="Floor 2", depth=0),
@@ -531,7 +503,7 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=_grid_under(room, parent=building),
+                grid=_grid_under(event, room, parent=building),
                 space_options=[
                     MultiselectOptionDTO(
                         value=building.pk, label="Building A", depth=0
@@ -546,11 +518,7 @@ class TestTimetablePageView:
         self, authenticated_client, active_user, sphere, event, session, space
     ):
         sphere.managers.add(active_user)
-        # On the hour, so the slot's own window is the grid's time axis.
-        start = event.start_time.replace(minute=0, second=0, microsecond=0)
-        TimeSlotFactory(
-            event=event, start_time=start, end_time=start + timedelta(hours=2)
-        )
+        start = event.start_time
         hers = AgendaItemFactory(
             session=session,
             space=space,
@@ -579,10 +547,9 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=[space],
-                    day_start=localtime(start),
-                    total_minutes=2 * HOUR_MINUTES,
                     sessions_by_space={
                         space.pk: [
                             session_position(
@@ -616,10 +583,7 @@ class TestTimetablePageView:
         self, authenticated_client, active_user, sphere, event, session, space
     ):
         sphere.managers.add(active_user)
-        start = event.start_time.replace(minute=0, second=0, microsecond=0)
-        TimeSlotFactory(
-            event=event, start_time=start, end_time=start + timedelta(hours=2)
-        )
+        start = event.start_time
         AgendaItemFactory(
             session=session,
             space=space,
@@ -643,11 +607,7 @@ class TestTimetablePageView:
                 event,
                 # Her session is scheduled, but a foreign pk matches nobody
                 # here, so the room's column comes back empty.
-                grid=grid_with(
-                    spaces=[space],
-                    day_start=localtime(start),
-                    total_minutes=2 * HOUR_MINUTES,
-                ),
+                grid=_event_grid(event, spaces=[space]),
                 # The sphere's events come back newest first.
                 events=[
                     EventDTO.model_validate(other_event),
@@ -680,7 +640,7 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": 2},
-                grid=grid_with(spaces=[space]),
+                grid=_event_grid(event, spaces=[space]),
                 print_url=_print_url(
                     event, material="track-timetable", track=track.slug
                 ),
@@ -710,7 +670,7 @@ class TestTimetablePageView:
         assert response.context["grid"].page == 1
 
     def test_room_pagination_renders_prev_and_next_on_middle_page(
-        self, panel_client, event, time_slot
+        self, panel_client, event
     ):
         room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1
         expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
@@ -732,10 +692,9 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": room_count},
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=rooms[page_start : page_start + TIMETABLE_ROOM_PAGE_SIZE],
-                    day_start=event_day_start(event),
-                    total_minutes=SLOT_MINUTES,
                     page=middle_page,
                     total_pages=expected_pages,
                     total_spaces=room_count,
@@ -743,14 +702,11 @@ class TestTimetablePageView:
                 room_page=middle_page,
             ),
         )
-        assert time_slot is not None
 
-    def test_grid_marks_session_outside_preferred_slot(
-        self, panel_client, event, proposal_category, space, time_slot
+    def test_grid_marks_session_outside_an_offered_time(
+        self, panel_client, event, proposal_category, space
     ):
-        # `time_slot` opens the grid at the event start; without it the window
-        # only covers the preferred slot and the violating block falls off it.
-        session = schedule_outside_preferred_slot(
+        session = schedule_outside_offered_time(
             event=event, category=proposal_category, space=space
         )
 
@@ -770,10 +726,9 @@ class TestTimetablePageView:
                     "total_proposals": 1,
                     "total_sessions": 2,
                 },
-                grid=grid_with(
+                grid=_event_grid(
+                    event,
                     spaces=[space],
-                    day_start=event_day_start(event),
-                    total_minutes=6 * HOUR_MINUTES,
                     sessions_by_space={
                         space.pk: [
                             session_position(
@@ -823,7 +778,14 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=_page_context(event),
+            context_data=_page_context(
+                event,
+                grid=_open_grid(
+                    day_start=localtime(event.start_time),
+                    total_minutes=9 * HOUR_MINUTES,
+                    spaces=[],
+                ),
+            ),
             contains="06 Aug 2026",
             not_contains="06 Aug - 06 Aug",
         )
@@ -843,6 +805,15 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=_page_context(event),
+            context_data=_page_context(
+                event,
+                # Three days over the clock window the first and last share.
+                grid=_open_grid(
+                    day_start=localtime(event.start_time),
+                    total_minutes=3 * HOUR_MINUTES,
+                    spaces=[],
+                    extra_days=2,
+                ),
+            ),
             contains="06 Aug - 08 Aug 2026",
         )

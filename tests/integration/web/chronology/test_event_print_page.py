@@ -28,7 +28,6 @@ from tests.integration.conftest import (
     EventFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
 )
 from tests.integration.utils import (
     NonEmptyStringMatcher,
@@ -541,19 +540,13 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response)
 
-    def test_session_list_ignores_tracks_and_slots(self, client, event, session, space):
-        # Two tracks and two slots: the retired one-track/one-slot gate would
-        # have hidden the list here.
+    def test_session_list_ignores_tracks(self, client, event, session, space):
+        # Two tracks: the retired one-track gate would have hidden the list
+        # here.
         tracks = [
             Track.objects.create(event=event, name=name, slug=slug, is_public=True)
             for name, slug in (("Focused Track", "focused-track"), ("Side", "side"))
         ]
-        for offset in (0, 2):
-            TimeSlotFactory(
-                event=event,
-                start_time=event.start_time + timedelta(hours=offset),
-                end_time=event.start_time + timedelta(hours=offset + 2),
-            )
         _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "session-list"})

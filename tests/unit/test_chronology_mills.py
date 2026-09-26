@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -19,7 +19,12 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
-from ludamus.pacts.chronology import ProposalAcceptDeniedError, SpaceTimeConflictError
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
+from ludamus.pacts.chronology import (
+    ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
+    SpaceTimeConflictError,
+)
 from ludamus.pacts.multiverse import SphereRole
 from tests.unit.factories import user_dto
 
@@ -127,6 +132,32 @@ class TestContentEditRevert:
         changes = [
             {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
             {"field": "", "field_id": 7, "old": 42, "new": "x"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
+            ),
+        )
+
+    def test_revert_skips_cover_image_and_assignment_changes(self, service, repos):
+        changes = [
+            {"field": "cover_image", "field_id": None, "old": "", "new": "(updated)"},
+            {"field": "facilitators", "field_id": None, "old": "Alice", "new": "Bob"},
+            {"field": "tracks", "field_id": None, "old": "A", "new": "B"},
+            {
+                "field": "availability",
+                "field_id": None,
+                "old": "2026-06-01 evening",
+                "new": "",
+            },
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
         ]
         repos.content_change_logs.read.return_value = self._log(changes=changes)
 
@@ -318,6 +349,8 @@ class TestSessionConfirmation:
 
 
 _NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+_DEFAULT_DURATION_MINUTES = 60
+_END = _NOW + timedelta(minutes=_DEFAULT_DURATION_MINUTES)
 _SESSION_PK = 5
 
 
@@ -378,19 +411,29 @@ class TestProposalAcceptanceService:
         return MagicMock()
 
     @pytest.fixture
+    def events(self, sessions):
+        events = MagicMock()
+        # Widening re-reads the event under its lock; that row is the session's.
+        events.read.side_effect = lambda _pk: sessions.read_event.return_value
+        return events
+
+    @pytest.fixture
     def transaction(self):
         transaction = MagicMock()
         transaction.atomic.return_value.__enter__.return_value = None
         return transaction
 
     @pytest.fixture
-    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+    def service(
+        self, transaction, sessions, agenda_items, active_users, spheres, events
+    ):
         return ProposalAcceptanceService(
             transaction=transaction,
             sessions=sessions,
             agenda_items=agenda_items,
             active_users=active_users,
             spheres=spheres,
+            events=events,
         )
 
     @staticmethod
@@ -399,10 +442,48 @@ class TestProposalAcceptanceService:
         sessions.read_event.return_value = _event_dto()
         sessions.read_presenter.return_value = None
         sessions.read_space_options.return_value = []
-        sessions.read_time_slots.return_value = []
-        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=_NOW.date(), part=DayPart.MORNING)
+        ]
         sessions.read_field_values.return_value = []
         active_users.read.return_value = _user_dto()
+
+    @staticmethod
+    def _arrange_accept(sessions):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_event.return_value = _event_dto(
+            start_time=_NOW - timedelta(days=1), end_time=_NOW + timedelta(days=1)
+        )
+
+    def test_get_accept_context_returns_none_when_session_missing(
+        self, service, sessions
+    ):
+        sessions.read.side_effect = NotFoundError
+
+        assert (
+            service.get_accept_context(session_id=5, user_slug="u", sphere_id=3) is None
+        )
+
+    def test_get_accept_context_assembles_dto(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="manager", sphere_id=3
+        )
+
+        assert isinstance(context, ProposalAcceptContextDTO)
+        assert context.session.pk == _SESSION_PK
+        assert context.event.slug == "con"
+        assert context.presenter is None
+        assert context.space_options == []
+        assert context.availability == [
+            AvailabilityDTO(day=_NOW.date(), part=DayPart.MORNING)
+        ]
+        assert context.duration_minutes == _DEFAULT_DURATION_MINUTES
+        assert context.can_accept is True
 
     def test_can_accept_true_for_superuser_without_manager_check(
         self, service, sessions, active_users, spheres
@@ -447,13 +528,59 @@ class TestProposalAcceptanceService:
         assert context.can_accept is False
         spheres.manager_role.assert_called_once_with(3, "member")
 
+    def test_accept_session_updates_status_and_creates_agenda_item(
+        self, service, sessions, agenda_items, transaction, active_users, spheres
+    ):
+        self._arrange_accept(sessions)
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, start_time=_NOW, user_slug="manager", sphere_id=3
+        )
+
+        # The end is the session's own length past the start, not a stored
+        # window: nothing but the proposal says how long it runs.
+        agenda_items.list_overlapping_in_space.assert_called_once_with(
+            7, _NOW, _END, exclude_session_pk=5
+        )
+        sessions.update.assert_called_once_with(
+            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": True,
+                "start_time": _NOW,
+                "end_time": _END,
+            }
+        )
+        transaction.atomic.assert_called_once_with()
+
+    def test_accept_session_past_the_event_end_widens_the_event(
+        self, service, sessions, agenda_items, active_users, spheres, events
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_event.return_value = _event_dto(
+            start_time=_NOW - timedelta(days=1), end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, start_time=_NOW, user_slug="manager", sphere_id=3
+        )
+
+        events.lock.assert_called_once_with(9)
+        events.update.assert_called_once_with(9, {"end_time": _END})
+
     def test_accept_session_raises_on_space_time_conflict(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
-        sessions.read_time_slot.return_value = SimpleNamespace(
-            start_time=_NOW, end_time=_NOW
-        )
+        self._arrange_accept(sessions)
         agenda_items.list_overlapping_in_space.return_value = [
             _make_item(pk=9, space_id=7)
         ]
@@ -464,7 +591,7 @@ class TestProposalAcceptanceService:
             service.accept_session(
                 session_id=5,
                 space_id=7,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )
@@ -475,15 +602,12 @@ class TestProposalAcceptanceService:
     def test_accept_session_allowed_for_superuser(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
-        sessions.read_time_slot.return_value = SimpleNamespace(
-            start_time=_NOW, end_time=_NOW
-        )
+        self._arrange_accept(sessions)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
 
         service.accept_session(
-            session_id=5, space_id=7, time_slot_id=2, user_slug="root", sphere_id=3
+            session_id=5, space_id=7, start_time=_NOW, user_slug="root", sphere_id=3
         )
 
         sessions.update.assert_called_once_with(
@@ -499,7 +623,11 @@ class TestProposalAcceptanceService:
 
         with pytest.raises(ProposalAcceptDeniedError):
             service.accept_session(
-                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+                session_id=5,
+                space_id=7,
+                start_time=_NOW,
+                user_slug="press",
+                sphere_id=3,
             )
 
         sessions.update.assert_not_called()
@@ -515,7 +643,7 @@ class TestProposalAcceptanceService:
             service.accept_session(
                 session_id=5,
                 space_id=7,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="member",
                 sphere_id=3,
             )

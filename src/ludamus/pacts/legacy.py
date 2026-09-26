@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.crowd import (
         CompanionRepositoryProtocol,
         UserDTO,
@@ -103,6 +104,7 @@ class PromotionMode(StrEnum):
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    asks_availability: bool = False
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -349,14 +351,6 @@ class TrackUpdateData(TypedDict):
     manager_pks: list[int]
 
 
-class TimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
@@ -523,6 +517,7 @@ class EnrollmentConfigDTO(BaseModel):
 
 
 class ProposalCategoryData(TypedDict, total=False):
+    asks_availability: bool
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -612,13 +607,6 @@ class SessionFieldRequirementDTO(BaseModel):
     is_required: bool
 
 
-class TimeSlotRequirementDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    time_slot: TimeSlotDTO
-    time_slot_id: int
-    is_required: bool
-
-
 class SessionFieldValueData(TypedDict):
     session_id: int
     field_id: int
@@ -637,7 +625,8 @@ class WizardData(TypedDict, total=False):
     contact_email: str
     personal_data: dict[str, str]
     session_data: dict[str, FieldValue | int]
-    time_slot_ids: list[int]
+    # Wire form, `YYYY-MM-DD:part`: the wizard lives in a JSON session.
+    availability: list[str]
     track_pks: list[int]
 
 
@@ -727,7 +716,7 @@ class SessionRepositoryProtocol(Protocol):
     def create(
         session_data: SessionData,
         *,
-        time_slot_ids: Iterable[int] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int: ...
@@ -768,19 +757,13 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def read_space_options(session_id: int) -> list[SpaceOptionDTO]: ...
     @staticmethod
-    def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
-    def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
+    def read_availability(session_id: int) -> list[AvailabilityDTO]: ...
     @staticmethod
-    def read_preferred_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read_preferred_time_slots_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[TimeSlotDTO]]: ...
+    ) -> dict[int, list[AvailabilityDTO]]: ...
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
@@ -816,7 +799,7 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
     @staticmethod
-    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None: ...
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None: ...
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
@@ -1010,6 +993,8 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def get_field_requirements(category_id: int) -> dict[int, bool]: ...
     @staticmethod
+    def asks_availability(category_id: int) -> bool: ...
+    @staticmethod
     def get_session_field_order(category_id: int) -> list[int]: ...
     @staticmethod
     def get_session_field_requirements(category_id: int) -> dict[int, bool]: ...
@@ -1030,23 +1015,11 @@ class ProposalCategoryRepositoryProtocol(Protocol):
         category_id: int,
     ) -> list[SessionFieldRequirementDTO]: ...
     @staticmethod
-    def list_time_slot_requirements(
-        category_id: int,
-    ) -> list[TimeSlotRequirementDTO]: ...
-    @staticmethod
     def set_field_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
     def set_session_field_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None: ...
-    @staticmethod
-    def get_time_slot_requirements(category_id: int) -> dict[int, bool]: ...
-    @staticmethod
-    def get_time_slot_order(category_id: int) -> list[int]: ...
-    @staticmethod
-    def set_time_slot_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
@@ -1148,31 +1121,6 @@ class SessionFieldRepositoryProtocol(Protocol):
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
-
-
-class TimeSlotRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(
-        event_id: int, start_time: datetime, end_time: datetime
-    ) -> TimeSlotDTO: ...
-    @staticmethod
-    def get_or_create(
-        event_id: int, start_time: datetime, end_time: datetime
-    ) -> int: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    @staticmethod
-    def has_proposals(pk: int) -> bool: ...
-    @staticmethod
-    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
-    @staticmethod
-    def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read(pk: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def read_by_event(event_id: int, pk: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def update(pk: int, start_time: datetime, end_time: datetime) -> TimeSlotDTO: ...
 
 
 class EventProposalSettingsRepositoryProtocol(Protocol):
@@ -1418,7 +1366,7 @@ class SessionContentEditData:
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
-    time_slot_ids: list[int] | None = None
+    availability: list[AvailabilityDTO] | None = None
     remove_field_ids: list[int] | None = None
 
 
@@ -1527,8 +1475,6 @@ class UnitOfWorkProtocol(Protocol):
     def spheres(self) -> SphereRepositoryProtocol: ...
     @property
     def spaces(self) -> SpaceRepositoryProtocol: ...
-    @property
-    def time_slots(self) -> TimeSlotRepositoryProtocol: ...
     @property
     def tracks(self) -> TrackRepositoryProtocol: ...
     @property

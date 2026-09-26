@@ -52,7 +52,6 @@ class _EventIds:
     categories: frozenset[int]
     facilitators: frozenset[int]
     tracks: frozenset[int]
-    time_slots: frozenset[int]
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -232,9 +231,6 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                 tracks=frozenset(
                     track.pk for track in self._repos.tracks.list_by_event(event_id)
                 ),
-                time_slots=frozenset(
-                    slot.pk for slot in self._repos.time_slots.list_by_event(event_id)
-                ),
             )
             self._known_ids[event_id] = ids
         return ids
@@ -248,7 +244,6 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             (set(draft.field_values), ids.fields),
             (set(draft.facilitator_ids), ids.facilitators),
             (set(draft.track_ids), ids.tracks),
-            (set(draft.time_slot_ids), ids.time_slots),
             ({category_id} if category_id is not None else set(), ids.categories),
         )
         if any(requested - known for requested, known in referenced):
@@ -290,6 +285,6 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             self._repos.sessions.save_field_values(session_id, answered)
         if draft.track_ids:
             self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
-        if draft.time_slot_ids:
-            self._repos.sessions.set_time_slots(session_id, draft.time_slot_ids)
+        if draft.availability:
+            self._repos.sessions.set_availability(session_id, draft.availability)
         return session_id

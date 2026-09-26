@@ -20,8 +20,8 @@ from ludamus.pacts import (
     SessionDTO,
     SessionFieldValueDTO,
     SessionStatus,
-    TimeSlotDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 
@@ -170,13 +170,11 @@ def mock_session_data() -> SessionData:
 
 
 def mock_session_proposal() -> SessionData:
-    """Build the card's unscheduled variant: no agenda item, preferred slots."""
+    """Build the card's unscheduled variant: no agenda item, available days."""
     data = mock_session_data()
     # Same week as the mock event, which sits seven days out — a proposal
-    # asking for a slot that already happened reads as a bug in the gallery.
-    start = (datetime.now(UTC) + timedelta(days=7)).replace(
-        hour=10, minute=0, second=0, microsecond=0
-    )
+    # offering a day that already passed reads as a bug in the gallery.
+    first_day = (datetime.now(UTC) + timedelta(days=7)).date()
     return replace(
         data,
         agenda_item=None,
@@ -184,13 +182,9 @@ def mock_session_proposal() -> SessionData:
         loc=NO_LOCATION,
         session_participations=[],
         enrolled_count=0,
-        preferred_time_slots=[
-            TimeSlotDTO(pk=1, start_time=start, end_time=start + timedelta(hours=2)),
-            TimeSlotDTO(
-                pk=2,
-                start_time=start + timedelta(hours=4),
-                end_time=start + timedelta(hours=6),
-            ),
+        offered_times=[
+            AvailabilityDTO(day=first_day, part=DayPart.EVENING),
+            AvailabilityDTO(day=first_day + timedelta(days=1), part=DayPart.MORNING),
         ],
     )
 
