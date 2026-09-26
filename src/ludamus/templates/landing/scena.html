@@ -32,7 +32,10 @@
                     <label for="k5"><b>05</b> <span class="max-[42rem]:sr-only">{% translate "Enrollment" %}</span></label>
                     <label for="k6"><b>06</b> <span class="max-[42rem]:sr-only">{% translate "Print" context "landing walkthrough step" %}</span></label>
                 </div>
-                <div class="@container mt-[1.1rem]">
+                <div class="@container mt-[1.1rem] overflow-x-auto rounded-[1.25rem]"
+                     tabindex="0"
+                     role="group"
+                     aria-label="{% translate 'The programme grid, scrollable sideways' %}">
                     <div class="stage">
                         <!-- context strip -->
                         <div class="ctx ctx1">
@@ -74,7 +77,7 @@
                             <span class="tl tl3">15:00</span>
                         </div>
                         <div class="cellwarn" aria-hidden="true">
-                            <span class="absolute -top-[0.7rem] left-[0.7rem] z-10 inline-flex h-[1.1rem] items-center bg-danger-bg text-danger-text border border-danger-light text-[0.58rem]/none font-bold tracking-[0.05em] uppercase text-box-trim-both px-[0.45rem] rounded-full">{% translate "Room conflict" %}</span>
+                            <span class="absolute -top-[0.7rem] left-[0.7rem] z-10 inline-flex h-[1.1rem] items-center whitespace-nowrap bg-danger-bg text-danger-text border border-danger-light text-[0.58rem]/none font-bold tracking-[0.05em] uppercase text-box-trim-both px-[0.45rem] rounded-full">{% translate "Room conflict" %}</span>
                         </div>
                         <!-- the travelling cast -->
                         <article class="chip cA">

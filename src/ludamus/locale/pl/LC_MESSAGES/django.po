@@ -7737,6 +7737,10 @@ msgid "Publish"
 msgstr "Publikacja"
 
 #: src/ludamus/templates/landing/scena.html
+msgid "The programme grid, scrollable sideways"
+msgstr "Siatka programu, przewijana w bok"
+
+#: src/ludamus/templates/landing/scena.html
 msgid "Proposal inbox"
 msgstr "Skrzynka zgłoszeń"
 
@@ -11867,9 +11871,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "The programme grid, scrollable sideways"
-#~ msgstr "Siatka programu, przewijana w bok"
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."

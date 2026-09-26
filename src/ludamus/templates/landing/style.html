@@ -334,11 +334,13 @@ themes — newsprint rather than white once the page around them is dark.
         outline-offset: 2px;
     }
 
-    /* Narrower than 40rem, the whole scene shrinks to fit instead of
+    /* Narrower than the stage, the whole scene shrinks to fit instead of
        scrolling sideways. tan(atan2()) turns the width ratio into the
-       unitless number zoom takes. */
+       unitless number zoom takes. It divides by px, not rem, so a larger
+       text size still enlarges the stage; the 0.45 floor keeps page zoom
+       from being cancelled out, and the wrapper scrolls past it. */
     .landing .stage {
-        zoom: min(1, tan(atan2(100cqw, 40rem)));
+        zoom: clamp(0.45, tan(atan2(100cqw, 640px)), 1);
         position: relative;
         min-width: 40rem;
         height: 34rem;
@@ -837,10 +839,10 @@ themes — newsprint rather than white once the page around them is dark.
         }
     }
 
-    /* Keyed to the same container width as the zoom: at 30rem the scene
+    /* Keyed to the same container width as the zoom: at 480px the scene
        sits at 0.75 and desktop type starts to fall under 9px, so it is set
        larger to land near 10-11px at phone zoom (about 0.55). */
-    @container (max-width: 30rem) {
+    @container (max-width: 480px) {
         .landing .ctx {
             gap: 0.6rem;
         }
