@@ -6,20 +6,22 @@ plus a transaction. First feature: claiming a managed profile.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from ludamus.mills.slugs import unique_slug
+from ludamus.mills.slugs import slug_base, unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
-    AuthProvisionDTO,
+    MAX_AVATAR_URL_LENGTH,
     AvatarPageDTO,
     ClaimOutcome,
     ClaimResultDTO,
     ClaimServiceProtocol,
     CompanionsServiceProtocol,
     CrowdAuthServiceProtocol,
+    LoginDTO,
     ProfileServiceProtocol,
     UserData,
 )
@@ -32,12 +34,20 @@ if TYPE_CHECKING:
         ClaimRepositoryProtocol,
         CompanionDTO,
         CompanionRepositoryProtocol,
+        IdentityDTO,
+        IdentityProviderProtocol,
         ProfileParticipationRepositoryProtocol,
         SphereDomainRepositoryProtocol,
         UserDTO,
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+logger = logging.getLogger(__name__)
+
+AUTH0_USERNAME_PREFIX = "auth0|"
+WORKOS_USERNAME_PREFIX = "workos|"
 
 
 def _token() -> str:
@@ -80,6 +90,44 @@ class ClaimService(ClaimServiceProtocol):
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)
 
 
+class LegacyAccountLinker:
+    """Finds the Auth0-era account behind a first WorkOS login and claims it.
+
+    TODO: https://github.com/zagrajmy/ludamus/issues/1402 — delete once no
+    active account is left on an auth0| username.
+    """
+
+    def __init__(self, *, users: UserRepositoryProtocol) -> None:
+        self._users = users
+
+    def adopt(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
+        if (legacy := self._find(identity)) is None:
+            return None
+        self._users.update(legacy.slug, {"username": username})
+        logger.info("Linked legacy account %s to %s", legacy.slug, username)
+        return self._users.read(legacy.slug)
+
+    def _find(self, identity: IdentityDTO) -> UserDTO | None:
+        # The import's external_id is authoritative: when it is set but its
+        # account is gone, an email match would land on someone else's row.
+        if identity.legacy_id:
+            with suppress(NotFoundError):
+                return self._users.read_by_username(
+                    f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
+                )
+            return None
+        if not identity.email_verified or not identity.email:
+            return None
+        with suppress(NotFoundError):
+            user = self._users.read_by_email(identity.email)
+            if user.username.startswith(AUTH0_USERNAME_PREFIX):
+                # SAFETY: Auth0 never verified the stored address, so this
+                # match is weaker than external_id; keep it visible.
+                logger.warning("Linking legacy account %s by verified email", user.slug)
+                return user
+        return None
+
+
 class CrowdAuthService(CrowdAuthServiceProtocol):
     def __init__(
         self,
@@ -88,36 +136,67 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         users: UserRepositoryProtocol,
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
+        identity: IdentityProviderProtocol,
+        legacy_accounts: LegacyAccountLinker,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
+        self._identity = identity
+        self._legacy_accounts = legacy_accounts
 
-    def provision_user(
-        self, *, username: str, create_data: UserData, claim_token: str = ""
-    ) -> AuthProvisionDTO:
-        claim_outcome: ClaimOutcome | None = None
-        if claim_token:
-            result = self._claims.redeem(token=claim_token, username=username)
-            claim_outcome = result.outcome
-            if result.outcome == ClaimOutcome.CONVERTED:
-                return AuthProvisionDTO(
-                    user=self._users.read(result.user_slug), claim_outcome=claim_outcome
+    def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
+        return self._identity.authorization_url(
+            redirect_uri=redirect_uri, state=state, sign_up=sign_up
+        )
+
+    def logout_url(self, *, session_id: str, return_to: str) -> str:
+        return self._identity.logout_url(session_id=session_id, return_to=return_to)
+
+    def complete_login(self, *, code: str, claim_token: str = "") -> LoginDTO:
+        authentication = self._identity.authenticate(code)
+        identity = authentication.identity
+        username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
+        avatar_url = _avatar_url(identity)
+        with self._transaction.atomic():
+            user = self._read_by_username(username) or self._legacy_accounts.adopt(
+                identity, username=username
+            )
+            claim_outcome: ClaimOutcome | None = None
+            if claim_token:
+                result = self._claims.redeem(token=claim_token, username=username)
+                claim_outcome = result.outcome
+                if result.outcome == ClaimOutcome.CONVERTED:
+                    user = self._users.read(result.user_slug)
+            if user is None:
+                user = self._create_user(
+                    username=username,
+                    create_data=UserData(
+                        slug=slug_base(identity.provider_user_id),
+                        username=username,
+                        email=identity.email,
+                        avatar_url=avatar_url,
+                        name=identity.name,
+                    ),
                 )
-        try:
-            user = self._users.read_by_username(username)
-        except NotFoundError:
-            user = self._create_user(username=username, create_data=create_data)
-        return AuthProvisionDTO(user=user, claim_outcome=claim_outcome)
+            user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
+        return LoginDTO(
+            user=user, claim_outcome=claim_outcome, session_id=authentication.session_id
+        )
+
+    def _read_by_username(self, username: str) -> UserDTO | None:
+        with suppress(NotFoundError):
+            return self._users.read_by_username(username)
+        return None
 
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
-        # row can own the one the provider sub slugifies to; uniquifying also
-        # caps it to the SlugField width, which an over-long sub would blow.
+        # row can own the one the provider id slugifies to; uniquifying also
+        # caps it to the SlugField width, which an over-long id would blow.
         data["slug"] = unique_slug(
             base=data.get("slug", ""), default="user", exists=self._users.slug_exists
         )
@@ -134,19 +213,39 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             raise
         return self._users.read_by_username(username)
 
-    def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
-        updates = data.copy()
-        if "email" in updates and self._users.email_exists(
-            updates["email"], exclude_slug=user_slug
+    def _sync_identity(
+        self, user: UserDTO, *, identity: IdentityDTO, avatar_url: str
+    ) -> UserDTO:
+        updates = UserData()
+        if (
+            identity.email
+            and user.email != identity.email
+            and not self._users.email_exists(identity.email, exclude_slug=user.slug)
         ):
-            del updates["email"]
-        if updates:
-            with self._transaction.atomic():
-                self._users.update(user_slug, updates)
-        return self._users.read(user_slug)
+            updates["email"] = identity.email
+        if avatar_url and user.avatar_url != avatar_url:
+            updates["avatar_url"] = avatar_url
+        if identity.name and not user.name.strip():
+            updates["name"] = identity.name
+        if not updates:
+            return user
+        self._users.update(user.slug, updates)
+        return self._users.read(user.slug)
 
     def is_known_sphere_domain(self, domain: str) -> bool:
         return self._spheres.domain_exists(domain)
+
+
+def _avatar_url(identity: IdentityDTO) -> str:
+    # A URL truncated to the column width would be broken; better no avatar.
+    if len(identity.avatar_url) > MAX_AVATAR_URL_LENGTH:
+        logger.warning(
+            "Identity avatar dropped: %s chars exceeds %s",
+            len(identity.avatar_url),
+            MAX_AVATAR_URL_LENGTH,
+        )
+        return ""
+    return identity.avatar_url
 
 
 class ProfileService(ProfileServiceProtocol):
@@ -181,7 +280,7 @@ class ProfileService(ProfileServiceProtocol):
         return AvatarPageDTO(
             user=user,
             gravatar_url=self._avatar_url(user.email),
-            has_auth0_avatar=bool(user.avatar_url),
+            has_provider_avatar=bool(user.avatar_url),
         )
 
     def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None:

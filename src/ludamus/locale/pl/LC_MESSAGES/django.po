@@ -1961,6 +1961,10 @@ msgid "Invalid authentication state"
 msgstr "Nieprawidłowy stan uwierzytelnienia"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication failed"
+msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -1971,14 +1975,6 @@ msgid ""
 msgstr ""
 "Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
 "osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication failed"
-msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid redirect URL."
-msgstr "Nieprawidłowy adres URL przekierowania."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid domain for redirect."
@@ -11880,59 +11876,11 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Poland"
 #~ msgstr "Polska"
 
-#~ msgid "Time slot must be within event dates."
-#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
-#~ msgid "Place the session inside one of the event's time slots."
-#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
-
-#~ msgid ""
-#~ "Friends who enroll together wait together and move up together, and "
-#~ "nobody skips past them. RSVP tools that count seats one by one split such "
-#~ "a group up as soon as a single seat frees up."
-#~ msgstr ""
-#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
-#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
-#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
-
-#~ msgid ""
-#~ "You work directly with the people who build Zagrajmy: no account managers "
-#~ "and no ticket queue between you and the code."
-#~ msgstr ""
-#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
-#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
-
-#~ msgid ""
-#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
-#~ "and sings RPG songs on his YouTube channel."
-#~ msgstr ""
-#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
-#~ "erpegowe piosenki na swoim kanale na YouTubie."
-
-#~ msgid ""
-#~ "Two developers build and run Zagrajmy, with contributions from the open-"
-#~ "source community on GitHub."
-#~ msgstr ""
-#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
-#~ "source na GitHubie."
-
-#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
-#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
-
-#~ msgid ""
-#~ "Writes software with care for the details of human–computer interaction. "
-#~ "Has built Zagrajmy since November 2025, mostly its interface."
-#~ msgstr ""
-#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
-#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
-#~ "interfejs."
-
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."
@@ -12165,6 +12113,15 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
+
+#~ msgid "Time slot must be within event dates."
+#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#~ msgid "Place the session inside one of the event's time slots."
+#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
+
+#~ msgid "total"
+#~ msgstr "łącznie"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
@@ -12971,5 +12928,47 @@ msgstr "Brak przechwyconych e-maili."
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
 
-#~ msgid "This event is not in this sphere."
-#~ msgstr "To wydarzenie nie należy do tej sfery."
+#~ msgid ""
+#~ "Friends who enroll together wait together and move up together, and "
+#~ "nobody skips past them. RSVP tools that count seats one by one split such "
+#~ "a group up as soon as a single seat frees up."
+#~ msgstr ""
+#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
+#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
+#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
+
+#~ msgid ""
+#~ "You work directly with the people who build Zagrajmy: no account managers "
+#~ "and no ticket queue between you and the code."
+#~ msgstr ""
+#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
+#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
+
+#~ msgid ""
+#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
+#~ "and sings RPG songs on his YouTube channel."
+#~ msgstr ""
+#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
+#~ "erpegowe piosenki na swoim kanale na YouTubie."
+
+#~ msgid ""
+#~ "Two developers build and run Zagrajmy, with contributions from the open-"
+#~ "source community on GitHub."
+#~ msgstr ""
+#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
+#~ "source na GitHubie."
+
+#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
+#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
+
+#~ msgid ""
+#~ "Writes software with care for the details of human–computer interaction. "
+#~ "Has built Zagrajmy since November 2025, mostly its interface."
+#~ msgstr ""
+#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
+#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
+#~ "interfejs."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"

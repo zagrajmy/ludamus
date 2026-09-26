@@ -69,25 +69,43 @@ claude mcp add --transport http zagrajmy "$base/mcp/" \
 
 Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
-## Logging in locally (auth0-simulator)
+## Logging in locally
 
-Auth0 is the real identity provider, so local login goes through a bundled
-**auth0-simulator** instead of the production tenant. It is enabled only when
-`AUTH0_DOMAIN` is local-shaped — `localhost`, `*.localhost`, `*.local`, or
-`auth0.local*` — and TLS certs exist at `~/.portless` (symlinked into
-`~/.simulacrum/certs`). With those in place, `mise run start` runs the simulator
-on `:4400` and the normal login flow works against it.
+Login goes through WorkOS AuthKit. In dev and e2e, `WORKOS_BASE_URL` points
+the WorkOS SDK at `scripts/workos_simulator.py`, an offline stand-in on
+`:4400` that `mise run start` and `mise run test:e2e` start for you. It needs
+no account or network: the login button opens its sign-in form, and any
+email signs in (a new one creates an account).
 
-The seeded sphere-manager login is:
+The simulator keeps no state, so parallel worktrees share whichever copy
+holds `:4400`. It idles unless `WORKOS_BASE_URL` names a loopback address,
+and only redirects back to `localhost` / `*.localhost`.
 
-```text
-Email: default@example.com
-Password: 12345
-```
+With a database seeded by `tests/e2e/scripts/bootstrap_data.py`, sign in as
+`default@example.com` (the form's default) and the first login links you to
+the seeded sphere manager (`auth0|local-manager`). The link works because the
+simulator reports the address as verified and that account predates WorkOS.
 
-If `AUTH0_DOMAIN` points at a real tenant (the default in some `.env.local`
-files), the simulator stays idle and you cannot log in locally — switch
-`AUTH0_DOMAIN` to e.g. `auth0.localhost` for simulator-backed login.
+`/admin/login/` still takes that seed's password logins (`admin` / `admin`,
+`e2e-manager` / `e2e-manager-123`).
+
+### Against a real WorkOS staging environment
+
+To test the hosted AuthKit pages themselves:
+
+1. In the WorkOS dashboard, open the **staging** environment (free, separate
+   from production) and put its keys in `.env.local`, clearing the simulator:
+
+   ```bash
+   WORKOS_BASE_URL=
+   WORKOS_API_KEY=sk_test_...
+   WORKOS_CLIENT_ID=client_...
+   ```
+
+2. Under **Redirects**, add `http://localhost:8000/crowd/auth/do/login/callback`
+   (or your portless origin) as a redirect URI, and
+   `http://localhost:8000/crowd/auth/do/logout/redirect` as a sign-out
+   redirect.
 
 ## Authenticated browser checks without a UI login (Playwright storageState)
 
@@ -101,7 +119,7 @@ mise run test:e2e:prep    # migrate + seed + build client; writes tests/e2e/.aut
 `tests/e2e/playwright.config.ts` starts the server itself (`webServer`, with
 `reuseExistingServer` off CI) and loads `tests/e2e/.auth-state.json`
 (`storageState`) — the `e2e-tester` session. Any Playwright script run under
-that config (or pointed at the same `storageState`) is logged in with no Auth0
+that config (or pointed at the same `storageState`) is logged in with no WorkOS
 round trip. Seeded logins: `e2e-tester` (member), `e2e-manager` (sphere
 manager), `admin`.
 

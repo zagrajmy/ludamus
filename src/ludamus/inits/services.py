@@ -24,6 +24,7 @@ from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExport
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.links.workos import WorkOSIdentityProvider
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     ProposalAcceptanceService,
@@ -37,6 +38,7 @@ from ludamus.mills.crowd import (
     ClaimService,
     CompanionsService,
     CrowdAuthService,
+    LegacyAccountLinker,
     ProfileService,
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
@@ -195,11 +197,18 @@ class Services:
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
+        api_key: str = settings.WORKOS_API_KEY
+        client_id: str = settings.WORKOS_CLIENT_ID
+        base_url: str = settings.WORKOS_BASE_URL
         return CrowdAuthService(
             transaction=self._transaction,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            identity=WorkOSIdentityProvider(
+                api_key=api_key, client_id=client_id, base_url=base_url or None
+            ),
+            legacy_accounts=LegacyAccountLinker(users=self._repos.active_users),
         )
 
     @cached_property

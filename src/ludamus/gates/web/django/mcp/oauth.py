@@ -190,11 +190,13 @@ class McpAuthorizeView(LoginRequiredMixin, View):
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
         pending_id = request.POST.get("pending", "")
-        slot = request.session.pop(PENDING_SESSION_KEY, None)
+        slot = request.session.get(PENDING_SESSION_KEY)
+        # A stale tab must not wipe the request a newer tab is showing.
         if not slot or slot.get("id") != pending_id:
             return TemplateResponse(
                 request, TEMPLATE, {"client_error": _EXPIRED}, status=400
             )
+        del request.session[PENDING_SESSION_KEY]
         pending = McpPendingAuthorizationDTO.model_validate(slot["pending"])
         if request.POST.get("decision") != "approve":
             logger.info(

@@ -457,20 +457,21 @@ accounts.
 
 #### Pages: Auth
 
-Auth0 OAuth login/logout. State token management and JWT validation;
-user upsert on callback.
+WorkOS AuthKit login/logout. State token management; user upsert on
+callback, linking Auth0-era accounts on first login.
 
-- **URLs:** `/crowd/auth0/` (namespace `auth0`), `/crowd/login-required/`,
-  `/auth-error/` (the Auth0 tenant's error page setting points at it)
-- **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
-  `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
-  `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
+- **URLs:** `/crowd/auth/` (namespace `auth`), `/crowd/login-required/`,
+  `/auth-error/` (AuthKit errors on the callback land here)
+- **Views:** `gates/web/django/crowd/auth.py` — `LoginActionView`,
+  `LoginCallbackActionView`, `LogoutActionView`,
+  `LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
   `login_required_page`, `auth_error_page`
 - **Templates:** `templates/crowd/login_required.html`,
   `templates/crowd/auth_error.html`
-- **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
-  provisioning on callback, identity sync, sphere-domain checks
-- **External integration:** Auth0 PKCE/state OAuth flow
+- **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — login
+  and logout URLs, completing a login (provisioning, legacy linking,
+  identity sync), sphere-domain checks
+- **External integration:** `links/workos.py` (`WorkOSIdentityProvider`)
 
 #### Pages: Profile
 
