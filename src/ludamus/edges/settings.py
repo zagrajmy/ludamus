@@ -150,6 +150,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]
@@ -379,6 +380,16 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
+# What a private sphere still serves to strangers: signing in, and the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere.
+PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
+    *MIDDLEWARE_SKIP_PREFIXES,
+    "/crowd/",
+    "/auth-error/",
+    "/mcp/",
+    "/.well-known/",
+)
+
 
 # Cache busting version for static files (set via GIT_COMMIT_SHA env var during build)
 COMMIT_SHA = env("GIT_COMMIT_SHA").strip()[:8] or "unknown"
@@ -397,6 +408,10 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+# The conventions the landing and about pages show, in this order.
+LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
+    f"{subdomain}.{ROOT_DOMAIN}" for subdomain in ("kapitularz", "bachanalia", "o2f")
+)
 SITE_ID = env("SITE_ID")
 
 # WorkOS AuthKit

@@ -1,8 +1,7 @@
-from django.conf import settings
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
-from ludamus.links.db.django.models import Event, Session, Sphere
+from ludamus.links.db.django.models import Event, Session, Sphere, suggested_spheres
 from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,
@@ -21,13 +20,14 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
         )
 
     @staticmethod
-    def list_conventions(limit: int) -> list[LandingConventionDTO]:
-        """List spheres that run events, newest first, with their cover art.
+    def list_conventions(domains: tuple[str, ...]) -> list[LandingConventionDTO]:
+        """List the chosen conventions, in the order they were chosen.
 
         Returns:
-            Up to ``limit`` conventions, each carrying its newest event's
-            cover image. The root sphere is the landing itself, so it is not
-            one of its own conventions.
+            The public spheres among ``domains`` that have a published event,
+            each carrying its newest one's slug and cover image. A sphere that
+            went private or has nothing published yet drops out rather than
+            leaving a dead card.
         """
         # Same predicate as Event.is_published: a draft or not-yet-published
         # event must not surface its cover art or domain on the public
@@ -39,13 +39,12 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
         ).order_by("-start_time")
         spheres = (
             Sphere.objects.select_related("site")
-            .exclude(site_id=settings.SITE_ID)
+            .filter(suggested_spheres(), site__domain__in=domains)
             .annotate(
                 cover=Subquery(newest.values("cover_image")[:1]),
-                newest_start=Subquery(newest.values("start_time")[:1]),
+                event_slug=Subquery(newest.values("slug")[:1]),
             )
-            .filter(newest_start__isnull=False)
-            .order_by("-newest_start")[:limit]
+            .filter(event_slug__isnull=False)
         )
         # The URL comes from the model's own property rather than from the
         # storage directly, so it cannot drift from how an Event renders its
@@ -54,9 +53,10 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
             LandingConventionDTO(
                 name=sphere.name,
                 domain=sphere.site.domain,
+                event_slug=sphere.event_slug,
                 cover_image_url=Event(cover_image=sphere.cover).cover_image_url,
             )
-            for sphere in spheres
+            for sphere in sorted(spheres, key=lambda s: domains.index(s.site.domain))
         ]
 
     @staticmethod
