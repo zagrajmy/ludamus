@@ -46,8 +46,13 @@ test.describe("Landing", () => {
 
     const mamert = page.getByRole("figure", { name: "Mamert · Bachanalia Fantastyczne" });
     await expect(mamert).toContainText("Widzę jaki potencjał i pomoc jest w takiej aplikacji.");
-    await expect(mamert.locator("img")).toHaveAttribute("src", /bachanalia-mark.*\.svg/);
-    await expect(mamert.getByText("MA", { exact: true })).toBeVisible();
+    await expect(mamert.locator("img[src*='bachanalia-mark']")).toBeVisible();
+    const avatar = mamert.locator("img[src*='mamert']");
+    await expect(avatar).toBeVisible();
+    await avatar.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
 
     for (const name of ["Hory-portier", "Gosia", "Sowa"]) {
       const quote = page.getByRole("figure", { name: `${name} · Kapitularz` });

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
+from django.templatetags.static import static
 from django.urls import reverse
 from django.views.generic.base import RedirectView
 
@@ -26,10 +27,6 @@ SHOWCASE_EVENT_URL = "https://kapitularz.zagrajmy.net/"
 # Where organizers write to start an event. Not SUPPORT_EMAIL: that one takes
 # account and data requests, this one is the sales conversation.
 CONTACT_EMAIL = "kontakt@zagrajmy.net"
-
-# Testimonial authors aren't users here, so each gets the fields the avatar
-# component reads.
-MAMERT = {"name": "Mamert"}
 
 # The old homes of the feed, now the sphere root. Shared links carry filters
 # and UTM tags, so the query string rides along.
@@ -86,7 +83,9 @@ def landing_page(request: RootRequest) -> HttpResponse:
             ),
             "showcase_url": _showcase_url(request),
             "contact_email": CONTACT_EMAIL,
-            "mamert": MAMERT,
+            # Testimonial authors aren't users here, so each gets the fields
+            # the avatar component reads.
+            "mamert": {"name": "Mamert", "avatar_url": static("landing/mamert.webp")},
         },
     )
 
