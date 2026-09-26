@@ -10,7 +10,7 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereSettingsOutcome
+from ludamus.pacts.multiverse import SphereSettingsOutcome, SphereVisibility
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolProtocol
@@ -29,11 +29,12 @@ class _UpdateSphereSettingsInput(BaseModel):
             "right; false restores the default top-right position"
         ),
     )
-    is_listed: bool | None = Field(
+    visibility: SphereVisibility | None = Field(
         default=None,
         description=(
-            "False unlists the sphere: its domain still works, but the "
-            "Zagrajmy landing and dashboard stop suggesting it"
+            "public: suggested on the Zagrajmy landing and dashboard; "
+            "unlisted: open to anyone with the link, never suggested; "
+            "private: open only to the sphere's members"
         ),
     )
     encounters_policy: EncountersPolicy | None = Field(
@@ -56,8 +57,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["event_cover_buttons_at_bottom"] = (
                 self.event_cover_buttons_at_bottom
             )
-        if self.is_listed is not None:
-            changes["is_listed"] = self.is_listed
+        if self.visibility is not None:
+            changes["visibility"] = self.visibility
         if self.encounters_policy is not None:
             changes["encounters_policy"] = self.encounters_policy
         return changes
@@ -83,7 +84,7 @@ class OrganizerUpdateSphereSettingsTool(Tool[_UpdateSphereSettingsInput]):
                 "event_cover_buttons_at_bottom" in provided
                 and call.data.event_cover_buttons_at_bottom is None
             )
-            or ("is_listed" in provided and call.data.is_listed is None)
+            or ("visibility" in provided and call.data.visibility is None)
             or ("encounters_policy" in provided and call.data.encounters_policy is None)
         )
         if has_explicit_null:

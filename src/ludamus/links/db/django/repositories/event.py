@@ -8,6 +8,7 @@ from ludamus.pacts.event import (
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
 )
+from ludamus.pacts.multiverse import SphereVisibility
 
 
 class LandingStatsRepository(LandingStatsRepositoryProtocol):
@@ -25,7 +26,7 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
         """List spheres that run events, newest first, with their cover art.
 
         Returns:
-            Up to ``limit`` listed conventions, each carrying its newest
+            Up to ``limit`` public conventions, each carrying its newest
             event's slug and cover image. The root sphere is the landing
             itself, so it is not one of its own conventions.
         """
@@ -39,7 +40,7 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
         ).order_by("-start_time")
         spheres = (
             Sphere.objects.select_related("site")
-            .filter(is_listed=True)
+            .filter(visibility=SphereVisibility.PUBLIC)
             .exclude(site_id=settings.SITE_ID)
             .annotate(
                 cover=Subquery(newest.values("cover_image")[:1]),

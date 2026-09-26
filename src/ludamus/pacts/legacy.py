@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -415,7 +416,7 @@ class SphereDTO(BaseModel):
 
     allow_facilitator_session_edit: bool = True
     event_cover_buttons_at_bottom: bool = False
-    is_listed: bool = True
+    visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
     pk: SphereId
@@ -427,7 +428,7 @@ class SphereDTO(BaseModel):
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     event_cover_buttons_at_bottom: bool
-    is_listed: bool
+    visibility: str
     encounters_policy: str
     logo: UploadedFileProtocol | str
 

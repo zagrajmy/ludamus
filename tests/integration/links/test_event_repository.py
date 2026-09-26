@@ -4,6 +4,7 @@ import pytest
 
 from ludamus.links.db.django.repositories import EventRepository, LandingStatsRepository
 from ludamus.pacts.event import EventCreateData, LandingStatsDTO
+from ludamus.pacts.multiverse import SphereVisibility
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.integration.conftest import EventFactory, SessionFactory
 
@@ -60,9 +61,14 @@ class TestLandingStatsRepository:
         assert conventions[0].domain == non_root_sphere.site.domain
         assert conventions[0].event_slug == "newest"
 
-    def test_conventions_leave_out_unlisted_spheres(self, non_root_sphere):
+    @pytest.mark.parametrize(
+        "visibility", (SphereVisibility.UNLISTED, SphereVisibility.PRIVATE)
+    )
+    def test_conventions_leave_out_spheres_that_are_not_public(
+        self, non_root_sphere, visibility
+    ):
         EventFactory(sphere=non_root_sphere)
-        non_root_sphere.is_listed = False
+        non_root_sphere.visibility = visibility
         non_root_sphere.save()
 
         assert LandingStatsRepository.list_conventions(3) == []

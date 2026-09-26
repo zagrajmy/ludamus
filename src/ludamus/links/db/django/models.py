@@ -27,7 +27,7 @@ from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -308,9 +308,11 @@ class Sphere(models.Model):
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
-    # An unlisted sphere still serves its own domain; it is only left out of
-    # the places Zagrajmy points visitors at other spheres.
-    is_listed = models.BooleanField(default=True)
+    visibility = models.CharField(
+        max_length=20,
+        choices=[(v.value, v.name.title()) for v in SphereVisibility],
+        default=SphereVisibility.PUBLIC,
+    )
     encounters_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncountersPolicy],

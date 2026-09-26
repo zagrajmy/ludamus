@@ -32,6 +32,7 @@ from ludamus.pacts.dashboard import (
     DashboardSphereDTO,
 )
 from ludamus.pacts.legacy import EncountersPolicy, SessionParticipationStatus
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -220,7 +221,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
         )
         spheres = (
             Sphere.objects.select_related("site")
-            .filter(is_listed=True)
+            .filter(visibility=SphereVisibility.PUBLIC)
             .exclude(site_id=settings.SITE_ID)
             .annotate(
                 upcoming=Count(

@@ -2,7 +2,8 @@ from typing import TYPE_CHECKING, Protocol
 
 from django.conf import settings
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponseBase, HttpResponseRedirect
+from django.contrib.auth.views import redirect_to_login
+from django.http import Http404, HttpRequest, HttpResponseBase, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
@@ -13,6 +14,7 @@ from ludamus.pacts import (
     RequestContext,
 )
 from ludamus.pacts.ids import UserId
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from ludamus.pacts import DependencyInjectorProtocol
@@ -23,6 +25,11 @@ class RootRepositoryRequest(HttpRequest):
     context: RequestContext
     di: DependencyInjectorProtocol
     services: ServicesProtocol
+
+
+# Paths a private sphere still serves to strangers: signing in, and the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere.
+PRIVATE_SPHERE_OPEN_PREFIXES = ("/crowd/", "/auth-error/", "/mcp/", "/.well-known/")
 
 
 class _GetResponseCallable(Protocol):
@@ -74,6 +81,22 @@ class RequestContextMiddleware:
                 root_site_id=root_sphere.site.pk,
                 current_site_id=current_sphere.site.pk,
             )
+
+        if current_sphere.visibility is SphereVisibility.PRIVATE and not (
+            request.path.startswith(PRIVATE_SPHERE_OPEN_PREFIXES)
+        ):
+            if not request.user.is_authenticated:
+                return redirect_to_login(request.get_full_path())
+            # A stranger gets the same answer as for a sphere that does not
+            # exist, so a private sphere's name and events never leak.
+            if (
+                not request.user.is_superuser
+                and request.services.sphere_panel.manager_role(
+                    current_sphere.pk, request.user.slug
+                )
+                is None
+            ):
+                raise Http404
 
         return self.get_response(request)
 
