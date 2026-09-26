@@ -143,8 +143,16 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"] == DashboardDTO(
-            agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "dashboard": DashboardDTO(
+                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                ),
+                "can_create_encounter": True,
+            },
+            template_name="dashboard/index.html",
         )
 
     def test_a_private_sphere_s_manager_still_gets_its_feed(
