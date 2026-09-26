@@ -48,7 +48,7 @@ finds out and records the numbers.
 - `pyproject.toml:49-82` — `[tool.poetry.group.dev.dependencies]` has
   `pytest = "^9.0.1"`, `pytest-cov = "^7.0.0"`,
   `pytest-django = "^4.11.1"`, `pytest-factoryboy`,
-  `pytest-freezeblaster`, `pytest-gremlins` — and **no**
+  `pytest-freezeblaster`, `mutmut` — and **no**
   `pytest-xdist`.
 - `mise.toml:195-203` — the tasks to change:
 
@@ -87,7 +87,7 @@ finds out and records the numbers.
   keys needed unless the trial in Step 3 proves otherwise.
 - Untouched siblings: `test:postgres` (`mise.toml:253-276`, real
   Postgres, row-locking tests), `test:mutation` (`mise.toml:278-281`,
-  `pytest --gremlins tests` — pytest-gremlins owns its own process
+  `mutmut run` — mutmut owns its own process
   model), `test:unit` / `test:int` / the `:cov:diff` tasks, and the
   e2e tasks.
 - CI: the `test` job runs `mise run test:py:cov`

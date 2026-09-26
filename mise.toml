@@ -257,8 +257,8 @@ env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", D
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
-run = "pytest --gremlins tests"
-env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
+run = "mutmut run"
+env = { _.file = '.env.test' }
 
 ## Complex
 

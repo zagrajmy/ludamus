@@ -19,9 +19,13 @@ jobs:
       - run: mise exec -- poetry install
       - run: mise run test:mutation
 
+      - run: mise exec -- mutmut results
+        if: ${{ !cancelled() }}
+      - run: mise exec -- mutmut export-cicd-stats
+        if: ${{ !cancelled() }}
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: mutation-report
-          path: ./coverage/gremlins/gremlins.json
+          path: ./mutants/mutmut-cicd-stats.json
           retention-days: 30
