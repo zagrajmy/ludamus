@@ -11,7 +11,10 @@ from ludamus.inits.builders import (
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
-from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
+from ludamus.inits.dbos_scheduler import (
+    DBOSAnnouncementFanoutScheduler,
+    DBOSOfferExpiryScheduler,
+)
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
@@ -22,7 +25,7 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
-from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
@@ -69,7 +72,10 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
-from ludamus.mills.notifications import NotificationsService
+from ludamus.mills.notifications import (
+    NotificationsService,
+    NotificationSubscriptionsService,
+)
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
@@ -114,6 +120,7 @@ if TYPE_CHECKING:
         TicketingIntegrationImplementation,
     )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
+    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
 
 
 class Services:
@@ -228,7 +235,20 @@ class Services:
 
     @cached_property
     def announcements(self) -> AnnouncementsService:
-        return AnnouncementsService(self._transaction, self._repos.announcements)
+        return AnnouncementsService(
+            self._transaction,
+            self._repos.announcements,
+            self._announcement_fanout_scheduler(),
+        )
+
+    @staticmethod
+    def _announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
+        scheduler_mode: str = settings.SCHEDULER_MODE
+        return (
+            DBOSAnnouncementFanoutScheduler()
+            if scheduler_mode == "dbos"
+            else CronSweepAnnouncementFanout()
+        )
 
     @cached_property
     def events(self) -> EventsService:
@@ -434,6 +454,12 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionsService:
+        return NotificationSubscriptionsService(
+            self._transaction, self._repos.notification_subscriptions
+        )
 
     @cached_property
     def enrollment_settings(self) -> EnrollmentSettingsService:

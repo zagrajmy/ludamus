@@ -274,6 +274,7 @@ class NotificationKind(StrEnum):
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
     PRINTABLES_READY = auto()
+    ANNOUNCEMENT = auto()
     SPHERE_EVENT_PUBLISHED = auto()
 
 

@@ -104,6 +104,16 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="profile-safety",
     ),
     path(
+        "profile/notifications/",
+        profile.ProfileNotificationsPageView.as_view(),
+        name="profile-notifications",
+    ),
+    path(
+        "profile/notifications/<int:pk>/do/mute",
+        profile.ProfileNotificationsMuteActionView.as_view(),
+        name="profile-notifications-mute",
+    ),
+    path(
         "profile/companions/",
         profile.ProfileCompanionsPageView.as_view(),
         name="profile-companions",

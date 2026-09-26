@@ -67,6 +67,7 @@ class AnnouncementDTO(BaseModel):
     title: str
     content: str
     is_published: bool
+    notified_at: datetime | None
     creation_time: datetime
     modification_time: datetime
 
