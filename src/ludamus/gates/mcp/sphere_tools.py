@@ -29,6 +29,13 @@ class _UpdateSphereSettingsInput(BaseModel):
             "right; false restores the default top-right position"
         ),
     )
+    is_listed: bool | None = Field(
+        default=None,
+        description=(
+            "False unlists the sphere: its domain still works, but the "
+            "Zagrajmy landing and dashboard stop suggesting it"
+        ),
+    )
     encounters_policy: EncountersPolicy | None = Field(
         default=None, description="Who may organize encounters in the sphere"
     )
@@ -49,6 +56,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["event_cover_buttons_at_bottom"] = (
                 self.event_cover_buttons_at_bottom
             )
+        if self.is_listed is not None:
+            changes["is_listed"] = self.is_listed
         if self.encounters_policy is not None:
             changes["encounters_policy"] = self.encounters_policy
         return changes
@@ -74,6 +83,7 @@ class OrganizerUpdateSphereSettingsTool(Tool[_UpdateSphereSettingsInput]):
                 "event_cover_buttons_at_bottom" in provided
                 and call.data.event_cover_buttons_at_bottom is None
             )
+            or ("is_listed" in provided and call.data.is_listed is None)
             or ("encounters_policy" in provided and call.data.encounters_policy is None)
         )
         if has_explicit_null:

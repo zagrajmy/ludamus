@@ -415,6 +415,7 @@ class SphereDTO(BaseModel):
 
     allow_facilitator_session_edit: bool = True
     event_cover_buttons_at_bottom: bool = False
+    is_listed: bool = True
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
     pk: SphereId
@@ -426,6 +427,7 @@ class SphereDTO(BaseModel):
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     event_cover_buttons_at_bottom: bool
+    is_listed: bool
     encounters_policy: str
     logo: UploadedFileProtocol | str
 

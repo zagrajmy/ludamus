@@ -220,6 +220,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
         )
         spheres = (
             Sphere.objects.select_related("site")
+            .filter(is_listed=True)
             .exclude(site_id=settings.SITE_ID)
             .annotate(
                 upcoming=Count(

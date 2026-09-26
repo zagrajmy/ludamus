@@ -171,6 +171,7 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     event_cover_buttons_at_bottom: bool
+    is_listed: bool
     encounters_policy: EncountersPolicy
 
 

@@ -1028,6 +1028,12 @@ class TestOrganizerSphereSettingsTool:
         assert sphere.allow_facilitator_session_edit is False
         assert sphere.encounters_policy == EncountersPolicy.MANAGERS
 
+    def test_unlists_the_sphere(self, client, org_token, sphere):
+        call_org_json(client, org_token, "update_sphere_settings", {"is_listed": False})
+
+        sphere.refresh_from_db()
+        assert sphere.is_listed is False
+
     def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
         # The flag answers a question about a write; on its own there is none.
         response = call_org_tool(

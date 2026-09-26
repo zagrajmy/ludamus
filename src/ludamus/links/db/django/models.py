@@ -308,6 +308,9 @@ class Sphere(models.Model):
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
+    # An unlisted sphere still serves its own domain; it is only left out of
+    # the places Zagrajmy points visitors at other spheres.
+    is_listed = models.BooleanField(default=True)
     encounters_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncountersPolicy],
