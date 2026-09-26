@@ -58,6 +58,8 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
+logger = logging.getLogger(__name__)
+
 
 # Panel access only proves you manage an event; every id the request names has
 # to be scoped to it before it is read or written, or it is cross-event
@@ -68,9 +70,6 @@ def require_session_in_event(
 ) -> None:
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
-
-
-logger = logging.getLogger(__name__)
 
 
 def widen_event_dates(

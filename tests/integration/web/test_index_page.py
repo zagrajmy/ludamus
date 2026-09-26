@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
@@ -931,11 +932,16 @@ class TestLandingPageView:
             template_name=["landing_page.html"],
         )
 
-    def test_recounts_over_a_malformed_cache_entry(self, client, sphere):
+    def test_recounts_over_a_malformed_cache_entry(self, client, sphere, caplog):
         EventFactory(sphere=sphere)
         cache.set("landing:stats", b'{"events": "many"}')
 
-        response = client.get(self.URL)
+        with caplog.at_level(logging.WARNING, logger="ludamus.mills.event"):
+            response = client.get(self.URL)
+
+        assert [
+            r.getMessage() for r in caplog.records if r.name == "ludamus.mills.event"
+        ] == ["Discarding malformed landing cache entry landing:stats"]
 
         assert_response(
             response,
