@@ -65,3 +65,68 @@ test.describe("Modal surfaces using page scroll lock", () => {
     await context.close();
   });
 });
+
+test("a seatless session's modal offers the bookmark beside its time", async ({
+  browser,
+  browserName,
+}) => {
+  test.skip(browserName === "firefox", "Mutates bookmark state shared across browser projects");
+
+  const context = await browser.newContext({
+    ...devices["iPhone 14 Pro"],
+    storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
+  });
+  const page = await context.newPage();
+
+  await page.goto("/event/autumn-open/");
+  await page
+    .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+    .press("Enter");
+
+  const dialog = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
+  await expect(dialog).toBeVisible();
+  await settleViewTransitions(page);
+
+  const bookmark = dialog.getByRole("button", { name: "Bookmark session" });
+  const close = dialog.getByRole("button", { name: "Close" });
+  const time = dialog.getByText("Time", { exact: true }).locator("..");
+  const [bookmarkBox, closeBox, timeBox] = await Promise.all([
+    bookmark.boundingBox(),
+    close.boundingBox(),
+    time.boundingBox(),
+  ]);
+  expect(bookmarkBox && closeBox && timeBox).toBeTruthy();
+  if (!bookmarkBox || !closeBox || !timeBox) return;
+  expect(bookmarkBox.x + bookmarkBox.width).toBeCloseTo(closeBox.x + closeBox.width, 0);
+  expect(bookmarkBox.y + bookmarkBox.height).toBeCloseTo(timeBox.y + timeBox.height, 0);
+
+  // Each toggle paints twice (optimistic, then settled), and the settled paint
+  // runs in the same tick that releases the in-flight guard. Counting paints
+  // keeps the second click from landing while the first is still settling.
+  await page.evaluate(() => {
+    const scope = globalThis as unknown as { __bookmarkPaints: number };
+    scope.__bookmarkPaints = 0;
+    document.addEventListener("session:bookmark-changed", () => {
+      scope.__bookmarkPaints += 1;
+    });
+  });
+  const paints = () =>
+    page.evaluate(() => (globalThis as unknown as { __bookmarkPaints: number }).__bookmarkPaints);
+
+  const was = await bookmark.getAttribute("aria-pressed");
+  const toggled = page.waitForResponse(/\/bookmark\/$/);
+  await bookmark.click();
+  expect((await toggled).ok()).toBe(true);
+  await expect.poll(paints).toBe(2);
+  await expect(bookmark).toHaveAttribute("aria-pressed", String(was !== "true"));
+  // The count showing up or going away must not reflow the time box.
+  expect((await time.boundingBox())?.width).toBe(timeBox.width);
+
+  const restored = page.waitForResponse(/\/bookmark\/$/);
+  await bookmark.click();
+  expect((await restored).ok()).toBe(true);
+  await expect.poll(paints).toBe(4);
+  await expect(bookmark).toHaveAttribute("aria-pressed", String(was));
+
+  await context.close();
+});

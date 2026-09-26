@@ -4,17 +4,37 @@ import { type Page } from "@playwright/test";
 // animations to document.getAnimations(), so this resolves immediately there
 // rather than actually waiting for the morph. Don't read a WebKit pass as
 // evidence the transition settled.
+//
+// A single "no ::view-transition animations right now" check races a real
+// transition on both ends: right after the trigger, the pseudo-elements have
+// not been created yet (they land on a later frame), so the first check can
+// read "settled" before the morph even starts; between two staged
+// transitions (e.g. the dialog opening, then the footer morphing into its
+// compact form), the gap where neither is animating reads the same way.
+// Require two consecutive clear animation frames before calling it settled,
+// so a not-yet-started or about-to-start transition can't slip through.
 export const settleViewTransitions = (page: Page): Promise<void> =>
-  page
-    .waitForFunction(
-      () =>
-        !document
-          .getAnimations()
-          .some((a) =>
-            (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
-          ),
-    )
-    .then(() => undefined);
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const isTransitioning = () =>
+          document
+            .getAnimations()
+            .some((a) =>
+              (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
+            );
+        let clearFrames = 0;
+        const tick = () => {
+          clearFrames = isTransitioning() ? 0 : clearFrames + 1;
+          if (clearFrames >= 2) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 
 // Counts document.startViewTransition calls. WebKit does not expose the
 // transition's animations to getAnimations(), so the call itself is the

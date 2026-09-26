@@ -23,6 +23,7 @@ import { restoreCarriedSearchParams } from "./url-state";
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
+  formData?: FormData | null;
   hashChange: boolean;
   intercept: (options?: {
     focusReset?: "after-transition" | "manual";
@@ -30,6 +31,7 @@ interface NavigateEvent {
     scroll?: "after-transition" | "manual";
   }) => void;
   navigationType: "push" | "reload" | "replace" | "traverse";
+  sourceElement?: Element | null;
 }
 
 interface Navigation {
@@ -494,10 +496,20 @@ document.addEventListener(
   true,
 );
 
+// NOTE: a form that reopens its modal after a refusal posts to that modal's
+// own `?param` URL, so its resubmit looks just like a trigger click. `formData`
+// marks a POST; `sourceElement` is the only mark a GET form leaves.
+const submitsForm = (e: NavigateEvent): boolean =>
+  e.formData instanceof FormData ||
+  e.sourceElement instanceof HTMLFormElement ||
+  e.sourceElement instanceof HTMLButtonElement ||
+  e.sourceElement instanceof HTMLInputElement;
+
 if (navigation) {
   navigation.addEventListener("navigate", (e) => {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
+    if (submitsForm(e)) return;
     const url = new URL(e.destination.url);
     if (url.origin !== location.origin || url.pathname !== location.pathname) return;
     const reloadLink = [
