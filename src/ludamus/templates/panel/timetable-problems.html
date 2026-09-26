@@ -12,12 +12,14 @@
     {% tab_shell "panel/_timetable_tabs.html" %}
         {% tab_shell_body %}
             <!-- Conflicts section -->
-            <section class="mb-8">
-                <h2 class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
+            <section class="mb-8" aria-labelledby="problems-conflicts">
+                <h2 id="problems-conflicts" class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
                 {% if conflicts_grouped %}
                     {% for conflict_type, conflicts in conflicts_grouped.items %}
-                        <div class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4">
-                            <div class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
+                        <section class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4"
+                                 aria-labelledby="problems-conflicts-{{ conflict_type }}">
+                            <h3 id="problems-conflicts-{{ conflict_type }}"
+                                class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
                                 {% icon "exclamation-triangle" class="w-4 h-4 text-danger" %}
                                 {% if conflict_type == "space_overlap" %}
                                     {% translate "Room overlaps" %}
@@ -29,10 +31,10 @@
                                     {{ conflict_type }}
                                 {% endif %}
                                 <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger text-white">{{ conflicts|length }}</span>
-                            </div>
-                            <div class="space-y-2 pl-6">
+                            </h3>
+                            <ul class="space-y-2 pl-6">
                                 {% for conflict in conflicts %}
-                                    <div class="text-sm text-foreground-secondary">
+                                    <li class="text-sm text-foreground-secondary">
                                         {{ conflict.subject_session_title }} —
                                         {% if conflict.type == "space_overlap" %}
                                             {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
@@ -44,18 +46,20 @@
                                         {% if conflict.track_name %}
                                             <span class="text-neutral-400">({% translate "track:" %} {{ conflict.track_name }})</span>
                                         {% endif %}
-                                    </div>
+                                    </li>
                                 {% endfor %}
-                            </div>
-                        </div>
+                            </ul>
+                        </section>
                     {% endfor %}
                 {% else %}
                     <p class="text-sm text-success">{% translate "No conflicts." %}</p>
                 {% endif %}
             </section>
             <!-- Sessions placed outside the times their facilitator offered -->
-            <section>
-                <h2 class="text-base font-semibold mb-3">{% translate "Sessions outside the times they offered" %}</h2>
+            <section aria-labelledby="problems-outside-offered">
+                <h2 id="problems-outside-offered" class="text-base font-semibold mb-3">
+                    {% translate "Sessions outside the times they offered" %}
+                </h2>
                 {% if time_violations %}
                     <div class="space-y-2">
                         {% for violation in time_violations %}
@@ -63,7 +67,7 @@
                                 <div class="flex items-start gap-2">
                                     <span class="text-warning mt-0.5">⏰</span>
                                     <div class="flex-1 min-w-0">
-                                        <div class="text-sm font-medium text-warning-text">{{ violation.session_title }}</div>
+                                        <h3 class="text-sm font-medium text-warning-text">{{ violation.session_title }}</h3>
                                         <div class="text-xs text-warning mt-0.5">
                                             {% blocktranslate with start=violation.scheduled_start|date:"D, M j H:i" end=violation.scheduled_end|time:"H:i" %}Scheduled: {{ start }} – {{ end }}{% endblocktranslate %}
                                         </div>

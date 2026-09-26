@@ -10683,6 +10683,11 @@ msgstr "Brak problemów"
 
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
 #: src/ludamus/templates/panel/timetable-problems.html
+msgid "Conflicts"
+msgstr "Konflikty"
+
+#: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
+#: src/ludamus/templates/panel/timetable-problems.html
 #, python-format
 msgid "Room occupied by: %(title)s"
 msgstr "Sala zajęta przez: %(title)s"
@@ -11560,10 +11565,6 @@ msgstr "Nieprzypisany"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "No tracks for this event."
 msgstr "Brak bloków programowych dla tego wydarzenia."
-
-#: src/ludamus/templates/panel/timetable-problems.html
-msgid "Conflicts"
-msgstr "Konflikty"
 
 #: src/ludamus/templates/panel/timetable-problems.html
 msgid "Room overlaps"
