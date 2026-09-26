@@ -83,8 +83,8 @@ def landing_page(request: RootRequest) -> HttpResponse:
             ),
             "showcase_url": _showcase_url(request),
             "contact_email": CONTACT_EMAIL,
-            # Testimonial authors aren't users here, so each gets the fields
-            # the avatar component reads.
+            # Mamert isn't a user here, so he gets just the fields the avatar
+            # component reads.
             "mamert": {"name": "Mamert", "avatar_url": static("landing/mamert.webp")},
         },
     )

@@ -5,12 +5,13 @@ server. Compatible clients load it from the repository root. Authenticate with
 OAuth on first use. For Cloudflare, authorize only the Zagrajmy account and
 required read scopes; never grant write scopes. Never commit tokens.
 
-Claude Code on the web does not load `.mcp.json`: its servers show up as
-`zagrajmy-posthog` and `zagrajmy-cloudflare` but stay unauthenticated, since a
-cloud session cannot run the OAuth flow. Use the claude.ai connectors instead —
-`mcp__PostHog__exec` and `mcp__Cloudflare_Developer_Platform__*`. Neither
-carries the pins below: pick the Zagrajmy project in PostHog and pass the
-Zagrajmy `account_id` to Cloudflare, and stick to reads.
+Claude Code on the web loads `.mcp.json`, but `zagrajmy-posthog` and
+`zagrajmy-cloudflare` stay unauthenticated: a cloud session cannot run the
+OAuth flow. Use the claude.ai connectors instead — `mcp__PostHog__exec` and
+`mcp__Cloudflare_Developer_Platform__*`. Neither carries `.mcp.json`'s pins:
+the PostHog connector can write and spans every project, so select project
+251811 (Zagrajmy) and make read-only calls only; pass the Zagrajmy
+`account_id` (`add2b427b034a6073f63a849af7de160`) to Cloudflare.
 
 ## Coolify CLI
 
