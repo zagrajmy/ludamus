@@ -241,10 +241,11 @@ class LandingStatsDTO(BaseModel):
 
 
 class LandingConventionDTO(BaseModel):
-    """A convention to show on the landing, with its newest event's cover."""
+    """A convention to show on the landing, with its newest event and cover."""
 
     name: str
     domain: str
+    event_slug: str
     cover_image_url: str
 
 
