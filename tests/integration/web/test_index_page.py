@@ -900,6 +900,7 @@ class TestLandingPageView:
             EventFactory(sphere=sphere)
             EventFactory(
                 sphere=non_root_sphere,
+                slug="foreign",
                 publication_time=datetime(2026, 9, 1, tzinfo=UTC),
                 start_time=datetime(2026, 10, 1, tzinfo=UTC),
                 end_time=datetime(2026, 10, 2, tzinfo=UTC),
@@ -925,6 +926,7 @@ class TestLandingPageView:
                     LandingConventionDTO(
                         name=non_root_sphere.name,
                         domain=non_root_sphere.site.domain,
+                        event_slug="foreign",
                         cover_image_url="",
                     )
                 ],
