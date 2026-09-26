@@ -7786,6 +7786,11 @@ msgid "Room conflict"
 msgstr "Konflikt sal"
 
 #: src/ludamus/templates/landing/scena.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Conflict"
+msgstr "Konflikt"
+
+#: src/ludamus/templates/landing/scena.html
 msgid "Two decades of convention mishaps"
 msgstr "Dwie dekady konwentowych wpadek"
 
@@ -7801,10 +7806,6 @@ msgstr "Nowe"
 #: src/ludamus/templates/landing/scena.html
 msgid "Saturday · 12:00 · run by Radowit"
 msgstr "sobota · 12:00 · prowadzi Radowit"
-
-#: src/ludamus/templates/landing/scena.html
-msgid "Swipe the grid sideways to see all the rooms."
-msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
 #: src/ludamus/templates/landing/scena.html
 msgid ""
@@ -11694,10 +11695,6 @@ msgid "Empty"
 msgstr "Puste"
 
 #: src/ludamus/templates/panel/timetable-overview.html
-msgid "Conflict"
-msgstr "Konflikt"
-
-#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track progress"
 msgstr "Postęp bloków"
 
@@ -11876,6 +11873,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Swipe the grid sideways to see all the rooms."
+#~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
 #~ msgid "Poland"
 #~ msgstr "Polska"
