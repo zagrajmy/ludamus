@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
 from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
+from ludamus.pacts.multiverse import SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -181,6 +182,17 @@ class TestSphereSubscriptionActions:
         # a control with nothing behind it.
         response = authenticated_client.post(
             reverse("web:sphere-subscribe", kwargs={"pk": sphere.pk})
+        )
+
+        assert_response_404(response)
+        assert not SphereSubscription.objects.exists()
+
+    def test_a_private_sphere_is_a_404(self, authenticated_client, non_root_sphere):
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+
+        response = authenticated_client.post(
+            reverse("web:sphere-subscribe", kwargs={"pk": non_root_sphere.pk})
         )
 
         assert_response_404(response)

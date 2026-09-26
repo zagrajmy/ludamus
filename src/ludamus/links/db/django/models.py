@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
@@ -293,6 +294,11 @@ class SessionBookmark(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} bookmarked session {self.session_id}"
+
+
+def suggested_spheres() -> Q:
+    # The root sphere is the suggesting page's own home, never a suggestion.
+    return Q(visibility=SphereVisibility.PUBLIC) & ~Q(site_id=settings.SITE_ID)
 
 
 class Sphere(models.Model):

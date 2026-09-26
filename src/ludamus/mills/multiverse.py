@@ -236,8 +236,8 @@ class SpherePanelService:
             data["event_cover_buttons_at_bottom"] = changes[
                 "event_cover_buttons_at_bottom"
             ]
-        if (visibility := changes.get("visibility")) is not None:
-            data["visibility"] = visibility.value
+        if "visibility" in changes:
+            data["visibility"] = changes["visibility"]
         if (encounters_policy := changes.get("encounters_policy")) is not None:
             data["encounters_policy"] = encounters_policy.value
 

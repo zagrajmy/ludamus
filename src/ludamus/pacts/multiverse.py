@@ -20,9 +20,6 @@ if TYPE_CHECKING:
 
 
 class SphereVisibility(StrEnum):
-    # PUBLIC spheres are suggested on the landing and the dashboard; UNLISTED
-    # ones open for anyone holding the link but are never suggested; PRIVATE
-    # ones open only for their own members.
     PUBLIC = "public"
     UNLISTED = "unlisted"
     PRIVATE = "private"

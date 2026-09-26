@@ -1,14 +1,12 @@
-from django.conf import settings
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
-from ludamus.links.db.django.models import Event, Session, Sphere
+from ludamus.links.db.django.models import Event, Session, Sphere, suggested_spheres
 from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
 )
-from ludamus.pacts.multiverse import SphereVisibility
 
 
 class LandingStatsRepository(LandingStatsRepositoryProtocol):
@@ -40,8 +38,7 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
         ).order_by("-start_time")
         spheres = (
             Sphere.objects.select_related("site")
-            .filter(visibility=SphereVisibility.PUBLIC)
-            .exclude(site_id=settings.SITE_ID)
+            .filter(suggested_spheres())
             .annotate(
                 cover=Subquery(newest.values("cover_image")[:1]),
                 event_slug=Subquery(newest.values("slug")[:1]),

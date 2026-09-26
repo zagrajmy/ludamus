@@ -11,7 +11,6 @@ from __future__ import annotations
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
-from django.conf import settings
 from django.db.models import Count, Q
 from django.urls import reverse
 
@@ -24,6 +23,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     SphereMembership,
     SphereSubscription,
+    suggested_spheres,
 )
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
@@ -32,7 +32,6 @@ from ludamus.pacts.dashboard import (
     DashboardSphereDTO,
 )
 from ludamus.pacts.legacy import EncountersPolicy, SessionParticipationStatus
-from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -221,8 +220,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
         )
         spheres = (
             Sphere.objects.select_related("site")
-            .filter(visibility=SphereVisibility.PUBLIC)
-            .exclude(site_id=settings.SITE_ID)
+            .filter(suggested_spheres())
             .annotate(
                 upcoming=Count(
                     "events",
