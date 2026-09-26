@@ -14,7 +14,7 @@ const OWN_EMAIL = "e2e-profile@test.local";
 const NEW_NAME = "Wren Hollis-Tide";
 
 test.describe("Editing your own profile", () => {
-  test("a taken email is refused with the form kept, then a rename saves and survives a reload", async ({
+  test("a taken email is refused with the form kept, then a rename saves and survives a reload next to her confirmed-seats count", async ({
     page,
   }, testInfo) => {
     await page.goto(PROFILE_URL);
@@ -39,22 +39,23 @@ test.describe("Editing your own profile", () => {
     await page.reload();
     await expect(name).toHaveValue(NEW_NAME);
     await expect(email).toHaveValue(OWN_EMAIL);
+    const banner = page.getByText(/You have \d+ confirmed session participation/);
+    await expect(banner).toHaveText("You have 1 confirmed session participation.");
 
     const facts = {
       displayName: await name.inputValue(),
       email: await email.inputValue(),
+      confirmedBanner: (await banner.innerText()).trim(),
     };
-    expect(facts).toEqual({ displayName: NEW_NAME, email: OWN_EMAIL });
+    expect(facts).toEqual({
+      displayName: NEW_NAME,
+      email: OWN_EMAIL,
+      confirmedBanner: "You have 1 confirmed session participation.",
+    });
     await attachArtifacts(testInfo, {
       name: "profile-edit",
       region: page.getByRole("main"),
       facts,
     });
-  });
-
-  test("the page counts her confirmed seats", async ({ page }) => {
-    await page.goto(PROFILE_URL);
-
-    await expect(page.getByText("You have 1 confirmed session participation.")).toBeVisible();
   });
 });

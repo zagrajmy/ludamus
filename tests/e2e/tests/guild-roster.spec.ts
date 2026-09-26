@@ -46,6 +46,11 @@ test.describe("Guild roster", () => {
     await deleteGuildIfPresent(page, TO);
   });
 
+  test.afterEach(async ({ page }) => {
+    await deleteGuildIfPresent(page, FROM);
+    await deleteGuildIfPresent(page, TO);
+  });
+
   test("a manager moves a presenter to another guild, is told so, and cannot add her twice", async ({
     page,
   }, testInfo) => {

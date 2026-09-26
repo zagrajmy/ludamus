@@ -73,9 +73,12 @@ const restoreSeededSchedule = async (page: Page): Promise<void> => {
 
 const withManager = async (browser: Browser, act: (page: Page) => Promise<void>): Promise<void> => {
   const page = await browser.newPage();
-  await signInAsManager(page);
-  await act(page);
-  await page.close();
+  try {
+    await signInAsManager(page);
+    await act(page);
+  } finally {
+    await page.close();
+  }
 };
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim();
@@ -185,7 +188,7 @@ test.describe("Timetable problems", () => {
     });
 
     const panel = conflicts(page);
-    await test.step("the track's clashes include one another track's session causes, not that track's over-capacity session", async () => {
+    await test.step("the track's clashes include one caused by another track's session, but not that track's over-capacity session", async () => {
       await expect(panel).toContainText("2 conflicts");
       await expect(panel).toContainText(/Room occupied by: (Ghost Ship Salvage|Clockwork Heist)/);
       await expect(panel).toContainText("Rowan Hale facilitates simultaneously: Lantern Market");
@@ -218,9 +221,10 @@ test.describe("Timetable problems", () => {
     });
 
     await page.getByRole("tab", { name: "Problems" }).click();
-    await expect(conflictGroup(page, "Room overlaps")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/timetable\/problems\/$/);
     await expect(conflictGroup(page, "Facilitator overlaps")).toBeVisible();
     await expect(conflictGroup(page, "Capacity exceeded")).toBeVisible();
+    await expect(conflictGroup(page, "Room overlaps")).toHaveCount(0);
 
     await test.step("reverting the removal from the activity log puts the session back", async () => {
       await revertLatestRemoval(page);
