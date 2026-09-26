@@ -16,6 +16,18 @@ test.describe("Landing", () => {
     ).toBeVisible();
   });
 
+  test("shows organizers' testimonials only in the organizer view", async ({ page }) => {
+    await page.goto("/");
+
+    const mamert = page.getByRole("figure", { name: "Mamert · Bachanalia Fantastyczne" });
+    await expect(mamert).toContainText("Widzę jaki potencjał i pomoc jest w takiej aplikacji.");
+    await expect(page.getByRole("figure", { name: "Hory-portier · Kapitularz" })).toBeVisible();
+    await expect(page.getByRole("figure", { name: "Gosia · Kapitularz" })).toBeVisible();
+
+    await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
+    await expect(mamert).toBeHidden();
+  });
+
   test("#gracze deep link opens the player view directly", async ({ page }) => {
     await page.goto("/#gracze");
 
