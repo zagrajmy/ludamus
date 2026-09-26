@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from contextlib import suppress
 from typing import TYPE_CHECKING
+
+from pydantic import TypeAdapter, ValidationError
 
 from ludamus.pacts.event import (
     LANDING_CONVENTIONS,
@@ -50,7 +53,7 @@ from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STAT
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.legacy import EventUpdateData
+    from ludamus.pacts.legacy import CacheProtocol, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
@@ -453,15 +456,44 @@ class EventPanelService(EventPanelServiceProtocol):
         )
 
 
-class LandingService(LandingServiceProtocol):
-    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
-        self._stats = stats
+# The landing is the most-hit anonymous page, and its numbers are a claim
+# about volume, not a live counter: two hours stale costs nothing.
+LANDING_CACHE_SECONDS = 2 * 60 * 60
+_STATS_KEY = "landing:stats"
+_CONVENTIONS_KEY = "landing:conventions"
+_CONVENTIONS = TypeAdapter(list[LandingConventionDTO])
 
+
+class LandingService(LandingServiceProtocol):
+    def __init__(
+        self, stats: LandingStatsRepositoryProtocol, cache: CacheProtocol
+    ) -> None:
+        self._stats = stats
+        self._cache = cache
+
+    # NOTE: entries are stored as JSON and validated on the way out, so a
+    # deploy that reshapes a DTO recounts instead of rendering a stale shape.
     def stats(self) -> LandingStatsDTO:
-        return self._stats.count_landing_stats()
+        if isinstance(cached := self._cache.get(_STATS_KEY), str):
+            with suppress(ValidationError):
+                return LandingStatsDTO.model_validate_json(cached)
+        stats = self._stats.count_landing_stats()
+        self._cache.set(
+            _STATS_KEY, stats.model_dump_json(), timeout=LANDING_CACHE_SECONDS
+        )
+        return stats
 
     def conventions(self) -> list[LandingConventionDTO]:
-        return self._stats.list_conventions(LANDING_CONVENTIONS)
+        if isinstance(cached := self._cache.get(_CONVENTIONS_KEY), bytes):
+            with suppress(ValidationError):
+                return _CONVENTIONS.validate_json(cached)
+        conventions = self._stats.list_conventions(LANDING_CONVENTIONS)
+        self._cache.set(
+            _CONVENTIONS_KEY,
+            _CONVENTIONS.dump_json(conventions),
+            timeout=LANDING_CACHE_SECONDS,
+        )
+        return conventions
 
     def showcase_slug(self, sphere_id: int) -> str | None:
         return self._stats.read_newest_published_slug(sphere_id)

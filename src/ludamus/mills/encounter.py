@@ -91,6 +91,22 @@ class EncounterService(EncounterServiceProtocol):
             ),
         )
 
+    def list_upcoming(
+        self, *, sphere_id: int, user_id: int | None, limit: int
+    ) -> list[EncounterIndexItem]:
+        """List the soonest encounters this visitor may see, at most ``limit``.
+
+        Returns:
+            The first ``limit`` upcoming encounters of the feed, soonest
+            first; empty on a sphere with encounters off.
+        """
+        if not self.enabled(sphere_id):
+            return []
+        return self._index_items(
+            self._encounters.list_visible_upcoming(sphere_id, user_id, limit=limit),
+            user_id=user_id,
+        )
+
     def _index_items(
         self, encounters: list[EncounterDTO], *, user_id: int | None
     ) -> list[EncounterIndexItem]:

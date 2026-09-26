@@ -25,17 +25,14 @@
             <input class="sr-only" type="radio" name="landing-krok" id="k6">
             <div class="sc">
                 <div class="ktabs">
-                    <label for="k1"><b>01</b> {% translate "Proposals" %}</label>
-                    <label for="k2"><b>02</b> {% translate "Review" context "landing walkthrough step" %}</label>
-                    <label for="k3"><b>03</b> {% translate "Schedule" %}</label>
-                    <label for="k4"><b>04</b> {% translate "Publish" context "landing walkthrough step" %}</label>
-                    <label for="k5"><b>05</b> {% translate "Enrollment" %}</label>
-                    <label for="k6"><b>06</b> {% translate "Print" context "landing walkthrough step" %}</label>
+                    <label for="k1"><b>01</b> <span class="max-[42rem]:sr-only">{% translate "Proposals" %}</span></label>
+                    <label for="k2"><b>02</b> <span class="max-[42rem]:sr-only">{% translate "Review" context "landing walkthrough step" %}</span></label>
+                    <label for="k3"><b>03</b> <span class="max-[42rem]:sr-only">{% translate "Schedule" %}</span></label>
+                    <label for="k4"><b>04</b> <span class="max-[42rem]:sr-only">{% translate "Publish" context "landing walkthrough step" %}</span></label>
+                    <label for="k5"><b>05</b> <span class="max-[42rem]:sr-only">{% translate "Enrollment" %}</span></label>
+                    <label for="k6"><b>06</b> <span class="max-[42rem]:sr-only">{% translate "Print" context "landing walkthrough step" %}</span></label>
                 </div>
-                <div class="mt-[1.1rem] overflow-x-auto rounded-[1.25rem]"
-                     tabindex="0"
-                     role="group"
-                     aria-label="{% translate 'The programme grid, scrollable sideways' %}">
+                <div class="@container mt-[1.1rem]">
                     <div class="stage">
                         <!-- context strip -->
                         <div class="ctx ctx1">
@@ -127,9 +124,6 @@
                         </aside>
                     </div>
                 </div>
-                <p class="hidden max-[44rem]:block text-[0.78rem] text-foreground-muted mt-2">
-                    {% translate "Swipe the grid sideways to see all the rooms." %}
-                </p>
                 <div class="mt-[1.4rem] min-h-[6.5rem]">
                     <div class="hidden group-has-[#k1:checked]/krok:block max-w-[56ch]">
                         <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">

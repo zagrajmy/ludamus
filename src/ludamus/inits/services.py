@@ -332,7 +332,7 @@ class Services:
 
     @cached_property
     def landing(self) -> LandingService:
-        return LandingService(self._repos.landing_stats)
+        return LandingService(self._repos.landing_stats, DjangoCache())
 
     @cached_property
     def dashboard(self) -> DashboardService:

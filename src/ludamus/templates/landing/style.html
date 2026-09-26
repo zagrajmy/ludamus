@@ -328,7 +328,11 @@ themes — newsprint rather than white once the page around them is dark.
         outline-offset: 2px;
     }
 
+    /* Narrower than 40rem, the whole scene shrinks to fit instead of
+       scrolling sideways. tan(atan2()) turns the width ratio into the
+       unitless number zoom takes. */
     .landing .stage {
+        zoom: min(1, tan(atan2(100cqw, 40rem)));
         position: relative;
         min-width: 40rem;
         height: 34rem;
@@ -808,6 +812,90 @@ themes — newsprint rather than white once the page around them is dark.
     #k6:checked~.sc .doorcard {
         opacity: 1;
         transform: rotate(-1.5deg) translateY(0);
+    }
+
+    /* At phone zoom (about 0.55) the desktop type lands near 6px, so the
+       scene sets it larger to arrive at 10-11px. The tabs drop to numbers;
+       the caption under the grid names the act. */
+    @media (max-width: 42rem) {
+        .landing .ktabs {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.3rem;
+        }
+
+        .landing .ktabs label {
+            justify-content: center;
+            padding: 0.6rem 0;
+            border-radius: 0.7rem;
+            border-color: var(--color-border);
+        }
+
+        .landing .ctx {
+            gap: 0.6rem;
+        }
+
+        .landing .ctx>span {
+            font-size: 1.2rem;
+        }
+
+        .landing .chip .ct {
+            flex-shrink: 0;
+            font-size: 1.15rem;
+        }
+
+        #k5:checked~.sc .cD .ca {
+            display: none;
+        }
+
+        #k5:checked~.sc .cD .ct {
+            -webkit-line-clamp: 1;
+        }
+
+        #k1:checked~.sc .chip .ct,
+        #k2:checked~.sc .chip .ct {
+            font-size: 1.3rem;
+        }
+
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 1rem;
+        }
+
+        .landing .chip>span:not(.ct, .warnDot) {
+            font-size: 0.95rem;
+        }
+
+        .landing .warnDot {
+            width: 1.5rem;
+            height: 1.5rem;
+            font-size: 1rem;
+            line-height: 1.5rem;
+        }
+
+        .landing .rh {
+            font-size: 1rem;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+
+        .landing .tl {
+            font-size: 1.15rem;
+        }
+
+        .landing .cellwarn>span {
+            top: -1rem;
+            height: 1.7rem;
+            font-size: 0.9rem;
+        }
+
+        .landing .doorcard {
+            width: 40%;
+        }
+
+        .landing .doorcard>* {
+            font-size: 1.1rem;
+        }
     }
 
     /* step descriptions */
