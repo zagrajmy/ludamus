@@ -885,7 +885,10 @@ class TestLandingPageView:
             sphere=non_root_sphere, slug="foreign", start_time=now + timedelta(days=90)
         )
 
-        response = client.get(self.URL)
+        with override_settings(
+            LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+        ):
+            response = client.get(self.URL)
 
         assert_response(
             response,
