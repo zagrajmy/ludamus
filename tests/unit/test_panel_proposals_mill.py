@@ -16,6 +16,7 @@ from ludamus.pacts.panel import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 
+_NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
 _IDENT_LOOKUPS_ON_CONSTRAINT = 2
 

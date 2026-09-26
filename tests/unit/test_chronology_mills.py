@@ -21,8 +21,6 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
-    ContentChangeNotLatestError,
-    ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
     SpaceTimeConflictError,

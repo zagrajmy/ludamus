@@ -1,4 +1,4 @@
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from datetime import timedelta
 from unittest.mock import MagicMock
 
@@ -18,6 +18,19 @@ class FakeTransaction:
     @staticmethod
     def atomic():
         return nullcontext()
+
+
+class RecordingTransaction:
+    def __init__(self) -> None:
+        self.active = False
+
+    @contextmanager
+    def atomic(self):
+        self.active = True
+        try:
+            yield
+        finally:
+            self.active = False
 
 
 def _category() -> ProposalCategoryDTO:
@@ -167,3 +180,7 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
 
     assert [field.pk for field in page.available_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
+
+
+def assert_transaction_active(transaction: RecordingTransaction) -> None:
+    assert transaction.active is True
