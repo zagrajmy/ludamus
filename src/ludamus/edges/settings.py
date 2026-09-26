@@ -140,6 +140,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
+    "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -469,6 +470,14 @@ if POSTHOG_API_KEY:
     CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
+
+# Sent in every environment (harmless locally). Denies the high-risk features
+# an injected script would reach for; everything else stays at the browser
+# default.
+PERMISSIONS_POLICY = (
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
+    "display-capture=()"
+)
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or

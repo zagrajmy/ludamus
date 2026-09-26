@@ -90,6 +90,28 @@ class TestCSPEnforceHeader:
         assert ENFORCE_HEADER not in response.headers
 
 
+class TestPermissionsPolicy:
+    def test_header_sent_on_every_response(self, client):
+        response = client.get(reverse("web:index"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "stats": LandingStatsDTO(events=0, sessions=0),
+                "conventions": [],
+                "encounters": [],
+                "encounters_enabled": True,
+                "showcase_url": KAPITULARZ_URL,
+            },
+            template_name=["landing_page.html"],
+        )
+        assert response.headers["Permissions-Policy"] == (
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
+            "display-capture=()"
+        )
+
+
 class TestCSPNonce:
     # A rendered page (unlike a bare redirect) carries base.html's
     # FOUC-prevention script, which is what forces the nonce to materialize.
