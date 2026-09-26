@@ -14,6 +14,10 @@ themes — newsprint rather than white once the page around them is dark.
         /* Print artifacts stay paper in both themes, but pure white against
            the dark page is a glare step rather than a sheet of paper. */
         --paper: #fff;
+        /* The active act tab: a white chip in light mode, where the primary
+           tint reads pink; the tint stays in dark mode, where it is neutral. */
+        --ktab-on: var(--color-bg-secondary);
+        --ktab-on-edge: var(--color-border);
     }
 
     .dark .landing {
@@ -22,6 +26,8 @@ themes — newsprint rather than white once the page around them is dark.
            dark, so the stage chrome has to read against the page instead. */
         --stage-paper: var(--color-background);
         --stage-ink: var(--color-foreground);
+        --ktab-on: var(--color-primary-light);
+        --ktab-on-edge: var(--color-primary-light);
     }
 
     /* page-load choreography (skipped entirely under reduced motion) */
@@ -304,9 +310,9 @@ themes — newsprint rather than white once the page around them is dark.
     #k4:checked~.sc .ktabs label[for="k4"],
     #k5:checked~.sc .ktabs label[for="k5"],
     #k6:checked~.sc .ktabs label[for="k6"] {
-        background: var(--color-foreground);
-        border-color: var(--color-foreground);
-        color: var(--color-background);
+        background: var(--ktab-on);
+        border-color: var(--ktab-on-edge);
+        color: var(--color-foreground);
     }
 
     #k1:checked~.sc .ktabs label[for="k1"] b,
@@ -315,7 +321,7 @@ themes — newsprint rather than white once the page around them is dark.
     #k4:checked~.sc .ktabs label[for="k4"] b,
     #k5:checked~.sc .ktabs label[for="k5"] b,
     #k6:checked~.sc .ktabs label[for="k6"] b {
-        color: inherit;
+        color: var(--color-primary-hover);
     }
 
     #k1:focus-visible~.sc .ktabs label[for="k1"],
