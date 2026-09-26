@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, SphereSubscription
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.multiverse import SphereVisibility
 from tests.integration.conftest import EventFactory, UserFactory
 
 
@@ -103,3 +104,21 @@ class TestAnnouncePublishedEvents:
 
         assert mailoutbox == []
         assert Notification.objects.filter(recipient=quiet).exists()
+
+    def test_keeps_a_private_sphere_s_events_to_itself(
+        self,
+        non_root_sphere,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+        _published_event(non_root_sphere)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("announce_published_events")
+
+        assert mailoutbox == []
+        assert not Notification.objects.exists()
