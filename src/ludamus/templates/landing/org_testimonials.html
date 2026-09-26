@@ -63,7 +63,10 @@
                 <figcaption class="flex items-center justify-between gap-3 border-t border-border pt-4 text-[0.82rem] text-foreground-muted">
                     <span class="flex items-center gap-1.25">
                         {# aria-hidden: the name sits right beside it, and the figure takes its accessible name from this caption. #}
-                        <span aria-hidden="true">{% include "components/avatar.html" with user=mamert size="size-6" %}</span>
+                        <span aria-hidden="true"
+                              class="rounded-full dark:outline dark:outline-white/50">
+                            {% include "components/avatar.html" with user=mamert size="size-6" %}
+                        </span>
                         <span>Mamert · Bachanalia Fantastyczne</span>
                     </span>
                     <img src="{% static 'landing/bachanalia-mark.svg' %}"
