@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
+from django.test import override_settings
 from django.urls import reverse
 
 from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
@@ -26,10 +27,7 @@ class TestAboutPage:
             },
         )
 
-    def test_cites_live_counts_and_conventions(self, client, non_root_sphere, settings):
-        settings.LANDING_CONVENTION_SUBDOMAINS = (
-            non_root_sphere.site.domain.split(".")[0],
-        )
+    def test_cites_live_counts_and_conventions(self, client, non_root_sphere):
         event = EventFactory(
             sphere=non_root_sphere,
             start_time=datetime.now(UTC),
@@ -37,7 +35,10 @@ class TestAboutPage:
         )
         SessionFactory(category__event=event)
 
-        response = client.get(self.URL)
+        with override_settings(
+            LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+        ):
+            response = client.get(self.URL)
 
         assert_response(
             response,

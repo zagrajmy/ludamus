@@ -886,7 +886,7 @@ class TestLandingPageView:
         )
 
         with override_settings(
-            LANDING_CONVENTION_SUBDOMAINS=(non_root_sphere.site.domain.split(".")[0],)
+            LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
         ):
             response = client.get(self.URL)
 
