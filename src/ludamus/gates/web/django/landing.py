@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
+from django.templatetags.static import static
 from django.urls import reverse
 from django.views.generic.base import RedirectView
 
@@ -82,6 +83,9 @@ def landing_page(request: RootRequest) -> HttpResponse:
             ),
             "showcase_url": _showcase_url(request),
             "contact_email": CONTACT_EMAIL,
+            # Mamert isn't a user here, so he gets just the fields the avatar
+            # component reads.
+            "mamert": {"name": "Mamert", "avatar_url": static("landing/mamert.webp")},
         },
     )
 
