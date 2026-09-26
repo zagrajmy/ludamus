@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.views.generic.base import RedirectView
 
 from ludamus.gates.web.django.dashboard import dashboard_page
 from ludamus.gates.web.django.events import EventsPageView
@@ -25,6 +26,12 @@ SHOWCASE_EVENT_URL = "https://kapitularz.zagrajmy.net/"
 # Where organizers write to start an event. Not SUPPORT_EMAIL: that one takes
 # account and data requests, this one is the sales conversation.
 CONTACT_EMAIL = "kontakt@zagrajmy.net"
+
+# The old homes of the feed, now the sphere root. Shared links carry filters
+# and UTM tags, so the query string rides along.
+legacy_feed_redirect = RedirectView.as_view(
+    pattern_name="web:index", permanent=True, query_string=True
+)
 
 
 def index_page(request: RootRequest) -> HttpResponse:

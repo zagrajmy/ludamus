@@ -6,6 +6,7 @@ import { signInAsManager } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
+import { EMPTY_SPHERE } from "./helpers/urls";
 
 // A 1x1 opaque PNG — the mark only has to be a real raster the browser will
 // decode, so the smallest valid one keeps the fixture inline.
@@ -34,8 +35,6 @@ test.describe.configure({ mode: "serial" });
 // The empty state only renders while the sphere holds no guild at all, and the
 // default sphere is shared with facilitator-guild.spec.ts, which keeps a guild
 // of its own alive for the length of its run. Empty Sphere is nobody else's.
-const EMPTY_SPHERE = "http://another.localhost:8000";
-
 test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
   // Its manager signs in by the session cookie bootstrap_data.py wrote for that
   // host, the way panel.spec.ts reaches the same sphere.

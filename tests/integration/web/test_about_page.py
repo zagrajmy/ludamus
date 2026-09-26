@@ -46,6 +46,7 @@ class TestAboutPage:
                     LandingConventionDTO(
                         name=non_root_sphere.name,
                         domain=non_root_sphere.site.domain,
+                        event_slug=event.slug,
                         cover_image_url=event.cover_image.url,
                     )
                 ],

@@ -150,6 +150,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]
@@ -377,6 +378,16 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     "/__reload__/",
     "/healthz/",
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
+)
+
+# What a private sphere still serves to strangers: signing in, and the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere.
+PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
+    *MIDDLEWARE_SKIP_PREFIXES,
+    "/crowd/",
+    "/auth-error/",
+    "/mcp/",
+    "/.well-known/",
 )
 
 

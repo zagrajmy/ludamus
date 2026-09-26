@@ -165,7 +165,7 @@
                                                 data-consent-reopen
                                                 class="hover:underline text-primary">{% translate "Cookie settings" %}</button>
                                     {% endif %}
-                                    <a href="{% url 'about' %}">{% translate "About Zagrajmy" %}</a>
+                                    <a href="{{ root_origin }}{% url 'about' %}">{% translate "About Zagrajmy" %}</a>
                                     <a href="{% url 'web:brand' %}">{% translate "Brand" %}</a>
                                     <a href="mailto:{{ SUPPORT_EMAIL }}">{% translate "Contact" %}</a>
                                     <a href="{% url 'privacy-policy' %}">{% translate "Privacy Policy" %}</a>
