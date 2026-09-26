@@ -577,6 +577,22 @@ class Event(models.Model):
             if config.is_session_eligible(session)
         ]
 
+    def get_seating_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        if active_eligible := self.get_eligible_enrollment_configs(session):
+            return active_eligible
+        now = datetime.now(tz=UTC)
+        ended_eligible = [
+            config
+            for config in self.enrollment_configs.all()
+            if config.end_time <= now and config.is_session_eligible(session)
+        ]
+        if not ended_eligible:
+            return []
+        latest = max(ended_eligible, key=lambda config: (config.end_time, config.pk))
+        return [latest]
+
 
 class EventProposalSettings(models.Model):
     event = models.OneToOneField(
@@ -1188,7 +1204,7 @@ class Session(SoftDeleteModel):
     def effective_participants_limit(self) -> int:
         return effective_participants_limit(
             participants_limit=self.participants_limit,
-            eligible_configs=self.event.get_eligible_enrollment_configs(self),
+            eligible_configs=self.event.get_seating_enrollment_configs(self),
         )
 
     @property
