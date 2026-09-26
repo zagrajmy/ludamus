@@ -32,6 +32,7 @@ from ludamus.pacts.dashboard import (
     DashboardSphereDTO,
 )
 from ludamus.pacts.legacy import EncountersPolicy, SessionParticipationStatus
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -139,7 +140,8 @@ class DashboardRepository(DashboardRepositoryProtocol):
         """List encounters anyone may join, across every sphere that runs them.
 
         Returns:
-            Up to ``limit`` upcoming listed encounters, soonest first, minus
+            Up to ``limit`` upcoming listed encounters in public spheres,
+            soonest first, minus
             the ones this member already organises or holds an RSVP to — those
             are on their agenda, and a dashboard that offers you what you
             already have is noise.
@@ -148,6 +150,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             Encounter.objects.filter(
                 is_public=True,
                 start_time__gte=now,
+                sphere__visibility=SphereVisibility.PUBLIC,
                 sphere__encounters_policy__in=(
                     EncountersPolicy.MANAGERS,
                     EncountersPolicy.EVERYONE,
@@ -249,16 +252,17 @@ class DashboardRepository(DashboardRepositoryProtocol):
 
 
 def _sphere_ids_with_ties(user_id: int) -> set[int]:
-    # Every reason a sphere is "yours": you asked to hear from it, you run it,
-    # or you hold something in it.
-    return (
+    # Every reason a sphere is "yours": you run it, you asked to hear from it,
+    # or you hold something in it. Only running it opens a private sphere: the
+    # other ties can predate the sphere going private.
+    run = set(
+        SphereMembership.objects.filter(user_id=user_id).values_list(
+            "sphere_id", flat=True
+        )
+    )
+    followed_or_held = (
         set(
             SphereSubscription.objects.filter(user_id=user_id).values_list(
-                "sphere_id", flat=True
-            )
-        )
-        | set(
-            SphereMembership.objects.filter(user_id=user_id).values_list(
                 "sphere_id", flat=True
             )
         )
@@ -272,4 +276,9 @@ def _sphere_ids_with_ties(user_id: int) -> set[int]:
                 Q(creator_id=user_id) | Q(rsvps__user_id=user_id)
             ).values_list("sphere_id", flat=True)
         )
+    )
+    return run | set(
+        Sphere.objects.filter(pk__in=followed_or_held)
+        .exclude(visibility=SphereVisibility.PRIVATE)
+        .values_list("pk", flat=True)
     )
