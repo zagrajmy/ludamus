@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 from pydantic import TypeAdapter, ValidationError
 
 from ludamus.pacts.event import (
-    LANDING_CONVENTIONS,
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
@@ -468,10 +467,15 @@ _CONVENTIONS = TypeAdapter(list[LandingConventionDTO])
 
 class LandingService(LandingServiceProtocol):
     def __init__(
-        self, stats: LandingStatsRepositoryProtocol, cache: CacheProtocol
+        self,
+        stats: LandingStatsRepositoryProtocol,
+        *,
+        cache: CacheProtocol,
+        convention_domains: tuple[str, ...],
     ) -> None:
         self._stats = stats
         self._cache = cache
+        self._convention_domains = convention_domains
 
     def stats(self) -> LandingStatsDTO:
         return self._cached(
@@ -482,7 +486,7 @@ class LandingService(LandingServiceProtocol):
         return self._cached(
             key="landing:conventions",
             adapter=_CONVENTIONS,
-            load=lambda: self._stats.list_conventions(LANDING_CONVENTIONS),
+            load=lambda: self._stats.list_conventions(self._convention_domains),
         )
 
     # NOTE: entries are stored as JSON and validated on the way out, so a

@@ -895,7 +895,12 @@ class TestLandingPageView:
         )
 
     def test_counts_stay_cached_for_two_hours(self, client, sphere, non_root_sphere):
-        with freeze_time("2026-09-26 12:00:00") as clock:
+        with (
+            override_settings(
+                LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+            ),
+            freeze_time("2026-09-26 12:00:00") as clock,
+        ):
             client.get(self.URL)
             EventFactory(sphere=sphere)
             EventFactory(
@@ -981,7 +986,10 @@ class TestLandingPageView:
             sphere=non_root_sphere, slug="foreign", start_time=now + timedelta(days=90)
         )
 
-        response = client.get(self.URL)
+        with override_settings(
+            LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+        ):
+            response = client.get(self.URL)
 
         assert_response(
             response,
