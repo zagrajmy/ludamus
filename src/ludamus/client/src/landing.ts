@@ -7,20 +7,18 @@ if (landing) {
 }
 
 if (org && gracz) {
-  if (location.hash === "#gracze") gracz.checked = true;
+  if (location.hash === "#gracze" || location.hash === "#g-conventions-heading")
+    gracz.checked = true;
 
   const sync = () => {
-    const hash = gracz.checked ? "#gracze" : location.hash === "#events" ? "#events" : "";
-    history.replaceState(null, "", hash || location.pathname + location.search);
+    history.replaceState(null, "", gracz.checked ? "#gracze" : location.pathname + location.search);
   };
   org.addEventListener("change", sync);
   gracz.addEventListener("change", sync);
   addEventListener("hashchange", () => {
-    if (location.hash === "#gracze") gracz.checked = true;
-    else if (location.hash === "#events") {
-      org.checked = true;
-      document.getElementById("events")?.scrollIntoView();
-    } else if (location.hash === "" || location.hash === "#") org.checked = true;
+    if (location.hash === "#gracze" || location.hash === "#g-conventions-heading")
+      gracz.checked = true;
+    else if (location.hash === "" || location.hash === "#") org.checked = true;
   });
 }
 
