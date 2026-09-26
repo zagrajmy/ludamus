@@ -122,8 +122,15 @@ class FakeRepo:
         self.confirmed: list[tuple[int, int]] = []
         self.waiting: list[tuple[int, int]] = []
         self.deleted: list[tuple[int, int]] = []
+        self.events_read: list[str] = []
+        self.sessions_read: list[dict] = []
+        self.statuses_read: list[dict] = []
+        self.conflicts_checked: list[dict] = []
+        self.seatings_locked: list[int] = []
+        self.loads_read: list[int] = []
 
-    def read_event(self, _event_slug):
+    def read_event(self, event_slug):
+        self.events_read.append(event_slug)
         if self._cfg.get("event") is None:
             raise NotFoundError
         return self._cfg["event"]
@@ -131,18 +138,22 @@ class FakeRepo:
     def event_slug_by_id(self, event_id):
         return self._cfg.get("event_slugs", {}).get(event_id)
 
-    def read_session(self, **_kwargs):
+    def read_session(self, **kwargs):
+        self.sessions_read.append(kwargs)
         if self._cfg.get("session") is None:
             raise NotFoundError
         return self._cfg["session"]
 
-    def read_participation_status(self, **_kwargs):
+    def read_participation_status(self, **kwargs):
+        self.statuses_read.append(kwargs)
         return self._cfg.get("participation_status")
 
-    def has_conflicts(self, **_kwargs):
+    def has_conflicts(self, **kwargs):
+        self.conflicts_checked.append(kwargs)
         return self._cfg.get("conflicts", False)
 
-    def lock_seating(self, _session_id):
+    def lock_seating(self, session_id):
+        self.seatings_locked.append(session_id)
         if (seating := self._cfg.get("seating")) is not None:
             return seating
         participants_limit = 10
@@ -161,7 +172,8 @@ class FakeRepo:
         self.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
 
-    def first_enrollment_event(self, _user_id):
+    def first_enrollment_event(self, user_id):
+        self.loads_read.append(user_id)
         return self._cfg.get("load")
 
 
@@ -199,6 +211,9 @@ def _request(**overrides) -> AnonymousEnrollmentRequestDTO:
     return AnonymousEnrollmentRequestDTO(**values)
 
 
+_CODE_LENGTH = 6
+
+
 def _error_code(excinfo) -> AnonymousEnrollmentErrorCode:
     return excinfo.value.code
 
@@ -217,9 +232,16 @@ class TestActivate:
 
         assert activation.event_id == _EVENT_ID
         assert activation.event_slug == "conv"
-        assert len(users.created) == 1
-        assert users.created[0]["slug"] == f"code_{activation.code}"
-        assert users.created[0]["user_type"] == UserType.ANONYMOUS
+        assert repo.events_read == ["conv"]
+        (created,) = users.created
+        assert created["slug"] == f"code_{activation.code}"
+        assert not created["name"]
+        assert created["user_type"] == UserType.ANONYMOUS
+        assert created["is_active"] is False
+        assert created["username"].startswith("anon_")
+        assert created["username"] == created["username"].lower()
+        assert activation.code == activation.code.lower()
+        assert len(activation.code) == _CODE_LENGTH
 
     def test_event_not_found(self):
         service = _service(repo=FakeRepo(event=None))
@@ -341,6 +363,10 @@ class TestGetEnrollPage:
         assert page.needs_user_data is True
         assert page.enrollment_status is None
         assert page.is_enrolled is False
+        assert repo.sessions_read == [
+            {"session_id": _SESSION_ID, "event_slug": "conv", "site_id": _SITE_ID}
+        ]
+        assert repo.statuses_read == [{"session_id": _SESSION_ID, "user_id": _USER_PK}]
 
     def test_closed_enrollment_still_shows_existing_enrollment(self):
         repo = FakeRepo(
@@ -394,6 +420,8 @@ class TestEnroll:
         assert result.outcome == AnonymousEnrollOutcome.ENROLLED
         assert result.session_title == "Warsztat"
         assert result.event_slug == "conv"
+        assert repo.conflicts_checked == [{"session_id": _SESSION_ID, "user": _user()}]
+        assert repo.seatings_locked == [_SESSION_ID]
         assert repo.confirmed == [(_SESSION_ID, _USER_PK)]
         assert not repo.waiting
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]

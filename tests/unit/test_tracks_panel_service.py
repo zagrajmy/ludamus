@@ -1,9 +1,10 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
     TrackFormData,
@@ -41,6 +42,55 @@ class TestTracksPanelService:
     def service(self, transaction, tracks, spaces, spheres):
         return TracksPanelService(
             transaction=transaction, tracks=tracks, spaces=spaces, spheres=spheres
+        )
+
+    def test_create_writes_the_selection_scoped_and_sorted(
+        self, service, tracks, spaces, spheres
+    ):
+        spaces.list_by_event.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
+        spheres.list_managers.return_value = [MagicMock(pk=7), MagicMock(pk=8)]
+
+        created = service.create(
+            event_pk=42,
+            sphere_id=3,
+            data=_data(is_public=False, space_pks=(2, 1), manager_pks=(8, 7)),
+        )
+
+        assert created is tracks.create.return_value
+        spaces.list_by_event.assert_called_once_with(42)
+        spheres.list_managers.assert_called_once_with(3)
+        tracks.create.assert_called_once_with(
+            TrackCreateData(
+                event_pk=42,
+                name="Alpha",
+                is_public=False,
+                space_pks=[1, 2],
+                manager_pks=[7, 8],
+            )
+        )
+
+    def test_update_writes_the_selection_scoped_and_sorted(
+        self, service, tracks, spaces, spheres
+    ):
+        tracks.read_by_slug.return_value = MagicMock(pk=5)
+        spaces.list_by_event.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
+        spheres.list_managers.return_value = [MagicMock(pk=7)]
+
+        service.update(
+            event_pk=42,
+            sphere_id=3,
+            track_slug="alpha",
+            data=_data(name="Beta", space_pks=(2, 1), manager_pks=(7,)),
+        )
+
+        tracks.read_by_slug.assert_called_once_with(42, "alpha")
+        spaces.list_by_event.assert_called_once_with(42)
+        spheres.list_managers.assert_called_once_with(3)
+        tracks.update.assert_called_once_with(
+            5,
+            TrackUpdateData(
+                name="Beta", is_public=True, space_pks=[1, 2], manager_pks=[7]
+            ),
         )
 
     def test_list_tracks_delegates_to_repository(self, service, tracks):
@@ -85,6 +135,11 @@ class TestTracksPanelService:
         spheres.list_managers.return_value = []
 
         assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is created
+        tracks.create.assert_called_once_with(
+            TrackCreateData(
+                event_pk=42, name="Alpha", is_public=True, space_pks=[], manager_pks=[]
+            )
+        )
 
     def test_find_or_create_reraises_when_the_race_winner_cannot_be_found(
         self, service, tracks, spaces, spheres
@@ -107,6 +162,10 @@ class TestTracksPanelService:
         spheres.list_managers.return_value = []
 
         assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is winner
+        assert tracks.find_by_event_and_name.call_args_list == [
+            call(42, "Alpha"),
+            call(42, "Alpha"),
+        ]
 
     def test_get_form_context_bundles_event_spaces_and_sphere_managers(
         self, service, spaces, spheres

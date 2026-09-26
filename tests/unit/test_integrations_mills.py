@@ -1,9 +1,9 @@
 import logging
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from ludamus.mills.integrations import (
     EventIntegrationsService,
@@ -15,6 +15,7 @@ from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
     EventIntegrationCreateData,
+    EventIntegrationUpdateData,
     IntegrationCheckRequest,
     IntegrationImplementationId,
     IntegrationKind,
@@ -32,7 +33,11 @@ class _ImportStubImpl:
     kind = IntegrationKind.IMPORT
     config_model = _StrictConfig
 
+    def __init__(self):
+        self.checked = []
+
     def check(self, secret, config):
+        self.checked.append((secret, config))
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
@@ -42,14 +47,17 @@ class _HeaderStubImpl:
 
     def __init__(self, headers):
         self._headers = headers
+        self.calls = []
 
     def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
-    def fetch_questions(self, **_kwargs):
+    def fetch_questions(self, **kwargs):
+        self.calls.append(("questions", kwargs))
         return [SourceQuestion(title="Tytuł")]
 
-    def fetch_headers(self, **_kwargs):
+    def fetch_headers(self, **kwargs):
+        self.calls.append(("headers", kwargs))
         return self._headers
 
 
@@ -160,6 +168,87 @@ class TestEventIntegrationsServiceCheck:
         # A NotFoundError becomes a graceful result; nothing gets decrypted.
         env.decryptor.decrypt.assert_not_called()
 
+    def test_decrypts_the_secret_and_asks_the_implementation(self):
+        impl = _ImportStubImpl()
+        env = _make_service(imports={_IMPL: impl})
+        env.connections.read_secret.return_value = b"blob"
+        env.decryptor.decrypt.return_value = b"plain"
+
+        result = env.svc.check(
+            IntegrationCheckRequest(
+                sphere_id=1,
+                implementation=_IMPL,
+                connection_id=2,
+                config_json='{"endpoint": "x"}',
+            )
+        )
+
+        assert result == CheckResult(outcome=CheckOutcome.OK, hint="")
+        env.connections.read_secret.assert_called_once_with(1, 2)
+        env.decryptor.decrypt.assert_called_once_with(b"blob")
+        assert impl.checked == [(b"plain", _StrictConfig(endpoint="x"))]
+
+    def test_a_connection_without_a_secret_checks_with_an_empty_one(self):
+        impl = _ImportStubImpl()
+        env = _make_service(imports={_IMPL: impl})
+        env.connections.read_secret.return_value = None
+
+        env.svc.check(
+            IntegrationCheckRequest(
+                sphere_id=1,
+                implementation=_IMPL,
+                connection_id=2,
+                config_json='{"endpoint": "x"}',
+            )
+        )
+
+        env.decryptor.decrypt.assert_not_called()
+        assert impl.checked == [(b"", _StrictConfig(endpoint="x"))]
+
+
+class TestEventIntegrationsServiceWrites:
+    def test_create_checks_the_connection_then_writes(self):
+        env = _make_service(imports={_IMPL: _ImportStubImpl()})
+        data = _create_data()
+
+        created = env.svc.create(1, 2, data)
+
+        assert created is env.integrations.create.return_value
+        env.connections.get.assert_called_once_with(1, 3)
+        env.integrations.create.assert_called_once_with(2, data)
+
+    def test_create_with_a_foreign_connection_writes_nothing(self):
+        env = _make_service(imports={_IMPL: _ImportStubImpl()})
+        env.connections.get.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            env.svc.create(1, 2, _create_data())
+
+        env.integrations.create.assert_not_called()
+
+    def test_update_checks_the_connection_then_writes(self):
+        env = _make_service()
+        data = EventIntegrationUpdateData(
+            connection_id=4, display_name="y", config_json="{}"
+        )
+
+        updated = env.svc.update(1, 2, 3, data)
+
+        assert updated is env.integrations.update.return_value
+        env.connections.get.assert_called_once_with(1, 4)
+        env.integrations.update.assert_called_once_with(2, 3, data)
+
+    def test_delete_and_save_settings_are_scoped_to_the_event(self):
+        env = _make_service()
+
+        env.svc.delete(2, 3)
+        env.svc.save_settings(event_id=2, pk=3, settings_json="{}")
+
+        env.integrations.delete.assert_called_once_with(2, 3)
+        env.integrations.update_settings.assert_called_once_with(
+            event_id=2, pk=3, settings_json="{}"
+        )
+
 
 class TestEventIntegrationsServiceRequireImplementation:
     def test_create_with_unknown_implementation_raises(self):
@@ -233,18 +322,77 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         impl = _HeaderStubImpl(headers=headers)
         env = _make_service(imports={_IMPL: impl})
         env.integrations.get.return_value = MagicMock(
-            implementation=_IMPL, config_json='{"endpoint": "x"}', settings_json="{}"
+            implementation=_IMPL,
+            connection_id=7,
+            config_json='{"endpoint": "x"}',
+            settings_json='{"header_row": 2}',
+        )
+        env.connections.read_secret.return_value = b"blob"
+        env.decryptor.decrypt.return_value = b"secret"
+
+        questions = env.svc.populate_questions_snapshot(
+            sphere_id=1, event_id=event_id, pk=pk
         )
 
-        env.svc.populate_questions_snapshot(sphere_id=1, event_id=event_id, pk=pk)
-
-        saved = env.integrations.update_settings.call_args.kwargs
-        assert saved["event_id"] == event_id
-        assert saved["pk"] == pk
-        assert (
-            ImportSettings.model_validate_json(saved["settings_json"]).sheet_headers
-            == headers
+        assert questions == [SourceQuestion(title="Tytuł")]
+        assert env.integrations.get.call_args_list == [call(event_id, pk)] * 3
+        assert env.connections.read_secret.call_args_list == [call(1, 7)] * 2
+        assert env.decryptor.decrypt.call_args_list == [call(b"blob")] * 2
+        bound = {
+            "secret": b"secret",
+            "config": _StrictConfig(endpoint="x"),
+            "header_row": 2,
+        }
+        assert impl.calls == [("questions", bound), ("headers", bound)]
+        env.integrations.update_questions_snapshot.assert_called_once_with(
+            event_id=event_id,
+            pk=pk,
+            questions_snapshot_json=TypeAdapter(list[SourceQuestion])
+            .dump_json([SourceQuestion(title="Tytuł")])
+            .decode(),
         )
+        env.integrations.update_settings.assert_called_once_with(
+            event_id=event_id,
+            pk=pk,
+            settings_json=ImportSettings(
+                header_row=2, sheet_headers=headers
+            ).model_dump_json(),
+        )
+
+    def test_populate_snapshot_leaves_unchanged_headers_alone(self):
+        headers = ["Tytuł"]
+        env = _make_service(imports={_IMPL: _HeaderStubImpl(headers=headers)})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL,
+            config_json='{"endpoint": "x"}',
+            settings_json='{"sheet_headers": ["Tytuł"]}',
+        )
+
+        env.svc.populate_questions_snapshot(sphere_id=1, event_id=2, pk=3)
+
+        env.integrations.update_settings.assert_not_called()
+        env.integrations.update_questions_snapshot.assert_called_once()
+
+    def test_fetch_without_a_stored_secret_binds_an_empty_one(self):
+        impl = _HeaderStubImpl(headers=[])
+        env = _make_service(imports={_IMPL: impl})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL,
+            connection_id=7,
+            config_json='{"endpoint": "x"}',
+            settings_json=None,
+        )
+        env.connections.read_secret.return_value = None
+
+        env.svc.fetch_headers(sphere_id=1, event_id=2, pk=3)
+
+        env.decryptor.decrypt.assert_not_called()
+        assert impl.calls == [
+            (
+                "headers",
+                {"secret": b"", "config": _StrictConfig(endpoint="x"), "header_row": 1},
+            )
+        ]
 
     def test_populate_snapshot_keeps_cached_headers_when_the_fetch_fails(self):
         # A transient Sheets failure yields []; wiping the cache would empty the
@@ -319,6 +467,8 @@ class TestEventIntegrationsServiceTicketApi:
 
         assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
         assert env.impl.seen == [(b"token", "https://shop.example.com", _EMAIL)]
+        env.connections.read_secret.assert_called_once_with(1, 3)
+        env.decryptor.decrypt.assert_called_once_with(b"blob")
 
     def test_resolve_falls_back_to_the_next_usable_integration(self):
         # First usable row wins; a broken one must not take the event down.
@@ -346,29 +496,48 @@ class TestEventIntegrationsServiceTicketApi:
                 implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER,
                 connection_id=3,
                 config_json="{}",
-            )
+            ),
+            _ticketing_row(pk=2),
         ]
 
-        with pytest.raises(MembershipAPIError):
-            env.svc.resolve(event_id=7, sphere_id=1).fetch_membership_count(_EMAIL)
+        client = env.svc.resolve(event_id=7, sphere_id=1)
 
-    def test_resolve_skips_a_missing_connection(self):
-        env = _ticketing_env([_ticketing_row()])
-        env.connections.read_secret.side_effect = NotFoundError
+        assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
 
-        with pytest.raises(MembershipAPIError):
-            env.svc.resolve(event_id=7, sphere_id=1).fetch_membership_count(_EMAIL)
-
-    def test_resolve_logs_a_connection_without_a_secret(self, caplog):
-        env = _ticketing_env([_ticketing_row()])
-        env.connections.read_secret.return_value = b""
+    def test_resolve_skips_a_missing_connection(self, caplog):
+        env = _ticketing_env([_ticketing_row(pk=1), _ticketing_row(pk=2)])
+        env.connections.read_secret.side_effect = [NotFoundError, b"blob"]
 
         with caplog.at_level(logging.WARNING):
             client = env.svc.resolve(event_id=7, sphere_id=1)
 
-        assert "no secret" in caplog.text
-        with pytest.raises(MembershipAPIError):
-            client.fetch_membership_count(_EMAIL)
+        assert caplog.messages == [
+            "Ticketing integration 1 points at a missing connection"
+        ]
+        assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
+
+    def test_resolve_logs_an_invalid_config(self, caplog):
+        env = _ticketing_env(
+            [_ticketing_row(pk=1, config_json='{"base_url": 42}'), _ticketing_row(pk=2)]
+        )
+
+        with caplog.at_level(logging.WARNING):
+            env.svc.resolve(event_id=7, sphere_id=1)
+
+        assert caplog.messages == ["Ticketing integration 1 has an invalid config"]
+
+    def test_resolve_logs_a_connection_without_a_secret(self, caplog):
+        env = _ticketing_env([_ticketing_row(pk=1), _ticketing_row(pk=2)])
+        env.connections.read_secret.side_effect = [b"", b"blob"]
+
+        with caplog.at_level(logging.WARNING):
+            client = env.svc.resolve(event_id=7, sphere_id=1)
+
+        assert caplog.messages == [
+            "Ticketing integration 1 uses a connection with no secret"
+        ]
+        env.decryptor.decrypt.assert_called_once_with(b"blob")
+        assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
 
     def test_resolve_logs_a_secret_that_does_not_decrypt(self, caplog):
         # A rotated key or a truncated column must skip the row, not 500 the
@@ -379,7 +548,9 @@ class TestEventIntegrationsServiceTicketApi:
         with caplog.at_level(logging.WARNING):
             client = env.svc.resolve(event_id=7, sphere_id=1)
 
-        assert "does not decrypt" in caplog.text
+        assert caplog.messages == [
+            "Ticketing integration 1 has a secret that does not decrypt"
+        ]
         with pytest.raises(MembershipAPIError):
             client.fetch_membership_count(_EMAIL)
 

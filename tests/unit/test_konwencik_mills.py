@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -16,9 +16,12 @@ from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO, TrackDTO
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
+    KonwencikExportOutcome,
     KonwencikExportSettings,
     KonwencikLastRun,
+    KonwencikNamedItemDTO,
     KonwencikScheduleRepos,
+    KonwencikSettingsContext,
     KonwencikSkipReason,
 )
 from ludamus.pacts.sheets import SheetExportError
@@ -241,13 +244,81 @@ class TestKonwencikMatrix:
 
         _run(env)
 
+        env.repos.events.read.assert_called_once_with(EVENT_PK)
         env.connections.read_secret.assert_called_once_with(SPHERE_PK, CONNECTION_PK)
+        env.service._decryptor.decrypt.assert_called_once_with(b"blob")
         env.writer.write_rows.assert_called_once_with(
             secret=b"secret",
             spreadsheet_id="sheet-1",
             rows=_written(env),
             tab="harmonogram",
         )
+
+    def test_a_connection_without_a_secret_writes_with_an_empty_one(self):
+        env = _make_service(items=[_item()], spaces=[_space()])
+        env.connections.read_secret.return_value = None
+
+        _run(env)
+
+        env.service._decryptor.decrypt.assert_not_called()
+        assert env.writer.write_rows.call_args.kwargs["secret"] == b""
+
+    def test_a_run_takes_the_lock_writes_and_records_the_outcome(self):
+        env = _make_service(items=[_item()], spaces=[_space()])
+
+        outcome = _run(env)
+
+        assert outcome == KonwencikExportOutcome(rows_written=1, skipped={})
+        assert (
+            env.integrations.get_for_update.call_args_list
+            == [call(EVENT_PK, INTEGRATION_PK)] * 2
+        )
+        locked, released = env.integrations.update_settings.call_args_list
+        assert locked.kwargs["event_id"] == EVENT_PK
+        assert locked.kwargs["pk"] == INTEGRATION_PK
+        lock_time = KonwencikExportSettings.model_validate_json(
+            locked.kwargs["settings_json"]
+        ).export_lock_time
+        assert lock_time is not None
+        assert released.kwargs["event_id"] == EVENT_PK
+        assert released.kwargs["pk"] == INTEGRATION_PK
+        assert (
+            KonwencikExportSettings.model_validate_json(
+                released.kwargs["settings_json"]
+            ).export_lock_time
+            is None
+        )
+        env.integrations.update_last_run.assert_called_once()
+        last_run = env.integrations.update_last_run.call_args.kwargs
+        assert last_run["event_id"] == EVENT_PK
+        assert last_run["pk"] == INTEGRATION_PK
+        recorded = KonwencikLastRun.model_validate_json(last_run["last_run_json"])
+        assert recorded.ok is True
+        assert recorded.rows_written == 1
+        assert recorded.skipped == {}
+        assert not recorded.error_hint
+        assert recorded.time >= lock_time
+
+    def test_a_failed_write_releases_the_lock_and_records_the_error(self):
+        env = _make_service(items=[_item()], spaces=[_space()])
+        env.writer.write_rows.side_effect = SheetExportError("x" * 600)
+
+        with pytest.raises(SheetExportError):
+            _run(env)
+
+        released = env.integrations.update_settings.call_args_list[-1]
+        assert (
+            KonwencikExportSettings.model_validate_json(
+                released.kwargs["settings_json"]
+            ).export_lock_time
+            is None
+        )
+        recorded = KonwencikLastRun.model_validate_json(
+            env.integrations.update_last_run.call_args.kwargs["last_run_json"]
+        )
+        assert recorded.ok is False
+        assert recorded.rows_written == 0
+        assert recorded.error_hint == "x" * 500
 
     def test_reports_rows_written(self):
         items = [_item(), _item(pk=2, session_id=SESSION_PK + 1)]
@@ -565,6 +636,60 @@ class TestKonwencikUpdateStyles:
             )
 
         env.integrations.update_settings.assert_not_called()
+
+
+class TestKonwencikSettingsContext:
+    def test_collects_the_choices_the_settings_page_offers(self):
+        public, private = _track(), _track(pk=21, name="Hidden", is_public=False)
+        item = _item()
+        env = _make_service(
+            items=[item],
+            tracks=[public, private],
+            tracks_by_session={item.session_id: {public.pk: public.name}},
+            session_fields=[SimpleNamespace(pk=31, name="Photo")],
+        )
+        env.repos.categories.list_by_event.return_value = [
+            SimpleNamespace(pk=CATEGORY_PK, name="RPG")
+        ]
+        last_run = KonwencikLastRun(time=_NOW, ok=True, rows_written=3)
+        integration = _integration(settings_json='{"sync_enabled": true}')
+        integration.last_run_json = last_run.model_dump_json()
+        env.integrations.get.return_value = integration
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context == KonwencikSettingsContext(
+            categories=[KonwencikNamedItemDTO(pk=CATEGORY_PK, name="RPG")],
+            tracks=[KonwencikNamedItemDTO(pk=public.pk, name=public.name)],
+            session_fields=[KonwencikNamedItemDTO(pk=31, name="Photo")],
+            settings=KonwencikExportSettings(sync_enabled=True),
+            last_run=last_run,
+            programme_combinations=[(CATEGORY_PK, public.pk)],
+        )
+        env.repos.events.read.assert_called_once_with(EVENT_PK)
+        env.integrations.get.assert_called_once_with(EVENT_PK, INTEGRATION_PK)
+        env.repos.categories.list_by_event.assert_called_once_with(EVENT_PK)
+        env.repos.session_fields.list_by_event.assert_called_once_with(EVENT_PK)
+        env.repos.sessions.list_alive_pks_by_event.assert_called_once_with(EVENT_PK)
+        env.repos.agenda_items.list_by_event.assert_called_once_with(EVENT_PK)
+        env.repos.sessions.list_track_names_by_session.assert_called_once_with(
+            [item.session_id]
+        )
+
+    def test_a_row_without_a_run_yet_has_no_last_run(self):
+        env = _make_service()
+        integration = _integration()
+        integration.last_run_json = ""
+        env.integrations.get.return_value = integration
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context.last_run is None
+        assert context.programme_combinations == []
 
 
 class TestKonwencikExportNow:

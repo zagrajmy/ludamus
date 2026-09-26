@@ -1,10 +1,12 @@
 from contextlib import contextmanager
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
+from ludamus.mills.panel_columns import resolve_columns
 from ludamus.mills.panel_facilitators import (
+    FACILITATOR_BUILTIN_KEYS,
     FacilitatorPanelService,
     accreditation_reconcile,
     field_reconcile,
@@ -121,6 +123,76 @@ class TestFilterOptions:
             facilitators=[], columns=[], has_more=False
         )
         assert not repos.mock_calls
+
+    @staticmethod
+    def _search_service(rows_by_filters):
+        facilitators_repo = MagicMock()
+        facilitators_repo.list_by_event.side_effect = lambda _event_id, filters: (
+            rows_by_filters[repr(filters)]
+        )
+        repos = FacilitatorPanelRepos(
+            events=object(),
+            facilitators=facilitators_repo,
+            personal_data_fields=FakeFieldsRepo([]),
+            personal_data_field_values=object(),
+            facilitator_change_logs=object(),
+            panel_settings=FakeSettingsRepo(),
+            sessions=object(),
+            users=object(),
+            guilds=object(),
+        )
+        return FacilitatorPanelService(object(), repos), repos
+
+    def test_pinned_rows_come_first_and_one_extra_match_means_more(self):
+        pinned, fresh = _facilitator(1, "alice"), [
+            _facilitator(2, "alan"),
+            _facilitator(3, "alba"),
+            _facilitator(4, "alma"),
+        ]
+        service, repos = self._search_service(
+            {
+                repr({"pks": {1}}): [pinned],
+                repr({"search": "al", "limit": 4}): [pinned, *fresh],
+            }
+        )
+
+        found = service.filter_options(event_id=1, search="al", pinned={1}, limit=2)
+
+        assert repos.facilitators.list_by_event.call_args_list == [
+            call(1, {"pks": {1}}),
+            call(1, {"search": "al", "limit": 4}),
+        ]
+        assert found == FacilitatorFilterOptionsDTO(
+            facilitators=[pinned, *fresh[:2]],
+            columns=resolve_columns(
+                keys=[], builtin_keys=FACILITATOR_BUILTIN_KEYS, fields=[]
+            ),
+            has_more=True,
+        )
+
+    def test_exactly_the_limit_of_matches_means_no_more(self):
+        fresh = [_facilitator(2, "alan"), _facilitator(3, "alba")]
+        service, repos = self._search_service(
+            {repr({"search": "al", "limit": 3}): fresh}
+        )
+
+        found = service.filter_options(event_id=1, search="al", pinned=set(), limit=2)
+
+        repos.facilitators.list_by_event.assert_called_once_with(
+            1, {"search": "al", "limit": 3}
+        )
+        assert found.facilitators == fresh
+        assert found.has_more is False
+
+    def test_nothing_typed_still_lists_the_pinned_rows(self):
+        pinned = _facilitator(1, "alice")
+        service, repos = self._search_service({repr({"pks": {1}}): [pinned]})
+
+        found = service.filter_options(event_id=1, search="", pinned={1}, limit=2)
+
+        repos.facilitators.list_by_event.assert_called_once_with(1, {"pks": {1}})
+        assert found.facilitators == [pinned]
+        assert found.has_more is False
 
 
 class _FakeTransaction:
@@ -286,6 +358,29 @@ class TestFacilitatorMerge:
             [2]
         )
         repos.facilitators.delete.assert_called_once_with(2)
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "facilitator_id": 1,
+                "user_id": None,
+                "changes": [
+                    {"field": "merged_from", "field_id": None, "old": "Bob", "new": ""},
+                    {
+                        "field": "display_name",
+                        "field_id": None,
+                        "old": "Alice",
+                        "new": "Alice Prime",
+                    },
+                    {
+                        "field": "accreditation_type",
+                        "field_id": None,
+                        "old": "none",
+                        "new": "guest",
+                    },
+                    {"field": "", "field_id": 5, "old": None, "new": "chosen"},
+                ],
+            }
+        )
 
     def test_kept_value_choices_naming_foreign_holder_or_gone_answer_are_dropped(self):
         fields = [_field(5), _field(6)]
@@ -580,7 +675,21 @@ class TestCreateFacilitator:
 
         assert result.pk == _CREATED_PK
         repos.events.lock.assert_called_once_with(10)
-        repos.facilitators.create.assert_called_once()
+        repos.facilitators.find_by_event_and_display_name.assert_called_once_with(
+            10, "Alice"
+        )
+        repos.facilitators.slug_exists.assert_called_once_with(10, "alice")
+        repos.facilitators.create.assert_called_once_with(
+            {
+                "accreditation_type": "none",
+                "display_name": "Alice",
+                "event_id": 10,
+                "is_collective": False,
+                "organizer_id": None,
+                "slug": "alice",
+                "user_id": None,
+            }
+        )
 
     def test_uniquifies_a_colliding_slug(self):
         service, repos = self._create_service(taken_slugs=("alice",))
@@ -611,17 +720,24 @@ class TestCreateFacilitator:
             user_id=_USER_ID,
         )
 
-        assert repos.personal_data_field_values.save.call_args[0][0] == [
+        repos.personal_data_field_values.save.assert_called_once_with(
+            [
+                {
+                    "facilitator_id": _CREATED_PK,
+                    "event_id": 10,
+                    "field_id": 5,
+                    "value": "yes",
+                }
+            ]
+        )
+        repos.facilitator_change_logs.create.assert_called_once_with(
             {
-                "facilitator_id": _CREATED_PK,
                 "event_id": 10,
-                "field_id": 5,
-                "value": "yes",
+                "facilitator_id": _CREATED_PK,
+                "user_id": _USER_ID,
+                "changes": [{"field": "", "field_id": 5, "old": None, "new": "yes"}],
             }
-        ]
-        log = repos.facilitator_change_logs.create.call_args[0][0]
-        assert log["facilitator_id"] == _CREATED_PK
-        assert log["user_id"] == _USER_ID
+        )
 
     def test_no_values_skips_save_and_log(self):
         service, repos = self._create_service()

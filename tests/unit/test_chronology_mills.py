@@ -1,7 +1,7 @@
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -327,6 +327,103 @@ class TestContentEditStoresAnswers:
         repos.sessions.save_field_values.assert_called_once_with(
             5, [SessionFieldValueData(session_id=5, field_id=7, value="")]
         )
+
+    def test_every_kind_of_change_is_written_and_logged_once(self, service, repos):
+        repos.sessions.read.return_value = _session_dto(pk=5, title="Old")
+        repos.sessions.read_field_values.return_value = [
+            SimpleNamespace(field_id=7, value="Pathfinder"),
+            SimpleNamespace(field_id=8, value="gone"),
+        ]
+        repos.sessions.read_facilitators.side_effect = [
+            [SimpleNamespace(display_name="Bob")],
+            [SimpleNamespace(display_name="Ann")],
+        ]
+        repos.sessions.read_tracks.side_effect = [
+            [SimpleNamespace(name="RPG")],
+            [SimpleNamespace(name="LARP")],
+        ]
+        slot = SimpleNamespace(
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        repos.sessions.read_preferred_time_slots.side_effect = [[], [slot]]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "New"},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="D&D")
+                ],
+                facilitator_ids=[1],
+                track_ids=[2],
+                time_slot_ids=[3],
+                remove_field_ids=[8, 99],
+            ),
+        )
+
+        repos.sessions.read.assert_called_once_with(5)
+        repos.sessions.read_field_values.assert_called_once_with(5)
+        repos.sessions.update.assert_called_once_with(5, {"title": "New"})
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value="D&D")]
+        )
+        repos.sessions.delete_field_values_for_fields.assert_called_once_with(5, [8])
+        assert repos.sessions.read_facilitators.call_args_list == [call(5), call(5)]
+        repos.sessions.set_facilitators.assert_called_once_with(5, [1])
+        assert repos.sessions.read_tracks.call_args_list == [call(5), call(5)]
+        repos.sessions.set_session_tracks.assert_called_once_with(5, [2])
+        assert repos.sessions.read_preferred_time_slots.call_args_list == [
+            call(5),
+            call(5),
+        ]
+        repos.sessions.set_time_slots.assert_called_once_with(5, [3])
+        repos.content_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 5,
+                "user_id": 9,
+                "changes": [
+                    {"field": "title", "field_id": None, "old": "Old", "new": "New"},
+                    {"field": "", "field_id": 7, "old": "Pathfinder", "new": "D&D"},
+                    {"field": "", "field_id": 8, "old": "gone", "new": None},
+                    {
+                        "field": "facilitators",
+                        "field_id": None,
+                        "old": "Bob",
+                        "new": "Ann",
+                    },
+                    {"field": "tracks", "field_id": None, "old": "RPG", "new": "LARP"},
+                    {
+                        "field": "time_slots",
+                        "field_id": None,
+                        "old": "",
+                        "new": "2026-01-01T10:00:00+00:00 - 2026-01-01T12:00:00+00:00",
+                    },
+                ],
+            }
+        )
+
+    def test_an_edit_that_changes_nothing_writes_no_log(self, service, repos):
+        repos.sessions.read.return_value = _session_dto(pk=5, title="Same")
+        repos.sessions.read_facilitators.return_value = [
+            SimpleNamespace(display_name="Bob")
+        ]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Same"}, facilitator_ids=[1], remove_field_ids=[8]
+            ),
+        )
+
+        repos.sessions.set_facilitators.assert_called_once_with(5, [1])
+        repos.sessions.delete_field_values_for_fields.assert_not_called()
+        repos.content_change_logs.create.assert_not_called()
 
     def test_an_unchecked_checkbox_is_stored_as_an_answer(self, service, repos):
         service.apply(

@@ -22,15 +22,22 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    HeatmapCellDTO,
     HeatmapCellStatus,
+    HeatmapDayDTO,
+    HeatmapDTO,
+    HeatmapRowDTO,
     SessionPlacement,
     TimetableGridFilter,
+    TrackProgressDTO,
 )
 from ludamus.pacts.timetable import (
     PlacementRejectedError,
     PlacementRejection,
     TimetableRepos,
 )
+
+UNASSIGN_LOG_PK = 77
 
 
 def _timetable_repos(uow) -> TimetableRepos:
@@ -575,13 +582,20 @@ class TestRevertChange:
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
-        log.session_id = 1
+        log.session_id = 7
         mock_uow.schedule_change_logs.read.return_value = log
         mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
 
-        with pytest.raises(ValueError, match="latest change"):
-            service.revert_change(log_pk=1, event_pk=1)
+        with pytest.raises(
+            ValueError, match=r"^Only the latest change for a session can be reverted$"
+        ):
+            service.revert_change(log_pk=3, event_pk=1)
 
+        mock_uow.schedule_change_logs.read.assert_called_once_with(3)
+        mock_uow.sessions.lock.assert_called_once_with(7)
+        mock_uow.schedule_change_logs.latest_pk_for_session.assert_called_once_with(
+            1, 7
+        )
         mock_uow.agenda_items.read_by_session.assert_not_called()
 
     def test_revert_raises_not_found_for_log_from_another_event(
@@ -611,20 +625,29 @@ class TestRevertChange:
         with pytest.raises(NotFoundError):
             service.revert_change(log_pk=1, event_pk=1)
 
+    @pytest.mark.parametrize(
+        "missing", ("old_space_id", "old_start_time", "old_end_time")
+    )
     def test_revert_unassign_raises_when_missing_placement_data(
-        self, service, mock_uow
+        self, service, mock_uow, missing
     ):
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
         log.session_id = 1
-        log.old_space_id = None
-        log.old_start_time = None
-        log.old_end_time = None
+        log.old_space_id = 5
+        log.old_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        log.old_end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        setattr(log, missing, None)
         mock_uow.schedule_change_logs.read.return_value = log
 
-        with pytest.raises(ValueError, match="missing original placement data"):
+        with pytest.raises(
+            ValueError,
+            match=r"^Cannot revert UNASSIGN: missing original placement data$",
+        ):
             service.revert_change(log_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
 
     def test_revert_unassign_raises_when_session_not_accepted(self, service, mock_uow):
         log = MagicMock()
@@ -650,19 +673,24 @@ class TestRevertChange:
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
-        log.session_id = 1
+        log.session_id = 7
         log.old_space_id = 5
         log.old_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         log.old_end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
         mock_uow.schedule_change_logs.read.return_value = log
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 3
         mock_uow.sessions.read.return_value.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read_event.return_value.pk = 1
 
-        service.revert_change(log_pk=1, event_pk=1, user_pk=9)
+        service.revert_change(log_pk=3, event_pk=1, user_pk=9)
 
+        mock_uow.sessions.read.assert_called_once_with(7)
+        mock_uow.sessions.read_event.assert_called_once_with(7)
+        mock_uow.agenda_items.read_by_session.assert_not_called()
+        mock_uow.agenda_items.delete.assert_not_called()
         mock_uow.agenda_items.create.assert_called_once_with(
             {
-                "session_id": 1,
+                "session_id": 7,
                 "space_id": 5,
                 "start_time": log.old_start_time,
                 "end_time": log.old_end_time,
@@ -672,12 +700,45 @@ class TestRevertChange:
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
                 "event_id": 1,
-                "session_id": 1,
+                "session_id": 7,
                 "user_id": 9,
                 "action": ScheduleChangeAction.REVERT,
                 "new_space_id": 5,
                 "new_start_time": log.old_start_time,
                 "new_end_time": log.old_end_time,
+            }
+        )
+
+    def test_revert_assign_removes_the_placement_and_logs_where_it_was(
+        self, service, mock_uow
+    ):
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.ASSIGN
+        log.session_id = 7
+        log.new_space_id = 5
+        log.new_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        log.new_end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.schedule_change_logs.read.return_value = log
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 3
+        mock_uow.agenda_items.read_by_session.return_value.pk = 11
+        mock_uow.sessions.read_event.return_value.pk = 1
+
+        service.revert_change(log_pk=3, event_pk=1, user_pk=9)
+
+        mock_uow.agenda_items.read_by_session.assert_called_once_with(7)
+        mock_uow.agenda_items.delete.assert_called_once_with(11)
+        mock_uow.agenda_items.create.assert_not_called()
+        mock_uow.sessions.read.assert_not_called()
+        mock_uow.schedule_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 7,
+                "user_id": 9,
+                "action": ScheduleChangeAction.REVERT,
+                "old_space_id": 5,
+                "old_start_time": log.new_start_time,
+                "old_end_time": log.new_end_time,
             }
         )
 
@@ -749,6 +810,45 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.delete.assert_not_called()
 
+    def test_unassign_removes_the_row_and_returns_its_log(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(1)
+        agenda_item = MagicMock()
+        agenda_item.pk = 5
+        agenda_item.space_id = 2
+        agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.agenda_items.read_by_session.return_value = agenda_item
+        mock_uow.schedule_change_logs.create.return_value = UNASSIGN_LOG_PK
+
+        result = service.unassign_session(session_pk=4, event_pk=1, user_pk=9)
+
+        assert result == UNASSIGN_LOG_PK
+        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
+        mock_uow.sessions.lock.assert_called_once_with(4)
+        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+        mock_uow.schedule_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 4,
+                "user_id": 9,
+                "action": ScheduleChangeAction.UNASSIGN,
+                "old_space_id": 2,
+                "old_start_time": agenda_item.start_time,
+                "old_end_time": agenda_item.end_time,
+            }
+        )
+
+    def test_unassign_raises_not_found_when_nothing_is_placed(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(1)
+        mock_uow.agenda_items.read_by_session.return_value = None
+
+        with pytest.raises(NotFoundError):
+            service.unassign_session(session_pk=4, event_pk=1)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.schedule_change_logs.create.assert_not_called()
+
     def test_unassign_log_failure_rolls_back_inside_atomic(self, service, mock_uow):
         mock_uow.sessions.read_event.return_value = self._event(1)
         agenda_item = MagicMock()
@@ -807,9 +907,55 @@ class TestAssignUnassignScope:
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
+        mock_uow.time_slots.list_by_event.assert_called_once_with(1)
         mock_uow.time_slots.update.assert_not_called()
         mock_uow.time_slots.create.assert_not_called()
+        mock_uow.events.lock.assert_not_called()
+        mock_uow.events.read.assert_not_called()
         mock_uow.events.update.assert_not_called()
+
+    def test_assign_treats_a_changed_end_as_a_move(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        existing = MagicMock()
+        existing.pk = 11
+        existing.space_id = placement.space_pk
+        existing.start_time = placement.start_time
+        existing.end_time = placement.end_time + timedelta(minutes=30)
+        mock_uow.agenda_items.read_by_session.return_value = existing
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.delete.assert_called_once_with(11)
+        mock_uow.agenda_items.create.assert_called_once()
+
+    def test_assign_starting_before_a_slot_stretches_it_back(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        later = _slot_from(1, placement.start_time + timedelta(minutes=30), hours=1)
+        mock_uow.time_slots.list_by_event.return_value = [later]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.time_slots.update.assert_called_once_with(
+            1, placement.start_time, later.end_time
+        )
+        mock_uow.time_slots.create.assert_not_called()
+
+    def test_assign_ending_where_a_slot_starts_stretches_it_back(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        after = _slot_from(1, placement.end_time, hours=1)
+        mock_uow.time_slots.list_by_event.return_value = [after]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.time_slots.update.assert_called_once_with(
+            1, placement.start_time, after.end_time
+        )
+        mock_uow.time_slots.create.assert_not_called()
 
     def test_assign_away_from_every_slot_opens_its_own_window(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
@@ -899,6 +1045,10 @@ class TestAssignUnassignScope:
             service.assign_session(session_pk=1, placement=placement, event_pk=1)
 
         assert excinfo.value.reason is PlacementRejection.BEFORE_PUBLICATION
+        assert str(excinfo.value) == (
+            "start_time is before the event's publication_time; move the "
+            "publication first (update_event)"
+        )
 
         mock_uow.events.update.assert_not_called()
         mock_uow.time_slots.update.assert_not_called()
@@ -921,30 +1071,48 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.create.assert_called_once()
 
-    def test_assign_rejects_naive_datetimes(self, service, mock_uow):
+    @pytest.mark.parametrize("naive_side", ("start_time", "end_time", "both"))
+    def test_assign_rejects_naive_datetimes(self, service, mock_uow, naive_side):
         placement = self._placement()
         naive = SessionPlacement(
             space_pk=placement.space_pk,
-            start_time=placement.start_time.replace(tzinfo=None),
-            end_time=placement.end_time.replace(tzinfo=None),
+            start_time=(
+                placement.start_time.replace(tzinfo=None)
+                if naive_side != "end_time"
+                else placement.start_time
+            ),
+            end_time=(
+                placement.end_time.replace(tzinfo=None)
+                if naive_side != "start_time"
+                else placement.end_time
+            ),
         )
 
-        with pytest.raises(PlacementRejectedError, match="must include a timezone"):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.assign_session(session_pk=1, placement=naive, event_pk=1)
 
+        assert excinfo.value.reason is PlacementRejection.NAIVE_DATETIME
+        assert str(excinfo.value) == "placement datetimes must include a timezone"
+        mock_uow.atomic.assert_not_called()
         mock_uow.agenda_items.create.assert_not_called()
 
-    def test_assign_rejects_an_inverted_time_range(self, service, mock_uow):
+    @pytest.mark.parametrize("length", (timedelta(hours=-1), timedelta(0)))
+    def test_assign_rejects_a_time_range_that_does_not_move_forward(
+        self, service, mock_uow, length
+    ):
         placement = self._placement()
         inverted = SessionPlacement(
             space_pk=placement.space_pk,
-            start_time=placement.end_time,
-            end_time=placement.start_time,
+            start_time=placement.start_time,
+            end_time=placement.start_time + length,
         )
 
-        with pytest.raises(PlacementRejectedError, match="end_time must be after"):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.assign_session(session_pk=1, placement=inverted, event_pk=1)
 
+        assert excinfo.value.reason is PlacementRejection.END_NOT_AFTER_START
+        assert str(excinfo.value) == "end_time must be after start_time"
+        mock_uow.atomic.assert_not_called()
         mock_uow.agenda_items.create.assert_not_called()
 
     def test_assign_rejects_a_session_that_is_not_accepted(self, service, mock_uow):
@@ -958,14 +1126,40 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.create.assert_not_called()
 
-    def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
+    def test_assign_writes_the_placement_and_its_log(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
 
-        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+        service.assign_session(session_pk=4, placement=placement, event_pk=1, user_pk=9)
 
-        mock_uow.sessions.lock.assert_called_once_with(1)
-        created = mock_uow.agenda_items.create.call_args.args[0]
-        assert created["session_confirmed"] is True
+        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
+        mock_uow.sessions.lock.assert_called_once_with(4)
+        mock_uow.spaces.list_by_event.assert_called_once_with(1)
+        mock_uow.spaces.lock.assert_called_once_with(1)
+        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
+        mock_uow.sessions.read.assert_called_once_with(4)
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.agenda_items.create.assert_called_once_with(
+            {
+                "session_id": 4,
+                "space_id": 1,
+                "start_time": placement.start_time,
+                "end_time": placement.end_time,
+                "session_confirmed": True,
+            }
+        )
+        mock_uow.schedule_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 4,
+                "user_id": 9,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": 1,
+                "new_start_time": placement.start_time,
+                "new_end_time": placement.end_time,
+                "moved_from_id": None,
+            }
+        )
 
     def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
         self, service, mock_uow
@@ -988,14 +1182,43 @@ class TestAssignUnassignScope:
 
     def test_move_records_the_row_it_left(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
-        mock_uow.agenda_items.read_by_session.return_value = MagicMock()
-        unassign_log_pk = 77
-        mock_uow.schedule_change_logs.create.return_value = unassign_log_pk
+        placement = self._placement()
+        existing = MagicMock()
+        existing.pk = 11
+        existing.space_id = 2
+        existing.start_time = placement.start_time - timedelta(hours=2)
+        existing.end_time = placement.end_time - timedelta(hours=2)
+        mock_uow.agenda_items.read_by_session.return_value = existing
+        mock_uow.schedule_change_logs.create.return_value = UNASSIGN_LOG_PK
 
-        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+        service.assign_session(session_pk=4, placement=placement, event_pk=1, user_pk=9)
 
-        assign_log = mock_uow.schedule_change_logs.create.call_args.args[0]
-        assert assign_log["moved_from_id"] == unassign_log_pk
+        mock_uow.agenda_items.delete.assert_called_once_with(11)
+        assert mock_uow.schedule_change_logs.create.call_args_list == [
+            call(
+                {
+                    "event_id": 1,
+                    "session_id": 4,
+                    "user_id": 9,
+                    "action": ScheduleChangeAction.UNASSIGN,
+                    "old_space_id": 2,
+                    "old_start_time": existing.start_time,
+                    "old_end_time": existing.end_time,
+                }
+            ),
+            call(
+                {
+                    "event_id": 1,
+                    "session_id": 4,
+                    "user_id": 9,
+                    "action": ScheduleChangeAction.ASSIGN,
+                    "new_space_id": 1,
+                    "new_start_time": placement.start_time,
+                    "new_end_time": placement.end_time,
+                    "moved_from_id": UNASSIGN_LOG_PK,
+                }
+            ),
+        ]
 
     def test_a_plain_assignment_leaves_nothing_behind(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
@@ -1341,20 +1564,58 @@ class TestTrackProgress:
 
         result = _overview_service(uow).track_progress(event_pk=1)
 
-        assert [r.track_pk for r in result] == [1, 2]
-        first = result[0]
-        assert first.accepted_count == accepted
-        assert first.scheduled_count == scheduled
-        assert first.pending_count == pending
-        assert first.rejected_count == rejected
-        assert first.on_hold_count == 0
-        assert first.progress_pct == round(scheduled * 100 / (pending + accepted))
-        assert first.manager_names == ["Ala"]
-        second = result[1]
-        assert second.accepted_count == 0
-        assert second.progress_pct == 0
-        assert second.manager_names == []
+        assert result == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="RPG",
+                manager_names=["Ala"],
+                accepted_count=accepted,
+                scheduled_count=scheduled,
+                pending_count=pending,
+                on_hold_count=0,
+                rejected_count=rejected,
+                progress_pct=50,
+            ),
+            TrackProgressDTO(
+                track_pk=2,
+                track_name="Board games",
+                manager_names=[],
+                accepted_count=0,
+                scheduled_count=0,
+                pending_count=0,
+                on_hold_count=0,
+                rejected_count=0,
+                progress_pct=0,
+            ),
+        ]
+        uow.tracks.list_by_event.assert_called_once_with(1)
+        uow.sessions.count_by_track.assert_called_once_with(1)
+        uow.tracks.list_manager_names_by_tracks.assert_called_once_with({1, 2})
         uow.sessions.list_sessions_by_event.assert_not_called()
+
+    def test_on_hold_sessions_are_reported_but_not_counted_as_active(self):
+        uow = MagicMock()
+        uow.tracks.list_by_event.return_value = [_track_stub(1, "RPG")]
+        uow.sessions.count_by_track.return_value = {
+            1: TrackSessionCountsDTO(pending=1, accepted=2, scheduled=1, on_hold=5)
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+
+        result = _overview_service(uow).track_progress(event_pk=1)
+
+        assert result == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="RPG",
+                manager_names=[],
+                accepted_count=2,
+                scheduled_count=1,
+                pending_count=1,
+                on_hold_count=5,
+                rejected_count=0,
+                progress_pct=33,
+            )
+        ]
 
     def test_no_tracks_short_circuits(self):
         uow = MagicMock()
@@ -1382,8 +1643,60 @@ class TestTimetableOverviewServiceDefaults:
         svc = TimetableOverviewService(mock_uow)
         result = svc.build_heatmap(event_pk=1, tz=UTC, conflicts=None)
 
-        assert result.spaces == []
-        assert not result.days
+        assert result == HeatmapDTO(spaces=[], rows=[], days=[])
+        mock_uow.time_slots.list_by_event.assert_called_once_with(1)
+        # Conflict detection reads the spaces and the agenda too, once each.
+        assert mock_uow.spaces.list_by_event.call_args_list == [call(1), call(1)]
+        assert mock_uow.agenda_items.list_by_event.call_args_list == [call(1), call(1)]
+
+    @pytest.mark.parametrize(
+        ("slot_end", "row_times"),
+        (
+            (datetime(2026, 1, 1, 11, 0, tzinfo=UTC), [10]),
+            (datetime(2026, 1, 1, 11, 30, tzinfo=UTC), [10, 11]),
+            (datetime(2026, 1, 1, 12, 30, tzinfo=UTC), [10, 11, 12]),
+        ),
+    )
+    def test_build_heatmap_rounds_the_day_out_to_whole_slots(
+        self, mock_uow, slot_end, row_times
+    ):
+        mock_uow.spaces.list_by_event.return_value = [_space(3)]
+        mock_uow.time_slots.list_by_event.return_value = [
+            _slot(datetime(2026, 1, 1, 10, 0, tzinfo=UTC), slot_end)
+        ]
+        mock_uow.agenda_items.list_by_event.return_value = [
+            _make_item(
+                space_id=3,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+
+        result = TimetableOverviewService(mock_uow).build_heatmap(
+            event_pk=1, tz=UTC, conflicts=[]
+        )
+
+        rows = [
+            HeatmapRowDTO(
+                time=datetime(2026, 1, 1, hour, 0, tzinfo=UTC),
+                cells=[
+                    HeatmapCellDTO(
+                        space_pk=3,
+                        status=(
+                            HeatmapCellStatus.SCHEDULED
+                            if hour == row_times[0]
+                            else HeatmapCellStatus.EMPTY
+                        ),
+                    )
+                ],
+            )
+            for hour in row_times
+        ]
+        assert result == HeatmapDTO(
+            spaces=[_space(3)],
+            rows=rows,
+            days=[HeatmapDayDTO(date=date(2026, 1, 1), rows=rows)],
+        )
 
     def test_build_heatmap_columns_are_leaf_spaces_only(self, mock_uow):
         mock_uow.spaces.list_by_event.return_value = [
@@ -1444,7 +1757,32 @@ class TestTimetableOverviewServiceDefaults:
         svc = TimetableOverviewService(mock_uow)
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
-        assert not result
+        assert result == {}
+        mock_uow.agenda_items.list_by_event.assert_called_once_with(1)
+
+    def test_all_conflicts_grouped_keeps_every_conflict_under_its_type(self):
+        def conflict(kind, subject):
+            return ConflictDTO(
+                type=kind,
+                severity=ConflictSeverity.ERROR,
+                subject_session_title="Mine",
+                subject_session_pk=subject,
+                session_title="Theirs",
+                session_pk=20,
+            )
+
+        first = conflict(ConflictType.FACILITATOR_OVERLAP, 10)
+        second = conflict(ConflictType.FACILITATOR_OVERLAP, 11)
+        other = conflict(ConflictType.SPACE_OVERLAP, 12)
+
+        result = TimetableOverviewService(MagicMock()).all_conflicts_grouped(
+            event_pk=1, conflicts=[first, other, second]
+        )
+
+        assert result == {
+            ConflictType.FACILITATOR_OVERLAP: [first, second],
+            ConflictType.SPACE_OVERLAP: [other],
+        }
 
 
 def _space(pk, parent_id=None):
@@ -1472,6 +1810,44 @@ class TestTimetableOverviewCapacityHours:
         uow.time_slots.list_by_event.return_value = slots
         uow.agenda_items.list_by_event.return_value = items
         return uow
+
+    def test_reads_rooms_slots_and_items_of_the_event(self):
+        uow = self._uow(spaces=[], slots=[], items=[])
+
+        _overview_service(uow).capacity_hours(event_pk=1)
+
+        uow.spaces.list_by_event.assert_called_once_with(1)
+        uow.time_slots.list_by_event.assert_called_once_with(1)
+        uow.agenda_items.list_by_event.assert_called_once_with(1)
+
+    def test_hours_are_rounded_to_one_decimal(self):
+        uow = self._uow(
+            spaces=[_space(1), _space(2)],
+            slots=[
+                _slot(
+                    datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                    datetime(2026, 1, 1, 10, 20, tzinfo=UTC),
+                )
+            ],
+            items=[
+                _make_item(
+                    space_id=1,
+                    start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                    end_time=datetime(2026, 1, 1, 10, 10, tzinfo=UTC),
+                )
+            ],
+        )
+
+        result = _overview_service(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=0.3,
+            capacity_hours=0.7,
+            scheduled_hours=0.2,
+            hours_to_fill=0.5,
+            filled_pct=25,
+        )
 
     def test_empty_event_has_zero_everywhere(self):
         uow = self._uow(spaces=[], slots=[], items=[])
