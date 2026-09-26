@@ -165,7 +165,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
 - [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
-  Cloudflare MCP triage
+  Cloudflare MCP triage. In Claude web sandboxes `.mcp.json` servers stay
+  unauthenticated; use the claude.ai PostHog and Cloudflare connectors
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
