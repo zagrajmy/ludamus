@@ -9,9 +9,10 @@ Claude Code on the web loads `.mcp.json`, but `zagrajmy-posthog` and
 `zagrajmy-cloudflare` stay unauthenticated: a cloud session cannot run the
 OAuth flow. Use the claude.ai connectors instead — `mcp__PostHog__exec` and
 `mcp__Cloudflare_Developer_Platform__*`. Neither carries `.mcp.json`'s pins:
-the PostHog connector can write and spans every project, so select project
-251811 (Zagrajmy) and make read-only calls only; pass the Zagrajmy
-`account_id` (`add2b427b034a6073f63a849af7de160`) to Cloudflare.
+both can write, and the PostHog one spans every project. Select PostHog
+project 251811 (Zagrajmy), pass the Zagrajmy `account_id`
+(`add2b427b034a6073f63a849af7de160`) to Cloudflare, and make read-only calls
+only on both.
 
 ## Coolify CLI
 
