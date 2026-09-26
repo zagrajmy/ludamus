@@ -12,7 +12,13 @@ from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
 from django.views.static import serve
 
+from ludamus.gates.web.django.landing import about_page
+from ludamus.gates.web.django.mcp.oauth import (
+    authorization_server_metadata,
+    protected_resource_metadata,
+)
 from ludamus.gates.web.django.pages import PAGES, content_page
+from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -60,7 +66,26 @@ urlpatterns: list[URLResolver | URLPattern] = [
         include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
+    # RFC 9728 and RFC 8414 fix these paths; MCP clients probe them verbatim.
+    path(
+        ".well-known/oauth-protected-resource/mcp/",
+        protected_resource_metadata,
+        {"scope": ToolScope.MAINTAINER},
+        name="oauth-protected-resource-maintainer",
+    ),
+    path(
+        ".well-known/oauth-protected-resource/mcp/organizer/",
+        protected_resource_metadata,
+        {"scope": ToolScope.ORGANIZER},
+        name="oauth-protected-resource-organizer",
+    ),
+    path(
+        ".well-known/oauth-authorization-server",
+        authorization_server_metadata,
+        name="oauth-authorization-server",
+    ),
     path("admin/", admin.site.urls),
+    path("about/", about_page, name="about"),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
     # These were flatpages under /page/, and that URL is in sent email and on
     # the Auth0 consent screen. The doubled slash is not a typo: the flatpage

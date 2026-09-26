@@ -19,6 +19,7 @@ from ludamus.pacts.dashboard import (
     SubscriptionRecipientDTO,
 )
 from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -29,10 +30,12 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
     def subscribe(*, sphere_id: int, user_id: int) -> None:
         # The id comes off a URL, so it is checked before it reaches a write.
         # The root sphere is nobody's subscription: it is the page's own home
-        # and everyone signed in already sees it.
+        # and everyone signed in already sees it. A private sphere's news is
+        # for its members, who see it in its panel.
         if (
             not Sphere.objects.filter(pk=sphere_id)
             .exclude(site_id=settings.SITE_ID)
+            .exclude(visibility=SphereVisibility.PRIVATE)
             .exists()
         ):
             raise NotFoundError
@@ -60,6 +63,7 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
                 subscribers_announced_at__isnull=True,
                 end_time__gte=now,
             )
+            .exclude(sphere__visibility=SphereVisibility.PRIVATE)
             .select_related("sphere__site")
             .order_by("publication_time")
         )

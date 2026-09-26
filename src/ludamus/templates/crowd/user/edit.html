@@ -4,11 +4,11 @@
     {% translate "Edit profile" %}
 {% endblock title %}
 {% block profile_content %}
-    {% if user.confirmed_participations_count > 0 %}
+    {% if confirmed_participations_count > 0 %}
         <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
             {% icon "calendar-days" class="w-5 h-5 shrink-0" %}
             <span>
-                {% blocktranslate count counter=user.confirmed_participations_count %}
+                {% blocktranslate count counter=confirmed_participations_count %}
                                 You have {{ counter }} confirmed session participation.
                             {% plural %}
                                 You have {{ counter }} confirmed session participations.

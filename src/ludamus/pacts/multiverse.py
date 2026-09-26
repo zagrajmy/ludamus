@@ -19,6 +19,12 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO, SphereDTO
 
 
+class SphereVisibility(StrEnum):
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+    PRIVATE = "private"
+
+
 class SphereRole(StrEnum):
     # Who someone is in a sphere. MANAGER is the historical "sphere manager";
     # COMMS is the read-mostly one. What each may do is
@@ -171,11 +177,13 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     event_cover_buttons_at_bottom: bool
+    visibility: SphereVisibility
     encounters_policy: EncountersPolicy
 
 
 class SpherePanelServiceProtocol(Protocol):
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None: ...
+    def can_write_programme(self, sphere_id: int, user_slug: str) -> bool: ...
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...

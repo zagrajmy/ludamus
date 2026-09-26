@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Guild,
     GuildMembership,
+    SessionBookmark,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
@@ -524,6 +525,77 @@ class TestSessionModalComponentView:
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
                 "show_roster": False,
+                "enroll_actions": None,
+                "enroll_opens_at": None,
+                "map_pk": None,
+            },
+        )
+
+    def test_seatless_session_carries_the_viewers_bookmark(
+        self, active_user, authenticated_client, event, space
+    ):
+        presenter = UserFactory()
+        session = SessionFactory(
+            event=event,
+            category=None,
+            presenter=presenter,
+            facilitator_name=presenter.full_name,
+            participants_limit=0,
+        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
+        SessionBookmark.objects.create(user=active_user, session=session)
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        response = authenticated_client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=presenter,
+                    effective_participants_limit=0,
+                    user_bookmarked=True,
+                    bookmark_count=2,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": False,
+                "enroll_actions": None,
+                "enroll_opens_at": None,
+                "map_pk": None,
+            },
+        )
+
+    def test_seated_session_leaves_bookmarks_to_the_schedule(
+        self, active_user, client, event, space
+    ):
+        session = SessionFactory(
+            event=event,
+            category=None,
+            presenter=active_user,
+            facilitator_name=active_user.full_name,
+            participants_limit=10,
+        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item, session=session, presenter=active_user
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "map_pk": None,

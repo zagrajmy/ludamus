@@ -78,17 +78,23 @@ def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     return [(value, ", ".join(names)) for value, names in groups.items()]
 
 
+def merge_target(
+    facilitators: Sequence[FacilitatorDTO], *, slug: str
+) -> FacilitatorDTO:
+    return next((f for f in facilitators if f.slug == slug), facilitators[0])
+
+
 def name_reconcile(
-    facilitators: Sequence[FacilitatorDTO],
+    facilitators: Sequence[FacilitatorDTO], *, target: FacilitatorDTO
 ) -> tuple[list[tuple[str, bool]], str | None]:
     names = _unique([f.display_name for f in facilitators])
     if len(names) == 1:
         return [], names[0]
-    return [(name, name == facilitators[0].display_name) for name in names], None
+    return [(name, name == target.display_name) for name in names], None
 
 
 def accreditation_reconcile(
-    facilitators: Sequence[FacilitatorDTO],
+    facilitators: Sequence[FacilitatorDTO], *, target: FacilitatorDTO
 ) -> tuple[list[tuple[str, str, bool]], str | None]:
     attributed = _attributed(
         (f.display_name, f.accreditation_type) for f in facilitators
@@ -96,18 +102,17 @@ def accreditation_reconcile(
     if len(attributed) == 1:
         return [], attributed[0][0]
     return [
-        (value, sources, value == facilitators[0].accreditation_type)
+        (value, sources, value == target.accreditation_type)
         for value, sources in attributed
     ], None
 
 
 def field_reconcile(
-    merge_context: FacilitatorMergeContextDTO,
+    merge_context: FacilitatorMergeContextDTO, *, target_pk: int
 ) -> tuple[
     list[tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]],
     list[tuple[int, int]],
 ]:
-    target_pk = merge_context.facilitators[0].pk
     conflicts: list[
         tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]
     ] = []

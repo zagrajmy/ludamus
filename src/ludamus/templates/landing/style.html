@@ -14,6 +14,10 @@ themes — newsprint rather than white once the page around them is dark.
         /* Print artifacts stay paper in both themes, but pure white against
            the dark page is a glare step rather than a sheet of paper. */
         --paper: #fff;
+        /* The active act tab: a white chip in light mode, where the primary
+           tint reads pink; the tint stays in dark mode, where it is neutral. */
+        --ktab-on: var(--color-bg-secondary);
+        --ktab-on-edge: var(--color-border);
     }
 
     .dark .landing {
@@ -22,6 +26,8 @@ themes — newsprint rather than white once the page around them is dark.
            dark, so the stage chrome has to read against the page instead. */
         --stage-paper: var(--color-background);
         --stage-ink: var(--color-foreground);
+        --ktab-on: var(--color-primary-light);
+        --ktab-on-edge: var(--color-primary-light);
     }
 
     /* page-load choreography (skipped entirely under reduced motion) */
@@ -304,8 +310,8 @@ themes — newsprint rather than white once the page around them is dark.
     #k4:checked~.sc .ktabs label[for="k4"],
     #k5:checked~.sc .ktabs label[for="k5"],
     #k6:checked~.sc .ktabs label[for="k6"] {
-        background: var(--color-bg-secondary);
-        border-color: var(--color-border);
+        background: var(--ktab-on);
+        border-color: var(--ktab-on-edge);
         color: var(--color-foreground);
     }
 
@@ -328,7 +334,13 @@ themes — newsprint rather than white once the page around them is dark.
         outline-offset: 2px;
     }
 
+    /* Narrower than the stage, the whole scene shrinks to fit instead of
+       scrolling sideways. tan(atan2()) turns the width ratio into the
+       unitless number zoom takes. It divides by px, not rem, so a larger
+       text size still enlarges the stage; the 0.45 floor keeps page zoom
+       from being cancelled out, and the wrapper scrolls past it. */
     .landing .stage {
+        zoom: clamp(0.45, tan(atan2(100cqw, 640px)), 1);
         position: relative;
         min-width: 40rem;
         height: 34rem;
@@ -808,6 +820,104 @@ themes — newsprint rather than white once the page around them is dark.
     #k6:checked~.sc .doorcard {
         opacity: 1;
         transform: rotate(-1.5deg) translateY(0);
+    }
+
+    /* Six named tabs wrap to ragged rows on a phone, so they drop to
+       numbers; the caption under the grid names the act. */
+    @media (max-width: 42rem) {
+        .landing .ktabs {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.3rem;
+        }
+
+        .landing .ktabs label {
+            justify-content: center;
+            padding: 0.6rem 0;
+            border-radius: 0.7rem;
+            border-color: var(--color-border);
+        }
+    }
+
+    /* Keyed to the same container width as the zoom: at 480px the scene
+       sits at 0.75 and desktop type starts to fall under 9px, so it is set
+       larger to land near 10-11px at phone zoom (about 0.55). */
+    @container (max-width: 480px) {
+        .landing .ctx {
+            gap: 0.6rem;
+        }
+
+        .landing .ctx>span {
+            font-size: 1.2rem;
+        }
+
+        .landing .chip .ct {
+            flex-shrink: 0;
+            font-size: 1.15rem;
+        }
+
+        #k5:checked~.sc .cD .ca {
+            display: none;
+        }
+
+        #k5:checked~.sc .cD .ct {
+            -webkit-line-clamp: 1;
+        }
+
+        #k1:checked~.sc .chip .ct,
+        #k2:checked~.sc .chip .ct {
+            font-size: 1.3rem;
+        }
+
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 1rem;
+        }
+
+        .landing .chip>span:not(.ct, .warnDot) {
+            font-size: 0.95rem;
+        }
+
+        .landing .warnDot {
+            width: 1.5rem;
+            height: 1.5rem;
+            font-size: 1rem;
+            line-height: 1.5rem;
+        }
+
+        .landing .rh {
+            font-size: 1rem;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+
+        .landing .tl {
+            font-size: 1.15rem;
+        }
+
+        /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
+           even gap on every side; the percentage fit leaves the sides
+           visibly tighter than the top and bottom at phone zoom. */
+        .landing .cellwarn {
+            left: calc(39.66% - 6px);
+            top: calc(72% - 6px);
+            width: calc(28.5% + 12px);
+            height: calc(20% + 12px);
+        }
+
+        .landing .cellwarn>span {
+            top: -1rem;
+            height: 1.7rem;
+            font-size: 0.9rem;
+        }
+
+        .landing .doorcard {
+            width: 40%;
+        }
+
+        .landing .doorcard>* {
+            font-size: 1.1rem;
+        }
     }
 
     /* step descriptions */

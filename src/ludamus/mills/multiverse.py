@@ -8,10 +8,11 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.multiverse import SphereAccessDTO, SphereSettingsOutcome
+from ludamus.pacts.multiverse import SphereAccessDTO, SphereRole, SphereSettingsOutcome
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.encounter import EncounterRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
@@ -30,10 +31,23 @@ if TYPE_CHECKING:
         EncryptorProtocol,
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
-        SphereRole,
         SphereSettingsPatch,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+def can_write_programme(
+    *,
+    users: UserRepositoryProtocol,
+    spheres: SphereRepositoryProtocol,
+    sphere_id: int,
+    user_slug: str,
+) -> bool:
+    # A comms member's read-only role reads the panel but never writes it.
+    return (
+        users.read(user_slug).is_superuser
+        or spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
+    )
 
 
 class AnnouncementsService:
@@ -126,14 +140,24 @@ class SpherePanelService:
         spheres: SphereRepositoryProtocol,
         events: EventRepositoryProtocol,
         encounters: EncounterRepositoryProtocol,
+        users: UserRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._spheres = spheres
         self._events = events
         self._encounters = encounters
+        self._users = users
 
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
         return self._spheres.manager_role(sphere_id, user_slug)
+
+    def can_write_programme(self, sphere_id: int, user_slug: str) -> bool:
+        return can_write_programme(
+            users=self._users,
+            spheres=self._spheres,
+            sphere_id=sphere_id,
+            user_slug=user_slug,
+        )
 
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO:
         role = self._spheres.manager_role(sphere_id, user_slug)
@@ -212,6 +236,8 @@ class SpherePanelService:
             data["event_cover_buttons_at_bottom"] = changes[
                 "event_cover_buttons_at_bottom"
             ]
+        if "visibility" in changes:
+            data["visibility"] = changes["visibility"]
         if (encounters_policy := changes.get("encounters_policy")) is not None:
             data["encounters_policy"] = encounters_policy.value
 

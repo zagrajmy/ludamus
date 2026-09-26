@@ -5,15 +5,17 @@ Renders string values as pills; folds everything past the first three into a
 Variables: items (list[str]), icon (heroicon name, optional).
 {% endcomment %}
 {% if items %}
-    <div class="flex flex-wrap items-center gap-1">
+    <ul class="flex flex-wrap items-center gap-1">
         {% for value in items|slice:":3" %}
-            {% include "components/_field_pill.html" with value=value icon=icon title=value size="sm" %}
+            <li class="flex">{% include "components/_field_pill.html" with value=value icon=icon title=value size="sm" %}</li>
         {% endfor %}
         {% if items|length > 3 %}
-            <span class="inline-flex items-center rounded-2xl bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300 text-xs px-2 py-0.5 font-medium"
-                  title="{{ items|slice:'3:'|join:', ' }}">+{{ items|length|add:'-3' }}<span class="sr-only">: {{ items|slice:'3:'|join:', ' }}</span></span>
+            <li class="flex">
+                <span class="inline-flex items-center rounded-2xl bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300 text-xs px-2 py-0.5 font-medium"
+                      title="{{ items|slice:'3:'|join:', ' }}">+{{ items|length|add:'-3' }}<span class="sr-only">: {{ items|slice:'3:'|join:', ' }}</span></span>
+            </li>
         {% endif %}
-    </div>
+    </ul>
 {% else %}
     <span class="text-foreground-muted"><span aria-hidden="true">—</span><span class="sr-only">{% translate "None" %}</span></span>
 {% endif %}

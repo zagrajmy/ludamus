@@ -38,7 +38,9 @@ from ludamus.links.db.django.models import (
     Event,
     EventIntegration,
     EventProposalSettings,
+    Facilitator,
     Notification,
+    PersonalDataField,
     ProposalCategory,
     Session,
     SessionField,
@@ -54,6 +56,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
@@ -210,6 +213,13 @@ def _create_session(
     return session
 
 
+def _cookie_domain() -> str:
+    return (
+        urlparse(os.environ.get("E2E_BASE_URL", "http://localhost:8000")).hostname
+        or "localhost"
+    )
+
+
 def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
     session = SessionStore()
     session["_auth_user_id"] = str(user.pk)
@@ -249,11 +259,8 @@ def _create_test_user() -> User:
         avatar_url="https://i.pravatar.cc/96?u=e2e",
     )
 
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
-    domain = parsed.hostname or "localhost"
     state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
-    _write_storage_state(user, domain=domain, path=state_path)
+    _write_storage_state(user, domain=_cookie_domain(), path=state_path)
 
     # An unread notification so the navbar dropdown has content to show in e2e.
     Notification.objects.create(
@@ -265,6 +272,33 @@ def _create_test_user() -> User:
     )
 
     return user
+
+
+def _create_party_companion_scenario() -> None:
+    """Seed a party leader with one companion, for party-companion.auth.spec.
+
+    The spec founds a party of its own on each run, adds the companion to it
+    and deletes the party at the end, so nothing else reads this user.
+    """
+    leader = User.objects.create_user(
+        username="e2e-party-host",
+        email="e2e-party-host@test.local",
+        password="e2e-party-host-123",
+        name="Corwin Vale",
+        slug="e2e-party-host",
+    )
+    User.objects.create_user(
+        username="connected|e2e-party-host-companion",
+        slug="e2e-party-host-companion",
+        name="Bramble Vale",
+        user_type=UserType.CONNECTED,
+        manager=leader,
+    )
+    _write_storage_state(
+        leader,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-party-host.json",
+    )
 
 
 def _create_notifications_scenario() -> None:
@@ -280,11 +314,9 @@ def _create_notifications_scenario() -> None:
         name="E2E Notified",
         slug="e2e-notified",
     )
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     _write_storage_state(
         user,
-        domain=parsed.hostname or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
     )
     # Destination notification: clicking it navigates to /events/.
@@ -359,11 +391,9 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         session=session, user=waiter, status=SessionParticipationStatus.WAITING.value
     )
 
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     _write_storage_state(
         waiter,
-        domain=parsed.hostname or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
     )
 
@@ -679,6 +709,51 @@ def _create_early_access_scenario(sphere: Sphere) -> None:
     )
 
 
+# A session whose description is hostile markup next to ordinary markdown, on
+# an event of its own so no other spec's session counts move. The hostile half
+# must come out of render_markdown inert; the benign half must still render.
+# Driven by markdown-sanitising.spec.ts.
+_HOSTILE_DESCRIPTION = """Plain **bold claim** and a [safe link](https://example.com/rules).
+
+<script>window.__xss = 0;</script>
+
+<img src="x" onerror="window.__xss = 1; alert('xss')">
+
+[click me](javascript:window.__xss=2)
+
+<strong onmouseover="window.__xss = 3">hover target</strong>
+
+<iframe src="javascript:window.__xss=4"></iframe>
+"""
+
+
+def _create_markdown_sanitising_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Markdown Sanitising Lab",
+        slug="markdown-sanitising",
+        description="One session whose description tries to run code.",
+        start_offset=timedelta(days=26),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Sanitising Venue", slug="sanitising-venue")
+    area = _create_area(venue, name="Sanitising Area", slug="sanitising-area")
+    space = _create_space(
+        area, name="Sanitising Room", slug="sanitising-room", capacity=4
+    )
+    _scheduled_session(
+        event,
+        space,
+        title="Hostile Markdown Demo",
+        slug="hostile-markdown-demo",
+        presenter="Sanitising GM",
+        description=_HOSTILE_DESCRIPTION,
+        seats=4,
+        hour=0,
+    )
+
+
 # A public select field that allows custom answers, for the event-filter e2e:
 # two of its three choices are picked, one is picked by nobody, and one session
 # writes in a value of its own. The filter must offer the two picked choices
@@ -875,6 +950,148 @@ def _create_panel_crud_event(sphere: Sphere) -> Event:
     return event
 
 
+# NOTE: dedicated to panel-tracks.spec.ts: rooms and no tracks yet, so the
+# track form offers its room checklist and the spec owns every row on the
+# tracks list. The spec deletes the track it makes.
+def _create_track_setup_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Thornwood Tabletop Days",
+        slug="thornwood-days",
+        description="A lodge weekend of one-shots, used to set up tracks.",
+        start_offset=timedelta(days=26),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    lodge = _create_venue(event, name="Thornwood Lodge", slug="thornwood-lodge")
+    ground_floor = _create_area(lodge, name="Ground Floor", slug="ground-floor")
+    for name in ("Oak Room", "Birch Room", "Cedar Room"):
+        _create_space(
+            ground_floor, name=name, slug=name.lower().replace(" ", "-"), capacity=8
+        )
+    return event
+
+
+# NOTE: dedicated to guild-roster.spec.ts, which relies on Mira Kestrel's two
+# account-less facilitator rows being placed in a guild at once.
+def _create_guild_roster_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Saltmarsh Moot",
+        slug="saltmarsh-moot",
+        description="A harbour weekend whose presenters join guilds.",
+        start_offset=timedelta(days=27),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    for slug in ("mira-kestrel", "mira-kestrel-2"):
+        Facilitator.objects.create(event=event, slug=slug, display_name="Mira Kestrel")
+    return event
+
+
+# NOTE: profile-edit.auth.spec.ts renames this user and tries a taken email, so
+# it can't use the shared e2e-tester, whose name and email other specs read.
+# The spec counts the one confirmed seat.
+def _create_profile_editor_scenario(sphere: Sphere) -> None:
+    editor = User.objects.create_user(
+        username="e2e-profile",
+        email="e2e-profile@test.local",
+        password="e2e-profile-123",
+        name="Wren Hollis",
+        slug="e2e-profile",
+    )
+    event = _create_event(
+        sphere,
+        name="Tidewater Games Night",
+        slug="tidewater-night",
+        description="An evening of one-shots, with one seat already taken.",
+        start_offset=timedelta(days=29),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    venue = _create_venue(event, name="Tidewater Hall", slug="tidewater-hall")
+    area = _create_area(venue, name="Upper Deck", slug="upper-deck")
+    space = _create_space(area, name="Chart Room", slug="chart-room", capacity=6)
+    session = _scheduled_session(
+        event,
+        space,
+        title="Lighthouse Mysteries",
+        slug="lighthouse-mysteries",
+        presenter="Ines Varga",
+        description="A one-shot about a keeper who never comes down.",
+        seats=6,
+        hour=1,
+    )
+    _seat(session, editor, SessionParticipationStatus.CONFIRMED)
+    _write_storage_state(
+        editor,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-profile.json",
+    )
+
+
+# NOTE: dedicated to party-refusals.auth.spec.ts, which needs the leader's two
+# companions to share a name so "Add companion" refuses it as ambiguous.
+def _create_party_refusals_scenario() -> None:
+    leader = User.objects.create_user(
+        username="e2e-party-leader",
+        email="e2e-party-leader@test.local",
+        password="e2e-party-leader-123",
+        name="Oona Brisk",
+        slug="e2e-party-leader",
+    )
+    for index in (1, 2):
+        User.objects.create_user(
+            username=f"connected|e2e-pip-{index}",
+            slug=f"e2e-pip-{index}",
+            name="Pip",
+            user_type=UserType.CONNECTED,
+            manager=leader,
+        )
+    invitee = User.objects.create_user(
+        username="e2e-party-invitee",
+        email="e2e-party-invitee@test.local",
+        password="e2e-party-invitee-123",
+        name="Tamsin Reed",
+        slug="e2e-party-invitee",
+    )
+    for user, state in (
+        (leader, ".auth-state-party-leader.json"),
+        (invitee, ".auth-state-party-invitee.json"),
+    ):
+        _write_storage_state(
+            user, domain=_cookie_domain(), path=REPO_ROOT / "tests" / "e2e" / state
+        )
+
+
+# NOTE: facilitator-merge.spec.ts and facilitator-merge-target.spec.ts each
+# sign up and merge their own facilitators on an event of their own. The two
+# answers are what the merge has to reconcile and what its defaults follow.
+def _create_merge_event(
+    sphere: Sphere, *, name: str, slug: str, description: str, start_offset: timedelta
+) -> Event:
+    event = _create_event(
+        sphere,
+        name=name,
+        slug=slug,
+        description=description,
+        start_offset=start_offset,
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    for order, (field_name, field_slug) in enumerate(
+        (("T-shirt size", "t-shirt-size"), ("Diet", "diet"))
+    ):
+        PersonalDataField.objects.create(
+            event=event,
+            name=field_name,
+            question=field_name,
+            slug=field_slug,
+            order=order,
+        )
+    return event
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -1012,12 +1229,8 @@ def main() -> None:
         name="Admin",
         slug="admin",
     )
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     superuser_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-superuser.json"
-    _write_storage_state(
-        superuser, domain=parsed.hostname or "localhost", path=superuser_state_path
-    )
+    _write_storage_state(superuser, domain=_cookie_domain(), path=superuser_state_path)
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
@@ -1028,6 +1241,8 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+
+    _create_party_companion_scenario()
 
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)
@@ -1040,6 +1255,9 @@ def main() -> None:
 
     # A half-seating window the reader is not in, for the seat-count e2e.
     _create_early_access_scenario(sphere)
+
+    # A session description full of hostile markup, for the sanitiser e2e.
+    _create_markdown_sanitising_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
@@ -1263,6 +1481,24 @@ def main() -> None:
     _create_panel_lab_event(sphere)
     _create_konwencik_preview_event(sphere)
     _create_panel_crud_event(sphere)
+    _create_track_setup_event(sphere)
+    _create_guild_roster_event(sphere)
+    _create_merge_event(
+        sphere,
+        name="Emberfall Moot",
+        slug="emberfall-moot",
+        description="A mountain moot whose presenters signed up more than once.",
+        start_offset=timedelta(days=28),
+    )
+    _create_profile_editor_scenario(sphere)
+    _create_party_refusals_scenario()
+    _create_merge_event(
+        sphere,
+        name="Mistvale Meet",
+        slug="mistvale-meet",
+        description="A valley meet whose presenters signed up twice.",
+        start_offset=timedelta(days=30),
+    )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_accept_lab_event(sphere)
