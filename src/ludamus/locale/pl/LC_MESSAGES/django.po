@@ -7786,6 +7786,11 @@ msgid "Room conflict"
 msgstr "Konflikt sal"
 
 #: src/ludamus/templates/landing/scena.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Conflict"
+msgstr "Konflikt"
+
+#: src/ludamus/templates/landing/scena.html
 msgid "Two decades of convention mishaps"
 msgstr "Dwie dekady konwentowych wpadek"
 
@@ -11683,10 +11688,6 @@ msgstr "Brak sal dla tego wydarzenia."
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Empty"
 msgstr "Puste"
-
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Conflict"
-msgstr "Konflikt"
 
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track progress"
