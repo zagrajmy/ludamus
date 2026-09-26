@@ -21,8 +21,19 @@ test.describe("Landing", () => {
 
     const mamert = page.getByRole("figure", { name: "Mamert · Bachanalia Fantastyczne" });
     await expect(mamert).toContainText("Widzę jaki potencjał i pomoc jest w takiej aplikacji.");
-    await expect(page.getByRole("figure", { name: "Hory-portier · Kapitularz" })).toBeVisible();
-    await expect(page.getByRole("figure", { name: "Gosia · Kapitularz" })).toBeVisible();
+    await expect(mamert.locator("img")).toHaveAttribute("src", /bachanalia-mark.*\.svg/);
+
+    for (const name of ["Hory-portier", "Gosia", "Sowa"]) {
+      const quote = page.getByRole("figure", { name: `${name} · Kapitularz` });
+      await expect(quote).toBeVisible();
+      await expect(quote.locator("img")).toHaveAttribute("src", /kapitularz-mark.*\.svg/);
+    }
+    await expect(page.getByRole("figure", { name: "Sowa · Kapitularz" })).toContainText(
+      "ponad 900 godzin programu",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Four questions you probably have in mind" }),
+    ).toHaveCSS("text-wrap", "balance");
 
     await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
     await expect(mamert).toBeHidden();
