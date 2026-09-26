@@ -231,7 +231,7 @@ test.describe("Timetable problems", () => {
     });
 
     await page.getByRole("tab", { name: "Problems" }).click();
-    await page.reload();
+    await expect(page).toHaveURL(/\/timetable\/problems\/$/);
     const roomOverlaps = conflictGroup(page, "Room overlaps");
     await expect(roomOverlaps).toContainText(countOf("Room overlaps", 1));
     await expect(roomOverlaps).toContainText(ROOM_CLASH);
