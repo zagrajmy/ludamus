@@ -895,6 +895,16 @@ themes — newsprint rather than white once the page around them is dark.
             font-size: 1.15rem;
         }
 
+        /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
+           even gap on every side; the percentage fit leaves the sides
+           visibly tighter than the top and bottom at phone zoom. */
+        .landing .cellwarn {
+            left: calc(39.66% - 6px);
+            top: calc(72% - 6px);
+            width: calc(28.5% + 12px);
+            height: calc(20% + 12px);
+        }
+
         .landing .cellwarn>span {
             top: -1rem;
             height: 1.7rem;
