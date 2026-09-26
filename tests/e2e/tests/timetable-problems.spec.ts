@@ -21,7 +21,11 @@ const TIMETABLE_URL = "/panel/event/emberfall-con/timetable/";
 // first, so either wording is the right one. Regexes match the raw text, so
 // spaces stand for any run of the template's whitespace.
 const either = (...wordings: string[]) =>
-  new RegExp(wordings.map((text) => text.replace(/[()]/g, "\\$&").replace(/ /g, "\\s+")).join("|"));
+  new RegExp(
+    wordings
+      .map((text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+"))
+      .join("|"),
+  );
 const ROOM_CLASH = either(
   "Clockwork Heist — Room occupied by: Ghost Ship Salvage",
   "Ghost Ship Salvage — Room occupied by: Clockwork Heist",

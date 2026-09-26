@@ -17,6 +17,15 @@ test.describe("Panel track setup", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
+  test.afterEach(async ({ page }) => {
+    await page.goto(TRACKS_URL);
+    const leftover = page.getByRole("row", { name: new RegExp(TRACK) });
+    if ((await leftover.count()) === 0) return;
+    await leftover.getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
+    await expect(leftover).toHaveCount(0);
+  });
+
   test("organizer sets up a private track with rooms and a manager, then moves its rooms", async ({
     page,
   }, testInfo) => {
