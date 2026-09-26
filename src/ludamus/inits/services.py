@@ -324,7 +324,9 @@ class Services:
     @cached_property
     def landing(self) -> LandingService:
         domains: tuple[str, ...] = settings.LANDING_CONVENTION_DOMAINS
-        return LandingService(self._repos.landing_stats, convention_domains=domains)
+        return LandingService(
+            self._repos.landing_stats, cache=DjangoCache(), convention_domains=domains
+        )
 
     @cached_property
     def dashboard(self) -> DashboardService:

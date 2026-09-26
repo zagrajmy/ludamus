@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
+from django.core.cache import cache
 from django.urls import get_resolver
 from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
@@ -473,6 +474,13 @@ def encounter_with_rsvps(sphere):
     EncounterRSVPFactory(encounter=encounter)
     EncounterRSVPFactory(encounter=encounter)
     return encounter
+
+
+@pytest.fixture(autouse=True)
+def _empty_cache():
+    # The locmem cache outlives a test's rolled-back database, so a cached
+    # landing count would leak into the next test's assertions.
+    cache.clear()
 
 
 @pytest.fixture(autouse=True)
