@@ -37,6 +37,45 @@ const paintSession = (sessionId: string, bookmarked: boolean, count: number): vo
   document.dispatchEvent(new CustomEvent("session:bookmark-changed"));
 };
 
+type FailureReason = "http" | "malformed-response" | "network" | "timeout";
+
+const failureReason = (error: unknown, status: number | null): FailureReason => {
+  if (status !== null) return status >= 200 && status < 300 ? "malformed-response" : "http";
+  if (error instanceof DOMException && error.name === "TimeoutError") return "timeout";
+  return "network";
+};
+
+// The viewer only sees the icon flip back, so a failure is invisible to us
+// unless it is reported. prologue.ts forwards this to PostHog when the viewer
+// has consented to analytics.
+const reportFailure = ({
+  error,
+  sessionId,
+  status,
+  wanted,
+}: {
+  error: unknown;
+  sessionId: string;
+  status: number | null;
+  wanted: boolean;
+}): void => {
+  document.dispatchEvent(
+    new CustomEvent("analytics:capture", {
+      detail: {
+        event: "bookmark_toggle_failed",
+        properties: {
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+          online: navigator.onLine,
+          reason: failureReason(error, status),
+          session_pk: Number(sessionId),
+          status,
+          wanted_bookmarked: wanted,
+        },
+      },
+    }),
+  );
+};
+
 // NOTE: the in-flight guard is state, not an affordance. Disabling the button
 // would fade it to the :disabled opacity right after the optimistic paint —
 // a blink that reads as lag — and would drop keyboard focus mid-toggle.
@@ -52,6 +91,7 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   const previousCount = Number(button.querySelector("[data-bookmark-count]")?.textContent ?? 0);
   inFlight.add(sessionId);
   paintSession(sessionId, !previous, previousCount + (previous ? -1 : 1));
+  let status: number | null = null;
   try {
     const response = await fetch(bookmarkUrl(template, sessionId), {
       headers: { "X-CSRFToken": root.dataset.csrf ?? "" },
@@ -59,6 +99,7 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
       // A stalled request must not hold the in-flight guard forever.
       signal: AbortSignal.timeout(8000),
     });
+    ({ status } = response);
     if (!response.ok) throw new Error(`Bookmark toggle failed: ${response.status}`);
     const data: unknown = await response.json();
     if (
@@ -74,6 +115,7 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   } catch (error) {
     paintSession(sessionId, previous, previousCount);
     console.error(error);
+    reportFailure({ error, sessionId, status, wanted: !previous });
   } finally {
     inFlight.delete(sessionId);
   }

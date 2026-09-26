@@ -243,9 +243,23 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
   }
 };
 
+type CaptureRequest = { event: string; properties: Record<string, unknown> };
+
+// Page scripts report through a DOM event instead of importing posthog, so
+// consent stays decided here: capture() is a no-op until init and after an
+// opt-out.
+const forwardCaptures = (): void => {
+  document.addEventListener("analytics:capture", (event) => {
+    if (!posthog.__loaded || !(event instanceof CustomEvent)) return;
+    const { event: name, properties } = event.detail as CaptureRequest;
+    posthog.capture(name, properties);
+  });
+};
+
 const init = (): void => {
   const config = readServerConfig();
   if (!config) return;
+  forwardCaptures();
 
   const consent = readConsent();
   if (consent === "accepted") initPosthog(config);
