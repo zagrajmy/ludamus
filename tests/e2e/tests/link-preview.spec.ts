@@ -49,6 +49,8 @@ test.describe("Link preview metadata", () => {
     // The title a reader sees once the link is opened in a browser.
     await page.goto(shared);
     const title = (await page.locator(`#session-${pk}-title`).innerText()).trim();
+    // The session takes the event's place in the title; the sphere tail stays.
+    const tail = (await page.title()).replace(/^Autumn Open Playtest /u, "");
 
     const html = await (await request.get(shared)).text();
     const meta = (key: string): string =>
@@ -57,10 +59,11 @@ test.describe("Link preview metadata", () => {
         .replaceAll(/\s+/g, " ")
         .trim() ?? "";
 
-    expect(meta("og:title")).toBe(`${title} • Autumn Open Playtest`);
+    expect(meta("og:title")).toBe(`${title} ${tail}`);
+    expect(meta("og:title")).not.toContain("Autumn Open Playtest");
     expect(meta("twitter:title")).toBe(meta("og:title"));
-    // Day, time range, room: enough to decide from the preview alone.
-    expect(meta("og:description")).toMatch(/^\S+, \d+ \S+ · \d+:\d\d–\d+:\d\d — /u);
+    // Day, time range, room, dot-separated: enough to decide from the preview alone.
+    expect(meta("og:description")).toMatch(/^\S+, \d+ \S+ · \d+:\d\d–\d+:\d\d · /u);
     expect(meta("twitter:description")).toBe(meta("og:description"));
     expect(html).toMatch(/<title>\s*Autumn Open Playtest • /);
   });

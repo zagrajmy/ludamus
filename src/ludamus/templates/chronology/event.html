@@ -9,8 +9,8 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
-{% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
-{% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
+{% block og_title %}{% if link_preview.title %}{{ link_preview.title }} {{ title_tail }}{% else %}{{ document_title }}{% endif %}{% endblock og_title %}
+{% block twitter_title %}{% if link_preview.title %}{{ link_preview.title }} {{ title_tail }}{% else %}{{ document_title }}{% endif %}{% endblock twitter_title %}
 {% block meta_description %}
     {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock meta_description %}

@@ -20,8 +20,9 @@ def meta_image_url(context: template.Context, *urls: str) -> str:
 
 
 class DocumentTitleNode(template.Node):
-    def __init__(self, nodelist: template.NodeList) -> None:
+    def __init__(self, nodelist: template.NodeList, name: str) -> None:
         self.nodelist = nodelist
+        self.name = name
 
     # The title is one value in three tags (<title>, og:title, twitter:title)
     # and a block can't hand its output to a variable, so capture it here. The
@@ -32,12 +33,20 @@ class DocumentTitleNode(template.Node):
     # that reads it. Nested inside a block it would be popped with that block.
     def render(self, context: template.Context) -> str:
         rendered = self.nodelist.render(context)
-        context["document_title"] = SafeString(" ".join(rendered.split()))
+        context[self.name] = SafeString(" ".join(rendered.split()))
         return ""
 
 
 @register.tag("document_title")
-def document_title(parser: Parser, _token: Token) -> DocumentTitleNode:
+def document_title(parser: Parser, token: Token) -> DocumentTitleNode:
+    match token.split_contents():
+        case [_]:
+            name = "document_title"
+        case [_, "as", name]:
+            pass
+        case _:
+            msg = "document_title takes no arguments or 'as <name>'"
+            raise template.TemplateSyntaxError(msg)
     nodelist = parser.parse(("enddocument_title",))
     parser.delete_first_token()
-    return DocumentTitleNode(nodelist)
+    return DocumentTitleNode(nodelist, name)

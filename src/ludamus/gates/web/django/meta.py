@@ -33,7 +33,7 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
     start = localtime(encounter.start_time)
     parts = [f"{date_format(start)}, {time_format(start)}"]
     if encounter.place:
-        parts.append(f"— {encounter.place}")
+        parts.append(f"· {encounter.place}")
     if description_html:
         parts.append(f"| {_summary(description_html)}")
     return " ".join(parts)
@@ -41,7 +41,7 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
 
 # NOTE: link-preview crawlers run no JS, so the ?session= modal never opens for
 # them, and a messenger shows only a line or two of the description.
-def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
+def session_link_preview(data: SessionData) -> LinkPreview:
     session = data.session
     parts = []
     if (agenda_item := data.agenda_item) is not None:
@@ -52,13 +52,13 @@ def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
             f"{time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
         )
     if place := data.location_label:
-        parts.append(f"— {place}")
+        parts.append(f"· {place}")
     if session.facilitator_name and (name := data.presenter.full_name):
         parts.append(f"· {name}")
     if session.description:
         parts.append(f"| {_summary(render_markdown(session.description))}")
     return LinkPreview(
-        title=f"{session.title} • {event_name}",
+        title=session.title,
         description=" ".join(parts),
         image_url=session.cover_image_url,
     )

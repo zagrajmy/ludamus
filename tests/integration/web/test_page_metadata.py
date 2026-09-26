@@ -280,7 +280,7 @@ class TestSessionLinkPreview:
             end_time=start + timedelta(hours=2, minutes=30),
         ).session
 
-    def test_names_the_session_and_its_event(self, client, sphere):
+    def test_names_the_session_and_its_sphere(self, client, sphere):
         event = EventFactory(sphere=sphere, name="Kapitularz")
         session = self._scheduled(event, title="Zew Cthulhu")
 
@@ -288,9 +288,26 @@ class TestSessionLinkPreview:
 
         assert _titles(response) == [
             f"Kapitularz • {sphere.name}",
-            "Zew Cthulhu • Kapitularz",
-            "Zew Cthulhu • Kapitularz",
+            f"Zew Cthulhu • {sphere.name}",
+            f"Zew Cthulhu • {sphere.name}",
         ]
+
+    def test_sub_sphere_session_ends_with_the_brand(self, client, non_root_sphere):
+        event = EventFactory(sphere=non_root_sphere, name="Kapitularz")
+        session = self._scheduled(event, title="Zew Cthulhu")
+
+        response = _get_ok(
+            client,
+            f'{reverse("web:chronology:event", kwargs={"slug": event.slug})}'
+            f"?session={session.pk}",
+            ["chronology/event.html"],
+            HTTP_HOST=non_root_sphere.site.domain,
+        )
+
+        assert (
+            _titles(response)[1:]
+            == [f"Zew Cthulhu • {non_root_sphere.name} • Zagrajmy"] * 2
+        )
 
     def test_describes_when_where_and_what(self, client, sphere):
         event = EventFactory(sphere=sphere, description="Konwent gier")
@@ -301,7 +318,7 @@ class TestSessionLinkPreview:
         response = self._share(client, event, session.pk)
 
         expected = (
-            "Saturday, 17 May · 14:00–16:30 — Sala Lustrzana"
+            "Saturday, 17 May · 14:00–16:30 · Sala Lustrzana"
             " | Śledztwo w Arkham &amp; okolicach."
         )
         assert _descriptions(response) == [expected] * 3
@@ -314,7 +331,7 @@ class TestSessionLinkPreview:
 
         assert (
             _descriptions(response)
-            == ["Saturday, 17 May · 14:00–16:30 — Sala Lustrzana"] * 3
+            == ["Saturday, 17 May · 14:00–16:30 · Sala Lustrzana"] * 3
         )
 
     def test_names_the_facilitator_after_the_room(self, client, sphere):
@@ -329,7 +346,7 @@ class TestSessionLinkPreview:
         response = self._share(client, event, session.pk)
 
         expected = (
-            "Saturday, 17 May · 14:00–16:30 — Sala Lustrzana · Anna Nowak | Śledztwo."
+            "Saturday, 17 May · 14:00–16:30 · Sala Lustrzana · Anna Nowak | Śledztwo."
         )
         assert _descriptions(response) == [expected] * 3
 
@@ -342,7 +359,7 @@ class TestSessionLinkPreview:
         response = self._share(client, event, session.pk)
 
         assert _meta(response, "property", "og:description").endswith(
-            "— Sala Lustrzana · Jan Kowalski"
+            "· Sala Lustrzana · Jan Kowalski"
         )
 
     def test_shows_the_session_cover_over_the_event_cover(self, client, sphere):

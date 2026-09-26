@@ -27,15 +27,19 @@
         it for the event they manage. The root sphere is Zagrajmy, so it takes no
         brand tail. Captured once here so the document title and the link-preview
         titles below can never drift apart. A ?session= link may override the
-        preview title blocks alone: closing its modal leaves the reader on the
-        page the tab names.{% endcomment %}
-        {% document_title %}
-            {% block title %}
-            {% endblock title %}
+        preview title blocks alone, swapping the page name for the session's but
+        keeping title_tail: closing its modal leaves the reader on the page the
+        tab names.{% endcomment %}
+        {% document_title as title_tail %}
             {% block title_suffix %}
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
             {% if not is_root_sphere %}• Zagrajmy{% endif %}
+        {% enddocument_title %}
+        {% document_title %}
+            {% block title %}
+            {% endblock title %}
+            {{ title_tail }}
         {% enddocument_title %}
         <title>{{ document_title }}</title>
         <meta name="description"

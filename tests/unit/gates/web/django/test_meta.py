@@ -17,9 +17,9 @@ class TestSessionLinkPreview:
             ),
         )
 
-        preview = session_link_preview(data=data, event_name="Kapitularz")
+        preview = session_link_preview(data)
 
-        assert preview == LinkPreview(title="Zew Cthulhu • Kapitularz")
+        assert preview == LinkPreview(title="Zew Cthulhu")
 
     def test_facilitator_account_without_a_name_leaves_no_separator(self):
         data = make_session_data(
@@ -34,6 +34,6 @@ class TestSessionLinkPreview:
             ),
         )
 
-        preview = session_link_preview(data=data, event_name="Kapitularz")
+        preview = session_link_preview(data)
 
-        assert preview.description == "— Sala Lustrzana"
+        assert preview.description == "· Sala Lustrzana"

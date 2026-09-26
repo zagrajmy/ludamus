@@ -379,7 +379,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         raw = self.request.GET.get("session", "")
         if not raw.isdecimal() or (data := sessions_data.get(int(raw))) is None:
             return LinkPreview()
-        return session_link_preview(data=data, event_name=self.object.name)
+        return session_link_preview(data)
 
     def _get_anonymous_context(self) -> dict[str, Any]:
         ctx: dict[str, Any] = {}
