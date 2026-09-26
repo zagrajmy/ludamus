@@ -6,14 +6,15 @@ rules are in [CLAUDE.md](CLAUDE.md). `mise tasks` lists every command.
 ## Licensing
 
 Ludamus is [AGPL-3.0-only](LICENSE), and contributions come in under the same
-license. By opening a pull request you confirm you wrote the code or have the
-right to submit it, and that you license it under AGPL-3.0-only.
+license. First-time contributors sign our [CLA](CLA.md); a bot posts the link on
+your pull request and you accept in a comment. It takes a minute and covers
+everything you contribute from then on.
 
-You keep your copyright. There is no CLA.
-
-This is written down because relicensing needs every copyright holder's
-agreement, and a project that never recorded who those are has to work it out
-from the commit log afterwards. We did that once already.
+**You keep your copyright.** The CLA is a licence, not a transfer. What it adds
+beyond the AGPL is the right to sublicense, which is what lets the project be
+relicensed or offered on commercial terms later without tracking down every
+contributor. Without it, one unreachable person can freeze the licence forever.
+We reconstructed the holder list from the commit log once; that doesn't scale.
 
 Vendoring or adapting third-party code is fine, say so in the pull request. MIT,
 BSD and Apache-2.0 are compatible; copyleft outside the GPL family usually
