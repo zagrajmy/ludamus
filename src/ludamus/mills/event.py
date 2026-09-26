@@ -4,7 +4,6 @@ from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
-    LANDING_CONVENTIONS,
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
@@ -454,14 +453,20 @@ class EventPanelService(EventPanelServiceProtocol):
 
 
 class LandingService(LandingServiceProtocol):
-    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
+    def __init__(
+        self,
+        stats: LandingStatsRepositoryProtocol,
+        *,
+        convention_domains: tuple[str, ...],
+    ) -> None:
         self._stats = stats
+        self._convention_domains = convention_domains
 
     def stats(self) -> LandingStatsDTO:
         return self._stats.count_landing_stats()
 
     def conventions(self) -> list[LandingConventionDTO]:
-        return self._stats.list_conventions(LANDING_CONVENTIONS)
+        return self._stats.list_conventions(self._convention_domains)
 
     def showcase_slug(self, sphere_id: int) -> str | None:
         return self._stats.read_newest_published_slug(sphere_id)

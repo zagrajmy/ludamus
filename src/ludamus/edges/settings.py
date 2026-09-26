@@ -408,6 +408,8 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+# The conventions the landing and about pages show, in this order.
+LANDING_CONVENTION_SUBDOMAINS: tuple[str, ...] = ("kapitularz", "bachanalia", "o2f")
 SITE_ID = env("SITE_ID")
 
 # Auth0

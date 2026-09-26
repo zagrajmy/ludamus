@@ -332,7 +332,12 @@ class Services:
 
     @cached_property
     def landing(self) -> LandingService:
-        return LandingService(self._repos.landing_stats)
+        root_domain: str = settings.ROOT_DOMAIN
+        subdomains: tuple[str, ...] = settings.LANDING_CONVENTION_SUBDOMAINS
+        return LandingService(
+            self._repos.landing_stats,
+            convention_domains=tuple(f"{sub}.{root_domain}" for sub in subdomains),
+        )
 
     @cached_property
     def dashboard(self) -> DashboardService:

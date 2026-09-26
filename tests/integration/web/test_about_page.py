@@ -26,7 +26,10 @@ class TestAboutPage:
             },
         )
 
-    def test_cites_live_counts_and_conventions(self, client, non_root_sphere):
+    def test_cites_live_counts_and_conventions(self, client, non_root_sphere, settings):
+        settings.LANDING_CONVENTION_SUBDOMAINS = (
+            non_root_sphere.site.domain.split(".")[0],
+        )
         event = EventFactory(
             sphere=non_root_sphere,
             start_time=datetime.now(UTC),

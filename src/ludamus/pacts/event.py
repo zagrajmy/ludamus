@@ -249,15 +249,11 @@ class LandingConventionDTO(BaseModel):
     cover_image_url: str
 
 
-# How many convention cards the landing's grid holds.
-LANDING_CONVENTIONS = 3
-
-
 class LandingStatsRepositoryProtocol(Protocol):
     @staticmethod
     def count_landing_stats() -> LandingStatsDTO: ...
     @staticmethod
-    def list_conventions(limit: int) -> list[LandingConventionDTO]: ...
+    def list_conventions(domains: tuple[str, ...]) -> list[LandingConventionDTO]: ...
     @staticmethod
     def read_newest_published_slug(sphere_id: int) -> str | None: ...
 
