@@ -79,10 +79,7 @@ class EncounterService(EncounterServiceProtocol):
         if not self.enabled(sphere_id):
             return EncounterFeed(upcoming=[], past=[])
         return EncounterFeed(
-            upcoming=self._index_items(
-                self._encounters.list_visible_upcoming(sphere_id, user_id),
-                user_id=user_id,
-            ),
+            upcoming=self._upcoming(sphere_id=sphere_id, user_id=user_id, limit=None),
             past=self._index_items(
                 self._encounters.list_visible_past(
                     sphere_id, user_id, limit=PAST_FEED_LIMIT
@@ -102,6 +99,11 @@ class EncounterService(EncounterServiceProtocol):
         """
         if not self.enabled(sphere_id):
             return []
+        return self._upcoming(sphere_id=sphere_id, user_id=user_id, limit=limit)
+
+    def _upcoming(
+        self, *, sphere_id: int, user_id: int | None, limit: int | None
+    ) -> list[EncounterIndexItem]:
         return self._index_items(
             self._encounters.list_visible_upcoming(sphere_id, user_id, limit=limit),
             user_id=user_id,

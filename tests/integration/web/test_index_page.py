@@ -4,6 +4,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -892,10 +893,16 @@ class TestLandingPageView:
             template_name=["landing_page.html"],
         )
 
-    def test_counts_stay_cached_for_two_hours(self, client, sphere):
+    def test_counts_stay_cached_for_two_hours(self, client, sphere, non_root_sphere):
         with freeze_time("2026-09-26 12:00:00") as clock:
             client.get(self.URL)
             EventFactory(sphere=sphere)
+            EventFactory(
+                sphere=non_root_sphere,
+                publication_time=datetime(2026, 9, 1, tzinfo=UTC),
+                start_time=datetime(2026, 10, 1, tzinfo=UTC),
+                end_time=datetime(2026, 10, 2, tzinfo=UTC),
+            )
 
             clock.tick(timedelta(hours=2) - timedelta(seconds=1))
             cached = client.get(self.URL)
@@ -910,6 +917,28 @@ class TestLandingPageView:
         )
         assert_response(
             recounted,
+            HTTPStatus.OK,
+            context_data=landing_context(
+                stats=LandingStatsDTO(events=2, sessions=0),
+                conventions=[
+                    LandingConventionDTO(
+                        name=non_root_sphere.name,
+                        domain=non_root_sphere.site.domain,
+                        cover_image_url="",
+                    )
+                ],
+            ),
+            template_name=["landing_page.html"],
+        )
+
+    def test_recounts_over_a_malformed_cache_entry(self, client, sphere):
+        EventFactory(sphere=sphere)
+        cache.set("landing:stats", b'{"events": "many"}')
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
             HTTPStatus.OK,
             context_data=landing_context(stats=LandingStatsDTO(events=1, sessions=0)),
             template_name=["landing_page.html"],

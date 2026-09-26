@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
-from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
@@ -51,6 +51,7 @@ from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
 
     from ludamus.pacts.legacy import CacheProtocol, EventUpdateData
@@ -67,6 +68,9 @@ def require_session_in_event(
 ) -> None:
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
+
+
+logger = logging.getLogger(__name__)
 
 
 def widen_event_dates(
@@ -459,8 +463,7 @@ class EventPanelService(EventPanelServiceProtocol):
 # The landing is the most-hit anonymous page, and its numbers are a claim
 # about volume, not a live counter: two hours stale costs nothing.
 LANDING_CACHE_SECONDS = 2 * 60 * 60
-_STATS_KEY = "landing:stats"
-_CONVENTIONS_KEY = "landing:conventions"
+_STATS = TypeAdapter(LandingStatsDTO)
 _CONVENTIONS = TypeAdapter(list[LandingConventionDTO])
 
 
@@ -471,29 +474,32 @@ class LandingService(LandingServiceProtocol):
         self._stats = stats
         self._cache = cache
 
-    # NOTE: entries are stored as JSON and validated on the way out, so a
-    # deploy that reshapes a DTO recounts instead of rendering a stale shape.
     def stats(self) -> LandingStatsDTO:
-        if isinstance(cached := self._cache.get(_STATS_KEY), str):
-            with suppress(ValidationError):
-                return LandingStatsDTO.model_validate_json(cached)
-        stats = self._stats.count_landing_stats()
-        self._cache.set(
-            _STATS_KEY, stats.model_dump_json(), timeout=LANDING_CACHE_SECONDS
+        return self._cached(
+            key="landing:stats", adapter=_STATS, load=self._stats.count_landing_stats
         )
-        return stats
 
     def conventions(self) -> list[LandingConventionDTO]:
-        if isinstance(cached := self._cache.get(_CONVENTIONS_KEY), bytes):
-            with suppress(ValidationError):
-                return _CONVENTIONS.validate_json(cached)
-        conventions = self._stats.list_conventions(LANDING_CONVENTIONS)
-        self._cache.set(
-            _CONVENTIONS_KEY,
-            _CONVENTIONS.dump_json(conventions),
-            timeout=LANDING_CACHE_SECONDS,
+        return self._cached(
+            key="landing:conventions",
+            adapter=_CONVENTIONS,
+            load=lambda: self._stats.list_conventions(LANDING_CONVENTIONS),
         )
-        return conventions
+
+    # NOTE: entries are stored as JSON and validated on the way out, so a
+    # deploy that reshapes a DTO reloads instead of rendering a stale shape.
+    def _cached[T](
+        self, *, key: str, adapter: TypeAdapter[T], load: Callable[[], T]
+    ) -> T:
+        cached = self._cache.get(key)
+        if isinstance(cached, str | bytes):
+            try:
+                return adapter.validate_json(cached)
+            except ValidationError:
+                logger.warning("Discarding malformed landing cache entry %s", key)
+        value = load()
+        self._cache.set(key, adapter.dump_json(value), timeout=LANDING_CACHE_SECONDS)
+        return value
 
     def showcase_slug(self, sphere_id: int) -> str | None:
         return self._stats.read_newest_published_slug(sphere_id)

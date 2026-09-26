@@ -820,9 +820,8 @@ themes — newsprint rather than white once the page around them is dark.
         transform: rotate(-1.5deg) translateY(0);
     }
 
-    /* At phone zoom (about 0.55) the desktop type lands near 6px, so the
-       scene sets it larger to arrive at 10-11px. The tabs drop to numbers;
-       the caption under the grid names the act. */
+    /* Six named tabs wrap to ragged rows on a phone, so they drop to
+       numbers; the caption under the grid names the act. */
     @media (max-width: 42rem) {
         .landing .ktabs {
             display: grid;
@@ -836,7 +835,12 @@ themes — newsprint rather than white once the page around them is dark.
             border-radius: 0.7rem;
             border-color: var(--color-border);
         }
+    }
 
+    /* Keyed to the same container width as the zoom: at 30rem the scene
+       sits at 0.75 and desktop type starts to fall under 9px, so it is set
+       larger to land near 10-11px at phone zoom (about 0.55). */
+    @container (max-width: 30rem) {
         .landing .ctx {
             gap: 0.6rem;
         }
