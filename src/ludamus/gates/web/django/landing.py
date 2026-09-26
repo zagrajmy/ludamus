@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.views.generic.base import RedirectView
 
 from ludamus.gates.web.django.dashboard import dashboard_page
 from ludamus.gates.web.django.events import EventsPageView
@@ -25,6 +26,12 @@ SHOWCASE_EVENT_URL = "https://kapitularz.zagrajmy.net/"
 # Where organizers write to start an event. Not SUPPORT_EMAIL: that one takes
 # account and data requests, this one is the sales conversation.
 CONTACT_EMAIL = "kontakt@zagrajmy.net"
+
+# The old homes of the feed, now the sphere root. Shared links carry filters
+# and UTM tags, so the query string rides along.
+legacy_feed_redirect = RedirectView.as_view(
+    pattern_name="web:index", permanent=True, query_string=True
+)
 
 
 def index_page(request: RootRequest) -> HttpResponse:
@@ -55,8 +62,10 @@ def landing_page(request: RootRequest) -> HttpResponse:
     # The pitch claims people are already playing; this is that claim's
     # evidence. A signed-in visitor also sees the ones they organise or hold
     # an RSVP to, the same as anywhere else.
-    encounters = request.services.encounters.list_feed(
-        sphere_id=context.current_sphere_id, user_id=context.current_user_id
+    encounters = request.services.encounters.list_upcoming(
+        sphere_id=context.current_sphere_id,
+        user_id=context.current_user_id,
+        limit=LANDING_ENCOUNTERS,
     )
     return TemplateResponse(
         request,
@@ -64,7 +73,7 @@ def landing_page(request: RootRequest) -> HttpResponse:
         {
             "stats": landing.stats(),
             "conventions": landing.conventions(),
-            "encounters": encounters.upcoming[:LANDING_ENCOUNTERS],
+            "encounters": encounters,
             # A sphere with encounters off 404s the create route for every
             # visitor, signed in or not; the "Run an Encounter" CTA must not
             # send anyone into that.

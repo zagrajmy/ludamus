@@ -1,6 +1,6 @@
 import { type Browser, type BrowserContext, devices } from "@playwright/test";
 
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:8000";
+import { BASE_URL } from "./urls";
 
 const installNavigationApi = (): void => {
   const listeners = new Set<(event: unknown) => void>();

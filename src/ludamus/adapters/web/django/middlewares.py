@@ -66,6 +66,7 @@ class RequestContextMiddleware:
                 current_site_id=current_sphere.site.pk,
                 current_user_slug=request.user.slug,
                 current_user_id=UserId(request.user.pk),
+                current_sphere_visibility=current_sphere.visibility,
             )
         else:
             request.context = RequestContext(
@@ -73,6 +74,7 @@ class RequestContextMiddleware:
                 current_sphere_id=current_sphere.pk,
                 root_site_id=root_sphere.site.pk,
                 current_site_id=current_sphere.site.pk,
+                current_sphere_visibility=current_sphere.visibility,
             )
 
         return self.get_response(request)

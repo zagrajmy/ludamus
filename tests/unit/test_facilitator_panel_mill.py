@@ -283,7 +283,7 @@ class TestFieldReconcile:
             values={2: {field.slug: "Vegan"}, 3: {field.slug: "Vegetarian"}},
         )
 
-        conflicts, unanimous = field_reconcile(merge_context)
+        conflicts, unanimous = field_reconcile(merge_context, target_pk=1)
 
         assert conflicts == [
             (

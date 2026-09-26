@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
@@ -27,7 +28,7 @@ from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -295,6 +296,11 @@ class SessionBookmark(models.Model):
         return f"{self.user_id} bookmarked session {self.session_id}"
 
 
+def suggested_spheres() -> Q:
+    # The root sphere is the suggesting page's own home, never a suggestion.
+    return Q(visibility=SphereVisibility.PUBLIC) & ~Q(site_id=settings.SITE_ID)
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
@@ -308,6 +314,11 @@ class Sphere(models.Model):
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
+    visibility = models.CharField(
+        max_length=20,
+        choices=[(v.value, v.name.title()) for v in SphereVisibility],
+        default=SphereVisibility.PUBLIC,
+    )
     encounters_policy = models.CharField(
         max_length=20,
         choices=[(p.value, p.name.title()) for p in EncountersPolicy],

@@ -11,7 +11,7 @@
                     mark renders there.
                 {% endcomment %}
                 <div class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
-                    <a href="{{ request.scheme }}://{{ root_site.domain }}{% url 'web:index' %}"
+                    <a href="{{ root_origin }}{% url 'web:index' %}"
                        class="flex items-center gap-1"
                        data-brand-hover="tuck-in">
                         {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
@@ -73,7 +73,7 @@
                                     The dashboard reads across every sphere, so it
                                     lives on the root domain and is linked absolutely.
                                 {% endcomment %}
-                                <a href="{{ request.scheme }}://{{ root_site.domain }}{% url 'web:dashboard' %}"
+                                <a href="{{ root_origin }}{% url 'web:dashboard' %}"
                                    class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                     {% icon "home" class="w-4 h-4 opacity-60" %}
                                     {% translate "Your dashboard" %}

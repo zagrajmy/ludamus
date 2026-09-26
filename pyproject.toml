@@ -46,7 +46,7 @@ dbos = ">=2.31.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.8.0"
-posthog = "^7.44.2"
+posthog = "^7.59.0"
 workos = "^10.5.0"
 
 [tool.poetry.group.dev.dependencies]

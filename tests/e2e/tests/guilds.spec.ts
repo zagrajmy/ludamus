@@ -2,9 +2,11 @@ import { type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+import { signInAsManager } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
+import { EMPTY_SPHERE } from "./helpers/urls";
 
 // A 1x1 opaque PNG — the mark only has to be a real raster the browser will
 // decode, so the smallest valid one keeps the fixture inline.
@@ -18,13 +20,6 @@ const PRESENTER_EMAIL = "e2e@test.local";
 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
 const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
-
-const signInAsManager = async (page: Page): Promise<void> => {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-};
 
 const deleteGuildIfPresent = async (page: Page): Promise<void> => {
   await page.goto("/multiverse/panel/guilds/");
@@ -40,8 +35,6 @@ test.describe.configure({ mode: "serial" });
 // The empty state only renders while the sphere holds no guild at all, and the
 // default sphere is shared with facilitator-guild.spec.ts, which keeps a guild
 // of its own alive for the length of its run. Empty Sphere is nobody else's.
-const EMPTY_SPHERE = "http://another.localhost:8000";
-
 test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
   // Its manager signs in by the session cookie bootstrap_data.py wrote for that
   // host, the way panel.spec.ts reaches the same sphere.
