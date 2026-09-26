@@ -4879,8 +4879,8 @@ msgid "Venues on %(name)s"
 msgstr "Lokalizacje na mapie %(name)s"
 
 #: src/ludamus/templates/chronology/_map_card.html
-msgid "Attach venue"
-msgstr "Dołącz lokalizację"
+msgid "Attach or detach venue"
+msgstr "Przypnij lub odepnij lokalizację"
 
 #: src/ludamus/templates/chronology/_map_card.html
 msgid "Edit map"
@@ -7594,14 +7594,6 @@ msgstr ""
 msgid "Zagrajmy is open source (AGPL), so you can run it yourself."
 msgstr "Zagrajmy jest open source (AGPL), więc możesz go uruchomić u siebie."
 
-#: src/ludamus/templates/landing/org_objections.html
-msgid "Organizers' words"
-msgstr "Słowa organizatorów"
-
-#: src/ludamus/templates/landing/org_objections.html
-msgid "From the people who shipped a programme with it"
-msgstr "Od osób, które dowiozły z nim program"
-
 #: src/ludamus/templates/landing/org_pitch.html
 msgid "Who is it for"
 msgstr "Dla kogo"
@@ -7710,17 +7702,25 @@ msgstr[1] "Punkty programu"
 msgstr[2] "Punktów programu"
 msgstr[3] "Punktów programu"
 
+#: src/ludamus/templates/landing/org_testimonials.html
+msgid "Organizers' words"
+msgstr "Słowa organizatorów"
+
+#: src/ludamus/templates/landing/org_testimonials.html
+msgid "From the people who shipped a programme with it"
+msgstr "Od osób, które dowiozły z nim program"
+
 #: src/ludamus/templates/landing/scena.html
 msgid "One event, six acts. The same programme cards play in every one."
 msgstr "Jedno wydarzenie, sześć aktów. Te same karty programu grają w każdym."
 
 #: src/ludamus/templates/landing/scena.html
 msgid ""
-"Seven programme items of Board Game Days 2026 travel before your eyes from "
-"loose proposals to a printout on the room door. Pick an act."
+"Zagrajmy accompanies you from CFPs to printing the door cards, and online "
+"seat reservations during the event."
 msgstr ""
-"Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich oczach "
-"od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
+"Zagrajmy towarzyszy Ci od naboru zgłoszeń po druk kart na drzwi i rezerwację "
+"miejsc online w trakcie wydarzenia."
 
 #: src/ludamus/templates/landing/scena.html
 msgid "Pick an act."

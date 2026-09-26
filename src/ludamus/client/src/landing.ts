@@ -7,7 +7,8 @@ if (landing) {
 }
 
 if (org && gracz) {
-  if (location.hash === "#gracze") gracz.checked = true;
+  if (location.hash === "#gracze" || location.hash === "#g-conventions-heading")
+    gracz.checked = true;
 
   const sync = () => {
     history.replaceState(null, "", gracz.checked ? "#gracze" : location.pathname + location.search);
@@ -15,7 +16,8 @@ if (org && gracz) {
   org.addEventListener("change", sync);
   gracz.addEventListener("change", sync);
   addEventListener("hashchange", () => {
-    if (location.hash === "#gracze") gracz.checked = true;
+    if (location.hash === "#gracze" || location.hash === "#g-conventions-heading")
+      gracz.checked = true;
     else if (location.hash === "" || location.hash === "#") org.checked = true;
   });
 }
