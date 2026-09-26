@@ -22,6 +22,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, time, timedelta
 from pathlib import Path
+from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_DIR = REPO_ROOT / "src"
@@ -48,6 +49,15 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
+
+
+class _Booking(NamedTuple):
+    title: str
+    track: Track
+    room: str
+    start: datetime
+    facilitator: str
+    participants_limit: int
 
 
 def main() -> None:
@@ -365,11 +375,9 @@ def _seed_room_pager_event(*, sphere, event_day) -> None:
 
 
 def _seed_problems_event(*, sphere, event_day) -> None:
-    # One of every scheduling problem, for timetable-problems.spec: a room
-    # double-booked, a facilitator in two rooms at once, a session bigger than
-    # its room and one placed outside the slot it asked for. Two tracks with
-    # rooms of their own, so filtering by one hides the other's sessions. The
-    # spec unassigns a session and reverts it, so it needs an event of its own.
+    # NOTE: dedicated to timetable-problems.spec.ts, which unassigns a session
+    # and reverts it. It needs one of every scheduling problem, and two tracks
+    # with rooms of their own so filtering by one hides the other's sessions.
     local_tz = get_current_timezone()
 
     def at(hour: int, minute: int = 0) -> datetime:
@@ -414,8 +422,8 @@ def _seed_problems_event(*, sphere, event_day) -> None:
         defaults={"name": "Story Games", "is_public": False},
     )
     story_games.spaces.set([rooms["Amber Room"], rooms["Cobalt Room"]])
-    # Not e2e-manager, who logs in: a single managed track is pre-selected on
-    # the timetable, and the spec starts from the unfiltered view.
+    # NOTE: not e2e-manager, who logs in: a single managed track is
+    # pre-selected on the timetable, and the spec starts from the unfiltered view.
     story_games.managers.set([User.objects.get(username="auth0|local-manager")])
     miniatures, _ = Track.objects.get_or_create(
         event=event,
@@ -433,41 +441,47 @@ def _seed_problems_event(*, sphere, event_day) -> None:
         for name in ("Ivy Marsh", "Otto Brandt", "Rowan Hale", "Sage Lyle", "Juno Park")
     }
     schedule = (
-        # title, track, room, start (every session runs an hour), facilitator,
-        # participants limit
-        ("Clockwork Heist", story_games, "Amber Room", at(10), "Ivy Marsh", 5),
-        ("Ghost Ship Salvage", story_games, "Amber Room", at(10, 30), "Otto Brandt", 5),
-        ("Tidepool Tales", story_games, "Cobalt Room", at(10), "Rowan Hale", 4),
-        ("Moonlit Duel", story_games, "Cobalt Room", at(14), "Sage Lyle", 4),
-        ("Lantern Market", miniatures, "Basalt Room", at(10), "Rowan Hale", 6),
-        ("Giant Mech Brawl", miniatures, "Basalt Room", at(14), "Juno Park", 20),
+        _Booking("Clockwork Heist", story_games, "Amber Room", at(10), "Ivy Marsh", 5),
+        _Booking(
+            "Ghost Ship Salvage",
+            story_games,
+            "Amber Room",
+            at(10, 30),
+            "Otto Brandt",
+            5,
+        ),
+        _Booking("Tidepool Tales", story_games, "Cobalt Room", at(10), "Rowan Hale", 4),
+        _Booking("Moonlit Duel", story_games, "Cobalt Room", at(14), "Sage Lyle", 4),
+        _Booking("Lantern Market", miniatures, "Basalt Room", at(10), "Rowan Hale", 6),
+        _Booking(
+            "Giant Mech Brawl", miniatures, "Basalt Room", at(14), "Juno Park", 20
+        ),
     )
-    for title, track, room, start, facilitator, limit in schedule:
+    for booking in schedule:
         session, _ = Session.objects.get_or_create(
             event=event,
-            slug=title.lower().replace(" ", "-"),
+            slug=booking.title.lower().replace(" ", "-"),
             defaults={
-                "title": title,
-                "facilitator_name": facilitator,
-                "description": f"{title}, seeded for the problems page.",
+                "title": booking.title,
+                "facilitator_name": booking.facilitator,
+                "description": f"{booking.title}, seeded for the problems page.",
                 "duration": "PT1H",
-                "participants_limit": limit,
+                "participants_limit": booking.participants_limit,
                 "min_age": 0,
                 "status": "accepted",
                 "category": category,
             },
         )
-        session.tracks.set([track])
-        session.facilitators.set([facilitators[facilitator]])
+        session.tracks.set([booking.track])
+        session.facilitators.set([facilitators[booking.facilitator]])
         AgendaItem.objects.get_or_create(
             session=session,
             defaults={
-                "space": rooms[room],
-                "start_time": start,
-                "end_time": start + timedelta(hours=1),
+                "space": rooms[booking.room],
+                "start_time": booking.start,
+                "end_time": booking.start + timedelta(hours=1),
             },
         )
-    # Asked for the morning, placed in the afternoon.
     Session.objects.get(event=event, slug="moonlit-duel").time_slots.set([morning])
 
 

@@ -1,11 +1,11 @@
-import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
-// Wren Hollis (bootstrap_data.py) is this spec's own participant, with one
-// confirmed seat on Tidewater Games Night. The walkthrough renames her to the
-// same name every run, so it never depends on where the last run left her.
+// NOTE: Wren Hollis (bootstrap_data.py) is this spec's own participant, with
+// one confirmed seat on Tidewater Games Night. The walkthrough renames her to
+// the same name every run, so it never depends on where the last run left her.
 test.use({ storageState: path.join(__dirname, "..", ".auth-state-profile.json") });
 
 const PROFILE_URL = "/crowd/profile/";
@@ -45,14 +45,10 @@ test.describe("Editing your own profile", () => {
       email: await email.inputValue(),
     };
     expect(facts).toEqual({ displayName: NEW_NAME, email: OWN_EMAIL });
-    const screenshotPath = testInfo.outputPath("profile-edit.png");
-    await page.locator("form").filter({ has: name }).screenshot({ path: screenshotPath });
-    await testInfo.attach("profile-edit.png", { path: screenshotPath, contentType: "image/png" });
-    const factsPath = testInfo.outputPath("profile-edit.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("profile-edit.json", {
-      path: factsPath,
-      contentType: "application/json",
+    await attachArtifacts(testInfo, {
+      name: "profile-edit",
+      region: page.getByRole("main"),
+      facts,
     });
   });
 

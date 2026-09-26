@@ -213,6 +213,13 @@ def _create_session(
     return session
 
 
+def _cookie_domain() -> str:
+    return (
+        urlparse(os.environ.get("E2E_BASE_URL", "http://localhost:8000")).hostname
+        or "localhost"
+    )
+
+
 def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
     session = SessionStore()
     session["_auth_user_id"] = str(user.pk)
@@ -252,11 +259,8 @@ def _create_test_user() -> User:
         avatar_url="https://i.pravatar.cc/96?u=e2e",
     )
 
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
-    domain = parsed.hostname or "localhost"
     state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
-    _write_storage_state(user, domain=domain, path=state_path)
+    _write_storage_state(user, domain=_cookie_domain(), path=state_path)
 
     # An unread notification so the navbar dropdown has content to show in e2e.
     Notification.objects.create(
@@ -290,10 +294,9 @@ def _create_party_companion_scenario() -> None:
         user_type=UserType.CONNECTED,
         manager=leader,
     )
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     _write_storage_state(
         leader,
-        domain=urlparse(base_url).hostname or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-party-host.json",
     )
 
@@ -311,11 +314,9 @@ def _create_notifications_scenario() -> None:
         name="E2E Notified",
         slug="e2e-notified",
     )
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     _write_storage_state(
         user,
-        domain=parsed.hostname or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
     )
     # Destination notification: clicking it navigates to /events/.
@@ -390,11 +391,9 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         session=session, user=waiter, status=SessionParticipationStatus.WAITING.value
     )
 
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     _write_storage_state(
         waiter,
-        domain=parsed.hostname or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
     )
 
@@ -951,10 +950,9 @@ def _create_panel_crud_event(sphere: Sphere) -> Event:
     return event
 
 
-# Dedicated event for panel-tracks.spec: a venue with rooms and no tracks yet,
-# so the track form offers its room checklist and the walkthrough owns every
-# row on the tracks list. The spec deletes the track it makes, and nothing
-# else reads this event.
+# NOTE: dedicated to panel-tracks.spec.ts: rooms and no tracks yet, so the
+# track form offers its room checklist and the spec owns every row on the
+# tracks list. The spec deletes the track it makes.
 def _create_track_setup_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -974,9 +972,8 @@ def _create_track_setup_event(sphere: Sphere) -> Event:
     return event
 
 
-# Dedicated to guild-roster.spec.ts. Mira Kestrel was imported twice, so the
-# programme holds two facilitator rows under her name and no account behind
-# either: adding her to a guild places both rows at once.
+# NOTE: dedicated to guild-roster.spec.ts, which relies on Mira Kestrel's two
+# account-less facilitator rows being placed in a guild at once.
 def _create_guild_roster_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -992,30 +989,9 @@ def _create_guild_roster_event(sphere: Sphere) -> Event:
     return event
 
 
-# Dedicated to facilitator-merge.spec.ts, which creates and merges its own
-# facilitators here. The two text answers are what the merge has to reconcile.
-def _create_merge_reconcile_event(sphere: Sphere) -> Event:
-    event = _create_event(
-        sphere,
-        name="Emberfall Moot",
-        slug="emberfall-moot",
-        description="A mountain moot whose presenters signed up more than once.",
-        start_offset=timedelta(days=28),
-        duration_hours=8,
-        publication_offset=timedelta(days=2),
-    )
-    for order, (name, slug) in enumerate(
-        (("T-shirt size", "t-shirt-size"), ("Diet", "diet"))
-    ):
-        PersonalDataField.objects.create(
-            event=event, name=name, question=name, slug=slug, order=order
-        )
-    return event
-
-
-# A participant of their own for profile-edit.auth.spec.ts, which renames them
-# and tries a taken email: the shared e2e-tester's name and email are read by
-# other specs. The one confirmed seat is what the profile page counts.
+# NOTE: profile-edit.auth.spec.ts renames this user and tries a taken email, so
+# it can't use the shared e2e-tester, whose name and email other specs read.
+# The spec counts the one confirmed seat.
 def _create_profile_editor_scenario(sphere: Sphere) -> None:
     editor = User.objects.create_user(
         username="e2e-profile",
@@ -1049,22 +1025,14 @@ def _create_profile_editor_scenario(sphere: Sphere) -> None:
     _seat(session, editor, SessionParticipationStatus.CONFIRMED)
     _write_storage_state(
         editor,
-        domain=urlparse(
-            os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-        ).hostname
-        or "localhost",
+        domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-profile.json",
     )
 
 
-# A party leader and the person they invite, for party-refusals.auth.spec.ts.
-# The leader's two companions share a name, which the party's "Add companion"
-# cannot tell apart.
+# NOTE: dedicated to party-refusals.auth.spec.ts, which needs the leader's two
+# companions to share a name so "Add companion" refuses it as ambiguous.
 def _create_party_refusals_scenario() -> None:
-    domain = (
-        urlparse(os.environ.get("E2E_BASE_URL", "http://localhost:8000")).hostname
-        or "localhost"
-    )
     leader = User.objects.create_user(
         username="e2e-party-leader",
         email="e2e-party-leader@test.local",
@@ -1092,28 +1060,34 @@ def _create_party_refusals_scenario() -> None:
         (invitee, ".auth-state-party-invitee.json"),
     ):
         _write_storage_state(
-            user, domain=domain, path=REPO_ROOT / "tests" / "e2e" / state
+            user, domain=_cookie_domain(), path=REPO_ROOT / "tests" / "e2e" / state
         )
 
 
-# NOTE: dedicated to facilitator-merge-target.spec.ts, which signs up its own
-# facilitators here and merges them. The two answers are what the merge's
-# defaults have to follow.
-def _create_merge_target_event(sphere: Sphere) -> Event:
+# NOTE: facilitator-merge.spec.ts and facilitator-merge-target.spec.ts each
+# sign up and merge their own facilitators on an event of their own. The two
+# answers are what the merge has to reconcile and what its defaults follow.
+def _create_merge_event(
+    sphere: Sphere, *, name: str, slug: str, description: str, start_offset: timedelta
+) -> Event:
     event = _create_event(
         sphere,
-        name="Mistvale Meet",
-        slug="mistvale-meet",
-        description="A valley meet whose presenters signed up twice.",
-        start_offset=timedelta(days=30),
+        name=name,
+        slug=slug,
+        description=description,
+        start_offset=start_offset,
         duration_hours=8,
         publication_offset=timedelta(days=2),
     )
-    for order, (name, slug) in enumerate(
+    for order, (field_name, field_slug) in enumerate(
         (("T-shirt size", "t-shirt-size"), ("Diet", "diet"))
     ):
         PersonalDataField.objects.create(
-            event=event, name=name, question=name, slug=slug, order=order
+            event=event,
+            name=field_name,
+            question=field_name,
+            slug=field_slug,
+            order=order,
         )
     return event
 
@@ -1255,12 +1229,8 @@ def main() -> None:
         name="Admin",
         slug="admin",
     )
-    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
-    parsed = urlparse(base_url)
     superuser_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-superuser.json"
-    _write_storage_state(
-        superuser, domain=parsed.hostname or "localhost", path=superuser_state_path
-    )
+    _write_storage_state(superuser, domain=_cookie_domain(), path=superuser_state_path)
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
@@ -1513,10 +1483,22 @@ def main() -> None:
     _create_panel_crud_event(sphere)
     _create_track_setup_event(sphere)
     _create_guild_roster_event(sphere)
-    _create_merge_reconcile_event(sphere)
+    _create_merge_event(
+        sphere,
+        name="Emberfall Moot",
+        slug="emberfall-moot",
+        description="A mountain moot whose presenters signed up more than once.",
+        start_offset=timedelta(days=28),
+    )
     _create_profile_editor_scenario(sphere)
     _create_party_refusals_scenario()
-    _create_merge_target_event(sphere)
+    _create_merge_event(
+        sphere,
+        name="Mistvale Meet",
+        slug="mistvale-meet",
+        description="A valley meet whose presenters signed up twice.",
+        start_offset=timedelta(days=30),
+    )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_accept_lab_event(sphere)

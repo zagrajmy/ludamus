@@ -2,6 +2,7 @@ import { type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+import { signInAsManager } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
@@ -18,13 +19,6 @@ const PRESENTER_EMAIL = "e2e@test.local";
 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
 const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
-
-const signInAsManager = async (page: Page): Promise<void> => {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-};
 
 const deleteGuildIfPresent = async (page: Page): Promise<void> => {
   await page.goto("/multiverse/panel/guilds/");

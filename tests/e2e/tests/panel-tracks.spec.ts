@@ -1,29 +1,32 @@
-import { writeFile } from "node:fs/promises";
+import { type Page } from "@playwright/test";
 
+import { attachArtifacts } from "./helpers/artifacts";
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
-// "Thornwood Tabletop Days" (bootstrap_data.py) is seeded for this spec alone:
-// a lodge with three rooms and no tracks. The walkthrough deletes the track it
-// creates, so a second run against the same database starts from the same
-// empty list.
+// NOTE: "Thornwood Tabletop Days" (bootstrap_data.py) is seeded for this spec
+// alone: a lodge with three rooms and no tracks. A track a failed or killed run
+// left behind is deleted on the way in and on the way out.
 const TRACKS_URL = "/panel/event/thornwood-days/tracks/";
 const TRACK = "Lantern Stories";
 
+const deleteLeftoverTrack = async (page: Page): Promise<void> => {
+  await page.goto(TRACKS_URL);
+  const leftover = page.getByRole("row", { name: new RegExp(TRACK) });
+  if ((await leftover.count()) === 0) return;
+  await leftover.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
+  await expect(leftover).toHaveCount(0);
+};
+
 test.describe("Panel track setup", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
+    await deleteLeftoverTrack(page);
   });
 
   test.afterEach(async ({ page }) => {
-    await page.goto(TRACKS_URL);
-    const leftover = page.getByRole("row", { name: new RegExp(TRACK) });
-    if ((await leftover.count()) === 0) return;
-    await leftover.getByRole("button", { name: "Delete" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
-    await expect(leftover).toHaveCount(0);
+    await deleteLeftoverTrack(page);
   });
 
   test("organizer sets up a private track with rooms and a manager, then moves its rooms", async ({
@@ -48,14 +51,15 @@ test.describe("Panel track setup", () => {
     await expect(row.getByText("Cedar Room")).toHaveCount(0);
     await expect(row.getByText("Local Manager")).toBeVisible();
 
-    // The edit form comes back with what was saved already ticked.
-    await row.getByRole("link", { name: "Edit" }).click();
-    await expect(page.getByRole("heading", { name: "Edit Track" })).toBeVisible();
-    await expect(page.getByRole("checkbox", { name: "Public track" })).not.toBeChecked();
-    await expect(page.getByRole("checkbox", { name: "Oak Room" })).toBeChecked();
-    await expect(page.getByRole("checkbox", { name: "Birch Room" })).toBeChecked();
-    await expect(page.getByRole("checkbox", { name: "Cedar Room" })).not.toBeChecked();
-    await expect(page.getByRole("checkbox", { name: "Local Manager" })).toBeChecked();
+    await test.step("the edit form comes back with what was saved already ticked", async () => {
+      await row.getByRole("link", { name: "Edit" }).click();
+      await expect(page.getByRole("heading", { name: "Edit Track" })).toBeVisible();
+      await expect(page.getByRole("checkbox", { name: "Public track" })).not.toBeChecked();
+      await expect(page.getByRole("checkbox", { name: "Oak Room" })).toBeChecked();
+      await expect(page.getByRole("checkbox", { name: "Birch Room" })).toBeChecked();
+      await expect(page.getByRole("checkbox", { name: "Cedar Room" })).not.toBeChecked();
+      await expect(page.getByRole("checkbox", { name: "Local Manager" })).toBeChecked();
+    });
 
     await page.getByRole("checkbox", { name: "Oak Room" }).uncheck();
     await page.getByRole("checkbox", { name: "Cedar Room" }).check();
@@ -73,8 +77,8 @@ test.describe("Panel track setup", () => {
     const facts = {
       track: TRACK,
       visibility: (await row.getByRole("cell").nth(1).innerText()).trim(),
-      rooms: await row.getByRole("cell").nth(2).locator("[title]").allInnerTexts(),
-      managers: await row.getByRole("cell").nth(3).locator("[title]").allInnerTexts(),
+      rooms: await row.getByRole("cell").nth(2).getByRole("listitem").allInnerTexts(),
+      managers: await row.getByRole("cell").nth(3).getByRole("listitem").allInnerTexts(),
     };
     expect(facts).toEqual({
       track: TRACK,
@@ -82,12 +86,7 @@ test.describe("Panel track setup", () => {
       rooms: ["Birch Room", "Cedar Room"],
       managers: ["Local Manager"],
     });
-    const screenshotPath = testInfo.outputPath("track-row.png");
-    await row.screenshot({ path: screenshotPath });
-    await testInfo.attach("track-row.png", { path: screenshotPath, contentType: "image/png" });
-    const factsPath = testInfo.outputPath("track-row.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("track-row.json", { path: factsPath, contentType: "application/json" });
+    await attachArtifacts(testInfo, { name: "track-row", region: row, facts });
 
     await row.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();

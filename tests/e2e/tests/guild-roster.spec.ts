@@ -1,12 +1,13 @@
 import { type Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
 
+import { attachArtifacts } from "./helpers/artifacts";
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
-// Moving a presenter between guilds. "Saltmarsh Moot" (bootstrap_data.py)
-// holds Mira Kestrel twice, imported with no account, so one "Add presenter"
-// places both of her rows. The two guilds are this spec's own; deleting a
-// guild clears the mark off her rows, so each run starts with her unattached.
+// NOTE: "Saltmarsh Moot" (bootstrap_data.py) holds Mira Kestrel twice,
+// imported with no account, so one "Add presenter" places both of her rows.
+// The two guilds are this spec's own; deleting a guild clears the mark off her
+// rows, so each run starts with her unattached.
 const FROM = "Czaple";
 const TO = "Mewy";
 const PRESENTER = "Mira Kestrel";
@@ -40,10 +41,7 @@ const addPresenter = async (page: Page): Promise<void> => {
 
 test.describe("Guild roster", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/");
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
     await deleteGuildIfPresent(page, FROM);
     await deleteGuildIfPresent(page, TO);
   });
@@ -74,12 +72,12 @@ test.describe("Guild roster", () => {
     await expect(presenterRows(page)).toHaveCount(2);
 
     await page.goto(GUILDS_URL);
-    await expect(guildRow(page, FROM).getByRole("cell").nth(1)).toHaveText("0");
-    await expect(guildRow(page, TO).getByRole("cell").nth(1)).toHaveText("2");
     await guildRow(page, FROM).getByRole("link", { name: "Edit" }).click();
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
 
     await page.goto(GUILDS_URL);
+    await expect(guildRow(page, FROM).getByRole("cell").nth(1)).toHaveText("0");
+    await expect(guildRow(page, TO).getByRole("cell").nth(1)).toHaveText("2");
     const facts = {
       presenter: PRESENTER,
       presentersPerGuild: {
@@ -87,27 +85,22 @@ test.describe("Guild roster", () => {
         [TO]: (await guildRow(page, TO).getByRole("cell").nth(1).innerText()).trim(),
       },
     };
-    expect(facts.presentersPerGuild).toEqual({ [FROM]: "0", [TO]: "2" });
-    const screenshotPath = testInfo.outputPath("guild-roster.png");
-    await page.getByRole("table").screenshot({ path: screenshotPath });
-    await testInfo.attach("guild-roster.png", { path: screenshotPath, contentType: "image/png" });
-    const factsPath = testInfo.outputPath("guild-roster.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("guild-roster.json", {
-      path: factsPath,
-      contentType: "application/json",
+    await attachArtifacts(testInfo, {
+      name: "guild-roster",
+      region: page.getByRole("table"),
+      facts,
     });
 
-    // A delete confirmed from a tab that went stale says the guild is gone
-    // instead of reporting a second success.
-    await guildRow(page, TO).getByRole("link", { name: "Delete" }).click();
-    const staleTab = await page.context().newPage();
-    await staleTab.goto(page.url());
-    await page.getByRole("button", { name: "Delete guild" }).click();
-    await expect(page.getByText("Guild deleted.")).toBeVisible();
-    await staleTab.getByRole("button", { name: "Delete guild" }).click();
-    await expect(staleTab.getByText("Guild not found.")).toBeVisible();
-    await expect(guildRow(staleTab, TO)).toHaveCount(0);
-    await staleTab.close();
+    await test.step("a delete confirmed from a stale tab says the guild is gone", async () => {
+      await guildRow(page, TO).getByRole("link", { name: "Delete" }).click();
+      const staleTab = await page.context().newPage();
+      await staleTab.goto(page.url());
+      await page.getByRole("button", { name: "Delete guild" }).click();
+      await expect(page.getByText("Guild deleted.")).toBeVisible();
+      await staleTab.getByRole("button", { name: "Delete guild" }).click();
+      await expect(staleTab.getByText("Guild not found.")).toBeVisible();
+      await expect(guildRow(staleTab, TO)).toHaveCount(0);
+      await staleTab.close();
+    });
   });
 });

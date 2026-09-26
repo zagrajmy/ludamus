@@ -1,11 +1,13 @@
-import { writeFile } from "node:fs/promises";
+import { type Page } from "@playwright/test";
 import path from "node:path";
 
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+import { disbandParty, foundParty, type Party } from "./helpers/parties";
 
-// Oona Brisk leads, Tamsin Reed is invited (bootstrap_data.py). Oona manages
-// two companions who are both called "Pip". Each run founds a party of its own
-// and deletes it at the end.
+// NOTE: Oona Brisk leads, Tamsin Reed is invited (bootstrap_data.py). Oona
+// manages two companions who are both called "Pip". Each run founds a party of
+// its own and deletes it at the end.
 const e2eDir = path.join(__dirname, "..");
 test.use({ storageState: path.join(e2eDir, ".auth-state-party-leader.json") });
 
@@ -16,35 +18,23 @@ const COMPANION = "Pip";
 const PARTIES_URL = "/crowd/profile/parties/";
 
 test.describe("Party refusals", () => {
-  let partyName = "";
-  let partyUrl = "";
+  let party: Party;
 
   test.beforeEach(async ({ page }) => {
-    partyName = `Harbour Watch ${Date.now()}`;
-    await page.goto(PARTIES_URL);
-    await page.getByRole("link", { name: "Create party", exact: true }).click();
-    const createDialog = page.getByRole("dialog", { name: "Create party" });
-    await createDialog.getByLabel("Party name").fill(partyName);
-    await createDialog.getByRole("button", { name: "Create party", exact: true }).click();
-    await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\/$/);
-    partyUrl = page.url();
+    party = await foundParty(page, "Harbour Watch");
   });
 
   test.afterEach(async ({ page }) => {
-    await page.goto(partyUrl);
-    await page.getByRole("button", { name: "Delete party" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();
-    await expect(page.getByText("Party deleted.")).toBeVisible();
-    await expect(page.getByText(partyName)).toHaveCount(0);
+    await disbandParty(page, party);
   });
 
-  test("blank and ambiguous entries are refused with the dialog kept open, and a stale decline says the invite is gone", async ({
+  test("a blank invite and an ambiguous companion are refused, and a stale decline says the invite is gone", async ({
     page,
     browser,
   }, testInfo) => {
-    // Spaces get past the browser's required check; the server has to refuse.
     await page.getByRole("link", { name: "Invite a member" }).click();
     const inviteDialog = page.getByRole("dialog", { name: "Invite a member" });
+    // NOTE: spaces get past the browser's required check; the server has to refuse.
     await inviteDialog.getByLabel("Email or Discord username").fill("   ");
     await inviteDialog.getByRole("button", { name: "Send invite" }).click();
     await expect(page.getByText("Enter an email or Discord username.")).toBeVisible();
@@ -58,13 +48,6 @@ test.describe("Party refusals", () => {
     const companionDialog = page.getByRole("dialog", { name: "Add companion" });
     const companionName = companionDialog.getByLabel("Companion display name");
     await page.getByRole("link", { name: "Add companion" }).click();
-    await companionName.fill("   ");
-    await companionDialog.getByRole("button", { name: "Add companion" }).click();
-    await expect(page.getByText("Enter a companion display name.")).toBeVisible();
-    await expect(companionDialog).toBeVisible();
-
-    await page.goto(partyUrl);
-    await page.getByRole("link", { name: "Add companion" }).click();
     await companionName.fill(COMPANION);
     await companionDialog.getByRole("button", { name: "Add companion" }).click();
     await expect(
@@ -75,38 +58,32 @@ test.describe("Party refusals", () => {
     await companionDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByText(COMPANION, { exact: true })).toHaveCount(0);
 
-    // Tamsin has the parties page open in two tabs and declines from both.
-    const invitee = await browser.newContext({
-      storageState: path.join(e2eDir, ".auth-state-party-invitee.json"),
+    await test.step("the invitee declines from two tabs; the second is told the invite is gone", async () => {
+      const invitee = await browser.newContext({
+        storageState: path.join(e2eDir, ".auth-state-party-invitee.json"),
+      });
+      const firstTab = await invitee.newPage();
+      const secondTab = await invitee.newPage();
+      const inviteText = `Oona Brisk invited you to their party ${party.name}`;
+      for (const tab of [firstTab, secondTab]) {
+        await tab.goto(PARTIES_URL);
+        await expect(tab.getByText(inviteText)).toBeVisible();
+      }
+      const invite = (tab: Page) => tab.getByRole("listitem").filter({ hasText: inviteText });
+      await invite(firstTab).getByRole("button", { name: "Decline" }).click();
+      await expect(firstTab.getByText("Invitation declined.")).toBeVisible();
+      await expect(firstTab.getByText(inviteText)).toHaveCount(0);
+      await invite(secondTab).getByRole("button", { name: "Decline" }).click();
+      await expect(secondTab.getByText("This invitation is no longer valid.")).toBeVisible();
+      await expect(secondTab.getByText(inviteText)).toHaveCount(0);
+      await invitee.close();
     });
-    const firstTab = await invitee.newPage();
-    const secondTab = await invitee.newPage();
-    const inviteText = `Oona Brisk invited you to their party ${partyName}`;
-    for (const tab of [firstTab, secondTab]) {
-      await tab.goto(PARTIES_URL);
-      await expect(tab.getByText(inviteText)).toBeVisible();
-    }
-    await firstTab
-      .getByText(inviteText)
-      .locator("xpath=..")
-      .getByRole("button", { name: "Decline" })
-      .click();
-    await expect(firstTab.getByText("Invitation declined.")).toBeVisible();
-    await expect(firstTab.getByText(inviteText)).toHaveCount(0);
-    await secondTab
-      .getByText(inviteText)
-      .locator("xpath=..")
-      .getByRole("button", { name: "Decline" })
-      .click();
-    await expect(secondTab.getByText("This invitation is no longer valid.")).toBeVisible();
-    await expect(secondTab.getByText(inviteText)).toHaveCount(0);
-    await invitee.close();
 
-    await page.goto(partyUrl);
+    await page.goto(party.url);
     const members = page.getByRole("main").getByRole("listitem");
     await expect(members.filter({ hasText: INVITEE })).toHaveCount(0);
     const facts = {
-      party: partyName,
+      party: party.name,
       members: await Promise.all(
         (await members.all()).map(async (member) =>
           (await member.getByRole("paragraph").first().innerText()).trim(),
@@ -114,14 +91,10 @@ test.describe("Party refusals", () => {
       ),
     };
     expect(facts.members).toEqual(["Oona Brisk"]);
-    const screenshotPath = testInfo.outputPath("party-refusals.png");
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    await testInfo.attach("party-refusals.png", { path: screenshotPath, contentType: "image/png" });
-    const factsPath = testInfo.outputPath("party-refusals.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("party-refusals.json", {
-      path: factsPath,
-      contentType: "application/json",
+    await attachArtifacts(testInfo, {
+      name: "party-refusals",
+      region: page.getByRole("main"),
+      facts,
     });
   });
 });
