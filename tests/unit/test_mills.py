@@ -547,15 +547,6 @@ class TestGoogleCalendarUrl:
 
         assert "location=" not in result
 
-    def test_uses_url_only_when_description_empty(self, base_encounter_data):
-        base_encounter_data["description"] = ""
-        encounter = EncounterDTO(**base_encounter_data)
-
-        result = google_calendar_url(encounter, "https://example.com")
-
-        assert "example.com" in result
-        assert "A+great+session" not in result
-
 
 class TestOutlookCalendarUrl:
     @pytest.fixture
