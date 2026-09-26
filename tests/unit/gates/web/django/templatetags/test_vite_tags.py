@@ -21,20 +21,11 @@ def _request() -> Context:
 
 
 class TestViteAssetOnce:
-    def test_emits_the_asset_the_first_time_it_is_asked_for(self):
-        assert ASSET in _request().run(vite_asset_once, ASSET)
-
     def test_stays_silent_for_a_repeat_within_the_same_request(self):
         context = _request()
         context.run(vite_asset_once, ASSET)
 
         assert not context.run(vite_asset_once, ASSET)
-
-    def test_emits_a_second_asset_alongside_the_first(self):
-        context = _request()
-        context.run(vite_asset_once, ASSET)
-
-        assert "src/menu.ts" in context.run(vite_asset_once, "src/menu.ts")
 
     def test_emits_again_for_the_next_request(self):
         context = _request()

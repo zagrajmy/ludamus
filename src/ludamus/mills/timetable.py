@@ -714,14 +714,13 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             {item.session_id for item in subjects}
         )
         all_conflicts: list[ConflictDTO] = []
-        seen: set[tuple[int, int]] = set()
+        seen: set[tuple[int, int, ConflictType]] = set()
         for item in subjects:
             for conflict in self._detect(
                 item, context, limit=limits.get(item.session_id, 0)
             ):
-                key = (item.session_id, conflict.session_pk)
-                reverse_key = (conflict.session_pk, item.session_id)
-                if key not in seen and reverse_key not in seen:
+                low, high = sorted((conflict.subject_session_pk, conflict.session_pk))
+                if (key := (low, high, conflict.type)) not in seen:
                     seen.add(key)
                     all_conflicts.append(conflict)
 

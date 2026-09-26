@@ -47,45 +47,10 @@ def test_build_registry_loads_only_maintainer_tools():
     assert [tool["name"] for tool in registry.describe()] == MAINTAINER_TOOL_NAMES
 
 
-ORGANIZER_TOOL_NAMES = [
-    "get_sphere",
-    "list_events",
-    "get_event",
-    "get_current_event",
-    "list_spaces",
-    "list_tracks",
-    "list_proposal_categories",
-    "list_sessions",
-    "list_facilitators",
-    "create_space",
-    "create_track",
-    "create_proposal_category",
-    "find_or_create_facilitator",
-    "create_session",
-    "create_sessions",
-    "assign_session",
-    "assign_sessions",
-    "update_session",
-    "update_space",
-    "update_event",
-    "set_event_image",
-    "update_sphere_settings",
-    "set_sphere_logo",
-    "list_maps",
-    "create_map",
-    "update_map",
-    "set_map_spaces",
-    "delete_map",
-    "get_konwencik_settings",
-    "update_konwencik_styles",
-    "list_announcements",
-]
-
-
-def test_build_registry_loads_only_organizer_tools():
-    registry = build_registry(ToolScope.ORGANIZER)
-
-    assert [tool["name"] for tool in registry.describe()] == ORGANIZER_TOOL_NAMES
+# Organizer-scope tool names are covered end-to-end by
+# tests/integration/web/mcp/test_mcp_organizer_endpoint.py::test_tools_list —
+# duplicating the full name list here only for a second, narrower assertion
+# would be pylint duplicate-code, not extra coverage.
 
 
 def test_run_threads_actor_context_into_handle():

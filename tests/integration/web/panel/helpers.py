@@ -218,6 +218,17 @@ def make_overlapping_sessions(event, category):
     return space, sessions
 
 
+def make_room_and_facilitator_clash(event, category):
+    # The minimal clash plus one shared host: one pair, two distinct problems.
+    space, sessions = make_overlapping_sessions(event, category)
+    facilitator = Facilitator.objects.create(
+        event=event, display_name="Double-booked host", slug="double-booked-host"
+    )
+    for session in sessions:
+        session.facilitators.add(facilitator)
+    return space, sessions, facilitator
+
+
 def schedule_outside_offered_time(*, event, category, space):
     # Scheduled when the event opens while the only time the facilitator
     # offered is the next day: an availability violation, which the conflict

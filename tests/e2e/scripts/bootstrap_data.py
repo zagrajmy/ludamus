@@ -40,6 +40,7 @@ from ludamus.links.db.django.models import (
     EventIntegration,
     EventProposalSettings,
     Notification,
+    PersonalDataField,
     ProposalCategory,
     Session,
     SessionField,
@@ -55,6 +56,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
@@ -266,6 +268,34 @@ def _create_test_user() -> User:
     )
 
     return user
+
+
+def _create_party_companion_scenario() -> None:
+    """Seed a party leader with one companion, for party-companion.auth.spec.
+
+    The spec founds a party of its own on each run, adds the companion to it
+    and deletes the party at the end, so nothing else reads this user.
+    """
+    leader = User.objects.create_user(
+        username="e2e-party-host",
+        email="e2e-party-host@test.local",
+        password="e2e-party-host-123",
+        name="Corwin Vale",
+        slug="e2e-party-host",
+    )
+    User.objects.create_user(
+        username="connected|e2e-party-host-companion",
+        slug="e2e-party-host-companion",
+        name="Bramble Vale",
+        user_type=UserType.CONNECTED,
+        manager=leader,
+    )
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    _write_storage_state(
+        leader,
+        domain=urlparse(base_url).hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-party-host.json",
+    )
 
 
 def _create_notifications_scenario() -> None:
@@ -680,6 +710,51 @@ def _create_early_access_scenario(sphere: Sphere) -> None:
     )
 
 
+# A session whose description is hostile markup next to ordinary markdown, on
+# an event of its own so no other spec's session counts move. The hostile half
+# must come out of render_markdown inert; the benign half must still render.
+# Driven by markdown-sanitising.spec.ts.
+_HOSTILE_DESCRIPTION = """Plain **bold claim** and a [safe link](https://example.com/rules).
+
+<script>window.__xss = 0;</script>
+
+<img src="x" onerror="window.__xss = 1; alert('xss')">
+
+[click me](javascript:window.__xss=2)
+
+<strong onmouseover="window.__xss = 3">hover target</strong>
+
+<iframe src="javascript:window.__xss=4"></iframe>
+"""
+
+
+def _create_markdown_sanitising_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Markdown Sanitising Lab",
+        slug="markdown-sanitising",
+        description="One session whose description tries to run code.",
+        start_offset=timedelta(days=26),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Sanitising Venue", slug="sanitising-venue")
+    area = _create_area(venue, name="Sanitising Area", slug="sanitising-area")
+    space = _create_space(
+        area, name="Sanitising Room", slug="sanitising-room", capacity=4
+    )
+    _scheduled_session(
+        event,
+        space,
+        title="Hostile Markdown Demo",
+        slug="hostile-markdown-demo",
+        presenter="Sanitising GM",
+        description=_HOSTILE_DESCRIPTION,
+        seats=4,
+        hour=0,
+    )
+
+
 # A public select field that allows custom answers, for the event-filter e2e:
 # two of its three choices are picked, one is picked by nobody, and one session
 # writes in a value of its own. The filter must offer the two picked choices
@@ -876,6 +951,28 @@ def _create_panel_crud_event(sphere: Sphere) -> Event:
     return event
 
 
+# NOTE: dedicated to facilitator-merge-target.spec.ts, which signs up its own
+# facilitators here and merges them. The two answers are what the merge's
+# defaults have to follow.
+def _create_merge_target_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Mistvale Meet",
+        slug="mistvale-meet",
+        description="A valley meet whose presenters signed up twice.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+    )
+    for order, (name, slug) in enumerate(
+        (("T-shirt size", "t-shirt-size"), ("Diet", "diet"))
+    ):
+        PersonalDataField.objects.create(
+            event=event, name=name, question=name, slug=slug, order=order
+        )
+    return event
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -1025,6 +1122,8 @@ def main() -> None:
     # notification overlay + list e2e.
     _create_notifications_scenario()
 
+    _create_party_companion_scenario()
+
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)
 
@@ -1036,6 +1135,9 @@ def main() -> None:
 
     # A half-seating window the reader is not in, for the seat-count e2e.
     _create_early_access_scenario(sphere)
+
+    # A session description full of hostile markup, for the sanitiser e2e.
+    _create_markdown_sanitising_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
@@ -1261,6 +1363,7 @@ def main() -> None:
     _create_panel_lab_event(sphere)
     _create_konwencik_preview_event(sphere)
     _create_panel_crud_event(sphere)
+    _create_merge_target_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_accept_lab_event(sphere)

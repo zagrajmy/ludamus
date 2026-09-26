@@ -22,6 +22,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     make_overlapping_sessions,
+    make_room_and_facilitator_clash,
     make_timetable_session,
     schedule_session,
     timetable_tab_urls,
@@ -130,6 +131,56 @@ class TestTimetableProblemsPageView:
                             session_pk=session_b.pk,
                         )
                     ]
+                },
+                time_violations=[],
+            ),
+        )
+
+    def test_lists_room_and_facilitator_clash_of_one_pair_separately(
+        self, panel_client, event, proposal_category
+    ):
+        _, (session_a, session_b), facilitator = make_room_and_facilitator_clash(
+            event, proposal_category
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-problems.html",
+            context_data=self.expected_context(
+                event,
+                stats={
+                    "hosts_count": 2,
+                    "pending_proposals": 2,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 2,
+                    "total_proposals": 2,
+                    "total_sessions": 4,
+                },
+                conflicts_grouped={
+                    ConflictType.SPACE_OVERLAP: [
+                        ConflictDTO(
+                            type=ConflictType.SPACE_OVERLAP,
+                            severity=ConflictSeverity.ERROR,
+                            subject_session_title=session_a.title,
+                            subject_session_pk=session_a.pk,
+                            session_title=session_b.title,
+                            session_pk=session_b.pk,
+                        )
+                    ],
+                    ConflictType.FACILITATOR_OVERLAP: [
+                        ConflictDTO(
+                            type=ConflictType.FACILITATOR_OVERLAP,
+                            severity=ConflictSeverity.ERROR,
+                            subject_session_title=session_a.title,
+                            subject_session_pk=session_a.pk,
+                            session_title=session_b.title,
+                            session_pk=session_b.pk,
+                            facilitator_name=facilitator.display_name,
+                        )
+                    ],
                 },
                 time_violations=[],
             ),

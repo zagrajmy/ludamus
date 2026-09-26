@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.status_pills import event_status_pills
+from ludamus.gates.web.django.meta import LinkPreview
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
@@ -180,6 +181,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "link_preview": LinkPreview(),
         "google_calendar_url": google_calendar_url(
             event, page_url=f"http://testserver{url}"
         ),

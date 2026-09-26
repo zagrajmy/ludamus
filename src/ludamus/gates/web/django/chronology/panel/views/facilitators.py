@@ -46,6 +46,7 @@ from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,
     accreditation_reconcile,
     field_reconcile,
+    merge_target,
     name_reconcile,
 )
 from ludamus.pacts import NotFoundError
@@ -372,6 +373,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         slug: str,
         event_id: int,
         basket_slugs: list[str],
+        target_slug: str,
         error: str | None,
     ) -> HttpResponse:
         try:
@@ -383,15 +385,24 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:facilitator-merge", slug=slug)
 
         self._base_context(context, slug)
-        name_choices, unanimous_name = name_reconcile(merge_context.facilitators)
+        target = merge_target(merge_context.facilitators, slug=target_slug)
+        name_choices, unanimous_name = name_reconcile(
+            merge_context.facilitators, target=target
+        )
         accreditation_values, unanimous_accreditation = accreditation_reconcile(
-            merge_context.facilitators
+            merge_context.facilitators, target=target
         )
         # Only the disputed fields need a control: the merge keeps a unanimous
         # answer itself, so nothing about it round-trips through the browser.
-        field_conflicts, _unanimous_field_values = field_reconcile(merge_context)
+        field_conflicts, _unanimous_field_values = field_reconcile(
+            merge_context, target_pk=target.pk
+        )
         context["confirm"] = True
         context["facilitators"] = merge_context.facilitators
+        context["target_choices"] = [
+            (facilitator, facilitator.pk == target.pk)
+            for facilitator in merge_context.facilitators
+        ]
         context["name_choices"] = name_choices
         context["unanimous_display_name"] = unanimous_name
         context["accreditation_choices"] = [
@@ -432,6 +443,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                 slug=slug,
                 event_id=current_event.pk,
                 basket_slugs=basket_slugs,
+                target_slug=self.request.GET.get("target_slug", ""),
                 error=None,
             )
         return self._render_search(
@@ -478,6 +490,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                 slug=slug,
                 event_id=current_event.pk,
                 basket_slugs=basket_slugs,
+                target_slug=self.request.POST.get("target_slug", ""),
                 error=_merge_error_message(exc.reason),
             )
 

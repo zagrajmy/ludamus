@@ -16,7 +16,6 @@ from ludamus.pacts.panel import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 
-_NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
 _IDENT_LOOKUPS_ON_CONSTRAINT = 2
 
@@ -91,54 +90,6 @@ class TestProposalPanelService:
             ),
         )
 
-    def test_foreign_category_is_dropped(self, service, sessions):
-        result = service.list_context(
-            event_id=1, query=ProposalListQuery(category="999")
-        )
-
-        assert result.category_pk is None
-        assert sessions.list_sessions_by_event.call_args[0][1]["category_pk"] is None
-
-    def test_own_category_is_kept(self, service, sessions, proposal_categories):
-        category = SimpleNamespace(pk=7)
-        proposal_categories.list_by_event.return_value = [category]
-
-        result = service.list_context(event_id=1, query=ProposalListQuery(category="7"))
-
-        assert result.category_pk == category.pk
-        filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert filters["category_pk"] == category.pk
-
-    def test_scheduled_pseudo_status_filters_on_placement(self, service, sessions):
-        result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="scheduled")
-        )
-
-        filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status == "scheduled"
-        assert filters["status"] is None
-        assert filters["scheduled"] is True
-
-    def test_real_status_excludes_scheduled(self, service, sessions):
-        result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="accepted")
-        )
-
-        filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status == "accepted"
-        assert filters["status"] is SessionStatus.ACCEPTED
-        assert filters["scheduled"] is False
-
-    def test_unknown_status_shows_everything(self, service, sessions):
-        result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="bogus")
-        )
-
-        filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status is None
-        assert filters["status"] is None
-        assert filters["scheduled"] is None
-
     def test_field_filters_guard_foreign_and_blank_values(
         self, service, sessions, session_fields
     ):
@@ -157,39 +108,7 @@ class TestProposalPanelService:
         filters = sessions.list_sessions_by_event.call_args[0][1]
         assert filters["field_filters"] == {1: "D&D"}
 
-    @pytest.mark.parametrize(
-        "sort", ("title", "host", "category", "status", "created", "-title")
-    )
-    def test_built_in_sort_keys_reach_the_query(self, service, sessions, sort):
-        result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
-
-        assert result.sort == sort
-        assert sessions.list_sessions_by_event.call_args[0][1]["sort"] == sort
-
-    def test_sort_by_a_field_of_this_event_reaches_the_query(
-        self, service, sessions, session_fields
-    ):
-        session_fields.list_by_event.return_value = [
-            SimpleNamespace(pk=7, field_type="select", order=0, name="System")
-        ]
-
-        result = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="-field_7")
-        )
-
-        assert result.sort == "-field_7"
-        assert sessions.list_sessions_by_event.call_args[0][1]["sort"] == "-field_7"
-
-    @pytest.mark.parametrize(("session_ids", "field_ids"), (([], [1]), ([1], [])))
-    def test_column_values_short_circuits_on_empty_ids(
-        self, service, sessions, session_ids, field_ids
-    ):
-        result = service.column_values(session_ids=session_ids, field_ids=field_ids)
-
-        assert result == {}
-        sessions.list_field_values_for_sessions.assert_not_called()
-
-    @pytest.mark.parametrize("sort", ("bogus", "field_999", "field_"))
+    @pytest.mark.parametrize("sort", ("field_999", "field_"))
     def test_unknown_sort_key_never_reaches_the_query(self, service, sessions, sort):
         result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
 

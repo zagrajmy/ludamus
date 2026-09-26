@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { EMPTY_SPHERE } from "./helpers/urls";
 
 /** Accept the in-page confirm modal that guards destructive forms. */
 const acceptConfirmModal = (page: Page) =>
@@ -52,8 +53,6 @@ function proposalCategoryOption(page: Page, name: string) {
 }
 
 test("panel redirects to home with message when sphere has no events", async ({ browser }) => {
-  const emptyBase = "http://another.localhost:8000";
-
   // Use pre-built session cookie for the empty-sphere manager
   const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
   const storageState = JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -61,8 +60,8 @@ test("panel redirects to home with message when sphere has no events", async ({ 
   const page = await context.newPage();
 
   // Visit panel — should redirect to the sphere root, which is its feed
-  await page.goto(`${emptyBase}/panel/`);
-  await expect(page).toHaveURL(`${emptyBase}/`);
+  await page.goto(`${EMPTY_SPHERE}/panel/`);
+  await expect(page).toHaveURL(`${EMPTY_SPHERE}/`);
   await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();

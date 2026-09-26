@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class SitesContextData(TypedDict):
-    root_site: SiteDTO | None
+    root_origin: str
     current_site: SiteDTO | None
     current_sphere: SphereDTO | None
     is_root_sphere: bool
@@ -31,7 +31,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         request, "di"
     ):  # pragma: no cover
         return SitesContextData(
-            root_site=None,
+            root_origin="",
             current_site=None,
             current_sphere=None,
             is_root_sphere=True,
@@ -48,7 +48,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     )
 
     return SitesContextData(
-        root_site=root_sphere.site,
+        root_origin=f"{request.scheme}://{root_sphere.site.domain}",
         current_site=current_sphere.site,
         current_sphere=current_sphere,
         is_root_sphere=is_root_sphere,

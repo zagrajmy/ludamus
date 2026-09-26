@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import nullcontext
 from datetime import timedelta
 from unittest.mock import MagicMock
 
@@ -14,17 +14,10 @@ from ludamus.pacts.submissions import (
 )
 
 
-class RecordingTransaction:
-    def __init__(self) -> None:
-        self.active = False
-
-    @contextmanager
-    def atomic(self):
-        self.active = True
-        try:
-            yield
-        finally:
-            self.active = False
+class FakeTransaction:
+    @staticmethod
+    def atomic():
+        return nullcontext()
 
 
 def _category() -> ProposalCategoryDTO:
@@ -84,7 +77,7 @@ def _data() -> ProposalCategorySettingsData:
     )
 
 
-def _service(transaction: RecordingTransaction, repos: ProposalCategorySettingsRepos):
+def _service(transaction: FakeTransaction, repos: ProposalCategorySettingsRepos):
     return ProposalCategorySettingsService(transaction, repos)
 
 
@@ -146,7 +139,7 @@ def test_update_leaves_promotion_config_untouched_when_not_submitted() -> None:
         update={"promotion_mode": None, "offer_claim_window": None}
     )
 
-    _service(RecordingTransaction(), repos).update(
+    _service(FakeTransaction(), repos).update(
         event_id=4, category_slug="rpg", data=data
     )
 
@@ -170,11 +163,7 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     proposal_count = 5
     repos.sessions.count_by_category.return_value = proposal_count
 
-    page = _service(RecordingTransaction(), repos).read_context(4, "rpg")
+    page = _service(FakeTransaction(), repos).read_context(4, "rpg")
 
     assert [field.pk for field in page.available_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
-
-
-def assert_transaction_active(transaction: RecordingTransaction) -> None:
-    assert transaction.active is True

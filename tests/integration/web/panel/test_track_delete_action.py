@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -82,6 +83,27 @@ class TestTrackDeleteActionView:
             messages=[(messages.ERROR, "Track not found.")],
             url=f"/panel/event/{event.slug}/tracks/",
         )
+
+    def test_post_redirects_on_track_slug_from_another_event(
+        self, panel_client, sphere, event
+    ):
+        foreign_track = Track.objects.create(
+            event=EventFactory(sphere=sphere), name="Foreign Track", slug="foreign"
+        )
+        url = reverse(
+            "panel:track-delete",
+            kwargs={"slug": event.slug, "track_slug": foreign_track.slug},
+        )
+
+        response = panel_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+        assert Track.objects.filter(pk=foreign_track.pk).exists()
 
     def test_get_not_allowed(self, panel_client, event):
         track = self.make_track(event)
