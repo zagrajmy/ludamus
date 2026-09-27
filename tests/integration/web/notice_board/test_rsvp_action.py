@@ -91,10 +91,22 @@ class TestEncounterRSVPActionView:
             url=f"/e/{encounter.share_code}/",
         )
         rsvp = EncounterRSVP.objects.get(user=user)
-        assert rsvp.ip_address == "203.0.113.50"
+        assert rsvp.encounter_id == encounter.pk
 
-    def test_ip_throttle(self, authenticated_client, encounter):
-        EncounterRSVPFactory(encounter=encounter, ip_address="10.0.0.1")
+    def test_signing_up_stores_no_address(self, authenticated_client, encounter, user):
+        authenticated_client.post(
+            self._url(encounter.share_code), REMOTE_ADDR="203.0.113.50"
+        )
+
+        rsvp = EncounterRSVP.objects.get(user=user)
+        assert not hasattr(rsvp, "ip_address")
+
+    def test_ip_throttle(self, authenticated_client, encounter, sphere):
+        authenticated_client.post(
+            self._url(EncounterFactory(sphere=sphere).share_code),
+            REMOTE_ADDR="10.0.0.1",
+            follow=True,
+        )
 
         response = authenticated_client.post(
             self._url(encounter.share_code), REMOTE_ADDR="10.0.0.1"

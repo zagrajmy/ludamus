@@ -530,6 +530,7 @@ class Services:
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             sites=self.sites,
+            cache=DjangoCache(),
         )
 
     @cached_property
