@@ -44,9 +44,9 @@ third parties §4 never mentions.
 | F12 | The MCP endpoint feeds event data to operators' AI agents | Medium |
 | F13 | Four smaller gaps: cookies, transfers, art. 13 leftovers, contact | Low-medium |
 
-F4 blocks the final wording of §1 and §4 and is the one an engineer cannot
-settle alone. Everything under "Proposed policy text" can be applied as
-written.
+F4 was the one an engineer could not settle alone; it is now decided as
+separate controllers (#1041) and applied in §1. Everything under "Proposed
+policy text" can be applied as written.
 
 ## Findings
 
@@ -125,6 +125,15 @@ entrusting agreement (art. 28), and users have to be told which.
 
 Fix: decide the model, then write the section. Joint controllership also means
 art. 26(2): the essence of the arrangement has to reach data subjects.
+
+Decided (#1041): separate controllers. The platform administers accounts,
+technical data, notifications, analytics and error reports; each organizer
+administers what it collects for its own event — its personal-data answers,
+its use and export of participant lists, its bans, and the integrations it
+connects. Policy §1 names both, §4.3/§4.4 and §7 point back to it. Still open
+for a lawyer: the platform stores and serves that event data for the
+organizer, which may make it the organizer's processor for that slice and call
+for an art. 28 agreement organizers accept when a sphere is created.
 
 ### F5 — Avatars leak on every page view — Medium-high
 
@@ -314,8 +323,8 @@ Checked, and fine. Worth knowing before anyone "improves" it:
 
 ## Proposed policy text
 
-Polish replacements for the worst gaps, in the existing file's style. Adjust
-once F4 is decided, since it changes how §1 and §4 read.
+Polish replacements for the worst gaps, in the existing file's style. §1 and
+§4 as applied reflect the F4 decision; the text below predates it.
 
 ### §2.1, replace
 
