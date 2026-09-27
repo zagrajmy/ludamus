@@ -8,7 +8,7 @@ Administratorem Państwa danych osobowych jest:
 
 **Radosław Ganczarek**
 
-Email: radoslaw@ganczarek.in
+Email: radek@zagrajmy.net
 
 W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować pod powyższym adresem email.
 
@@ -167,13 +167,13 @@ Można otrzymać swoje dane w ustrukturyzowanym formacie.
 
 Można wnieść sprzeciw wobec przetwarzania danych w określonych przypadkach.
 
-**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radoslaw@ganczarek.in**
+**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radek@zagrajmy.net**
 
 ## 8. USUWANIE KONTA
 
 Aby usunąć konto i wszystkie powiązane dane osobowe, należy:
 
-1. Wysłać żądanie na adres: radoslaw@ganczarek.in
+1. Wysłać żądanie na adres: radek@zagrajmy.net
 2. W temacie wiadomości napisać: "Usunięcie konta"
 3. Podać pseudonim lub adres email powiązany z kontem
 
@@ -240,7 +240,7 @@ Email: kancelaria@uodo.gov.pl
 
 W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować:
 
-**Email:** radoslaw@ganczarek.in
+**Email:** radek@zagrajmy.net
 
 **Temat:** "RODO - [opis sprawy]"
 
