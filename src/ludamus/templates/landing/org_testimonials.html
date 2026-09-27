@@ -1,0 +1,82 @@
+{% load i18n static %}
+<section class="py-16 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="quotes-heading">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+        <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+            {% translate "Organizers' words" %}
+        </p>
+        <h2 id="quotes-heading"
+            class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+            {% translate "From the people who shipped a programme with it" %}
+        </h2>
+        {% comment %}
+            Verbatim, in the language they were written in — a quote that has
+            been translated is no longer the person's words.
+        {% endcomment %}
+        <div class="mt-9 grid grid-cols-2 max-[56rem]:grid-cols-1 max-[56rem]:max-w-[40rem] gap-5">
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-5">
+                <blockquote class="text-foreground-secondary text-[0.98rem] leading-[1.65] flex-1">
+                    Wreszcie system, który jest dobry zarówno w nawigacji od zewnątrz, jak i wprowadzaniu danych od wewnątrz. Prezentacja danych lepsza niż w innych aplikacjach, jest nawet integracja z Konwencikiem. Nic, tylko czekać na więcej zaskakujących bajerów.
+                </blockquote>
+                <figcaption class="flex items-center justify-between gap-3 border-t border-border pt-4 text-[0.82rem] text-foreground-muted">
+                    <span>Hory-portier · Kapitularz</span>
+                    <img src="{% static 'landing/kapitularz-mark.svg' %}"
+                         alt=""
+                         width="40"
+                         height="32"
+                         loading="lazy"
+                         class="h-8 w-10 flex-none object-contain opacity-25 brightness-0 dark:invert">
+                </figcaption>
+            </figure>
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-5">
+                <blockquote class="text-foreground-secondary text-[0.98rem] leading-[1.65] flex-1">
+                    Teraz używam Zagrajmy po raz pierwszy w sposób docelowy, czyli klepanie programu, i choć wcześniej lekko się obawiałam, czy ogarnę i czy będzie działać, to TAK, jest spoczi pod kątem experience!
+                </blockquote>
+                <figcaption class="flex items-center justify-between gap-3 border-t border-border pt-4 text-[0.82rem] text-foreground-muted">
+                    <span>Gosia · Kapitularz</span>
+                    <img src="{% static 'landing/kapitularz-mark.svg' %}"
+                         alt=""
+                         width="40"
+                         height="32"
+                         loading="lazy"
+                         class="h-8 w-10 flex-none object-contain opacity-25 brightness-0 dark:invert">
+                </figcaption>
+            </figure>
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-5">
+                <blockquote class="text-foreground-secondary text-[0.98rem] leading-[1.65] flex-1">
+                    Aplikacja idealnie sprawdziła się przy obsłudze kolosalnej skali wydarzenia: ponad 900 godzin programu, w tym licznych prelekcji, paneli, warsztatów i atrakcji, a także przy koordynacji prelegentów, gości czy sal.
+                </blockquote>
+                <figcaption class="flex items-center justify-between gap-3 border-t border-border pt-4 text-[0.82rem] text-foreground-muted">
+                    <span>Sowa · Kapitularz</span>
+                    <img src="{% static 'landing/kapitularz-mark.svg' %}"
+                         alt=""
+                         width="40"
+                         height="32"
+                         loading="lazy"
+                         class="h-8 w-10 flex-none object-contain opacity-25 brightness-0 dark:invert">
+                </figcaption>
+            </figure>
+            <figure class="reveal bg-bg-secondary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-5">
+                <blockquote class="text-foreground-secondary text-[0.98rem] leading-[1.65] flex-1">
+                    Widzę jaki potencjał i pomoc jest w takiej aplikacji. Fajna sprawa. Wcześniej wszystko analogowo było. Pewnie trzeba by trzymać większy reżim w pewnych sprawach przy wprowadzaniu danych, jest kilka rzeczy których nie do końca czuję, ale wygoda jest.
+                </blockquote>
+                <figcaption class="flex items-center justify-between gap-3 border-t border-border pt-4 text-[0.82rem] text-foreground-muted">
+                    <span class="flex items-center gap-1.25 dark:gap-1.5">
+                        {# aria-hidden: the name sits right beside it, and the figure takes its accessible name from this caption. #}
+                        <span aria-hidden="true"
+                              class="rounded-full dark:outline dark:outline-border">
+                            {% include "components/avatar.html" with user=mamert size="size-6" %}
+                        </span>
+                        <span>Mamert · Bachanalia Fantastyczne</span>
+                    </span>
+                    <img src="{% static 'landing/bachanalia-mark.svg' %}"
+                         alt=""
+                         width="40"
+                         height="32"
+                         loading="lazy"
+                         class="h-8 w-10 flex-none object-contain opacity-25 brightness-0 dark:invert">
+                </figcaption>
+            </figure>
+        </div>
+    </div>
+</section>

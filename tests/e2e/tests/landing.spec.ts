@@ -14,6 +14,60 @@ test.describe("Landing", () => {
     await expect(
       page.getByRole("heading", { name: "Enrollment and the programme in one place" }),
     ).toBeVisible();
+
+    await page.getByRole("link", { name: "Browse events" }).first().click();
+    await expect(page).toHaveURL(/#g-conventions-heading$/);
+    await expect(
+      page.getByRole("heading", { name: "Enrollment and the programme in one place" }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /Your table, your game/ })).toBeVisible();
+  });
+
+  test("browses the player's conventions without JavaScript", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await page.goto("/");
+      await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
+      await page.getByRole("link", { name: "Browse events" }).first().click();
+
+      await expect(page).toHaveURL(/#g-conventions-heading$/);
+      await expect(
+        page.getByRole("heading", { name: "Enrollment and the programme in one place" }),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("shows organizers' testimonials only in the organizer view", async ({ page }) => {
+    await page.goto("/");
+
+    const mamert = page.getByRole("figure", { name: "Mamert · Bachanalia Fantastyczne" });
+    await expect(mamert).toContainText("Widzę jaki potencjał i pomoc jest w takiej aplikacji.");
+    await expect(mamert.locator("img[src*='bachanalia-mark']")).toBeVisible();
+    const avatar = mamert.locator("img[src*='mamert']");
+    await expect(avatar).toBeVisible();
+    await avatar.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+
+    for (const name of ["Hory-portier", "Gosia", "Sowa"]) {
+      const quote = page.getByRole("figure", { name: `${name} · Kapitularz` });
+      await expect(quote).toBeVisible();
+      await expect(quote.locator("img")).toHaveAttribute("src", /kapitularz-mark.*\.svg/);
+    }
+    await expect(page.getByRole("figure", { name: "Sowa · Kapitularz" })).toContainText(
+      "ponad 900 godzin programu",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Four questions you probably have in mind" }),
+    ).toHaveCSS("text-wrap", "balance");
+
+    await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
+    await expect(mamert).toBeHidden();
   });
 
   test("#gracze deep link opens the player view directly", async ({ page }) => {

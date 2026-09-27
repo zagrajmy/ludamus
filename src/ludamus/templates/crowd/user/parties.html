@@ -30,7 +30,7 @@
                 <p class="mt-1 text-sm text-foreground-muted">{% translate "Name your party — invite friends once it exists." %}</p>
                 <div class="mt-4">{% tessera_form party_form %}</div>
             </div>
-            <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+            <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                 <button type="button"
                         class="btn btn-secondary"
                         data-modal-close="new-party-modal">{% translate "Cancel" %}</button>
@@ -183,7 +183,7 @@
                                 <span class="block text-xs text-foreground-muted mt-1.5">{% translate "Their account email, or the Discord username they signed up with." %}</span>
                             </label>
                         </div>
-                        <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                        <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                             <button type="button"
                                     class="btn btn-secondary"
                                     data-modal-close="invite-modal-{{ entry.party.pk }}">{% translate "Cancel" %}</button>
@@ -205,7 +205,7 @@
                                 {% include "components/text-field.html" with name="name" value=entry.party.name maxlength="255" required=True only %}
                             </label>
                         </div>
-                        <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                        <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                             <button type="button"
                                     class="btn btn-secondary"
                                     data-modal-close="rename-modal-{{ entry.party.pk }}">{% translate "Cancel" %}</button>
@@ -267,7 +267,7 @@
                         </p>
                         <div class="mt-4">{% tessera_form create_companion_form %}</div>
                     </div>
-                    <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                    <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                         <button type="button"
                                 class="btn btn-secondary"
                                 data-modal-close="add-companion-modal">{% translate "Cancel" %}</button>

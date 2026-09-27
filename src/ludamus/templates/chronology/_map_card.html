@@ -69,7 +69,7 @@
                            class="mt-2 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-medium text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                            aria-controls="attach-modal-{{ event_map.pk }}"
                            aria-haspopup="dialog">
-                            {% translate "Attach venue" %}
+                            {% translate "Attach or detach venue" %}
                             {% icon "plus" class="size-4" variant="mini" %}
                         </a>
                     {% endif %}
@@ -91,7 +91,7 @@
                         class="font-semibold text-foreground">{% translate "Edit map" %}</h3>
                     <div class="mt-4">{% tessera_form card.edit_form %}</div>
                 </div>
-                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                     {% translate "Cancel" as t_cancel %}
                     {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="edit-map-modal-"|add:event_map.pk|stringformat:"s" %}
                     {% translate "Save map" as t_save_map %}
@@ -108,7 +108,7 @@
                 {% csrf_token %}
                 <div class="px-6 pt-5 pb-4">
                     <h3 id="attach-modal-{{ event_map.pk }}-title"
-                        class="font-semibold text-foreground">{% translate "Attach venue" %}</h3>
+                        class="font-semibold text-foreground">{% translate "Attach or detach venue" %}</h3>
                     {% if card.attach_form.fields.spaces.choices %}
                         <div class="mt-4">{% tessera_form card.attach_form %}</div>
                     {% else %}
@@ -117,7 +117,7 @@
                         </p>
                     {% endif %}
                 </div>
-                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
                     {% translate "Cancel" as t_cancel %}
                     {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="attach-modal-"|add:event_map.pk|stringformat:"s" %}
                     {% translate "Save venues" as t_save_venues %}

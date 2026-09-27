@@ -19,4 +19,5 @@ def landing_context(**overrides: object) -> dict[str, object]:
         "encounters_enabled": True,
         "showcase_url": KAPITULARZ_URL,
         "contact_email": CONTACT_EMAIL,
+        "mamert": {"name": "Mamert", "avatar_url": "/static/landing/mamert.webp"},
     } | overrides
