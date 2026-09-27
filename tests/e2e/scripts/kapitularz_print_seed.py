@@ -254,6 +254,7 @@ def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
             duration="PT1H",
             participants_limit=6,
             status=SessionStatus.ACCEPTED,
+            schedule_confirmed=True,
         )
         AgendaItem.objects.create(
             space=space,
@@ -372,6 +373,7 @@ def _create_sessions(
             participants_limit=_participants_limit(spec.track_slug, index),
             min_age=(0, 10, 12, 14, 16)[index % 5],
             status=SessionStatus.ACCEPTED,
+            schedule_confirmed=True,
         )
         session.facilitators.add(facilitator)
         session.tracks.add(track)

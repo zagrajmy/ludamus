@@ -146,9 +146,9 @@ class ConfirmationSessionDTO(BaseModel):
     room_name: str
     start_time: datetime | None
     end_time: datetime | None
-    # Only a scheduled item can be confirmed, so only a scheduled item carries
-    # an agenda item pk — the template hangs the checkbox off it.
-    agenda_item_pk: int | None
+    # Only a placed session has a schedule to confirm, so the template hangs
+    # the checkbox off this.
+    is_scheduled: bool
     is_confirmed: bool
     co_facilitator_names: list[str]
     other_track_names: list[str]
@@ -218,7 +218,7 @@ class EventConfirmationsServiceProtocol(Protocol):
         facilitator_pk: int,
         confirmed: bool,
         contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
+        session_pk: int | None = None,
     ) -> None: ...
 
 

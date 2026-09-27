@@ -1,144 +1,808 @@
+from contextlib import nullcontext
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-from ludamus.mills.event import EventConfirmationsService
-from ludamus.pacts.legacy import (
-    ConfirmationFacilitatorRow,
-    ConfirmationSessionRow,
+import pytest
+
+from ludamus.mills.chronology import (
+    ProposalAcceptanceService,
+    SessionConfirmationService,
+    SessionContentEditService,
+)
+from ludamus.pacts import (
+    AgendaItemDTO,
+    EventDTO,
+    NotFoundError,
+    SessionContentEditData,
+    SessionDTO,
+    SessionFieldValueData,
     SessionStatus,
 )
-
-_ADA = 11
-_BEN = 12
-_RPG_TRACK = 21
-_TALKS_TRACK = 22
-_EXPECTED_TWO = 2
-
-
-def _facilitator(
-    *, pk: int = _ADA, name: str = "Ada", organizer_id: int | None = None
-) -> ConfirmationFacilitatorRow:
-    return ConfirmationFacilitatorRow(
-        pk=pk,
-        display_name=name,
-        slug=name.lower(),
-        organizer_id=organizer_id,
-        organizer_name="Radek" if organizer_id else "",
-    )
+from ludamus.pacts.chronology import (
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
+    SpaceTimeConflictError,
+)
+from ludamus.pacts.multiverse import SphereRole
+from tests.unit.factories import user_dto
 
 
-def _session(
-    *,
-    session_pk: int,
-    facilitator_pk: int = _ADA,
-    title: str = "Dragons",
-    is_confirmed: bool = False,
-) -> ConfirmationSessionRow:
-    return ConfirmationSessionRow(
-        facilitator_pk=facilitator_pk,
-        session_pk=session_pk,
-        title=title,
-        status=SessionStatus.ACCEPTED,
-        contact_email="ada@example.com",
-        category_name="RPG session",
-        agenda_item_pk=100,
-        is_confirmed=is_confirmed,
-        start_time=datetime(2026, 8, 1, 10, tzinfo=UTC),
-        end_time=datetime(2026, 8, 1, 12, tzinfo=UTC),
-        room_name="Room 3",
-    )
+def _make_item(**overrides):
+    defaults = {
+        "pk": 1,
+        "session_id": 1,
+        "session_title": "Session",
+        "space_id": 1,
+        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        "schedule_confirmed": False,
+    }
+    defaults.update(overrides)
+    return AgendaItemDTO(**defaults)
 
 
-class FakeFacilitators:
-    def __init__(self, rows: list[ConfirmationFacilitatorRow]) -> None:
-        self._rows = rows
+class TestContentEditRevert:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+        )
+        # By default the log under test (pk 1, session 5) is the latest change.
+        repos.content_change_logs.latest_pk_for_session.return_value = 1
+        return repos
 
-    def list_with_scheduled_session_in_track(
-        self, _event_pk: int, _track_pk: int
-    ) -> list[ConfirmationFacilitatorRow]:
-        return self._rows
-
-
-class FakeAgendaCounts:
-    @staticmethod
-    def count_without_facilitator(_event_pk: int, _track_pk: int | None = None) -> int:
-        return 0
-
-
-class FakeSessions:
-    def __init__(
-        self,
-        rows: list[ConfirmationSessionRow],
-        track_names: dict[int, dict[int, str]] | None = None,
-    ) -> None:
-        self._rows = rows
-        self._track_names = track_names or {}
-
-    def list_confirmation_rows(
-        self, _event_pk: int, _facilitator_pks: list[int]
-    ) -> list[ConfirmationSessionRow]:
-        return self._rows
-
-    def list_track_names_by_session(
-        self, _session_pks: list[int]
-    ) -> dict[int, dict[int, str]]:
-        return self._track_names
+    @pytest.fixture
+    def service(self, repos):
+        service = SessionContentEditService(
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=MagicMock(),
+        )
+        service.apply = MagicMock()
+        return service
 
     @staticmethod
-    def list_facilitator_names_by_session(
-        _session_pks: list[int],
-    ) -> dict[int, dict[int, str]]:
-        return {}
+    def _log(*, changes, pk=1, event_id=1, session_id=5):
+        log = MagicMock()
+        log.pk = pk
+        log.event_id = event_id
+        log.session_id = session_id
+        log.changes = changes
+        return log
+
+    def test_revert_builds_inverse_from_core_and_field_changes(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {
+                "field": "facilitator_name",
+                "field_id": None,
+                "old": "Old host",
+                "new": "H",
+            },
+            {"field": "description", "field_id": None, "old": "Old desc", "new": "D"},
+            {"field": "contact_email", "field_id": None, "old": "a@b.co", "new": "x@y"},
+            {"field": "duration", "field_id": None, "old": "01:00", "new": "02:00"},
+            {"field": "category", "field_id": None, "old": 3, "new": 4},
+            {"field": "participants_limit", "field_id": None, "old": 6, "new": 10},
+            {"field": "min_age", "field_id": None, "old": 12, "new": 16},
+            {"field": "", "field_id": 7, "old": "Pathfinder", "new": "DnD"},
+            {"field": "", "field_id": 8, "old": None, "new": "Vegan"},
+            {"field": "", "field_id": 9, "old": ["a", "b"], "new": ["a"]},
+            {"field": "", "field_id": 10, "old": True, "new": False},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        repos.sessions.lock.assert_called_once_with(5)
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={
+                    "title": "Old title",
+                    "facilitator_name": "Old host",
+                    "description": "Old desc",
+                    "contact_email": "a@b.co",
+                    "duration": "01:00",
+                    "category_id": 3,
+                    "participants_limit": 6,
+                    "min_age": 12,
+                },
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="Pathfinder"),
+                    SessionFieldValueData(session_id=5, field_id=8, value=""),
+                    SessionFieldValueData(session_id=5, field_id=9, value=["a", "b"]),
+                    SessionFieldValueData(session_id=5, field_id=10, value=True),
+                ],
+            ),
+        )
+
+    def test_revert_drops_a_non_string_scalar_field_answer(self, service, repos):
+        # ContentFieldValue admits int, but dynamic answers are str/list/bool;
+        # a stray int answer is dropped rather than written back as one.
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {"field": "", "field_id": 7, "old": 42, "new": "x"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
+            ),
+        )
+
+    def test_revert_skips_cover_image_and_assignment_changes(self, service, repos):
+        changes = [
+            {"field": "cover_image", "field_id": None, "old": "", "new": "(updated)"},
+            {"field": "facilitators", "field_id": None, "old": "Alice", "new": "Bob"},
+            {"field": "tracks", "field_id": None, "old": "A", "new": "B"},
+            {"field": "time_slots", "field_id": None, "old": "10 - 11", "new": ""},
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
+            ),
+        )
+
+    def test_session_history_rejects_cross_event_session(self, service, repos):
+        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+
+        with pytest.raises(NotFoundError):
+            service.session_history(event_id=1, session_id=5)
+
+    def test_revert_raises_when_nothing_is_revertible(self, service, repos):
+        changes = [
+            {"field": "cover_image", "field_id": None, "old": "old.png", "new": ""}
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        with pytest.raises(ContentChangeNotRevertibleError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_not_called()
+
+    def test_revert_rejects_non_latest_change(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"}
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+        # A newer change (pk 2) exists for the same session.
+        repos.content_change_logs.latest_pk_for_session.return_value = 2
+
+        with pytest.raises(ContentChangeNotLatestError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_not_called()
+
+    def test_revert_raises_not_found_for_log_from_another_event(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"}
+        ]
+        repos.content_change_logs.read.return_value = self._log(
+            changes=changes, event_id=2
+        )
+
+        with pytest.raises(NotFoundError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        repos.sessions.lock.assert_not_called()
+        service.apply.assert_not_called()
+
+    def test_revert_of_revert_restores_the_edit(self, service, repos):
+        # First revert: undo "Old title" -> "New title".
+        edit_log = self._log(
+            changes=[{"field": "title", "field_id": None, "old": "Old", "new": "New"}]
+        )
+        repos.content_change_logs.read.return_value = edit_log
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "Old"}, field_values=None),
+        )
+
+        # The revert's own audit row (mirrored old/new) is now the latest
+        # change; reverting it restores the original edit.
+        revert_log = self._log(
+            changes=[{"field": "title", "field_id": None, "old": "New", "new": "Old"}],
+            pk=2,
+        )
+        repos.content_change_logs.read.return_value = revert_log
+        repos.content_change_logs.latest_pk_for_session.return_value = 2
+        service.apply.reset_mock()
+
+        service.revert(event_pk=1, log_pk=2, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "New"}, field_values=None),
+        )
+
+    def test_revertible_log_pks_marks_latest_invertible_rows(self, service, repos):
+        title_change = {"field": "title", "field_id": None, "old": "Old", "new": "New"}
+        cover_change = {
+            "field": "cover_image",
+            "field_id": None,
+            "old": "",
+            "new": "(updated)",
+        }
+        repos.content_change_logs.latest_pks_by_session.return_value = {5: 3, 6: 4}
+        logs = [
+            self._log(changes=[title_change], pk=3, session_id=5),
+            self._log(changes=[title_change], pk=2, session_id=5),
+            self._log(changes=[cover_change], pk=4, session_id=6),
+        ]
+
+        assert service.revertible_log_pks(1, logs) == {3}
 
 
-def _service(
-    *,
-    facilitators: list[ConfirmationFacilitatorRow] | None = None,
-    sessions: list[ConfirmationSessionRow] | None = None,
-    track_names: dict[int, dict[int, str]] | None = None,
-) -> EventConfirmationsService:
-    return EventConfirmationsService(
-        facilitators=FakeFacilitators(
-            facilitators if facilitators is not None else [_facilitator()]
-        ),
-        agenda_items=FakeAgendaCounts(),
-        tracks=None,
-        sessions=FakeSessions(sessions or [], track_names),
+class TestContentEditStoresAnswers:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+            agenda_items=MagicMock(),
+        )
+        repos.transaction.atomic.side_effect = nullcontext
+        repos.sessions.read_field_values.return_value = []
+        repos.session_fields.list_by_event.return_value = []
+        return repos
+
+    @pytest.fixture
+    def service(self, repos):
+        return SessionContentEditService(
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
+        )
+
+    def test_blank_answer_for_an_unanswered_field_stores_nothing(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="  "),
+                    SessionFieldValueData(session_id=5, field_id=8, value=[]),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(5, [])
+
+    def test_blank_answer_clears_a_field_that_has_one(self, service, repos):
+        repos.sessions.read_field_values.return_value = [
+            MagicMock(field_id=7, value="Pathfinder")
+        ]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=""),
+                    SessionFieldValueData(session_id=5, field_id=8, value=""),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value="")]
+        )
+
+    def test_an_unchecked_checkbox_is_stored_as_an_answer(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=False)
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value=False)]
+        )
+
+
+class TestContentEditResizesAgendaItem:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+            agenda_items=MagicMock(),
+        )
+        repos.transaction.atomic.side_effect = nullcontext
+        repos.sessions.read.return_value = _session_dto(duration="PT1H")
+        repos.sessions.read_field_values.return_value = []
+        repos.agenda_items.read_by_session.return_value = _make_item()
+        return repos
+
+    @pytest.fixture
+    def service(self, repos):
+        return SessionContentEditService(
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
+        )
+
+    @staticmethod
+    def _apply(service, duration):
+        service.apply(
+            session_id=1,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"duration": duration}),
+        )
+
+    def test_a_longer_duration_moves_the_end_time(self, service, repos):
+        self._apply(service, "PT2H30M")
+
+        repos.agenda_items.update.assert_called_once_with(
+            1, {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
+        )
+
+    def test_an_unscheduled_session_is_left_alone(self, service, repos):
+        repos.agenda_items.read_by_session.return_value = None
+
+        self._apply(service, "PT2H")
+
+        repos.agenda_items.update.assert_not_called()
+
+    def test_an_unchanged_duration_writes_nothing(self, service, repos):
+        self._apply(service, "PT1H")
+
+        repos.agenda_items.read_by_session.assert_not_called()
+        repos.agenda_items.update.assert_not_called()
+
+    # "PT2Hjunk" and "P1DT2H" are the ones a lenient parser gets wrong: the
+    # first would resize a real block to two hours, the second to zero.
+    @pytest.mark.parametrize(
+        "duration", ("", "90 minutes", "PT2Hjunk", "P1DT2H", "PT0M")
     )
+    def test_a_duration_that_is_not_a_length_writes_nothing(
+        self, service, repos, duration
+    ):
+        self._apply(service, duration)
 
+        repos.agenda_items.update.assert_not_called()
 
-class TestTrackView:
-    def test_other_track_is_labelled_and_left_out_of_the_track_counters(self):
-        service = _service(
-            sessions=[
-                _session(session_pk=1, is_confirmed=True),
-                _session(session_pk=2, title="Talk", is_confirmed=True),
-            ],
-            track_names={1: {_RPG_TRACK: "RPG"}, 2: {_TALKS_TRACK: "Talks"}},
+    def test_an_edit_that_does_not_touch_the_duration_writes_nothing(
+        self, service, repos
+    ):
+        service.apply(
+            session_id=1,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "New"}),
         )
 
-        view = service.track_view(event_pk=1, track_pk=_RPG_TRACK)
+        repos.agenda_items.read_by_session.assert_not_called()
+        repos.agenda_items.update.assert_not_called()
 
-        sessions = view.facilitators[0].email_groups[0].status_groups[0].sessions
-        assert sessions[0].other_track_names == []
-        assert sessions[1].other_track_names == ["Talks"]
-        # The strip counts the block; the card counts the whole event.
-        assert view.scheduled_count == 1
-        assert view.confirmed_count == 1
-        assert view.facilitators[0].scheduled_count == _EXPECTED_TWO
 
-    def test_fully_confirmed_facilitators_sort_below_unfinished_ones(self):
-        service = _service(
-            facilitators=[
-                _facilitator(pk=_ADA, name="Ada"),
-                _facilitator(pk=_BEN, name="Ben"),
-            ],
-            sessions=[
-                _session(session_pk=1, facilitator_pk=_ADA, is_confirmed=True),
-                _session(session_pk=2, facilitator_pk=_BEN, is_confirmed=False),
-            ],
+class TestSessionConfirmation:
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, agenda_items, sessions):
+        return SessionConfirmationService(transaction, agenda_items, sessions)
+
+    @staticmethod
+    def _event(pk):
+        event = MagicMock()
+        event.pk = pk
+        return event
+
+    def test_confirm_persists_true(self, service, transaction, agenda_items, sessions):
+        agenda_items.read_by_session.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        transaction.atomic.assert_called_once_with()
+        sessions.update.assert_called_once_with(3, {"schedule_confirmed": True})
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
+
+    def test_unconfirm_persists_false(
+        self, service, transaction, agenda_items, sessions
+    ):
+        agenda_items.read_by_session.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=False)
+
+        transaction.atomic.assert_called_once_with()
+        sessions.update.assert_called_once_with(3, {"schedule_confirmed": False})
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
+
+    def test_rejects_session_from_another_event(self, service, agenda_items, sessions):
+        sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        sessions.update.assert_not_called()
+        agenda_items.update.assert_not_called()
+
+    def test_rejects_a_session_not_on_the_timetable(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read_by_session.return_value = None
+        sessions.read_event.return_value = self._event(1)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        sessions.update.assert_not_called()
+        agenda_items.update.assert_not_called()
+
+
+_NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+_SESSION_PK = 5
+
+
+def _session_dto(**overrides):
+    defaults = {
+        "category_id": None,
+        "contact_email": "",
+        "creation_time": _NOW,
+        "description": "",
+        "min_age": 0,
+        "modification_time": _NOW,
+        "participants_limit": 0,
+        "pk": _SESSION_PK,
+        "presenter_id": None,
+        "facilitator_name": "Alice",
+        "slug": "s",
+        "status": SessionStatus.PENDING,
+        "title": "My Session",
+    }
+    return SessionDTO(**(defaults | overrides))
+
+
+def _event_dto(**overrides):
+    defaults = {
+        "description": "",
+        "end_time": _NOW,
+        "name": "Con",
+        "pk": 9,
+        "proposal_end_time": None,
+        "proposal_start_time": None,
+        "publication_time": None,
+        "slug": "con",
+        "sphere_id": 3,
+        "start_time": _NOW,
+    }
+    return EventDTO(**(defaults | overrides))
+
+
+def _user_dto(**overrides):
+    return user_dto(**{"date_joined": _NOW, **overrides})
+
+
+class TestProposalAcceptanceService:
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def active_users(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def spheres(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+        return ProposalAcceptanceService(
+            transaction=transaction,
+            sessions=sessions,
+            agenda_items=agenda_items,
+            active_users=active_users,
+            spheres=spheres,
         )
 
-        view = service.track_view(event_pk=1, track_pk=_RPG_TRACK)
+    @staticmethod
+    def _arrange_reads(sessions, active_users):
+        sessions.read.return_value = _session_dto()
+        sessions.read_event.return_value = _event_dto()
+        sessions.read_presenter.return_value = None
+        sessions.read_space_options.return_value = []
+        sessions.read_time_slots.return_value = []
+        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_field_values.return_value = []
+        active_users.read.return_value = _user_dto()
 
-        assert [f.display_name for f in view.facilitators] == ["Ben", "Ada"]
-        assert view.facilitators[1].is_fully_confirmed
+    def test_get_accept_context_returns_none_when_session_missing(
+        self, service, sessions
+    ):
+        sessions.read.side_effect = NotFoundError
+
+        assert (
+            service.get_accept_context(session_id=5, user_slug="u", sphere_id=3) is None
+        )
+
+    def test_get_accept_context_assembles_dto(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="manager", sphere_id=3
+        )
+
+        assert isinstance(context, ProposalAcceptContextDTO)
+        assert context.session.pk == _SESSION_PK
+        assert context.event.slug == "con"
+        assert context.presenter is None
+        assert context.space_options == []
+        assert context.can_accept is True
+
+    def test_can_accept_true_for_superuser_without_manager_check(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_superuser=True)
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="root", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is True
+        spheres.manager_role.assert_not_called()
+
+    def test_can_accept_false_for_non_manager_staff(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_staff=True)
+        spheres.manager_role.return_value = None
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="staff", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is False
+        spheres.manager_role.assert_called_once_with(3, "staff")
+
+    def test_can_accept_falls_back_to_sphere_manager(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.manager_role.return_value = None
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="member", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is False
+        spheres.manager_role.assert_called_once_with(3, "member")
+
+    def test_accept_session_updates_status_and_creates_agenda_item(
+        self, service, sessions, agenda_items, transaction, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
+        )
+
+        sessions.read_time_slot.assert_called_once_with(5, 2)
+        agenda_items.list_overlapping_in_space.assert_called_once_with(
+            7, _NOW, _NOW, exclude_session_pk=5
+        )
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": True,
+                "start_time": _NOW,
+                "end_time": _NOW,
+            }
+        )
+        transaction.atomic.assert_called_once_with()
+
+    def test_accept_session_leaves_schedule_unconfirmed_without_auto_confirm(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=False)
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
+        )
+
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": False,
+            },
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": False,
+                "start_time": _NOW,
+                "end_time": _NOW,
+            }
+        )
+
+    def test_accept_session_raises_on_space_time_conflict(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = [
+            _make_item(pk=9, space_id=7)
+        ]
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        with pytest.raises(SpaceTimeConflictError):
+            service.accept_session(
+                session_id=5,
+                space_id=7,
+                time_slot_id=2,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
+
+    def test_accept_session_allowed_for_superuser(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto(is_superuser=True)
+
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="root", sphere_id=3
+        )
+
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
+        )
+        spheres.manager_role.assert_not_called()
+
+    def test_accept_session_denied_for_comms_member(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.COMMS
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
+
+    def test_accept_session_denied_for_non_manager(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = None
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5,
+                space_id=7,
+                time_slot_id=2,
+                user_slug="member",
+                sphere_id=3,
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()

@@ -543,13 +543,16 @@ class TimetableService(TimetableServiceProtocol):
             )
             self._require_accepted(session_pk)
             self._widen_time_slots_around(placement, event)
+            # A move needs the facilitator's fresh agreement to the new slot.
+            confirmed = event.auto_confirm_sessions and not is_move
+            self._repos.sessions.update(session_pk, {"schedule_confirmed": confirmed})
             self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions and not is_move,
+                    "session_confirmed": confirmed,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -581,6 +584,7 @@ class TimetableService(TimetableServiceProtocol):
                 raise NotFoundError
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.delete(agenda_item.pk)
+            self._repos.sessions.update(session_pk, {"schedule_confirmed": False})
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": session_pk,
@@ -611,6 +615,9 @@ class TimetableService(TimetableServiceProtocol):
                 if agenda_item is None:
                     raise NotFoundError
                 self._repos.agenda_items.delete(agenda_item.pk)
+                self._repos.sessions.update(
+                    log.session_id, {"schedule_confirmed": False}
+                )
             elif log.action == ScheduleChangeAction.UNASSIGN:
                 if (
                     log.old_space_id is None
@@ -629,6 +636,9 @@ class TimetableService(TimetableServiceProtocol):
                 # window edited afterwards must not strand the change log.
                 self._require_placeable(restored)
                 self._require_accepted(log.session_id)
+                self._repos.sessions.update(
+                    log.session_id, {"schedule_confirmed": False}
+                )
                 self._repos.agenda_items.create(
                     {
                         "session_id": log.session_id,

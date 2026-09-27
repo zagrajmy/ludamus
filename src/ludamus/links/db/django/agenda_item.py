@@ -41,7 +41,7 @@ def scheduled_item_count() -> Count:
 def confirmed_item_count() -> Count:
     return Count(
         "sessions__agenda_item",
-        filter=Q(sessions__agenda_item__session_confirmed=True),
+        filter=Q(sessions__schedule_confirmed=True),
         distinct=True,
     )
 
@@ -62,7 +62,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
     return AgendaItemDTO(
         end_time=item.end_time,
         pk=item.pk,
-        session_confirmed=item.session_confirmed,
+        schedule_confirmed=item.session.schedule_confirmed,
         start_time=item.start_time,
         space_id=item.space_id,
         space_name=item.space.name,
@@ -213,39 +213,11 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         # would count an item once per facilitator who runs it.
         row = AgendaItem.objects.filter(session__event_id=event_pk).aggregate(
             scheduled=Count("pk"),
-            confirmed=Count("pk", filter=Q(session_confirmed=True)),
+            confirmed=Count("pk", filter=Q(session__schedule_confirmed=True)),
         )
         return ConfirmationTotalsRow(
             scheduled_count=row["scheduled"], confirmed_count=row["confirmed"]
         )
-
-    @staticmethod
-    def set_confirmed_for_facilitator(
-        *,
-        event_pk: int,
-        facilitator_pk: int,
-        confirmed: bool,
-        contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
-    ) -> int:
-        """Set the confirmation flag over one facilitator's placed items.
-
-        Scoping to agenda items is what keeps an unplaced or pending session
-        unconfirmable: it has no row here to update. `contact_email` narrows to
-        one address (including the empty one), `agenda_item_pk` to one item.
-
-        Returns:
-            How many agenda items the filter matched.
-        """
-        # One statement, whatever the scope — never a row-by-row save loop.
-        queryset = AgendaItem.objects.filter(
-            session__event_id=event_pk, session__facilitators__pk=facilitator_pk
-        )
-        if contact_email is not None:
-            queryset = queryset.filter(session__contact_email=contact_email)
-        if agenda_item_pk is not None:
-            queryset = queryset.filter(pk=agenda_item_pk)
-        return queryset.update(session_confirmed=confirmed)
 
     @staticmethod
     def count_without_facilitator(event_pk: int, track_pk: int | None = None) -> int:
