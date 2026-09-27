@@ -25,6 +25,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
+from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
@@ -473,6 +474,10 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             raise NotFoundError from exception
         event = session.event
         has_agenda_item = hasattr(session, "agenda_item")
+        if has_agenda_item and not is_publicly_scheduled(
+            event_id=event.pk, session_id=session.pk
+        ):
+            raise NotFoundError
         return AnonymousSessionDTO(
             session_id=session.pk,
             event_id=event.pk,
