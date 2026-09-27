@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ludamus-parley",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "PARLEY_SPHERE", "class_name": "ParleySphereAgent" },
+      { "name": "PARLEY_SESSION", "class_name": "ParleySessionAgent" }
+    ]
+  },
+  "exports": {
+    "ParleySphereAgent": { "type": "durable-object", "storage": "sqlite" },
+    "ParleySessionAgent": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "vars": {
+    "JWT_ISSUER": "ludamus",
+    "JWT_AUDIENCE": "parley",
+    "ALLOWED_ORIGINS": "http://localhost:8000"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": { "invocation_logs": false }
+  }
+}

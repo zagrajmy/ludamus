@@ -42,6 +42,7 @@
                             <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
                         </span>
                     </label>
+                    <div class="mt-6">{% tessera_field form.parley_enabled %}</div>
                     <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Event covers" %}</h2>
                     <div class="mt-4">{% tessera_field form.event_cover_buttons_at_bottom %}</div>
                     <div class="mt-6">{% tessera_field form.logo %}</div>
