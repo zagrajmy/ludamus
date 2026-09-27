@@ -23,6 +23,17 @@
                     {% translate "Nothing yet. Sign up for a session or an encounter and it will wait for you here." %}
                 </p>
             {% endif %}
+            {% if dashboard.bookmarks %}
+                <section class="mt-12" aria-labelledby="dashboard-bookmarks-heading">
+                    <h2 id="dashboard-bookmarks-heading"
+                        class="mb-4 text-xl font-bold text-foreground">{% translate "Bookmarks" %}</h2>
+                    <div class="grid gap-3">
+                        {% for card in dashboard.bookmarks %}
+                            {% include "dashboard/_card.html" %}
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
         </aside>
         <div>
             <section aria-labelledby="dashboard-for-you-heading">

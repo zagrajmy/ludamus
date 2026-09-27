@@ -40,10 +40,7 @@ if TYPE_CHECKING:
 _start_time = attrgetter("start_time")
 
 
-def _session_card(
-    participation: SessionParticipation, *, role: DashboardRole
-) -> DashboardCardDTO:
-    session = participation.session
+def _session_card(session: Session, *, role: DashboardRole) -> DashboardCardDTO:
     event = session.event
     sphere = event.sphere
     item = session.agenda_item
@@ -61,6 +58,7 @@ def _session_card(
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
         place=item.space.name,
+        attending_count=getattr(session, "confirmed_total", 0),
         capacity=session.participants_limit,
     )
 
@@ -117,7 +115,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             actually attend, which no convention pushes far.
         """
         sessions = [
-            _session_card(participation, role=DashboardRole.SIGNED_UP)
+            _session_card(participation.session, role=DashboardRole.SIGNED_UP)
             for participation in _held_sessions(user_id, now=now)
         ]
         encounters = [
@@ -132,6 +130,42 @@ class DashboardRepository(DashboardRepositoryProtocol):
             for encounter in _held_encounters(user_id, now=now)
         ]
         return sorted(sessions + encounters, key=_start_time)
+
+    @staticmethod
+    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
+        """List the programme items this member starred, across every event.
+
+        Returns:
+            Upcoming bookmarked sessions, soonest first, minus the ones they
+            already hold a confirmed seat at — those are on their agenda.
+        """
+        sessions = (
+            Session.objects.filter(
+                bookmarks__user_id=user_id, agenda_item__start_time__gte=now
+            )
+            .exclude(
+                pk__in=SessionParticipation.objects.filter(
+                    user_id=user_id, status=SessionParticipationStatus.CONFIRMED
+                ).values("session_id")
+            )
+            .select_related("agenda_item__space", "event__sphere__site")
+            .annotate(
+                confirmed_total=Count(
+                    "session_participations",
+                    filter=Q(
+                        session_participations__status=(
+                            SessionParticipationStatus.CONFIRMED
+                        )
+                    ),
+                    distinct=True,
+                )
+            )
+            .order_by("agenda_item__start_time")
+        )
+        return [
+            _session_card(session, role=DashboardRole.BOOKMARKED)
+            for session in sessions
+        ]
 
     @staticmethod
     def list_open_encounters(

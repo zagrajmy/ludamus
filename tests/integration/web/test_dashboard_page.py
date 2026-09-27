@@ -4,7 +4,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.links.db.django.models import SphereSubscription
+from ludamus.links.db.django.models import SessionBookmark, SphereSubscription
 from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import SphereVisibility
@@ -16,10 +16,14 @@ from tests.integration.conftest import (
     SessionFactory,
     SessionParticipationFactory,
     SpaceFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
+EMPTY_DASHBOARD = DashboardDTO(
+    agenda=[], bookmarks=[], open_encounters=[], sphere_feed=[], discover=[]
+)
 
 
 def _titles(cards):
@@ -53,12 +57,7 @@ class TestDashboardPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
-                ),
-                "can_create_encounter": True,
-            },
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
             template_name="dashboard/index.html",
         )
 
@@ -97,6 +96,55 @@ class TestDashboardPageView:
             card for card in dashboard.agenda if card.title == "Kill Your Necromancer"
         )
         assert session_card.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_bookmarks_gather_starred_sessions_across_events(
+        self, authenticated_client, active_user, non_root_sphere, sphere
+    ):
+        soon = datetime.now(UTC) + timedelta(days=2)
+
+        def scheduled(event, title, *, start_time):
+            session = SessionFactory(event=event, title=title, participants_limit=4)
+            AgendaItemFactory(
+                session=session, space=SpaceFactory(event=event), start_time=start_time
+            )
+            SessionBookmark.objects.create(user=active_user, session=session)
+            return session
+
+        abroad = EventFactory(sphere=non_root_sphere)
+        at_home = EventFactory(sphere=sphere)
+        later = scheduled(abroad, "Mothership", start_time=soon + timedelta(days=1))
+        SessionParticipationFactory(session=later, status="confirmed")
+        scheduled(at_home, "Mörk Borg", start_time=soon)
+        held = scheduled(at_home, "Held seat", start_time=soon)
+        SessionParticipationFactory(session=held, user=active_user, status="confirmed")
+        scheduled(at_home, "Already over", start_time=soon - timedelta(days=5))
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        # A seat you hold is on the agenda, so it leaves the bookmarks list.
+        assert _titles(dashboard.bookmarks) == ["Mörk Borg", "Mothership"]
+        assert _titles(dashboard.agenda) == ["Held seat"]
+        mothership = dashboard.bookmarks[1]
+        assert mothership.role == DashboardRole.BOOKMARKED
+        assert (mothership.attending_count, mothership.capacity) == (1, 4)
+        assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_another_member_s_bookmarks_stay_theirs(
+        self, authenticated_client, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        session = SessionFactory(event=event)
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=datetime.now(UTC) + timedelta(days=1),
+        )
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert response.context_data["dashboard"].bookmarks == []
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
@@ -146,12 +194,7 @@ class TestDashboardPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
-                ),
-                "can_create_encounter": True,
-            },
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
             template_name="dashboard/index.html",
         )
 
