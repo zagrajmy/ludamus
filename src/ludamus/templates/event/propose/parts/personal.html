@@ -38,15 +38,7 @@
                 {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
             {% endfor %}
         </div>
-        <div class="{% if show_back_button %}flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3{% else %}flex justify-end{% endif %} pt-6">
-            {% if show_back_button %}
-                <button type="button"
-                        class="btn btn-secondary"
-                        hx-post="{% url 'web:event:session-propose-category' event_slug=event.slug %}"
-                        hx-target="#wizard-content"
-                        hx-swap="outerHTML show:#wizard-content:top"
-                        hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>
-            {% endif %}
+        <div class="flex justify-end pt-6">
             <button type="submit" class="btn btn-primary">{% translate "Continue" %} →</button>
         </div>
     </form>

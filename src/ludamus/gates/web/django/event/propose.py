@@ -47,9 +47,7 @@ if TYPE_CHECKING:
         EventDTO,
         EventProposalSettingsDTO,
         OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
     from ludamus.pacts.propose import ProposeSessionServiceProtocol
@@ -63,7 +61,8 @@ type StepContext = dict[str, object]
 # The wizard in submission order. Which of them an event actually shows is
 # decided per request by `_Wizard.steps`; nothing else may assume a fixed
 # neighbour, because a skipped step changes what "next" and "back" mean.
-_STEP_KEYS: tuple[str, ...] = ("category", "personal", "timeslots", "details", "review")
+# Personal details come first so they are on file whatever kind gets picked.
+_STEP_KEYS: tuple[str, ...] = ("personal", "category", "timeslots", "details", "review")
 _STEP_TEMPLATES = {key: f"event/propose/parts/{key}.html" for key in _STEP_KEYS}
 
 
@@ -160,32 +159,32 @@ def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
 
 
 def _review_fields(
-    *,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    answers: Mapping[str, object],
-    prefix: str,
+    *, fields: Sequence[OrganizerFieldDTO], answers: Mapping[str, object], prefix: str
 ) -> list[dict[str, object]]:
-    fields: list[dict[str, object]] = []
-    for req in requirements:
-        value = answers.get(f"{prefix}_{req.field.slug}")
+    shown: list[dict[str, object]] = []
+    for field in fields:
+        value = answers.get(f"{prefix}_{field.slug}")
         if has_field_value(value):
-            fields.append(
+            shown.append(
                 {
-                    "name": req.field.question,
-                    "value": _display_value(req.field, value),
-                    "is_public": req.field.is_public,
-                    "icon": req.field.icon,
+                    "name": field.question,
+                    "value": _display_value(field, value),
+                    "is_public": field.is_public,
+                    "icon": field.icon,
                 }
             )
-    return fields
+    return shown
 
 
-def _login_nudge_context(request: HttpRequest) -> StepContext:
+def _login_nudge_context(wizard: _Wizard) -> StepContext:
+    # The personal step re-renders from its HTMX component endpoint, which
+    # answers POST only, so `next` has to name the wizard page instead of
+    # whatever path this request arrived on.
     return {
-        "show_login_nudge": not request.user.is_authenticated,
-        "login_url": f"{django_settings.LOGIN_URL}?next={request.path}",
+        "show_login_nudge": not wizard.request.user.is_authenticated,
+        "login_url": (
+            f"{django_settings.LOGIN_URL}?next={_propose_url(wizard.event.slug)}"
+        ),
     }
 
 
@@ -230,6 +229,15 @@ class _Wizard:
         if self.category is None:
             return []
         return self.service.get_timeslot_requirements(self.category.pk)
+
+    @cached_property
+    def personal_pairs(self) -> list[tuple[OrganizerFieldDTO, bool]]:
+        # The proposer answers for themselves, so each field's own required
+        # flag binds.
+        return [
+            (field, field.is_required)
+            for field in self.service.get_personal_fields(self.event.pk)
+        ]
 
     @cached_property
     def steps(self) -> tuple[str, ...]:
@@ -281,15 +289,13 @@ def _category_context(
         "categories": wizard.categories,
         "selected_category_id": state.get("category_id"),
         "error": error,
-        **_login_nudge_context(wizard.request),
     }
 
 
 def _personal_context(
     wizard: _Wizard, state: WizardState, *, form: Form | None = None
 ) -> StepContext:
-    category = wizard.chosen
-    requirements = wizard.service.get_personal_requirements(category.pk)
+    pairs = wizard.personal_pairs
 
     if form is None:
         stored: WizardData = state.get("personal_data") or {
@@ -299,28 +305,23 @@ def _personal_context(
             ).items()
         }
         initial = unfold_custom_answers(
-            stored=stored, fields=[req.field for req in requirements], prefix="personal"
+            stored=stored, fields=[field for field, _ in pairs], prefix="personal"
         )
         # AnonymousUser carries no `email`, and an anonymous proposer is exactly
         # who this step exists for.
         initial["contact_email"] = state.get(
             "contact_email", getattr(wizard.request.user, "email", "")
         )
-        form = build_personal_data_form(requirements)(initial=initial)
+        form = build_personal_data_form(pairs)(initial=initial)
 
-    has_category = "category" in wizard.steps
-    context: StepContext = {
+    return {
         **wizard.base_context("personal"),
-        "category": category,
         "form": form,
         "field_descriptors": field_descriptors(
-            prefix="personal", fields=requirement_fields(requirements), form=form
+            prefix="personal", fields=pairs, form=form
         ),
-        "show_back_button": has_category,
+        **_login_nudge_context(wizard),
     }
-    if not has_category:
-        context.update(_login_nudge_context(wizard.request))
-    return context
 
 
 def _timeslots_context(
@@ -383,12 +384,14 @@ def _details_context(
 def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
     category = wizard.chosen
     session_fields = _review_fields(
-        requirements=wizard.service.get_session_requirements(category.pk),
+        fields=[
+            req.field for req in wizard.service.get_session_requirements(category.pk)
+        ],
         answers=state.get("session_data", {}),
         prefix="session",
     )
     personal_fields = _review_fields(
-        requirements=wizard.service.get_personal_requirements(category.pk),
+        fields=[field for field, _is_required in wizard.personal_pairs],
         answers=state.get("personal_data", {}),
         prefix="personal",
     )
@@ -559,8 +562,16 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
 
         with _WizardState(request, event_slug) as state:
             if state.get("category_id") != category.pk:
+                # Personal details are per event, so a change of kind keeps
+                # them; everything the kind shapes starts over.
+                kept: WizardState = {
+                    key: state[key]
+                    for key in ("personal_data", "contact_email")
+                    if key in state
+                }
                 delete_wizard_cover(state)
                 state.clear()
+                state.update(kept)
                 state["category_id"] = category.pk
 
         picked = _Wizard(
@@ -571,13 +582,13 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
 
 class ProposeSessionPersonalComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        wizard = self._wizard(request, event_slug, with_category=True)
+        wizard = self._wizard(request, event_slug, with_category=False)
 
         if request.POST.get("back"):
             return _render(wizard, wizard.at_or_before("personal"))
 
-        requirements = wizard.service.get_personal_requirements(wizard.chosen.pk)
-        form = build_personal_data_form(requirements)(data=request.POST)
+        pairs = wizard.personal_pairs
+        form = build_personal_data_form(pairs)(data=request.POST)
 
         if not form.is_valid():
             with _WizardState(request, event_slug) as state:
@@ -585,7 +596,9 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin):
             return TemplateResponse(request, _STEP_TEMPLATES["personal"], context)
 
         folded = fold_custom_answers(
-            cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
+            cleaned=form.cleaned_data,
+            fields=[field for field, _ in pairs],
+            prefix="personal",
         )
         with _WizardState(request, event_slug) as state:
             state["personal_data"] = {
@@ -671,7 +684,9 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin):
                 return TemplateResponse(request, _STEP_TEMPLATES["details"], context)
 
             folded = fold_custom_answers(
-                cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+                cleaned=form.cleaned_data,
+                fields=[req.field for req in requirements],
+                prefix="session",
             )
             state["session_data"] = {
                 key: value for key, value in folded.items() if value

@@ -2,22 +2,15 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
 from ludamus.pacts import (
     FacilitatorUpdateData,
-    FieldUsageSummary,
     NotFoundError,
     OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
-from ludamus.pacts.legacy import (
-    PersonalDataFieldCreateData,
-    PersonalDataFieldUpdateData,
-)
 from ludamus.pacts.submissions import (
     CFPPersonalDataFieldServiceProtocol,
-    PersonalDataFieldEditContextDTO,
-    PersonalDataFieldFormContextDTO,
+    PersonalFieldSummary,
     is_empty_answer,
 )
 
@@ -30,6 +23,10 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
+    )
+    from ludamus.pacts.legacy import (
+        PersonalDataFieldCreateData,
+        PersonalDataFieldUpdateData,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -85,52 +82,47 @@ def log_facilitator_deletion(
     )
 
 
-class CFPPersonalDataFieldService(
-    CFPFieldCategoryService[
-        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
-    ],
-    CFPPersonalDataFieldServiceProtocol,
-):
+class CFPPersonalDataFieldService(CFPPersonalDataFieldServiceProtocol):
     """Backoffice operations for an event's personal-data fields."""
 
-    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
-        fields = self._fields.list_by_event(event_pk)
-        usage_counts = self._fields.get_usage_counts(event_pk)
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        fields: PersonalDataFieldRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._fields = fields
+
+    def list_summaries(self, event_pk: int) -> list[PersonalFieldSummary]:
+        answers = self._fields.count_values(event_pk)
         return [
-            FieldUsageSummary(
-                field=f,
-                required_count=usage_counts.get(f.pk, {}).get("required", 0),
-                optional_count=usage_counts.get(f.pk, {}).get("optional", 0),
-            )
-            for f in fields
+            PersonalFieldSummary(field=f, answer_count=answers.get(f.pk, 0))
+            for f in self._fields.list_by_event(event_pk)
         ]
 
-    def get_create_form_context(self, event_pk: int) -> PersonalDataFieldFormContextDTO:
-        return PersonalDataFieldFormContextDTO(
-            categories=self._categories.list_by_event(event_pk)
-        )
+    def read(self, event_pk: int, field_slug: str) -> OrganizerFieldDTO:
+        return self._fields.read_by_slug(event_pk, field_slug)
 
-    def get_edit_form_context(
-        self, event_pk: int, field_slug: str
-    ) -> PersonalDataFieldEditContextDTO:
+    def create(
+        self, event_pk: int, data: PersonalDataFieldCreateData
+    ) -> OrganizerFieldDTO:
+        with self._transaction.atomic():
+            return self._fields.create(event_pk, data)
+
+    def update(
+        self, *, event_pk: int, field_slug: str, data: PersonalDataFieldUpdateData
+    ) -> None:
         field = self._fields.read_by_slug(event_pk, field_slug)
-        categories = self._categories.list_by_event(event_pk)
-        field_cats = self._categories.get_personal_field_categories(field.pk)
-        return PersonalDataFieldEditContextDTO(
-            field=field,
-            categories=categories,
-            required_category_pks={pk for pk, req in field_cats.items() if req},
-            optional_category_pks={pk for pk, req in field_cats.items() if not req},
-        )
-
-    def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
-        self._categories.set_personal_field_categories(field_pk, scoped)
+        with self._transaction.atomic():
+            self._fields.update(field.pk, data)
 
     def delete(self, event_pk: int, field_slug: str) -> bool:
-        # Returns False when the field is in use by session types.
-        # NotFoundError on bad slug surfaces to the caller for distinct messaging.
+        # False when people have answered: removing the field would drop what
+        # they told the organiser. NotFoundError on a bad slug surfaces to the
+        # caller for distinct messaging.
         field = self._fields.read_by_slug(event_pk, field_slug)
-        if self._fields.has_requirements(field.pk):
+        if self._fields.has_values(field.pk):
             return False
         self._fields.delete(field.pk)
         return True

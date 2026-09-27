@@ -31,6 +31,11 @@
             <div class="card">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
+                    {% if form.non_field_errors %}
+                        <div class="alert backdrop-blur-lg alert-error mb-6">
+                            {% for error in form.non_field_errors %}<p class="text-sm">{{ error }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -137,62 +142,50 @@
                                    class="rounded border-border text-primary focus:ring-primary">
                             <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                         </label>
+                        <div id="required-container">
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="is_required"
+                                       id="id_is_required"
+                                       {% if form.is_required.value %}checked{% endif %}
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Required" %}</span>
+                            </label>
+                            {% if form.is_required.errors %}<p class="mt-1 text-sm text-danger">{{ form.is_required.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                   for="id_order">{% translate "Order" %}</label>
+                            <input type="number"
+                                   name="order"
+                                   id="id_order"
+                                   min="0"
+                                   value="{{ form.order.value|default:0 }}"
+                                   class="w-32 border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Lower numbers are asked first." %}</p>
+                            {% if form.order.errors %}<p class="mt-1 text-sm text-danger">{{ form.order.errors.0 }}</p>{% endif %}
+                        </div>
                     </div>
                     <script{% nonce %}>
                         document.addEventListener('DOMContentLoaded', function() {
                             const fieldType = document.getElementById('id_field_type');
                             const optionsContainer = document.getElementById('options-container');
                             const maxLengthContainer = document.getElementById('max-length-container');
-
-                            const categorySelects = document.querySelectorAll('select[name^="category_"]');
+                            const requiredContainer = document.getElementById('required-container');
+                            const requiredInput = document.getElementById('id_is_required');
 
                             function toggleOptions() {
                                 const isCheckbox = fieldType.value === 'checkbox';
                                 optionsContainer.classList.toggle('hidden', fieldType.value !== 'select');
                                 maxLengthContainer.classList.toggle('hidden', isCheckbox);
-                                categorySelects.forEach(sel => {
-                                    const required = sel.querySelector('option[value="required"]');
-                                    if (!required) return;
-                                    required.hidden = isCheckbox;
-                                    required.disabled = isCheckbox;
-                                    if (isCheckbox && sel.value === 'required') sel.value = 'optional';
-                                });
+                                requiredContainer.classList.toggle('hidden', isCheckbox);
+                                if (isCheckbox) requiredInput.checked = false;
                             }
                             fieldType.addEventListener('change', toggleOptions);
                             toggleOptions();
                         });
                     </script>
                 </div>
-            </div>
-            <div class="card p-6 mt-6">
-                <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Categories" %}</h3>
-                <p class="text-sm text-foreground-muted mb-6">{% translate "Select which categories should include this field." %}</p>
-                {% if categories %}
-                    <div class="space-y-3">
-                        {% for category in categories %}
-                            <label class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-foreground-secondary">{{ category.name }}</span>
-                                <select name="category_{{ category.pk }}"
-                                        class="border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="none"
-                                            {% if category.pk not in required_category_pks and category.pk not in optional_category_pks %}selected{% endif %}>
-                                        {% translate "Not included" %}
-                                    </option>
-                                    <option value="required"
-                                            {% if category.pk in required_category_pks %}selected{% endif %}>
-                                        {% translate "Required" %}
-                                    </option>
-                                    <option value="optional"
-                                            {% if category.pk in optional_category_pks %}selected{% endif %}>
-                                        {% translate "Optional" %}
-                                    </option>
-                                </select>
-                            </label>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-sm text-foreground-muted italic">{% translate "No categories have been created yet." %}</p>
-                {% endif %}
             </div>
         </form>
     {% endif %}

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
         EventDTO,
@@ -13,7 +14,6 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         ProposeSessionResult,
@@ -50,9 +50,7 @@ class ProposeSessionServiceProtocol(Protocol):
     ) -> EventProposalSettingsDTO: ...
     def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]: ...
     def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO: ...
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]: ...
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def get_session_requirements(
         self, category_id: int
     ) -> list[SessionFieldRequirementDTO]: ...

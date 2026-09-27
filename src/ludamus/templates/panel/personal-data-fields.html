@@ -30,10 +30,7 @@
                         <div>
                             <p class="text-sm font-medium">{% translate "What are Host Data Fields?" %}</p>
                             <p class="text-sm mt-1">
-                                {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. This data is shared across all categories for the event - each host fills it once." %}
-                            </p>
-                            <p class="text-sm mt-2">
-                                {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
+                                {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. Every proposer at the event is asked the same questions once, whatever they propose." %}
                             </p>
                         </div>
                     </div>
@@ -52,7 +49,7 @@
                                 </th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Usage" %}
+                                    {% translate "Answers" %}
                                 </th>
                                 <th scope="col"
                                     class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
@@ -66,6 +63,11 @@
                                     <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
                                         {{ entry.field.name }}
                                         {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
+                                        {% if entry.field.is_required %}
+                                            <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-bg text-warning-text">
+                                                {% translate "Required" %}
+                                            </span>
+                                        {% endif %}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                         {% if entry.field.field_type == "select" %}
@@ -88,16 +90,10 @@
                                         {% endif %}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {% if entry.is_used %}
-                                            {% if entry.required_count %}
-                                                {{ entry.required_count }} {% translate "required" %}
-                                            {% endif %}
-                                            {% if entry.required_count and entry.optional_count %}·{% endif %}
-                                            {% if entry.optional_count %}
-                                                {{ entry.optional_count }} {% translate "optional" %}
-                                            {% endif %}
+                                        {% if entry.answer_count %}
+                                            {{ entry.answer_count }}
                                         {% else %}
-                                            <span class="text-foreground-muted italic">{% translate "Not used" %}</span>
+                                            <span class="text-foreground-muted italic">{% translate "No answers yet" %}</span>
                                         {% endif %}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
