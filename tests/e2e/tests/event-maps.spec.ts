@@ -106,8 +106,8 @@ test.describe("Event maps", () => {
 
     // Attaching a room draws it in its venue's tree; the room links into the
     // schedule filtered to it, the venue above it stays plain text.
-    await card.getByRole("link", { name: "Attach venue" }).click();
-    const attachDialog = page.getByRole("dialog", { name: "Attach venue" });
+    await card.getByRole("link", { name: "Attach or detach venue" }).click();
+    const attachDialog = page.getByRole("dialog", { name: "Attach or detach venue" });
     await expect(attachDialog).toBeVisible();
     // The checklist is the venue tree itself: a room is named once, under the
     // venue it sits in, and a branch button takes the whole subtree at once.
