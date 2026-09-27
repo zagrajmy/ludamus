@@ -1,16 +1,27 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 04.09.2026**
+**Data ostatniej aktualizacji: 27.09.2026**
 
-## 1. ADMINISTRATOR DANYCH
+## 1. ADMINISTRATORZY DANYCH
 
-Administratorem Państwa danych osobowych jest:
+Za Państwa dane odpowiadają dwaj niezależni od siebie administratorzy. Każdy z nich decyduje o celach przetwarzania w swoim zakresie i odpowiada za nie samodzielnie.
 
-**Radosław Ganczarek**
+### 1.1 Administrator serwisu
 
-Email: radek@zagrajmy.net
+**Radosław Ganczarek**, email: radek@zagrajmy.net
 
-W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować pod powyższym adresem email.
+Administruje danymi potrzebnymi do działania serwisu: kontem (punkt 2.1), danymi technicznymi (punkt 2.2), historią aktywności (punkt 2.3), powiadomieniami, analityką i zgłoszeniami błędów (punkty 3.1–3.5). Tej polityki dotyczy przede wszystkim ten zakres. Mówiąc w niej „my", mamy na myśli administratora serwisu.
+
+### 1.2 Organizator wydarzenia
+
+Każdy organizator jest odrębnym administratorem danych, które zbiera na potrzeby prowadzonego przez siebie wydarzenia. Należą do nich:
+
+- odpowiedzi na pytania o dane osobowe, które organizator sam skonfigurował (punkt 2.4),
+- korzystanie z list uczestników i twórców programu, w tym ich eksport,
+- blokady udziału w wydarzeniu nałożone przez organizatora,
+- dane przekazywane do usług, które organizator podłączył do swojego wydarzenia (punkt 4.3).
+
+Cele i okres przechowywania tych danych ustala organizator i to on odpowiada za podstawę prawną. Organizatorem jest społeczność, której nazwa widnieje w nagłówku strony wydarzenia. W sprawach tych danych można kontaktować się z nim bezpośrednio albo z nami pod adresem z punktu 14. Wtedy przekażemy żądanie organizatorowi i pomożemy mu je wykonać.
 
 ## 2. RODZAJE PRZETWARZANYCH DANYCH
 
@@ -96,6 +107,8 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 
 ### 4.3 Usługi wykorzystywane przy obsłudze programu wydarzeń:
 
+Poniższe usługi podłącza i konfiguruje organizator danego wydarzenia, a dane do nich trafiają na jego polecenie. Administratorem tych danych jest organizator (punkt 1.2).
+
 - **Google (Sheets, Forms)** - organizator może zaimportować zgłoszenia programu z arkusza lub formularza Google oraz wyeksportować harmonogram do arkusza czytanego przez zewnętrzną aplikację z programem wydarzenia. Eksportowany harmonogram zawiera nazwy twórców programu
 - **Sklep z biletami** - przy zapisach na wydarzenie, w którym liczba miejsc zależy od posiadanego biletu lub członkostwa, wysyłamy do sklepu adres email użytkownika i otrzymujemy w odpowiedzi liczbę posiadanych uprawnień
 - **Gravatar (Automattic, USA)** - jeżeli użytkownik wybierze awatar z Gravatara, przeglądarki osób oglądających jego profil pobierają obrazek z serwerów Gravatara; trafia tam skrót adresu email oraz adres IP osoby oglądającej
@@ -103,7 +116,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 ### 4.4 Inni użytkownicy i dostęp publiczny:
 
 - Nazwa wyświetlana i zapisy są widoczne dla innych uczestników wydarzenia
-- Organizatorzy widzą listy uczestników oraz odpowiedzi na pytania o dane osobowe skonfigurowane w danym wydarzeniu
+- Organizatorzy widzą listy uczestników oraz odpowiedzi na pytania o dane osobowe skonfigurowane w danym wydarzeniu. Dane, z których korzystają na potrzeby swojego wydarzenia, administrują samodzielnie (punkt 1.2)
 - Program wydarzenia wraz z nazwami twórców programu jest publiczny
 - Odpowiedzi na pytania oznaczone przez organizatora jako publiczne są widoczne dla wszystkich
 
@@ -168,6 +181,8 @@ Można otrzymać swoje dane w ustrukturyzowanym formacie.
 Można wnieść sprzeciw wobec przetwarzania danych w określonych przypadkach.
 
 **Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radek@zagrajmy.net**
+
+Prawa dotyczące danych, którymi administruje organizator wydarzenia (punkt 1.2), można wykonać bezpośrednio u niego albo za naszym pośrednictwem.
 
 ## 8. USUWANIE KONTA
 
