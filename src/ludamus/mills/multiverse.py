@@ -132,8 +132,6 @@ class ConnectionsService:
 
 
 class SpherePanelService:
-    """Read-side context loader for the multiverse sphere panel."""
-
     def __init__(
         self,
         transaction: TransactionProtocol,
@@ -176,6 +174,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
@@ -202,6 +201,7 @@ class SpherePanelService:
         """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "parley_enabled": parley_enabled,
             "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
