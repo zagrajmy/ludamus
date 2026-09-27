@@ -65,6 +65,12 @@ urlpatterns: list[URLResolver | URLPattern] = [
         "multiverse/",
         include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
     ),
+    # Same "crowd/" prefix as the legacy namespace on purpose: URLs keep their
+    # shape while pages migrate from web:crowd:* to user:* one at a time.
+    path(
+        "crowd/",
+        include(("ludamus.gates.web.django.user.urls", "user"), namespace="user"),
+    ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     # RFC 9728 and RFC 8414 fix these paths; MCP clients probe them verbatim.
     path(
