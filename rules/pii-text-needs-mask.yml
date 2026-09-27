@@ -3,7 +3,9 @@ language: html
 severity: error
 rule:
   kind: text
-  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|contact_email\s*[|}]|name_value\s*[|}])'
+  # NOTE: a bare {{ contact_email }} is Zagrajmy's public inbox (landing,
+  # about); a person's address always arrives dotted (proposal.contact_email).
+  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|\.contact_email\s*[|}]|name_value\s*[|}])'
   not:
     inside:
       stopBy: end
