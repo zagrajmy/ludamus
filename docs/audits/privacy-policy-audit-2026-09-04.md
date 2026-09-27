@@ -269,6 +269,10 @@ own Contact link renders `SUPPORT_EMAIL` (`templates/base.html:163`), which is
 env-configured. Verify in production that it matches the policy, or the RODO
 requests land in an inbox nobody is watching for them.
 
+Decided: the policy and terms name `radek@zagrajmy.net`, not a personal
+domain. Moving to `support@zagrajmy.net` waits on confirming that address is
+set up in Resend; `SUPPORT_EMAIL` should then point at the same inbox.
+
 ## What holds up
 
 Checked, and fine. Worth knowing before anyone "improves" it:
