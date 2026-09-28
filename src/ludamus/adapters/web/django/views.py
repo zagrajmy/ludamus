@@ -58,6 +58,7 @@ from ludamus.gates.web.django.entities import (
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.event.status_pills import event_status_pills
+from ludamus.gates.web.django.meta import LinkPreview, session_link_preview
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -76,6 +77,7 @@ from ludamus.links.db.django.repositories.sessions import (
     own_pending_proposals,
     review_inbox_proposals,
 )
+from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.mills.calendar import google_calendar_url
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
@@ -366,8 +368,19 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
+        context["link_preview"] = self._session_link_preview(sessions_data)
 
         return context
+
+    # SAFETY: only a session the schedule already lists. A private or
+    # unpublished one never reaches sessions_data, so its title can't leak.
+    def _session_link_preview(
+        self, sessions_data: dict[int, SessionData]
+    ) -> LinkPreview:
+        raw = self.request.GET.get("session", "")
+        if not raw.isdecimal() or (data := sessions_data.get(int(raw))) is None:
+            return LinkPreview()
+        return session_link_preview(data=data, event_name=self.object.name)
 
     def _get_anonymous_context(self) -> dict[str, Any]:
         ctx: dict[str, Any] = {}
@@ -742,9 +755,16 @@ def _get_session_or_redirect(
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         fake_full_session(session)
-    if not AgendaItem.objects.filter(session_id=session.pk).exists() and not (
-        session.session_participations.filter(user_id=viewer_id).exists()
-    ):
+    has_agenda_item = AgendaItem.objects.filter(session_id=session.pk).exists()
+    has_participation = session.session_participations.filter(
+        user_id=viewer_id
+    ).exists()
+    if has_agenda_item:
+        if not is_publicly_scheduled(event_id=session.event_id, session_id=session.pk):
+            raise RedirectError(
+                reverse("web:index"), error=_("Session not found.")
+            ) from None
+    elif not has_participation:
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),

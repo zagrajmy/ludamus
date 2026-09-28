@@ -1,4 +1,5 @@
-// Config rides on the [data-compact-schedule] root: data-csrf and
+// Config rides on the nearest [data-bookmark-url-template] ancestor — the
+// compact schedule root or the session modal: data-csrf and
 // data-bookmark-url-template (a reverse()d URL with a `0` id placeholder).
 
 const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
@@ -42,7 +43,7 @@ const paintSession = (sessionId: string, bookmarked: boolean, count: number): vo
 const inFlight = new Set<string>();
 
 const toggleBookmark = async (button: HTMLElement): Promise<void> => {
-  const root = button.closest<HTMLElement>("[data-compact-schedule]");
+  const root = button.closest<HTMLElement>("[data-bookmark-url-template]");
   const { sessionId } = button.dataset;
   const template = root?.dataset.bookmarkUrlTemplate;
   if (!root || !sessionId || !template || inFlight.has(sessionId)) return;

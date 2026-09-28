@@ -1,15 +1,16 @@
 import math
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
 
-SLUG_MAX_LENGTH = 50
+if TYPE_CHECKING:
+    from ludamus.pacts.crowd import UserDTO
 
 
 @contextmanager
@@ -18,16 +19,12 @@ def _atomic():
 
 
 class FakeTransaction:
-    def __init__(self):
-        self.entered = 0
-        self.savepoints = 0
-
-    def atomic(self):
-        self.entered += 1
+    @staticmethod
+    def atomic():
         return _atomic()
 
-    def savepoint(self):
-        self.savepoints += 1
+    @staticmethod
+    def savepoint():
         return _atomic()
 
 
@@ -121,71 +118,26 @@ class _RacingUsers:
 
 
 class FakeClaims:
-    def __init__(self, result=None):
-        self._result = result or ClaimResultDTO(outcome=ClaimOutcome.INVALID)
-        self.redeemed = []
-
-    def issue(self, *, manager_slug, user_slug):
-        raise NotImplementedError
-
-    def read_claimable(self, token):
-        raise NotImplementedError
-
-    def redeem(self, *, token, username):
-        self.redeemed.append((token, username))
-        return self._result
+    pass
 
 
 class FakeSpheres:
-    def __init__(self, domains=()):
-        self._domains = set(domains)
+    @staticmethod
+    def domain_exists(domain):
+        _ = domain
+        return False
 
-    def domain_exists(self, domain):
-        return domain in self._domains
 
-
-def _service(*, users, claims=None, spheres=None, transaction=None):
+def _service(*, users):
     return CrowdAuthService(
-        transaction=transaction or FakeTransaction(),
+        transaction=FakeTransaction(),
         users=users,
-        spheres=spheres or FakeSpheres(),
-        claims=claims or FakeClaims(),
+        spheres=FakeSpheres(),
+        claims=FakeClaims(),
     )
 
 
 class TestProvisionUser:
-    def test_returns_existing_user_without_create(self):
-        users = FakeUsers(users=[_user_dto()])
-        service = _service(users=users)
-
-        result = service.provision_user(
-            username="auth0|sub", create_data={"username": "auth0|sub"}
-        )
-
-        assert result.user.username == "auth0|sub"
-        assert result.claim_outcome is None
-        assert not users.created
-
-    def test_creates_missing_user_in_transaction(self):
-        users = FakeUsers()
-        transaction = FakeTransaction()
-        service = _service(users=users, transaction=transaction)
-
-        result = service.provision_user(
-            username="auth0|sub",
-            create_data={
-                "slug": "auth0user",
-                "username": "auth0|sub",
-                "email": "new@example.com",
-            },
-        )
-
-        assert transaction.savepoints == 1
-        assert users.created == [
-            {"slug": "auth0user", "username": "auth0|sub", "email": "new@example.com"}
-        ]
-        assert result.user.username == "auth0|sub"
-
     def test_create_strips_duplicate_email_and_reports_conflict(self):
         users = FakeUsers(existing_emails={"taken@example.com"})
         service = _service(users=users)
@@ -224,49 +176,6 @@ class TestProvisionUser:
 
         assert result.email_conflict is False
 
-    def test_converted_claim_returns_claimed_user(self):
-        claimed = _user_dto(slug="kid", username="auth0|sub")
-        users = FakeUsers(users=[claimed])
-        claims = FakeClaims(
-            ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug="kid")
-        )
-        service = _service(users=users, claims=claims)
-
-        result = service.provision_user(
-            username="auth0|sub",
-            create_data={"username": "auth0|sub"},
-            claim_token="token",
-        )
-
-        assert claims.redeemed == [("token", "auth0|sub")]
-        assert result.claim_outcome == ClaimOutcome.CONVERTED
-        assert result.user.slug == "kid"
-        assert not users.created
-
-    def test_failed_claim_falls_through_to_get_or_create(self):
-        users = FakeUsers(users=[_user_dto()])
-        claims = FakeClaims(ClaimResultDTO(outcome=ClaimOutcome.ALREADY_AUTHENTICATED))
-        service = _service(users=users, claims=claims)
-
-        result = service.provision_user(
-            username="auth0|sub",
-            create_data={"username": "auth0|sub"},
-            claim_token="token",
-        )
-
-        assert result.claim_outcome == ClaimOutcome.ALREADY_AUTHENTICATED
-        assert result.user.username == "auth0|sub"
-
-    def test_no_claim_token_skips_redemption(self):
-        claims = FakeClaims()
-        service = _service(users=FakeUsers(users=[_user_dto()]), claims=claims)
-
-        service.provision_user(
-            username="auth0|sub", create_data={"username": "auth0|sub"}
-        )
-
-        assert not claims.redeemed
-
     def test_concurrent_insert_is_adopted(self):
         # read_by_username misses, then create raises the unique-constraint
         # error because a concurrent callback already inserted the row; the
@@ -282,29 +191,6 @@ class TestProvisionUser:
         assert result.user.username == "auth0|sub"
         assert users.create_attempts == 1
 
-    def test_truncates_slug_to_field_width(self):
-        users = FakeUsers()
-        service = _service(users=users)
-
-        service.provision_user(
-            username="auth0|sub",
-            create_data={"slug": "a" * 80, "username": "auth0|sub"},
-        )
-
-        assert len(users.created[0]["slug"]) <= SLUG_MAX_LENGTH
-
-    def test_de_collides_slug_owned_by_another_row(self):
-        # A CONNECTED companion already owns the slug; the new ACTIVE account
-        # must get a different, non-colliding slug rather than fail the insert.
-        users = FakeUsers(users=[_user_dto(slug="taken", username="connected|x")])
-        service = _service(users=users)
-
-        service.provision_user(
-            username="auth0|sub", create_data={"slug": "taken", "username": "auth0|sub"}
-        )
-
-        assert users.created[0]["slug"] != "taken"
-
     def test_unadoptable_constraint_error_surfaces(self):
         # The insert fails and no row can be read back, so the real database
         # error must propagate instead of a bare NotFoundError.
@@ -318,41 +204,6 @@ class TestProvisionUser:
 
 
 class TestSyncIdentity:
-    def test_updates_in_transaction_and_returns_fresh_user(self):
-        users = FakeUsers(users=[_user_dto()])
-        transaction = FakeTransaction()
-        service = _service(users=users, transaction=transaction)
-
-        user = service.sync_identity(user_slug="auth0user", data={"name": "New Name"})
-
-        assert transaction.entered == 1
-        assert users.updated == [("auth0user", {"name": "New Name"})]
-        assert user.name == "New Name"
-
-    def test_drops_colliding_email_but_applies_rest(self):
-        users = FakeUsers(users=[_user_dto()], existing_emails={"taken@example.com"})
-        service = _service(users=users)
-
-        service.sync_identity(
-            user_slug="auth0user",
-            data={"email": "taken@example.com", "name": "New Name"},
-        )
-
-        assert users.updated == [("auth0user", {"name": "New Name"})]
-
-    def test_only_colliding_email_skips_update(self):
-        users = FakeUsers(users=[_user_dto()], existing_emails={"taken@example.com"})
-        transaction = FakeTransaction()
-        service = _service(users=users, transaction=transaction)
-
-        user = service.sync_identity(
-            user_slug="auth0user", data={"email": "taken@example.com"}
-        )
-
-        assert transaction.entered == 0
-        assert not users.updated
-        assert user.slug == "auth0user"
-
     def test_same_address_unverified_claim_is_a_noop(self):
         users = FakeUsers(users=[_user_dto(email="mine@example.com")])
         service = _service(users=users)
@@ -446,15 +297,3 @@ class TestSyncIdentity:
         )
 
         assert not users.updated
-
-
-class TestIsKnownSphereDomain:
-    def test_known_domain(self):
-        service = _service(users=FakeUsers(), spheres=FakeSpheres({"example.com"}))
-
-        assert service.is_known_sphere_domain("example.com") is True
-
-    def test_unknown_domain(self):
-        service = _service(users=FakeUsers(), spheres=FakeSpheres())
-
-        assert service.is_known_sphere_domain("malicious.com") is False

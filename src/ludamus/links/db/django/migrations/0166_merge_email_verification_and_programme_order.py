@@ -5,7 +5,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("db_main", "0161_merge_0159_alter_notification_kind_0160_eventmappage"),
-        ("db_main", "0165_sphere_subscriptions"),
+        ("db_main", "0166_sphere_visibility"),
     ]
 
     # Both branches rewrote Notification.kind's choices; each dropped the

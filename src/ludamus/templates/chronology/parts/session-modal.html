@@ -1,7 +1,9 @@
-{% load i18n tessera cfp_tags date_tags markdown_tags %}
+{% load i18n tessera cfp_tags date_tags markdown_tags schedule_tags %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
+        data-csrf="{{ csrf_token }}"
+        data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
@@ -154,6 +156,12 @@
                             <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
                         </div>
                     {% endif %}
+                    {# With no seats there is no enroll button; the bookmark stands in #}
+                    {# for it, level with the bottom of the time box and flush with the #}
+                    {# close button. A minimum-age box pushes it to the next row. #}
+                    {% if not data.takes_enrollment %}
+                        {% session_bookmark data "col-start-2 self-end justify-self-end" %}
+                    {% endif %}
                 </div>
                 <!-- Enrollment Status for Authenticated Users -->
                 {# Only when the footer has no state badge of its own (past #}
@@ -194,7 +202,7 @@
         {# still while the modal grows behind them. bg-bg-secondary is the modal's #}
         {# own surface colour — invisible at rest, but the snapshot underneath is #}
         {# mid-cross-fade with the card and would otherwise show through. #}
-        <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
+        <div class="modal-footer-lg px-6 pt-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
              data-morph="footer"
              data-session-footer="{{ data.session.pk }}">
             <div class="btn-strip-compact">

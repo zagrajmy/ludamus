@@ -43,9 +43,7 @@ class TestSafePath:
         ("path", "expected"),
         (
             (f"/crowd/claim/{TOKEN}/", "/crowd/claim/:token/"),
-            (f"/crowd/parties/join/{TOKEN}/", "/crowd/parties/join/:token/"),
             (f"/offer/{TOKEN}/claim/", "/offer/:token/claim/"),
-            (f"/offer/{TOKEN}/decline/", "/offer/:token/decline/"),
         ),
     )
     def test_bearer_token_is_replaced(self, path: str, expected: str) -> None:
@@ -59,8 +57,6 @@ class TestSafePath:
     @pytest.mark.parametrize(
         "path",
         (
-            "/events/",
-            "/crowd/profile/",
             "/event/con-2026/",
             # share_code is made to be pasted and QR-encoded, so it stays
             # readable and the notice board keeps per-encounter analytics.

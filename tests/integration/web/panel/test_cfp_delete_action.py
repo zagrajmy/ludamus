@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ProposalCategory, Session
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -107,6 +108,27 @@ class TestCFPDeleteActionView:
             messages=[(messages.ERROR, "Category not found.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
+
+    def test_post_redirects_on_category_slug_from_another_event(
+        self, panel_client, sphere, event
+    ):
+        foreign_category = ProposalCategory.objects.create(
+            event=EventFactory(sphere=sphere), name="Workshops", slug="workshops"
+        )
+        url = reverse(
+            "panel:cfp-delete",
+            kwargs={"event_slug": event.slug, "category_slug": foreign_category.slug},
+        )
+
+        response = panel_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Category not found.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        assert ProposalCategory.objects.filter(pk=foreign_category.pk).exists()
 
     def test_get_not_allowed(self, panel_client, event):
         category = ProposalCategory.objects.create(

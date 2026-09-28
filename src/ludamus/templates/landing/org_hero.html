@@ -29,7 +29,7 @@
                 max-* is inclusive, so a max/min pair hides both at the bound.
             {% endcomment %}
             <a class="btn btn-primary"
-               href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">
+               href="mailto:{{ contact_email }}?subject={% translate 'My event in Zagrajmy' %}">
                 <span class="hidden min-[30rem]:inline">{% translate "Run your event with Zagrajmy" %}</span>
                 <span class="min-[30rem]:hidden">{% translate "Run your event" %}</span>
             </a>

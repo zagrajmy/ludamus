@@ -1,5 +1,6 @@
 from django.urls import URLPattern, URLResolver, path
-from django.views.generic.base import RedirectView
+
+from ludamus.gates.web.django.landing import legacy_feed_redirect
 
 from . import views
 
@@ -22,7 +23,7 @@ public_urlpatterns: list[URLPattern | URLResolver] = [
 authenticated_urlpatterns: list[URLPattern | URLResolver] = [
     # The encounters index was folded into the events feed; the URL was
     # public. Exact match, so the routes below still win.
-    path("", RedirectView.as_view(pattern_name="web:index", permanent=True)),
+    path("", legacy_feed_redirect),
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),
     path(
