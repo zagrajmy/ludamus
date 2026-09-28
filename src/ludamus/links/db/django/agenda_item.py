@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import AgendaItem, Track
+from ludamus.links.db.django.session_visibility import public_scheduled_sessions
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemDTO,
@@ -95,20 +96,39 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
 
     @staticmethod
     def list_by_event(
-        event_pk: int, *, facilitator_pks: set[int] | None = None
+        event_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]:
-        items = _by_facilitators(
-            AgendaItem.objects.filter(session__event_id=event_pk), facilitator_pks
-        ).select_related(*_SELECT_RELATED)
+        qs = AgendaItem.objects.filter(session__event_id=event_pk)
+        if public_only:
+            qs = qs.filter(
+                session_id__in=public_scheduled_sessions(event_pk).values("pk")
+            )
+        items = _by_facilitators(qs, facilitator_pks).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod
     def list_by_track(
-        track_pk: int, *, facilitator_pks: set[int] | None = None
+        track_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]:
-        items = _by_facilitators(
-            AgendaItem.objects.filter(session__tracks__pk=track_pk), facilitator_pks
-        ).select_related(*_SELECT_RELATED)
+        qs = AgendaItem.objects.filter(session__tracks__pk=track_pk)
+        if public_only:
+            event_pk = (
+                Track.objects.filter(pk=track_pk)
+                .values_list("event_id", flat=True)
+                .first()
+            )
+            if event_pk is None:
+                return []
+            qs = qs.filter(
+                session_id__in=public_scheduled_sessions(event_pk).values("pk")
+            )
+        items = _by_facilitators(qs, facilitator_pks).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod

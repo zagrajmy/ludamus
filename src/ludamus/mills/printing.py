@@ -166,7 +166,7 @@ class PrintMaterialsService:
         spaces = self._scoped_spaces(
             query.event_pk, query.scope_space_pks, query.track_pk
         )
-        items = self._agenda_items.list_by_event(query.event_pk)
+        items = self._agenda_items.list_by_event(query.event_pk, public_only=True)
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
         items_by_space = self._group_by_space(items)
@@ -212,9 +212,9 @@ class PrintMaterialsService:
             query.event_pk, query.scope_space_pks, query.track_pk
         )
         all_items = (
-            self._agenda_items.list_by_track(query.track_pk)
+            self._agenda_items.list_by_track(query.track_pk, public_only=True)
             if query.track_pk is not None
-            else self._agenda_items.list_by_event(query.event_pk)
+            else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
             all_items = [
@@ -254,9 +254,9 @@ class PrintMaterialsService:
             query.event_pk, query.scope_space_pks, query.track_pk
         )
         items = (
-            self._agenda_items.list_by_track(query.track_pk)
+            self._agenda_items.list_by_track(query.track_pk, public_only=True)
             if query.track_pk is not None
-            else self._agenda_items.list_by_event(query.event_pk)
+            else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
@@ -298,7 +298,7 @@ class PrintMaterialsService:
     def build_session_list(self, query: PrintQueryDTO) -> PrintSessionListDocumentDTO:
         # Unscoped by design: a participant walks the whole venue.
         event = self._events.read(query.event_pk)
-        items = self._agenda_items.list_by_event(query.event_pk)
+        items = self._agenda_items.list_by_event(query.event_pk, public_only=True)
         space_order = {
             space.pk: _space_order(space)
             for space in self._spaces.list_by_event(query.event_pk)
