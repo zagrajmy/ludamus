@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
 
+import { attachArtifacts } from "./helpers/artifacts";
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Lowtide Fair" (bootstrap_timetable.py) has one room, the Heron Room, with
@@ -25,10 +26,7 @@ const countWording = (count: number) => new RegExp(`^\\s*⚠\\s*${count} conflic
 
 test.describe("Timetable conflict count", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("the conflicts heading follows the schedule as sessions come off and back on", async ({
@@ -68,17 +66,10 @@ test.describe("Timetable conflict count", () => {
         panel: await conflictCount(page),
       },
     };
-    const screenshotPath = testInfo.outputPath("timetable-conflict-count.png");
-    await page.getByRole("main").screenshot({ path: screenshotPath });
-    await testInfo.attach("timetable-conflict-count.png", {
-      path: screenshotPath,
-      contentType: "image/png",
-    });
-    const factsPath = testInfo.outputPath("timetable-conflict-count.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("timetable-conflict-count.json", {
-      path: factsPath,
-      contentType: "application/json",
+    await attachArtifacts(testInfo, {
+      name: "timetable-conflict-count",
+      region: page.getByRole("main"),
+      facts,
     });
   });
 });

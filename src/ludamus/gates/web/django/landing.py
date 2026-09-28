@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 from django.template.response import TemplateResponse
+from django.templatetags.static import static
 from django.urls import reverse
 from django.views.generic.base import RedirectView
 
@@ -62,8 +63,10 @@ def landing_page(request: RootRequest) -> HttpResponse:
     # The pitch claims people are already playing; this is that claim's
     # evidence. A signed-in visitor also sees the ones they organise or hold
     # an RSVP to, the same as anywhere else.
-    encounters = request.services.encounters.list_feed(
-        sphere_id=context.current_sphere_id, user_id=context.current_user_id
+    encounters = request.services.encounters.list_upcoming(
+        sphere_id=context.current_sphere_id,
+        user_id=context.current_user_id,
+        limit=LANDING_ENCOUNTERS,
     )
     return TemplateResponse(
         request,
@@ -71,7 +74,7 @@ def landing_page(request: RootRequest) -> HttpResponse:
         {
             "stats": landing.stats(),
             "conventions": landing.conventions(),
-            "encounters": encounters.upcoming[:LANDING_ENCOUNTERS],
+            "encounters": encounters,
             # A sphere with encounters off 404s the create route for every
             # visitor, signed in or not; the "Run an Encounter" CTA must not
             # send anyone into that.
@@ -80,6 +83,9 @@ def landing_page(request: RootRequest) -> HttpResponse:
             ),
             "showcase_url": _showcase_url(request),
             "contact_email": CONTACT_EMAIL,
+            # Mamert isn't a user here, so he gets just the fields the avatar
+            # component reads.
+            "mamert": {"name": "Mamert", "avatar_url": static("landing/mamert.webp")},
         },
     )
 

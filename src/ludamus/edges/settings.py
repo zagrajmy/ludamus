@@ -150,6 +150,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
@@ -380,6 +381,16 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
+# What a private sphere still serves to strangers: signing in, and the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere.
+PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
+    *MIDDLEWARE_SKIP_PREFIXES,
+    "/crowd/",
+    "/auth-error/",
+    "/mcp/",
+    "/.well-known/",
+)
+
 
 # Cache busting version for static files (set via GIT_COMMIT_SHA env var during build)
 COMMIT_SHA = env("GIT_COMMIT_SHA").strip()[:8] or "unknown"
@@ -398,6 +409,10 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+# The conventions the landing and about pages show, in this order.
+LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
+    f"{subdomain}.{ROOT_DOMAIN}" for subdomain in ("kapitularz", "bachanalia", "o2f")
+)
 SITE_ID = env("SITE_ID")
 
 # Auth0
@@ -424,22 +439,20 @@ INTERNAL_IPS = [
     # ...
 ]
 
-# Content-Security-Policy, enforcing. script-src carries a per-request
-# nonce (django.template.context_processors.csp + nonce="{{ csp_nonce }}"
-# on every inline <script>) instead of 'unsafe-inline', so an injected
-# script without the nonce is blocked by the browser, not just reported.
-# htmx's hx-on: attributes (which needed 'unsafe-eval') were replaced by
-# delegated data-action listeners in panel-chrome.ts, and the
-# htmx-config allowEval:false meta tag in base.html disables htmx's
-# Function-based eval entirely, so 'unsafe-eval' is dropped too.
+# Content-Security-Policy, enforcing. default-src is 'none': every resource
+# type the app loads is listed below. script-src carries a per-request nonce
+# (django.template.context_processors.csp + nonce="{{ csp_nonce }}" on every
+# inline <script>) instead of 'unsafe-inline', so an injected script without
+# the nonce is blocked by the browser, not just reported. 'unsafe-eval' is
+# absent: the htmx-config allowEval:false meta tag in base.html disables
+# htmx's Function-based eval, and panel-chrome.ts binds delegated
+# data-action listeners rather than hx-on: attributes.
 # style-src keeps 'unsafe-inline': inline style="..." attributes are
 # pervasive across the templates and nonce-ing attributes (as opposed to
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
-# that is a separate, larger effort, not covered here. The Outfit font is
-# self-hosted (src/ludamus/client/src/fonts), so style-src and font-src no
-# longer carry the fonts.googleapis.com / fonts.gstatic.com allowances the
-# old @import needed. img-src stays
-# broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
+# that is a separate, larger effort, not covered here. font-src is 'self':
+# the Outfit font is self-hosted (src/ludamus/client/src/fonts). img-src
+# stays broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: a violation report carries
 # document-uri verbatim, so aiming it at a third party would ship the tokens
@@ -448,7 +461,7 @@ INTERNAL_IPS = [
 # page send. A same-origin collector running safe_path before it forwards is
 # the way in. Until then violations are only visible in browser devtools.
 CSP_POLICY: dict[str, list[str]] = {
-    "default-src": [CSP.SELF],
+    "default-src": [CSP.NONE],
     "script-src": [CSP.SELF, CSP.NONCE],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],

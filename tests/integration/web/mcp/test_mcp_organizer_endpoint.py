@@ -24,7 +24,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -1027,6 +1027,14 @@ class TestOrganizerSphereSettingsTool:
         sphere.refresh_from_db()
         assert sphere.allow_facilitator_session_edit is False
         assert sphere.encounters_policy == EncountersPolicy.MANAGERS
+
+    def test_sets_the_sphere_visibility(self, client, org_token, sphere):
+        call_org_json(
+            client, org_token, "update_sphere_settings", {"visibility": "unlisted"}
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.visibility == SphereVisibility.UNLISTED
 
     def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
         # The flag answers a question about a write; on its own there is none.

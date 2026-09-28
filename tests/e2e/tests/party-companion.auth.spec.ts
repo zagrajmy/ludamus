@@ -1,7 +1,8 @@
-import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+import { disbandParty, foundParty, type Party } from "./helpers/parties";
 
 // NOTE: Corwin Vale manages one companion, Bramble Vale (bootstrap_data.py). Each run
 // founds a party of its own and deletes it at the end.
@@ -11,25 +12,14 @@ const LEADER = "Corwin Vale";
 const COMPANION = "Bramble Vale";
 
 test.describe("Party companion dialog", () => {
-  let partyName = "";
-  let partyUrl = "";
+  let party: Party;
 
   test.beforeEach(async ({ page }) => {
-    partyName = `Lantern Crew ${Date.now()}`;
-    await page.goto("/crowd/profile/parties/");
-    await page.getByRole("link", { name: "Create party", exact: true }).click();
-    const createDialog = page.getByRole("dialog", { name: "Create party" });
-    await createDialog.getByLabel("Party name").fill(partyName);
-    await createDialog.getByRole("button", { name: "Create party", exact: true }).click();
-    await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\/$/);
-    partyUrl = page.url();
+    party = await foundParty(page, "Lantern Crew");
   });
 
   test.afterEach(async ({ page }) => {
-    await page.goto(partyUrl);
-    await page.getByRole("button", { name: "Delete party" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();
-    await expect(page.getByText("Party deleted.")).toBeVisible();
+    await disbandParty(page, party);
   });
 
   test("a name corrected in the reopened dialog is submitted and joins the roster", async ({
@@ -59,14 +49,14 @@ test.describe("Party companion dialog", () => {
     await name.fill(COMPANION);
     await dialog.getByRole("button", { name: "Add companion" }).click();
     await expect(page.getByText("Companion added to the party.")).toBeVisible();
-    await expect(page).toHaveURL(partyUrl);
+    await expect(page).toHaveURL(party.url);
     await expect(dialog).toBeHidden();
 
     await page.reload();
     await expect(members.filter({ hasText: COMPANION })).toHaveCount(1);
 
     const facts = {
-      party: partyName,
+      party: party.name,
       members: await Promise.all(
         (await members.all()).map(async (member) =>
           (await member.getByRole("paragraph").first().innerText()).trim(),
@@ -74,17 +64,10 @@ test.describe("Party companion dialog", () => {
       ),
     };
     expect(facts.members).toEqual([LEADER, COMPANION]);
-    const screenshotPath = testInfo.outputPath("party-companion.png");
-    await page.getByRole("main").screenshot({ path: screenshotPath });
-    await testInfo.attach("party-companion.png", {
-      path: screenshotPath,
-      contentType: "image/png",
-    });
-    const factsPath = testInfo.outputPath("party-companion.json");
-    await writeFile(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
-    await testInfo.attach("party-companion.json", {
-      path: factsPath,
-      contentType: "application/json",
+    await attachArtifacts(testInfo, {
+      name: "party-companion",
+      region: page.getByRole("main"),
+      facts,
     });
   });
 });

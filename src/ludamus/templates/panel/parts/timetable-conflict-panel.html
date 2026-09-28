@@ -8,7 +8,10 @@
         <span>{% translate "All clear" %}</span>
     {% endif %}
 </summary>
-<div id="conflict-panel" class="mt-2">
+<div id="conflict-panel"
+     class="mt-2"
+     role="region"
+     aria-label="{% translate "Conflicts" %}">
     {% if not conflicts %}
         <!-- Clean state -->
         <div class="flex items-center gap-2 text-success">
