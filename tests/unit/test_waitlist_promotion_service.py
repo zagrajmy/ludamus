@@ -1,6 +1,7 @@
 import logging
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -48,14 +49,16 @@ class FakeRepo:
     def __init__(self, states=None, offer=None):
         self._states = list(states or [])
         self._offer = offer
-        self.confirmed: list[list[int]] = []
-        self.offered: list[dict] = []
-        self.created: list[dict] = []
-        self.claimed: list[tuple[list[int], datetime]] = []
-        self.dropped: list[list[int]] = []
-        self.locked: list[int] = []
-        self.tokens_read: list[str] = []
-        self.participations_read: list[int] = []
+        self.log = SimpleNamespace(
+            confirmed=[],
+            offered=[],
+            created=[],
+            claimed=[],
+            dropped=[],
+            locked=[],
+            tokens_read=[],
+            participations_read=[],
+        )
 
     def list_lapsed_offers(self, now):
         # Mirrors the real repo: one representative per offered party whose
@@ -65,7 +68,7 @@ class FakeRepo:
         return []
 
     def create_offered(self, seat):
-        self.created.append(seat)
+        self.log.created.append(seat)
         return 101
 
     @staticmethod
@@ -73,14 +76,14 @@ class FakeRepo:
         return timedelta(hours=24)
 
     def lock_and_read_state(self, session_id):
-        self.locked.append(session_id)
+        self.log.locked.append(session_id)
         return self._states.pop(0) if self._states else None
 
     def confirm(self, ids):
-        self.confirmed.append(ids)
+        self.log.confirmed.append(ids)
 
     def offer(self, ids, *, offered_at, offer_expires_at, claim_token):
-        self.offered.append(
+        self.log.offered.append(
             {
                 "ids": ids,
                 "token": claim_token,
@@ -90,18 +93,18 @@ class FakeRepo:
         )
 
     def read_offer_by_token(self, token):
-        self.tokens_read.append(token)
+        self.log.tokens_read.append(token)
         return self._offer
 
     def read_offer_by_participation(self, participation_id):
-        self.participations_read.append(participation_id)
+        self.log.participations_read.append(participation_id)
         return self._offer
 
     def mark_claimed(self, ids, *, claimed_at):
-        self.claimed.append((ids, claimed_at))
+        self.log.claimed.append((ids, claimed_at))
 
     def drop(self, ids):
-        self.dropped.append(ids)
+        self.log.dropped.append(ids)
 
 
 class FakeNotifier:
@@ -177,8 +180,8 @@ class TestFillFreedSeats:
             result = service.fill_freed_seats(session_id=_SESSION_ID)
 
         assert not result.promoted
-        assert repo.locked == [_SESSION_ID]
-        assert not repo.confirmed
+        assert repo.log.locked == [_SESSION_ID]
+        assert not repo.log.confirmed
         assert not notifier.promoted
         assert caplog.messages == [
             f"Session {_SESSION_ID} promotes nobody: it is gone or unscheduled"
@@ -191,7 +194,7 @@ class TestFillFreedSeats:
             result = service.fill_freed_seats(session_id=_SESSION_ID)
 
         assert not result.promoted
-        assert not repo.confirmed
+        assert not repo.log.confirmed
         assert caplog.messages == [
             f"Session {_SESSION_ID} promotes nobody: 1 seats free, 0 waiting, mode auto"
         ]
@@ -202,7 +205,7 @@ class TestFillFreedSeats:
         result = service.fill_freed_seats(session_id=_SESSION_ID)
 
         assert result.promoted == [1]
-        assert repo.confirmed == [[1]]
+        assert repo.log.confirmed == [[1]]
         assert len(notifier.promoted) == 1
         assert notifier.promoted[0].session_title == "Dragons"
         assert not scheduler.scheduled
@@ -216,7 +219,7 @@ class TestFillFreedSeats:
 
         assert result.offered == [1]
         assert not result.promoted
-        assert repo.offered == [
+        assert repo.log.offered == [
             {
                 "ids": [1],
                 "token": "tok-xyz",
@@ -241,7 +244,7 @@ class TestFillFreedSeats:
         result = service.fill_freed_seats(session_id=_SESSION_ID)
 
         assert result.offered == [1, 2]
-        assert repo.offered[0]["ids"] == [1, 2]
+        assert repo.log.offered[0]["ids"] == [1, 2]
         assert notifier.offered[0].recipient_user_id == _MANAGER_ID
 
 
@@ -264,8 +267,8 @@ class TestClaimOffer:
         assert result == ClaimResult(
             success=True, session_id=_SESSION_ID, event_slug="con"
         )
-        assert repo.tokens_read == ["tok-xyz"]
-        assert repo.claimed == [([1, 2], _NOW)]
+        assert repo.log.tokens_read == ["tok-xyz"]
+        assert repo.log.claimed == [([1, 2], _NOW)]
 
     def test_a_token_claimed_on_its_deadline_still_counts(self):
         service, repo, _, _ = _build(offer=self._offer(expires=_NOW))
@@ -273,7 +276,7 @@ class TestClaimOffer:
         result = service.claim_offer(token="tok-xyz")
 
         assert result.success is True
-        assert repo.claimed == [([1, 2], _NOW)]
+        assert repo.log.claimed == [([1, 2], _NOW)]
 
     def test_unknown_or_resolved_token_rejected(self):
         # A claimed/dropped party is no longer OFFERED, so the locked read
@@ -284,7 +287,7 @@ class TestClaimOffer:
 
         assert result.success is False
         assert result.reason == "not_found"
-        assert not repo.claimed
+        assert not repo.log.claimed
 
     def test_past_deadline_rejected(self):
         service, repo, _, _ = _build(
@@ -296,7 +299,7 @@ class TestClaimOffer:
         assert result == ClaimResult(
             success=False, reason="expired", session_id=_SESSION_ID, event_slug="con"
         )
-        assert not repo.claimed
+        assert not repo.log.claimed
 
 
 class TestExpireOffer:
@@ -320,8 +323,8 @@ class TestExpireOffer:
 
         result = service.expire_offer(participation_id=1)
 
-        assert repo.participations_read == [1]
-        assert repo.dropped == [[1, 2]]
+        assert repo.log.participations_read == [1]
+        assert repo.log.dropped == [[1, 2]]
         assert notifier.expired == [
             PromotionNotification(
                 recipient_user_id=_MANAGER_ID,
@@ -332,9 +335,9 @@ class TestExpireOffer:
             )
         ]
         # rolled on: the next waiter got the freed seat
-        assert repo.locked == [_SESSION_ID]
+        assert repo.log.locked == [_SESSION_ID]
         assert result.promoted == [3]
-        assert repo.confirmed == [[3]]
+        assert repo.log.confirmed == [[3]]
 
     def test_already_resolved_offer_is_noop(self):
         # Claimed/dropped party is no longer OFFERED, so the locked read is None.
@@ -342,7 +345,7 @@ class TestExpireOffer:
 
         result = service.expire_offer(participation_id=1)
 
-        assert not repo.dropped
+        assert not repo.log.dropped
         assert not notifier.expired
         assert not result.promoted
 
@@ -352,9 +355,9 @@ class TestExpireOffer:
 
         service.expire_offer(participation_id=1)
 
-        assert not repo.dropped
+        assert not repo.log.dropped
         assert not notifier.expired
-        assert not repo.locked
+        assert not repo.log.locked
 
 
 class TestExpireLapsedOffers:
@@ -372,8 +375,8 @@ class TestExpireLapsedOffers:
         expired = service.expire_lapsed_offers(now=_NOW)
 
         assert expired == 1
-        assert repo.participations_read == [1]
-        assert repo.dropped == [[1, 2]]
+        assert repo.log.participations_read == [1]
+        assert repo.log.dropped == [[1, 2]]
         assert len(notifier.expired) == 1
 
     def test_no_lapsed_offers_is_noop(self):
@@ -382,7 +385,7 @@ class TestExpireLapsedOffers:
         expired = service.expire_lapsed_offers(now=_NOW)
 
         assert expired == 0
-        assert not repo.dropped
+        assert not repo.log.dropped
         assert not notifier.expired
 
 
@@ -418,7 +421,7 @@ class TestHoldSeat:
             )
         )
 
-        assert repo.created == [
+        assert repo.log.created == [
             HeldSeatData(
                 session_id=_SESSION_ID,
                 user_id=_MEMBER_ID,
@@ -457,11 +460,11 @@ class TestDeclineOffer:
         assert result == ClaimResult(
             success=True, session_id=_SESSION_ID, event_slug="con"
         )
-        assert repo.tokens_read == ["tok-xyz"]
-        assert repo.dropped == [[1, 2]]
+        assert repo.log.tokens_read == ["tok-xyz"]
+        assert repo.log.dropped == [[1, 2]]
         # The freed seats rolled on to the next waiter.
-        assert repo.locked == [_SESSION_ID]
-        assert repo.confirmed == [[3]]
+        assert repo.log.locked == [_SESSION_ID]
+        assert repo.log.confirmed == [[3]]
 
     def test_unknown_or_resolved_token_rejected(self):
         service, repo, _, _ = _build(offer=None)
@@ -470,4 +473,4 @@ class TestDeclineOffer:
 
         assert result.success is False
         assert result.reason == "not_found"
-        assert not repo.dropped
+        assert not repo.log.dropped

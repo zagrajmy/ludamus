@@ -13,7 +13,15 @@ exclude = List("pkl", ".claude/skills/**", ".agents/skills/**")
 
 local linters = new Mapping<String, Step> {
   // File hygiene
-  ["check-added-large-files"] = Builtins.check_added_large_files
+  //
+  // The 500KB ceiling is there to keep large authored files — images, dumps,
+  // vendored bundles — out of the tree. `poetry.lock` is neither authored nor
+  // optional: Poetry generates it, every dependency it pins adds hashes for
+  // every wheel, and mutmut's `libcst` + `setproctitle` took it past the line.
+  // Same reasoning already exempts `**/*.lock` from codespell below.
+  ["check-added-large-files"] = (Builtins.check_added_large_files) {
+    exclude = List("poetry.lock")
+  }
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["detect-private-key"] = Builtins.detect_private_key
   ["end-of-file-fixer"] = Builtins.newlines

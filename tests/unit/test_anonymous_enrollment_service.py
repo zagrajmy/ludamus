@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 
@@ -119,18 +120,19 @@ class FakeRepo:
         # Configured returns: event, session, participation_status, conflicts,
         # seating, load, event_slugs.
         self._cfg = cfg
-        self.confirmed: list[tuple[int, int]] = []
-        self.waiting: list[tuple[int, int]] = []
-        self.deleted: list[tuple[int, int]] = []
-        self.events_read: list[str] = []
-        self.sessions_read: list[dict] = []
-        self.statuses_read: list[dict] = []
-        self.conflicts_checked: list[dict] = []
-        self.seatings_locked: list[int] = []
-        self.loads_read: list[int] = []
+        self.log = SimpleNamespace(
+            confirmed=[],
+            waiting=[],
+            deleted=[],
+            events_read=[],
+            sessions_read=[],
+            statuses_read=[],
+            conflicts_checked=[],
+            seatings_locked=[],
+        )
 
     def read_event(self, event_slug):
-        self.events_read.append(event_slug)
+        self.log.events_read.append(event_slug)
         if self._cfg.get("event") is None:
             raise NotFoundError
         return self._cfg["event"]
@@ -139,21 +141,21 @@ class FakeRepo:
         return self._cfg.get("event_slugs", {}).get(event_id)
 
     def read_session(self, **kwargs):
-        self.sessions_read.append(kwargs)
+        self.log.sessions_read.append(kwargs)
         if self._cfg.get("session") is None:
             raise NotFoundError
         return self._cfg["session"]
 
     def read_participation_status(self, **kwargs):
-        self.statuses_read.append(kwargs)
+        self.log.statuses_read.append(kwargs)
         return self._cfg.get("participation_status")
 
     def has_conflicts(self, **kwargs):
-        self.conflicts_checked.append(kwargs)
+        self.log.conflicts_checked.append(kwargs)
         return self._cfg.get("conflicts", False)
 
     def lock_seating(self, session_id):
-        self.seatings_locked.append(session_id)
+        self.log.seatings_locked.append(session_id)
         if (seating := self._cfg.get("seating")) is not None:
             return seating
         participants_limit = 10
@@ -163,17 +165,16 @@ class FakeRepo:
         )
 
     def create_or_confirm(self, *, session_id, user_id):
-        self.confirmed.append((session_id, user_id))
+        self.log.confirmed.append((session_id, user_id))
 
     def create_waiting(self, *, session_id, user_id):
-        self.waiting.append((session_id, user_id))
+        self.log.waiting.append((session_id, user_id))
 
     def delete_participation(self, *, session_id, user_id):
-        self.deleted.append((session_id, user_id))
+        self.log.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
 
-    def first_enrollment_event(self, user_id):
-        self.loads_read.append(user_id)
+    def first_enrollment_event(self, _user_id):
         return self._cfg.get("load")
 
 
@@ -232,8 +233,9 @@ class TestActivate:
 
         assert activation.event_id == _EVENT_ID
         assert activation.event_slug == "conv"
-        assert repo.events_read == ["conv"]
-        (created,) = users.created
+        assert repo.log.events_read == ["conv"]
+        assert len(users.created) == 1
+        created = users.created[0]
         assert created["slug"] == f"code_{activation.code}"
         assert not created["name"]
         assert created["user_type"] == UserType.ANONYMOUS
@@ -363,10 +365,12 @@ class TestGetEnrollPage:
         assert page.needs_user_data is True
         assert page.enrollment_status is None
         assert page.is_enrolled is False
-        assert repo.sessions_read == [
+        assert repo.log.sessions_read == [
             {"session_id": _SESSION_ID, "event_slug": "conv", "site_id": _SITE_ID}
         ]
-        assert repo.statuses_read == [{"session_id": _SESSION_ID, "user_id": _USER_PK}]
+        assert repo.log.statuses_read == [
+            {"session_id": _SESSION_ID, "user_id": _USER_PK}
+        ]
 
     def test_closed_enrollment_still_shows_existing_enrollment(self):
         repo = FakeRepo(
@@ -420,10 +424,12 @@ class TestEnroll:
         assert result.outcome == AnonymousEnrollOutcome.ENROLLED
         assert result.session_title == "Warsztat"
         assert result.event_slug == "conv"
-        assert repo.conflicts_checked == [{"session_id": _SESSION_ID, "user": _user()}]
-        assert repo.seatings_locked == [_SESSION_ID]
-        assert repo.confirmed == [(_SESSION_ID, _USER_PK)]
-        assert not repo.waiting
+        assert repo.log.conflicts_checked == [
+            {"session_id": _SESSION_ID, "user": _user()}
+        ]
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK)]
+        assert not repo.log.waiting
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
 
     def test_waitlists_when_full(self):
@@ -433,8 +439,8 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
-        assert repo.waiting == [(_SESSION_ID, _USER_PK)]
-        assert not repo.confirmed
+        assert repo.log.waiting == [(_SESSION_ID, _USER_PK)]
+        assert not repo.log.confirmed
 
     def test_rejects_when_enrollment_closes_before_seating_lock(self):
         repo = FakeRepo(session=_session_ctx(), seating=_seating(eligible_windows=[]))
@@ -444,8 +450,8 @@ class TestEnroll:
             service.enroll(_request(), "Ala")
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
-        assert not repo.confirmed
-        assert not repo.waiting
+        assert not repo.log.confirmed
+        assert not repo.log.waiting
 
     def test_conflict_short_circuits(self):
         repo = FakeRepo(session=_session_ctx(), conflicts=True)
@@ -454,8 +460,8 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.CONFLICT
-        assert not repo.confirmed
-        assert not repo.waiting
+        assert not repo.log.confirmed
+        assert not repo.log.waiting
 
     def test_name_required_when_user_has_none(self):
         service = _service(
@@ -481,7 +487,7 @@ class TestCancel:
 
         assert result.cancelled is True
         assert result.session_title == "Warsztat"
-        assert repo.deleted == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
 
     def test_cancel_waiting_seat_does_not_promote(self):
@@ -543,7 +549,7 @@ class TestCancel:
         result = service.cancel(_request(), "Ala")
 
         assert result.cancelled is True
-        assert repo.deleted == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
 
 
 class TestLoadByCode:

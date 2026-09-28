@@ -140,6 +140,7 @@ def _make_service(
         repos=repos,
         integrations=integrations,
         connections=connections,
+        decryptor=decryptor,
         writer=writer,
         transaction=transaction,
     )
@@ -246,7 +247,7 @@ class TestKonwencikMatrix:
 
         env.repos.events.read.assert_called_once_with(EVENT_PK)
         env.connections.read_secret.assert_called_once_with(SPHERE_PK, CONNECTION_PK)
-        env.service._decryptor.decrypt.assert_called_once_with(b"blob")
+        env.decryptor.decrypt.assert_called_once_with(b"blob")
         env.writer.write_rows.assert_called_once_with(
             secret=b"secret",
             spreadsheet_id="sheet-1",
@@ -260,7 +261,7 @@ class TestKonwencikMatrix:
 
         _run(env)
 
-        env.service._decryptor.decrypt.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
         assert env.writer.write_rows.call_args.kwargs["secret"] == b""
 
     def test_a_run_takes_the_lock_writes_and_records_the_outcome(self):
@@ -883,6 +884,6 @@ class TestKonwencikSweep:
 
         env.service.run_sweep(now=_NOW)
 
-        call = env.integrations.list_by_kind.call_args
-        assert call.args == (IntegrationKind.EXPORT,)
-        assert call.kwargs["event_ended_after"] == _NOW - timedelta(days=1)
+        env.integrations.list_by_kind.assert_called_once_with(
+            IntegrationKind.EXPORT, event_ended_after=_NOW - timedelta(days=1)
+        )

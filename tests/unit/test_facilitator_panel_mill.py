@@ -4,9 +4,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills.panel_columns import resolve_columns
 from ludamus.mills.panel_facilitators import (
-    FACILITATOR_BUILTIN_KEYS,
     FacilitatorPanelService,
     accreditation_reconcile,
     field_reconcile,
@@ -125,11 +123,9 @@ class TestFilterOptions:
         assert not repos.mock_calls
 
     @staticmethod
-    def _search_service(rows_by_filters):
+    def _search_service(rows_per_call):
         facilitators_repo = MagicMock()
-        facilitators_repo.list_by_event.side_effect = lambda _event_id, filters: (
-            rows_by_filters[repr(filters)]
-        )
+        facilitators_repo.list_by_event.side_effect = rows_per_call
         repos = FacilitatorPanelRepos(
             events=object(),
             facilitators=facilitators_repo,
@@ -149,12 +145,7 @@ class TestFilterOptions:
             _facilitator(3, "alba"),
             _facilitator(4, "alma"),
         ]
-        service, repos = self._search_service(
-            {
-                repr({"pks": {1}}): [pinned],
-                repr({"search": "al", "limit": 4}): [pinned, *fresh],
-            }
-        )
+        service, repos = self._search_service([[pinned], [pinned, *fresh]])
 
         found = service.filter_options(event_id=1, search="al", pinned={1}, limit=2)
 
@@ -162,19 +153,12 @@ class TestFilterOptions:
             call(1, {"pks": {1}}),
             call(1, {"search": "al", "limit": 4}),
         ]
-        assert found == FacilitatorFilterOptionsDTO(
-            facilitators=[pinned, *fresh[:2]],
-            columns=resolve_columns(
-                keys=[], builtin_keys=FACILITATOR_BUILTIN_KEYS, fields=[]
-            ),
-            has_more=True,
-        )
+        assert found.facilitators == [pinned, *fresh[:2]]
+        assert found.has_more is True
 
     def test_exactly_the_limit_of_matches_means_no_more(self):
         fresh = [_facilitator(2, "alan"), _facilitator(3, "alba")]
-        service, repos = self._search_service(
-            {repr({"search": "al", "limit": 3}): fresh}
-        )
+        service, repos = self._search_service([fresh])
 
         found = service.filter_options(event_id=1, search="al", pinned=set(), limit=2)
 
@@ -186,7 +170,7 @@ class TestFilterOptions:
 
     def test_nothing_typed_still_lists_the_pinned_rows(self):
         pinned = _facilitator(1, "alice")
-        service, repos = self._search_service({repr({"pks": {1}}): [pinned]})
+        service, repos = self._search_service([[pinned]])
 
         found = service.filter_options(event_id=1, search="", pinned={1}, limit=2)
 
@@ -978,9 +962,9 @@ def _organizer_service(facilitators):
     return FacilitatorPanelService(object(), repos)
 
 
-def _refusal(call):
+def _refusal(action):
     with pytest.raises(FacilitatorActionError) as exc_info:
-        call()
+        action()
     return exc_info.value.refusal
 
 

@@ -1757,7 +1757,7 @@ class TestTimetableOverviewServiceDefaults:
         svc = TimetableOverviewService(mock_uow)
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
-        assert result == {}
+        assert not result
         mock_uow.agenda_items.list_by_event.assert_called_once_with(1)
 
     def test_all_conflicts_grouped_keeps_every_conflict_under_its_type(self):
