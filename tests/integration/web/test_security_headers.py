@@ -106,10 +106,12 @@ class TestPermissionsPolicy:
                 "showcase_url": KAPITULARZ_URL,
             },
             template_name=["landing_page.html"],
-        )
-        assert response.headers["Permissions-Policy"] == (
-            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
-            "display-capture=()"
+            headers={
+                "Permissions-Policy": (
+                    "camera=(), microphone=(), geolocation=(), payment=(), "
+                    "usb=(), display-capture=()"
+                )
+            },
         )
 
 

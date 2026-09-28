@@ -8,7 +8,7 @@ from django.contrib.messages import get_messages
 from django.utils.timezone import now
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
     from django.http import HttpResponse
 
@@ -191,6 +191,7 @@ def assert_response(
     contains: str | Iterable[str] = (),
     not_contains: str | Iterable[str] = (),
     cache_control: set[str] | None = None,
+    headers: Mapping[str, str] | None = None,
     **response_fields: Any,
 ) -> None:
     assert response.status_code == status_code, response.status_code
@@ -198,6 +199,13 @@ def assert_response(
 
     if cache_control is not None:
         assert_cache_control(response, cache_control)
+
+    if headers is not None:
+        # A plain `response.headers == headers` would demand the response
+        # carry no other header at all, so the named ones are checked by key
+        # instead — the point is to assert what's expected, not everything
+        # the response happens to also send.
+        assert {name: response.headers.get(name) for name in headers} == dict(headers)
 
     default_fields = {"context_data": None, "template_name": None, "url": None}
     for key, value in (default_fields | response_fields).items():
