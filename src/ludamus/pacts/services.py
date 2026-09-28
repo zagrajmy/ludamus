@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
+    from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -194,6 +195,8 @@ class ServicesProtocol(Protocol):
     def space_tree(self) -> SpaceTreeServiceProtocol: ...
     @property
     def event_maps(self) -> EventMapsServiceProtocol: ...
+    @property
+    def mcp_authorization(self) -> McpAuthorizationServiceProtocol: ...
     @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property

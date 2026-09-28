@@ -30,11 +30,11 @@ the new `request.services.<service_name>` shape. Each file is its own PR.
    handle redirects and flash messages. No `with uow.atomic()` blocks in
    the view — transactions belong to the service.
 
-6. **Add unit tests** for the service. Mock the specific repo protocols
-   and `TransactionProtocol` directly — never `MagicMock()` of UoW. The
-   pattern is `TestCFPPersonalDataFieldService` in `tests/unit/test_mills.py`.
-   Existing integration tests for the view are the regression guard for
-   end-to-end behavior.
+6. **Let the existing tests guard it.** The view's integration tests and the
+   e2e specs for the page are the regression guard; run them. Don't add a
+   service unit test after the fact. If the service holds tricky logic worth
+   isolating, write down its failure modes first, one test each (see
+   [TESTING_STRATEGY](../TESTING_STRATEGY.md)).
 
 ## Boundaries
 
@@ -70,7 +70,7 @@ The `personal_data_fields` family is the canonical example to copy.
   `src/ludamus/inits/repositories.py`,
   `src/ludamus/inits/middleware.py`
 - **view:** `src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py`
-- **tests:** `tests/unit/test_mills.py` — `TestCFPPersonalDataFieldService`
+- **tests:** `tests/integration/web/panel/test_personal_data_field*_page.py`
 
 ## What never crosses the migration
 

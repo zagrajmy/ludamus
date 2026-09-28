@@ -12,6 +12,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     make_overlapping_sessions,
+    make_room_and_facilitator_clash,
     make_timetable_session,
     schedule_outside_preferred_slot,
 )
@@ -78,6 +79,44 @@ class TestTimetableConflictsPartView:
                         session_title=occupier.title,
                         session_pk=occupier.pk,
                     )
+                ],
+                "slug": event.slug,
+                "filter_track_pk": None,
+            },
+        )
+
+    def test_room_and_facilitator_clash_of_one_pair_are_two_conflicts(
+        self, panel_client, event, proposal_category
+    ):
+        _, (subject, other), facilitator = make_room_and_facilitator_clash(
+            event, proposal_category
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-conflict-panel.html",
+            context_data={
+                "conflicts": [
+                    ConflictDTO(
+                        type=ConflictType.SPACE_OVERLAP,
+                        severity=ConflictSeverity.ERROR,
+                        subject_session_title=subject.title,
+                        subject_session_pk=subject.pk,
+                        session_title=other.title,
+                        session_pk=other.pk,
+                    ),
+                    ConflictDTO(
+                        type=ConflictType.FACILITATOR_OVERLAP,
+                        severity=ConflictSeverity.ERROR,
+                        subject_session_title=subject.title,
+                        subject_session_pk=subject.pk,
+                        session_title=other.title,
+                        session_pk=other.pk,
+                        facilitator_name=facilitator.display_name,
+                    ),
                 ],
                 "slug": event.slug,
                 "filter_track_pk": None,
