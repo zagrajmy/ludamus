@@ -8,7 +8,7 @@ from django.contrib.messages import get_messages
 from django.utils.timezone import now
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
     from django.http import HttpResponse
 
@@ -183,6 +183,9 @@ def assert_cache_control(response: HttpResponse, expected: set[str]) -> None:
     assert directives == expected, directives
 
 
+_NO_JSON = object()
+
+
 def assert_response(
     response: HttpResponse,
     status_code: HTTPStatus,
@@ -191,6 +194,8 @@ def assert_response(
     contains: str | Iterable[str] = (),
     not_contains: str | Iterable[str] = (),
     cache_control: set[str] | None = None,
+    headers: Mapping[str, str] | None = None,
+    json: Any = _NO_JSON,
     **response_fields: Any,
 ) -> None:
     assert response.status_code == status_code, response.status_code
@@ -198,6 +203,10 @@ def assert_response(
 
     if cache_control is not None:
         assert_cache_control(response, cache_control)
+    if headers is not None:
+        assert {name: response.headers.get(name) for name in headers} == headers
+    if json is not _NO_JSON:
+        assert response.json() == json
 
     default_fields = {"context_data": None, "template_name": None, "url": None}
     for key, value in (default_fields | response_fields).items():
