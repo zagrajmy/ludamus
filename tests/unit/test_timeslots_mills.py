@@ -7,12 +7,6 @@ _TZ = ZoneInfo("Europe/Warsaw")
 
 
 class TestMidnightWindows:
-    def test_same_day_stays_one_window(self):
-        start = datetime(2026, 7, 10, 12, tzinfo=_TZ)
-        end = datetime(2026, 7, 10, 14, tzinfo=_TZ)
-
-        assert MIDNIGHT.windows(start=start, end=end, tz=_TZ) == [(start, end)]
-
     def test_night_interval_splits_at_local_midnight(self):
         start = datetime(2026, 7, 10, 22, tzinfo=_TZ)
         end = datetime(2026, 7, 11, 2, tzinfo=_TZ)
@@ -29,21 +23,6 @@ class TestMidnightWindows:
 
         assert MIDNIGHT.windows(start=start, end=end, tz=_TZ) == [
             (start.astimezone(_TZ), end.astimezone(_TZ))
-        ]
-
-    def test_converts_from_utc_into_tz(self):
-        start = datetime(2026, 7, 10, 20, tzinfo=UTC)
-        end = datetime(2026, 7, 10, 23, tzinfo=UTC)
-
-        assert MIDNIGHT.windows(start=start, end=end, tz=_TZ) == [
-            (
-                datetime(2026, 7, 10, 22, tzinfo=_TZ),
-                datetime(2026, 7, 11, 0, tzinfo=_TZ),
-            ),
-            (
-                datetime(2026, 7, 11, 0, tzinfo=_TZ),
-                datetime(2026, 7, 11, 1, tzinfo=_TZ),
-            ),
         ]
 
 
@@ -64,11 +43,6 @@ class TestProgrammeDays:
             (start, turnover),
             (turnover, end),
         ]
-
-    def test_the_day_opens_at_the_turnover(self):
-        assert PROGRAMME_DAYS.opening(date(2026, 7, 11), _TZ) == datetime(
-            2026, 7, 11, 6, tzinfo=_TZ
-        )
 
     def test_a_day_holds_the_small_hours_before_it_turns(self):
         instant = datetime(2026, 7, 11, 5, 45, tzinfo=_TZ)

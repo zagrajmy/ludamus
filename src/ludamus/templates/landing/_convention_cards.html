@@ -3,7 +3,7 @@
 <div class="grid grid-cols-3 max-[52rem]:grid-cols-1 gap-4 max-w-[58rem]">
     {% for convention in conventions %}
         <a class="group/conv relative overflow-hidden rounded-2xl border border-border min-h-[8.5rem] flex items-end p-4 no-underline"
-           href="https://{{ convention.domain }}/"
+           href="https://{{ convention.domain }}{% url 'web:chronology:event' slug=convention.event_slug %}"
            target="_blank"
            rel="noopener">
             <img class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover/conv:scale-105"
