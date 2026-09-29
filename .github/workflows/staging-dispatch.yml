@@ -10,6 +10,10 @@ permissions:
 jobs:
   dispatch-from-pr:
     name: Dispatch staging deploy from PR
+    # NOTE: every PR push fired this for a one-second no-op. Adding the label
+    # sends its own `labeled` event, so the payload's labels are fresh enough;
+    # the script still re-reads the PR before it dispatches.
+    if: contains(github.event.pull_request.labels.*.name, 'staging')
     runs-on: ubuntu-latest
     permissions:
       actions: write

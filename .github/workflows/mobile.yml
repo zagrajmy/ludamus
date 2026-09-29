@@ -11,10 +11,8 @@ on:
       - "scripts/ios-regressions/**"
       - ".github/workflows/mobile.yml"
 
-# NOTE: keyed on the workflow name, not a literal prefix — ci.yml's group is the
-# bare branch, so a prefix can collide with a branch of the same name. A
-# superseded head's device run holds a macOS runner for most of an hour and
-# queues the one that replaced it.
+# NOTE: a superseded head's device run holds a macOS runner for most of an hour
+# and queues the one that replaced it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -82,6 +80,32 @@ jobs:
           # (dyld "Library not loaded" / Abort trap 6). Reinstall fresh instead.
           cache: false
 
+      - name: Locate caches
+        id: caches
+        run: |
+          echo "aube-store=$(mise exec -- aube store path)" >> "$GITHUB_OUTPUT"
+          echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      # Unrestored, `test:e2e:prep`'s aube install downloads ~165 MB in ~40s.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.caches.outputs.aube-store }}
+          key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
+          restore-keys: |
+            aube-${{ runner.os }}-
+
+      # Holds the XCUITest runner's ~240s build-for-testing. agent-device
+      # reuses it only while its .xctestrun and products exist and point at
+      # the installed agent-device, and rebuilds otherwise, so a stale restore
+      # costs no more than a miss. Xcode ships with the image, hence the key.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.agent-device/ios-runner/derived
+          key: ios-runner-${{ steps.caches.outputs.image }}-${{ hashFiles(
+            'aube-lock.yaml') }}
+          restore-keys: |
+            ios-runner-${{ steps.caches.outputs.image }}-
+
       - uses: oven-sh/setup-bun@v2
 
       - run: mise exec -- poetry install
@@ -144,8 +168,9 @@ jobs:
       - name: Join the iOS simulator boot
         run: xcrun simctl bootstatus "$UDID" -b
 
-      # The XCUITest runner's build measures ~240s and is paid by the first
-      # runner-backed command anywhere. Left inside a test hook it burns that
+      # The XCUITest runner's build measures ~240s and, unless the cache above
+      # restored it, is paid by the first runner-backed command anywhere.
+      # Left inside a test hook it burns that
       # hook's budget and one of its attempts, so it gets its own step and its
       # own budget here. The runner itself is keyed to a session and stops with
       # it, so each spec still launches one -- only the build is shared.
