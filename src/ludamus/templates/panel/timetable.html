@@ -103,29 +103,18 @@
                 <!-- Left column: browse-or-detail pane stacked above conflicts foldable -->
                 <div class="flex flex-col gap-3 w-full lg:w-72 lg:flex-none">
                     {% include "panel/parts/timetable-browse-pane.html" %}
+                    {% comment %}
+                    NOTE: rendered inline -- the page already ran conflict detection, so
+                    fetching the same list again on load would sweep the event twice.
+                    The heading comes with the list, so its count refreshes with it.
+                    {% endcomment %}
                     <details id="conflicts-fold"
                              class="card p-3"
-                             {% if conflicts_count %}open{% endif %}>
-                        <summary class="cursor-pointer text-sm font-medium text-foreground-secondary flex items-center gap-2">
-                            {% if conflicts_count %}
-                                <span class="text-danger">⚠</span>
-                                <span>{% blocktranslate count count=conflicts_count %}{{ count }} conflict{% plural %}{{ count }} conflicts{% endblocktranslate %}</span>
-                            {% else %}
-                                <span class="text-success">✓</span>
-                                <span>{% translate "All clear" %}</span>
-                            {% endif %}
-                        </summary>
-                        {% comment %}
-                    Rendered inline -- the page already ran conflict detection, so
-                    fetching the same list again on load would sweep the event twice.
-                        {% endcomment %}
-                        <div id="conflict-panel"
-                             class="mt-2"
                              hx-get="{% url 'panel:timetable-conflicts-part' slug=current_event.slug %}{% querystring %}"
                              hx-swap="innerHTML"
-                             hx-trigger="timetableChanged from:body">
-                            {% include "panel/parts/timetable-conflict-panel.html" %}
-                        </div>
+                             hx-trigger="timetableChanged from:body"
+                             {% if conflicts_count %}open{% endif %}>
+                        {% include "panel/parts/timetable-conflict-panel.html" %}
                     </details>
                 </div>
                 <!-- Center pane: timetable grid -->

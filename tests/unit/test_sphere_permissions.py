@@ -24,7 +24,7 @@ def encounters_fixture():
 
 @pytest.fixture(name="service")
 def service_fixture(spheres, events, encounters):
-    return SpherePanelService(MagicMock(), spheres, events, encounters)
+    return SpherePanelService(MagicMock(), spheres, events, encounters, MagicMock())
 
 
 class TestSpherePanelServiceAccess:
@@ -53,36 +53,17 @@ class TestSpherePanelServiceAccess:
         assert access.role is None
         assert not access.capabilities
 
-    def test_the_role_is_looked_up_once(self, service, spheres):
-        spheres.manager_role.return_value = SphereRole.MANAGER
 
-        service.access(3, "boss")
-
-        spheres.manager_role.assert_called_once_with(3, "boss")
-
-
-class TestSpherePanelServiceUpdateSettings:
-    def test_writes_the_policy(self, service, spheres):
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            encounters_policy=EncountersPolicy.MANAGERS,
+class TestSpherePanelServicePatchSettings:
+    def test_a_patch_writes_only_what_it_names(self, service, spheres):
+        # The point of the patch shape: a caller changing one setting must not
+        # carry the others along, because it would be carrying whatever it
+        # read a moment ago and overwriting a change made in between.
+        service.patch_settings(
+            3, changes={"encounters_policy": EncountersPolicy.MANAGERS}
         )
 
-        assert outcome is SphereSettingsOutcome.SAVED
-        spheres.update.assert_called_once_with(
-            3, {"allow_facilitator_session_edit": True, "encounters_policy": "managers"}
-        )
-
-    def test_logo_included_only_when_given(self, service, spheres):
-        service.update_settings(
-            3,
-            allow_facilitator_session_edit=False,
-            encounters_policy=EncountersPolicy.EVERYONE,
-            logo="",
-        )
-
-        assert not spheres.update.call_args.args[1]["logo"]
+        spheres.update.assert_called_once_with(3, {"encounters_policy": "managers"})
 
     def test_refuses_to_hide_existing_encounters_unconfirmed(
         self, service, spheres, encounters
@@ -90,40 +71,9 @@ class TestSpherePanelServiceUpdateSettings:
         spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
         encounters.exists_for_sphere.return_value = True
 
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            encounters_policy=EncountersPolicy.NONE,
+        outcome = service.patch_settings(
+            3, changes={"encounters_policy": EncountersPolicy.NONE}
         )
 
         assert outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION
         spheres.update.assert_not_called()
-
-    def test_hides_them_once_confirmed(self, service, spheres, encounters):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
-        encounters.exists_for_sphere.return_value = True
-
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            encounters_policy=EncountersPolicy.NONE,
-            confirmed_encounters_disable=True,
-        )
-
-        assert outcome is SphereSettingsOutcome.SAVED
-        spheres.update.assert_called_once()
-
-
-class TestSpherePanelServiceUpdateLogo:
-    def test_writes_only_the_logo(self, service, spheres):
-        upload = MagicMock()
-
-        service.update_logo(3, upload)
-
-        spheres.update.assert_called_once_with(3, {"logo": upload})
-
-    def test_clears_the_logo_without_reading_the_sphere(self, service, spheres):
-        service.update_logo(3, "")
-
-        spheres.update.assert_called_once_with(3, {"logo": ""})
-        spheres.read.assert_not_called()

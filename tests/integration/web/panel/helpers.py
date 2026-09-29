@@ -36,7 +36,11 @@ from ludamus.pacts.chronology import (
     TimetableGridDTO,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
+from ludamus.specs.timetable import (
+    TIMETABLE_ROOM_PAGE_SIZE,
+    TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -214,6 +218,17 @@ def make_overlapping_sessions(event, category):
     return space, sessions
 
 
+def make_room_and_facilitator_clash(event, category):
+    # The minimal clash plus one shared host: one pair, two distinct problems.
+    space, sessions = make_overlapping_sessions(event, category)
+    facilitator = Facilitator.objects.create(
+        event=event, display_name="Double-booked host", slug="double-booked-host"
+    )
+    for session in sessions:
+        session.facilitators.add(facilitator)
+    return space, sessions, facilitator
+
+
 def schedule_outside_preferred_slot(*, event, category, space):
     # Scheduled at the event start while its only preferred slot sits hours
     # later: a slot violation, which the conflict panel deliberately ignores.
@@ -317,6 +332,8 @@ def grid_with(
         page=page,
         total_pages=total_pages,
         total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
+        first_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + 1,
+        last_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + len(space_dtos),
         total_columns=len(space_dtos) * len(days),
         available_dates=[day.date for day in days],
         date_selection=date_selection,

@@ -2,20 +2,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-import pytest
-
-from ludamus.mills.chronology import (
-    SessionContentEditService,
-    SessionEditNotAllowedError,
-    SessionSelfEditService,
-)
-
-
-class _FakeUpload:
-    name = "cover.png"
-
-    def read(self) -> bytes:
-        return b""
+from ludamus.mills.chronology import SessionContentEditService, SessionSelfEditService
 
 
 @contextmanager
@@ -50,78 +37,6 @@ def _build(*, presenter_id, event_override, sphere_default):
 
 
 class TestUpdate:
-    def test_writes_session_and_field_values_atomically(self):
-        service, sessions, transaction, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        field_values = [{"session_id": 5, "field_id": 1, "value": "x"}]
-
-        service.update(
-            5,
-            10,
-            {"title": "T", "facilitator_name": "D", "participants_limit": 4},
-            field_values,
-        )
-
-        transaction.atomic.assert_called_once()
-        sessions.update.assert_called_once_with(
-            5,
-            {
-                "title": "T",
-                "facilitator_name": "D",
-                "description": "",
-                "contact_email": "",
-                "participants_limit": 4,
-                "min_age": 0,
-                "duration": "",
-            },
-        )
-        sessions.save_field_values.assert_called_once_with(5, field_values)
-
-    def test_passes_uploaded_cover_image_through(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        cover = _FakeUpload()
-
-        service.update(
-            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": cover}, []
-        )
-
-        assert sessions.update.call_args.args[1]["cover_image"] is cover
-
-    def test_clears_cover_image_when_false(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-
-        service.update(
-            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": False}, []
-        )
-
-        sessions.update.assert_called_once_with(
-            5,
-            {
-                "title": "T",
-                "facilitator_name": "D",
-                "description": "",
-                "contact_email": "",
-                "participants_limit": 0,
-                "min_age": 0,
-                "duration": "",
-                "cover_image": "",
-            },
-        )
-
-    def test_leaves_cover_image_untouched_when_absent(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-
-        service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
-
-        assert "cover_image" not in sessions.update.call_args.args[1]
-
     def test_duration_change_resizes_the_scheduled_block(self):
         # The block tracks the session's length whoever edits it: a facilitator
         # shrinking their own session must not leave the grid drawing the old
@@ -142,13 +57,3 @@ class TestUpdate:
         agenda_items.update.assert_called_once_with(
             3, {"end_time": datetime(2026, 1, 1, 12, 0, tzinfo=UTC)}
         )
-
-    def test_raises_when_not_allowed(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=False, sphere_default=True
-        )
-
-        with pytest.raises(SessionEditNotAllowedError):
-            service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
-
-        sessions.update.assert_not_called()

@@ -38,7 +38,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -62,7 +62,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -83,7 +83,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="https://www.testserver/crowd/profile/?next=%2Fevents%2F",
+            url="https://www.testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -131,7 +131,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
@@ -165,7 +165,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         user = User.objects.get(username=f"auth0|{sub}")
@@ -188,7 +188,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get(username=username).slug != slugify(username)
@@ -361,7 +361,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         user = User.objects.get(username=f"auth0|{sub}")
@@ -411,7 +411,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         user = User.objects.get(username=f"auth0|{sub}")
@@ -458,7 +458,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -498,7 +498,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            url="http://testserver/crowd/profile/?next=%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")

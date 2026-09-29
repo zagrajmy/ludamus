@@ -28,6 +28,10 @@ if TYPE_CHECKING:
         CrowdAuthServiceProtocol,
         ProfileServiceProtocol,
     )
+    from ludamus.pacts.dashboard import (
+        DashboardServiceProtocol,
+        SphereSubscriptionServiceProtocol,
+    )
     from ludamus.pacts.discounts import (
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
@@ -44,12 +48,14 @@ if TYPE_CHECKING:
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
         EventsServiceProtocol,
+        LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
+    from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -151,6 +157,12 @@ class ServicesProtocol(Protocol):
     @property
     def sites(self) -> SitesServiceProtocol: ...
     @property
+    def landing(self) -> LandingServiceProtocol: ...
+    @property
+    def dashboard(self) -> DashboardServiceProtocol: ...
+    @property
+    def sphere_subscriptions(self) -> SphereSubscriptionServiceProtocol: ...
+    @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
@@ -186,6 +198,8 @@ class ServicesProtocol(Protocol):
     def space_tree(self) -> SpaceTreeServiceProtocol: ...
     @property
     def event_maps(self) -> EventMapsServiceProtocol: ...
+    @property
+    def mcp_authorization(self) -> McpAuthorizationServiceProtocol: ...
     @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property

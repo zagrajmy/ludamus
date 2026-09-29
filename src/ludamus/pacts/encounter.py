@@ -11,6 +11,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol
 
 
+# How far back the feed reads. Enforced twice — the repository stops
+# fetching, the page stops rendering — so both halves cut at the same row.
+PAST_FEED_LIMIT = 24
+
+
 class EncountersPolicy(StrEnum):
     """Who may create encounters in a sphere. NONE turns the feature off."""
 
@@ -89,11 +94,11 @@ class EncounterRepositoryProtocol(Protocol):
     def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
     def list_visible_upcoming(
-        sphere_id: int, user_id: int | None
+        sphere_id: int, user_id: int | None, *, limit: int | None = None
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def list_visible_past(
-        sphere_id: int, user_id: int | None, limit: int
+        sphere_id: int, user_id: int | None, *, limit: int
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def update(pk: int, data: EncounterData) -> None: ...
@@ -152,6 +157,9 @@ class RSVPOutcome(StrEnum):
 class EncounterServiceProtocol(Protocol):
     def enabled(self, sphere_id: int) -> bool: ...
     def list_feed(self, *, sphere_id: int, user_id: int | None) -> EncounterFeed: ...
+    def list_upcoming(
+        self, *, sphere_id: int, user_id: int | None, limit: int
+    ) -> list[EncounterIndexItem]: ...
     def can_create(self, *, sphere_id: int, user_id: int) -> bool: ...
     def build_detail(
         self, *, share_code: str, sphere_id: int, current_user_id: int | None

@@ -7,10 +7,7 @@
     <a href="{% url 'web:notice-board:encounter-detail' share_code=encounter.share_code %}"
        class="block hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
         {% if encounter.header_image_url %}
-            {# Same dark-mode tint the event card puts over its cover, so mixed grids read evenly. #}
-            <div class="min-h-32 bg-cover bg-center rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
-                 style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ encounter.header_image_url }}')">
-            </div>
+            {% include "components/cover_tint.html" with url=encounter.header_image_url extra_class="min-h-32" only %}
         {% endif %}
         <div class="p-4">
             <div class="flex items-start justify-between gap-2 mb-1">

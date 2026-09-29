@@ -27,4 +27,5 @@ when the binary is missing.
 
 Originally recorded on 2026-08-18. Imported from [PAPERCUTS.txt](https://github.com/zagrajmy/ludamus/blob/51c7d71cd/PAPERCUTS.txt#L274).
 
-Historical observation; not reproduced as part of this migration.
+Reproduced on 2026-09-21: `mise run lint:hk` in a fresh documentation
+worktree aborted because `aube exec --no-install oxfmt` could not find oxfmt.

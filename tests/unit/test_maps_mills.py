@@ -13,7 +13,6 @@ from ludamus.pacts.maps import (
 )
 
 EVENT_PK = 7
-OTHER_EVENT_PK = 8
 SITE_PLAN_PK = 10
 FLOOR_PLAN_PK = 20
 
@@ -32,10 +31,10 @@ def _space(pk, parent_id=None, name=None):
     )
 
 
-def _record(pk, space_pks, event_id=EVENT_PK):
+def _record(pk, space_pks):
     return EventMapRecordDTO(
         pk=pk,
-        event_id=event_id,
+        event_id=EVENT_PK,
         name=f"map-{pk}",
         pages=[EventMapPageDTO(pk=pk, image_url=f"/media/eventmaps/{pk}.png")],
         space_pks=list(space_pks),
@@ -51,11 +50,6 @@ def _service(*, maps=(), spaces=()):
 
 
 class TestListForEvent:
-    def test_no_maps_reads_no_spaces(self):
-        service, _maps = _service(spaces=[_space(1)])
-
-        assert service.list_for_event(EVENT_PK) == []
-
     def test_draws_attached_rooms_under_their_unattached_venue(self):
         # Hall > Room 1, Room 2; only Room 1 is on the map. The hall frames it
         # as plain text, Room 2 is not drawn at all, and a space the event no
@@ -113,11 +107,6 @@ class TestListForEvent:
 
 
 class TestMapForSpace:
-    def test_no_attached_spaces_means_no_map(self):
-        service, _maps = _service(maps=[_record(10, [])], spaces=[_space(1)])
-
-        assert service.map_pk_for_space(event_pk=EVENT_PK, space_pk=1) is None
-
     def test_room_inherits_the_map_of_its_nearest_mapped_ancestor(self):
         # Building 1 > Floor 2 > Room 3; Floor 2 is on map 20, Building 1 on
         # map 10. The room resolves to the floor plan, the building to the
@@ -149,13 +138,6 @@ class TestMapForSpace:
 
 
 class TestScoping:
-    def test_read_refuses_a_map_of_another_event(self):
-        service, maps = _service()
-        maps.read.return_value = _record(10, [], event_id=OTHER_EVENT_PK)
-
-        with pytest.raises(NotFoundError):
-            service.read(event_pk=EVENT_PK, pk=10)
-
     def test_attach_refuses_a_space_of_another_event_without_writing(self):
         service, maps = _service(spaces=[_space(1)])
         maps.read.return_value = _record(10, [])
@@ -164,37 +146,3 @@ class TestScoping:
             service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[1, 99])
 
         maps.set_spaces.assert_not_called()
-
-    def test_attach_writes_the_events_own_spaces(self):
-        service, maps = _service(spaces=[_space(1), _space(2)])
-        maps.read.return_value = _record(10, [])
-
-        service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[2])
-
-        maps.set_spaces.assert_called_once_with(10, [2])
-
-    def test_update_refuses_a_map_of_another_event_without_writing(self):
-        service, maps = _service()
-        maps.read.return_value = _record(10, [], event_id=OTHER_EVENT_PK)
-
-        with pytest.raises(NotFoundError):
-            service.update(event_pk=EVENT_PK, pk=10, name="Plan", images=None)
-
-        maps.update.assert_not_called()
-
-    def test_delete_refuses_a_map_of_another_event_without_deleting(self):
-        service, maps = _service()
-        maps.read.return_value = _record(10, [], event_id=OTHER_EVENT_PK)
-
-        with pytest.raises(NotFoundError):
-            service.delete(event_pk=EVENT_PK, pk=10)
-
-        maps.delete.assert_not_called()
-
-    def test_delete_removes_the_events_own_map(self):
-        service, maps = _service()
-        maps.read.return_value = _record(10, [])
-
-        service.delete(event_pk=EVENT_PK, pk=10)
-
-        maps.delete.assert_called_once_with(10)

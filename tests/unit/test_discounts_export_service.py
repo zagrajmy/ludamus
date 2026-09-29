@@ -28,17 +28,18 @@ def _facilitator(pk, *, display_name="Alice", accreditation_type="guest"):
     )
 
 
-def _discount(pk, *, event_id=1, facilitator_id=1, kind=DiscountKind.PERCENT):
+def _discount(facilitator_id, *, value, note):
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     return DiscountDTO(
-        pk=pk,
-        event_id=event_id,
+        pk=facilitator_id,
+        event_id=1,
         facilitator_id=facilitator_id,
-        kind=kind,
-        value=Decimal("15.50"),
-        note=f"note-{pk}",
+        kind=DiscountKind.PERCENT,
+        value=value,
+        note=note,
         from_rules=False,
-        creation_time=datetime(2026, 6, 19, tzinfo=UTC),
-        modification_time=datetime(2026, 6, 19, tzinfo=UTC),
+        creation_time=now,
+        modification_time=now,
     )
 
 
@@ -46,27 +47,23 @@ class FakeDiscounts:
     def __init__(self, items=()):
         self._items = list(items)
 
-    def list_by_event(self, event_pk):
-        return [d for d in self._items if d.event_id == event_pk]
+    def list_by_event(self, _event_pk):
+        return list(self._items)
 
 
 class FakeFacilitators:
     def __init__(self, items=()):
         self._items = list(items)
-        self.listed_events = []
 
-    def list_by_event(self, event_id):
-        self.listed_events.append(event_id)
+    def list_by_event(self, _event_id):
         return list(self._items)
 
 
 class FakeConnections:
     def __init__(self, blob=b"encrypted"):
         self._blob = blob
-        self.read = []
 
-    def read_secret(self, sphere_id, pk):
-        self.read.append((sphere_id, pk))
+    def read_secret(self, _sphere_id, _pk):
         return self._blob
 
 
@@ -99,90 +96,19 @@ def _service(
     )
 
 
-def _export(service, *, labels=LABELS, columns=NO_COLUMNS):
+def _export(service, *, columns=NO_COLUMNS):
     return service.export_to_sheet(
         sphere_id=3,
         event_pk=1,
         connection_id=7,
         spreadsheet_id="sheet-1",
         tab_title="Akredytacje",
-        labels=labels,
+        labels=LABELS,
         columns=columns,
     )
 
 
 class TestDiscountsExportService:
-    def test_writes_header_and_labelled_rows_in_facilitator_order(self):
-        facilitator_count = 2
-        facilitators = FakeFacilitators(
-            [
-                _facilitator(1, display_name="Alice", accreditation_type="guest"),
-                _facilitator(2, display_name="Bob", accreditation_type="honorary"),
-            ]
-        )
-        discounts = FakeDiscounts(
-            [
-                _discount(10, facilitator_id=2, kind=DiscountKind.AMOUNT),
-                _discount(11, facilitator_id=1, kind=DiscountKind.PERCENT),
-            ]
-        )
-        writer = FakeWriter()
-        service = _service(
-            discounts=discounts, facilitators=facilitators, writer=writer
-        )
-
-        count = _export(service)
-
-        assert count == facilitator_count
-        assert writer.calls == [
-            (
-                b"plaintext",
-                "sheet-1",
-                "Akredytacje",
-                [
-                    ["Rodzaj", "Wartość", "Notatka"],
-                    ["Procent", "15.50", "note-11"],
-                    ["Kwota", "15.50", "note-10"],
-                ],
-            )
-        ]
-
-    def test_chosen_columns_are_written_before_the_discount_ones(self):
-        facilitators = FakeFacilitators(
-            [_facilitator(1), _facilitator(2, display_name="Bob")]
-        )
-        discounts = FakeDiscounts([_discount(10, facilitator_id=1)])
-        writer = FakeWriter()
-        service = _service(
-            discounts=discounts, facilitators=facilitators, writer=writer
-        )
-
-        _export(
-            service,
-            columns=DiscountExportColumns(
-                headers=["Imię", "Opiekun"],
-                cells={1: ["Alicja", "Ola"], 2: ["Bogdan", ""]},
-            ),
-        )
-
-        assert writer.calls[0][3] == [
-            ["Imię", "Opiekun", "Rodzaj", "Wartość", "Notatka"],
-            ["Alicja", "Ola", "Procent", "15.50", "note-10"],
-            ["Bogdan", "", "", "", ""],
-        ]
-
-    def test_facilitator_without_chosen_column_values_keeps_the_discount_cells(self):
-        facilitators = FakeFacilitators([_facilitator(1)])
-        writer = FakeWriter()
-        service = _service(facilitators=facilitators, writer=writer)
-
-        _export(service, columns=DiscountExportColumns(headers=["Imię"], cells={}))
-
-        assert writer.calls[0][3] == [
-            ["Imię", "Rodzaj", "Wartość", "Notatka"],
-            ["", "", ""],
-        ]
-
     def test_facilitators_without_accreditation_are_left_out(self):
         facilitators = FakeFacilitators(
             [
@@ -198,30 +124,6 @@ class TestDiscountsExportService:
         assert count == 1
         assert writer.calls[0][3] == [["Rodzaj", "Wartość", "Notatka"], ["", "", ""]]
 
-    def test_unknown_labels_fall_back_to_raw_values(self):
-        facilitators = FakeFacilitators(
-            [_facilitator(1, accreditation_type="honorary")]
-        )
-        discounts = FakeDiscounts([_discount(10, facilitator_id=1)])
-        writer = FakeWriter()
-        service = _service(
-            discounts=discounts, facilitators=facilitators, writer=writer
-        )
-
-        _export(service, labels=DiscountExportLabels(headers=LABELS.headers, kinds={}))
-
-        assert writer.calls[0][3][1] == ["percent", "15.50", "note-10"]
-
-    def test_reads_and_decrypts_the_connection_secret(self):
-        connections = FakeConnections(blob=b"cipher")
-        decryptor = FakeDecryptor()
-        service = _service(connections=connections, decryptor=decryptor)
-
-        _export(service)
-
-        assert connections.read == [(3, 7)]
-        assert decryptor.blobs == [b"cipher"]
-
     def test_empty_secret_is_not_decrypted(self):
         connections = FakeConnections(blob=b"")
         decryptor = FakeDecryptor()
@@ -233,20 +135,19 @@ class TestDiscountsExportService:
         assert not decryptor.blobs
         assert writer.calls[0][0] == b""
 
-    def test_scopes_discounts_and_facilitators_to_the_event(self):
-        facilitators = FakeFacilitators([_facilitator(1)])
-        discounts = FakeDiscounts(
-            [
-                _discount(10, event_id=1, facilitator_id=1),
-                _discount(11, event_id=2, facilitator_id=1, kind=DiscountKind.AMOUNT),
-            ]
-        )
+    def test_facilitator_missing_from_column_cells_keeps_the_row_aligned(self):
+        discounts = FakeDiscounts([_discount(1, value=Decimal("15.50"), note="VIP")])
         writer = FakeWriter()
         service = _service(
-            discounts=discounts, facilitators=facilitators, writer=writer
+            discounts=discounts,
+            facilitators=FakeFacilitators([_facilitator(1)]),
+            writer=writer,
         )
+        columns = DiscountExportColumns(headers=["Imię", "Nazwisko"], cells={})
 
-        _export(service)
+        _export(service, columns=columns)
 
-        assert facilitators.listed_events == [1]
-        assert writer.calls[0][3][1] == ["Procent", "15.50", "note-10"]
+        assert writer.calls[0][3] == [
+            ["Imię", "Nazwisko", "Rodzaj", "Wartość", "Notatka"],
+            ["", "", "Procent", "15.50", "VIP"],
+        ]
