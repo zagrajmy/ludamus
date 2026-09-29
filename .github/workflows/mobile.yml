@@ -80,19 +80,9 @@ jobs:
           # (dyld "Library not loaded" / Abort trap 6). Reinstall fresh instead.
           cache: false
 
-      - name: Locate caches
-        id: caches
-        run: |
-          echo "aube-store=$(mise exec -- aube store path)" >> "$GITHUB_OUTPUT"
-          echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
-
-      # Unrestored, `test:e2e:prep`'s aube install downloads ~165 MB in ~40s.
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.caches.outputs.aube-store }}
-          key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
-          restore-keys: |
-            aube-${{ runner.os }}-
+      - name: Runner image cache key
+        id: image
+        run: echo "key=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
 
       # Holds the XCUITest runner's ~240s build-for-testing. agent-device
       # reuses it only while its .xctestrun and products exist and point at
@@ -101,10 +91,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.agent-device/ios-runner/derived
-          key: ios-runner-${{ steps.caches.outputs.image }}-${{ hashFiles(
+          key: ios-runner-${{ steps.image.outputs.key }}-${{ hashFiles(
             'aube-lock.yaml') }}
           restore-keys: |
-            ios-runner-${{ steps.caches.outputs.image }}-
+            ios-runner-${{ steps.image.outputs.key }}-
 
       - uses: oven-sh/setup-bun@v2
 
