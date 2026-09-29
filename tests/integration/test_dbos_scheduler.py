@@ -29,10 +29,8 @@ _MISSING_PARTICIPATION_ID = 10_000_000
 # thread to pick it up and run its step before teardown destroys DBOS.
 _WORKFLOW_GRACE_SECONDS = 2.0
 _LAUNCH_TIMEOUT_SECONDS = 30.0
-# Ceiling for a workflow whose result the test reads from the database instead
-# of a handle; the poll returns as soon as the step has committed.
-_WORKFLOW_TIMEOUT_SECONDS = 30.0
-_POLL_SECONDS = 0.05
+# DBOS registers a workflow under its qualified name.
+_FANOUT_WORKFLOW_NAME = "_fanout_announcement_workflow"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -79,13 +77,14 @@ def test_dbos_scheduler_runs_fanout_workflow(settings, tmp_path, monkeypatch):
         scheduler.schedule_fanout(announcement_id=announcement.pk)
         # _ensure_launched constructed and launched DBOS.
         assert launched.is_set()
-        # Outside an atomic block the on_commit trigger fires at once, but its
-        # workflow runs on a DBOS worker thread: the notification landing is
-        # the only signal that the step finished.
-        deadline = time.monotonic() + _WORKFLOW_TIMEOUT_SECONDS
-        while not Notification.objects.filter(recipient=subscriber).exists():
-            assert time.monotonic() < deadline, "the fanout workflow never ran"
-            time.sleep(_POLL_SECONDS)
+        # Outside an atomic block the on_commit trigger fires at once, so the
+        # workflow is checkpointed by the time schedule_fanout returns. Wait on
+        # the workflow, not on the rows: the step writes `notification` from a
+        # worker thread, and a read racing that writer on shared-cache SQLite
+        # fails outright ("table is locked") instead of waiting out the busy
+        # timeout.
+        (started,) = DBOS.list_workflows(name=_FANOUT_WORKFLOW_NAME)
+        DBOS.retrieve_workflow(started.workflow_id).get_result()
     finally:
         DBOS.destroy()
 
