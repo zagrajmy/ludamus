@@ -6,6 +6,8 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
 from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.multiverse import SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -128,6 +130,43 @@ class TestDashboardPageView:
         [suggestion] = response.context_data["dashboard"].discover
         assert suggestion.is_subscribed is True
 
+    def test_a_private_sphere_stays_off_a_stranger_s_dashboard(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.encounters_policy = EncountersPolicy.EVERYONE
+        non_root_sphere.save()
+        # A subscription from before the sphere went private is no key to it.
+        SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
+        EventFactory(sphere=non_root_sphere)
+        EncounterFactory(sphere=non_root_sphere, is_public=True)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "dashboard": DashboardDTO(
+                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                ),
+                "can_create_encounter": True,
+            },
+            template_name="dashboard/index.html",
+        )
+
+    def test_a_private_sphere_s_manager_still_gets_its_feed(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+        non_root_sphere.managers.add(active_user)
+        event = EventFactory(sphere=non_root_sphere)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert _titles(response.context_data["dashboard"].sphere_feed) == [event.name]
+
 
 class TestSphereSubscriptionActions:
     @pytest.fixture(name="subscribe_url")
@@ -181,6 +220,17 @@ class TestSphereSubscriptionActions:
         # a control with nothing behind it.
         response = authenticated_client.post(
             reverse("web:sphere-subscribe", kwargs={"pk": sphere.pk})
+        )
+
+        assert_response_404(response)
+        assert not SphereSubscription.objects.exists()
+
+    def test_a_private_sphere_is_a_404(self, authenticated_client, non_root_sphere):
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+
+        response = authenticated_client.post(
+            reverse("web:sphere-subscribe", kwargs={"pk": non_root_sphere.pk})
         )
 
         assert_response_404(response)

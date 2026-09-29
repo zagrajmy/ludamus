@@ -68,12 +68,12 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
     @staticmethod
     def list_visible_upcoming(
-        sphere_id: int, user_id: int | None
+        sphere_id: int, user_id: int | None, *, limit: int | None = None
     ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)
             .exclude(EncounterRepository._ended())
-            .order_by("start_time")
+            .order_by("start_time")[:limit]
         )
         return [EncounterDTO.model_validate(e) for e in encounters]
 

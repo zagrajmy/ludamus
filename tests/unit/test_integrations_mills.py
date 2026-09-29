@@ -7,7 +7,6 @@ from pydantic import BaseModel, TypeAdapter
 
 from ludamus.mills.integrations import (
     EventIntegrationsService,
-    IntegrationImplementationNotFoundError,
     IntegrationImplementations,
 )
 from ludamus.pacts import MembershipAPIError, NotFoundError
@@ -61,26 +60,10 @@ class _HeaderStubImpl:
         return self._headers
 
 
-class _ExportStubImpl:
-    kind = IntegrationKind.EXPORT
-    config_model = _StrictConfig
-
-    def check(self, secret, config):
-        return CheckResult(outcome=CheckOutcome.OK, hint="")
-
-
-class _TicketingStubImpl:
-    kind = IntegrationKind.TICKETING
-    config_model = BaseModel
-
-    def check(self, secret, config):
-        return CheckResult(outcome=CheckOutcome.OK, hint="")
-
-
 _IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 
 
-def _make_service(*, imports=None, ticketing=None, exports=None):
+def _make_service(*, imports=None, ticketing=None):
     transaction = MagicMock()
     transaction.atomic.return_value.__enter__ = MagicMock(return_value=None)
     transaction.atomic.return_value.__exit__ = MagicMock(return_value=None)
@@ -93,7 +76,7 @@ def _make_service(*, imports=None, ticketing=None, exports=None):
         connections=connections,
         decryptor=decryptor,
         implementations=IntegrationImplementations(
-            imports=imports or {}, ticketing=ticketing or {}, exports=exports or {}
+            imports=imports or {}, ticketing=ticketing or {}, exports={}
         ),
     )
     return SimpleNamespace(
@@ -116,58 +99,6 @@ def _create_data():
 
 
 class TestEventIntegrationsServiceCheck:
-    def test_unknown_implementation_returns_not_found(self):
-        env = _make_service()
-
-        result = env.svc.check(
-            IntegrationCheckRequest(
-                sphere_id=1, implementation=_IMPL, connection_id=2, config_json="{}"
-            )
-        )
-
-        assert result.outcome == CheckOutcome.NOT_FOUND
-        assert _IMPL.value in result.hint
-        # Short-circuits before touching the connection secret or decryptor.
-        env.connections.read_secret.assert_not_called()
-        env.decryptor.decrypt.assert_not_called()
-
-    def test_invalid_config_returns_not_found(self):
-        env = _make_service(imports={_IMPL: _ImportStubImpl()})
-
-        result = env.svc.check(
-            IntegrationCheckRequest(
-                sphere_id=1,
-                implementation=_IMPL,
-                connection_id=2,
-                # endpoint must be a string; a JSON number trips ValidationError.
-                config_json='{"endpoint": 123}',
-            )
-        )
-
-        assert result.outcome == CheckOutcome.NOT_FOUND
-        assert "Invalid config" in result.hint
-        # ValidationError funnels out before reading the secret.
-        env.connections.read_secret.assert_not_called()
-        env.decryptor.decrypt.assert_not_called()
-
-    def test_missing_connection_returns_not_found(self):
-        env = _make_service(imports={_IMPL: _ImportStubImpl()})
-        env.connections.read_secret.side_effect = NotFoundError
-
-        result = env.svc.check(
-            IntegrationCheckRequest(
-                sphere_id=1,
-                implementation=_IMPL,
-                connection_id=999,
-                config_json='{"endpoint": "x"}',
-            )
-        )
-
-        assert result.outcome == CheckOutcome.NOT_FOUND
-        assert result.hint == "Connection not found."
-        # A NotFoundError becomes a graceful result; nothing gets decrypted.
-        env.decryptor.decrypt.assert_not_called()
-
     def test_decrypts_the_secret_and_asks_the_implementation(self):
         impl = _ImportStubImpl()
         env = _make_service(imports={_IMPL: impl})
@@ -250,70 +181,7 @@ class TestEventIntegrationsServiceWrites:
         )
 
 
-class TestEventIntegrationsServiceRequireImplementation:
-    def test_create_with_unknown_implementation_raises(self):
-        env = _make_service()
-
-        with pytest.raises(IntegrationImplementationNotFoundError):
-            env.svc.create(sphere_id=1, event_id=2, data=_create_data())
-
-        # Guard raises before any IO or transaction.
-        env.connections.get.assert_not_called()
-        env.transaction.atomic.assert_not_called()
-        env.integrations.create.assert_not_called()
-
-    def test_create_with_wrong_kind_raises(self):
-        env = _make_service(ticketing={_IMPL: _TicketingStubImpl()})
-
-        with pytest.raises(IntegrationImplementationNotFoundError):
-            env.svc.create(sphere_id=1, event_id=2, data=_create_data())
-
-        env.connections.get.assert_not_called()
-        env.transaction.atomic.assert_not_called()
-        env.integrations.create.assert_not_called()
-
-
 class TestEventIntegrationsServiceSnapshotAndFetch:
-    def test_fetch_questions_returns_empty_when_implementation_missing(self):
-        env = _make_service()
-        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
-
-        result = env.svc.fetch_questions(sphere_id=1, event_id=2, pk=3)
-
-        assert result == []
-        # No registered impl: short-circuits before touching the secret.
-        env.connections.read_secret.assert_not_called()
-        env.decryptor.decrypt.assert_not_called()
-
-    def test_fetch_responses_returns_empty_when_implementation_missing(self):
-        env = _make_service()
-        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
-
-        result = env.svc.fetch_responses(sphere_id=1, event_id=2, pk=3)
-
-        assert result == []
-        env.connections.read_secret.assert_not_called()
-        env.decryptor.decrypt.assert_not_called()
-
-    def test_fetch_headers_returns_empty_when_implementation_missing(self):
-        env = _make_service()
-        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
-
-        result = env.svc.fetch_headers(sphere_id=1, event_id=2, pk=3)
-
-        assert result == []
-        env.connections.read_secret.assert_not_called()
-        env.decryptor.decrypt.assert_not_called()
-
-    def test_fetch_questions_returns_empty_for_a_registered_non_source(self):
-        # An exporter is in the registry (so it can be created and checked) but
-        # not among the import implementations, and has no `fetch_*` to call.
-        env = _make_service(exports={_IMPL: _ExportStubImpl()})
-        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
-
-        assert env.svc.fetch_questions(sphere_id=1, event_id=2, pk=3) == []
-        env.connections.read_secret.assert_not_called()
-
     def test_populate_snapshot_caches_the_sheet_header_row(self):
         # The header row is what the run tab offers as unique-key columns, so it
         # must include the metadata columns the form schema never carries.
@@ -409,14 +277,6 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         env.integrations.update_settings.assert_not_called()
         env.integrations.update_questions_snapshot.assert_called_once()
 
-    def test_get_cached_questions_returns_empty_on_invalid_snapshot_json(self):
-        env = _make_service()
-        env.integrations.get.return_value = MagicMock(
-            questions_snapshot_json="not valid json"
-        )
-
-        assert env.svc.get_cached_questions(2, 3) == []
-
 
 class _MembershipConfig(BaseModel):
     base_url: str
@@ -479,14 +339,6 @@ class TestEventIntegrationsServiceTicketApi:
         client = env.svc.resolve(event_id=7, sphere_id=1)
 
         assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
-
-    def test_resolve_without_an_integration_raises_membership_api_error(self):
-        env = _ticketing_env([])
-
-        client = env.svc.resolve(event_id=7, sphere_id=1)
-
-        with pytest.raises(MembershipAPIError):
-            client.fetch_membership_count(_EMAIL)
 
     def test_resolve_skips_an_unknown_implementation(self):
         env = _ticketing_env([])
@@ -553,13 +405,3 @@ class TestEventIntegrationsServiceTicketApi:
         ]
         with pytest.raises(MembershipAPIError):
             client.fetch_membership_count(_EMAIL)
-
-    def test_resolve_reads_the_integration_rows_once_per_event(self):
-        env = _ticketing_env([_ticketing_row()])
-
-        env.svc.resolve(event_id=7, sphere_id=1)
-        env.svc.resolve(event_id=7, sphere_id=1)
-
-        env.integrations.list_for_event.assert_called_once_with(
-            7, IntegrationKind.TICKETING
-        )

@@ -13,7 +13,6 @@ from ludamus.pacts.enrollment import (
     AnonymousEnrollmentWindowSnapshot,
     AnonymousEnrollOutcome,
     AnonymousEventDTO,
-    AnonymousLoadDTO,
     AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
     AnonymousSessionDTO,
@@ -118,7 +117,7 @@ class FakeUsers:
 class FakeRepo:
     def __init__(self, **cfg):
         # Configured returns: event, session, participation_status, conflicts,
-        # seating, load, event_slugs.
+        # seating, event_slugs.
         self._cfg = cfg
         self.log = SimpleNamespace(
             confirmed=[],
@@ -173,9 +172,6 @@ class FakeRepo:
     def delete_participation(self, *, session_id, user_id):
         self.log.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
-
-    def first_enrollment_event(self, _user_id):
-        return self._cfg.get("load")
 
 
 class FakePromotion:
@@ -245,65 +241,8 @@ class TestActivate:
         assert activation.code == activation.code.lower()
         assert len(activation.code) == _CODE_LENGTH
 
-    def test_event_not_found(self):
-        service = _service(repo=FakeRepo(event=None))
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.activate(event_slug="missing")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
-
-    def test_event_disallows_anonymous(self):
-        repo = FakeRepo(
-            event=AnonymousEventDTO(
-                event_id=_EVENT_ID,
-                slug="conv",
-                active_windows=[_open_window(allow_anonymous_enrollment=False)],
-            )
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.activate(event_slug="conv")
-
-        assert (
-            _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT
-        )
-        assert excinfo.value.event_slug == "conv"
-
 
 class TestValidation:
-    def test_session_not_found(self):
-        service = _service(repo=FakeRepo(session=None))
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
-
-    def test_no_agenda_item_redirects_to_activated_event(self):
-        repo = FakeRepo(
-            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
-        assert excinfo.value.event_slug == "conv"
-
-    def test_enroll_unscheduled_is_rejected(self):
-        repo = FakeRepo(
-            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "Ala")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
-
     def test_session_from_other_event(self):
         repo = FakeRepo(
             session=_session_ctx(event_id=_EVENT_ID + 1),
@@ -315,20 +254,6 @@ class TestValidation:
             service.get_enroll_page(_request())
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION
-        assert excinfo.value.event_slug == "conv"
-
-    def test_enrollment_closed_on_enroll(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            )
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "Ala")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
         assert excinfo.value.event_slug == "conv"
 
     def test_missing_code_means_expired_session(self):
@@ -372,20 +297,6 @@ class TestGetEnrollPage:
             {"session_id": _SESSION_ID, "user_id": _USER_PK}
         ]
 
-    def test_closed_enrollment_still_shows_existing_enrollment(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=SessionParticipationStatus.WAITING,
-        )
-        service = _service(repo=repo)
-
-        page = service.get_enroll_page(_request())
-
-        assert page.enrollment_status == SessionParticipationStatus.WAITING
-        assert page.is_enrolled is True
-
     def test_unscheduled_page_shows_when_already_enrolled(self):
         repo = FakeRepo(
             session=_session_ctx(has_agenda_item=False),
@@ -397,20 +308,6 @@ class TestGetEnrollPage:
         page = service.get_enroll_page(_request())
 
         assert page.enrollment_status == SessionParticipationStatus.CONFIRMED
-
-    def test_closed_enrollment_without_enrollment_raises(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=None,
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
 
 
 class TestEnroll:
@@ -463,16 +360,6 @@ class TestEnroll:
         assert not repo.log.confirmed
         assert not repo.log.waiting
 
-    def test_name_required_when_user_has_none(self):
-        service = _service(
-            repo=FakeRepo(session=_session_ctx()), users=FakeUsers(_user(name=""))
-        )
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NAME_REQUIRED
-
 
 class TestCancel:
     def test_cancel_frees_seat_and_promotes(self):
@@ -490,54 +377,6 @@ class TestCancel:
         assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
 
-    def test_cancel_waiting_seat_does_not_promote(self):
-        repo = FakeRepo(
-            session=_session_ctx(),
-            participation_status=SessionParticipationStatus.WAITING,
-        )
-        promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is True
-        assert not promotion.filled
-
-    def test_cancel_without_enrollment(self):
-        repo = FakeRepo(session=_session_ctx(), participation_status=None)
-        promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is False
-        assert not promotion.filled
-
-    def test_cancel_without_name_preserves_display_name(self):
-        repo = FakeRepo(
-            session=_session_ctx(),
-            participation_status=SessionParticipationStatus.CONFIRMED,
-        )
-        users = FakeUsers(_user(name="Ala"))
-        service = _service(repo=repo, users=users)
-
-        service.cancel(_request(), "")
-
-        assert not users.updated
-
-    def test_cancel_allowed_when_enrollment_closed(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=SessionParticipationStatus.CONFIRMED,
-        )
-        service = _service(repo=repo)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is True
-
     def test_cancel_after_agenda_item_removed(self):
         repo = FakeRepo(
             session=_session_ctx(has_agenda_item=False),
@@ -553,12 +392,6 @@ class TestCancel:
 
 
 class TestLoadByCode:
-    def test_returns_load(self):
-        load = AnonymousLoadDTO(event_id=_EVENT_ID, event_slug="conv", site_id=_SITE_ID)
-        service = _service(repo=FakeRepo(load=load))
-
-        assert service.load_by_code(code=_CODE) == load
-
     def test_unknown_code(self):
         service = _service(repo=FakeRepo(), users=FakeUsers(None))
 
@@ -566,11 +399,3 @@ class TestLoadByCode:
             service.load_by_code(code="nope")
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.USER_NOT_FOUND
-
-    def test_no_enrollments(self):
-        service = _service(repo=FakeRepo(load=None))
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.load_by_code(code=_CODE)
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENTS

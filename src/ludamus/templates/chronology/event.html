@@ -9,20 +9,22 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
+{% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
+{% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
 {% block meta_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock meta_description %}
 {% block og_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock og_description %}
 {% block twitter_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock twitter_description %}
 {% block og_image %}
-    {% meta_image_url event.cover_image_url %}
+    {% meta_image_url link_preview.image_url event.cover_image_url %}
 {% endblock og_image %}
 {% block twitter_image %}
-    {% meta_image_url event.cover_image_url %}
+    {% meta_image_url link_preview.image_url event.cover_image_url %}
 {% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}
@@ -255,7 +257,7 @@
                         <p class="text-xs mt-1 text-foreground-muted">{% translate "This will replace your current anonymous session" %}</p>
                     </div>
                 </div>
-                <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
+                <div class="modal-footer-lg px-6 pt-4 border-t border-border flex justify-end gap-2">
                     <button type="button"
                             class="btn btn-secondary"
                             data-modal-close="anonymousCodeModal">{% translate "Cancel" %}</button>

@@ -15,14 +15,16 @@ from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
     EventMap,
+    Facilitator,
     ScheduleChangeLog,
+    Session,
     Space,
     SphereMembership,
     Track,
 )
 from ludamus.pacts.legacy import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -36,9 +38,43 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
-from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
+ORGANIZER_TOOL_NAMES = [
+    "get_sphere",
+    "list_events",
+    "get_event",
+    "get_current_event",
+    "list_spaces",
+    "list_time_slots",
+    "list_tracks",
+    "list_proposal_categories",
+    "list_sessions",
+    "list_facilitators",
+    "create_space",
+    "create_time_slot",
+    "create_track",
+    "create_proposal_category",
+    "find_or_create_facilitator",
+    "create_session",
+    "create_sessions",
+    "assign_session",
+    "assign_sessions",
+    "update_session",
+    "update_space",
+    "update_event",
+    "set_event_image",
+    "update_sphere_settings",
+    "set_sphere_logo",
+    "list_maps",
+    "create_map",
+    "update_map",
+    "set_map_spaces",
+    "delete_map",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
+    "list_announcements",
+]
 WRITE_TOOLS = {
     name for name in ORGANIZER_TOOL_NAMES if not name.startswith(("list_", "get_"))
 }
@@ -118,6 +154,17 @@ def programme_fixture(client, org_token):
 
 
 PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+BATCH_LIMIT = 250
+BATCH_SIZE_ERRORS = (
+    (0, "List should have at least 1 item after validation, not 0"),
+    (
+        BATCH_LIMIT + 1,
+        (
+            f"List should have at most {BATCH_LIMIT} items after validation, "
+            f"not {BATCH_LIMIT + 1}"
+        ),
+    ),
+)
 
 
 class TestOrganizerAuthentication:
@@ -127,10 +174,11 @@ class TestOrganizerAuthentication:
     def test_missing_token(self, client):
         response = post_org(client, PING)
 
-        assert_response(response, HTTPStatus.UNAUTHORIZED)
-        assert response.json() == {
-            "error": "A valid organizer Bearer token is required."
-        }
+        assert_response(
+            response,
+            HTTPStatus.UNAUTHORIZED,
+            json={"error": "A valid organizer Bearer token is required."},
+        )
 
     def test_maintainer_token_is_rejected(self, client):
         superuser = UserFactory(username="root", is_superuser=True)
@@ -218,7 +266,9 @@ class TestOrganizerAuthentication:
     def test_manager_can_ping(self, client, org_token):
         response = post_org(client, PING, token=org_token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_non_manager_superuser_can_ping(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True)
@@ -228,7 +278,9 @@ class TestOrganizerAuthentication:
 
         response = post_org(client, PING, token=token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_deactivated_superuser(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True, is_active=False)
@@ -248,9 +300,7 @@ class TestOrganizerTools:
         )
 
         tools = response.json()["result"]["tools"]
-        tool_names = {tool["name"] for tool in tools}
-        assert tool_names >= WRITE_TOOLS
-        assert "create_event" not in tool_names
+        assert [tool["name"] for tool in tools] == ORGANIZER_TOOL_NAMES
         assert all(
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools
@@ -390,6 +440,95 @@ class TestOrganizerProgrammeValidation:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
+        assert not AgendaItem.objects.filter(session=session).exists()
+
+    @pytest.mark.parametrize("field", ("facilitator_ids", "track_ids"))
+    def test_create_session_rejects_reference_to_sibling_event(
+        self, client, org_token, sphere, event, field
+    ):
+        sibling = EventFactory(sphere=sphere)
+        foreign_ids = {
+            "facilitator_ids": (
+                Facilitator.objects.create(
+                    event=sibling, display_name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+            "track_ids": (
+                Track.objects.create(
+                    event=sibling, name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+        }
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "row-1",
+                "title": "Foreign reference",
+                "category_id": ProposalCategoryFactory(event=event).pk,
+                field: [foreign_ids[field]],
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Session.objects.filter(event=event).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_create_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        category = ProposalCategoryFactory(event=event)
+        sessions = [
+            {
+                "source_row_id": f"row-{index}",
+                "title": f"Row {index}",
+                "category_id": category.pk,
+            }
+            for index in range(size)
+        ]
+
+        response = call_org_tool(
+            client, org_token, "create_sessions", {"sessions": sessions}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == f"Invalid arguments: sessions: {error}"
+        assert not Session.objects.filter(event=event).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_assign_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        session = SessionFactory(event=event, category=None, status="accepted")
+        space = SpaceFactory(event=event, parent=None)
+        # NOTE: one placeable session is enough to prove nothing was written;
+        # the rest only pad the batch with ids that would fail on their own.
+        missing_start = session.pk + 1
+        session_ids = [session.pk, *range(missing_start, missing_start + size)][:size]
+        assignments = [
+            {
+                "session_id": session_id,
+                "space_id": space.pk,
+                "start_time": (event.start_time + timedelta(hours=1)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=2)).isoformat(),
+            }
+            for session_id in session_ids
+        ]
+
+        response = call_org_tool(
+            client, org_token, "assign_sessions", {"assignments": assignments}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert (
+            result["content"][0]["text"] == f"Invalid arguments: assignments: {error}"
+        )
         assert not AgendaItem.objects.filter(session=session).exists()
 
 
@@ -888,6 +1027,14 @@ class TestOrganizerSphereSettingsTool:
         sphere.refresh_from_db()
         assert sphere.allow_facilitator_session_edit is False
         assert sphere.encounters_policy == EncountersPolicy.MANAGERS
+
+    def test_sets_the_sphere_visibility(self, client, org_token, sphere):
+        call_org_json(
+            client, org_token, "update_sphere_settings", {"visibility": "unlisted"}
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.visibility == SphereVisibility.UNLISTED
 
     def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
         # The flag answers a question about a write; on its own there is none.

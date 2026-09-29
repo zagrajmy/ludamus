@@ -19,6 +19,14 @@
     overflow: hidden;
   }
 
+  .modal-footer {
+    padding-bottom: calc(0.75rem + 2px);
+  }
+
+  .modal-footer-lg {
+    padding-bottom: calc(1rem + 2px);
+  }
+
   .modal {
     position: fixed;
     inset: 0;
