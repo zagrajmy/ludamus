@@ -1,29 +1,29 @@
 # Testing Strategy
 
-## Layer determines test type
+## E2E first
 
-The layer of the code under test dictates the test type — **not** convenience,
-and not what is easiest to reach for coverage:
+- Never write unit tests after you write code. A test written from the code it
+  checks restates that code: it always passes, catches almost nothing, and
+  breaks on every refactor.
+- Highly prefer E2E tests (Playwright, `tests/e2e`) as the sole testing
+  mechanism. Use them to verify complex features work. At the end of an E2E
+  test, produce a verifiable and repeatable artifact (a screenshot, a
+  downloaded export, a printed PDF, a DB state dump) that a reviewer can check.
+- If you must test a system in isolation, first write down all the ways it
+  could fail, then write the code. Each failure mode becomes one test. A
+  regression test that reproduces a bug before the fix is test-first too.
 
-- `mills` → **unit** tests (coverage: `test:unit:cov:diff`,
-  `--cov=ludamus.mills`).
-- `gates`, `links`, `adapters.web`, templates → **integration** tests
-  (coverage: `test:int:cov:diff`).
+A unit test earns its place only when it would catch a real bug the E2E and
+integration suites miss: tricky pure logic (time boundaries, capacity and
+waitlist rules, permissions, secret scrubbing, parsers) or a repo-wide guard
+(translation catalog, template checks, theme contrast). Tests that stub a
+repository and assert the service passed arguments through, or that assert DTO
+field mapping, constants, or template-tag wrappers, do not.
 
-This holds when chasing coverage too: an uncovered line is covered by the test
-type that owns its layer. A missing line in `links` or `gates` means a missing
-**integration** test, even when a quick mock-everything unit test would hit the
-same line. Never raise `gates` / `links` / `adapters.web` coverage with a
-mock-everything unit test of IO-bearing code — views, repositories, importers.
-
-**Exception — pure helper functions.** A standalone function with **no IO** (no
-DB, no HTTP, no `request` / `response`, no template rendering, no Django form or
-model objects) may have a unit test wherever it lives, because there is nothing
-to *integrate*. Template-tag filters like `clsx`, `format_duration`,
-`render_markdown`, `avatar_bg_class`, and string helpers like `suggest_copy_name`
-qualify. A test that renders a template (`Template(...).render(...)`) or builds
-a form/widget is **not** pure — that is an integration test, regardless of which
-file the helper lives in.
+When a Python test is warranted, the layer decides its type: `gates`, `links`,
+`adapters.web`, and templates get **integration** tests. Never raise coverage
+with a mock-everything unit test of IO-bearing code: views, repositories,
+importers.
 
 ## Helpers keep Arrange-Act-Assert visible
 
@@ -40,13 +40,13 @@ owns them, or in a sibling `helpers.py` once a second module needs them — see
 
 ## Unit tests
 
-Cover: mills (public methods and functions), plus pure IO-free helper functions
-from any layer (see the exception above).
+Cover: the isolated systems that meet the bar above, with one test per failure
+mode written down before the code.
 
 Rules:
 
 - mock at highest level
-- assert all mock calls
+- assert outcomes, not call sequences
 - no database
 
 ## Integration tests
@@ -57,7 +57,8 @@ Rules:
 
 - mock at lowest level, or not at all — use test db, `responses`, or dedicated
   mock package
-- assert all mock calls
+- assert outbound calls to external systems (the request is the contract), not
+  internal call sequences
 - assert all side effects
 
 ### Database fixtures
@@ -130,7 +131,7 @@ gets an integration test, never a unit test.
 
 ## End-to-end tests
 
-Cover: gates. Playwright (TypeScript).
+Cover: every feature a user can reach, first. Playwright (TypeScript).
 
 Verify **features work** in a real browser.
 
@@ -153,11 +154,3 @@ up. Two more limits: coverage comes from the `page` a test is given, so a test
 that opens its own context via `browser.newContext()` contributes nothing, and
 only Chromium reports at all, so a behaviour covered exclusively by a
 Firefox-only spec reads as uncovered.
-
-## Migration to the new strategy
-
-1. Move current integration tests to the right directories and files.
-2. Drop tests that no longer fit. Move a test to unit tests **only** when it
-   exercises `mills` logic; tests of `gates` / `links` stay integration.
-3. Reach 100% component-test coverage.
-4. Add e2e tests for current dynamic features.

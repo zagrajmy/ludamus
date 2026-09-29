@@ -7,6 +7,7 @@ modules = ["cabinet.rituals"]
 remote = "https-origin"
 sign_commits = false
 review_skill = ".claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
+coverage = "mise run diff-cover"
 
 # Job names in .github/workflows/ci.yml, matched by prefix. `test` covers
 # test-postgres/-unit/-e2e and the aggregator; `tingle` is left out on

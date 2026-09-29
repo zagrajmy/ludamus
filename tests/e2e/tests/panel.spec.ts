@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { EMPTY_SPHERE } from "./helpers/urls";
 
 /** Accept the in-page confirm modal that guards destructive forms. */
 const acceptConfirmModal = (page: Page) =>
@@ -75,18 +76,16 @@ function proposalCategoryOption(page: Page, name: string) {
 }
 
 test("panel redirects to home with message when sphere has no events", async ({ browser }) => {
-  const emptyBase = "http://another.localhost:8000";
-
   // Use pre-built session cookie for the empty-sphere manager
   const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
   const storageState = JSON.parse(fs.readFileSync(statePath, "utf8"));
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
-  // Visit panel — should redirect to index (then to /events/)
-  await page.goto(`${emptyBase}/panel/`);
-  await expect(page).toHaveURL(`${emptyBase}/events/`);
-  await expect(page.getByText("No events available")).toBeVisible();
+  // Visit panel — should redirect to the sphere root, which is its feed
+  await page.goto(`${EMPTY_SPHERE}/panel/`);
+  await expect(page).toHaveURL(`${EMPTY_SPHERE}/`);
+  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
 
   await context.close();
 });
@@ -1527,7 +1526,7 @@ test.describe("Backoffice Panel", () => {
 
   // --- Organization announcements CRUD ---
 
-  test("manages the announcement lifecycle and public visibility", async ({ page }) => {
+  test("manages the announcement lifecycle", async ({ page }) => {
     const stamp = Date.now();
     const title = `E2E Announcement ${stamp}`;
     const editedTitle = `E2E Announcement Edited ${stamp}`;
@@ -1542,12 +1541,6 @@ test.describe("Backoffice Panel", () => {
 
     await expect(page.getByText("Announcement created successfully.")).toBeVisible();
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
-
-    // Published announcement shows on the public landing page
-    await page.goto("/events/");
-    await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByText(content)).toBeVisible();
 
     // Edit
     await page.goto("/multiverse/panel/announcements/");

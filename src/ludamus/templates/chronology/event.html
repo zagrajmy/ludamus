@@ -9,20 +9,22 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
+{% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
+{% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
 {% block meta_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock meta_description %}
 {% block og_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock og_description %}
 {% block twitter_description %}
-    {% firstof event.description|truncatewords:20 default_description %}
+    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock twitter_description %}
 {% block og_image %}
-    {% meta_image_url event.cover_image_url %}
+    {% meta_image_url link_preview.image_url event.cover_image_url %}
 {% endblock og_image %}
 {% block twitter_image %}
-    {% meta_image_url event.cover_image_url %}
+    {% meta_image_url link_preview.image_url event.cover_image_url %}
 {% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}
@@ -40,16 +42,16 @@
     <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated) print:mb-4 print:shadow-none print:bg-transparent"
          data-event-hero>
         {% if event.cover_image_url %}
-            {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
-            {# and components/file-dropzone.html draws the width of its "edges" #}
-            {# guide from it. Changing these heights moves the guide people upload #}
-            {# against. #}
-            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl print:hidden"
-                 style="background-image: url('{{ event.cover_image_url }}')"
-                 data-event-cover>
+            {# NOTE: phones show the whole cover at its natural aspect ratio. From #}
+            {# sm upward, this becomes a fixed-height banner and crops vertically. #}
+            <div class="relative sm:h-72 print:hidden" data-event-cover>
+                {% blocktranslate with event_name=event.name asvar event_cover_alt %}Cover image for {{ event_name }}{% endblocktranslate %}
+                <img src="{{ event.cover_image_url }}"
+                     alt="{{ event_cover_alt }}"
+                     class="block h-auto w-full sm:h-full sm:rounded-t-3xl sm:object-cover">
                 {# On the gutter the body below keeps. #}
-                <div class="absolute top-4 right-4 sm:top-8 sm:right-8">
-                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True only %}
+                <div class="absolute right-4 sm:right-8 {% if event.sphere.event_cover_buttons_at_bottom %}bottom-4 sm:bottom-8{% else %}top-4 sm:top-8{% endif %}">
+                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True horizontal=event.sphere.event_cover_buttons_at_bottom only %}
                 </div>
             </div>
         {% endif %}
@@ -255,7 +257,7 @@
                         <p class="text-xs mt-1 text-foreground-muted">{% translate "This will replace your current anonymous session" %}</p>
                     </div>
                 </div>
-                <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
+                <div class="modal-footer-lg px-6 pt-4 border-t border-border flex justify-end gap-2">
                     <button type="button"
                             class="btn btn-secondary"
                             data-modal-close="anonymousCodeModal">{% translate "Cancel" %}</button>
@@ -564,15 +566,9 @@
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8 print:hidden">
-        {% if "events" in current_sphere.enabled_pages %}
-            <a href="{% url 'web:events' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
-            </a>
-        {% else %}
-            <a href="{% url 'web:timeline' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Timeline" %}
-            </a>
-        {% endif %}
+        <a href="{% url 'web:index' %}" class="btn btn-secondary">
+            {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
+        </a>
     </div>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts). File→Print and the toolbar cannot be intercepted, so #}

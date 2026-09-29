@@ -15,9 +15,9 @@ would otherwise re-fetch as DTOs.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
-from django.db.models import Count, F, Q
+from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership, Session
 from ludamus.links.db.django.repositories.storage import (
@@ -83,6 +83,26 @@ def _mark(guild: Guild) -> GuildMarkDTO:
     return GuildMarkDTO(pk=guild.pk, name=guild.name, logo_url=guild.logo_url)
 
 
+_LOGO_STORAGE = Guild.logo.field.storage
+
+
+def _mark_from_columns(*, pk: int, name: str, logo: str) -> GuildMarkDTO:
+    # The same mark _mark builds from an instance, off a values_list row: the
+    # schedule asks for a thousand sessions' co-facilitators at once, and a
+    # model per row with its guild joined in cost more than the page's SQL.
+    return GuildMarkDTO(
+        pk=pk, name=name, logo_url=_LOGO_STORAGE.url(logo) if logo else ""
+    )
+
+
+class _CoFacilitator(NamedTuple):
+    # A presenter-less session's co-facilitator, as much of one as a mark
+    # needs: an account to look the membership up by, or the guild the
+    # accountless row names directly.
+    user_id: int | None
+    guild: GuildMarkDTO | None
+
+
 def _accountless_on_guild(*, guild_id: int, sphere_id: int) -> QuerySet[Facilitator]:
     return Facilitator.objects.filter(
         guild_id=guild_id, event__sphere_id=sphere_id, user_id__isnull=True
@@ -108,17 +128,23 @@ def _mark_for_facilitator(
 
 
 def _mark_for_session(
-    session: Session,
     *,
-    by_session: dict[int, list[Facilitator]],
+    session_pk: int,
+    presenter_id: int | None,
+    by_session: dict[int, list[_CoFacilitator]],
     by_user: dict[int, GuildMarkDTO],
 ) -> GuildMarkDTO | None:
-    if session.presenter_id:
-        return by_user.get(session.presenter_id)
+    if presenter_id:
+        return by_user.get(presenter_id)
     # Presenter-less cards show the first co-facilitator that has a mark,
     # ordered by display name then pk so the badge is stable across loads.
-    for facilitator in by_session.get(session.pk, []):
-        if found := _mark_for_facilitator(facilitator, by_user=by_user):
+    for facilitator in by_session.get(session_pk, []):
+        found = (
+            by_user.get(facilitator.user_id)
+            if facilitator.user_id
+            else facilitator.guild
+        )
+        if found:
             return found
     return None
 
@@ -359,43 +385,54 @@ class GuildRepository(GuildRepositoryProtocol):
     ) -> dict[int, GuildMarkDTO]:
         if not session_pks:
             return {}
+        # Two columns, not instances: a page of a thousand rows asks this once.
         sessions = list(
-            Session.objects.filter(pk__in=session_pks, event__sphere_id=sphere_id).only(
-                "pk", "presenter_id"
-            )
+            Session.objects.filter(
+                pk__in=session_pks, event__sphere_id=sphere_id
+            ).values_list("pk", "presenter_id")
         )
         if not sessions:
             return {}
-        presenter_ids = [
-            session.presenter_id for session in sessions if session.presenter_id
-        ]
-        presenter_less_pks = [
-            session.pk for session in sessions if not session.presenter_id
-        ]
-        by_session: dict[int, list[Facilitator]] = {}
+        presenter_ids = [presenter_id for _, presenter_id in sessions if presenter_id]
+        presenter_less_pks = [pk for pk, presenter_id in sessions if not presenter_id]
+        by_session: dict[int, list[_CoFacilitator]] = {}
         facilitator_user_ids: list[int] = []
         if presenter_less_pks:
-            # Filter on sessions__pk before annotating it so Django reuses
-            # that join. Annotate first and the annotation opens a second
-            # join — a cartesian product of every facilitator and session.
+            # sessions__pk in the filter and in the columns rides one join:
+            # the filter opens it first, and the values_list reuses it.
             rows = (
                 _facilitators_in_sphere(sphere_id=sphere_id)
                 .filter(sessions__pk__in=presenter_less_pks)
-                .annotate(session_pk=F("sessions__pk"))
-                .select_related("guild")
                 .order_by("display_name", "pk")
+                .values_list(
+                    "sessions__pk", "user_id", "guild_id", "guild__name", "guild__logo"
+                )
             )
-            for row in rows:
-                by_session.setdefault(row.session_pk, []).append(row)
-                if row.user_id:
-                    facilitator_user_ids.append(row.user_id)
+            for session_pk, user_id, guild_id, guild_name, guild_logo in rows:
+                by_session.setdefault(session_pk, []).append(
+                    _CoFacilitator(
+                        user_id=user_id,
+                        guild=(
+                            _mark_from_columns(
+                                pk=guild_id, name=guild_name, logo=guild_logo
+                            )
+                            if guild_id
+                            else None
+                        ),
+                    )
+                )
+                if user_id:
+                    facilitator_user_ids.append(user_id)
         by_user = marks_for_users(
             sphere_id=sphere_id, user_pks=presenter_ids + facilitator_user_ids
         )
         marks: dict[int, GuildMarkDTO] = {}
-        for session in sessions:
+        for pk, presenter_id in sessions:
             if found := _mark_for_session(
-                session, by_session=by_session, by_user=by_user
+                session_pk=pk,
+                presenter_id=presenter_id,
+                by_session=by_session,
+                by_user=by_user,
             ):
-                marks[session.pk] = found
+                marks[pk] = found
         return marks

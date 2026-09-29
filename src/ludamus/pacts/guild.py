@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import UploadedFileProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
 
 
 class AssignMemberOutcome(StrEnum):

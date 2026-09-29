@@ -26,8 +26,8 @@ a time axis.
   the "now" marker (`_schedule_now_marker.html`) exists because the middle of a
   long day otherwise blurs.
 - **Common Region** — a session card is a boundary; anything inside it must
-  belong to that session. Check `_session_card.html` and
-  `_compact_session_row.html` when adding a control: does it act on this
+  belong to that session. Check `_session_card.html` and the ledger row in
+  `schedule_tags.py` when adding a control: does it act on this
   session, or on the page?
 - **Von Restorff** — on a grid of near-identical cards, only availability and
   the user's own state (enrolled, waiting, bookmarked) earn emphasis. Every

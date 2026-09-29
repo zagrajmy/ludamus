@@ -9,7 +9,6 @@ from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.helpers import read_public_event
-from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.calendar import CalendarEntry, ics_document
 
 if TYPE_CHECKING:
@@ -31,7 +30,7 @@ def event_calendar_entry(event: EventDTO, *, request: RootRequest) -> CalendarEn
     )
 
 
-class EventICSView(EventsPageRequiredMixin, View):
+class EventICSView(View):
     """Single-VEVENT calendar file for one event ("Other calendars" download)."""
 
     @staticmethod

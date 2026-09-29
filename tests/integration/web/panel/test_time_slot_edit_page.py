@@ -212,7 +212,7 @@ class TestTimeSlotEditPageView:
             url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
 
-    def test_post_rejects_slot_outside_event_dates(
+    def test_post_widens_event_start_for_slot_before_event(
         self, panel_client, event, time_slot
     ):
         before_event = (event.start_time - timedelta(days=5)).date().isoformat()
@@ -222,6 +222,34 @@ class TestTimeSlotEditPageView:
             {
                 "date": before_event,
                 "end_date": before_event,
+                "start_time": "10:00",
+                "end_time": "12:00",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+            ],
+            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+        )
+        time_slot.refresh_from_db()
+        event.refresh_from_db()
+        assert event.start_time == time_slot.start_time
+
+    def test_post_rejects_slot_before_publication(self, panel_client, event, time_slot):
+        before_publication = (
+            (event.publication_time - timedelta(days=1)).date().isoformat()
+        )
+        original_start = time_slot.start_time
+
+        response = panel_client.post(
+            self.get_url(event, time_slot),
+            {
+                "date": before_publication,
+                "end_date": before_publication,
                 "start_time": "10:00",
                 "end_time": "12:00",
             },
@@ -249,9 +277,12 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "Time slot must be within event dates."
+            "The time slot starts before the event is published. "
+            "Move the publication time in the event settings first."
             in response.context["form"].non_field_errors()
         )
+        time_slot.refresh_from_db()
+        assert time_slot.start_time == original_start
 
     def test_post_rejects_overlapping_slot(self, panel_client, event, time_slot):
         tz = get_current_timezone()
@@ -320,7 +351,7 @@ class TestTimeSlotEditPageView:
             url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
 
-    def test_post_rejects_multi_day_slot_outside_event(
+    def test_post_widens_event_around_multi_day_slot(
         self, panel_client, event, time_slot
     ):
         start_date = event.start_time.date().isoformat()
@@ -338,29 +369,15 @@ class TestTimeSlotEditPageView:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-edit.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "time_slot": TimeSlotDTO.model_validate(time_slot),
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+            ],
+            url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
-        assert (
-            "Time slot must be within event dates."
-            in response.context["form"].non_field_errors()
-        )
+        time_slot.refresh_from_db()
+        event.refresh_from_db()
+        assert event.end_time == time_slot.end_time
 
     def test_get_rejects_slot_from_another_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)

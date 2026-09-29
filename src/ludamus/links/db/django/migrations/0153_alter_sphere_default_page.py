@@ -2,8 +2,6 @@
 
 from django.db import migrations, models
 
-import ludamus.pacts.legacy
-
 
 class Migration(migrations.Migration):
 
@@ -21,7 +19,7 @@ class Migration(migrations.Migration):
                     ("encounters", "Encounters"),
                     ("timeline", "Timeline"),
                 ],
-                default=ludamus.pacts.legacy.SpherePage["EVENTS"],
+                default="events",
                 max_length=20,
             ),
         )

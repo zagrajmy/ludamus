@@ -10,7 +10,6 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.helpers import read_public_event
-from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId
 
@@ -21,7 +20,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
 
 
-class SessionModalComponentView(EventsPageRequiredMixin, View):
+class SessionModalComponentView(View):
     request: RootRequest
 
     def get(
@@ -50,6 +49,16 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
+        if not data.takes_enrollment:
+            # With no seats to take, a bookmark is the one way to say "I'm
+            # going", so the modal offers the toggle the schedule rows carry.
+            bookmark = request.services.bookmarks.session_state(
+                user_id=request.context.current_user_id,
+                session_id=SessionId(session_id),
+                event_id=event.pk,
+            )
+            data.user_bookmarked = bookmark.bookmarked
+            data.bookmark_count = bookmark.count
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=not data.is_unscheduled,

@@ -1,0 +1,13 @@
+{% comment %}
+    One grid of feed items: events and encounters side by side, each rendered
+    by its own card. `variant` is passed straight through to both.
+{% endcomment %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 {{ extra_class }}">
+    {% for item in items %}
+        {% if item.kind == "event" %}
+            {% include "components/event_card.html" with event=item.entry variant=variant %}
+        {% else %}
+            {% include "components/encounter_card.html" with encounter=item.entry.encounter rsvp_count=item.entry.rsvp_count is_mine=item.entry.is_mine organizer_name=item.entry.organizer_name variant=variant %}
+        {% endif %}
+    {% endfor %}
+</div>

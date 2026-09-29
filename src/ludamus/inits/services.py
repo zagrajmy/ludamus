@@ -8,11 +8,13 @@ from django.conf import settings
 from ludamus.inits.builders import (
     build_konwencik_export,
     build_printables_reminder,
+    build_sphere_subscriptions,
     build_waitlist_promotion,
 )
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import DjangoCache
+from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
+from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -37,6 +39,7 @@ from ludamus.mills.crowd import (
     CrowdAuthService,
     ProfileService,
 )
+from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.enrollment import (
@@ -50,6 +53,7 @@ from ludamus.mills.event import (
     EventConfirmationsService,
     EventPanelService,
     EventsService,
+    LandingService,
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -58,6 +62,7 @@ from ludamus.mills.integrations import (
     IntegrationImplementations,
 )
 from ludamus.mills.maps import EventMapsService
+from ludamus.mills.mcp import McpAuthorizationService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -270,7 +275,9 @@ class Services:
     @cached_property
     def panel_time_slots(self) -> PanelTimeSlotsService:
         return PanelTimeSlotsService(
-            transaction=self._transaction, time_slots=self._repos.time_slots
+            transaction=self._transaction,
+            time_slots=self._repos.time_slots,
+            events=self._repos.events,
         )
 
     @cached_property
@@ -301,17 +308,42 @@ class Services:
         )
 
     @cached_property
+    def mcp_authorization(self) -> McpAuthorizationService:
+        return McpAuthorizationService(
+            fetcher=HttpClientMetadataFetcher(),
+            codes=CacheAuthorizationCodeStore(),
+            spheres=self.sphere_panel,
+            users=self._repos.active_users,
+        )
+
+    @cached_property
     def sphere_panel(self) -> SpherePanelService:
         return SpherePanelService(
             self._transaction,
             self._repos.spheres,
             self._repos.events,
             self._repos.encounters,
+            self._repos.active_users,
         )
 
     @cached_property
     def sites(self) -> SitesService:
         return SitesService(self._repos.spheres, self._repos.spheres)
+
+    @cached_property
+    def landing(self) -> LandingService:
+        domains: tuple[str, ...] = settings.LANDING_CONVENTION_DOMAINS
+        return LandingService(
+            self._repos.landing_stats, cache=DjangoCache(), convention_domains=domains
+        )
+
+    @cached_property
+    def dashboard(self) -> DashboardService:
+        return DashboardService(self._repos.dashboard)
+
+    @cached_property
+    def sphere_subscriptions(self) -> SphereSubscriptionService:
+        return build_sphere_subscriptions()
 
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
@@ -497,6 +529,7 @@ class Services:
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
+            sites=self.sites,
         )
 
     @cached_property
@@ -604,6 +637,7 @@ class Services:
     @cached_property
     def _timetable_repos(self) -> TimetableRepos:
         return TimetableRepos(
+            events=self._repos.events,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,

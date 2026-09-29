@@ -19,7 +19,7 @@ from ludamus.pacts.maps import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts.legacy import UploadedFileProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
 
 
 def _to_dto(event_map: EventMap) -> EventMapRecordDTO:

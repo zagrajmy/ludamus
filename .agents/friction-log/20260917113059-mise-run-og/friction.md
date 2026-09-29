@@ -1,6 +1,7 @@
 ---
 title: '`mise run og-image` rewrites the card at a different file size from unchanged source'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1314'
 ---
 
 ## Expected Behavior

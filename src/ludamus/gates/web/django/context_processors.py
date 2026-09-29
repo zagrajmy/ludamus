@@ -6,7 +6,6 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.sphere.pages import SpherePageNavItem, sphere_page_nav
 from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
@@ -19,12 +18,11 @@ if TYPE_CHECKING:
 
 
 class SitesContextData(TypedDict):
-    root_site: SiteDTO | None
+    root_origin: str
     current_site: SiteDTO | None
     current_sphere: SphereDTO | None
     is_root_sphere: bool
     has_panel_access: bool
-    sphere_page_nav: list[SpherePageNavItem]
 
 
 def sites(request: RootRepositoryRequest) -> SitesContextData:
@@ -33,12 +31,11 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         request, "di"
     ):  # pragma: no cover
         return SitesContextData(
-            root_site=None,
+            root_origin="",
             current_site=None,
             current_sphere=None,
             is_root_sphere=True,
             has_panel_access=False,
-            sphere_page_nav=[],
         )
 
     sites_service = request.services.sites
@@ -51,12 +48,11 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     )
 
     return SitesContextData(
-        root_site=root_sphere.site,
+        root_origin=f"{request.scheme}://{root_sphere.site.domain}",
         current_site=current_sphere.site,
         current_sphere=current_sphere,
         is_root_sphere=is_root_sphere,
         has_panel_access=has_panel_access(request),
-        sphere_page_nav=sphere_page_nav(request, current_sphere),
     )
 
 
