@@ -348,11 +348,15 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
             if entry.facilitator.accreditation_type != AccreditationType.NONE
         ]
         rows = [[*columns.headers, *labels.headers]]
+        # NOTE: `cells` comes from the gate's own roster read. A facilitator
+        # added between that read and this one has no entry, and a short row
+        # would shift the discount under the chosen columns' headers.
+        blank = [""] * len(columns.headers)
         for entry in entries:
             facilitator, discount = entry.facilitator, entry.discount
             rows.append(
                 [
-                    *columns.cells.get(facilitator.pk, []),
+                    *columns.cells.get(facilitator.pk, blank),
                     labels.kinds.get(discount.kind, discount.kind) if discount else "",
                     str(discount.value) if discount else "",
                     discount.note if discount else "",

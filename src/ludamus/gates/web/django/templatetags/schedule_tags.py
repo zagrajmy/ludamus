@@ -460,6 +460,21 @@ def _bookmark(*, sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
     }
 
 
+@register.simple_tag(takes_context=True)
+def session_bookmark(
+    context: template.Context, data: SessionData, wrapper_class: str = ""
+) -> SafeString:
+    """Render the bookmark toggle (or read-only count) outside a schedule row.
+
+    Returns:
+        The same markup the ledger row and room tile carry, so
+        session-bookmarks.ts keeps every copy of one session in step.
+    """
+    return SafeString(
+        _bookmark(sheet=_sheet(context), data=data, wrapper_class=wrapper_class)
+    )
+
+
 def _guild_mark(*, sheet: _Sheet, data: SessionData, extra_class: str) -> str:
     if (guild := data.guild) is None or not guild.logo_url:
         return ""

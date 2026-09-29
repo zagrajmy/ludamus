@@ -2,7 +2,9 @@
 <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-10 pb-[4.5rem] max-[30rem]:pt-6"
          aria-labelledby="g-hero-heading">
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-        <div class="ld d1 mb-6 flex justify-end lg:float-right lg:mb-0 lg:ml-8">{% include "landing/_aud_switch.html" %}</div>
+        <div class="ld d1 mb-6 flex justify-end max-[30rem]:justify-center lg:float-right lg:mb-0 lg:ml-8">
+            {% include "landing/_aud_switch.html" %}
+        </div>
         <h1 id="g-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
             {% translate "Your table, your game," %} <span class="text-primary-hover dark:text-primary">{% translate "one link" %}</span>.
@@ -21,7 +23,7 @@
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
             <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
+               href="#g-conventions-heading">{% translate "Browse events" %}</a>
         </p>
     </div>
 </section>
@@ -466,7 +468,7 @@
                        href="{% url 'web:notice-board:create' %}">{% translate "Run an Encounter" %}</a>
                 {% else %}
                     <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
-                       href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
+                       href="#g-conventions-heading">{% translate "Browse events" %}</a>
                 {% endif %}
             </div>
             <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:hidden">
@@ -490,9 +492,5 @@
             {% translate "Zagrajmy runs the programme of real conventions: you browse the schedule, enroll in programme items, and see free seats live." %}
         </p>
         <div class="reveal mt-6">{% include "landing/_convention_cards.html" %}</div>
-        <p class="reveal mt-[1.6rem] text-[0.95rem]">
-            <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="{% url 'web:index' %}">{% translate "Browse events" %}</a>
-        </p>
     </div>
 </section>

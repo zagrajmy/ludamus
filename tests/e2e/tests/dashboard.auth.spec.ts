@@ -22,6 +22,8 @@ test.describe("Dashboard", () => {
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toContainText("notify you");
+    await expect(dialog.locator('[data-confirm-icon="bell-alert"]')).toBeVisible();
+    await expect(dialog.locator('[data-confirm-icon="exclamation-triangle"]')).toBeHidden();
     await dialog.getByRole("button", { name: "Subscribe" }).click();
 
     const subscribed = page

@@ -53,10 +53,13 @@ def _slot_error_message(error: TimeSlotValidationError) -> str:
     match error:
         case TimeSlotValidationError.START_NOT_BEFORE_END:
             return _("Start must be before end.")
-        case TimeSlotValidationError.OUTSIDE_EVENT_DATES:
-            return _("Time slot must be within event dates.")
         case TimeSlotValidationError.OVERLAPS_EXISTING_SLOT:
             return _("Time slot overlaps with an existing slot.")
+        case TimeSlotValidationError.STARTS_BEFORE_PUBLICATION:
+            return _(
+                "The time slot starts before the event is published. "
+                "Move the publication time in the event settings first."
+            )
         case _:
             assert_never(error)
 
@@ -206,15 +209,12 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors: list[TimeSlotValidationError] = []
         try:
-            self.request.services.panel_time_slots.create(
+            saved = self.request.services.panel_time_slots.create(
                 event=current_event, start_time=start_time, end_time=end_time
             )
         except TimeSlotRejectedError as error:
-            errors = error.errors
-        if errors:
-            _add_slot_errors(form, errors)
+            _add_slot_errors(form, error.errors)
             context.update(
                 _time_slots_context(
                     request=self.request, event=current_event, create_form=form
@@ -222,7 +222,14 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
-        messages.success(self.request, _("Time slot created successfully."))
+        messages.success(
+            self.request,
+            (
+                _("Time slot created. The event dates now cover it.")
+                if saved.event_dates_widened
+                else _("Time slot created successfully.")
+            ),
+        )
         return redirect("panel:time-slots", slug=slug)
 
 
@@ -279,21 +286,25 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors: list[TimeSlotValidationError] = []
         try:
-            self.request.services.panel_time_slots.update(
+            saved = self.request.services.panel_time_slots.update(
                 event=current_event, pk=pk, start_time=start_time, end_time=end_time
             )
         except TimeSlotRejectedError as error:
-            errors = error.errors
-        if errors:
-            _add_slot_errors(form, errors)
+            _add_slot_errors(form, error.errors)
             context["active_nav"] = "cfp"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
-        messages.success(self.request, _("Time slot updated successfully."))
+        messages.success(
+            self.request,
+            (
+                _("Time slot updated. The event dates now cover it.")
+                if saved.event_dates_widened
+                else _("Time slot updated successfully.")
+            ),
+        )
         return redirect("panel:time-slots", slug=slug)
 
 
