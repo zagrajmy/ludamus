@@ -19,6 +19,12 @@
       "skillPath": "skills/minimalist-skill/SKILL.md",
       "computedHash": "08873a3131d3be27bef9bf3304b310b16b44ca6e3561aebe532797be3443f6bd"
     },
+    "optimise-github-actions": {
+      "source": "enesgules/dotfiles",
+      "sourceType": "github",
+      "skillPath": "skills/optimise-github-actions/SKILL.md",
+      "computedHash": "30b1cdadc54922883984c5dfbd8ca343d800928cffddde67e251870424cdbb24"
+    },
     "show-me": {
       "source": "humanlayer/skills",
       "sourceType": "github",
