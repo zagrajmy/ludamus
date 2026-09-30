@@ -13,8 +13,8 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_schedule_days,
 )
 from ludamus.pacts import AgendaItemDTO
-from tests.unit.gates.web.django.chronology.helpers import (
-    location,
+from tests.integration.web.chronology.helpers import (
+    loc_dict,
     make_session_data,
     positioned_room_tiles,
     room_tiles,
@@ -40,7 +40,7 @@ class TestNightSessions:
                 pk=1,
                 session_confirmed=True,
             ),
-            loc=location(
+            loc=loc_dict(
                 space_id=2,
                 parent_id=1,
                 space_name="Sala A",
@@ -59,7 +59,7 @@ class TestNightSessions:
                 pk=2,
                 session_confirmed=True,
             ),
-            loc=location(
+            loc=loc_dict(
                 space_id=2,
                 parent_id=1,
                 space_name="Sala A",
@@ -121,7 +121,7 @@ class TestRoomLaneFolds:
             agenda_item=AgendaItemDTO(
                 start_time=start, end_time=end, pk=pk, session_confirmed=True
             ),
-            loc=location(
+            loc=loc_dict(
                 space_id=1,
                 space_name="Sala A",
                 parent_name="",
@@ -246,7 +246,7 @@ class TestDaylightSavingRows:
             agenda_item=AgendaItemDTO(
                 start_time=start, end_time=end, pk=1, session_confirmed=True
             ),
-            loc=location(
+            loc=loc_dict(
                 space_id=2,
                 parent_id=1,
                 space_name="Sala A",
@@ -402,7 +402,7 @@ class TestRoomLaneColumns:
                 pk=day,
                 session_confirmed=True,
             ),
-            loc=location(
+            loc=loc_dict(
                 space_id=space_id,
                 space_name=space_name,
                 parent_name="",
@@ -451,7 +451,7 @@ class TestRoomLaneConflicts:
                 session_confirmed=True,
             ),
             session=MagicMock(pk=pk, title=f"Session {pk}"),
-            loc=location(
+            loc=loc_dict(
                 space_id=1,
                 space_name="Sala A",
                 parent_name="",
@@ -570,7 +570,7 @@ class TestRoomLaneOrdering:
                 pk=1,
                 session_confirmed=True,
             ),
-            loc=location(
+            loc=loc_dict(
                 parent_id=parent_id,
                 parent_name=parent_name,
                 space_id=space_id,

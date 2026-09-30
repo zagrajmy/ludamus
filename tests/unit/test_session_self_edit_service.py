@@ -1,8 +1,16 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from ludamus.mills.chronology import SessionContentEditService, SessionSelfEditService
+import pytest
+
+from ludamus.mills.chronology import (
+    SessionContentEditService,
+    SessionEditNotAllowedError,
+    SessionSelfEditService,
+)
+from ludamus.pacts import NotFoundError
 
 
 @contextmanager
@@ -33,7 +41,7 @@ def _build(*, presenter_id, event_override, sphere_default):
         agenda_items=agenda_items,
     )
     service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
-    return service, sessions, transaction, agenda_items
+    return service, sessions, transaction, agenda_items, session_fields
 
 
 class TestUpdate:
@@ -41,7 +49,7 @@ class TestUpdate:
         # The block tracks the session's length whoever edits it: a facilitator
         # shrinking their own session must not leave the grid drawing the old
         # one for the organizer to notice by hand.
-        service, sessions, _, agenda_items = _build(
+        service, sessions, _, agenda_items, _ = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
         sessions.read.return_value = MagicMock(presenter_id=10, duration="PT1H")
@@ -57,3 +65,83 @@ class TestUpdate:
         agenda_items.update.assert_called_once_with(
             3, {"end_time": datetime(2026, 1, 1, 12, 0, tzinfo=UTC)}
         )
+
+    def test_an_uploaded_cover_replaces_the_stored_one(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=True, sphere_default=False
+        )
+        upload = SimpleNamespace(name="cover.png", read=lambda _size=-1: b"")
+
+        service.update(5, 10, {"title": "T", "cover_image": upload}, None)
+
+        assert sessions.update.call_args.args[1]["cover_image"] is upload
+
+    def test_a_stranger_may_not_edit(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=True, sphere_default=False
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.update(5, 11, {"title": "T"}, None)
+
+        sessions.update.assert_not_called()
+
+
+class TestGetEditContext:
+    def test_pairs_each_field_with_the_sessions_answer(self):
+        service, sessions, _, _, session_fields = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        system, diet = SimpleNamespace(slug="system"), SimpleNamespace(slug="diet")
+        session_fields.list_by_event.return_value = [system, diet]
+        sessions.read_field_values.return_value = [
+            SimpleNamespace(field_slug="system", value="Pathfinder")
+        ]
+
+        context = service.get_edit_context(5, 10)
+
+        assert context.session is sessions.read.return_value
+        assert context.event is sessions.read_event.return_value
+        assert context.session_fields == [(system, "Pathfinder"), (diet, None)]
+
+    def test_anonymous_viewer_is_refused(self):
+        service, _, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, None)
+
+    def test_missing_session_is_refused(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        sessions.read.side_effect = NotFoundError
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 10)
+
+    def test_someone_elses_session_is_refused(self):
+        service, _, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 11)
+
+    def test_session_without_an_event_is_refused(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        sessions.read_event.side_effect = NotFoundError
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 10)
+
+    def test_event_may_switch_self_edit_off(self):
+        service, _, _, _, _ = _build(
+            presenter_id=10, event_override=False, sphere_default=True
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 10)

@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-TEMPLATE_ROOT = Path("src/ludamus/templates")
+TEMPLATE_ROOT = Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates"
 RULE_NAME = "no-negative-margin"
 
 NEG_MARGIN_RE = re.compile(r"""(?:^|[\s"'{}:])(-m[xytrblse]?-[\w./\[\]-]+)""")

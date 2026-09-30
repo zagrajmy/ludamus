@@ -7,6 +7,7 @@ from ludamus.mills.propose import ProposeSessionService
 from ludamus.pacts.legacy import (
     EventDTO,
     FacilitatorDTO,
+    NotFoundError,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
     SessionFieldValueData,
@@ -18,6 +19,7 @@ EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
 OWN_TRACK_PK = 7
 FOREIGN_TRACK_PK = 999
+USER_PK = 5
 
 
 class FakeCache:
@@ -57,6 +59,12 @@ def _facilitator():
         slug="anon-host",
         user_id=None,
     )
+
+
+def _user():
+    user = MagicMock(pk=USER_PK)
+    user.name = "Ada"
+    return user
 
 
 def _field(pk, slug):
@@ -171,3 +179,149 @@ class TestCheckRateLimit:
         cache.store["proposal_rate:1:1.2.3.4"] = 1
 
         assert service.check_rate_limit(ip="1.2.3.4", event_id=2) is True
+
+    def test_blocks_a_second_submission_from_the_same_ip(self, service, cache):
+        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is True
+        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is False
+        assert "proposal_rate:1:1.2.3.4" in cache.store
+
+
+class TestSubmitEdgeCases:
+    def test_requires_a_title(self, service, submitting_repos):
+        with pytest.raises(ValueError, match="title"):
+            service.submit(_event(), {"category_id": 1, "session_data": {}})
+
+        submitting_repos.sessions.create.assert_not_called()
+
+    def test_logged_in_user_reuses_their_facilitator_and_is_the_presenter(
+        self, service, submitting_repos
+    ):
+        submitting_repos.users.read.return_value = _user()
+        submitting_repos.facilitators.read_by_user_and_event.return_value = (
+            _facilitator()
+        )
+
+        service.submit(
+            _event(),
+            {"category_id": 1, "session_data": {"title": "T"}},
+            cover_image=MagicMock(name="cover"),
+            user_id=USER_PK,
+            user_slug="ada",
+        )
+
+        submitting_repos.facilitators.create.assert_not_called()
+        create_data = submitting_repos.sessions.create.call_args.args[0]
+        assert create_data["presenter_id"] == USER_PK
+        assert create_data["facilitator_name"] == "Ada"
+        assert "cover_image" in create_data
+
+    def test_logged_in_user_without_a_facilitator_gets_one(
+        self, service, submitting_repos
+    ):
+        submitting_repos.users.read.return_value = _user()
+        submitting_repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
+
+        service.submit(
+            _event(),
+            {"category_id": 1, "session_data": {"title": "T"}},
+            user_id=USER_PK,
+            user_slug="ada",
+        )
+
+        created = submitting_repos.facilitators.create.call_args.args[0]
+        assert created["user_id"] == USER_PK
+        assert created["display_name"] == "Ada"
+
+    def test_only_foreign_tracks_attaches_none(self, service, submitting_repos):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "T"},
+                "track_pks": [FOREIGN_TRACK_PK],
+            },
+        )
+
+        submitting_repos.sessions.set_session_tracks.assert_not_called()
+
+    def test_ignores_write_in_helpers_builtins_and_unknown_fields(
+        self, service, submitting_repos
+    ):
+        submitting_repos.session_fields.read_by_slug.side_effect = NotFoundError
+        submitting_repos.personal_fields.read_by_slug.side_effect = NotFoundError
+
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {
+                    "title": "T",
+                    "session_system_custom": "Homebrew",
+                    "session_players": 4,
+                    "session_ghost": "boo",
+                },
+                "personal_data": {
+                    "other": "x",
+                    "personal_diet_custom": "vegan",
+                    "personal_diet": "",
+                    "personal_ghost": "boo",
+                },
+            },
+        )
+
+        submitting_repos.sessions.save_field_values.assert_not_called()
+        submitting_repos.personal_data_field_values.save.assert_not_called()
+
+
+class TestReads:
+    def test_getters_read_through_their_repos(self, service, repos):
+        assert service.get_event("slug", 1) is repos.events.read_by_slug.return_value
+        assert (
+            service.get_proposal_settings(1)
+            is repos.event_proposal_settings.read_by_event.return_value
+        )
+        assert (
+            service.get_or_create_proposal_settings(1)
+            is repos.event_proposal_settings.read_or_create_by_event.return_value
+        )
+        assert service.get_categories(1) is repos.categories.list_by_event.return_value
+        assert service.get_category(2, 1) is repos.categories.read.return_value
+        assert (
+            service.get_personal_requirements(2)
+            is repos.categories.list_personal_field_requirements.return_value
+        )
+        assert (
+            service.get_session_requirements(2)
+            is repos.categories.list_session_field_requirements.return_value
+        )
+        assert (
+            service.get_timeslot_requirements(2)
+            is repos.categories.list_time_slot_requirements.return_value
+        )
+        assert (
+            service.get_public_tracks(1)
+            is repos.tracks.list_public_by_event.return_value
+        )
+
+    def test_saved_personal_data_is_empty_for_anonymous_or_new_users(
+        self, service, repos
+    ):
+        assert service.get_saved_personal_data(event_id=1, user_id=None) == {}
+
+        repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
+        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {}
+
+    def test_saved_personal_data_comes_from_the_users_facilitator(self, service, repos):
+        repos.facilitators.read_by_user_and_event.side_effect = None
+        repos.facilitators.read_by_user_and_event.return_value = _facilitator()
+        repos.personal_data_field_values.read_for_facilitator_event.return_value = {
+            "email": "a@x.z"
+        }
+
+        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {
+            "email": "a@x.z"
+        }
+        assert (
+            repos.personal_data_field_values.read_for_facilitator_event.call_args.args
+            == (FACILITATOR_PK, 1)
+        )

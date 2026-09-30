@@ -14,6 +14,7 @@ from ludamus.mills.konwencik import (
 from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO, TrackDTO
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
+    ExportInProgressError,
     KonwencikExportSettings,
     KonwencikLastRun,
     KonwencikScheduleRepos,
@@ -493,3 +494,173 @@ class TestKonwencikSweep:
         call = env.integrations.list_by_kind.call_args
         assert call.args == (IntegrationKind.EXPORT,)
         assert call.kwargs["event_ended_after"] == _NOW - timedelta(days=1)
+
+    def test_skips_other_implementations_and_disabled_syncs(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [
+            _sync_integration(
+                pk=1, implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+            ),
+            _integration(settings_json="{}"),
+            _sync_integration(pk=3),
+        ]
+
+        assert env.service.run_sweep(now=_NOW) == 1
+        env.writer.write_rows.assert_called_once()
+
+
+class TestKonwencikLockHeld:
+    def test_a_fresh_lock_refuses_a_second_run_without_writing(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.get_for_update.side_effect = lambda _event_pk, _pk: (
+            _locked_integration(held_ago=timedelta(minutes=1))
+        )
+
+        with pytest.raises(ExportInProgressError):
+            env.service.run(_integration())
+
+        env.writer.write_rows.assert_not_called()
+        env.integrations.update_last_run.assert_not_called()
+
+
+TRACK_PK = 20
+PRIVATE_TRACK_PK = 21
+FIELD_PK = 77
+OTHER_CATEGORY_PK = 10
+
+
+def _settings_env(**kwargs):
+    env = _make_service(**kwargs)
+    env.repos.categories.list_by_event.return_value = [
+        SimpleNamespace(pk=CATEGORY_PK, name="RPG")
+    ]
+    env.repos.session_fields.list_by_event.return_value = [
+        SimpleNamespace(pk=FIELD_PK, name="Icon", slug="icon")
+    ]
+    return env
+
+
+def _saved_settings(env):
+    return KonwencikExportSettings.model_validate_json(
+        env.integrations.update_settings.call_args.kwargs["settings_json"]
+    )
+
+
+class TestKonwencikSettingsContext:
+    def test_lists_categories_public_tracks_fields_and_the_parsed_blob(self):
+        env = _settings_env(
+            tracks=[_track(), _track(pk=PRIVATE_TRACK_PK, name="Crew", is_public=False)]
+        )
+        last_run = KonwencikLastRun(time=_NOW, ok=True, rows_written=3)
+        env.integrations.get.return_value = _integration(
+            settings_json='{"sync_enabled": true, "track_colors": {"20": "#abc"}}'
+        )
+        env.integrations.get.return_value.last_run_json = last_run.model_dump_json()
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert [c.name for c in context.categories] == ["RPG"]
+        assert [t.pk for t in context.tracks] == [TRACK_PK]
+        assert [f.pk for f in context.session_fields] == [FIELD_PK]
+        assert context.settings.sync_enabled is True
+        assert context.settings.track_colors == {TRACK_PK: "#abc"}
+        assert context.last_run == last_run
+
+    def test_an_integration_that_never_ran_has_no_last_run(self):
+        env = _settings_env()
+        env.integrations.get.return_value = _integration()
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context.last_run is None
+        assert context.programme_combinations == []
+
+    def test_programme_combinations_follow_the_export_rules(self):
+        # One pair per (category, public block) that would reach the sheet:
+        # dead sessions, uncategorised items, day-long items and internal-only
+        # blocks are left out, and duplicates collapse.
+        env = _settings_env(
+            items=[
+                _item(pk=1, session_id=101),
+                _item(pk=2, session_id=102),
+                _item(pk=3, session_id=103),
+                _item(pk=4, session_id=104, category_id=None),
+                _item(pk=5, session_id=105),
+                _item(
+                    pk=6,
+                    session_id=106,
+                    category_id=OTHER_CATEGORY_PK,
+                    end_time=datetime(2026, 8, 16, 8, 0, tzinfo=UTC),
+                ),
+                _item(pk=7, session_id=107, category_id=OTHER_CATEGORY_PK),
+            ],
+            tracks=[
+                _track(),
+                _track(pk=PRIVATE_TRACK_PK, name="Crew", is_public=False),
+            ],
+            tracks_by_session={
+                101: {TRACK_PK: "Main block"},
+                102: {TRACK_PK: "Main block"},
+                105: {PRIVATE_TRACK_PK: "Crew"},
+            },
+            alive=[101, 102, 103, 104, 105, 106],
+        )
+        env.integrations.get.return_value = _integration()
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context.programme_combinations == [
+            (CATEGORY_PK, TRACK_PK),
+            (CATEGORY_PK, None),
+        ]
+
+
+class TestKonwencikSaveSettings:
+    def test_keeps_only_ids_the_page_offered_and_clears_the_lock(self):
+        env = _settings_env(tracks=[_track()])
+        env.integrations.get.return_value = _integration()
+
+        env.service.save_settings(
+            sphere_id=SPHERE_PK,
+            event_pk=EVENT_PK,
+            pk=INTEGRATION_PK,
+            settings=KonwencikExportSettings(
+                category_icons={CATEGORY_PK: "fa.gamepad", OTHER_CATEGORY_PK: "fa.x"},
+                track_colors={TRACK_PK: "#abc", PRIVATE_TRACK_PK: "#def"},
+                photo_url_field_pk=FIELD_PK,
+                icon_field_pk=FIELD_PK + 1,
+                sync_enabled=True,
+                export_lock_time=_NOW,
+            ),
+        )
+
+        saved = _saved_settings(env)
+        assert saved.category_icons == {CATEGORY_PK: "fa.gamepad"}
+        assert saved.track_colors == {TRACK_PK: "#abc"}
+        assert saved.photo_url_field_pk == FIELD_PK
+        assert saved.icon_field_pk is None
+        assert saved.sync_enabled is True
+        assert saved.export_lock_time is None
+
+    def test_an_empty_value_removes_the_style(self):
+        env = _settings_env(tracks=[_track()])
+        env.integrations.get.return_value = _integration()
+
+        env.service.save_settings(
+            sphere_id=SPHERE_PK,
+            event_pk=EVENT_PK,
+            pk=INTEGRATION_PK,
+            settings=KonwencikExportSettings(
+                category_icons={CATEGORY_PK: ""}, track_colors={TRACK_PK: ""}
+            ),
+        )
+
+        saved = _saved_settings(env)
+        assert saved.category_icons == {}
+        assert saved.track_colors == {}

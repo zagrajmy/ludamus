@@ -17,7 +17,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.pacts import AgendaItemDTO
 from ludamus.pacts.legacy import SessionFieldValueDTO
-from tests.unit.gates.web.django.chronology.helpers import make_session_data
+from tests.integration.web.chronology.helpers import make_session_data
 
 
 class TestSessionDataSpotsLeft:

@@ -103,7 +103,7 @@ description = "Run unit tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py unit"
+run = 'pytest -n auto -o testpaths=tests/unit {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test' }
 
 ["test:unit:cov"]
@@ -125,7 +125,7 @@ description = "Run integration tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py integration"
+run = 'pytest -n auto -o testpaths=tests/integration {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test' }
 
 ["test:int:cov"]
@@ -151,7 +151,7 @@ description = "Run all Python tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py integration unit"
+run = 'pytest -n auto -o "testpaths=tests/integration tests/unit" {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ["test:py:cov"]

@@ -1,6 +1,8 @@
 from pathlib import Path
 
-PANEL_TEMPLATE_ROOT = Path("src/ludamus/templates/panel")
+PANEL_TEMPLATE_ROOT = (
+    Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates" / "panel"
+)
 FORBIDDEN_TEXT_CLASSES = (
     "text-neutral-500",
     "text-neutral-600",

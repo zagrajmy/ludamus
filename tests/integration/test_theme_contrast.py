@@ -11,7 +11,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PALETTE = Path("src/ludamus/client/src/index.css")
+PALETTE = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "ludamus"
+    / "client"
+    / "src"
+    / "index.css"
+)
 
 # Below this the sRGB transfer function is linear; above it, a power curve.
 SRGB_LINEAR_CUTOFF = 0.03928

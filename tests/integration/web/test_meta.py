@@ -1,14 +1,14 @@
 from unittest.mock import MagicMock
 
 from ludamus.gates.web.django.meta import LinkPreview, session_link_preview
-from tests.unit.gates.web.django.chronology.helpers import location, make_session_data
+from tests.integration.web.chronology.helpers import loc_dict, make_session_data
 
 
 class TestSessionLinkPreview:
     def test_session_without_a_slot_or_room_is_named_but_not_placed(self):
         data = make_session_data(
             agenda_item=None,
-            loc=location(),
+            loc=loc_dict(),
             session=MagicMock(
                 title="Zew Cthulhu",
                 description="",
@@ -24,7 +24,7 @@ class TestSessionLinkPreview:
     def test_facilitator_account_without_a_name_leaves_no_separator(self):
         data = make_session_data(
             agenda_item=None,
-            loc=location(path="Sala Lustrzana"),
+            loc=loc_dict(path="Sala Lustrzana"),
             presenter=MagicMock(full_name=""),
             session=MagicMock(
                 title="Zew Cthulhu",

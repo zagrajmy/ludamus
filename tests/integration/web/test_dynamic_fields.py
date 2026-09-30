@@ -1,5 +1,5 @@
 from ludamus.gates.web.django.dynamic_fields import dynamic_fields_form
-from tests.unit.factories import organizer_field_dto
+from tests.integration.factories import organizer_field_dto
 
 
 class TestTheFormMatchesWhatTheTagRenders:
