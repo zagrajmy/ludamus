@@ -385,7 +385,27 @@ class TestOrganizerTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
 
-    def test_create_event_writes_token_sphere(self, client, org_token, sphere, event):
+    def test_create_event_writes_token_sphere(self, client, org_token, sphere):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        created = json.loads(tool_text(response))
+        new_event = Event.objects.get(pk=created["pk"])
+        assert new_event.sphere_id == sphere.pk
+        assert new_event.slug == "zkf-2026"
+        assert new_event.publication_time is None
+        assert Space.objects.filter(event=new_event).count() == 1
+
+    def test_create_event_refuses_a_sphere_argument(self, client, org_token, sphere):
         foreign = SphereFactory()
 
         response = call_org_tool(
@@ -401,15 +421,12 @@ class TestOrganizerTools:
             },
         )
 
-        created = json.loads(tool_text(response))
-        new_event = Event.objects.get(pk=created["pk"])
-        assert new_event.sphere_id == sphere.pk
-        assert new_event.slug == "zkf-2026"
-        assert new_event.publication_time is None
-        assert not Event.objects.filter(sphere=foreign).exists()
-        assert Space.objects.filter(event=new_event).count() == 1
-        event.refresh_from_db()
-        assert event.slug != "zkf-2026"
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: sphere_id: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="zkf-2026").exists()
 
     def test_create_event_rejects_slug_taken_in_sphere(
         self, client, org_token, sphere, event
@@ -448,9 +465,8 @@ class TestOrganizerTools:
             },
         )
 
-        assert Event.objects.get(
-            pk=json.loads(tool_text(response))["pk"]
-        ).sphere_id == (sphere.pk)
+        created = json.loads(tool_text(response))
+        assert Event.objects.get(pk=created["pk"]).sphere_id == sphere.pk
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})

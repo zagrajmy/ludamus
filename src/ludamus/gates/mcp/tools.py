@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.inputs import (
     SLUG_MAX_LENGTH,
@@ -308,6 +308,10 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 
 class _CreateEventBody(BaseModel):
+    # SAFETY: an organizer's sphere comes from the token; a sphere_id sent
+    # anyway is refused, not dropped, so a misdirected write cannot succeed.
+    model_config = ConfigDict(extra="forbid")
+
     name: NonBlankName = Field(description="Public event name")
     slug: str = Field(
         max_length=SLUG_MAX_LENGTH, description="URL slug; unique within the sphere"
