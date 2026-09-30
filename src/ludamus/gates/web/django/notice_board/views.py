@@ -129,7 +129,9 @@ class EncounterCreatePageView(_EncounterFormPageView):
         data["is_public"] = form.cleaned_data["is_public"]
 
         try:
-            encounter = self.request.services.encounters.create(data)
+            encounter = self.request.services.encounters.create(
+                data, invitee_emails=form.cleaned_data["invitees"]
+            )
         except NotFoundError as exc:
             raise Http404 from exc
         return redirect(
@@ -162,6 +164,11 @@ class EncounterEditPageView(_EncounterFormPageView):
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
         encounter = self._get_encounter(pk)
+        invitees = request.services.encounters.list_owned_invitees(
+            pk=pk,
+            sphere_id=request.context.current_sphere_id,
+            user_id=request.context.current_user_id,
+        )
         form = self._form(
             initial={
                 "title": encounter.title,
@@ -175,6 +182,7 @@ class EncounterEditPageView(_EncounterFormPageView):
                 "header_image": stored_file(
                     encounter.header_image_url, encounter.header_image_original_name
                 ),
+                "invitees": "\n".join(invitee.email for invitee in invitees),
             }
         )
         return TemplateResponse(
@@ -213,6 +221,7 @@ class EncounterEditPageView(_EncounterFormPageView):
                 sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 data=data,
+                invitee_emails=form.cleaned_data["invitees"],
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -288,6 +297,7 @@ class EncounterDetailPageView(_EncounterGate, View):
                 "encounter_meta_description": meta_description,
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
+                "invitees": result.invitees,
                 "google_calendar_url": google_calendar_url(result.encounter, share_url),
                 "outlook_calendar_url": outlook_calendar_url(
                     result.encounter, share_url

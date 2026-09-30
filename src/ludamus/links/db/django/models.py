@@ -1720,7 +1720,8 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    ip_address = models.GenericIPAddressField()
+    # NOTE: null for a signup that arrived as a calendar reply, not a request.
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1733,6 +1734,33 @@ class EncounterRSVP(models.Model):
 
     def __str__(self) -> str:
         return str(self.user)
+
+
+class EncounterInvitee(models.Model):
+    class Status(models.TextChoices):
+        INVITED = "invited", _("Invited")
+        ACCEPTED = "accepted", _("Accepted")
+        DECLINED = "declined", _("Declined")
+
+    encounter = models.ForeignKey(
+        Encounter, on_delete=models.CASCADE, related_name="invitees"
+    )
+    email = models.EmailField()
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.INVITED
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "encounter_invitee"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("encounter", "email"), name="encounter_invitee_unique_email"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.email
 
 
 class EventSettings(models.Model):

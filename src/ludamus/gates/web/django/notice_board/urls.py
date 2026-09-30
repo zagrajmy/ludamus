@@ -2,7 +2,7 @@ from django.urls import URLPattern, URLResolver, path
 
 from ludamus.gates.web.django.landing import legacy_feed_redirect
 
-from . import views
+from . import replies, views
 
 public_urlpatterns: list[URLPattern | URLResolver] = [
     path(
@@ -25,6 +25,11 @@ authenticated_urlpatterns: list[URLPattern | URLResolver] = [
     # public. Exact match, so the routes below still win.
     path("", legacy_feed_redirect),
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
+    path(
+        "calendar-replies",
+        replies.EncounterCalendarReplyView.as_view(),
+        name="calendar-replies",
+    ),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),
     path(
         "<int:pk>/do/delete", views.EncounterDeleteActionView.as_view(), name="delete"

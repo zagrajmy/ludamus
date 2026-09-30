@@ -84,19 +84,16 @@ class TestEncounterService:
         return collaborators.sites
 
     @pytest.fixture
-    def invites(self, collaborators):
-        return collaborators.invites
-
-    @pytest.fixture
     def service(self, collaborators):
         return EncounterService(
             transaction=collaborators.transaction,
             encounters=collaborators.encounters,
             rsvps=collaborators.rsvps,
+            invitees=collaborators.invitees,
             users=collaborators.users,
             spheres=collaborators.spheres,
             sites=collaborators.sites,
-            invites=collaborators.invites,
+            mailer=collaborators.mailer,
         )
 
     def test_comms_role_cannot_create_under_a_managers_only_policy(
@@ -136,7 +133,7 @@ class TestEncounterService:
         assert [
             name
             for name, _args, _kwargs in collaborators.mock_calls
-            if not name.startswith(("users.", "sites."))
+            if not name.startswith(("users.", "sites.", "invitees."))
         ] == [
             "transaction.atomic",
             "transaction.atomic().__enter__",
@@ -145,6 +142,6 @@ class TestEncounterService:
             "rsvps.recent_rsvp_exists",
             "rsvps.user_has_rsvpd",
             "rsvps.create",
-            "invites.send",
+            "mailer.send",
             "transaction.atomic().__exit__",
         ]

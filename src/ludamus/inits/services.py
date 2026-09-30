@@ -15,7 +15,10 @@ from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
-from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
+from ludamus.links.db.django.encounter_invites import (
+    DjangoEncounterInviteMailer,
+    SignedReplyAddress,
+)
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -43,6 +46,7 @@ from ludamus.mills.crowd import (
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.encounter import EncounterService
+from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
@@ -528,10 +532,24 @@ class Services:
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
+            invitees=self._repos.encounter_invitees,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             sites=self.sites,
-            invites=DjangoEncounterInviteMailer(),
+            mailer=DjangoEncounterInviteMailer(),
+        )
+
+    @cached_property
+    def encounter_replies(self) -> EncounterReplyService:
+        return EncounterReplyService(
+            transaction=self._transaction,
+            encounters=self._repos.encounters,
+            rsvps=self._repos.encounter_rsvps,
+            invitees=self._repos.encounter_invitees,
+            users=self._repos.active_users,
+            sites=self.sites,
+            mailer=DjangoEncounterInviteMailer(),
+            reply_addresses=SignedReplyAddress(),
         )
 
     @cached_property

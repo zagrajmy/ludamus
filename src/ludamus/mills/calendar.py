@@ -12,8 +12,19 @@ if TYPE_CHECKING:
     from ludamus.pacts.calendar import CalendarEntry
 
 
+_ENCOUNTER_UID_DOMAIN = "@ludamus"
+
+
 def encounter_calendar_uid(share_code: str) -> str:
-    return f"{share_code}@ludamus"
+    return f"{share_code}{_ENCOUNTER_UID_DOMAIN}"
+
+
+def encounter_share_code(uid: str) -> str:
+    return (
+        uid.removesuffix(_ENCOUNTER_UID_DOMAIN)
+        if uid.endswith(_ENCOUNTER_UID_DOMAIN)
+        else ""
+    )
 
 
 def _details(entry: CalendarEntry) -> str:

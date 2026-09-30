@@ -17,6 +17,7 @@ from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
+    EncounterInvitee,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
@@ -241,6 +242,14 @@ class EncounterRSVPFactory(DjangoModelFactory):
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
     ip_address = Faker("ipv4")
+
+
+class EncounterInviteeFactory(DjangoModelFactory):
+    class Meta:
+        model = EncounterInvitee
+
+    encounter = SubFactory(EncounterFactory)
+    email = Sequence(lambda n: f"invitee{n}@example.com")
 
 
 class AgendaItemFactory(DjangoModelFactory):

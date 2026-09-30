@@ -1,8 +1,13 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, OuterRef, Q, QuerySet, Subquery
 
-from ludamus.links.db.django.models import Encounter, EncounterRSVP
+from ludamus.links.db.django.models import (
+    Encounter,
+    EncounterInvitee,
+    EncounterRSVP,
+    User,
+)
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -14,6 +19,12 @@ from ludamus.pacts import (
     EncounterRSVPDTO,
     EncounterRSVPRepositoryProtocol,
     NotFoundError,
+)
+from ludamus.pacts.crowd import UserType
+from ludamus.pacts.encounter import (
+    EncounterInviteeDTO,
+    EncounterInviteeRepositoryProtocol,
+    InviteeStatus,
 )
 
 
@@ -44,6 +55,16 @@ class EncounterRepository(EncounterRepositoryProtocol):
             encounter = Encounter.objects.get(
                 share_code=share_code, sphere_id=sphere_id
             )
+        except Encounter.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return EncounterDTO.model_validate(encounter)
+
+    # NOTE: sphere-free on purpose, for calendar replies arriving by mail; the
+    # caller must first prove the reply answers an invite we sent.
+    @staticmethod
+    def read_by_share_code_in_any_sphere(share_code: str) -> EncounterDTO:
+        try:
+            encounter = Encounter.objects.get(share_code=share_code)
         except Encounter.DoesNotExist as exception:
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
@@ -100,7 +121,9 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
 class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
     @staticmethod
-    def create(encounter_id: int, ip_address: str, user_id: int) -> EncounterRSVPDTO:
+    def create(
+        encounter_id: int, ip_address: str | None, user_id: int
+    ) -> EncounterRSVPDTO:
         rsvp = EncounterRSVP.objects.create(
             encounter_id=encounter_id, ip_address=ip_address, user_id=user_id
         )
@@ -144,3 +167,37 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
         EncounterRSVP.objects.filter(
             encounter_id=encounter_id, user_id=user_id
         ).delete()
+
+
+class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
+    @staticmethod
+    def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]:
+        accounts = User.objects.filter(
+            email__iexact=OuterRef("email"), user_type=UserType.ACTIVE
+        ).values("pk")[:1]
+        rows = (
+            EncounterInvitee.objects.filter(encounter_id=encounter_id)
+            .annotate(user_id=Subquery(accounts))
+            .order_by("creation_time", "pk")
+        )
+        return [EncounterInviteeDTO.model_validate(row) for row in rows]
+
+    @staticmethod
+    def add(encounter_id: int, emails: list[str]) -> None:
+        EncounterInvitee.objects.bulk_create(
+            [EncounterInvitee(encounter_id=encounter_id, email=e) for e in emails],
+            ignore_conflicts=True,
+        )
+
+    @staticmethod
+    def remove(encounter_id: int, emails: list[str]) -> None:
+        EncounterInvitee.objects.filter(
+            encounter_id=encounter_id, email__in=emails
+        ).delete()
+
+    @staticmethod
+    def set_status(encounter_id: int, email: str, status: InviteeStatus) -> bool:
+        updated = EncounterInvitee.objects.filter(
+            encounter_id=encounter_id, email__iexact=email
+        ).update(status=status)
+        return updated > 0

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.calendar import InviteMethod
+from ludamus.pacts.calendar import CalendarReply, InviteMethod, PartStat
 from ludamus.pacts.crowd import UserDTO
 
 if TYPE_CHECKING:
@@ -50,7 +50,7 @@ class EncounterRSVPDTO(BaseModel):
 
     creation_time: datetime
     encounter_id: int
-    ip_address: str
+    ip_address: str | None
     pk: int
     user_id: int
 
@@ -94,6 +94,8 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
+    def read_by_share_code_in_any_sphere(share_code: str) -> EncounterDTO: ...
+    @staticmethod
     def list_visible_upcoming(
         sphere_id: int, user_id: int | None, *, limit: int | None = None
     ) -> list[EncounterDTO]: ...
@@ -110,7 +112,7 @@ class EncounterRepositoryProtocol(Protocol):
 class EncounterRSVPRepositoryProtocol(Protocol):
     @staticmethod
     def create(
-        encounter_id: int, ip_address: str, user_id: int
+        encounter_id: int, ip_address: str | None, user_id: int
     ) -> EncounterRSVPDTO: ...
     @staticmethod
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
@@ -126,6 +128,25 @@ class EncounterRSVPRepositoryProtocol(Protocol):
     def delete_by_user(encounter_id: int, user_id: int) -> None: ...
 
 
+class InviteeStatus(StrEnum):
+    INVITED = "invited"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
+class EncounterInviteeDTO(BaseModel):
+    """Someone the organizer invited by email, account or not.
+
+    `user_id` is the account with that email, when one exists.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    status: InviteeStatus
+    user_id: int | None = None
+
+
 class EncounterDetailContextDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -135,6 +156,8 @@ class EncounterDetailContextDTO(BaseModel):
     rsvp_count: int
     is_creator: bool
     user_has_rsvpd: bool
+    # Only for the creator: invitees' emails are theirs to see.
+    invitees: list[EncounterInviteeDTO] = []
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.
@@ -149,10 +172,25 @@ class EncounterDetailContextDTO(BaseModel):
 
 
 class EncounterInviteReason(StrEnum):
+    CREATED = auto()
+    INVITED = auto()
     JOINED = auto()
     CHANGED = auto()
     LEFT = auto()
+    UNINVITED = auto()
     DELETED = auto()
+    FULL = auto()
+
+
+class EncounterInviteeRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]: ...
+    @staticmethod
+    def add(encounter_id: int, emails: list[str]) -> None: ...
+    @staticmethod
+    def remove(encounter_id: int, emails: list[str]) -> None: ...
+    @staticmethod
+    def set_status(encounter_id: int, email: str, status: InviteeStatus) -> bool: ...
 
 
 class EncounterInvite(BaseModel):
@@ -164,6 +202,7 @@ class EncounterInvite(BaseModel):
 
     reason: EncounterInviteReason
     method: InviteMethod
+    partstat: PartStat
     uid: str
     sequence: int
     encounter: EncounterDTO
@@ -176,6 +215,25 @@ class EncounterInvite(BaseModel):
 
 class EncounterInviteMailerProtocol(Protocol):
     def send(self, invites: list[EncounterInvite]) -> None: ...
+
+
+class ReplyAddressProtocol(Protocol):
+    """Proves a calendar reply answers an invite we mailed to that attendee.
+
+    Each invite names a per-attendee organizer address; a reply arriving at
+    any other address is forged or misrouted.
+    """
+
+    def matches(self, *, address: str, uid: str, attendee_email: str) -> bool: ...
+
+
+class ReplyOutcome(StrEnum):
+    ACCEPTED = auto()
+    DECLINED = auto()
+    FULL = auto()
+    IGNORED = auto()
+    FORGED = auto()
+    UNKNOWN = auto()
 
 
 class RSVPOutcome(StrEnum):
@@ -198,13 +256,30 @@ class EncounterServiceProtocol(Protocol):
     def read_by_share_code(
         self, *, share_code: str, sphere_id: int
     ) -> EncounterDTO: ...
-    def create(self, data: EncounterData) -> EncounterDTO: ...
+    def create(
+        self, data: EncounterData, *, invitee_emails: list[str]
+    ) -> EncounterDTO: ...
     def read_owned(self, *, pk: int, sphere_id: int, user_id: int) -> EncounterDTO: ...
+    def list_owned_invitees(
+        self, *, pk: int, sphere_id: int, user_id: int
+    ) -> list[EncounterInviteeDTO]: ...
     def update_owned(
-        self, *, pk: int, sphere_id: int, user_id: int, data: EncounterData
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        user_id: int,
+        data: EncounterData,
+        invitee_emails: list[str] | None,
     ) -> EncounterDTO: ...
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None: ...
     def rsvp(
         self, *, share_code: str, sphere_id: int, user_id: int, ip_address: str
     ) -> RSVPOutcome: ...
     def cancel_rsvp(self, *, share_code: str, sphere_id: int, user_id: int) -> None: ...
+
+
+class EncounterReplyServiceProtocol(Protocol):
+    def apply_calendar_reply(
+        self, *, address: str, reply: CalendarReply
+    ) -> ReplyOutcome: ...

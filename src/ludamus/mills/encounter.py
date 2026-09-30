@@ -1,31 +1,32 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.mills.calendar import encounter_calendar_uid
-from ludamus.pacts.calendar import InviteMethod
+from ludamus.mills.encounter_calendar import EncounterGuests, guest_for
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
     EncounterFeed,
     EncounterIndexItem,
-    EncounterInvite,
     EncounterInviteReason,
     EncounterServiceProtocol,
     EncountersPolicy,
+    InviteeStatus,
     RSVPOutcome,
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
-from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterData,
         EncounterDTO,
+        EncounterInviteeDTO,
+        EncounterInviteeRepositoryProtocol,
         EncounterInviteMailerProtocol,
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
@@ -44,10 +45,11 @@ class EncounterService(EncounterServiceProtocol):
         transaction: TransactionProtocol,
         encounters: EncounterRepositoryProtocol,
         rsvps: EncounterRSVPRepositoryProtocol,
+        invitees: EncounterInviteeRepositoryProtocol,
         users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         sites: SitesServiceProtocol,
-        invites: EncounterInviteMailerProtocol,
+        mailer: EncounterInviteMailerProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
@@ -59,7 +61,9 @@ class EncounterService(EncounterServiceProtocol):
         # the method the view then calls — and that service already memoises
         # the current sphere for the request.
         self._sites = sites
-        self._invites = invites
+        self._guests = EncounterGuests(
+            rsvps=rsvps, invitees=invitees, users=users, sites=sites, mailer=mailer
+        )
 
     def _policy(self, sphere_id: int) -> EncountersPolicy:
         return self._sites.read(sphere_id).encounters_policy
@@ -162,26 +166,44 @@ class EncounterService(EncounterServiceProtocol):
         user_has_rsvpd = current_user_id is not None and self._rsvps.user_has_rsvpd(
             encounter.pk, current_user_id
         )
+        is_creator = current_user_id == encounter.creator_id
         return EncounterDetailContextDTO(
             encounter=encounter,
             creator=creator,
             attendees=attendees,
             rsvp_count=len(rsvps),
-            is_creator=current_user_id == encounter.creator_id,
+            is_creator=is_creator,
             user_has_rsvpd=user_has_rsvpd,
+            invitees=(self._guests.invitees(encounter.pk) if is_creator else []),
         )
 
     def read_by_share_code(self, *, share_code: str, sphere_id: int) -> EncounterDTO:
         return self._encounters.read_by_share_code(share_code, sphere_id)
 
-    def create(self, data: EncounterData) -> EncounterDTO:
+    def create(self, data: EncounterData, *, invitee_emails: list[str]) -> EncounterDTO:
         # Creating is the one thing the policy decides, so it is checked here
         # too rather than only at the view's gate. Editing, deleting and
         # RSVPing ask about ownership or an invitation instead, and the
         # methods below answer that.
         if not self.can_create(sphere_id=data["sphere_id"], user_id=data["creator_id"]):
             raise NotFoundError
-        return self._encounters.create(data)
+        with self._transaction.atomic():
+            encounter = self._encounters.create(data)
+            added = self._guests.replace_invitees(encounter, invitee_emails)
+            self._guests.send(
+                encounter,
+                reason=EncounterInviteReason.CREATED,
+                guests=[guest_for(self._users.read_by_id(encounter.creator_id))],
+            )
+            self._send_invited(encounter, added)
+            return encounter
+
+    def _send_invited(self, encounter: EncounterDTO, emails: set[str]) -> None:
+        self._guests.send(
+            encounter,
+            reason=EncounterInviteReason.INVITED,
+            guests=[g for g in self._guests.guests(encounter) if g.email in emails],
+        )
 
     def read_owned(self, *, pk: int, sphere_id: int, user_id: int) -> EncounterDTO:
         encounter = self._encounters.read(pk, sphere_id)
@@ -189,8 +211,20 @@ class EncounterService(EncounterServiceProtocol):
             raise NotFoundError
         return encounter
 
+    def list_owned_invitees(
+        self, *, pk: int, sphere_id: int, user_id: int
+    ) -> list[EncounterInviteeDTO]:
+        self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
+        return self._guests.invitees(pk)
+
     def update_owned(
-        self, *, pk: int, sphere_id: int, user_id: int, data: EncounterData
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        user_id: int,
+        data: EncounterData,
+        invitee_emails: list[str] | None,
     ) -> EncounterDTO:
         with self._transaction.atomic():
             before = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
@@ -204,22 +238,33 @@ class EncounterService(EncounterServiceProtocol):
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             encounter = self._encounters.read(pk, sphere_id)
+            added = (
+                self._guests.replace_invitees(encounter, invitee_emails)
+                if invitee_emails is not None
+                else set()
+            )
             if _calendar_view(encounter) != _calendar_view(before):
-                self._send_invites(
+                self._guests.send(
                     encounter,
                     reason=EncounterInviteReason.CHANGED,
-                    recipients=self._attendees(encounter.pk),
+                    guests=[
+                        g
+                        for g in self._guests.guests(encounter)
+                        if g.email not in added
+                    ],
                 )
+            self._send_invited(encounter, added)
             return encounter
 
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None:
         with self._transaction.atomic():
             encounter = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            # NOTE: read before the delete; the RSVPs cascade away with it.
-            attendees = self._attendees(encounter.pk)
+            # NOTE: read before the delete; signups and invitees cascade away
+            # with it.
+            guests = self._guests.guests(encounter)
             self._encounters.delete(pk)
-            self._send_invites(
-                encounter, reason=EncounterInviteReason.DELETED, recipients=attendees
+            self._guests.send(
+                encounter, reason=EncounterInviteReason.DELETED, guests=guests
             )
 
     def rsvp(
@@ -232,21 +277,17 @@ class EncounterService(EncounterServiceProtocol):
         # a repo method in pacts/encounter.py — held by open PRs.
         with self._transaction.atomic():
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
-            rsvp_count = self._rsvps.count_by_encounter(encounter.pk)
-            if (
-                encounter.max_participants > 0
-                and rsvp_count >= encounter.max_participants
-            ):
+            if not self._guests.has_room(encounter):
                 return RSVPOutcome.FULL
             if self._rsvps.recent_rsvp_exists(ip_address):
                 return RSVPOutcome.THROTTLED
             if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return RSVPOutcome.ALREADY_SIGNED_UP
-            self._rsvps.create(encounter.pk, ip_address, user_id)
-            self._send_invites(
-                encounter,
-                reason=EncounterInviteReason.JOINED,
-                recipients=[self._users.read_by_id(user_id)],
+            user = self._users.read_by_id(user_id)
+            self._rsvps.create(encounter.pk, ip_address, user.pk)
+            self._guests.answer(encounter.pk, user.email, InviteeStatus.ACCEPTED)
+            self._guests.send(
+                encounter, reason=EncounterInviteReason.JOINED, guests=[guest_for(user)]
             )
             return RSVPOutcome.CREATED
 
@@ -255,68 +296,19 @@ class EncounterService(EncounterServiceProtocol):
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
             if not self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return
-            self._rsvps.delete_by_user(encounter.pk, user_id)
-            self._send_invites(
-                encounter,
-                reason=EncounterInviteReason.LEFT,
-                recipients=[self._users.read_by_id(user_id)],
+            user = self._users.read_by_id(user_id)
+            self._rsvps.delete_by_user(encounter.pk, user.pk)
+            self._guests.answer(encounter.pk, user.email, InviteeStatus.DECLINED)
+            self._guests.send(
+                encounter, reason=EncounterInviteReason.LEFT, guests=[guest_for(user)]
             )
-
-    def _attendees(self, encounter_id: int) -> list[UserDTO]:
-        user_ids = {
-            rsvp.user_id for rsvp in self._rsvps.list_by_encounter(encounter_id)
-        }
-        return self._users.read_by_ids(sorted(user_ids)) if user_ids else []
-
-    def _send_invites(
-        self,
-        encounter: EncounterDTO,
-        *,
-        reason: EncounterInviteReason,
-        recipients: list[UserDTO],
-    ) -> None:
-        if not recipients:
-            return
-        sphere = self._sites.read(encounter.sphere_id)
-        try:
-            creator_name = self._users.read_by_id(encounter.creator_id).name
-        except NotFoundError:
-            creator_name = ""
-        # NOTE: iTIP applies the message with the highest SEQUENCE per UID. A
-        # clock reading rises across edits without a stored counter, within
-        # limits: sends in the same second tie (clients then compare
-        # DTSTAMP), worker clock skew can step back, and it outgrows the
-        # int32 RFC 5545 INTEGER in 2038.
-        sequence = int(datetime.now(tz=UTC).timestamp())
-        method = InviteMethod.CANCEL if reason in _CANCELLING else InviteMethod.REQUEST
-        self._invites.send(
-            [
-                EncounterInvite(
-                    reason=reason,
-                    method=method,
-                    uid=encounter_calendar_uid(encounter.share_code),
-                    sequence=sequence,
-                    encounter=encounter,
-                    end_time=encounter.end_time
-                    or encounter.start_time + ENCOUNTER_DEFAULT_DURATION,
-                    organizer_name=creator_name or sphere.name,
-                    attendee_name=user.name,
-                    attendee_email=user.email,
-                    sphere_domain=sphere.site.domain,
-                )
-                for user in recipients
-            ]
-        )
-
-
-_CANCELLING = frozenset({EncounterInviteReason.LEFT, EncounterInviteReason.DELETED})
 
 
 def _calendar_view(
     encounter: EncounterDTO,
 ) -> tuple[str, str, datetime, datetime | None, str]:
-    # NOTE: only what an attendee's calendar shows; a capacity or cover
-    # change is no reason to mail everyone.
+    # NOTE: only what a guest's calendar shows; a capacity or cover change is
+    # no reason to mail everyone.
     return (
         encounter.title,
         encounter.description,

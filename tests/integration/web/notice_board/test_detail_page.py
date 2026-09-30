@@ -33,7 +33,13 @@ def _creator_info(creator):
 
 
 def _detail_context(
-    encounter, *, is_creator=False, user_has_rsvpd=False, attendees=None, rsvp_count=0
+    encounter,
+    *,
+    is_creator=False,
+    user_has_rsvpd=False,
+    attendees=None,
+    rsvp_count=0,
+    invitees=(),
 ):
     encounter_dto = EncounterDTO.model_validate(encounter)
     description_html = (
@@ -59,6 +65,7 @@ def _detail_context(
         ),
         "share_url": share_url,
         "user_has_rsvpd": user_has_rsvpd,
+        "invitees": list(invitees),
         "google_calendar_url": google_calendar_url(encounter_dto, share_url),
         "outlook_calendar_url": outlook_calendar_url(encounter_dto, share_url),
     }

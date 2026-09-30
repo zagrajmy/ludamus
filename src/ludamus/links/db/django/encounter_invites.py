@@ -1,21 +1,25 @@
-"""Mails encounter attendees calendar invites their mail client files itself.
+"""Mails encounter guests calendar invites their mail client files itself.
 
 Each message carries a ``text/calendar`` part with an iTIP method, which
 Gmail, Outlook and Apple Mail act on without a click: a REQUEST adds or
-updates the event, a CANCEL removes it.
+updates the event, a CANCEL removes it. With ``ENCOUNTER_REPLY_EMAIL`` set,
+each invite names a per-guest organizer address there, so a guest's
+accept or decline comes back as a REPLY the app can trust.
 """
 
 from __future__ import annotations
 
 import logging
+from base64 import b32encode
 from datetime import UTC, datetime
 from email.utils import parseaddr
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives, get_connection
+from django.core.mail import EmailMultiAlternatives, mailers
 from django.db import transaction
 from django.urls import reverse
+from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
@@ -29,6 +33,9 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_REPLY_HMAC_NAMESPACE = "ludamus.encounter-reply"
+_TOKEN_BYTES = 10
 
 
 class DjangoEncounterInviteMailer:
@@ -47,22 +54,62 @@ class DjangoEncounterInviteMailer:
         share_code = deliverable[0].encounter.share_code
         reason = deliverable[0].reason
         # NOTE: rendered now, in the acting user's language and time zone —
-        # users store neither, so an owner's edit reaches attendees in theirs.
+        # users store neither, so an owner's edit reaches guests in theirs.
         messages = [_message(invite) for invite in deliverable]
 
         def _send() -> None:
             try:
-                sent = get_connection().send_messages(messages)
+                sent = mailers.default.send_messages(messages)
             except OSError:
-                # NOTE: the signup or edit already committed; a lost invite
-                # must not undo it, but it has to be visible.
+                # NOTE: the change already committed; a lost invite must not
+                # undo it, but it has to be visible.
                 logger.exception(
                     "Encounter %s: %s invites not delivered", share_code, reason
                 )
                 return
             logger.info("Encounter %s: %s %s invites sent", share_code, sent, reason)
 
-        transaction.on_commit(_send)
+        transaction.on_commit(_send, robust=True)
+
+
+class SignedReplyAddress:
+    """`rsvp+<token>@…`, the token an HMAC of the invite's UID and guest."""
+
+    @staticmethod
+    def address_for(*, uid: str, attendee_email: str) -> str:
+        local, __, domain = settings.ENCOUNTER_REPLY_EMAIL.partition("@")
+        return f"{local}+{_token(uid, attendee_email)}@{domain}"
+
+    @staticmethod
+    def matches(*, address: str, uid: str, attendee_email: str) -> bool:
+        local, __, domain = address.strip().lower().partition("@")
+        expected_local, __, expected_domain = (
+            settings.ENCOUNTER_REPLY_EMAIL.lower().partition("@")
+        )
+        base, __, token = local.partition("+")
+        return (
+            bool(expected_local)
+            and base == expected_local
+            and domain == expected_domain
+            and constant_time_compare(token, _token(uid, attendee_email))
+        )
+
+
+def _token(uid: str, attendee_email: str) -> str:
+    digest = salted_hmac(
+        _REPLY_HMAC_NAMESPACE, f"{uid}\n{attendee_email.lower()}"
+    ).digest()
+    return b32encode(digest[:_TOKEN_BYTES]).decode().lower()
+
+
+def _organizer(invite: EncounterInvite) -> Mailbox:
+    if settings.ENCOUNTER_REPLY_EMAIL:
+        email = SignedReplyAddress.address_for(
+            uid=invite.uid, attendee_email=invite.attendee_email
+        )
+    else:
+        __, email = parseaddr(settings.DEFAULT_FROM_EMAIL)
+    return Mailbox(name=invite.organizer_name, email=email)
 
 
 def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
@@ -74,7 +121,6 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         ),
         domain=invite.sphere_domain,
     )
-    __, sender = parseaddr(settings.DEFAULT_FROM_EMAIL)
     ics = ics_document(
         CalendarEntry(
             uid=invite.uid,
@@ -89,8 +135,10 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         invite=CalendarInvite(
             method=invite.method,
             sequence=invite.sequence,
-            organizer=Mailbox(name=invite.organizer_name, email=sender),
+            organizer=_organizer(invite),
             attendee=Mailbox(name=invite.attendee_name, email=invite.attendee_email),
+            partstat=invite.partstat,
+            rsvp=bool(settings.ENCOUNTER_REPLY_EMAIL),
         ),
     )
     message = EmailMultiAlternatives(
@@ -105,35 +153,56 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
 def _subject(invite: EncounterInvite) -> str:
     title = invite.encounter.title
     match invite.reason:
-        case EncounterInviteReason.JOINED:
+        case (
+            EncounterInviteReason.CREATED
+            | EncounterInviteReason.INVITED
+            | EncounterInviteReason.JOINED
+        ):
             return _("Invitation: %(title)s") % {"title": title}
         case EncounterInviteReason.CHANGED:
             return _("Updated: %(title)s") % {"title": title}
-        case EncounterInviteReason.LEFT | EncounterInviteReason.DELETED:
+        case (
+            EncounterInviteReason.LEFT
+            | EncounterInviteReason.UNINVITED
+            | EncounterInviteReason.DELETED
+            | EncounterInviteReason.FULL
+        ):
             return _("Cancelled: %(title)s") % {"title": title}
+
+
+def _lead(invite: EncounterInvite) -> str:
+    names = {"organizer": invite.organizer_name, "title": invite.encounter.title}
+    match invite.reason:
+        case EncounterInviteReason.CREATED:
+            return _("Your encounter %(title)s is in your calendar.") % names
+        case EncounterInviteReason.INVITED:
+            return (
+                _(
+                    "%(organizer)s invites you to %(title)s. Accept in your "
+                    "calendar or sign up on the encounter page."
+                )
+                % names
+            )
+        case EncounterInviteReason.JOINED:
+            return _("You signed up for %(title)s.") % names
+        case EncounterInviteReason.CHANGED:
+            return _("%(organizer)s changed %(title)s.") % names
+        case EncounterInviteReason.LEFT:
+            return _("You are no longer signed up for %(title)s.") % names
+        case EncounterInviteReason.UNINVITED:
+            return _("You are no longer invited to %(title)s.") % names
+        case EncounterInviteReason.DELETED:
+            return _("%(organizer)s cancelled %(title)s.") % names
+        case EncounterInviteReason.FULL:
+            return (
+                _("%(title)s is full, so your acceptance could not be saved.") % names
+            )
 
 
 def _body(invite: EncounterInvite, url: str) -> str:
     encounter = invite.encounter
-    match invite.reason:
-        case EncounterInviteReason.JOINED:
-            lead = _("You signed up for %(title)s.") % {"title": encounter.title}
-        case EncounterInviteReason.CHANGED:
-            lead = _("%(organizer)s changed %(title)s.") % {
-                "organizer": invite.organizer_name,
-                "title": encounter.title,
-            }
-        case EncounterInviteReason.LEFT:
-            lead = _("You are no longer signed up for %(title)s.") % {
-                "title": encounter.title
-            }
-        case EncounterInviteReason.DELETED:
-            lead = _("%(organizer)s cancelled %(title)s.") % {
-                "organizer": invite.organizer_name,
-                "title": encounter.title,
-            }
     when = date_format(localtime(encounter.start_time), "DATETIME_FORMAT")
-    lines = [lead, "", when]
+    lines = [_lead(invite), "", when]
     if encounter.place:
         lines.append(encounter.place)
     if invite.reason is not EncounterInviteReason.DELETED:

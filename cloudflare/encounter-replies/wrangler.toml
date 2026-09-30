@@ -1,0 +1,12 @@
+name = "zagrajmy-encounter-replies"
+main = "src/index.js"
+compatibility_date = "2026-09-30"
+account_id = "add2b427b034a6073f63a849af7de160"
+# Creates the Email Routing rule that sends this address to the Worker.
+# Subaddressing must be on (Email Routing > Settings) so rsvp+<token>@ matches.
+addresses = ["rsvp@zagrajmy.net"]
+
+[vars]
+WEBHOOK_URL = "https://zagrajmy.net/encounters/calendar-replies"
+# WEBHOOK_SECRET is a secret: `wrangler secret put WEBHOOK_SECRET`, the same
+# value as the app's ENCOUNTER_REPLY_WEBHOOK_SECRET.

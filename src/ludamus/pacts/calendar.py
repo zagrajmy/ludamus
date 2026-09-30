@@ -6,6 +6,7 @@ an entry straight into an attendee's calendar.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC
 from enum import StrEnum
@@ -39,6 +40,14 @@ class CalendarEntry:
 class InviteMethod(StrEnum):
     REQUEST = "REQUEST"
     CANCEL = "CANCEL"
+    REPLY = "REPLY"
+
+
+class PartStat(StrEnum):
+    NEEDS_ACTION = "NEEDS-ACTION"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+    TENTATIVE = "TENTATIVE"
 
 
 @dataclass(frozen=True)
@@ -60,6 +69,19 @@ class CalendarInvite:
     sequence: int
     organizer: Mailbox
     attendee: Mailbox
+    partstat: PartStat = PartStat.ACCEPTED
+    # Asks the attendee's client to mail back its answer (an iTIP REPLY) to
+    # the organizer address.
+    rsvp: bool = False
+
+
+@dataclass(frozen=True)
+class CalendarReply:
+    """An attendee's answer to an invite, as their calendar client sent it."""
+
+    uid: str
+    attendee_email: str
+    partstat: PartStat
 
 
 def ics_escape(text: str) -> str:
@@ -114,7 +136,8 @@ def _invite_lines(invite: CalendarInvite) -> list[str]:
         ),
         (
             f"ATTENDEE;CN={_param_text(attendee.name or attendee.email)}"
-            ";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE"
+            f";ROLE=REQ-PARTICIPANT;PARTSTAT={invite.partstat}"
+            f";RSVP={'TRUE' if invite.rsvp else 'FALSE'}"
             f":mailto:{attendee.email}"
         ),
     ]
@@ -144,3 +167,58 @@ def ics_document(
         lines += _invite_lines(invite)
     lines += ["END:VEVENT", "END:VCALENDAR"]
     return "\r\n".join(_fold(line) for line in lines) + "\r\n"
+
+
+def parse_reply(text: str) -> CalendarReply | None:
+    """Read an iTIP REPLY; None for anything else or a reply missing a part."""
+    unfolded = re.sub(r"\r?\n[ \t]", "", text)
+    method = uid = email = ""
+    partstat: PartStat | None = None
+    for line in unfolded.splitlines():
+        prop, params, value = _content_line(line)
+        match prop.upper():
+            case "METHOD":
+                method = value.strip().upper()
+            case "UID" if not uid:
+                uid = value.strip()
+            case "ATTENDEE" if not email:
+                email = _mailto(value)
+                partstat = _partstat(params)
+    if method != InviteMethod.REPLY or not uid or not email or partstat is None:
+        return None
+    return CalendarReply(uid=uid, attendee_email=email, partstat=partstat)
+
+
+def _content_line(line: str) -> tuple[str, list[str], str]:
+    # NOTE: a quoted parameter value (CN="Doe: Jane; MD") may hold the ":" and
+    # ";" that otherwise delimit the property name, parameters and value.
+    parts: list[str] = []
+    current = ""
+    quoted = False
+    for index, char in enumerate(line):
+        if char == '"':
+            quoted = not quoted
+        elif not quoted and char in ";:":
+            parts.append(current)
+            current = ""
+            if char == ":":
+                return parts[0], parts[1:], line[index + 1 :]
+            continue
+        current += char
+    return line, [], ""
+
+
+def _mailto(value: str) -> str:
+    scheme, __, address = value.strip().partition(":")
+    return address.strip().lower() if scheme.lower() == "mailto" else ""
+
+
+def _partstat(params: list[str]) -> PartStat | None:
+    for param in params:
+        key, __, value = param.partition("=")
+        if key.upper() == "PARTSTAT":
+            try:
+                return PartStat(value.strip('"').upper())
+            except ValueError:
+                return None
+    return None

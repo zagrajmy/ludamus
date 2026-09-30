@@ -234,3 +234,7 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def encounter_invitees(self) -> repositories.EncounterInviteeRepository:
+        return repositories.EncounterInviteeRepository()
