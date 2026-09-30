@@ -7,7 +7,7 @@ test.describe("Content pages", () => {
     await page.goto("/privacy-policy/");
 
     await expect(page.getByRole("heading", { name: "POLITYKA PRYWATNOŚCI" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "1. ADMINISTRATOR DANYCH" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "1. ADMINISTRATORZY DANYCH" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Back to Home/ })).toBeVisible();
   });
 
