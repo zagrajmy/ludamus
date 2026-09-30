@@ -2,11 +2,13 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
+from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SessionBookmark, SphereSubscription
 from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
 from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.legacy import SessionParticipationStatus
 from ludamus.pacts.multiverse import SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -182,6 +184,58 @@ class TestDashboardPageView:
         dashboard = response.context_data["dashboard"]
         assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
 
+    def test_agenda_says_where_this_member_waits_or_has_a_seat_offered(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        waiting = _bookmarked_session(event, user=active_user, title="Waiting")
+        offered = _bookmarked_session(event, user=active_user, title="Offered")
+        SessionParticipationFactory(session=waiting, user=active_user, status="waiting")
+        deadline = datetime.now(UTC) + timedelta(hours=2)
+        SessionParticipationFactory(
+            session=offered,
+            user=active_user,
+            status="offered",
+            claim_token="dashboard-token",
+            offer_expires_at=deadline,
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        cards = {card.title: card for card in dashboard.agenda}
+        assert cards["Waiting"].role == DashboardRole.WAITLISTED
+        assert not cards["Waiting"].claim_url
+        assert cards["Offered"].role == DashboardRole.OFFERED
+        assert cards["Offered"].offer_expires_at == deadline
+        assert cards["Offered"].claim_url == reverse(
+            "web:dashboard-offer-claim", kwargs={"session_id": offered.pk}
+        )
+        # Both are on the agenda now, so neither is repeated as a bookmark.
+        assert dashboard.bookmarks == []
+
+    def test_a_lapsed_offer_leaves_the_agenda(
+        self, authenticated_client, active_user, sphere
+    ):
+        # Unpublished, so the sphere feed stays out of the picture.
+        event = EventFactory(sphere=sphere, publication_time=None)
+        SessionParticipationFactory(
+            session=_bookmarked_session(event, user=UserFactory()),
+            user=active_user,
+            status="offered",
+            claim_token="lapsed-token",
+            offer_expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
+
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
     ):
@@ -314,3 +368,75 @@ class TestSphereSubscriptionActions:
 
         assert_response_404(response)
         assert not SphereSubscription.objects.exists()
+
+
+class TestOfferClaimAction:
+    @pytest.fixture(name="offer")
+    def offer_fixture(self, active_user, non_root_sphere):
+        return SessionParticipationFactory(
+            session=_bookmarked_session(
+                EventFactory(sphere=non_root_sphere), user=active_user
+            ),
+            user=active_user,
+            status="offered",
+            claim_token="dashboard-token",
+            offer_expires_at=datetime.now(UTC) + timedelta(hours=2),
+        )
+
+    @staticmethod
+    def _claim_url(session_id):
+        return reverse("web:dashboard-offer-claim", kwargs={"session_id": session_id})
+
+    def test_claiming_confirms_the_seat_and_returns_to_the_dashboard(
+        self, authenticated_client, offer
+    ):
+        response = authenticated_client.post(self._claim_url(offer.session_id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=DASHBOARD_URL,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Spot claimed — you are now confirmed for this session.",
+                )
+            ],
+        )
+        offer.refresh_from_db()
+        assert offer.status == SessionParticipationStatus.CONFIRMED
+
+    def test_an_expired_offer_says_so_and_changes_nothing(
+        self, authenticated_client, offer
+    ):
+        offer.offer_expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        offer.save()
+
+        response = authenticated_client.post(self._claim_url(offer.session_id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=DASHBOARD_URL,
+            messages=[
+                (messages.ERROR, "This offer has expired or was already claimed.")
+            ],
+        )
+        offer.refresh_from_db()
+        assert offer.status == SessionParticipationStatus.OFFERED
+
+    def test_someone_else_s_offer_is_a_404(self, authenticated_client, non_root_sphere):
+        foreign = SessionParticipationFactory(
+            session=_bookmarked_session(
+                EventFactory(sphere=non_root_sphere), user=UserFactory()
+            ),
+            status="offered",
+            claim_token="someone-elses-token",
+            offer_expires_at=datetime.now(UTC) + timedelta(hours=2),
+        )
+
+        response = authenticated_client.post(self._claim_url(foreign.session_id))
+
+        assert_response_404(response)
+        foreign.refresh_from_db()
+        assert foreign.status == SessionParticipationStatus.OFFERED
