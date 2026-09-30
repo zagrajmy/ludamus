@@ -9,7 +9,6 @@ rules live in `McpAuthorizationService`; this module maps HTTP onto it.
 from __future__ import annotations
 
 import logging
-import re
 import secrets
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -98,9 +97,6 @@ _CLIENT_REJECTIONS: dict[ClientRejection, _StrPromise] = {
         "The client asked to return to an address its metadata doesn't list."
     ),
 }
-# Characters a CSP host-source may carry; anything else (a `;` above all)
-# would let a client's own redirect URI write directives into our header.
-_CSP_HOST = re.compile(r"[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]")
 _EXPIRED = _("This connection request expired. Start again from your client.")
 
 
@@ -316,26 +312,22 @@ def _allow_form_redirect(
         The response, carrying the site policy with the client's origin (or
         custom scheme) added to form-action; untouched when CSP is off.
     """
-    if not (policy := settings.SECURE_CSP) or not (source := _csp_source(redirect_uri)):
+    if not (policy := settings.SECURE_CSP):
         return response
+    source = _csp_source(redirect_uri)
     config = {**policy, "form-action": [*policy.get("form-action", ()), source]}
     return csp_override(config)(lambda _request: response)(request)
 
 
-def _csp_source(redirect_uri: str) -> str | None:
+def _csp_source(redirect_uri: str) -> str:
+    # SAFETY: the mill admits a web redirect only when its host fits a CSP
+    # host-source (`_is_web_host`); anything looser writes into the header.
     parts = urlsplit(redirect_uri)
     if parts.scheme not in {"http", "https"}:
         return f"{parts.scheme}:"
-    host = parts.hostname or ""
-    if ":" in host:
-        host = f"[{host}]"
-    try:
-        port = parts.port
-    except ValueError:
-        return None
-    if not _CSP_HOST.fullmatch(host):
-        return None
-    return f"{parts.scheme}://{host}:{port}" if port else f"{parts.scheme}://{host}"
+    host = f"[{parts.hostname}]" if ":" in (parts.hostname or "") else parts.hostname
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{host}{port}"
 
 
 def _authorization_request(request: RootRequest) -> McpAuthorizationRequest:

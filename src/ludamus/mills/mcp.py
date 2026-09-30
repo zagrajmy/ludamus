@@ -32,6 +32,8 @@ from ludamus.pacts.mcp import (
 )
 
 if TYPE_CHECKING:
+    from urllib.parse import SplitResult
+
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.mcp import (
@@ -46,6 +48,9 @@ if TYPE_CHECKING:
 AUTHORIZATION_CODE_TTL_SECONDS = 60
 CLIENT_NAME_MAX_LENGTH = 100
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+# A web redirect's host ends up in the consent page's CSP header, so it may
+# hold only what a host-source can: no `;` to smuggle in a directive.
+WEB_HOST_PATTERN = re.compile(r"[a-z0-9.-]+|[0-9a-f:.]*:[0-9a-f:.]*")
 # RFC 7636 §4.1: 43-128 characters from the unreserved set.
 CODE_VERIFIER_PATTERN = re.compile(r"[A-Za-z0-9\-._~]{43,128}")
 # Schemes a browser would run or read locally instead of handing to a client.
@@ -201,14 +206,23 @@ def _check_client_id(client_id: str) -> None:
 
 def _check_redirect_uri(redirect_uri: str) -> None:
     parts = urlsplit(redirect_uri)
+    if not parts.scheme or parts.scheme in FORBIDDEN_REDIRECT_SCHEMES or parts.fragment:
+        raise McpClientRejectedError(ClientRejection.BAD_REDIRECT_URI)
+    if parts.scheme not in {"http", "https"}:
+        return
     # OAuth 2.1 §7.5.1: plain http only on the user's own machine.
-    if (
-        not parts.scheme
-        or parts.scheme in FORBIDDEN_REDIRECT_SCHEMES
-        or parts.fragment
-        or (parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS)
+    if not _is_web_host(parts) or (
+        parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS
     ):
         raise McpClientRejectedError(ClientRejection.BAD_REDIRECT_URI)
+
+
+def _is_web_host(parts: SplitResult) -> bool:
+    try:
+        _ = parts.port
+    except ValueError:
+        return False
+    return WEB_HOST_PATTERN.fullmatch(parts.hostname or "") is not None
 
 
 def _check_document(

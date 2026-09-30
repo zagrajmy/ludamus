@@ -317,6 +317,7 @@ class TestConsentFormAction:
         (
             ("https://claude.ai/api/mcp/auth_callback", "https://claude.ai"),
             ("http://127.0.0.1:43117/callback", "http://127.0.0.1:43117"),
+            ("http://[::1]:43117/callback", "http://[::1]:43117"),
             ("cursor://anysphere.cursor-mcp/oauth/callback", "cursor:"),
         ),
     )
@@ -352,10 +353,9 @@ class TestConsentFormAction:
             },
         )
 
-    def test_redirect_uri_cannot_write_csp_directives(
-        self, superuser_client, client_metadata, settings
+    def test_redirect_uri_that_would_write_csp_directives_is_refused(
+        self, superuser_client, client_metadata
     ):
-        settings.SECURE_CSP = {"default-src": ["'none'"], "form-action": ["'self'"]}
         redirect_uri = "https://evil.example;script-src *;/cb"
         client_metadata.serve(
             "/oauth/metadata.json",
@@ -368,18 +368,12 @@ class TestConsentFormAction:
 
         assert_response(
             response,
-            HTTPStatus.OK,
+            HTTPStatus.BAD_REQUEST,
             template_name="mcp/authorize.html",
-            context_data=_consent_context(
-                client=CLIENT.model_copy(
-                    update={
-                        "client_name": "client.example",
-                        "redirect_uri": redirect_uri,
-                    }
+            context_data={
+                "client_error": (
+                    "The client asked to return to an address that can't be used."
                 )
-            ),
-            headers={
-                "Content-Security-Policy": "default-src 'none'; form-action 'self'"
             },
         )
 
