@@ -408,7 +408,50 @@ class TestOwnerChangesReachGuests:
         assert f"UID:{encounter.share_code}@ludamus" in ics
 
 
+class TestAcceptedInviteeSigningUp:
+    def test_their_own_acceptance_does_not_count_against_them(
+        self, authenticated_client, sphere, user
+    ):
+        encounter = EncounterFactory(sphere=sphere, max_participants=1)
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email=user.email,
+            status=EncounterInvitee.Status.ACCEPTED,
+        )
+
+        response = rsvp(authenticated_client, encounter)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "You have signed up!"),),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+        assert encounter.rsvps.filter(user=user).exists()
+
+
 class TestInviteLimits:
+    def test_the_same_address_on_two_encounters_counts_once(
+        self, authenticated_client, django_capture_on_commit_callbacks
+    ):
+        repeated = ", ".join(f"r{n}@example.com" for n in range(50))
+        fresh = ", ".join(f"f{n}@example.com" for n in range(50))
+        for title, emails in (("One", repeated), ("Two", repeated), ("Three", fresh)):
+            with django_capture_on_commit_callbacks(execute=True):
+                authenticated_client.post(
+                    reverse("web:notice-board:create"),
+                    data={
+                        "title": title,
+                        "start_time": "2031-05-01T19:00",
+                        "invitees": emails,
+                    },
+                )
+
+        assert Encounter.objects.filter(title="Three").exists()
+
     def test_deleting_and_recreating_does_not_reset_the_daily_limit(
         self, authenticated_client, mailoutbox, django_capture_on_commit_callbacks
     ):

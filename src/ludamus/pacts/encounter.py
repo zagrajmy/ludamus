@@ -212,7 +212,9 @@ class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
     def count_accepted_without_signup(encounter_id: int) -> int: ...
     @staticmethod
-    def count_invited_by_creator_since(creator_id: int, since: datetime) -> int: ...
+    def emails_invited_by_creator_since(
+        creator_id: int, since: datetime
+    ) -> set[str]: ...
 
 
 class EncounterInvite(BaseModel):

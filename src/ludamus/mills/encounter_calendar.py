@@ -118,8 +118,12 @@ class EncounterGuests:
     def accepted_guest_count(self, encounter_id: int) -> int:
         return self._invitees.count_accepted_without_signup(encounter_id)
 
-    def has_room(self, encounter: EncounterDTO) -> bool:
+    def has_room(self, encounter: EncounterDTO, *, email: str = "") -> bool:
         if not (limit := encounter.max_participants):
+            return True
+        # NOTE: an invitee who accepted already holds a spot; signing up
+        # turns that spot into a signup rather than taking a second one.
+        if email and self.invitee_status(encounter.pk, email) is InviteeStatus.ACCEPTED:
             return True
         taken = self._rsvps.count_by_encounter(encounter.pk)
         return taken + self.accepted_guest_count(encounter.pk) < limit
@@ -141,14 +145,15 @@ class EncounterGuests:
         current = {i.email for i in self.invitees(encounter.pk)}
         added = wanted - current
         since = datetime.now(tz=UTC) - INVITEE_WINDOW
-        already = self._invitees.count_invited_by_creator_since(creator.pk, since)
-        if added and already + len(added) > INVITEES_PER_CREATOR_PER_DAY:
+        counted = self._invitees.emails_invited_by_creator_since(creator.pk, since)
+        new = added - counted
+        if new and len(counted) + len(new) > INVITEES_PER_CREATOR_PER_DAY:
             logger.warning(
                 "Encounter %s: creator %s hit the daily invite limit (%d + %d)",
                 encounter.share_code,
                 creator.pk,
-                already,
-                len(added),
+                len(counted),
+                len(new),
             )
             raise InviteLimitError
         removed = current - wanted

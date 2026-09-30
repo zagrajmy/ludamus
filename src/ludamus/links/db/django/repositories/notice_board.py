@@ -243,7 +243,9 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         )
 
     @staticmethod
-    def count_invited_by_creator_since(creator_id: int, since: datetime) -> int:
-        return EncounterInvitee.objects.filter(
-            creator_id=creator_id, creation_time__gte=since
-        ).count()
+    def emails_invited_by_creator_since(creator_id: int, since: datetime) -> set[str]:
+        return set(
+            EncounterInvitee.objects.filter(
+                creator_id=creator_id, creation_time__gte=since
+            ).values_list("email", flat=True)
+        )
