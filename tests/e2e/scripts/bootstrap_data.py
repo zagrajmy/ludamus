@@ -43,6 +43,7 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     ProposalCategory,
     Session,
+    SessionBookmark,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
@@ -1551,7 +1552,7 @@ def main() -> None:
     )
 
     _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
-    _create_event(
+    foreign_event = _create_event(
         foreign_sphere,
         name="Foreign Programme",
         slug="foreign-programme",
@@ -1560,6 +1561,26 @@ def main() -> None:
         duration_hours=8,
         publication_offset=timedelta(days=1),
     )
+    # A bookmark from another sphere's event, so the dashboard's Bookmarks
+    # section has a cross-sphere row to show. Driven by dashboard.auth.spec.ts.
+    foreign_hall = _create_venue(
+        foreign_event, name="Foreign Hall", slug="foreign-hall"
+    )
+    starred = _scheduled_session(
+        foreign_event,
+        _create_space(
+            _create_area(foreign_hall, name="Ground floor", slug="ground-floor"),
+            name="Table 1",
+            slug="table-1",
+        ),
+        title="Starred Dungeon Crawl",
+        slug="starred-dungeon-crawl",
+        presenter="Foreign GM",
+        description="A session the tester bookmarked but holds no seat at.",
+        seats=5,
+        hour=1,
+    )
+    SessionBookmark.objects.create(user=tester, session=starred)
     # Announcements belong to a sphere that runs a programme: they sit above
     # its feed, for people who came for that feed. The root sphere has none of
     # that, so this is where the rendering is covered.

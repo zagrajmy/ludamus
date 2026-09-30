@@ -136,12 +136,18 @@ class DashboardRepository(DashboardRepositoryProtocol):
         """List the programme items this member starred, across every event.
 
         Returns:
-            Upcoming bookmarked sessions, soonest first, minus the ones they
-            already hold a confirmed seat at — those are on their agenda.
+            Upcoming bookmarked sessions of published events, soonest first,
+            minus the ones they already hold a confirmed seat at — those are
+            on their agenda. A bookmark can predate its sphere going private,
+            so only running a private sphere keeps its rows here.
         """
         sessions = (
             Session.objects.filter(
-                bookmarks__user_id=user_id, agenda_item__start_time__gte=now
+                ~Q(event__sphere__visibility=SphereVisibility.PRIVATE)
+                | Q(event__sphere__in=_run_sphere_ids(user_id)),
+                bookmarks__user_id=user_id,
+                agenda_item__start_time__gte=now,
+                event__publication_time__lte=now,
             )
             .exclude(
                 pk__in=SessionParticipation.objects.filter(
@@ -162,10 +168,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             )
             .order_by("agenda_item__start_time")
         )
-        return [
-            _session_card(session, role=DashboardRole.BOOKMARKED)
-            for session in sessions
-        ]
+        return [_session_card(session, role=DashboardRole.OPEN) for session in sessions]
 
     @staticmethod
     def list_open_encounters(
@@ -289,11 +292,7 @@ def _sphere_ids_with_ties(user_id: int) -> set[int]:
     # Every reason a sphere is "yours": you run it, you asked to hear from it,
     # or you hold something in it. Only running it opens a private sphere: the
     # other ties can predate the sphere going private.
-    run = set(
-        SphereMembership.objects.filter(user_id=user_id).values_list(
-            "sphere_id", flat=True
-        )
-    )
+    run = _run_sphere_ids(user_id)
     followed_or_held = (
         set(
             SphereSubscription.objects.filter(user_id=user_id).values_list(
@@ -315,4 +314,12 @@ def _sphere_ids_with_ties(user_id: int) -> set[int]:
         Sphere.objects.filter(pk__in=followed_or_held)
         .exclude(visibility=SphereVisibility.PRIVATE)
         .values_list("pk", flat=True)
+    )
+
+
+def _run_sphere_ids(user_id: int) -> set[int]:
+    return set(
+        SphereMembership.objects.filter(user_id=user_id).values_list(
+            "sphere_id", flat=True
+        )
     )

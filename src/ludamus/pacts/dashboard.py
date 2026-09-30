@@ -26,7 +26,6 @@ class DashboardRole(StrEnum):
 
     SIGNED_UP = auto()
     ORGANIZING = auto()
-    BOOKMARKED = auto()
     OPEN = auto()
 
 

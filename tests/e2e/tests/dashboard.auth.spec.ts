@@ -14,6 +14,19 @@ test.describe("Dashboard", () => {
     await expect(page.getByText("You organize this").first()).toBeVisible();
   });
 
+  test("bookmarks from another sphere's event wait under their own heading", async ({ page }) => {
+    await page.goto("/dashboard/");
+
+    const bookmarks = page.getByRole("region", { name: "Bookmarks" });
+    const card = bookmarks.getByRole("link", { name: /Starred Dungeon Crawl/ });
+    await expect(card).toContainText("Foreign Programme");
+    await expect(card).toContainText("5 spots left");
+    await expect(card).toHaveAttribute(
+      "href",
+      /^https?:\/\/foreign\.localhost:8000\/event\/foreign-programme\/session\/\d+\/enrollment\/$/,
+    );
+  });
+
   test("subscribing to a sphere asks before it commits, and undoes", async ({ page }) => {
     await page.goto("/dashboard/");
 

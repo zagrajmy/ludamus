@@ -30,6 +30,16 @@ def _titles(cards):
     return [card.title for card in cards]
 
 
+def _bookmarked_session(event, *, user):
+    session = SessionFactory(event=event)
+    AgendaItemFactory(
+        session=session,
+        space=SpaceFactory(event=event),
+        start_time=datetime.now(UTC) + timedelta(days=1),
+    )
+    SessionBookmark.objects.create(user=user, session=session)
+
+
 class TestDashboardPageView:
     def test_anonymous_visitors_are_sent_to_log_in(self, client):
         response = client.get(DASHBOARD_URL)
@@ -126,21 +136,41 @@ class TestDashboardPageView:
         assert _titles(dashboard.bookmarks) == ["Mörk Borg", "Mothership"]
         assert _titles(dashboard.agenda) == ["Held seat"]
         mothership = dashboard.bookmarks[1]
-        assert mothership.role == DashboardRole.BOOKMARKED
+        assert mothership.role == DashboardRole.OPEN
         assert (mothership.attending_count, mothership.capacity) == (1, 4)
         assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
 
     def test_another_member_s_bookmarks_stay_theirs(
         self, authenticated_client, non_root_sphere
     ):
+        _bookmarked_session(EventFactory(sphere=non_root_sphere), user=UserFactory())
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert response.context_data["dashboard"].bookmarks == []
+
+    def test_a_bookmark_in_a_sphere_gone_private_is_hidden(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        _bookmarked_session(EventFactory(sphere=non_root_sphere), user=active_user)
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+
+        response = authenticated_client.get(DASHBOARD_URL)
+        assert response.context_data["dashboard"].bookmarks == []
+
+        # Running the sphere is the one tie that still opens it.
+        non_root_sphere.managers.add(active_user)
+        response = authenticated_client.get(DASHBOARD_URL)
+        assert len(response.context_data["dashboard"].bookmarks) == 1
+
+    def test_a_bookmark_in_an_unpublished_event_is_hidden(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
         event = EventFactory(sphere=non_root_sphere)
-        session = SessionFactory(event=event)
-        AgendaItemFactory(
-            session=session,
-            space=SpaceFactory(event=event),
-            start_time=datetime.now(UTC) + timedelta(days=1),
-        )
-        SessionBookmark.objects.create(user=UserFactory(), session=session)
+        _bookmarked_session(event, user=active_user)
+        event.publication_time = None
+        event.save()
 
         response = authenticated_client.get(DASHBOARD_URL)
 
