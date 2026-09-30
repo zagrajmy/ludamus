@@ -95,8 +95,9 @@ class OfferClaimActionView(LoginRequiredMixin, View):
         result = request.services.waitlist_promotion.claim_member_offer(
             user_id=request.context.current_user_id, session_id=session_id
         )
-        if result.reason == "not_found":
-            raise Http404
+        # Every failure lands back on the dashboard: the lookup only ever
+        # searched this member's own seats, and "not found" is as often a
+        # double click or a party-mate's earlier claim as anything else.
         if result.success:
             messages.success(
                 request, _("Spot claimed — you are now confirmed for this session.")

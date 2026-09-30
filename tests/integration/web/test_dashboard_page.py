@@ -425,7 +425,45 @@ class TestOfferClaimAction:
         offer.refresh_from_db()
         assert offer.status == SessionParticipationStatus.OFFERED
 
-    def test_someone_else_s_offer_is_a_404(self, authenticated_client, non_root_sphere):
+    def test_claiming_twice_says_so_instead_of_failing_hard(
+        self, authenticated_client, offer
+    ):
+        authenticated_client.post(self._claim_url(offer.session_id))
+
+        response = authenticated_client.post(self._claim_url(offer.session_id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=DASHBOARD_URL,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Spot claimed — you are now confirmed for this session.",
+                ),
+                (messages.ERROR, "This offer has expired or was already claimed."),
+            ],
+        )
+        offer.refresh_from_db()
+        assert offer.status == SessionParticipationStatus.CONFIRMED
+
+    def test_one_claim_confirms_the_whole_party(self, authenticated_client, offer):
+        # The offer is party-wide, the same as the emailed claim link.
+        mate = SessionParticipationFactory(
+            session=offer.session,
+            status="offered",
+            claim_token=offer.claim_token,
+            offer_expires_at=offer.offer_expires_at,
+        )
+
+        authenticated_client.post(self._claim_url(offer.session_id))
+
+        mate.refresh_from_db()
+        assert mate.status == SessionParticipationStatus.CONFIRMED
+
+    def test_someone_else_s_offer_is_left_alone(
+        self, authenticated_client, non_root_sphere
+    ):
         foreign = SessionParticipationFactory(
             session=_bookmarked_session(
                 EventFactory(sphere=non_root_sphere), user=UserFactory()
@@ -437,6 +475,13 @@ class TestOfferClaimAction:
 
         response = authenticated_client.post(self._claim_url(foreign.session_id))
 
-        assert_response_404(response)
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=DASHBOARD_URL,
+            messages=[
+                (messages.ERROR, "This offer has expired or was already claimed.")
+            ],
+        )
         foreign.refresh_from_db()
         assert foreign.status == SessionParticipationStatus.OFFERED

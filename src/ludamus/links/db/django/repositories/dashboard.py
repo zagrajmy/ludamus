@@ -43,7 +43,13 @@ if TYPE_CHECKING:
 _start_time = attrgetter("start_time")
 
 
-def _session_card(session: Session, *, role: DashboardRole) -> DashboardCardDTO:
+def _session_card(
+    session: Session,
+    *,
+    role: DashboardRole,
+    offer_expires_at: datetime | None = None,
+    claim_url: str = "",
+) -> DashboardCardDTO:
     event = session.event
     sphere = event.sphere
     item = session.agenda_item
@@ -63,6 +69,8 @@ def _session_card(session: Session, *, role: DashboardRole) -> DashboardCardDTO:
         place=item.space.name,
         attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
+        offer_expires_at=offer_expires_at,
+        claim_url=claim_url,
     )
 
 
@@ -74,20 +82,16 @@ _PARTICIPATION_ROLES = {
 
 
 def _held_session_card(participation: SessionParticipation) -> DashboardCardDTO:
-    card = _session_card(
+    role = _PARTICIPATION_ROLES[SessionParticipationStatus(participation.status)]
+    if role is not DashboardRole.OFFERED:
+        return _session_card(participation.session, role=role)
+    return _session_card(
         participation.session,
-        role=_PARTICIPATION_ROLES[SessionParticipationStatus(participation.status)],
-    )
-    if card.role is not DashboardRole.OFFERED:
-        return card
-    return card.model_copy(
-        update={
-            "offer_expires_at": participation.offer_expires_at,
-            "claim_url": reverse(
-                "web:dashboard-offer-claim",
-                kwargs={"session_id": participation.session_id},
-            ),
-        }
+        role=role,
+        offer_expires_at=participation.offer_expires_at,
+        claim_url=reverse(
+            "web:dashboard-offer-claim", kwargs={"session_id": participation.session_id}
+        ),
     )
 
 

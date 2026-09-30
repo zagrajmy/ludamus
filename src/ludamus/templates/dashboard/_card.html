@@ -13,7 +13,8 @@
             {% include "components/cover_tint.html" with url=card.cover_url extra_class="min-h-28" only %}
         {% endif %}
         <div class="flex flex-col gap-1 p-4">
-            <h3 class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>
+            <h3 {% if card.claim_url %}id="{{ card.claim_url|slugify }}"{% endif %}
+                class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>
             <p class="text-sm text-foreground-secondary tabular-nums">{{ card.start_time|date:"j E, H:i" }}</p>
             <p class="text-xs text-foreground-muted">
                 {{ card.origin_name }}
@@ -30,7 +31,9 @@
         <form method="post" action="{{ card.claim_url }}" class="px-4 pb-4">
             {% csrf_token %}
             {% translate "Claim my spot" as claim_label %}
-            {% tessera_button claim_label size="sm" icon="check" full_width_mobile=False %}
+            {% with claim_title_id=card.claim_url|slugify %}
+                {% tessera_button claim_label size="sm" icon="check" full_width_mobile=False aria_describedby=claim_title_id %}
+            {% endwith %}
         </form>
     {% endif %}
 </article>
