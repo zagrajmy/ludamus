@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
@@ -12,21 +11,11 @@ from ludamus.pacts.dashboard import (
     SphereEventAnnouncementDTO,
     SubscriptionRecipientDTO,
 )
+from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 AGENDA_ROWS = 20
 USER_ID = 5
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeSubscriptionsRepo:

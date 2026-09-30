@@ -4,29 +4,19 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
-from ludamus.pacts import EventDTO, NotFoundError, TimeSlotDTO
+from ludamus.pacts import NotFoundError, TimeSlotDTO
 from ludamus.pacts.event import (
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
+from tests.unit.factories import event_dto
 
 _EVENT_ID = 42
 
 
 def _event(pk=_EVENT_ID):
-    return EventDTO(
-        description="",
-        end_time=datetime(2026, 6, 3, 18, 0, tzinfo=UTC),
-        name="Konwent",
-        pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
-        slug="konwent",
-        sphere_id=1,
-        start_time=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-    )
+    return event_dto(end_time=datetime(2026, 6, 3, 18, 0, tzinfo=UTC), pk=pk)
 
 
 def _slot(pk=1):

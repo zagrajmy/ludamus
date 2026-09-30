@@ -1,18 +1,6 @@
-from contextlib import contextmanager
-
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.pacts.bookmarks import BookmarkStateDTO
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
+from tests.unit.factories import FakeTransaction
 
 
 class FakeBookmarks:

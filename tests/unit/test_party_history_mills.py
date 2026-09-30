@@ -1,19 +1,13 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.pacts.chronology import PartyDetailDTO, PartyEventHistoryDTO
 from ludamus.pacts.party import PartyDTO
+from tests.unit.factories import FakeTransaction
 
 VIEWER_PK = 1
 OUTSIDER_PK = 2
 PARTY_PK = 7
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 def _party():

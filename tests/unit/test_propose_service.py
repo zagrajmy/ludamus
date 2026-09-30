@@ -5,7 +5,6 @@ import pytest
 
 from ludamus.mills.propose import ProposeSessionService
 from ludamus.pacts.legacy import (
-    EventDTO,
     FacilitatorDTO,
     NotFoundError,
     OrganizerFieldDTO,
@@ -14,6 +13,7 @@ from ludamus.pacts.legacy import (
     TrackDTO,
 )
 from ludamus.pacts.propose import ProposeRepos
+from tests.unit.factories import event_dto
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
@@ -36,7 +36,7 @@ class FakeCache:
 
 def _event(pk=1):
     now = datetime.now(tz=UTC)
-    return EventDTO(
+    return event_dto(
         description="Test",
         end_time=now + timedelta(days=7),
         name="Test Event",
@@ -45,7 +45,6 @@ def _event(pk=1):
         proposal_start_time=now - timedelta(days=1),
         publication_time=now - timedelta(days=2),
         slug="test-event",
-        sphere_id=1,
         start_time=now + timedelta(days=5),
     )
 

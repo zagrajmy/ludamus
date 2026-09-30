@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from ludamus.mills.safety import EventBanService, ShadowbanService
@@ -8,6 +7,7 @@ from ludamus.pacts.safety import (
     ShadowbanHitDTO,
     ShadowbanSignupNotification,
 )
+from tests.unit.factories import FakeTransaction
 
 _PRESENTER_ID = 7
 _OTHER_PRESENTER_ID = 8
@@ -15,17 +15,6 @@ _SESSION_ID = 42
 _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 _USER_ID_BY_SLUG = {"bob": 2, "alice": 3}
 _SLUG_BY_USER_ID = {pk: slug for slug, pk in _USER_ID_BY_SLUG.items()}
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeRepo:

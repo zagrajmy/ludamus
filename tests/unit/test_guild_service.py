@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-
 from ludamus.mills.guild import GuildService
 from ludamus.pacts.guild import (
     AssignableFacilitatorRef,
@@ -9,6 +7,7 @@ from ludamus.pacts.guild import (
     GuildMarkDTO,
     GuildSummaryDTO,
 )
+from tests.unit.factories import FakeTransaction
 
 SPHERE_PK = 3
 GUILD_PK = 7
@@ -27,12 +26,6 @@ def _guild():
 
 def _mark():
     return GuildMarkDTO(pk=GUILD_PK, name="Topory")
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 class FakeGuilds:

@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -16,16 +15,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.legacy import FacilitatorChangeLogDTO, ProposalCategoryDTO
 from ludamus.pacts.submissions import RequirementSelectionDTO
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def atomic(self):
-        return _atomic()
+from tests.unit.factories import FakeTransaction
 
 
 class FakeFacilitators:

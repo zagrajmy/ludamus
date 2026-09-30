@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -14,20 +13,11 @@ from ludamus.pacts.panel import (
     SourceRowIdMissingError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from tests.unit.factories import FakeTransaction
 
 _EXISTING_SESSION_ID = 99
 _CREATED_SESSION_ID = 7
 _IDENT_LOOKUPS_ON_CONSTRAINT = 2
-
-
-class _FakeTransaction:
-    @contextmanager
-    def savepoint(self):
-        yield
-
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 class TestProposalPanelService:
@@ -80,7 +70,7 @@ class TestProposalPanelService:
         time_slots,
     ):
         return ProposalPanelService(
-            _FakeTransaction(),
+            FakeTransaction(),
             ProposalPanelRepos(
                 sessions=sessions,
                 session_fields=session_fields,

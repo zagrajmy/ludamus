@@ -1,6 +1,4 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,26 +20,18 @@ from ludamus.pacts.legacy import (
     ProposalCategoryDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from tests.unit.factories import FakeTransaction, event_dto
 
 SPHERE_ID = 10
 _PROPOSALS_OPEN = datetime(2026, 3, 1, tzinfo=UTC)
 _PROPOSALS_CLOSE = datetime(2026, 4, 1, tzinfo=UTC)
 
 
-@contextmanager
-def _passthrough():
-    yield
-
-
 def _event(pk=1, slug="conf", sphere_id=SPHERE_ID):
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=datetime(2026, 5, 2, tzinfo=UTC),
         name="Conf",
         pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
         slug=slug,
         sphere_id=sphere_id,
         start_time=datetime(2026, 5, 1, tzinfo=UTC),
@@ -83,9 +73,7 @@ class TestEventSettingsService:
 
     @pytest.fixture
     def transaction(self):
-        mock = MagicMock()
-        mock.savepoint.side_effect = _passthrough
-        return mock
+        return FakeTransaction()
 
     @pytest.fixture
     def service(
@@ -297,7 +285,7 @@ class _Fakes:
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
         self.service = EventSettingsService(
-            transaction=SimpleNamespace(atomic=_passthrough, savepoint=_passthrough),
+            transaction=FakeTransaction(),
             repos=EventSettingsRepos(
                 events=self.events,
                 event_settings=self.display,

@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -12,12 +11,7 @@ from ludamus.pacts.submissions import (
     ProposalCategorySettingsRepos,
     RequirementSelectionDTO,
 )
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return nullcontext()
+from tests.unit.factories import FakeTransaction
 
 
 def _category() -> ProposalCategoryDTO:

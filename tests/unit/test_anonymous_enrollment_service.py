@@ -1,5 +1,4 @@
 import re
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -20,6 +19,7 @@ from ludamus.pacts.enrollment import (
     AnonymousSessionDTO,
 )
 from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
+from tests.unit.factories import FakeTransaction
 
 _SESSION_ID = 42
 _EVENT_ID = 7
@@ -45,17 +45,6 @@ def _seating(**overrides) -> AnonymousSeatingDTO:
     }
     values.update(overrides)
     return AnonymousSeatingDTO(**values)
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 def _user(name="Ala") -> UserDTO:

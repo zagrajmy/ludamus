@@ -11,7 +11,7 @@ from ludamus.mills.konwencik import (
     KONWENCIK_COLUMNS,
     KonwencikExportService,
 )
-from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO, TrackDTO
+from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
@@ -21,6 +21,7 @@ from ludamus.pacts.konwencik import (
     KonwencikSkipReason,
 )
 from ludamus.pacts.sheets import SheetExportError
+from tests.unit.factories import track_dto
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 _NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
@@ -69,16 +70,17 @@ def _space(**overrides):
 
 
 def _track(**overrides):
-    defaults = {
-        "pk": 20,
-        "name": "Main block",
-        "slug": "main-block",
-        "is_public": True,
-        "event_id": EVENT_PK,
-        "creation_time": _NOW,
-        "modification_time": _NOW,
-    }
-    return TrackDTO(**(defaults | overrides))
+    return track_dto(
+        **{
+            "creation_time": _NOW,
+            "event_id": EVENT_PK,
+            "modification_time": _NOW,
+            "name": "Main block",
+            "pk": 20,
+            "slug": "main-block",
+            **overrides,
+        }
+    )
 
 
 def _make_service(

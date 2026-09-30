@@ -1,26 +1,19 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from ludamus.mills.multiverse import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import EventDTO, SiteDTO, SphereDTO
+from ludamus.pacts.legacy import SiteDTO, SphereDTO
 from ludamus.pacts.multiverse import (
     Capability,
     SphereRole,
     SphereSettingsOutcome,
     SphereVisibility,
 )
-from tests.unit.factories import user_dto
+from tests.unit.factories import FakeTransaction, event_dto, user_dto
 
 SPHERE_PK = 3
 OTHER_SPHERE_PK = 4
 _NOW = datetime(2026, 5, 1, 12, tzinfo=UTC)
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 def _sphere(pk=SPHERE_PK, **overrides):
@@ -33,14 +26,10 @@ def _sphere(pk=SPHERE_PK, **overrides):
 
 
 def _event(pk=1):
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=_NOW,
         name="Konwencik",
         pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
         slug="konwencik",
         sphere_id=SPHERE_PK,
         start_time=_NOW,

@@ -6,7 +6,7 @@ from django.db import connection
 
 
 def pytest_configure(config):
-    # django_settings, not the `settings` fixture three fixtures below take:
+    # django_settings, not the `settings` fixture the one fixture below takes:
     # ruff forbids a function-level import, so the name has to be aliased.
     # Catches a stray export in any pytest run. The e2e server is not covered:
     # Playwright never loads this file, so `.env.e2e`'s pin is the only thing
@@ -39,8 +39,3 @@ def pytest_collection_modifyitems(items):
 @pytest.fixture
 def time_zone(settings):
     return zoneinfo.ZoneInfo(settings.TIME_ZONE)
-
-
-@pytest.fixture(autouse=True)
-def english_language(settings):
-    settings.LANGUAGE_CODE = "en"

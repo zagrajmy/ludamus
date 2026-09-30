@@ -1,5 +1,4 @@
 import re
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -17,6 +16,7 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode
+from tests.unit.factories import FakeTransaction
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _SESSION_ID = 42
@@ -33,17 +33,6 @@ pytestmark = pytest.mark.usefixtures("_frozen")
 def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._now", lambda: _NOW)
     monkeypatch.setattr("ludamus.mills.enrollment._token", lambda: "tok-xyz")
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeRepo:

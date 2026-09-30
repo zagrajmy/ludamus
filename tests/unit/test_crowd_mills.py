@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
@@ -6,18 +5,12 @@ import pytest
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import CompanionDTO
-from tests.unit.factories import user_dto
+from tests.unit.factories import FakeTransaction, user_dto
 
 _CONFIRMED_COUNT = 3
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 def _user_dto(**overrides) -> UserDTO:

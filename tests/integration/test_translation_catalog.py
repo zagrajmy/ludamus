@@ -12,17 +12,9 @@ a failed run still leaves the damage behind.
 
 from __future__ import annotations
 
-from pathlib import Path
+from tests.integration.repo_paths import PACKAGE_ROOT
 
-CATALOG = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "ludamus"
-    / "locale"
-    / "pl"
-    / "LC_MESSAGES"
-    / "django.po"
-)
+CATALOG = PACKAGE_ROOT / "locale" / "pl" / "LC_MESSAGES" / "django.po"
 
 
 def test_locations_are_repository_relative() -> None:

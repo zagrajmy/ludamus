@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
@@ -13,6 +12,7 @@ from ludamus.pacts.tracks import (
     TrackFormData,
     TrackSelectionInvalidError,
 )
+from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 42
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
@@ -81,17 +81,6 @@ class TestTracksPanelService:
         spheres.list_managers.return_value = []
 
         assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is winner
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 def _user(pk):

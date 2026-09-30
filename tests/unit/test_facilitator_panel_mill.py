@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -29,6 +28,7 @@ from ludamus.pacts.submissions import (
     FacilitatorSessionCountsDTO,
     OrganizerActionRefusal,
 )
+from tests.unit.factories import FakeTransaction
 
 
 def _field(pk, field_type="select"):
@@ -62,36 +62,47 @@ class FakeSettingsRepo:
         return EventPanelSettingsDTO.model_construct(facilitator_columns=[], pk=1)
 
 
-def _service(fields):
-    repos = FacilitatorPanelRepos(
-        events=MagicMock(),
-        facilitators=FakeFacilitatorsRepo(),
-        personal_data_fields=FakeFieldsRepo(fields),
-        personal_data_field_values=object(),
-        facilitator_change_logs=object(),
-        panel_settings=FakeSettingsRepo(),
-        sessions=object(),
-        users=object(),
-        guilds=MagicMock(),
-    )
-    return FacilitatorPanelService(object(), repos)
+def _repos(**overrides) -> FacilitatorPanelRepos:
+    # NOTE: an unnamed slot stays `object()` so a repo the test does not wire
+    # raises AttributeError when touched instead of being swallowed by a mock.
+    # `events`, `guilds` and `panel_settings` are always stubbed because every
+    # path under test locks the event, reads guild membership and reads the
+    # column settings.
+    defaults = {
+        "events": MagicMock(),
+        "facilitators": object(),
+        "facilitator_change_logs": object(),
+        "guilds": MagicMock(),
+        "panel_settings": FakeSettingsRepo(),
+        "personal_data_fields": FakeFieldsRepo([]),
+        "personal_data_field_values": object(),
+        "sessions": object(),
+        "users": object(),
+    }
+    return FacilitatorPanelRepos(**(defaults | overrides))
+
+
+def _service(**overrides) -> FacilitatorPanelService:
+    return FacilitatorPanelService(FakeTransaction(), _repos(**overrides))
+
+
+def _service_and_repos(**overrides):
+    repos = _repos(**overrides)
+    return FacilitatorPanelService(FakeTransaction(), repos), repos
 
 
 class TestListContextFieldFilters:
     def test_unknown_pk_is_dropped(self):
-        service = _service([_field(1)])
+        service = _service(
+            facilitators=FakeFacilitatorsRepo(),
+            personal_data_fields=FakeFieldsRepo([_field(1)]),
+        )
 
         context = service.list_context(
             event_id=1, query=FacilitatorListQuery(raw_field_filters={99: "foreign"})
         )
 
         assert not context.field_filters
-
-
-class _FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 _CREATED_PK = 99
@@ -118,19 +129,15 @@ def _merge_service(facilitators, fields=()):
     )
     values_repo = MagicMock()
     values_repo.read_for_facilitator_event.return_value = {}
-    repos = FacilitatorPanelRepos(
-        events=MagicMock(),
+    service, repos = _service_and_repos(
         facilitators=facilitators_repo,
+        facilitator_change_logs=MagicMock(),
         personal_data_fields=FakeFieldsRepo(list(fields)),
         personal_data_field_values=values_repo,
-        facilitator_change_logs=MagicMock(),
-        panel_settings=FakeSettingsRepo(),
         sessions=MagicMock(),
-        users=object(),
-        guilds=MagicMock(),
     )
     repos.guilds.read_member_guild.return_value = None
-    return FacilitatorPanelService(_FakeTransaction(), repos), repos
+    return service, repos
 
 
 def _merge_data(**overrides):
@@ -232,19 +239,13 @@ class TestCreateFacilitator:
         facilitators_repo.create.side_effect = lambda data: SimpleNamespace(
             pk=_CREATED_PK, **data
         )
-        repos = FacilitatorPanelRepos(
-            events=MagicMock(),
+        service, repos = _service_and_repos(
             facilitators=facilitators_repo,
-            personal_data_fields=FakeFieldsRepo([]),
-            personal_data_field_values=MagicMock(),
             facilitator_change_logs=MagicMock(),
-            panel_settings=FakeSettingsRepo(),
-            sessions=object(),
-            users=object(),
-            guilds=MagicMock(),
+            personal_data_field_values=MagicMock(),
         )
         repos.facilitators.find_by_event_and_display_name.return_value = None
-        return FacilitatorPanelService(_FakeTransaction(), repos), repos
+        return service, repos
 
     def test_find_or_create_returns_exact_existing_facilitator_under_event_lock(self):
         service, repos = self._create_service()
@@ -356,25 +357,10 @@ class FakeOrganizerRepo:
         return True
 
 
-def _organizer_service(facilitators):
-    repos = FacilitatorPanelRepos(
-        events=MagicMock(),
-        facilitators=facilitators,
-        personal_data_fields=FakeFieldsRepo([]),
-        personal_data_field_values=object(),
-        facilitator_change_logs=object(),
-        panel_settings=FakeSettingsRepo(),
-        sessions=object(),
-        users=object(),
-        guilds=MagicMock(),
-    )
-    return FacilitatorPanelService(object(), repos)
-
-
 class TestOrganizerStepDown:
     def test_stepping_down_narrows_the_update_to_you(self):
         facilitators = FakeOrganizerRepo()
-        service = _organizer_service(facilitators)
+        service = _service(facilitators=facilitators)
 
         service.unassign_organizer(
             event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
@@ -405,27 +391,14 @@ class FakeDeletionRepo:
         self.calls.append(("soft_delete", pk))
 
 
-def _deletion_service(facilitators):
-    repos = FacilitatorPanelRepos(
-        events=MagicMock(),
-        facilitators=facilitators,
-        personal_data_fields=FakeFieldsRepo([]),
-        personal_data_field_values=object(),
-        facilitator_change_logs=MagicMock(),
-        panel_settings=FakeSettingsRepo(),
-        sessions=object(),
-        users=object(),
-        guilds=MagicMock(),
-    )
-    return FacilitatorPanelService(_FakeTransaction(), repos)
-
-
 class TestFacilitatorDeletion:
     def test_the_row_is_locked_before_its_sessions_are_counted(self):
         # A session assignment landing between the two would leave a deleted
         # facilitator named on the program.
         facilitators = FakeDeletionRepo()
-        service = _deletion_service(facilitators)
+        service = _service(
+            facilitators=facilitators, facilitator_change_logs=MagicMock()
+        )
 
         service.delete(event_id=1, facilitator_slug="alice")
 
@@ -437,7 +410,9 @@ class TestFacilitatorDeletion:
 
     def test_sessions_still_named_block_the_deletion(self):
         facilitators = FakeDeletionRepo(live=2)
-        service = _deletion_service(facilitators)
+        service = _service(
+            facilitators=facilitators, facilitator_change_logs=MagicMock()
+        )
 
         with pytest.raises(FacilitatorActionError) as excinfo:
             service.delete(event_id=1, facilitator_slug="alice")
@@ -450,18 +425,14 @@ class TestFacilitatorDeletion:
 
 
 def _mock_service(fields=()):
-    repos = FacilitatorPanelRepos(
-        events=MagicMock(),
+    return _service_and_repos(
         facilitators=MagicMock(),
+        facilitator_change_logs=MagicMock(),
         personal_data_fields=FakeFieldsRepo(list(fields)),
         personal_data_field_values=MagicMock(),
-        facilitator_change_logs=MagicMock(),
-        panel_settings=FakeSettingsRepo(),
         sessions=MagicMock(),
         users=MagicMock(),
-        guilds=MagicMock(),
     )
-    return FacilitatorPanelService(_FakeTransaction(), repos), repos
 
 
 def _row(pk):
@@ -646,7 +617,7 @@ class TestColumns:
         }
 
     def test_columns_context_offers_every_column_when_none_chosen_yet(self):
-        service, _repos = _mock_service([_field(1)])
+        service, _ = _mock_service([_field(1)])
 
         context = service.columns_context(1)
 
@@ -661,7 +632,7 @@ class TestColumns:
         assert [c.key for c in context.available] == ["field_1"]
 
     def test_set_columns_refuses_an_empty_selection(self):
-        service, _repos = _mock_service()
+        service, _ = _mock_service()
 
         with pytest.raises(EmptyColumnSelectionError):
             service.set_columns(event_id=1, columns=["field_9", "bogus"])
@@ -1008,7 +979,7 @@ class TestOrganizerClaims:
 
     def test_force_releases_without_naming_the_holder(self):
         facilitators = FakeOrganizerRepo()
-        service = _organizer_service(facilitators)
+        service = _service(facilitators=facilitators)
 
         service.unassign_organizer(
             event_id=1, facilitator_slug="alice", organizer_id=5, force=True

@@ -33,6 +33,7 @@ from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import (
     NO_LOCATION,
     AgendaItemDTO,
+    LocationData,
     SessionDTO,
     SessionParticipationStatus,
     TimeSlotDTO,
@@ -420,5 +421,8 @@ def make_session_data(
     return SessionData(**(defaults | overrides))
 
 
-def loc_dict(**overrides):
+def loc_dict(**overrides: object) -> LocationData:
+    # NOTE: **overrides cannot be typed against a total TypedDict, so a
+    # misspelled key still slips through; the return type is what documents
+    # the shape these tests hand to the template.
     return {**NO_LOCATION, **overrides}

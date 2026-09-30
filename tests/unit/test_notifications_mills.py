@@ -1,22 +1,11 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills.notifications import NAVBAR_LIMIT, NotificationsService
 from ludamus.pacts.notifications import NotificationDTO
+from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 USER_ID = 1
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 def _notification(pk, *, is_read=False):

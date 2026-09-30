@@ -1,23 +1,11 @@
-from contextlib import contextmanager
-
 import pytest
 
 from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.legacy import ProposalCategoryDTO
+from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 1
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 def _category(pk, name):

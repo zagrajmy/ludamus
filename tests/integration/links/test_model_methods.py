@@ -332,7 +332,15 @@ class TestSessionFieldValue:
 
         sfv = SessionFieldValue(field=SessionField(name=field_name), value=value)
 
-        assert str(sfv) == f"{field_name}: {value}"
+        assert str(sfv) == f"{field_name}: {value[:50]}"
+
+    def test_str_truncates_long_value(self, faker):
+        field_name = faker.word()
+        value = "x" * 100
+
+        sfv = SessionFieldValue(field=SessionField(name=field_name), value=value)
+
+        assert str(sfv) == f"{field_name}: {'x' * 50}"
 
 
 class TestTimeSlotRequirement:

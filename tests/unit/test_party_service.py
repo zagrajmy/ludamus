@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -25,6 +24,7 @@ from ludamus.pacts.party import (
     PartyMemberDTO,
     PartyMembershipStatus,
 )
+from tests.unit.factories import FakeTransaction
 
 VIEWER_PK = 1
 FOREIGN_LEADER_PK = 99
@@ -33,12 +33,6 @@ FOREIGN_PARTY_PK = 8
 INVITEE_PK = 5
 MEMBERSHIP_PK = 50
 _TOKEN_MIN_LENGTH = 32
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 class FakeParties:

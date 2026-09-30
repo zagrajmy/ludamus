@@ -10,7 +10,8 @@ from ludamus.mills.legacy import (
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.pacts import EncounterDTO, EventDTO
+from ludamus.pacts import EncounterDTO
+from tests.unit.factories import event_dto
 
 START = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
 URL = "https://example.test/e/CODE1"
@@ -37,14 +38,9 @@ def _encounter(**overrides):
 
 
 def _event():
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=START + timedelta(days=2),
         name="Con",
-        pk=1,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
         slug="con",
         sphere_id=3,
         start_time=START,

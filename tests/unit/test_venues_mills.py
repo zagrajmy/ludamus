@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-
 import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
@@ -10,6 +8,7 @@ from ludamus.pacts.venues import (
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
 )
+from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 1
 
@@ -105,17 +104,6 @@ class TestListPrintScopes:
             (2, "Budynek B"),
             (30, "Budynek B > Hala"),
         ]
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeSpaces:

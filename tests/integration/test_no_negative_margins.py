@@ -1,7 +1,7 @@
 import re
-from pathlib import Path
 
-TEMPLATE_ROOT = Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates"
+from tests.integration.repo_paths import TEMPLATE_ROOT
+
 RULE_NAME = "no-negative-margin"
 
 NEG_MARGIN_RE = re.compile(r"""(?:^|[\s"'{}:])(-m[xytrblse]?-[\w./\[\]-]+)""")

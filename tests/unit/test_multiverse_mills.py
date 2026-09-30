@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -16,16 +15,11 @@ from ludamus.pacts.multiverse import (
     ConnectionDTO,
     SphereListItemDTO,
 )
+from tests.unit.factories import FakeTransaction
 
 SPHERE_PK = 3
 OTHER_SPHERE_PK = 4
 _NOW = datetime(2026, 5, 1, 12, tzinfo=UTC)
-
-
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
 
 
 class FakeAnnouncements:

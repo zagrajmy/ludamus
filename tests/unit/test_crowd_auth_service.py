@@ -1,5 +1,4 @@
 import math
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
@@ -8,27 +7,12 @@ from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDTO
 from ludamus.pacts.services import DatabaseConstraintError
-from tests.unit.factories import user_dto
+from tests.unit.factories import FakeTransaction, user_dto
 
 _TOKEN_MIN_LENGTH = 48
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
-
-    @staticmethod
-    def savepoint():
-        return _atomic()
 
 
 def _user_dto(**overrides) -> UserDTO:

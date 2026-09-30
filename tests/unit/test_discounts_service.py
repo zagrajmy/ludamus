@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -17,17 +16,7 @@ from ludamus.pacts.discounts import (
 )
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
+from tests.unit.factories import FakeTransaction
 
 
 def _dto(pk, *, event_id=1, facilitator_id=1, from_rules=False):

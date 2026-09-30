@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -11,16 +10,11 @@ from ludamus.mills.chronology import (
     SessionSelfEditService,
 )
 from ludamus.pacts import NotFoundError
-
-
-@contextmanager
-def _atomic():
-    yield
+from tests.unit.factories import FakeTransaction
 
 
 def _build(*, presenter_id, event_override, sphere_default):
-    transaction = MagicMock()
-    transaction.atomic.side_effect = _atomic
+    transaction = FakeTransaction()
     sessions = MagicMock()
     sessions.read.return_value = MagicMock(presenter_id=presenter_id)
     sessions.read_event.return_value = MagicMock(

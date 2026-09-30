@@ -13,13 +13,11 @@ from ludamus.mills.timetable import (
 from ludamus.pacts import (
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
-    EventDTO,
     EventRepositoryProtocol,
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogDTO,
     ScheduleChangeLogRepositoryProtocol,
-    SessionDTO,
     SessionRepositoryProtocol,
     SessionStatus,
     SpaceDTO,
@@ -45,6 +43,7 @@ from ludamus.pacts.timetable import (
     PlacementRejection,
     TimetableRepos,
 )
+from tests.unit.factories import event_dto, session_dto, track_dto
 
 
 def _timetable_repos(uow) -> TimetableRepos:
@@ -972,38 +971,22 @@ _END = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
 
 
 def _event(**overrides):
-    defaults = {
-        "description": "",
-        "end_time": _END + timedelta(days=1),
-        "name": "Con",
-        "pk": 1,
-        "proposal_end_time": None,
-        "proposal_start_time": None,
-        "publication_time": None,
-        "slug": "con",
-        "sphere_id": 3,
-        "start_time": _START - timedelta(days=1),
-    }
-    return EventDTO(**(defaults | overrides))
+    return event_dto(
+        **{
+            "end_time": _END + timedelta(days=1),
+            "name": "Con",
+            "slug": "con",
+            "sphere_id": 3,
+            "start_time": _START - timedelta(days=1),
+            **overrides,
+        }
+    )
 
 
 def _session(**overrides):
-    defaults = {
-        "category_id": None,
-        "contact_email": "",
-        "creation_time": _START,
-        "description": "",
-        "min_age": 0,
-        "modification_time": _START,
-        "participants_limit": 0,
-        "pk": 1,
-        "presenter_id": None,
-        "facilitator_name": "",
-        "slug": "s",
-        "status": SessionStatus.ACCEPTED,
-        "title": "Session",
-    }
-    return SessionDTO(**(defaults | overrides))
+    return session_dto(
+        **{"creation_time": _START, "modification_time": _START, **overrides}
+    )
 
 
 def _schedule_log(**overrides):
@@ -1033,10 +1016,8 @@ def _schedule_log(**overrides):
 
 
 def _track(pk, name="Track"):
-    return TrackDTO(
+    return track_dto(
         creation_time=_START,
-        event_id=1,
-        is_public=True,
         modification_time=_START,
         name=name,
         pk=pk,

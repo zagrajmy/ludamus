@@ -1,5 +1,4 @@
 import re
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -23,11 +22,11 @@ from ludamus.pacts.enrollment import (
 from ludamus.pacts.legacy import (
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
-    EventDTO,
     MembershipAPIError,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
+from tests.unit.factories import FakeTransaction, event_dto
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
@@ -55,16 +54,11 @@ def _user(pk, email="viewer@example.com", slug="viewer"):
 
 
 def _event(pk=_EVENT_ID):
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=_NOW + timedelta(days=2),
         name="Konwencik",
         pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
         slug="konwencik",
-        sphere_id=1,
         start_time=_NOW + timedelta(days=1),
     )
 
@@ -109,17 +103,6 @@ def _domain_config(allowed_slots_per_user):
         domain="example.com",
         allowed_slots_per_user=allowed_slots_per_user,
     )
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeParticipations:

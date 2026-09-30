@@ -3,28 +3,18 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
-from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TrackDTO
+from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
     PrintablesReminderRecipientDTO,
     PrintOptionDTO,
     PrintQueryDTO,
 )
+from tests.unit.factories import event_dto
 
 
 def _event():
-    return EventDTO(
-        description="Konwent dla nerdów",
-        end_time=datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
-        name="Konwent",
-        pk=1,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
-        slug="konwent",
-        sphere_id=1,
-        start_time=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-    )
+    return event_dto(description="Konwent dla nerdów")
 
 
 def _space(pk, name, order, parent_id=None):

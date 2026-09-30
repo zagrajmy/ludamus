@@ -18,9 +18,9 @@ one fails here until it is blocked or the token leaves the markup.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-TEMPLATES = Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates"
+from tests.integration.repo_paths import CLIENT_SRC, TEMPLATE_ROOT
+
 # Any way a template can name a token: the url tag, a variable holding such a
 # path, or the model field itself.
 TOKEN_MENTION = re.compile(
@@ -51,8 +51,8 @@ def _line_at(text: str, position: int) -> str:
 
 
 def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
-    templates = sorted(TEMPLATES.rglob("*.html"))
-    assert templates, f"no templates found under {TEMPLATES}"
+    templates = sorted(TEMPLATE_ROOT.rglob("*.html"))
+    assert templates, f"no templates found under {TEMPLATE_ROOT}"
 
     unblocked = []
     mentions = 0
@@ -74,7 +74,9 @@ def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
             mentions += 1
             element = _element_around(text, match.start())
             if BLOCKED not in element:
-                unblocked.append(f"{path.relative_to(TEMPLATES)}: {line.strip()[:90]}")
+                unblocked.append(
+                    f"{path.relative_to(TEMPLATE_ROOT)}: {line.strip()[:90]}"
+                )
 
     assert mentions, "the guard matched nothing — has the token spelling changed?"
     assert not unblocked, (
@@ -84,14 +86,7 @@ def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
     )
 
 
-PROLOGUE = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "ludamus"
-    / "client"
-    / "src"
-    / "prologue.ts"
-)
+PROLOGUE = CLIENT_SRC / "prologue.ts"
 
 
 def test_social_meta_is_kept_out_of_the_recording() -> None:

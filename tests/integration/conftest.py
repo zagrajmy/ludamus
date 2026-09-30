@@ -103,6 +103,14 @@ def _media_root(settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path / "media")
 
 
+@pytest.fixture(autouse=True)
+def english_language(settings):
+    # Assertions here read rendered pages and model __str__ output, so they are
+    # written against one language. Lives here, not in the root conftest: it is
+    # a `settings` mutation, which tests/unit may not take.
+    settings.LANGUAGE_CODE = "en"
+
+
 def sponsor_user(*, leader, member):
     # Mirror the 0110 backfill shape: the leader's own party (created with
     # their own ACCEPT_BY_DEFAULT membership) sponsors the companion.

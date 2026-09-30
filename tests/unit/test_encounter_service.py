@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
@@ -10,6 +9,7 @@ from ludamus.pacts import EncounterDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import EncounterData, EncountersPolicy, RSVPOutcome
 from ludamus.pacts.multiverse import SphereRole
+from tests.unit.factories import FakeTransaction
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -137,17 +137,6 @@ class TestEncounterService:
             "rsvps.create",
             "transaction.atomic().__exit__",
         ]
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
 
 
 class FakeSites:

@@ -1,5 +1,4 @@
 import logging
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -30,6 +29,7 @@ from ludamus.pacts.legacy import (
     TrackDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from tests.unit.factories import FakeTransaction, event_dto, track_dto
 
 SPHERE = 10
 OTHER_SPHERE = 11
@@ -54,13 +54,10 @@ def _event(
     end: datetime = _END,
     publication: datetime | None = _PUBLISHED,
 ) -> EventDTO:
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=end,
         name="Conf",
         pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
         publication_time=publication,
         slug=slug,
         sphere_id=sphere_id,
@@ -69,25 +66,14 @@ def _event(
 
 
 def _track(*, pk: int, event_id: int) -> TrackDTO:
-    return TrackDTO(
+    return track_dto(
         creation_time=_NOW,
         event_id=event_id,
-        is_public=True,
         modification_time=_NOW,
         name="Block",
         pk=pk,
         slug="block",
     )
-
-
-@contextmanager
-def _noop():
-    yield
-
-
-class FakeTransaction:
-    atomic = staticmethod(_noop)
-    savepoint = staticmethod(_noop)
 
 
 class FakeEvents:

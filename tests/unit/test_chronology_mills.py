@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -15,17 +14,14 @@ from ludamus.mills.chronology import (
 from ludamus.pacts import (
     AgendaItemDTO,
     ContentChangeLogDTO,
-    EventDTO,
     FacilitatorDTO,
     NotFoundError,
     ScheduleChangeAction,
     SessionContentEditData,
-    SessionDTO,
     SessionFieldValueData,
     SessionFieldValueDTO,
     SessionStatus,
     TimeSlotDTO,
-    TrackDTO,
 )
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
@@ -35,7 +31,13 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.multiverse import SphereRole
-from tests.unit.factories import user_dto
+from tests.unit.factories import (
+    FakeTransaction,
+    event_dto,
+    session_dto,
+    track_dto,
+    user_dto,
+)
 
 
 def _make_item(**overrides):
@@ -56,7 +58,7 @@ class TestContentEditRevert:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
@@ -180,13 +182,12 @@ class TestContentEditStoresAnswers:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
             agenda_items=MagicMock(),
         )
-        repos.transaction.atomic.side_effect = nullcontext
         repos.sessions.read_field_values.return_value = []
         repos.session_fields.list_by_event.return_value = []
         return repos
@@ -245,13 +246,12 @@ class TestContentEditResizesAgendaItem:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
             agenda_items=MagicMock(),
         )
-        repos.transaction.atomic.side_effect = nullcontext
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
         repos.sessions.read_field_values.return_value = []
         repos.agenda_items.read_by_session.return_value = _make_item()
@@ -336,38 +336,31 @@ _SESSION_PK = 5
 
 
 def _session_dto(**overrides):
-    defaults = {
-        "category_id": None,
-        "contact_email": "",
-        "creation_time": _NOW,
-        "description": "",
-        "min_age": 0,
-        "modification_time": _NOW,
-        "participants_limit": 0,
-        "pk": _SESSION_PK,
-        "presenter_id": None,
-        "facilitator_name": "Alice",
-        "slug": "s",
-        "status": SessionStatus.PENDING,
-        "title": "My Session",
-    }
-    return SessionDTO(**(defaults | overrides))
+    return session_dto(
+        **{
+            "creation_time": _NOW,
+            "facilitator_name": "Alice",
+            "modification_time": _NOW,
+            "pk": _SESSION_PK,
+            "status": SessionStatus.PENDING,
+            "title": "My Session",
+            **overrides,
+        }
+    )
 
 
 def _event_dto(**overrides):
-    defaults = {
-        "description": "",
-        "end_time": _NOW,
-        "name": "Con",
-        "pk": 9,
-        "proposal_end_time": None,
-        "proposal_start_time": None,
-        "publication_time": None,
-        "slug": "con",
-        "sphere_id": 3,
-        "start_time": _NOW,
-    }
-    return EventDTO(**(defaults | overrides))
+    return event_dto(
+        **{
+            "end_time": _NOW,
+            "name": "Con",
+            "pk": 9,
+            "slug": "con",
+            "sphere_id": 3,
+            "start_time": _NOW,
+            **overrides,
+        }
+    )
 
 
 def _user_dto(**overrides):
@@ -680,9 +673,7 @@ class TestSessionConfirmationOfOwnEvent:
     def test_confirms_an_item_whose_session_belongs_to_the_event(self):
         agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
         sessions = _FakeSessions(_session_dto())
-        service = SessionConfirmationService(
-            MagicMock(atomic=nullcontext), agenda_items, sessions
-        )
+        service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
 
         service.set_session_confirmed(
             event_pk=_EVENT_PK, agenda_item_pk=7, confirmed=True
@@ -694,9 +685,7 @@ class TestSessionConfirmationOfOwnEvent:
 class TestSessionDeletion:
     @staticmethod
     def _service(sessions, agenda_items, logs):
-        return SessionDeletionService(
-            MagicMock(atomic=nullcontext), sessions, agenda_items, logs
-        )
+        return SessionDeletionService(FakeTransaction(), sessions, agenda_items, logs)
 
     def test_soft_delete_frees_the_slot_and_logs_the_unassignment(self):
         item = _make_item(pk=7, session_id=_SESSION_PK, space_id=4)
@@ -769,9 +758,7 @@ class TestProposalStatus:
     @staticmethod
     def _service(sessions, agenda_items):
         return ProposalStatusService(
-            transaction=MagicMock(atomic=nullcontext),
-            sessions=sessions,
-            agenda_items=agenda_items,
+            transaction=FakeTransaction(), sessions=sessions, agenda_items=agenda_items
         )
 
     @pytest.mark.parametrize(
@@ -850,10 +837,9 @@ def _facilitator_dto(pk, display_name):
 
 
 def _track_dto(pk, name):
-    return TrackDTO(
+    return track_dto(
         creation_time=_NOW,
         event_id=_EVENT_PK,
-        is_public=True,
         modification_time=_NOW,
         name=name,
         pk=pk,
@@ -865,7 +851,7 @@ class TestContentEditWithFakes:
     @staticmethod
     def _service(sessions, logs, *, agenda_items=None, session_fields=None):
         return SessionContentEditService(
-            transaction=MagicMock(atomic=nullcontext),
+            transaction=FakeTransaction(),
             sessions=sessions,
             session_fields=session_fields or MagicMock(),
             content_change_logs=logs,

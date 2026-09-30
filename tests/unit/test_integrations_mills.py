@@ -1,5 +1,4 @@
 import logging
-from contextlib import contextmanager
 
 import pytest
 from pydantic import BaseModel
@@ -23,6 +22,7 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.multiverse import DecryptionError
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
+from tests.unit.factories import FakeTransaction
 
 SPHERE = 1
 OTHER_SPHERE = 9
@@ -118,15 +118,6 @@ def _ticketing_row(
         config_json=config_json,
         **over,
     )
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    atomic = staticmethod(_atomic)
 
 
 class FakeIntegrations:

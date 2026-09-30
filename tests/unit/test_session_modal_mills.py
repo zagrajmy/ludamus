@@ -1,17 +1,5 @@
-from contextlib import contextmanager
-
 from ludamus.mills.session_modal import SessionModalService
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
+from tests.unit.factories import FakeTransaction
 
 
 class FakeSessions:

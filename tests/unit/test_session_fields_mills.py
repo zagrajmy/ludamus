@@ -1,15 +1,7 @@
-from contextlib import nullcontext
-
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.pacts import OrganizerFieldDTO
 from ludamus.pacts.submissions import RequirementSelectionDTO
-from tests.unit.factories import category
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return nullcontext()
+from tests.unit.factories import FakeTransaction, category
 
 
 class FakeFields:

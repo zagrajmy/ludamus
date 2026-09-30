@@ -9,16 +9,10 @@ the pages that happen to have a spec, which is how the dark ramp's
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-PALETTE = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "ludamus"
-    / "client"
-    / "src"
-    / "index.css"
-)
+from tests.integration.repo_paths import CLIENT_SRC
+
+PALETTE = CLIENT_SRC / "index.css"
 
 # Below this the sRGB transfer function is linear; above it, a power curve.
 SRGB_LINEAR_CUTOFF = 0.03928
