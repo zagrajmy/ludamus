@@ -249,7 +249,7 @@ The fattest noun — legacy `chronology` and `submissions` both map here,
 which dissolves the old ownership split: proposal intake writes `Session`,
 scheduling and enrollment read it, all inside one noun. Verb cuts as it
 grows: `propose` (CFP config, proposals, facilitators), `enroll`,
-`schedule` (venues, time slots, tracks, timetable), `present` (public
+`schedule` (venues, tracks, timetable), `present` (public
 pages, printing).
 
 Enrollment behaviour currently bolted onto the `Session` model
@@ -314,13 +314,13 @@ The multi-step wizard through which facilitators submit session proposals.
 - **URLs:** `/chronology/session/propose/` (namespace `session`)
 - **Views:** `gates/web/django/chronology/views.py` —
   `ProposeSessionPageView` and component views for each wizard step
-  (category, personal data, time slots, session details, review, submit)
+  (category, personal data, availability, session details, review, submit)
 - **Templates:** `templates/chronology/propose/`
 - **Service:** `ProposeSessionService` — resolves field requirements per
   category, creates `Facilitator`, persists `Session` and field values,
   rate-limits by IP
 - **DTOs:** `ProposalCategoryDTO`, `SessionFieldRequirementDTO`,
-  `PersonalFieldRequirementDTO`, `TimeSlotRequirementDTO`,
+  `PersonalFieldRequirementDTO`, `AvailabilityDTO`,
   `FacilitatorDTO`, `SessionData`
 
 #### Pages: Enrollment
@@ -356,8 +356,8 @@ group, no ownership split.
 - **Templates:** `templates/panel/`
 - **Services:** `EventPanelService` loads the shared event-scoped navigation
   context through repository protocols; focused page services own page reads and
-  writes. Legacy pages still use `PanelService` for cascade-safe deletion and
-  time-slot validation until they migrate.
+  writes. Legacy pages still use `PanelService` for cascade-safe deletion until
+  they migrate.
 - **Confirmations tab:** `EventConfirmationsService` (`mills/event.py`) tracks
   post-schedule confirmation — an event dashboard, and per track the
   facilitator → contact email → session status tree the organiser works
@@ -375,7 +375,6 @@ group, no ownership split.
 | Facilitators         | `panel/views/facilitators.py`                                           | `facilitator-*.html`                                        |
 | Event settings       | `chronology/panel/views/event_settings.py`                              | `settings.html`                                             |
 | Enrollment settings  | `event/panel/views/enrollment_settings.py`                              | `enrollment-*.html`                                         |
-| Time slots           | `panel/views/time_slots.py`                                             | `time-slot*.html`                                           |
 | Tracks               | `panel/views/tracks.py`                                                 | `track-*.html`                                              |
 | Venues (Space tree)  | `panel/views/venues.py`                                                 | `spaces.html`, `_space_tree_node.html`, `space-*.html`      |
 | Confirmations        | `event/panel/views/confirmations.py`                                    | `timetable-confirmations.html`, `parts/confirmation-*.html` |
@@ -515,13 +514,13 @@ owns them.
 
 <!-- markdownlint-disable MD013 -->
 
-| Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `Venue`, `Area`, `Space`, `EventMap`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 

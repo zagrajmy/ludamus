@@ -83,11 +83,10 @@ and the event's timetable/activity log. Then run:
   --report /tmp/polcon26-programme.json
 ```
 
-The script ensures the venue tree, proposal categories, daily time slots,
-facilitators, and tracks before sending sessions and assignments in batches of
-at most 250. Batch rows commit independently. A reported partial failure is not
-a rollback: correct the source or target data and retry with the same workbook
-coordinates.
+The script ensures the venue tree, proposal categories, facilitators, and
+tracks before sending sessions and assignments in batches of at most 250. Batch
+rows commit independently. A reported partial failure is not a rollback: correct
+the source or target data and retry with the same workbook coordinates.
 
 Immediately run the same command again. An unchanged retry must report the same
 session and assignment counts without creating duplicate sessions or schedule
