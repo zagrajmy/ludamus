@@ -4,7 +4,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.links.db.django.models import SphereSubscription
+from ludamus.links.db.django.models import SessionBookmark, SphereSubscription
 from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import SphereVisibility
@@ -13,17 +13,38 @@ from tests.integration.conftest import (
     EncounterFactory,
     EncounterRSVPFactory,
     EventFactory,
+    ProposalCategoryFactory,
     SessionFactory,
     SessionParticipationFactory,
     SpaceFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
+EMPTY_DASHBOARD = DashboardDTO(
+    agenda=[], bookmarks=[], open_encounters=[], sphere_feed=[], discover=[]
+)
 
 
 def _titles(cards):
     return [card.title for card in cards]
+
+
+def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+    session = SessionFactory(
+        event=event,
+        title=title,
+        participants_limit=4,
+        category=ProposalCategoryFactory(event=event),
+    )
+    AgendaItemFactory(
+        session=session,
+        space=SpaceFactory(event=event),
+        start_time=datetime.now(UTC) + timedelta(days=days_ahead),
+    )
+    SessionBookmark.objects.create(user=user, session=session)
+    return session
 
 
 class TestDashboardPageView:
@@ -53,12 +74,7 @@ class TestDashboardPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
-                ),
-                "can_create_encounter": True,
-            },
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
             template_name="dashboard/index.html",
         )
 
@@ -97,6 +113,85 @@ class TestDashboardPageView:
             card for card in dashboard.agenda if card.title == "Kill Your Necromancer"
         )
         assert session_card.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_bookmarks_gather_starred_sessions_across_events(
+        self, authenticated_client, active_user, non_root_sphere, sphere
+    ):
+        abroad = EventFactory(sphere=non_root_sphere)
+        at_home = EventFactory(sphere=sphere)
+        later = _bookmarked_session(
+            abroad, user=active_user, title="Mothership", days_ahead=3
+        )
+        SessionParticipationFactory(session=later, status="confirmed")
+        # An offered seat is held for its waiter, so it is not free either.
+        SessionParticipationFactory(session=later, status="offered")
+        _bookmarked_session(at_home, user=active_user, title="Mörk Borg", days_ahead=2)
+        held = _bookmarked_session(at_home, user=active_user, title="Held seat")
+        SessionParticipationFactory(session=held, user=active_user, status="confirmed")
+        _bookmarked_session(
+            at_home, user=active_user, title="Already over", days_ahead=-3
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        # A seat you hold is on the agenda, so it leaves the bookmarks list.
+        assert _titles(dashboard.bookmarks) == ["Mörk Borg", "Mothership"]
+        assert _titles(dashboard.agenda) == ["Held seat"]
+        mothership = dashboard.bookmarks[1]
+        assert mothership.role == DashboardRole.OPEN
+        assert (mothership.attending_count, mothership.capacity) == (2, 4)
+        assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_another_member_s_bookmarks_stay_theirs(self, authenticated_client, sphere):
+        _bookmarked_session(EventFactory(sphere=sphere), user=UserFactory())
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
+
+    def test_a_bookmark_in_a_sphere_gone_private_is_hidden(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        _bookmarked_session(EventFactory(sphere=non_root_sphere), user=active_user)
+        non_root_sphere.visibility = SphereVisibility.PRIVATE
+        non_root_sphere.save()
+
+        response = authenticated_client.get(DASHBOARD_URL)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
+
+        # Running the sphere is the one tie that still opens it.
+        non_root_sphere.managers.add(active_user)
+        response = authenticated_client.get(DASHBOARD_URL)
+        dashboard = response.context_data["dashboard"]
+        assert len(dashboard.bookmarks) == 1
+
+    def test_a_bookmark_in_an_unpublished_event_is_hidden(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        _bookmarked_session(event, user=active_user)
+        event.publication_time = None
+        event.save()
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
@@ -146,12 +241,7 @@ class TestDashboardPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
-                ),
-                "can_create_encounter": True,
-            },
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
             template_name="dashboard/index.html",
         )
 

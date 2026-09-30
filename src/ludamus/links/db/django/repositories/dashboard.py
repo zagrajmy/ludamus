@@ -25,6 +25,9 @@ from ludamus.links.db.django.models import (
     SphereSubscription,
     suggested_spheres,
 )
+from ludamus.links.db.django.repositories.sessions import (
+    annotate_session_participation_counts,
+)
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,
@@ -40,10 +43,7 @@ if TYPE_CHECKING:
 _start_time = attrgetter("start_time")
 
 
-def _session_card(
-    participation: SessionParticipation, *, role: DashboardRole
-) -> DashboardCardDTO:
-    session = participation.session
+def _session_card(session: Session, *, role: DashboardRole) -> DashboardCardDTO:
     event = session.event
     sphere = event.sphere
     item = session.agenda_item
@@ -61,6 +61,7 @@ def _session_card(
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
         place=item.space.name,
+        attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
     )
 
@@ -117,7 +118,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             actually attend, which no convention pushes far.
         """
         sessions = [
-            _session_card(participation, role=DashboardRole.SIGNED_UP)
+            _session_card(participation.session, role=DashboardRole.SIGNED_UP)
             for participation in _held_sessions(user_id, now=now)
         ]
         encounters = [
@@ -132,6 +133,34 @@ class DashboardRepository(DashboardRepositoryProtocol):
             for encounter in _held_encounters(user_id, now=now)
         ]
         return sorted(sessions + encounters, key=_start_time)
+
+    @staticmethod
+    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
+        """List the programme items this member starred, across every event.
+
+        Returns:
+            Upcoming bookmarked sessions of published events, soonest first,
+            minus the ones they already hold a confirmed seat at — those are
+            on their agenda. A bookmark can predate its sphere going private,
+            so only running a private sphere keeps its rows here.
+        """
+        sessions = annotate_session_participation_counts(
+            Session.objects.filter(
+                ~Q(event__sphere__visibility=SphereVisibility.PRIVATE)
+                | Q(event__sphere__in=_run_sphere_ids(user_id)),
+                bookmarks__user_id=user_id,
+                agenda_item__start_time__gte=now,
+                event__publication_time__lte=now,
+            )
+            .exclude(
+                pk__in=SessionParticipation.objects.filter(
+                    user_id=user_id, status=SessionParticipationStatus.CONFIRMED
+                ).values("session_id")
+            )
+            .select_related("agenda_item__space", "event__sphere__site")
+            .order_by("agenda_item__start_time")
+        )
+        return [_session_card(session, role=DashboardRole.OPEN) for session in sessions]
 
     @staticmethod
     def list_open_encounters(
@@ -255,11 +284,7 @@ def _sphere_ids_with_ties(user_id: int) -> set[int]:
     # Every reason a sphere is "yours": you run it, you asked to hear from it,
     # or you hold something in it. Only running it opens a private sphere: the
     # other ties can predate the sphere going private.
-    run = set(
-        SphereMembership.objects.filter(user_id=user_id).values_list(
-            "sphere_id", flat=True
-        )
-    )
+    run = _run_sphere_ids(user_id)
     followed_or_held = (
         set(
             SphereSubscription.objects.filter(user_id=user_id).values_list(
@@ -281,4 +306,12 @@ def _sphere_ids_with_ties(user_id: int) -> set[int]:
         Sphere.objects.filter(pk__in=followed_or_held)
         .exclude(visibility=SphereVisibility.PRIVATE)
         .values_list("pk", flat=True)
+    )
+
+
+def _run_sphere_ids(user_id: int) -> set[int]:
+    return set(
+        SphereMembership.objects.filter(user_id=user_id).values_list(
+            "sphere_id", flat=True
+        )
     )
