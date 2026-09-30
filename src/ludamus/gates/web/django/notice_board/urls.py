@@ -1,8 +1,9 @@
 from django.urls import URLPattern, URLResolver, path
 
+from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.landing import legacy_feed_redirect
 
-from . import replies, views
+from . import views
 
 public_urlpatterns: list[URLPattern | URLResolver] = [
     path(
@@ -27,7 +28,7 @@ authenticated_urlpatterns: list[URLPattern | URLResolver] = [
     path("create/", views.EncounterCreatePageView.as_view(), name="create"),
     path(
         "calendar-replies",
-        replies.EncounterCalendarReplyView.as_view(),
+        EncounterCalendarReplyView.as_view(),
         name="calendar-replies",
     ),
     path("<int:pk>/edit/", views.EncounterEditPageView.as_view(), name="edit"),

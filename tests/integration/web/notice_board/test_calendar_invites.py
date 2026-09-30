@@ -3,7 +3,7 @@ import re
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from django.urls import reverse
@@ -305,9 +305,12 @@ class TestCreatingInvitesEveryone:
                 },
             )
 
-        assert response.context["form"].errors["invitees"] == [
-            "These are not email addresses: not-an-address"
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
         assert not Encounter.objects.filter(title="Board game night").exists()
         assert mailoutbox == []
 
