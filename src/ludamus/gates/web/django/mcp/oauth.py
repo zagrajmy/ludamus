@@ -9,11 +9,13 @@ rules live in `McpAuthorizationService`; this module maps HTTP onto it.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.template.response import TemplateResponse
@@ -22,6 +24,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csp import csp_override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
@@ -95,6 +98,9 @@ _CLIENT_REJECTIONS: dict[ClientRejection, _StrPromise] = {
         "The client asked to return to an address its metadata doesn't list."
     ),
 }
+# Characters a CSP host-source may carry; anything else (a `;` above all)
+# would let a client's own redirect URI write directives into our header.
+_CSP_HOST = re.compile(r"[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]")
 _EXPIRED = _("This connection request expired. Start again from your client.")
 
 
@@ -264,7 +270,7 @@ class McpAuthorizeView(LoginRequiredMixin, View):
         form: McpConsentForm | None,
     ) -> TemplateResponse:
         wants_event = consent.may_grant and pending.scope is ToolScope.ORGANIZER
-        return TemplateResponse(
+        response = TemplateResponse(
             self.request,
             TEMPLATE,
             {
@@ -282,6 +288,9 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             },
             status=200 if consent.may_grant else 403,
         )
+        return _allow_form_redirect(
+            self.request, response, redirect_uri=pending.client.redirect_uri
+        )
 
     def _client_error(self, reason: ClientRejection) -> TemplateResponse:
         # Without a verified redirect_uri there is nowhere safe to send the
@@ -293,6 +302,40 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             {"client_error": _CLIENT_REJECTIONS[reason]},
             status=400,
         )
+
+
+def _allow_form_redirect(
+    request: RootRequest, response: TemplateResponse, *, redirect_uri: str
+) -> TemplateResponse:
+    """Let the consent form's POST end in a redirect to the vetted client.
+
+    Browsers check form-action against every redirect a form submission
+    follows, so under 'self' alone the approval silently goes nowhere.
+
+    Returns:
+        The response, carrying the site policy with the client's origin (or
+        custom scheme) added to form-action; untouched when CSP is off.
+    """
+    if not (policy := settings.SECURE_CSP) or not (source := _csp_source(redirect_uri)):
+        return response
+    config = {**policy, "form-action": [*policy.get("form-action", ()), source]}
+    return csp_override(config)(lambda _request: response)(request)
+
+
+def _csp_source(redirect_uri: str) -> str | None:
+    parts = urlsplit(redirect_uri)
+    if parts.scheme not in {"http", "https"}:
+        return f"{parts.scheme}:"
+    host = parts.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    try:
+        port = parts.port
+    except ValueError:
+        return None
+    if not _CSP_HOST.fullmatch(host):
+        return None
+    return f"{parts.scheme}://{host}:{port}" if port else f"{parts.scheme}://{host}"
 
 
 def _authorization_request(request: RootRequest) -> McpAuthorizationRequest:

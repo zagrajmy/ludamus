@@ -309,6 +309,81 @@ class TestAuthorizeRequest:
         )
 
 
+class TestConsentFormAction:
+    # Browsers apply the consent page's form-action to the redirect that
+    # follows its POST, so a policy of only 'self' swallows the approval.
+    @pytest.mark.parametrize(
+        ("redirect_uri", "source"),
+        (
+            ("https://claude.ai/api/mcp/auth_callback", "https://claude.ai"),
+            ("http://127.0.0.1:43117/callback", "http://127.0.0.1:43117"),
+            ("cursor://anysphere.cursor-mcp/oauth/callback", "cursor:"),
+        ),
+    )
+    def test_consent_page_allows_posting_to_the_client(
+        self, superuser_client, client_metadata, settings, redirect_uri, source
+    ):
+        settings.SECURE_CSP = {"default-src": ["'none'"], "form-action": ["'self'"]}
+        client_metadata.serve(
+            "/oauth/metadata.json",
+            document={"client_id": CLIENT_ID, "redirect_uris": [redirect_uri]},
+        )
+
+        response = superuser_client.get(
+            AUTHORIZE_URL, _params(redirect_uri=redirect_uri)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="mcp/authorize.html",
+            context_data=_consent_context(
+                client=CLIENT.model_copy(
+                    update={
+                        "client_name": "client.example",
+                        "redirect_uri": redirect_uri,
+                    }
+                )
+            ),
+            headers={
+                "Content-Security-Policy": (
+                    f"default-src 'none'; form-action 'self' {source}"
+                )
+            },
+        )
+
+    def test_redirect_uri_cannot_write_csp_directives(
+        self, superuser_client, client_metadata, settings
+    ):
+        settings.SECURE_CSP = {"default-src": ["'none'"], "form-action": ["'self'"]}
+        redirect_uri = "https://evil.example;script-src *;/cb"
+        client_metadata.serve(
+            "/oauth/metadata.json",
+            document={"client_id": CLIENT_ID, "redirect_uris": [redirect_uri]},
+        )
+
+        response = superuser_client.get(
+            AUTHORIZE_URL, _params(redirect_uri=redirect_uri)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="mcp/authorize.html",
+            context_data=_consent_context(
+                client=CLIENT.model_copy(
+                    update={
+                        "client_name": "client.example",
+                        "redirect_uri": redirect_uri,
+                    }
+                )
+            ),
+            headers={
+                "Content-Security-Policy": "default-src 'none'; form-action 'self'"
+            },
+        )
+
+
 class TestMaintainerConsent:
     def test_superuser_sees_consent(self, superuser_client):
         response = superuser_client.get(AUTHORIZE_URL, _params())
