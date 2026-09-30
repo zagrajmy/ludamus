@@ -48,9 +48,10 @@ if TYPE_CHECKING:
 AUTHORIZATION_CODE_TTL_SECONDS = 60
 CLIENT_NAME_MAX_LENGTH = 100
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
-# A web redirect's host ends up in the consent page's CSP header, so it may
-# hold only what a host-source can: no `;` to smuggle in a directive.
-WEB_HOST_PATTERN = re.compile(r"[a-z0-9.-]+|[0-9a-f:.]*:[0-9a-f:.]*")
+# A web redirect's host ends up in the consent page's CSP form-action, so it
+# may hold only what a CSP host-source can: no `;` to smuggle in a directive,
+# and no IPv6 literal, which browsers drop from the source list.
+WEB_HOST_PATTERN = re.compile(r"[a-z0-9.-]+")
 # RFC 7636 §4.1: 43-128 characters from the unreserved set.
 CODE_VERIFIER_PATTERN = re.compile(r"[A-Za-z0-9\-._~]{43,128}")
 # Schemes a browser would run or read locally instead of handing to a client.

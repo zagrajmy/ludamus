@@ -185,6 +185,7 @@ class TestBegin:
             ("https://a.example;script-src */cb", ClientRejection.BAD_REDIRECT_URI),
             ("https://client.example:99999/cb", ClientRejection.BAD_REDIRECT_URI),
             ("https:///callback", ClientRejection.BAD_REDIRECT_URI),
+            ("http://[::1]:43117/callback", ClientRejection.BAD_REDIRECT_URI),
             ("", ClientRejection.BAD_REDIRECT_URI),
         ),
     )

@@ -310,12 +310,14 @@ def _allow_form_redirect(
 
     Returns:
         The response, carrying the site policy with the client's origin (or
-        custom scheme) added to form-action; untouched when CSP is off.
+        custom scheme) added to form-action; untouched when the policy sets
+        no form-action.
     """
-    if not (policy := settings.SECURE_CSP):
+    policy = settings.SECURE_CSP
+    # Absent or disabled, form-action restricts nothing: leave it that way.
+    if not (sources := policy.get("form-action")):
         return response
-    source = _csp_source(redirect_uri)
-    config = {**policy, "form-action": [*policy.get("form-action", ()), source]}
+    config = {**policy, "form-action": [*sources, _csp_source(redirect_uri)]}
     return csp_override(config)(lambda _request: response)(request)
 
 
@@ -325,9 +327,8 @@ def _csp_source(redirect_uri: str) -> str:
     parts = urlsplit(redirect_uri)
     if parts.scheme not in {"http", "https"}:
         return f"{parts.scheme}:"
-    host = f"[{parts.hostname}]" if ":" in (parts.hostname or "") else parts.hostname
     port = f":{parts.port}" if parts.port else ""
-    return f"{parts.scheme}://{host}{port}"
+    return f"{parts.scheme}://{parts.hostname}{port}"
 
 
 def _authorization_request(request: RootRequest) -> McpAuthorizationRequest:

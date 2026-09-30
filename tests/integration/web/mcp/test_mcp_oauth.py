@@ -317,7 +317,6 @@ class TestConsentFormAction:
         (
             ("https://claude.ai/api/mcp/auth_callback", "https://claude.ai"),
             ("http://127.0.0.1:43117/callback", "http://127.0.0.1:43117"),
-            ("http://[::1]:43117/callback", "http://[::1]:43117"),
             ("cursor://anysphere.cursor-mcp/oauth/callback", "cursor:"),
         ),
     )
@@ -351,6 +350,42 @@ class TestConsentFormAction:
                     f"default-src 'none'; form-action 'self' {source}"
                 )
             },
+        )
+
+    @pytest.mark.parametrize(
+        ("policy", "header"),
+        (
+            ({"default-src": ["'self'"]}, "default-src 'self'"),
+            ({"default-src": ["'self'"], "form-action": None}, "default-src 'self'"),
+        ),
+    )
+    def test_consent_page_extends_only_a_configured_form_action(
+        self, superuser_client, client_metadata, settings, policy, header
+    ):
+        settings.SECURE_CSP = policy
+        redirect_uri = "https://claude.ai/api/mcp/auth_callback"
+        client_metadata.serve(
+            "/oauth/metadata.json",
+            document={"client_id": CLIENT_ID, "redirect_uris": [redirect_uri]},
+        )
+
+        response = superuser_client.get(
+            AUTHORIZE_URL, _params(redirect_uri=redirect_uri)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="mcp/authorize.html",
+            context_data=_consent_context(
+                client=CLIENT.model_copy(
+                    update={
+                        "client_name": "client.example",
+                        "redirect_uri": redirect_uri,
+                    }
+                )
+            ),
+            headers={"Content-Security-Policy": header},
         )
 
     def test_redirect_uri_that_would_write_csp_directives_is_refused(
