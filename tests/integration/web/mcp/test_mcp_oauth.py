@@ -412,6 +412,24 @@ class TestConsentFormAction:
             },
         )
 
+    def test_pending_request_vetted_by_an_older_release_expires(self, superuser_client):
+        # A slot saved before redirect hosts were checked for CSP safety must
+        # not reach the header when the consent page is shown again.
+        session = superuser_client.session
+        session["mcp_oauth_pending"] = {"id": TOKEN, "pending": {}}
+        session.save()
+
+        response = superuser_client.post(
+            AUTHORIZE_URL, {"pending": TOKEN, "decision": "approve"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.BAD_REQUEST,
+            template_name="mcp/authorize.html",
+            context_data={"client_error": EXPIRED},
+        )
+
 
 class TestMaintainerConsent:
     def test_superuser_sees_consent(self, superuser_client):

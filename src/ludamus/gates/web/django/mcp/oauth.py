@@ -60,7 +60,9 @@ logger = logging.getLogger(__name__)
 TEMPLATE = "mcp/authorize.html"
 # One slot: a new consent page replaces an abandoned one, and the id pins the
 # decision to the page the user actually saw.
-PENDING_SESSION_KEY = "mcp_oauth_pending"
+# Versioned: bump it whenever `begin` vets more strictly, so a request saved
+# under the older rules reads as expired instead of skipping the new checks.
+PENDING_SESSION_KEY = "mcp_oauth_pending_v2"
 
 _ENDPOINT_URL_NAMES = {
     ToolScope.MAINTAINER: "mcp:endpoint",
