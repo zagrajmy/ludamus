@@ -84,14 +84,19 @@ class TestEncounterService:
         return collaborators.sites
 
     @pytest.fixture
-    def service(self, transaction, encounters, rsvps, users, spheres, sites):
+    def invites(self, collaborators):
+        return collaborators.invites
+
+    @pytest.fixture
+    def service(self, collaborators):
         return EncounterService(
-            transaction=transaction,
-            encounters=encounters,
-            rsvps=rsvps,
-            users=users,
-            spheres=spheres,
-            sites=sites,
+            transaction=collaborators.transaction,
+            encounters=collaborators.encounters,
+            rsvps=collaborators.rsvps,
+            users=collaborators.users,
+            spheres=collaborators.spheres,
+            sites=collaborators.sites,
+            invites=collaborators.invites,
         )
 
     def test_comms_role_cannot_create_under_a_managers_only_policy(
@@ -104,10 +109,13 @@ class TestEncounterService:
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
     def test_rsvp_creates_signup_in_transaction(
-        self, service, collaborators, encounters, rsvps
+        self, service, collaborators, encounters, rsvps, users, sites
     ):
         encounter = _encounter(1, max_participants=4)
         encounters.read_by_share_code.return_value = encounter
+        users.read_by_id.return_value = _user(OTHER_USER_ID)
+        sites.read.return_value.name = "Sphere"
+        sites.read.return_value.site.domain = "sphere.example.com"
         rsvps.count_by_encounter.return_value = 1
         rsvps.recent_rsvp_exists.return_value = False
         rsvps.user_has_rsvpd.return_value = False
@@ -132,5 +140,9 @@ class TestEncounterService:
             "rsvps.recent_rsvp_exists",
             "rsvps.user_has_rsvpd",
             "rsvps.create",
+            "users.read_by_id",
+            "sites.read",
+            "users.read_by_id",
+            "invites.send",
             "transaction.atomic().__exit__",
         ]

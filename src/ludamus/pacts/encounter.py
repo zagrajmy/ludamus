@@ -147,6 +147,35 @@ class EncounterDetailContextDTO(BaseModel):
         return self.spots_remaining == 0
 
 
+class EncounterInviteReason(StrEnum):
+    JOINED = auto()
+    CHANGED = auto()
+    LEFT = auto()
+    DELETED = auto()
+
+
+class EncounterInvite(BaseModel):
+    """A calendar invite for one attendee, mailed so it lands in their calendar.
+
+    `end_time` is always set: an invite without one shows as a zero-length
+    event, so the mill fills in the default length.
+    """
+
+    reason: EncounterInviteReason
+    uid: str
+    sequence: int
+    encounter: EncounterDTO
+    end_time: datetime
+    organizer_name: str
+    recipient_name: str
+    recipient_email: str
+    sphere_domain: str
+
+
+class EncounterInviteMailerProtocol(Protocol):
+    def send(self, invite: EncounterInvite) -> None: ...
+
+
 class RSVPOutcome(StrEnum):
     CREATED = auto()
     FULL = auto()

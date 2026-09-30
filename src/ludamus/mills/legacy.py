@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 import markdown as _md
 import nh3
 
-from ludamus.mills.calendar import CalendarEntry, ics_document
 from ludamus.mills.calendar import google_calendar_url as google_calendar_link
 from ludamus.mills.calendar import outlook_calendar_url as outlook_calendar_link
+from ludamus.pacts.calendar import CalendarEntry, ics_document
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 
 _BASE62_CHARS = string.ascii_letters + string.digits
@@ -56,9 +56,13 @@ def render_markdown(text: str) -> str:
     )
 
 
+def encounter_calendar_uid(share_code: str) -> str:
+    return f"{share_code}@ludamus"
+
+
 def _entry(encounter: EncounterDTO, url: str) -> CalendarEntry:
     return CalendarEntry(
-        uid=f"{encounter.share_code}@ludamus",
+        uid=encounter_calendar_uid(encounter.share_code),
         title=encounter.title,
         start=encounter.start_time,
         end=encounter.end_time,

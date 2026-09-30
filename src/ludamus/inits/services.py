@@ -15,6 +15,7 @@ from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
+from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -530,6 +531,7 @@ class Services:
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             sites=self.sites,
+            invites=DjangoEncounterInviteMailer(),
         )
 
     @cached_property
