@@ -15,6 +15,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from django.core.exceptions import RequestDataTooBig
 from django.http import Http404, HttpResponse, JsonResponse
 from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
@@ -53,7 +54,14 @@ class EncounterCalendarReplyView(View):
         ):
             return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
         address = request.headers.get("X-Envelope-To", "")
-        reply = _calendar_reply(request.body)
+        try:
+            raw = request.body
+        except RequestDataTooBig:
+            logger.info("Calendar reply webhook: message over the upload limit")
+            return JsonResponse(
+                {"error": "Message too large."}, status=HTTPStatus.UNPROCESSABLE_ENTITY
+            )
+        reply = _calendar_reply(raw)
         if reply is None or not address:
             logger.info("Calendar reply webhook: no iTIP REPLY in the message")
             return JsonResponse(

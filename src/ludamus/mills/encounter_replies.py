@@ -16,6 +16,7 @@ from ludamus.pacts.calendar import PartStat
 from ludamus.pacts.encounter import (
     EncounterInviteReason,
     EncounterReplyServiceProtocol,
+    EncountersPolicy,
     InviteeStatus,
     ReplyOutcome,
 )
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
         EncounterRSVPRepositoryProtocol,
         ReplyAddressProtocol,
     )
+    from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -44,6 +46,7 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         users: UserRepositoryProtocol,
         guests: EncounterGuests,
         reply_addresses: ReplyAddressProtocol,
+        sites: SitesServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
@@ -51,6 +54,7 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         self._users = users
         self._guests = guests
         self._reply_addresses = reply_addresses
+        self._sites = sites
 
     def apply_calendar_reply(
         self, *, address: str, reply: CalendarReply
@@ -66,6 +70,11 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
                 encounter_share_code(reply.uid)
             )
         except NotFoundError:
+            return ReplyOutcome.IGNORED
+        # NOTE: the site 404s every encounter route of a sphere that stopped
+        # running encounters; a late calendar answer gets no further.
+        policy = self._sites.read(encounter.sphere_id).encounters_policy
+        if policy is EncountersPolicy.NONE:
             return ReplyOutcome.IGNORED
         try:
             user: UserDTO | None = self._users.read_by_email(reply.attendee_email)
@@ -122,7 +131,7 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         had_signup = user is not None and self._rsvps.user_has_rsvpd(
             encounter.pk, user.pk
         )
-        if user is not None and had_signup:
+        if had_signup and user:
             self._rsvps.delete_by_user(encounter.pk, user.pk)
         marked = self._guests.answer(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.DECLINED

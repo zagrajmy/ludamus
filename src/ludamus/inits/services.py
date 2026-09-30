@@ -558,6 +558,7 @@ class Services:
             users=self._repos.active_users,
             guests=self._encounter_guests,
             reply_addresses=SignedReplyAddress(),
+            sites=self.sites,
         )
 
     @cached_property

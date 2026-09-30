@@ -34,6 +34,8 @@ Until `ENCOUNTER_REPLY_EMAIL` is set, invites ask for no reply and name
 
 The app answers 200 for a reply it applied or ignored (a deleted encounter
 included), 403 for a token that does not match the attendee, and 422 for
-mail that holds no calendar reply. The Worker bounces those 4xx answers back to
-the sender and throws on 5xx, which lands in the Worker logs and the Email
-Routing activity log rather than in the guest's inbox.
+mail that holds no calendar reply or is larger than Django's
+`DATA_UPLOAD_MAX_MEMORY_SIZE`. The Worker bounces 403 and 422 back to the
+sender. A 401 (secret mismatch), a 404 (webhook closed: no secret set) and any
+5xx are ours to fix, so the Worker throws: they land in the Worker logs and the
+Email Routing activity log rather than in the guest's inbox.

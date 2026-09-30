@@ -15,9 +15,10 @@ export default {
       },
       body: await new Response(message.raw).arrayBuffer(),
     });
-    if (response.status >= 500) {
-      // Thrown, not rejected: a server error is ours to fix, not the guest's,
-      // so it goes to the Worker logs and the Email Routing activity log.
+    // A server error or a rejected secret (401) or closed webhook (404) is
+    // ours to fix, not the guest's: thrown, it lands in the Worker logs and
+    // the Email Routing activity log instead of bouncing to them.
+    if (response.status >= 500 || response.status === 401 || response.status === 404) {
       throw new Error(`ludamus answered ${response.status}`);
     }
     if (!response.ok) {
