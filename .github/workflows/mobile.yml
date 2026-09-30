@@ -100,14 +100,6 @@ jobs:
 
       - run: mise exec -- poetry install
 
-      - name: "DIAG: idle"
-        run: |
-          sysctl -n hw.ncpu hw.memsize; uptime
-          time mise run test:e2e:kill
-          time (MISE_LOG_LEVEL=debug mise run test:e2e:kill 2>&1 | tail -60)
-          time (mise exec -- poetry install -vvv 2>&1 | tail -40)
-          uptime
-
       # Split from the join below: booting takes ~2min of pure waiting that
       # the fixture bootstrap has no reason to sit behind. NOTE: a boot that
       # fails surfaces at the join, several steps and minutes from here.
@@ -140,14 +132,6 @@ jobs:
           )
           xcrun simctl boot "$UDID" || true
           echo "UDID=$UDID" >> "$GITHUB_ENV"
-
-      - name: "DIAG: during boot"
-        run: |
-          sysctl -n hw.ncpu hw.memsize; uptime
-          time mise run test:e2e:kill
-          time (MISE_LOG_LEVEL=debug mise run test:e2e:kill 2>&1 | tail -60)
-          time (mise exec -- poetry install -vvv 2>&1 | tail -40)
-          uptime
 
       - name: Bootstrap e2e fixtures
         run: mise run test:e2e:prep
