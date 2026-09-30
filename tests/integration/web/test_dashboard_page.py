@@ -155,28 +155,21 @@ class TestDashboardPageView:
             template_name="dashboard/index.html",
         )
 
-    def test_a_bookmark_in_a_sphere_gone_private_is_hidden(
+    def test_a_bookmark_outlives_its_sphere_going_private(
         self, authenticated_client, active_user, non_root_sphere
     ):
+        # The member could see the session when they saved it; losing that
+        # access later doesn't take their own list away from them.
         _bookmarked_session(EventFactory(sphere=non_root_sphere), user=active_user)
         non_root_sphere.visibility = SphereVisibility.PRIVATE
         non_root_sphere.save()
 
         response = authenticated_client.get(DASHBOARD_URL)
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
 
-        # Running the sphere is the one tie that still opens it.
-        non_root_sphere.managers.add(active_user)
-        response = authenticated_client.get(DASHBOARD_URL)
         dashboard = response.context_data["dashboard"]
-        assert len(dashboard.bookmarks) == 1
+        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
 
-    def test_a_bookmark_in_an_unpublished_event_is_hidden(
+    def test_a_bookmark_outlives_its_event_being_unpublished(
         self, authenticated_client, active_user, non_root_sphere
     ):
         event = EventFactory(sphere=non_root_sphere)
@@ -186,12 +179,8 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        dashboard = response.context_data["dashboard"]
+        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
