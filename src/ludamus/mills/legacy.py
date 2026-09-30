@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 import markdown as _md
 import nh3
 
-from ludamus.mills.calendar import encounter_calendar_uid
 from ludamus.mills.calendar import google_calendar_url as google_calendar_link
 from ludamus.mills.calendar import outlook_calendar_url as outlook_calendar_link
+from ludamus.mills.encounter_calendar import encounter_calendar_uid
 from ludamus.pacts.calendar import CalendarEntry, ics_document
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 

@@ -70,8 +70,8 @@ class CalendarInvite:
     organizer: Mailbox
     attendee: Mailbox
     partstat: PartStat = PartStat.ACCEPTED
-    # Asks the attendee's client to mail back its answer (an iTIP REPLY) to
-    # the organizer address.
+    # NOTE: RFC 5546 RSVP: the attendee's client mails its answer (an iTIP
+    # REPLY) to the organizer address.
     rsvp: bool = False
 
 

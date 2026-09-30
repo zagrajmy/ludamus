@@ -21,7 +21,6 @@ from ludamus.links.db.django.repositories.multiverse import (
     is_connection_display_name_conflict,
 )
 from ludamus.links.db.django.repositories.notice_board import (
-    EncounterInviteeRepository,
     EncounterRepository,
     EncounterRSVPRepository,
 )
@@ -48,7 +47,6 @@ __all__ = [
     "DashboardRepository",
     "DiscountRepository",
     "DiscountRuleRepository",
-    "EncounterInviteeRepository",
     "EncounterRSVPRepository",
     "EncounterRepository",
     "EnrollmentConfigRepository",

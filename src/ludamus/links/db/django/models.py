@@ -1741,6 +1741,7 @@ class EncounterInvitee(models.Model):
         INVITED = "invited", _("Invited")
         ACCEPTED = "accepted", _("Accepted")
         DECLINED = "declined", _("Declined")
+        REMOVED = "removed", _("Removed")
 
     encounter = models.ForeignKey(
         Encounter, on_delete=models.CASCADE, related_name="invitees"

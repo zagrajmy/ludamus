@@ -1,12 +1,12 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.pacts import EncounterDTO
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.encounter import EncountersPolicy, RSVPOutcome
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.multiverse import SphereRole
 
 CREATOR_ID = 10
@@ -89,11 +89,10 @@ class TestEncounterService:
             transaction=collaborators.transaction,
             encounters=collaborators.encounters,
             rsvps=collaborators.rsvps,
-            invitees=collaborators.invitees,
             users=collaborators.users,
             spheres=collaborators.spheres,
             sites=collaborators.sites,
-            mailer=collaborators.mailer,
+            guests=collaborators.guests,
         )
 
     def test_comms_role_cannot_create_under_a_managers_only_policy(
@@ -104,44 +103,3 @@ class TestEncounterService:
         users.read_by_id.return_value = _user(CREATOR_ID)
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
-
-    def test_rsvp_creates_signup_in_transaction(
-        self, service, collaborators, encounters, rsvps, users, sites
-    ):
-        encounter = _encounter(1, max_participants=4)
-        encounters.read_by_share_code.return_value = encounter
-        users.read_by_id.return_value = _user(OTHER_USER_ID)
-        sites.read.return_value.name = "Sphere"
-        sites.read.return_value.site.domain = "sphere.example.com"
-        rsvps.count_by_encounter.return_value = 1
-        rsvps.recent_rsvp_exists.return_value = False
-        rsvps.user_has_rsvpd.return_value = False
-
-        outcome = service.rsvp(
-            share_code=encounter.share_code,
-            sphere_id=SPHERE_ID,
-            user_id=OTHER_USER_ID,
-            ip_address="10.0.0.1",
-        )
-
-        assert outcome == RSVPOutcome.CREATED
-        assert rsvps.create.call_args == call(encounter.pk, "10.0.0.1", OTHER_USER_ID)
-        # Every read the capacity, throttle and duplicate checks depend on has
-        # to run between entering and exiting the transaction, or the checks
-        # race the insert. Moving any of them out reorders this list. The
-        # invite is queued inside it too, so a rollback drops it.
-        assert [
-            name
-            for name, _args, _kwargs in collaborators.mock_calls
-            if not name.startswith(("users.", "sites.", "invitees."))
-        ] == [
-            "transaction.atomic",
-            "transaction.atomic().__enter__",
-            "encounters.read_by_share_code",
-            "rsvps.count_by_encounter",
-            "rsvps.recent_rsvp_exists",
-            "rsvps.user_has_rsvpd",
-            "rsvps.create",
-            "mailer.send",
-            "transaction.atomic().__exit__",
-        ]

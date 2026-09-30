@@ -3584,6 +3584,14 @@ msgid "End time must be after start time."
 msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
+msgid ""
+"You have invited as many new people as one day allows. Try again tomorrow, "
+"or share the encounter link instead."
+msgstr ""
+"Na dziś wykorzystano limit zaproszeń. Spróbuj jutro albo udostępnij link do "
+"spotkania."
+
+#: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Encounter updated."
 msgstr "Spotkanie zaktualizowane."
 
@@ -3966,6 +3974,12 @@ msgstr "Zaproszony"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "Declined"
 msgstr "Odmowa"
+
+#: src/ludamus/links/db/django/models.py
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Removed"
+msgstr "Usunięto"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -11274,11 +11288,6 @@ msgstr "Zmiany w harmonogramie"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Assigned"
 msgstr "Przypisano"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Removed"
-msgstr "Usunięto"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/timetable-log.html

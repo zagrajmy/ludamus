@@ -26,7 +26,7 @@ from ludamus.mills import (
 )
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
-from ludamus.pacts.encounter import RSVPOutcome
+from ludamus.pacts.encounter import InviteLimitError, RSVPOutcome
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 from .forms import EncounterForm
@@ -40,6 +40,13 @@ if TYPE_CHECKING:
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
+
+
+def _invite_limit_message() -> str:
+    return _(
+        "You have invited as many new people as one day allows. Try again "
+        "tomorrow, or share the encounter link instead."
+    )
 
 
 class _EncounterGate(View):
@@ -134,6 +141,9 @@ class EncounterCreatePageView(_EncounterFormPageView):
             )
         except NotFoundError as exc:
             raise Http404 from exc
+        except InviteLimitError:
+            form.add_error("invitees", _invite_limit_message())
+            return TemplateResponse(request, "notice_board/create.html", {"form": form})
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -225,6 +235,13 @@ class EncounterEditPageView(_EncounterFormPageView):
             )
         except NotFoundError as exc:
             raise Http404 from exc
+        except InviteLimitError:
+            form.add_error("invitees", _invite_limit_message())
+            return TemplateResponse(
+                request,
+                "notice_board/edit.html",
+                {"form": form, "encounter": self._get_encounter(pk)},
+            )
         messages.success(request, _("Encounter updated."))
         return redirect(
             reverse(

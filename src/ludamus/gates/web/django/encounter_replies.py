@@ -2,7 +2,8 @@
 
 A guest's calendar answers an invite by mailing an iTIP REPLY to the
 invite's organizer address. Cloudflare Email Routing hands that mail to the
-Worker in ``cloudflare/encounter-replies``, which posts it here raw.
+Worker in ``cloudflare/encounter-replies``, which posts it here raw. Mounted
+under ``/hooks/``, which private spheres leave open: the Worker has no login.
 """
 
 from __future__ import annotations
@@ -31,10 +32,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _CALENDAR_TYPES = frozenset({"text/calendar", "application/ics"})
-_STATUS = {
-    ReplyOutcome.FORGED: HTTPStatus.FORBIDDEN,
-    ReplyOutcome.UNKNOWN: HTTPStatus.NOT_FOUND,
-}
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -66,18 +63,25 @@ class EncounterCalendarReplyView(View):
         outcome = request.services.encounter_replies.apply_calendar_reply(
             address=address, reply=reply
         )
+        if outcome is ReplyOutcome.FORGED:
+            logger.warning("Calendar reply %s: token does not match", reply.uid)
+            return JsonResponse({"outcome": outcome}, status=HTTPStatus.FORBIDDEN)
         logger.info("Calendar reply %s: %s", reply.uid, outcome)
-        return JsonResponse(
-            {"outcome": outcome}, status=_STATUS.get(outcome, HTTPStatus.OK)
-        )
+        return JsonResponse({"outcome": outcome})
 
 
 def _calendar_reply(raw: bytes) -> CalendarReply | None:
     message = email.message_from_bytes(raw, policy=email.policy.default)
     for part in message.walk():
-        if part.get_content_type() in _CALENDAR_TYPES:
-            content = part.get_content()
-            text = content.decode() if isinstance(content, bytes) else str(content)
-            if reply := parse_reply(text):
-                return reply
+        if part.get_content_type() not in _CALENDAR_TYPES:
+            continue
+        payload = part.get_payload(decode=True)
+        if not isinstance(payload, bytes):
+            continue
+        try:
+            text = payload.decode(part.get_content_charset() or "utf-8", "replace")
+        except LookupError:
+            text = payload.decode("utf-8", "replace")
+        if reply := parse_reply(text):
+            return reply
     return None

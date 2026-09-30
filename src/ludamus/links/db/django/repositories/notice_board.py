@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Count, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     Encounter,
@@ -169,21 +169,28 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
         ).delete()
 
 
+def _active_account() -> QuerySet[User]:
+    return User.objects.filter(
+        email__iexact=OuterRef("email"), user_type=UserType.ACTIVE
+    )
+
+
 class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
     @staticmethod
     def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]:
-        accounts = User.objects.filter(
-            email__iexact=OuterRef("email"), user_type=UserType.ACTIVE
-        ).values("pk")[:1]
         rows = (
             EncounterInvitee.objects.filter(encounter_id=encounter_id)
-            .annotate(user_id=Subquery(accounts))
+            .exclude(status=InviteeStatus.REMOVED)
+            .annotate(user_id=Subquery(_active_account().values("pk")[:1]))
             .order_by("creation_time", "pk")
         )
         return [EncounterInviteeDTO.model_validate(row) for row in rows]
 
     @staticmethod
     def add(encounter_id: int, emails: list[str]) -> None:
+        EncounterInvitee.objects.filter(
+            encounter_id=encounter_id, email__in=emails, status=InviteeStatus.REMOVED
+        ).update(status=InviteeStatus.INVITED)
         EncounterInvitee.objects.bulk_create(
             [EncounterInvitee(encounter_id=encounter_id, email=e) for e in emails],
             ignore_conflicts=True,
@@ -193,11 +200,42 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
     def remove(encounter_id: int, emails: list[str]) -> None:
         EncounterInvitee.objects.filter(
             encounter_id=encounter_id, email__in=emails
-        ).delete()
+        ).update(status=InviteeStatus.REMOVED)
 
     @staticmethod
-    def set_status(encounter_id: int, email: str, status: InviteeStatus) -> bool:
-        updated = EncounterInvitee.objects.filter(
-            encounter_id=encounter_id, email__iexact=email
-        ).update(status=status)
+    def set_status(*, encounter_id: int, email: str, status: InviteeStatus) -> bool:
+        updated = (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, email__iexact=email
+            )
+            .exclude(status=InviteeStatus.REMOVED)
+            .update(status=status)
+        )
         return updated > 0
+
+    @staticmethod
+    def read_status(encounter_id: int, email: str) -> InviteeStatus | None:
+        status = (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, email__iexact=email
+            )
+            .values_list("status", flat=True)
+            .first()
+        )
+        return InviteeStatus(status) if status else None
+
+    @staticmethod
+    def count_accepted_without_account(encounter_id: int) -> int:
+        return (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, status=InviteeStatus.ACCEPTED
+            )
+            .exclude(Exists(_active_account()))
+            .count()
+        )
+
+    @staticmethod
+    def count_invited_by_creator_since(creator_id: int, since: datetime) -> int:
+        return EncounterInvitee.objects.filter(
+            encounter__creator_id=creator_id, creation_time__gte=since
+        ).count()

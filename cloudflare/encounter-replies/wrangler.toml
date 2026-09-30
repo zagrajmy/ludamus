@@ -7,6 +7,6 @@ account_id = "add2b427b034a6073f63a849af7de160"
 addresses = ["rsvp@zagrajmy.net"]
 
 [vars]
-WEBHOOK_URL = "https://zagrajmy.net/encounters/calendar-replies"
+WEBHOOK_URL = "https://zagrajmy.net/hooks/calendar-replies"
 # WEBHOOK_SECRET is a secret: `wrangler secret put WEBHOOK_SECRET`, the same
 # value as the app's ENCOUNTER_REPLY_WEBHOOK_SECRET.

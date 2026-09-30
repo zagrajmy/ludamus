@@ -396,6 +396,7 @@ PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     "/crowd/",
     "/auth-error/",
     "/mcp/",
+    "/hooks/",
     "/.well-known/",
 )
 

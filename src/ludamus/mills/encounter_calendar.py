@@ -8,19 +8,24 @@ follows the encounter.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.mills.calendar import encounter_calendar_uid
 from ludamus.pacts.calendar import InviteMethod, PartStat
 from ludamus.pacts.encounter import (
     EncounterInvite,
     EncounterInviteReason,
     InviteeStatus,
+    InviteLimitError,
 )
 from ludamus.pacts.legacy import NotFoundError
-from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
+from ludamus.specs.encounter import (
+    ENCOUNTER_DEFAULT_DURATION,
+    INVITEE_WINDOW,
+    INVITEES_PER_CREATOR_PER_DAY,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,6 +41,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import SitesServiceProtocol
 
 
+logger = logging.getLogger(__name__)
+
+_UID_DOMAIN = "@ludamus"
 _CANCELLING = frozenset(
     {
         EncounterInviteReason.LEFT,
@@ -50,17 +58,30 @@ _INVITEE_PARTSTAT = {
 }
 
 
+def encounter_calendar_uid(share_code: str) -> str:
+    return f"{share_code}{_UID_DOMAIN}"
+
+
+def encounter_share_code(uid: str) -> str:
+    return uid.removesuffix(_UID_DOMAIN) if uid.endswith(_UID_DOMAIN) else ""
+
+
 @dataclass(frozen=True)
 class Guest:
     email: str
     name: str
     partstat: PartStat
-    # Invited by email and nothing more: no signup, not the creator.
     invited_only: bool = False
+    asks_reply: bool = True
 
 
-def guest_for(user: UserDTO) -> Guest:
-    return Guest(email=user.email.lower(), name=user.name, partstat=PartStat.ACCEPTED)
+def guest_for(user: UserDTO, *, asks_reply: bool = True) -> Guest:
+    return Guest(
+        email=user.email.lower(),
+        name=user.name,
+        partstat=PartStat.ACCEPTED,
+        asks_reply=asks_reply,
+    )
 
 
 def _normalised(emails: Iterable[str], *, excluding: str) -> set[str]:
@@ -86,6 +107,23 @@ class EncounterGuests:
     def invitees(self, encounter_id: int) -> list[EncounterInviteeDTO]:
         return self._invitees.list_by_encounter(encounter_id)
 
+    def invitee_status(self, encounter_id: int, email: str) -> InviteeStatus | None:
+        return self._invitees.read_status(encounter_id, email)
+
+    def answer(self, *, encounter_id: int, email: str, status: InviteeStatus) -> bool:
+        return self._invitees.set_status(
+            encounter_id=encounter_id, email=email, status=status
+        )
+
+    def accepted_guest_count(self, encounter_id: int) -> int:
+        return self._invitees.count_accepted_without_account(encounter_id)
+
+    def has_room(self, encounter: EncounterDTO) -> bool:
+        if not (limit := encounter.max_participants):
+            return True
+        taken = self._rsvps.count_by_encounter(encounter.pk)
+        return taken + self.accepted_guest_count(encounter.pk) < limit
+
     def replace_invitees(
         self, encounter: EncounterDTO, emails: Iterable[str]
     ) -> set[str]:
@@ -94,31 +132,40 @@ class EncounterGuests:
         Returns:
             The addresses newly invited, whose invite the caller sends once
             the encounter itself is settled.
+
+        Raises:
+            InviteLimitError: the new addresses would take the creator past
+                the daily limit. Nothing is written.
         """
         creator = self._users.read_by_id(encounter.creator_id)
         wanted = _normalised(emails, excluding=creator.email)
         current = {i.email for i in self.invitees(encounter.pk)}
+        added = wanted - current
+        since = datetime.now(tz=UTC) - INVITEE_WINDOW
+        already = self._invitees.count_invited_by_creator_since(creator.pk, since)
+        if added and already + len(added) > INVITEES_PER_CREATOR_PER_DAY:
+            logger.warning(
+                "Encounter %s: creator %s hit the daily invite limit (%d + %d)",
+                encounter.share_code,
+                creator.pk,
+                already,
+                len(added),
+            )
+            raise InviteLimitError
         removed = current - wanted
         dropped = [
             g for g in self.guests(encounter) if g.email in removed and g.invited_only
         ]
         self._invitees.remove(encounter.pk, sorted(removed))
-        self._invitees.add(encounter.pk, sorted(wanted - current))
+        self._invitees.add(encounter.pk, sorted(added))
         self.send(encounter, reason=EncounterInviteReason.UNINVITED, guests=dropped)
-        return wanted - current
-
-    def answer(self, encounter_id: int, email: str, status: InviteeStatus) -> bool:
-        return self._invitees.set_status(encounter_id, email, status)
-
-    def has_room(self, encounter: EncounterDTO) -> bool:
-        limit = encounter.max_participants
-        return limit == 0 or self._rsvps.count_by_encounter(encounter.pk) < limit
+        return added
 
     def guests(self, encounter: EncounterDTO) -> list[Guest]:
         member_ids = [encounter.creator_id] + [
             rsvp.user_id for rsvp in self._rsvps.list_by_encounter(encounter.pk)
         ]
-        invitees = self._invitees.list_by_encounter(encounter.pk)
+        invitees = self.invitees(encounter.pk)
         account_ids = [i.user_id for i in invitees if i.user_id is not None]
         users: dict[int, UserDTO] = {
             int(u.pk): u
@@ -127,9 +174,12 @@ class EncounterGuests:
         by_email: dict[str, Guest] = {}
         for user_id in member_ids:
             if (user := users.get(user_id)) and user.email:
-                by_email.setdefault(user.email.lower(), guest_for(user))
+                by_email.setdefault(
+                    user.email.lower(),
+                    guest_for(user, asks_reply=user_id != encounter.creator_id),
+                )
         for invitee in invitees:
-            if invitee.status is InviteeStatus.DECLINED:
+            if invitee.status not in _INVITEE_PARTSTAT:
                 continue
             account = users.get(invitee.user_id) if invitee.user_id else None
             by_email.setdefault(
@@ -170,6 +220,7 @@ class EncounterGuests:
                     reason=reason,
                     method=method,
                     partstat=guest.partstat,
+                    asks_reply=guest.asks_reply,
                     uid=encounter_calendar_uid(encounter.share_code),
                     sequence=sequence,
                     encounter=encounter,

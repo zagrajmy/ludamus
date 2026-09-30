@@ -46,6 +46,7 @@ from ludamus.mills.crowd import (
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.encounter import EncounterService
+from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
@@ -527,16 +528,25 @@ class Services:
         return build_konwencik_export()
 
     @cached_property
+    def _encounter_guests(self) -> EncounterGuests:
+        return EncounterGuests(
+            rsvps=self._repos.encounter_rsvps,
+            invitees=self._repos.encounter_invitees,
+            users=self._repos.active_users,
+            sites=self.sites,
+            mailer=DjangoEncounterInviteMailer(),
+        )
+
+    @cached_property
     def encounters(self) -> EncounterService:
         return EncounterService(
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
-            invitees=self._repos.encounter_invitees,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             sites=self.sites,
-            mailer=DjangoEncounterInviteMailer(),
+            guests=self._encounter_guests,
         )
 
     @cached_property
@@ -545,10 +555,8 @@ class Services:
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
-            invitees=self._repos.encounter_invitees,
             users=self._repos.active_users,
-            sites=self.sites,
-            mailer=DjangoEncounterInviteMailer(),
+            guests=self._encounter_guests,
             reply_addresses=SignedReplyAddress(),
         )
 

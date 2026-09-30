@@ -132,6 +132,13 @@ class InviteeStatus(StrEnum):
     INVITED = "invited"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+    # NOTE: kept, not deleted, so the address still counts toward the
+    # creator's daily invite limit.
+    REMOVED = "removed"
+
+
+class InviteLimitError(Exception):
+    """The creator has invited as many new addresses as a day allows."""
 
 
 class EncounterInviteeDTO(BaseModel):
@@ -156,15 +163,20 @@ class EncounterDetailContextDTO(BaseModel):
     rsvp_count: int
     is_creator: bool
     user_has_rsvpd: bool
-    # Only for the creator: invitees' emails are theirs to see.
+    # NOTE: filled for the creator alone; invitees' addresses are not for
+    # other guests to see.
     invitees: list[EncounterInviteeDTO] = []
+    # Invitees without an account who accepted from their calendar: coming,
+    # though not in `attendees`.
+    accepted_guest_count: int = 0
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.
     @property
     def spots_remaining(self) -> int | None:
         limit = self.encounter.max_participants
-        return max(0, limit - self.rsvp_count) if limit > 0 else None
+        taken = self.rsvp_count + self.accepted_guest_count
+        return max(0, limit - taken) if limit > 0 else None
 
     @property
     def is_full(self) -> bool:
@@ -184,13 +196,23 @@ class EncounterInviteReason(StrEnum):
 
 class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
-    def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]: ...
+    def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]:
+        """Invitees on the list now; removed ones are left out."""
+
     @staticmethod
-    def add(encounter_id: int, emails: list[str]) -> None: ...
+    def add(encounter_id: int, emails: list[str]) -> None:
+        """Invite `emails`; a removed invitee among them is invited again."""
+
     @staticmethod
     def remove(encounter_id: int, emails: list[str]) -> None: ...
     @staticmethod
-    def set_status(encounter_id: int, email: str, status: InviteeStatus) -> bool: ...
+    def set_status(*, encounter_id: int, email: str, status: InviteeStatus) -> bool: ...
+    @staticmethod
+    def read_status(encounter_id: int, email: str) -> InviteeStatus | None: ...
+    @staticmethod
+    def count_accepted_without_account(encounter_id: int) -> int: ...
+    @staticmethod
+    def count_invited_by_creator_since(creator_id: int, since: datetime) -> int: ...
 
 
 class EncounterInvite(BaseModel):
@@ -203,6 +225,7 @@ class EncounterInvite(BaseModel):
     reason: EncounterInviteReason
     method: InviteMethod
     partstat: PartStat
+    asks_reply: bool
     uid: str
     sequence: int
     encounter: EncounterDTO
@@ -233,7 +256,6 @@ class ReplyOutcome(StrEnum):
     FULL = auto()
     IGNORED = auto()
     FORGED = auto()
-    UNKNOWN = auto()
 
 
 class RSVPOutcome(StrEnum):
@@ -270,7 +292,7 @@ class EncounterServiceProtocol(Protocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str] | None,
+        invitee_emails: list[str],
     ) -> EncounterDTO: ...
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None: ...
     def rsvp(

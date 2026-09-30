@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from ludamus.mills.encounter_calendar import EncounterGuests, guest_for
+from ludamus.mills.encounter_calendar import guest_for
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
@@ -21,13 +21,12 @@ from ludamus.pacts.multiverse import SphereRole
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterData,
         EncounterDTO,
         EncounterInviteeDTO,
-        EncounterInviteeRepositoryProtocol,
-        EncounterInviteMailerProtocol,
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
     )
@@ -45,11 +44,10 @@ class EncounterService(EncounterServiceProtocol):
         transaction: TransactionProtocol,
         encounters: EncounterRepositoryProtocol,
         rsvps: EncounterRSVPRepositoryProtocol,
-        invitees: EncounterInviteeRepositoryProtocol,
         users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         sites: SitesServiceProtocol,
-        mailer: EncounterInviteMailerProtocol,
+        guests: EncounterGuests,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
@@ -61,9 +59,7 @@ class EncounterService(EncounterServiceProtocol):
         # the method the view then calls — and that service already memoises
         # the current sphere for the request.
         self._sites = sites
-        self._guests = EncounterGuests(
-            rsvps=rsvps, invitees=invitees, users=users, sites=sites, mailer=mailer
-        )
+        self._guests = guests
 
     def _policy(self, sphere_id: int) -> EncountersPolicy:
         return self._sites.read(sphere_id).encounters_policy
@@ -174,7 +170,8 @@ class EncounterService(EncounterServiceProtocol):
             rsvp_count=len(rsvps),
             is_creator=is_creator,
             user_has_rsvpd=user_has_rsvpd,
-            invitees=(self._guests.invitees(encounter.pk) if is_creator else []),
+            invitees=self._guests.invitees(encounter.pk) if is_creator else [],
+            accepted_guest_count=self._guests.accepted_guest_count(encounter.pk),
         )
 
     def read_by_share_code(self, *, share_code: str, sphere_id: int) -> EncounterDTO:
@@ -193,7 +190,11 @@ class EncounterService(EncounterServiceProtocol):
             self._guests.send(
                 encounter,
                 reason=EncounterInviteReason.CREATED,
-                guests=[guest_for(self._users.read_by_id(encounter.creator_id))],
+                guests=[
+                    guest_for(
+                        self._users.read_by_id(encounter.creator_id), asks_reply=False
+                    )
+                ],
             )
             self._send_invited(encounter, added)
             return encounter
@@ -224,7 +225,7 @@ class EncounterService(EncounterServiceProtocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str] | None,
+        invitee_emails: list[str],
     ) -> EncounterDTO:
         with self._transaction.atomic():
             before = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
@@ -238,11 +239,7 @@ class EncounterService(EncounterServiceProtocol):
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             encounter = self._encounters.read(pk, sphere_id)
-            added = (
-                self._guests.replace_invitees(encounter, invitee_emails)
-                if invitee_emails is not None
-                else set()
-            )
+            added = self._guests.replace_invitees(encounter, invitee_emails)
             if _calendar_view(encounter) != _calendar_view(before):
                 self._guests.send(
                     encounter,
@@ -285,7 +282,11 @@ class EncounterService(EncounterServiceProtocol):
                 return RSVPOutcome.ALREADY_SIGNED_UP
             user = self._users.read_by_id(user_id)
             self._rsvps.create(encounter.pk, ip_address, user.pk)
-            self._guests.answer(encounter.pk, user.email, InviteeStatus.ACCEPTED)
+            self._guests.answer(
+                encounter_id=encounter.pk,
+                email=user.email,
+                status=InviteeStatus.ACCEPTED,
+            )
             self._guests.send(
                 encounter, reason=EncounterInviteReason.JOINED, guests=[guest_for(user)]
             )
@@ -298,7 +299,11 @@ class EncounterService(EncounterServiceProtocol):
                 return
             user = self._users.read_by_id(user_id)
             self._rsvps.delete_by_user(encounter.pk, user.pk)
-            self._guests.answer(encounter.pk, user.email, InviteeStatus.DECLINED)
+            self._guests.answer(
+                encounter_id=encounter.pk,
+                email=user.email,
+                status=InviteeStatus.DECLINED,
+            )
             self._guests.send(
                 encounter, reason=EncounterInviteReason.LEFT, guests=[guest_for(user)]
             )

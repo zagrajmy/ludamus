@@ -97,7 +97,7 @@ class SignedReplyAddress:
 
 def _token(uid: str, attendee_email: str) -> str:
     digest = salted_hmac(
-        _REPLY_HMAC_NAMESPACE, f"{uid}\n{attendee_email.lower()}"
+        _REPLY_HMAC_NAMESPACE, f"{uid}\n{attendee_email.lower()}", algorithm="sha256"
     ).digest()
     return b32encode(digest[:_TOKEN_BYTES]).decode().lower()
 
@@ -138,7 +138,7 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
             organizer=_organizer(invite),
             attendee=Mailbox(name=invite.attendee_name, email=invite.attendee_email),
             partstat=invite.partstat,
-            rsvp=bool(settings.ENCOUNTER_REPLY_EMAIL),
+            rsvp=invite.asks_reply and bool(settings.ENCOUNTER_REPLY_EMAIL),
         ),
     )
     message = EmailMultiAlternatives(
