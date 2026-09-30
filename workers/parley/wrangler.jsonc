@@ -19,8 +19,12 @@
     "JWT_AUDIENCE": "parley",
     "ALLOWED_ORIGINS": "http://localhost:8000"
   },
+  // NOTE: `issues` needs wrangler >= 4.134.0, and it has to live here rather
+  // than only in the dashboard — a deploy from a config without it turns
+  // Issues back off.
   "observability": {
     "enabled": true,
+    "issues": { "enabled": true },
     "logs": { "invocation_logs": false }
   }
 }
