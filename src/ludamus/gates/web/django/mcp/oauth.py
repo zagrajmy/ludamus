@@ -104,9 +104,8 @@ def issuer(request: RootRequest) -> str:
     return f"{request.scheme}://{request.get_host()}"
 
 
-# Both answer for the path the client actually used, with or without the
-# trailing slash: a client checks the metadata's resource against the URL it
-# was given, and none follow a redirect on a POST.
+# Both follow the path the client used: a client checks the metadata's
+# resource against the URL it was given.
 def resource_metadata_url(request: RootRequest) -> str:
     return request.build_absolute_uri(f"{RESOURCE_METADATA_PREFIX}{request.path}")
 

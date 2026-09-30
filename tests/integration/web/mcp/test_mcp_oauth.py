@@ -221,8 +221,6 @@ class TestDiscovery:
             json={"error": f"A valid {scope} Bearer token is required."},
         )
 
-    # MCP clients refuse to follow a redirect on a POST, so the slashless
-    # endpoint must answer itself rather than bounce to the canonical one.
     def test_slashless_endpoint_answers_without_redirect(
         self, client, superuser, sphere, event
     ):
