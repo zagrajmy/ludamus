@@ -13,6 +13,7 @@ from tests.integration.conftest import (
     EncounterFactory,
     EncounterRSVPFactory,
     EventFactory,
+    ProposalCategoryFactory,
     SessionFactory,
     SessionParticipationFactory,
     SpaceFactory,
@@ -30,14 +31,20 @@ def _titles(cards):
     return [card.title for card in cards]
 
 
-def _bookmarked_session(event, *, user):
-    session = SessionFactory(event=event)
+def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+    session = SessionFactory(
+        event=event,
+        title=title,
+        participants_limit=4,
+        category=ProposalCategoryFactory(event=event),
+    )
     AgendaItemFactory(
         session=session,
         space=SpaceFactory(event=event),
-        start_time=datetime.now(UTC) + timedelta(days=1),
+        start_time=datetime.now(UTC) + timedelta(days=days_ahead),
     )
     SessionBookmark.objects.create(user=user, session=session)
+    return session
 
 
 class TestDashboardPageView:
@@ -110,24 +117,20 @@ class TestDashboardPageView:
     def test_bookmarks_gather_starred_sessions_across_events(
         self, authenticated_client, active_user, non_root_sphere, sphere
     ):
-        soon = datetime.now(UTC) + timedelta(days=2)
-
-        def scheduled(event, title, *, start_time):
-            session = SessionFactory(event=event, title=title, participants_limit=4)
-            AgendaItemFactory(
-                session=session, space=SpaceFactory(event=event), start_time=start_time
-            )
-            SessionBookmark.objects.create(user=active_user, session=session)
-            return session
-
         abroad = EventFactory(sphere=non_root_sphere)
         at_home = EventFactory(sphere=sphere)
-        later = scheduled(abroad, "Mothership", start_time=soon + timedelta(days=1))
+        later = _bookmarked_session(
+            abroad, user=active_user, title="Mothership", days_ahead=3
+        )
         SessionParticipationFactory(session=later, status="confirmed")
-        scheduled(at_home, "Mörk Borg", start_time=soon)
-        held = scheduled(at_home, "Held seat", start_time=soon)
+        # An offered seat is held for its waiter, so it is not free either.
+        SessionParticipationFactory(session=later, status="offered")
+        _bookmarked_session(at_home, user=active_user, title="Mörk Borg", days_ahead=2)
+        held = _bookmarked_session(at_home, user=active_user, title="Held seat")
         SessionParticipationFactory(session=held, user=active_user, status="confirmed")
-        scheduled(at_home, "Already over", start_time=soon - timedelta(days=5))
+        _bookmarked_session(
+            at_home, user=active_user, title="Already over", days_ahead=-3
+        )
 
         response = authenticated_client.get(DASHBOARD_URL)
 
@@ -137,17 +140,20 @@ class TestDashboardPageView:
         assert _titles(dashboard.agenda) == ["Held seat"]
         mothership = dashboard.bookmarks[1]
         assert mothership.role == DashboardRole.OPEN
-        assert (mothership.attending_count, mothership.capacity) == (1, 4)
+        assert (mothership.attending_count, mothership.capacity) == (2, 4)
         assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
 
-    def test_another_member_s_bookmarks_stay_theirs(
-        self, authenticated_client, non_root_sphere
-    ):
-        _bookmarked_session(EventFactory(sphere=non_root_sphere), user=UserFactory())
+    def test_another_member_s_bookmarks_stay_theirs(self, authenticated_client, sphere):
+        _bookmarked_session(EventFactory(sphere=sphere), user=UserFactory())
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].bookmarks == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
 
     def test_a_bookmark_in_a_sphere_gone_private_is_hidden(
         self, authenticated_client, active_user, non_root_sphere
@@ -157,12 +163,18 @@ class TestDashboardPageView:
         non_root_sphere.save()
 
         response = authenticated_client.get(DASHBOARD_URL)
-        assert response.context_data["dashboard"].bookmarks == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
 
         # Running the sphere is the one tie that still opens it.
         non_root_sphere.managers.add(active_user)
         response = authenticated_client.get(DASHBOARD_URL)
-        assert len(response.context_data["dashboard"].bookmarks) == 1
+        dashboard = response.context_data["dashboard"]
+        assert len(dashboard.bookmarks) == 1
 
     def test_a_bookmark_in_an_unpublished_event_is_hidden(
         self, authenticated_client, active_user, non_root_sphere
@@ -174,7 +186,12 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].bookmarks == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+            template_name="dashboard/index.html",
+        )
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere

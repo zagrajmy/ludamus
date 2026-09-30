@@ -25,6 +25,9 @@ from ludamus.links.db.django.models import (
     SphereSubscription,
     suggested_spheres,
 )
+from ludamus.links.db.django.repositories.sessions import (
+    annotate_session_participation_counts,
+)
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,
@@ -58,7 +61,7 @@ def _session_card(session: Session, *, role: DashboardRole) -> DashboardCardDTO:
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
         place=item.space.name,
-        attending_count=getattr(session, "confirmed_total", 0),
+        attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
     )
 
@@ -141,7 +144,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             on their agenda. A bookmark can predate its sphere going private,
             so only running a private sphere keeps its rows here.
         """
-        sessions = (
+        sessions = annotate_session_participation_counts(
             Session.objects.filter(
                 ~Q(event__sphere__visibility=SphereVisibility.PRIVATE)
                 | Q(event__sphere__in=_run_sphere_ids(user_id)),
@@ -155,17 +158,6 @@ class DashboardRepository(DashboardRepositoryProtocol):
                 ).values("session_id")
             )
             .select_related("agenda_item__space", "event__sphere__site")
-            .annotate(
-                confirmed_total=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=(
-                            SessionParticipationStatus.CONFIRMED
-                        )
-                    ),
-                    distinct=True,
-                )
-            )
             .order_by("agenda_item__start_time")
         )
         return [_session_card(session, role=DashboardRole.OPEN) for session in sessions]
