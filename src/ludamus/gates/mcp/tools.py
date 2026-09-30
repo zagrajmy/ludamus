@@ -308,8 +308,8 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 
 class _CreateEventBody(BaseModel):
-    # SAFETY: an organizer's sphere comes from the token; a sphere_id sent
-    # anyway is refused, not dropped, so a misdirected write cannot succeed.
+    # SAFETY: unknown fields are refused, not dropped: an organizer's sphere
+    # comes from the token, and a sphere_id sent anyway must not look accepted.
     model_config = ConfigDict(extra="forbid")
 
     name: NonBlankName = Field(description="Public event name")
