@@ -249,6 +249,7 @@ class EncounterInviteeFactory(DjangoModelFactory):
         model = EncounterInvitee
 
     encounter = SubFactory(EncounterFactory)
+    creator = LazyAttribute(lambda o: o.encounter.creator)
     email = Sequence(lambda n: f"invitee{n}@example.com")
 
 

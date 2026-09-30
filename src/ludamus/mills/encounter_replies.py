@@ -95,7 +95,9 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         # NOTE: only an invitee still on the list may accept. Someone who
         # signed up and left, or was removed, holds an invite we cancelled.
         status = self._guests.invitee_status(encounter.pk, email)
-        if status in {None, InviteeStatus.REMOVED}:
+        # NOTE: calendars re-send an acceptance, e.g. after each update; an
+        # accepted guest already holds their spot.
+        if status in {None, InviteeStatus.REMOVED, InviteeStatus.ACCEPTED}:
             return ReplyOutcome.IGNORED
         if not self._guests.has_room(encounter):
             guest = (

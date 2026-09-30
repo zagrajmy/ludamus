@@ -1743,8 +1743,13 @@ class EncounterInvitee(models.Model):
         DECLINED = "declined", _("Declined")
         REMOVED = "removed", _("Removed")
 
+    # NOTE: kept when the encounter is deleted, keyed to who sent it, so the
+    # creator's daily invite limit survives deleting and recreating.
     encounter = models.ForeignKey(
-        Encounter, on_delete=models.CASCADE, related_name="invitees"
+        Encounter, on_delete=models.SET_NULL, null=True, related_name="invitees"
+    )
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_encounter_invites"
     )
     email = models.EmailField()
     status = models.CharField(

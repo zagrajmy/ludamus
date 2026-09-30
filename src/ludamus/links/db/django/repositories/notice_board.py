@@ -187,12 +187,17 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         return [EncounterInviteeDTO.model_validate(row) for row in rows]
 
     @staticmethod
-    def add(encounter_id: int, emails: list[str]) -> None:
+    def add(*, encounter_id: int, emails: list[str], creator_id: int) -> None:
         EncounterInvitee.objects.filter(
             encounter_id=encounter_id, email__in=emails, status=InviteeStatus.REMOVED
         ).update(status=InviteeStatus.INVITED)
         EncounterInvitee.objects.bulk_create(
-            [EncounterInvitee(encounter_id=encounter_id, email=e) for e in emails],
+            [
+                EncounterInvitee(
+                    encounter_id=encounter_id, email=email, creator_id=creator_id
+                )
+                for email in emails
+            ],
             ignore_conflicts=True,
         )
 
@@ -225,17 +230,20 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         return InviteeStatus(status) if status else None
 
     @staticmethod
-    def count_accepted_without_account(encounter_id: int) -> int:
+    def count_accepted_without_signup(encounter_id: int) -> int:
+        signups = EncounterRSVP.objects.filter(
+            encounter_id=OuterRef("encounter_id"), user__email__iexact=OuterRef("email")
+        )
         return (
             EncounterInvitee.objects.filter(
                 encounter_id=encounter_id, status=InviteeStatus.ACCEPTED
             )
-            .exclude(Exists(_active_account()))
+            .exclude(Exists(signups))
             .count()
         )
 
     @staticmethod
     def count_invited_by_creator_since(creator_id: int, since: datetime) -> int:
         return EncounterInvitee.objects.filter(
-            encounter__creator_id=creator_id, creation_time__gte=since
+            creator_id=creator_id, creation_time__gte=since
         ).count()

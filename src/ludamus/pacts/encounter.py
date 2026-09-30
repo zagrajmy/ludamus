@@ -200,7 +200,7 @@ class EncounterInviteeRepositoryProtocol(Protocol):
         """Invitees on the list now; removed ones are left out."""
 
     @staticmethod
-    def add(encounter_id: int, emails: list[str]) -> None:
+    def add(*, encounter_id: int, emails: list[str], creator_id: int) -> None:
         """Invite `emails`; a removed invitee among them is invited again."""
 
     @staticmethod
@@ -210,7 +210,7 @@ class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
     def read_status(encounter_id: int, email: str) -> InviteeStatus | None: ...
     @staticmethod
-    def count_accepted_without_account(encounter_id: int) -> int: ...
+    def count_accepted_without_signup(encounter_id: int) -> int: ...
     @staticmethod
     def count_invited_by_creator_since(creator_id: int, since: datetime) -> int: ...
 

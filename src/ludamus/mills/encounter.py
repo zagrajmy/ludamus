@@ -186,15 +186,14 @@ class EncounterService(EncounterServiceProtocol):
             raise NotFoundError
         with self._transaction.atomic():
             encounter = self._encounters.create(data)
-            added = self._guests.replace_invitees(encounter, invitee_emails)
+            creator = self._users.read_by_id(encounter.creator_id)
+            added = self._guests.replace_invitees(
+                encounter, invitee_emails, creator=creator
+            )
             self._guests.send(
                 encounter,
                 reason=EncounterInviteReason.CREATED,
-                guests=[
-                    guest_for(
-                        self._users.read_by_id(encounter.creator_id), asks_reply=False
-                    )
-                ],
+                guests=[guest_for(creator, asks_reply=False)],
             )
             self._send_invited(encounter, added)
             return encounter
@@ -239,7 +238,11 @@ class EncounterService(EncounterServiceProtocol):
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             encounter = self._encounters.read(pk, sphere_id)
-            added = self._guests.replace_invitees(encounter, invitee_emails)
+            added = self._guests.replace_invitees(
+                encounter,
+                invitee_emails,
+                creator=self._users.read_by_id(encounter.creator_id),
+            )
             if _calendar_view(encounter) != _calendar_view(before):
                 self._guests.send(
                     encounter,

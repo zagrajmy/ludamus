@@ -809,8 +809,100 @@ class TestCalendarReplies:
             json={"error": "Not a calendar reply."},
         )
 
+    def test_a_repeated_acceptance_keeps_the_spot_quietly(
+        self, client, sphere, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        encounter = EncounterFactory(sphere=sphere, max_participants=1)
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email="friend@example.com",
+            status=EncounterInvitee.Status.ACCEPTED,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = self._post(
+                client,
+                _reply_mail(
+                    uid=encounter_calendar_uid(encounter.share_code),
+                    attendee="friend@example.com",
+                    partstat="ACCEPTED",
+                ),
+                to=self._address(encounter, "friend@example.com"),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "ignored"})
+        assert encounter.invitees.get(email="friend@example.com").status == "accepted"
+        assert mailoutbox == []
+
+
+class TestAcceptedGuestsHoldSpots:
+    def test_guest_who_accepted_then_made_an_account_keeps_the_spot(
+        self, authenticated_client, sphere, user
+    ):
+        encounter = EncounterFactory(sphere=sphere, max_participants=1)
+        late_account = UserFactory(email="friend@example.com")
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email=late_account.email,
+            status=EncounterInvitee.Status.ACCEPTED,
+        )
+
+        response = _rsvp(authenticated_client, encounter)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.ERROR, "This encounter is full."),),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+        assert not encounter.rsvps.filter(user=user).exists()
+
 
 class TestInviteLimits:
+    def test_deleting_and_recreating_does_not_reset_the_daily_limit(
+        self, authenticated_client, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        for batch in ("a", "b"):
+            emails = ", ".join(f"{batch}{n}@example.com" for n in range(50))
+            with django_capture_on_commit_callbacks(execute=True):
+                authenticated_client.post(
+                    reverse("web:notice-board:create"),
+                    data={
+                        "title": f"Night {batch}",
+                        "start_time": "2031-05-01T19:00",
+                        "invitees": emails,
+                    },
+                )
+            encounter = Encounter.objects.get(title=f"Night {batch}")
+            with django_capture_on_commit_callbacks(execute=True):
+                authenticated_client.post(
+                    reverse("web:notice-board:delete", kwargs={"pk": encounter.pk})
+                )
+        mailoutbox.clear()
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                reverse("web:notice-board:create"),
+                data={
+                    "title": "Night c",
+                    "start_time": "2031-05-01T19:00",
+                    "invitees": "one-more@example.com",
+                },
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=((constants.SUCCESS, "Encounter deleted."),) * 2,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+        assert not Encounter.objects.filter(title="Night c").exists()
+        assert mailoutbox == []
+
     def test_more_than_fifty_addresses_at_once_are_refused(
         self, authenticated_client, mailoutbox
     ):

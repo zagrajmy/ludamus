@@ -116,7 +116,7 @@ class EncounterGuests:
         )
 
     def accepted_guest_count(self, encounter_id: int) -> int:
-        return self._invitees.count_accepted_without_account(encounter_id)
+        return self._invitees.count_accepted_without_signup(encounter_id)
 
     def has_room(self, encounter: EncounterDTO) -> bool:
         if not (limit := encounter.max_participants):
@@ -125,7 +125,7 @@ class EncounterGuests:
         return taken + self.accepted_guest_count(encounter.pk) < limit
 
     def replace_invitees(
-        self, encounter: EncounterDTO, emails: Iterable[str]
+        self, encounter: EncounterDTO, emails: Iterable[str], *, creator: UserDTO
     ) -> set[str]:
         """Make the invitee list `emails`; mail the removed a cancellation.
 
@@ -137,7 +137,6 @@ class EncounterGuests:
             InviteLimitError: the new addresses would take the creator past
                 the daily limit. Nothing is written.
         """
-        creator = self._users.read_by_id(encounter.creator_id)
         wanted = _normalised(emails, excluding=creator.email)
         current = {i.email for i in self.invitees(encounter.pk)}
         added = wanted - current
@@ -157,7 +156,9 @@ class EncounterGuests:
             g for g in self.guests(encounter) if g.email in removed and g.invited_only
         ]
         self._invitees.remove(encounter.pk, sorted(removed))
-        self._invitees.add(encounter.pk, sorted(added))
+        self._invitees.add(
+            encounter_id=encounter.pk, emails=sorted(added), creator_id=creator.pk
+        )
         self.send(encounter, reason=EncounterInviteReason.UNINVITED, guests=dropped)
         return added
 
