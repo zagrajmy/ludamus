@@ -1,4 +1,10 @@
+import email.policy
+import re
+from datetime import UTC, datetime
+from unittest.mock import patch
+
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.links.absolute_url import absolute_url
 from tests.integration.conftest import (
@@ -15,6 +21,28 @@ def _calendar_part(message):
         if mimetype.startswith("text/calendar")
     ]
     return content, mimetype
+
+
+MAX_ICS_LINE_OCTETS = 75
+NEW_CAPACITY = 12
+
+
+def _wire_calendar_lines(message):
+    # The SMTP backend serialises with the SMTP policy; that is what a
+    # receiving calendar parses.
+    raw = message.message(policy=email.policy.SMTP).as_bytes()
+    start = raw.index(b"BEGIN:VCALENDAR")
+    end = raw.index(b"END:VCALENDAR") + len(b"END:VCALENDAR\r\n")
+    return raw[start:end].split(b"\r\n")[:-1]
+
+
+def _rsvp(client, encounter):
+    return client.post(
+        reverse(
+            "web:notice-board:encounter-rsvp",
+            kwargs={"share_code": encounter.share_code},
+        )
+    )
 
 
 def _detail_url(encounter):
@@ -96,6 +124,72 @@ class TestSignUpSendsInvite:
         assert encounter.rsvps.filter(user=user).exists()
         assert mailoutbox == []
 
+    def test_multiline_description_stays_valid_icalendar_on_the_wire(
+        self,
+        authenticated_client,
+        sphere,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        encounter = EncounterFactory(
+            sphere=sphere,
+            description="Zabierz kości\r\ni przekąski; " + "długi opis " * 20,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            _rsvp(authenticated_client, encounter)
+
+        [message] = mailoutbox
+        lines = _wire_calendar_lines(message)
+        content_line = re.compile(rb"^[A-Z-]+[;:]")
+        assert all(content_line.match(line) or line.startswith(b" ") for line in lines)
+        assert all(len(line) <= MAX_ICS_LINE_OCTETS for line in lines)
+        unfolded = b"\r\n".join(lines).replace(b"\r\n ", b"").decode()
+        assert "DESCRIPTION:Zabierz kości\\ni przekąski\\; długi" in unfolded
+
+    def test_attendee_without_name_is_named_by_email(
+        self,
+        authenticated_client,
+        encounter,
+        user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        user.name = ""
+        user.save()
+
+        with django_capture_on_commit_callbacks(execute=True):
+            _rsvp(authenticated_client, encounter)
+
+        [message] = mailoutbox
+        ics, _mimetype = _calendar_part(message)
+        assert f'ATTENDEE;CN="{user.email}"' in ics
+
+    def test_failed_delivery_keeps_the_signup_and_is_logged(
+        self,
+        authenticated_client,
+        encounter,
+        user,
+        caplog,
+        django_capture_on_commit_callbacks,
+    ):
+        with (
+            patch(
+                "django.core.mail.backends.locmem.EmailBackend.send_messages",
+                side_effect=ConnectionRefusedError,
+            ),
+            caplog.at_level(
+                "ERROR", logger="ludamus.links.db.django.encounter_invites"
+            ),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            _rsvp(authenticated_client, encounter)
+
+        assert encounter.rsvps.filter(user=user).exists()
+        assert f"Encounter {encounter.share_code}: joined invites not delivered" in (
+            caplog.text
+        )
+
 
 class TestLeavingCancelsInvite:
     def test_cancel_rsvp_mails_a_calendar_cancel(
@@ -168,6 +262,40 @@ class TestOwnerChangesReachAttendees:
         ics, _mimetype = _calendar_part(message)
         assert "METHOD:REQUEST" in ics
         assert "SUMMARY:Moved game night" in ics
+
+    def test_edit_without_calendar_change_mails_nobody(
+        self,
+        authenticated_client,
+        user,
+        sphere,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        encounter = EncounterFactory(
+            creator=user,
+            sphere=sphere,
+            start_time=datetime(2031, 5, 1, 17, 0, tzinfo=UTC),
+            end_time=None,
+        )
+        EncounterRSVPFactory(encounter=encounter, user=UserFactory())
+
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                reverse("web:notice-board:edit", kwargs={"pk": encounter.pk}),
+                data={
+                    "title": encounter.title,
+                    "description": encounter.description,
+                    "place": encounter.place,
+                    "start_time": (
+                        localtime(encounter.start_time).strftime("%Y-%m-%dT%H:%M")
+                    ),
+                    "max_participants": NEW_CAPACITY,
+                },
+            )
+
+        encounter.refresh_from_db()
+        assert encounter.max_participants == NEW_CAPACITY
+        assert mailoutbox == []
 
     def test_delete_mails_attendees_a_cancel(
         self,

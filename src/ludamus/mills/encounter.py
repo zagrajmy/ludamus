@@ -4,7 +4,8 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.mills.legacy import encounter_calendar_uid
+from ludamus.mills.calendar import encounter_calendar_uid
+from ludamus.pacts.calendar import InviteMethod
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
@@ -192,7 +193,7 @@ class EncounterService(EncounterServiceProtocol):
         self, *, pk: int, sphere_id: int, user_id: int, data: EncounterData
     ) -> EncounterDTO:
         with self._transaction.atomic():
-            self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
+            before = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
             if "is_public" in data and not self.can_create(
                 sphere_id=sphere_id, user_id=user_id
             ):
@@ -203,17 +204,18 @@ class EncounterService(EncounterServiceProtocol):
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             encounter = self._encounters.read(pk, sphere_id)
-            self._send_invites(
-                encounter,
-                reason=EncounterInviteReason.CHANGED,
-                recipients=self._attendees(encounter.pk),
-            )
+            if _calendar_view(encounter) != _calendar_view(before):
+                self._send_invites(
+                    encounter,
+                    reason=EncounterInviteReason.CHANGED,
+                    recipients=self._attendees(encounter.pk),
+                )
             return encounter
 
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None:
         with self._transaction.atomic():
             encounter = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            # Read before the delete: the RSVPs cascade away with it.
+            # NOTE: read before the delete; the RSVPs cascade away with it.
             attendees = self._attendees(encounter.pk)
             self._encounters.delete(pk)
             self._send_invites(
@@ -273,35 +275,55 @@ class EncounterService(EncounterServiceProtocol):
         reason: EncounterInviteReason,
         recipients: list[UserDTO],
     ) -> None:
-        # Every signup is mailed an iTIP invite, so the encounter lands in
-        # the attendee's calendar on its own, and every later change or
-        # cancellation follows it there.
         if not recipients:
             return
         sphere = self._sites.read(encounter.sphere_id)
-        organizer_name = sphere.name
-        with suppress(NotFoundError):
-            organizer_name = self._users.read_by_id(encounter.creator_id).name
-        # NOTE: iTIP applies the message with the highest SEQUENCE per UID.
-        # A clock reading is monotonic across edits without a stored counter.
+        try:
+            creator_name = self._users.read_by_id(encounter.creator_id).name
+        except NotFoundError:
+            creator_name = ""
+        # NOTE: iTIP applies the message with the highest SEQUENCE per UID. A
+        # clock reading rises across edits without a stored counter, within
+        # limits: sends in the same second tie (clients then compare
+        # DTSTAMP), worker clock skew can step back, and it outgrows the
+        # int32 RFC 5545 INTEGER in 2038.
         sequence = int(datetime.now(tz=UTC).timestamp())
-        end_time = encounter.end_time or (
-            encounter.start_time + ENCOUNTER_DEFAULT_DURATION
-        )
-        for user in recipients:
-            self._invites.send(
+        method = InviteMethod.CANCEL if reason in _CANCELLING else InviteMethod.REQUEST
+        self._invites.send(
+            [
                 EncounterInvite(
                     reason=reason,
+                    method=method,
                     uid=encounter_calendar_uid(encounter.share_code),
                     sequence=sequence,
                     encounter=encounter,
-                    end_time=end_time,
-                    organizer_name=organizer_name or sphere.name,
-                    recipient_name=user.name,
-                    recipient_email=user.email,
+                    end_time=encounter.end_time
+                    or encounter.start_time + ENCOUNTER_DEFAULT_DURATION,
+                    organizer_name=creator_name or sphere.name,
+                    attendee_name=user.name,
+                    attendee_email=user.email,
                     sphere_domain=sphere.site.domain,
                 )
-            )
+                for user in recipients
+            ]
+        )
+
+
+_CANCELLING = frozenset({EncounterInviteReason.LEFT, EncounterInviteReason.DELETED})
+
+
+def _calendar_view(
+    encounter: EncounterDTO,
+) -> tuple[str, str, datetime, datetime | None, str]:
+    # NOTE: only what an attendee's calendar shows; a capacity or cover
+    # change is no reason to mail everyone.
+    return (
+        encounter.title,
+        encounter.description,
+        encounter.start_time,
+        encounter.end_time,
+        encounter.place,
+    )
 
 
 def _without_public_flag(data: EncounterData) -> EncounterData:

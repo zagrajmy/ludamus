@@ -12,6 +12,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.calendar import CalendarEntry
 
 
+def encounter_calendar_uid(share_code: str) -> str:
+    return f"{share_code}@ludamus"
+
+
 def _details(entry: CalendarEntry) -> str:
     return f"{entry.description}\n\n{entry.url}" if entry.description else entry.url
 

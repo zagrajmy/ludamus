@@ -63,8 +63,12 @@ class CalendarInvite:
 
 
 def ics_escape(text: str) -> str:
+    # NOTE: browsers submit textareas with CRLF; a bare CR left in a content
+    # line splits it on the wire.
     return (
-        text.replace("\\", "\\\\")
+        text.replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\\", "\\\\")
         .replace(";", "\\;")
         .replace(",", "\\,")
         .replace("\n", "\\n")
@@ -76,14 +80,15 @@ def ics_utc(value: datetime) -> str:
 
 
 def _param_text(text: str) -> str:
-    # A parameter value cannot carry a DQUOTE or a line break, even escaped.
+    # NOTE: a parameter value cannot carry a DQUOTE or a line break, even
+    # escaped (RFC 5545 §3.1).
     cleaned = text.replace('"', "'").replace("\r", " ").replace("\n", " ")
     return f'"{cleaned}"'
 
 
 def _fold(line: str) -> str:
-    # RFC 5545 caps content lines at 75 octets; strict parsers (Outlook)
-    # reject longer ones. Continuations start with a space.
+    # NOTE: RFC 5545 caps content lines at 75 octets and strict parsers
+    # (Outlook) reject longer ones. Continuations start with a space.
     chunks: list[str] = []
     current = ""
     limit = _MAX_LINE_OCTETS

@@ -131,8 +131,13 @@ class TestEncounterService:
         assert rsvps.create.call_args == call(encounter.pk, "10.0.0.1", OTHER_USER_ID)
         # Every read the capacity, throttle and duplicate checks depend on has
         # to run between entering and exiting the transaction, or the checks
-        # race the insert. Moving any of them out reorders this list.
-        assert [name for name, _args, _kwargs in collaborators.mock_calls] == [
+        # race the insert. Moving any of them out reorders this list. The
+        # invite is queued inside it too, so a rollback drops it.
+        assert [
+            name
+            for name, _args, _kwargs in collaborators.mock_calls
+            if not name.startswith(("users.", "sites."))
+        ] == [
             "transaction.atomic",
             "transaction.atomic().__enter__",
             "encounters.read_by_share_code",
@@ -140,9 +145,6 @@ class TestEncounterService:
             "rsvps.recent_rsvp_exists",
             "rsvps.user_has_rsvpd",
             "rsvps.create",
-            "users.read_by_id",
-            "sites.read",
-            "users.read_by_id",
             "invites.send",
             "transaction.atomic().__exit__",
         ]

@@ -13,7 +13,7 @@ from email.utils import parseaddr
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.db import transaction
 from django.urls import reverse
 from django.utils.formats import date_format
@@ -21,13 +21,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.pacts.calendar import (
-    CalendarEntry,
-    CalendarInvite,
-    InviteMethod,
-    Mailbox,
-    ics_document,
-)
+from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
 if TYPE_CHECKING:
@@ -36,37 +30,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_CANCELLING = {EncounterInviteReason.LEFT, EncounterInviteReason.DELETED}
-
 
 class DjangoEncounterInviteMailer:
     @staticmethod
-    def send(invite: EncounterInvite) -> None:
-        encounter = invite.encounter
-        if not invite.recipient_email:
+    def send(invites: list[EncounterInvite]) -> None:
+        deliverable = [invite for invite in invites if invite.attendee_email]
+        if skipped := len(invites) - len(deliverable):
             logger.info(
-                "Encounter %s: no email for a %s invite, skipped",
-                encounter.share_code,
-                invite.reason,
+                "Encounter %s: %d %s invites skipped, no email",
+                invites[0].encounter.share_code,
+                skipped,
+                invites[0].reason,
             )
+        if not deliverable:
             return
-        message = _message(invite)
+        share_code = deliverable[0].encounter.share_code
+        reason = deliverable[0].reason
+        # NOTE: rendered now, in the acting user's language and time zone —
+        # users store neither, so an owner's edit reaches attendees in theirs.
+        messages = [_message(invite) for invite in deliverable]
 
         def _send() -> None:
             try:
-                message.send()
+                sent = get_connection().send_messages(messages)
             except OSError:
-                # The signup or edit already committed; a lost invite must
-                # not undo it, but it has to be visible.
+                # NOTE: the signup or edit already committed; a lost invite
+                # must not undo it, but it has to be visible.
                 logger.exception(
-                    "Encounter %s: %s invite not delivered",
-                    encounter.share_code,
-                    invite.reason,
+                    "Encounter %s: %s invites not delivered", share_code, reason
                 )
                 return
-            logger.info(
-                "Encounter %s: %s invite sent", encounter.share_code, invite.reason
-            )
+            logger.info("Encounter %s: %s %s invites sent", share_code, sent, reason)
 
         transaction.on_commit(_send)
 
@@ -79,9 +73,6 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
             kwargs={"share_code": encounter.share_code},
         ),
         domain=invite.sphere_domain,
-    )
-    method = (
-        InviteMethod.CANCEL if invite.reason in _CANCELLING else InviteMethod.REQUEST
     )
     __, sender = parseaddr(settings.DEFAULT_FROM_EMAIL)
     ics = ics_document(
@@ -96,16 +87,18 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         ),
         stamped_at=datetime.now(tz=UTC),
         invite=CalendarInvite(
-            method=method,
+            method=invite.method,
             sequence=invite.sequence,
             organizer=Mailbox(name=invite.organizer_name, email=sender),
-            attendee=Mailbox(name=invite.recipient_name, email=invite.recipient_email),
+            attendee=Mailbox(name=invite.attendee_name, email=invite.attendee_email),
         ),
     )
     message = EmailMultiAlternatives(
-        subject=_subject(invite), body=_body(invite, url), to=[invite.recipient_email]
+        subject=_subject(invite), body=_body(invite, url), to=[invite.attendee_email]
     )
-    message.attach_alternative(ics, f"text/calendar; method={method}; charset=utf-8")
+    message.attach_alternative(
+        ics, f"text/calendar; method={invite.method}; charset=utf-8"
+    )
     return message
 
 

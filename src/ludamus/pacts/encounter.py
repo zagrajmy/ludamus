@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.calendar import InviteMethod
 from ludamus.pacts.crowd import UserDTO
 
 if TYPE_CHECKING:
@@ -162,18 +163,19 @@ class EncounterInvite(BaseModel):
     """
 
     reason: EncounterInviteReason
+    method: InviteMethod
     uid: str
     sequence: int
     encounter: EncounterDTO
     end_time: datetime
     organizer_name: str
-    recipient_name: str
-    recipient_email: str
+    attendee_name: str
+    attendee_email: str
     sphere_domain: str
 
 
 class EncounterInviteMailerProtocol(Protocol):
-    def send(self, invite: EncounterInvite) -> None: ...
+    def send(self, invites: list[EncounterInvite]) -> None: ...
 
 
 class RSVPOutcome(StrEnum):
