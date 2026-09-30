@@ -13,6 +13,7 @@ from ludamus.links.db.django.models import (
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
     User,
 )
 from ludamus.pacts.crowd import UserDTO
@@ -135,6 +136,37 @@ class TestSessionEnrollmentAnonymousPageView:
         session.save()
 
         response = getattr(client, method)(self.get_url(789, event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url=reverse("web:index"),
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_get_private_track_session_not_found(
+        self, agenda_item, client, method, sphere
+    ):
+        # Anonymous enrollment must fail closed the same way a nonexistent
+        # session does: numeric session ids are enumerable, so a private
+        # track can't stay backstage if this leaked a different error.
+        session = client.session
+        session["anonymous_enrollment_active"] = True
+        session["anonymous_site_id"] = sphere.site.id
+        session.save()
+        agenda_item.session.tracks.add(
+            Track.objects.create(
+                event=agenda_item.session.event,
+                name="Backstage",
+                slug="backstage",
+                is_public=False,
+            )
+        )
+
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
