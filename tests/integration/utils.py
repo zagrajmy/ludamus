@@ -204,7 +204,11 @@ def assert_response(
     if cache_control is not None:
         assert_cache_control(response, cache_control)
     if headers is not None:
-        assert {name: response.headers.get(name) for name in headers} == headers
+        # A plain `response.headers == headers` would demand the response
+        # carry no other header at all, so the named ones are checked by key
+        # instead — the point is to assert what's expected, not everything
+        # the response happens to also send.
+        assert {name: response.headers.get(name) for name in headers} == dict(headers)
     if json is not _NO_JSON:
         assert response.json() == json
 
