@@ -3768,6 +3768,41 @@ msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
 msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
 
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Invitation: %(title)s"
+msgstr "Zaproszenie: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Updated: %(title)s"
+msgstr "Zmiana: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Cancelled: %(title)s"
+msgstr "Odwołane: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "You signed up for %(title)s."
+msgstr "Zapisano cię na %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "%(organizer)s changed %(title)s."
+msgstr "%(organizer)s zmienia %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "You are no longer signed up for %(title)s."
+msgstr "Wypisano cię z %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "%(organizer)s cancelled %(title)s."
+msgstr "%(organizer)s odwołuje %(title)s."
+
 #: src/ludamus/links/db/django/models.py
 msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
@@ -4012,41 +4047,6 @@ msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s.
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "Invitation: %(title)s"
-msgstr "Zaproszenie: %(title)s"
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "Updated: %(title)s"
-msgstr "Zmiana: %(title)s"
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "Cancelled: %(title)s"
-msgstr "Odwołane: %(title)s"
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "You signed up for %(title)s."
-msgstr "Zapisano cię na %(title)s."
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "%(organizer)s changed %(title)s."
-msgstr "%(organizer)s zmienia %(title)s."
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "You are no longer signed up for %(title)s."
-msgstr "Wypisano cię z %(title)s."
-
-#: src/ludamus/links/db/django/encounter_invites.py
-#, python-format
-msgid "%(organizer)s cancelled %(title)s."
-msgstr "%(organizer)s odwołuje %(title)s."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
