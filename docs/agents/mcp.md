@@ -15,8 +15,12 @@ claude mcp add --transport http zagrajmy https://<domain>/mcp/
 claude mcp add --transport http zagrajmy-org https://<sphere-domain>/mcp/organizer/
 ```
 
+`/mcp` and `/mcp/organizer` answer without the trailing slash too; MCP
+clients don't follow a redirect on a POST.
+
 The client gets a 401 whose `WWW-Authenticate` header points at
-`/.well-known/oauth-protected-resource/mcp/` (or `.../mcp/organizer/`), which
+`/.well-known/oauth-protected-resource/mcp/` (or `.../mcp/organizer/`, each
+without the slash when the client used it that way), which
 names this site as the authorization server
 (`/.well-known/oauth-authorization-server`). The client then opens
 `/mcp/oauth/authorize/` in the browser. The user logs in and approves the

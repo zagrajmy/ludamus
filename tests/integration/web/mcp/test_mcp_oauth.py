@@ -176,6 +176,9 @@ class TestDiscovery:
         (
             ("mcp/", MAINTAINER_RESOURCE, "maintainer"),
             ("mcp/organizer/", ORGANIZER_RESOURCE, "organizer"),
+            # A connector URL typed without the slash derives these paths.
+            ("mcp", "http://testserver/mcp", "maintainer"),
+            ("mcp/organizer", "http://testserver/mcp/organizer", "organizer"),
         ),
     )
     def test_protected_resource_metadata(self, client, path, resource, scope):
@@ -193,7 +196,13 @@ class TestDiscovery:
         )
 
     @pytest.mark.parametrize(
-        ("url", "scope"), (("/mcp/", "maintainer"), ("/mcp/organizer/", "organizer"))
+        ("url", "scope"),
+        (
+            ("/mcp/", "maintainer"),
+            ("/mcp/organizer/", "organizer"),
+            ("/mcp", "maintainer"),
+            ("/mcp/organizer", "organizer"),
+        ),
     )
     def test_unauthorized_endpoint_points_at_metadata(self, client, url, scope):
         response = client.post(
@@ -211,6 +220,21 @@ class TestDiscovery:
             },
             json={"error": f"A valid {scope} Bearer token is required."},
         )
+
+    def test_slashless_endpoint_answers_without_redirect(
+        self, client, superuser, sphere, event
+    ):
+        maintainer = _post_mcp(client, "/mcp", mint_token(superuser.pk))
+        organizer = _post_mcp(
+            client,
+            "/mcp/organizer",
+            mint_organizer_token(
+                user_id=superuser.pk, sphere_id=sphere.pk, event_id=event.pk
+            ),
+        )
+
+        assert_response(maintainer, HTTPStatus.OK, json=PONG)
+        assert_response(organizer, HTTPStatus.OK, json=PONG)
 
 
 class TestAuthorizeRequest:

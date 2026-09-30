@@ -231,12 +231,23 @@ def _check_document(
 ) -> None:
     if document.get("client_id") != client_id:
         raise McpClientRejectedError(ClientRejection.CLIENT_ID_MISMATCH)
-    if document.get("token_endpoint_auth_method", "none") != "none":
+    if not _exchanges_publicly(document):
         raise McpClientRejectedError(ClientRejection.CONFIDENTIAL_CLIENT)
     if not (registered := document.get("redirect_uris")):
         raise McpClientRejectedError(ClientRejection.NO_REDIRECT_URIS)
     if not any(_redirect_matches(uri, redirect_uri) for uri in registered):
         raise McpClientRejectedError(ClientRejection.REDIRECT_NOT_LISTED)
+
+
+def _exchanges_publicly(document: ClientMetadataDocument) -> bool:
+    # NOTE: ChatGPT keeps a private_key_jwt preference in the legacy singular
+    # field while listing "none" among the methods it supports; any shared
+    # method will do, and "none" is the only one this server offers.
+    supported = document.get(
+        "token_endpoint_auth_methods_supported",
+        [document.get("token_endpoint_auth_method", "none")],
+    )
+    return "none" in supported
 
 
 def _redirect_matches(registered: str, requested: str) -> bool:

@@ -113,6 +113,20 @@ class TestBegin:
         assert pending == _pending()
         deps.fetcher.fetch.assert_called_once_with(CLIENT_ID)
 
+    def test_client_that_also_supports_public_exchange_is_accepted(self):
+        # ChatGPT's document: a private_key_jwt preference in the legacy
+        # field, with "none" among the methods it supports.
+        deps = _Deps(
+            document=_document(
+                token_endpoint_auth_method="private_key_jwt",
+                token_endpoint_auth_methods_supported=["none", "private_key_jwt"],
+            )
+        )
+
+        pending = deps.service.begin(_request())
+
+        assert pending.client.client_id == CLIENT_ID
+
     def test_loopback_redirect_matches_on_any_port(self):
         deps = _Deps()
 
@@ -159,6 +173,13 @@ class TestBegin:
             ),
             (
                 _document(token_endpoint_auth_method="private_key_jwt"),
+                ClientRejection.CONFIDENTIAL_CLIENT,
+            ),
+            (
+                _document(
+                    token_endpoint_auth_method="private_key_jwt",
+                    token_endpoint_auth_methods_supported=["private_key_jwt"],
+                ),
                 ClientRejection.CONFIDENTIAL_CLIENT,
             ),
             (_document(redirect_uris=[]), ClientRejection.NO_REDIRECT_URIS),
