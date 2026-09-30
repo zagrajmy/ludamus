@@ -551,6 +551,7 @@ msgstr "Zaproponowano miejsce"
 
 #: src/ludamus/adapters/web/django/templatetags/enroll_tags.py
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/templates/dashboard/_role.html
 msgid "On the waiting list"
 msgstr "Jesteś na liście oczekujących"
 
@@ -889,11 +890,13 @@ msgid "This offer is no longer available or has expired."
 msgstr "Ta oferta jest już niedostępna lub wygasła."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "Spot claimed — you are now confirmed for this session."
 msgstr ""
 "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
 
@@ -5558,6 +5561,7 @@ msgid "Claim by:"
 msgstr "Zajmij do:"
 
 #: src/ludamus/templates/chronology/offer_claim.html
+#: src/ludamus/templates/dashboard/_card.html
 msgid "Claim my spot"
 msgstr "Zajmij moje miejsce"
 
@@ -6773,6 +6777,11 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #: src/ludamus/templates/dashboard/_role.html
 msgid "You're signed up"
 msgstr "Jesteś zapisany/a"
+
+#: src/ludamus/templates/dashboard/_role.html
+#, python-format
+msgid "A seat is held for you until %(deadline)s"
+msgstr "Miejsce czeka na Ciebie do %(deadline)s"
 
 #: src/ludamus/templates/dashboard/_role.html
 msgid "You organize this"

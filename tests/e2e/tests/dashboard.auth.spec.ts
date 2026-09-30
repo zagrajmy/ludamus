@@ -27,6 +27,21 @@ test.describe("Dashboard", () => {
     );
   });
 
+  test("coming up says where the member waits and offers a held seat to claim", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/");
+
+    const comingUp = page.getByRole("region", { name: "Coming up" });
+    const waitlisted = comingUp.locator("article").filter({ hasText: "Waitlisted Heist" });
+    await expect(waitlisted).toContainText("On the waiting list");
+    await expect(waitlisted.getByRole("button")).toHaveCount(0);
+
+    const offered = comingUp.locator("article").filter({ hasText: "Offered Duel" });
+    await expect(offered).toContainText("A seat is held for you until");
+    await expect(offered.getByRole("button", { name: "Claim my spot" })).toBeVisible();
+  });
+
   test("subscribing to a sphere asks before it commits, and undoes", async ({ page }) => {
     await page.goto("/dashboard/");
 
