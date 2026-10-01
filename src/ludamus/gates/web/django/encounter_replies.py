@@ -72,7 +72,14 @@ class EncounterCalendarReplyView(View):
             address=address, reply=reply
         )
         if outcome is ReplyOutcome.FORGED:
-            logger.warning("Calendar reply %s: token does not match", reply.uid)
+            # NOTE: domains only; a mismatch is mostly a client answering from
+            # an alias (googlemail.com for gmail.com), which the domains show.
+            logger.warning(
+                "Calendar reply %s: token does not match (attendee @%s, to @%s)",
+                reply.uid,
+                reply.attendee_email.rpartition("@")[2],
+                address.rpartition("@")[2],
+            )
             return JsonResponse({"outcome": outcome}, status=HTTPStatus.FORBIDDEN)
         logger.info("Calendar reply %s: %s", reply.uid, outcome)
         return JsonResponse({"outcome": outcome})

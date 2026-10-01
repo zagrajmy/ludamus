@@ -10,15 +10,21 @@ from ludamus.pacts.encounter import (
     EncounterInviteReason,
     EncountersPolicy,
     InviteeStatus,
+    InviteLimitError,
     RSVPOutcome,
 )
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.specs.encounter import (
+    CALENDAR_MAILS_PER_CREATOR_PER_DAY,
+    INVITEE_RETENTION_AFTER_END,
+)
 from tests.unit.encounter_fakes import (
     CREATOR_ID,
     OTHER_USER_ID,
     SPHERE_ID,
     START_TIME,
     EncounterWorld,
+    FakeCache,
     FakeEncounters,
     FakeInvitees,
     FakeMailer,
@@ -56,6 +62,7 @@ def _service(
             users=users,
             sites=sites,
             mailer=FakeMailer(),
+            cache=FakeCache(),
         ),
     )
 
@@ -395,21 +402,66 @@ class TestEncounterInvites:
         assert world.invitees.rows == {(1, "ola@example.com"): InviteeStatus.INVITED}
         assert not world.mailer.sent
 
-    def test_an_edit_without_the_invitee_list_leaves_it_alone(self):
+    def test_a_guest_who_declined_is_not_invited_again(self):
         world = EncounterWorld(
             encounters=[make_encounter(1)],
-            invitees={(1, "ola@example.com"): InviteeStatus.INVITED},
+            invitees={(1, "no@example.com"): InviteeStatus.DECLINED},
+        )
+        service = world.service()
+
+        for emails in ([], ["no@example.com"]):
+            service.update_owned(
+                pk=1,
+                sphere_id=SPHERE_ID,
+                user_id=CREATOR_ID,
+                data=EncounterData(game="Catan"),
+                invitee_emails=emails,
+            )
+
+        assert world.invitees.rows == {(1, "no@example.com"): InviteeStatus.DECLINED}
+        assert not world.mailer.sent
+
+    def test_edits_past_the_daily_mail_budget_are_refused(self):
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            invitees={
+                (1, f"g{n}@example.com"): InviteeStatus.INVITED for n in range(99)
+            },
+        )
+        service = world.service()
+        moves = CALENDAR_MAILS_PER_CREATOR_PER_DAY // 100
+
+        for hour in range(moves):
+            service.update_owned(
+                pk=1,
+                sphere_id=SPHERE_ID,
+                user_id=CREATOR_ID,
+                data=EncounterData(start_time=START_TIME.replace(hour=hour)),
+                invitee_emails=[f"g{n}@example.com" for n in range(99)],
+            )
+        with pytest.raises(InviteLimitError):
+            service.update_owned(
+                pk=1,
+                sphere_id=SPHERE_ID,
+                user_id=CREATOR_ID,
+                data=EncounterData(start_time=START_TIME.replace(hour=23)),
+                invitee_emails=[f"g{n}@example.com" for n in range(99)],
+            )
+
+        assert len(world.mailer.sent) == moves * 100
+
+    def test_purge_drops_every_row_of_an_encounter_long_over(self):
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            invitees={(1, "kept@example.com"): InviteeStatus.ACCEPTED},
         )
 
-        world.service().update_owned(
-            pk=1,
-            sphere_id=SPHERE_ID,
-            user_id=CREATOR_ID,
-            data=EncounterData(game="Catan"),
-            invitee_emails=None,
+        purged = world.service().purge_stale_invitees(
+            now=START_TIME + INVITEE_RETENTION_AFTER_END + timedelta(days=1)
         )
 
-        assert world.invitees.rows == {(1, "ola@example.com"): InviteeStatus.INVITED}
+        assert purged == 1
+        assert not world.invitees.rows
 
     def test_purge_drops_removed_and_orphaned_rows_past_the_window(self):
         world = EncounterWorld(

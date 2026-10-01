@@ -21,7 +21,12 @@ export default {
     if (response.status >= 500 || response.status === 401 || response.status === 404) {
       throw new Error(`ludamus answered ${response.status}`);
     }
-    if (!response.ok) {
+    if (response.status === 403) {
+      message.setReject(
+        "We could not match this reply to the invite it answers. Reply from the " +
+          "address the invite was sent to, or answer on the encounter page.",
+      );
+    } else if (!response.ok) {
       message.setReject(`This address only accepts calendar replies (${response.status}).`);
     }
   },

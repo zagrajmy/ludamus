@@ -190,13 +190,16 @@ class FakeInvitees:
     daily window, which the cap counts but no list shows.
     """
 
-    def __init__(self, rows=(), *, users=None, rsvps=None, invited_today=()):
+    def __init__(
+        self, rows=(), *, users=None, rsvps=None, encounters=None, invited_today=()
+    ):
         self.rows = dict(rows)
         self.rows |= {(None, email): InviteeStatus.INVITED for email in invited_today}
         now = datetime.now(UTC)
         self.born = dict.fromkeys(self.rows, (CREATOR_ID, now))
         self.users = users or FakeUsers()
         self.rsvps = rsvps or FakeRSVPs()
+        self.encounters = encounters or FakeEncounters()
 
     def _key(self, encounter_id, email):
         return next(
@@ -232,7 +235,8 @@ class FakeInvitees:
 
     def remove(self, encounter_id, emails):
         for email in emails:
-            self.rows[encounter_id, email] = InviteeStatus.REMOVED
+            if self.rows[encounter_id, email] is not InviteeStatus.DECLINED:
+                self.rows[encounter_id, email] = InviteeStatus.REMOVED
 
     def set_status(self, *, encounter_id, email, status):
         key = self._key(encounter_id, email)
@@ -263,12 +267,20 @@ class FakeInvitees:
             if creator == creator_id and created >= since
         }
 
-    def purge_stale(self, before):
+    def purge_stale(self, *, created_before, ended_before):
+        ended = {
+            pk
+            for pk, row in self.encounters.rows.items()
+            if (row.end_time or row.start_time) < ended_before
+        }
         stale = [
             key
             for key, (_creator, created) in self.born.items()
-            if created < before
-            and (key[0] is None or self.rows[key] is InviteeStatus.REMOVED)
+            if key[0] in ended
+            or (
+                created < created_before
+                and (key[0] is None or self.rows[key] is InviteeStatus.REMOVED)
+            )
         ]
         for key in stale:
             del self.rows[key], self.born[key]
@@ -285,6 +297,18 @@ class FakeMailer:
 
     def send(self, invites):
         self.invites += invites
+
+
+class FakeCache:
+    def __init__(self):
+        self.values = {}
+
+    def get(self, key):
+        return self.values.get(key)
+
+    def set(self, key, value, timeout=None):
+        del timeout
+        self.values[key] = value
 
 
 class FakeReplyAddresses:
@@ -318,7 +342,11 @@ class EncounterWorld:
             else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
         )
         self.invitees = FakeInvitees(
-            invitees, users=self.users, rsvps=self.rsvps, invited_today=invited_today
+            invitees,
+            users=self.users,
+            rsvps=self.rsvps,
+            encounters=self.encounters,
+            invited_today=invited_today,
         )
         self.sites = FakeSites(policy)
         self.mailer = FakeMailer()
@@ -328,6 +356,7 @@ class EncounterWorld:
             users=self.users,
             sites=self.sites,
             mailer=self.mailer,
+            cache=FakeCache(),
         )
 
     def service(self):

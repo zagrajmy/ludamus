@@ -327,6 +327,33 @@ class TestOwnerChangesReachGuests:
         assert "METHOD:REQUEST" in ics
         assert "SUMMARY:Moved game night" in ics
 
+    def test_a_guest_who_declined_stays_declined_when_dropped_and_re_added(
+        self,
+        authenticated_client,
+        user,
+        sphere,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        encounter = _minute_encounter(creator=user, sphere=sphere)
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email="no@example.com",
+            status=EncounterInvitee.Status.DECLINED,
+        )
+        edit = reverse("web:notice-board:edit", kwargs={"pk": encounter.pk})
+
+        for invitees in ("", "no@example.com"):
+            with django_capture_on_commit_callbacks(execute=True):
+                authenticated_client.post(
+                    edit, data=_edit_data(encounter, invitees=invitees)
+                )
+        response = authenticated_client.get(edit)
+
+        assert mailoutbox == []
+        assert encounter.invitees.get().status == EncounterInvitee.Status.DECLINED
+        assert not response.context["form"].initial["invitees"]
+
     def test_edit_invites_the_added_and_cancels_the_removed(
         self,
         authenticated_client,

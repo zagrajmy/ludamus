@@ -22,6 +22,8 @@ from ludamus.pacts.encounter import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.specs.encounter import (
+    CALENDAR_MAILS_PER_CREATOR_PER_DAY,
+    CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY,
     ENCOUNTER_DEFAULT_DURATION,
     INVITEE_WINDOW,
     INVITEES_PER_CREATOR_PER_DAY,
@@ -39,12 +41,16 @@ if TYPE_CHECKING:
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
+    from ludamus.pacts.legacy import CacheProtocol
     from ludamus.pacts.multiverse import SitesServiceProtocol
 
 
 logger = logging.getLogger(__name__)
 
 _UID_DOMAIN = "@ludamus"
+# NOTE: what a creator mails on their own initiative, as often as they edit;
+# a guest's own signup or a cancellation is never held back.
+_CHARGED = frozenset({EncounterInviteReason.INVITED, EncounterInviteReason.CHANGED})
 _INVITEE_PARTSTAT = {
     InviteeStatus.INVITED: PartStat.NEEDS_ACTION,
     InviteeStatus.ACCEPTED: PartStat.ACCEPTED,
@@ -97,12 +103,14 @@ class EncounterGuests:
         users: UserRepositoryProtocol,
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
+        cache: CacheProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
         self._users = users
         self._sites = sites
         self._mailer = mailer
+        self._cache = cache
 
     def has_room(self, encounter: EncounterDTO, *, email: str) -> bool:
         if not (limit := encounter.max_participants):
@@ -179,7 +187,7 @@ class EncounterGuests:
         new = added - counted
         limit = (
             INVITEES_PER_NEW_CREATOR_PER_DAY
-            if now - creator.date_joined < NEW_CREATOR_AGE
+            if _is_new(creator, now)
             else INVITEES_PER_CREATOR_PER_DAY
         )
         if new and len(counted) + len(new) > limit:
@@ -246,9 +254,11 @@ class EncounterGuests:
             return
         sphere = self._sites.read(encounter.sphere_id)
         try:
-            creator_name = self._users.read_by_id(encounter.creator_id).name
+            creator: UserDTO | None = self._users.read_by_id(encounter.creator_id)
         except NotFoundError:
-            creator_name = ""
+            creator = None
+        if creator is not None and reason in _CHARGED:
+            self._charge(creator, len(guests))
         # NOTE: iTIP applies the message with the highest SEQUENCE per UID. A
         # clock reading rises across edits without a stored counter, within
         # limits: sends in the same second tie (clients then compare
@@ -266,7 +276,7 @@ class EncounterGuests:
                     encounter=encounter,
                     end_time=encounter.end_time
                     or encounter.start_time + ENCOUNTER_DEFAULT_DURATION,
-                    organizer_name=creator_name or sphere.name,
+                    organizer_name=(creator.name if creator else "") or sphere.name,
                     attendee_name=guest.name,
                     attendee_email=guest.email,
                     sphere_domain=sphere.site.domain,
@@ -274,3 +284,34 @@ class EncounterGuests:
                 for guest in guests
             ]
         )
+
+    def _charge(self, creator: UserDTO, count: int) -> None:
+        """Count `count` creator-sent messages against today's budget.
+
+        Raises:
+            InviteLimitError: the messages would take the creator past the
+                daily budget. Nothing is counted.
+        """
+        now = datetime.now(tz=UTC)
+        key = f"encounter-calendar-mails:{creator.pk}:{now.date().isoformat()}"
+        spent = self._cache.get(key)
+        spent = spent if isinstance(spent, int) else 0
+        budget = (
+            CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY
+            if _is_new(creator, now)
+            else CALENDAR_MAILS_PER_CREATOR_PER_DAY
+        )
+        if spent + count > budget:
+            logger.warning(
+                "Creator %s hit the daily calendar mail budget (%d + %d > %d)",
+                creator.pk,
+                spent,
+                count,
+                budget,
+            )
+            raise InviteLimitError
+        self._cache.set(key, spent + count, timeout=int(INVITEE_WINDOW.total_seconds()))
+
+
+def _is_new(creator: UserDTO, now: datetime) -> bool:
+    return now - creator.date_joined < NEW_CREATOR_AGE

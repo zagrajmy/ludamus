@@ -19,7 +19,7 @@ def _invitee(encounter, *, status, age):
 
 
 class TestPurgeEncounterInvitees:
-    def test_drops_only_rows_no_list_shows_once_the_cap_window_passed(
+    def test_drops_unlisted_rows_past_the_window_and_rows_of_long_over_encounters(
         self, sphere, active_user
     ):
         encounter = EncounterFactory(sphere=sphere, creator=active_user)
@@ -35,12 +35,21 @@ class TestPurgeEncounterInvitees:
         listed_old = _invitee(
             encounter, status=InviteeStatus.DECLINED, age=_DAY_AND_A_BIT
         )
+        long_over = EncounterFactory(
+            sphere=sphere,
+            creator=active_user,
+            start_time=datetime.now(UTC) - timedelta(days=40),
+            end_time=None,
+        )
+        of_long_over = _invitee(
+            long_over, status=InviteeStatus.ACCEPTED, age=timedelta(days=41)
+        )
 
         out = StringIO()
 
         call_command("purge_encounter_invitees", stdout=out)
 
-        assert "Purged 2 stale encounter invitee(s)." in out.getvalue()
+        assert "Purged 3 stale encounter invitee(s)." in out.getvalue()
         remaining = set(EncounterInvitee.objects.values_list("email", flat=True))
         assert remaining == {removed_today, listed_old}
-        assert not remaining & {removed_old, orphaned_old}
+        assert not remaining & {removed_old, orphaned_old, of_long_over}

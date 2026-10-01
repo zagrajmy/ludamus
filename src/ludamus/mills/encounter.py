@@ -17,7 +17,7 @@ from ludamus.pacts.encounter import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
-from ludamus.specs.encounter import INVITEE_WINDOW
+from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -233,13 +233,8 @@ class EncounterService(EncounterServiceProtocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str] | None,
+        invitee_emails: list[str],
     ) -> EncounterDTO:
-        """Save the owner's edit; `invitee_emails` None leaves the list as is.
-
-        Returns:
-            The encounter as saved.
-        """
         with self._transaction.atomic():
             before = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
             may_create = self.can_create(sphere_id=sphere_id, user_id=user_id)
@@ -259,7 +254,7 @@ class EncounterService(EncounterServiceProtocol):
                     invitee_emails,
                     creator=self._users.read_by_id(encounter.creator_id),
                 )
-                if invitee_emails is not None and may_create
+                if may_create
                 else set()
             )
             if _calendar_view(encounter) != _calendar_view(before):
@@ -323,8 +318,12 @@ class EncounterService(EncounterServiceProtocol):
 
     def purge_stale_invitees(self, *, now: datetime) -> int:
         # NOTE: a removed invitee, or one of a deleted encounter, stays only
-        # as long as the daily invite cap still counts it.
-        purged = self._guests.invitees.purge_stale(now - INVITEE_WINDOW)
+        # as long as the daily invite cap still counts it; the rest go a
+        # while after their encounter ends.
+        purged = self._guests.invitees.purge_stale(
+            created_before=now - INVITEE_WINDOW,
+            ended_before=now - INVITEE_RETENTION_AFTER_END,
+        )
         logger.info("Purged %d stale encounter invitee(s)", purged)
         return purged
 

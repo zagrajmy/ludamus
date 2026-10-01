@@ -27,7 +27,7 @@ from ludamus.mills import (
 )
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
-from ludamus.pacts.encounter import InviteLimitError, RSVPOutcome
+from ludamus.pacts.encounter import InviteeStatus, InviteLimitError, RSVPOutcome
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 from .forms import EncounterForm
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 
 _INVITE_LIMIT_MESSAGE = gettext_lazy(
-    "You have invited as many new people as one day allows. Try again "
+    "You have sent as many calendar invites as one day allows. Try again "
     "tomorrow, or share the encounter link instead."
 )
 
@@ -202,7 +202,13 @@ class EncounterEditPageView(_EncounterFormPageView):
                 "header_image": stored_file(
                     encounter.header_image_url, encounter.header_image_original_name
                 ),
-                "invitees": "\n".join(invitee.email for invitee in invitees),
+                # NOTE: a guest who declined stays declined whatever the
+                # list says, so the list offers only those still asked.
+                "invitees": "\n".join(
+                    invitee.email
+                    for invitee in invitees
+                    if invitee.status is not InviteeStatus.DECLINED
+                ),
             }
         )
         return TemplateResponse(
@@ -237,12 +243,15 @@ class EncounterEditPageView(_EncounterFormPageView):
                 sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 data=data,
-                invitee_emails=form.cleaned_data.get("invitees"),
+                invitee_emails=form.cleaned_data.get("invitees", []),
             )
         except NotFoundError as exc:
             raise Http404 from exc
         except InviteLimitError:
-            form.add_error("invitees", _INVITE_LIMIT_MESSAGE)
+            # NOTE: an owner the policy dropped has no invitee field, yet a
+            # time change still mails their guests and can hit the budget.
+            field = "invitees" if "invitees" in form.fields else None
+            form.add_error(field, _INVITE_LIMIT_MESSAGE)
             return self._rerender(form, pk)
         messages.success(request, _("Encounter updated."))
         return redirect(

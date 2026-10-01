@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery
+from django.db.models.functions import Coalesce, Now
 
 from ludamus.links.db.django.models import (
     Encounter,
@@ -188,9 +189,11 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
 
     @staticmethod
     def add(*, encounter_id: int, emails: list[str], creator_id: int) -> None:
+        # NOTE: a fresh creation_time, so the daily cap counts the address
+        # from today rather than from when it was first invited.
         EncounterInvitee.objects.filter(
             encounter_id=encounter_id, email__in=emails, status=InviteeStatus.REMOVED
-        ).update(status=InviteeStatus.INVITED)
+        ).update(status=InviteeStatus.INVITED, creation_time=Now())
         EncounterInvitee.objects.bulk_create(
             [
                 EncounterInvitee(
@@ -205,7 +208,7 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
     def remove(encounter_id: int, emails: list[str]) -> None:
         EncounterInvitee.objects.filter(
             encounter_id=encounter_id, email__in=emails
-        ).update(status=InviteeStatus.REMOVED)
+        ).exclude(status=InviteeStatus.DECLINED).update(status=InviteeStatus.REMOVED)
 
     @staticmethod
     def set_status(*, encounter_id: int, email: str, status: InviteeStatus) -> bool:
@@ -251,10 +254,15 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         )
 
     @staticmethod
-    def purge_stale(before: datetime) -> int:
+    def purge_stale(*, created_before: datetime, ended_before: datetime) -> int:
+        unlisted = Q(creation_time__lt=created_before) & (
+            Q(encounter__isnull=True) | Q(status=InviteeStatus.REMOVED)
+        )
         deleted, __ = (
-            EncounterInvitee.objects.filter(creation_time__lt=before)
-            .filter(Q(encounter__isnull=True) | Q(status=InviteeStatus.REMOVED))
+            EncounterInvitee.objects.annotate(
+                ended=Coalesce("encounter__end_time", "encounter__start_time")
+            )
+            .filter(unlisted | Q(ended__lt=ended_before))
             .delete()
         )
         return deleted

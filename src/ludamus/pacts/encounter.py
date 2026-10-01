@@ -218,7 +218,13 @@ class EncounterInviteeRepositoryProtocol(Protocol):
         """Invite `emails`; a removed invitee among them is invited again."""
 
     @staticmethod
-    def remove(encounter_id: int, emails: list[str]) -> None: ...
+    def remove(encounter_id: int, emails: list[str]) -> None:
+        """Take `emails` off the list; one who declined stays declined.
+
+        A declined row is kept as it is, so the guest is never invited to
+        this encounter again however often the creator edits the list.
+        """
+
     @staticmethod
     def set_status(*, encounter_id: int, email: str, status: InviteeStatus) -> bool: ...
     @staticmethod
@@ -230,8 +236,12 @@ class EncounterInviteeRepositoryProtocol(Protocol):
         creator_id: int, since: datetime
     ) -> set[str]: ...
     @staticmethod
-    def purge_stale(before: datetime) -> int:
-        """Delete rows from before `before` that no list shows any more.
+    def purge_stale(*, created_before: datetime, ended_before: datetime) -> int:
+        """Delete rows nobody needs any more.
+
+        Those are rows from before `created_before` that no list shows
+        (removed, or of a deleted encounter), and every row of an encounter
+        that ended before `ended_before`.
 
         Returns:
             How many rows were deleted.
@@ -314,7 +324,7 @@ class EncounterServiceProtocol(Protocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str] | None,
+        invitee_emails: list[str],
     ) -> EncounterDTO: ...
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None: ...
     def rsvp(

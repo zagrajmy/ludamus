@@ -3594,11 +3594,11 @@ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid ""
-"You have invited as many new people as one day allows. Try again tomorrow, "
-"or share the encounter link instead."
+"You have sent as many calendar invites as one day allows. Try again "
+"tomorrow, or share the encounter link instead."
 msgstr ""
-"Na dziś wykorzystano limit zaproszeń. Spróbuj jutro albo udostępnij link do "
-"spotkania."
+"Na dziś wysłano już tyle zaproszeń do kalendarza, ile pozwala limit. Spróbuj "
+"jutro albo udostępnij link do spotkania."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Encounter updated."
