@@ -145,7 +145,7 @@ class TestSphereSubscriptionService:
 
 
 class TestDashboardService:
-    def test_read_caps_only_the_limited_sections(self):
+    def test_read_caps_every_section_but_the_agenda_and_bookmarks(self):
         dashboard = DashboardService(FakeDashboardRepo()).read(user_id=USER_ID, now=NOW)
 
         assert len(dashboard.agenda) == UNCAPPED_ROWS

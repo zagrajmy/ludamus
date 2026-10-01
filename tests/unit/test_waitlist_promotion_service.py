@@ -291,13 +291,16 @@ class TestPeekOffer:
         assert service.peek_offer(token="tok-xyz") is None
 
 
-# The emailed link and the signed-in dashboard reach the same claim.
 _CLAIM_ROUTES = pytest.mark.parametrize(
     "claim",
     (
-        pytest.param(lambda s: s.claim_offer(token="tok-xyz"), id="by-token"),
         pytest.param(
-            lambda s: s.claim_member_offer(user_id=_MANAGER_ID, session_id=_SESSION_ID),
+            lambda service: service.claim_offer(token="tok-xyz"), id="by-token"
+        ),
+        pytest.param(
+            lambda service: service.claim_member_offer(
+                user_id=_MANAGER_ID, session_id=_SESSION_ID
+            ),
             id="by-member",
         ),
     ),
