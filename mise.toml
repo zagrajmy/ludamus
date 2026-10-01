@@ -165,8 +165,9 @@ for attempt in 1 2 3; do
 done
 '''
 
-# One browser at a time, without --with-deps. The fallback session-start.sh uses
-# when the task above fails: `playwright install` walks the browsers in a single
+# Browsers without --with-deps. CI installs them all here and runs apt on its
+# own. session-start.sh falls back to one browser at a time when
+# test:e2e:install fails: `playwright install` walks the browsers in a single
 # sequential loop and rethrows the first download failure, so one unreachable
 # artifact skips every browser behind it. Lives here rather than inline in the
 # hook so the command and its working directory are stated once.
