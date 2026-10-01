@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
@@ -40,6 +41,9 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
     publication = data.get("publication_time", current.publication_time)
     if publication is not None and publication > start:
         raise EventPublicationInvalidError
+
+
+logger = logging.getLogger(__name__)
 
 
 class EventSettingsService(EventSettingsServiceProtocol):
@@ -88,16 +92,17 @@ class EventSettingsService(EventSettingsServiceProtocol):
         public_fields = [field for field in fields if field.is_public]
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
-            displayed_field_ids=[f.pk for f in public_fields if f.show_on_cards],
+            shown_on_cards_ids=[f.pk for f in public_fields if f.show_on_cards],
             has_any_fields=bool(fields),
         )
 
-    def update_displayed_fields(
+    def update_shown_on_cards(
         self, *, sphere_id: int, slug: str, selected_ids: list[int]
     ) -> None:
         event = self._repos.events.read_by_slug(slug, sphere_id)
         with self._transaction.atomic():
             self._repos.session_fields.show_on_cards_only(event.pk, selected_ids)
+        logger.info("Event %s shows session fields %s on cards", event.pk, selected_ids)
 
     def get_proposal_settings(
         self, *, sphere_id: int, slug: str

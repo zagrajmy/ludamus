@@ -7,9 +7,9 @@ def hide_unpicked_fields(apps, _schema_editor) -> None:
     session_field = apps.get_model("db_main", "SessionField")
     for settings in event_settings.objects.prefetch_related("displayed_session_fields"):
         if picked := [field.pk for field in settings.displayed_session_fields.all()]:
-            session_field.objects.filter(event_id=settings.event_id).exclude(
-                pk__in=picked
-            ).update(show_on_cards=False)
+            session_field.objects.filter(
+                event_id=settings.event_id, is_public=True
+            ).exclude(pk__in=picked).update(show_on_cards=False)
 
 
 def pick_shown_fields(apps, _schema_editor) -> None:
@@ -26,7 +26,7 @@ def pick_shown_fields(apps, _schema_editor) -> None:
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0166_sphere_visibility")]
+    dependencies = [("db_main", "0169_encounter_invite_mailing")]
 
     operations = [
         migrations.AddField(

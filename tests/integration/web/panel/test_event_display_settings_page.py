@@ -43,6 +43,7 @@ def _expected_field(field):
         order=0,
         pk=field.pk,
         question=field.question,
+        show_on_cards=True,
         slug=field.slug,
     )
 
@@ -61,7 +62,7 @@ def _expected_context(event, *, fields, has_any_fields=False):
         "active_tab": "display",
         "tab_urls": settings_tab_urls(event.slug),
         "fields": fields,
-        "displayed_field_ids": [field.pk for field in fields],
+        "shown_on_cards_ids": [field.pk for field in fields],
         "has_any_fields": has_any_fields,
     }
 
@@ -171,7 +172,7 @@ class TestEventDisplaySettingsPageViewPost:
         hidden = _create_session_field(event, name="Field 2", slug="field-2")
 
         response = panel_client.post(
-            self.get_url(event), data={"displayed_session_fields": [str(shown.pk)]}
+            self.get_url(event), data={"show_on_cards": [str(shown.pk)]}
         )
 
         assert_response(
@@ -193,7 +194,7 @@ class TestEventDisplaySettingsPageViewPost:
         field = _create_session_field(event, show_on_cards=False)
 
         response = authenticated_client.post(
-            self.get_url(event), data={"displayed_session_fields": [raw_id]}
+            self.get_url(event), data={"show_on_cards": [raw_id]}
         )
 
         assert_response(
@@ -204,10 +205,7 @@ class TestEventDisplaySettingsPageViewPost:
         )
         assert _hidden_pks(event) == [field.pk]
 
-    def test_unticking_every_field_hides_them_all(
-        self, authenticated_client, active_user, sphere, event, panel_client
-    ):
-        sphere.managers.add(active_user)
+    def test_unticking_every_field_hides_them_all(self, event, panel_client):
         field = _create_session_field(event)
 
         response = panel_client.post(self.get_url(event), data={})
@@ -230,7 +228,7 @@ class TestEventDisplaySettingsPageViewPost:
 
         response = panel_client.post(
             self.get_url(event),
-            data={"displayed_session_fields": [str(private.pk), str(foreign.pk)]},
+            data={"show_on_cards": [str(private.pk), str(foreign.pk)]},
         )
 
         assert_response(

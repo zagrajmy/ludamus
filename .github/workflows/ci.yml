@@ -127,8 +127,8 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-      # NOTE: playwright install below still runs, for the apt deps; it is a
-      # no-op for browsers this cache restored.
+      # NOTE: the browser install below is a no-op for browsers this cache
+      # restored.
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -136,7 +136,7 @@ jobs:
             'tests/e2e/package.json') }}
       - uses: ./.github/actions/toolchain
 
-      # `playwright install --with-deps` shells out to apt for 181 packages
+      # `playwright install-deps` shells out to apt for 181 packages
       # and 114MB, on every shard, every run. archive.ubuntu.com has measured
       # anywhere from 12s to 1m47s for that, and once hung for 452s on a
       # single 43kB package. Keep the .debs so a repeat run needs no mirror,
@@ -165,14 +165,38 @@ jobs:
           Acquire::Retries "3";
           Acquire::http::Timeout "20";
           Acquire::https::Timeout "20";
+          DPkg::Lock::Timeout "60";
           APT::Keep-Downloaded-Packages "true";
           Binary::apt::APT::Keep-Downloaded-Packages "true";
           CONF
+      # Each install step fails on its own cap rather than starving the specs
+      # of the job budget and reporting as a 30min job timeout that names no
+      # step.
       - name: Install Playwright Browsers
-        # Fails in 10min rather than starving the specs of the job budget and
-        # reporting as a 30min job timeout that names no step.
-        timeout-minutes: 10
-        run: mise run test:e2e:install
+        timeout-minutes: 5
+        run: mise run test:e2e:install:node && mise run test:e2e:install:browser
+      - name: Install Playwright system deps
+        timeout-minutes: 12
+        # A stalled mirror can trickle past apt's own Acquire timeouts for as
+        # long as the step allows, so cut each attempt short and retry; the
+        # kept .debs make a retry cheap. As root, playwright calls apt-get
+        # without sudo, so timeout can signal it. 3x190s + 2x60s fits 12min.
+        run: |
+          path="$(mise exec -- printenv PATH)"
+          for attempt in 1 2 3; do
+            if [ "$attempt" -gt 1 ]; then
+              sudo timeout -k 5 60 dpkg --configure -a || true
+            fi
+            if sudo env "PATH=$path" timeout -k 10 180 \
+              aube exec --no-install -C tests/e2e playwright install-deps; then
+              exit 0
+            else
+              rc=$?
+            fi
+            # 124: timed out; 137: killed after -k; else playwright's exit code.
+            echo "::warning::Playwright system deps exited $rc (attempt $attempt/3)"
+          done
+          exit "$rc"
       - name: Run end-to-end tests
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 

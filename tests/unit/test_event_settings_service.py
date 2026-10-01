@@ -287,7 +287,7 @@ class TestDisplayAndProposalSettings:
         context = fakes.service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
         assert [field.pk for field in context.fields] == [1, 3]
-        assert context.displayed_field_ids == [1]
+        assert context.shown_on_cards_ids == [1]
         assert context.has_any_fields is True
 
     def test_display_context_of_an_event_without_fields(self):

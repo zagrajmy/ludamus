@@ -40,7 +40,7 @@ class EventSettingsRepos:
 @dataclass
 class EventDisplaySettingsContextDTO:
     fields: list[OrganizerFieldDTO]
-    displayed_field_ids: list[int]
+    shown_on_cards_ids: list[int]
     # `fields` holds the public ones only, so this tells an event whose fields
     # are all private apart from one with no fields at all.
     has_any_fields: bool
@@ -61,7 +61,7 @@ class EventSettingsServiceProtocol(Protocol):
     def get_display_context(
         self, *, sphere_id: int, slug: str
     ) -> EventDisplaySettingsContextDTO: ...
-    def update_displayed_fields(
+    def update_shown_on_cards(
         self, *, sphere_id: int, slug: str, selected_ids: list[int]
     ) -> None: ...
     def get_proposal_settings(
