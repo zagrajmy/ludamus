@@ -33,6 +33,7 @@ PanelNav = Literal[
     "bans",
     "guilds",
     "sphere-settings",
+    "event-create",
 ]
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
 

@@ -1185,6 +1185,25 @@ msgstr[2] ""
 msgstr[3] ""
 "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/event_create.py
+msgid "Another event in this sphere uses this slug."
+msgstr "Inne wydarzenie w tej sferze ma już ten slug."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_create.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_create.py
+msgid "Pick an event from this sphere."
+msgstr "Wybierz wydarzenie z tej sfery."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_create.py
+#, python-format
+msgid "Created %(name)s. It stays hidden until you publish it."
+msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
+
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "allowed"
 msgstr "dozwolone"
@@ -1554,10 +1573,6 @@ msgstr ""
 "osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, dowiązano "
 "%(links)d brakujących twórców programu / przedziałów czasowych / bloków, "
 "usunięto %(pruned)d osieroconych definicji pól."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/index.py
-msgid "No events available for this sphere."
-msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/integrations.py
 #: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
@@ -3152,6 +3167,31 @@ msgid "Invalid event selection."
 msgstr "Nieprawidłowy wybór wydarzenia."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Part of the event's address. Leave empty to derive it from the name."
+msgstr "Część adresu wydarzenia. Zostaw puste, żeby utworzyć go z nazwy."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Based on"
+msgstr "Na podstawie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Copies its venues, tracks, time slots, session fields, categories and "
+"settings. Dates move with the new start; sessions are not copied."
+msgstr ""
+"Kopiuje miejsca, bloki programowe, przedziały czasowe, pola punktów "
+"programu, kategorie i ustawienia. Daty przesuwają się razem z nowym "
+"początkiem; punkty programu nie są kopiowane."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Nothing, start empty"
+msgstr "Niczego, zacznij od zera"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enter a slug; the name has no letters to use."
+msgstr "Wpisz slug; nazwa nie ma liter, z których dałoby się go utworzyć."
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/cfp.html
@@ -3587,10 +3627,6 @@ msgstr "To nie są adresy e-mail: %(addresses)s"
 #, python-format
 msgid "Invite at most %(limit)d people to one encounter."
 msgstr "Na jedno spotkanie możesz zaprosić najwyżej %(limit)d osób."
-
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "End time must be after start time."
-msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid ""
@@ -9007,6 +9043,10 @@ msgid "Close navigation"
 msgstr "Zamknij nawigację"
 
 #: src/ludamus/templates/panel/base.html
+msgid "Choose an event"
+msgstr "Wybierz wydarzenie"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
@@ -9080,6 +9120,11 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
+
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/event-create.html
+msgid "New event"
+msgstr "Nowe wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -9783,6 +9828,15 @@ msgstr ""
 #: src/ludamus/templates/panel/errata.html
 msgid "Open event settings"
 msgstr "Otwórz ustawienia wydarzenia"
+
+#: src/ludamus/templates/panel/event-create.html
+msgid "This sphere has no events yet. Create the first one to open the panel."
+msgstr ""
+"Ta sfera nie ma jeszcze wydarzeń. Utwórz pierwsze, żeby otworzyć panel."
+
+#: src/ludamus/templates/panel/event-create.html
+msgid "Create event"
+msgstr "Utwórz wydarzenie"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid ""
@@ -12025,6 +12079,9 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
 
@@ -12266,9 +12323,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
-
-#~ msgid "Past events"
-#~ msgstr "Minione wydarzenia"
 
 #~ msgid "No events available"
 #~ msgstr "Brak dostępnych wydarzeń"
@@ -13138,6 +13192,3 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid ""
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
-
-#~ msgid "This event is not in this sphere."
-#~ msgstr "To wydarzenie nie należy do tej sfery."

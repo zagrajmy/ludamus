@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, TypedDict
 
@@ -45,13 +45,20 @@ class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
     def slug_exists(sphere_id: int, slug: str) -> bool: ...
 
 
+class EventSetupRepositoryProtocol(Protocol):
+    @staticmethod
+    def copy(*, source_id: int, target_id: int, shift: timedelta) -> None: ...
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]: ...
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO: ...
+    def create(
+        self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
+    ) -> EventDTO: ...
 
 
 class FacilitatorListItemDTO(BaseModel):

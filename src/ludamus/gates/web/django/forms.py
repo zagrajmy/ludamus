@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_nev
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
+from django.utils.text import slugify
 from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import SessionFieldRequirementDTO
+    from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.multiverse import ConnectionDTO
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
@@ -567,6 +569,67 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
         },
     )
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
+
+
+class EventCreateForm(forms.Form):
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        error_messages={
+            "max_length": _("Event name is too long (max 255 characters)."),
+            "required": _("Event name is required."),
+        },
+    )
+    slug = forms.SlugField(
+        max_length=50,
+        required=False,
+        help_text=_(
+            "Part of the event's address. Leave empty to derive it from the name."
+        ),
+    )
+    start_time = forms.DateTimeField(
+        widget=_datetime_local_widget(),
+        input_formats=_DATETIME_LOCAL_FORMATS,
+        error_messages={"required": _("Start time is required.")},
+    )
+    end_time = forms.DateTimeField(
+        widget=_datetime_local_widget(),
+        input_formats=_DATETIME_LOCAL_FORMATS,
+        error_messages={"required": _("End time is required.")},
+    )
+    based_on = forms.TypedChoiceField(
+        coerce=int,
+        empty_value=None,
+        required=False,
+        label=_("Based on"),
+        help_text=_(
+            "Copies its venues, tracks, time slots, session fields, categories and"
+            " settings. Dates move with the new start; sessions are not copied."
+        ),
+    )
+
+    def __init__(self, *args: Any, events: list[EventDTO], **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        based_on = cast("forms.TypedChoiceField", self.fields["based_on"])
+        based_on.choices = [
+            ("", _("Nothing, start empty")),
+            *((event.pk, event.name) for event in events),
+        ]
+        if events:
+            based_on.initial = max(events, key=lambda event: event.start_time).pk
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        if not cleaned.get("slug") and (name := cleaned.get("name")):
+            cleaned["slug"] = slugify(name)[:50]
+            if not cleaned["slug"]:
+                self.add_error(
+                    "slug", _("Enter a slug; the name has no letters to use.")
+                )
+        start, end = cleaned.get("start_time"), cleaned.get("end_time")
+        if start and end and end <= start:
+            self.add_error("end_time", _("End time must be after start time."))
+        return cleaned
 
 
 class MultiFileInput(forms.FileInput):
