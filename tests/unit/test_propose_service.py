@@ -621,6 +621,15 @@ class TestReads:
             service.get_public_tracks(1)
             is repos.tracks.list_public_by_event.return_value
         )
+        repos.events.read_by_slug.assert_called_once_with("slug", 1)
+        repos.event_proposal_settings.read_by_event.assert_called_once_with(1)
+        repos.event_proposal_settings.read_or_create_by_event.assert_called_once_with(1)
+        repos.categories.list_by_event.assert_called_once_with(1)
+        repos.categories.read.assert_called_once_with(2, 1)
+        repos.categories.list_personal_field_requirements.assert_called_once_with(2)
+        repos.categories.list_session_field_requirements.assert_called_once_with(2)
+        repos.categories.list_time_slot_requirements.assert_called_once_with(2)
+        repos.tracks.list_public_by_event.assert_called_once_with(1)
 
     def test_saved_personal_data_is_empty_for_anonymous_or_new_users(
         self, service, repos

@@ -385,9 +385,9 @@ def _append_m2m_change(
 
 def _inverse_text_update(
     *, update: SessionUpdateData, field: str, old: ContentFieldValue
-) -> bool:
+) -> None:
     if not isinstance(old, str):
-        return False
+        return
     if field == "title":
         update["title"] = old
     elif field == "facilitator_name":
@@ -398,30 +398,23 @@ def _inverse_text_update(
         update["contact_email"] = old
     elif field == "duration":
         update["duration"] = old
-    else:
-        return False
-    return True
 
 
 def _inverse_core_update(
     *, update: SessionUpdateData, field: str, old: ContentFieldValue
-) -> bool:
-    # Restores `field` to `old` in the update payload. Returns False for
-    # irreversible entries: the old cover-image binary is gone, and m2m
+) -> None:
+    # Restores `field` to `old` in the update payload. Irreversible entries
+    # leave it untouched: the old cover-image binary is gone, and m2m
     # assignments (facilitators/tracks/time_slots) are logged as display
     # names, not ids.
-    if _inverse_text_update(update=update, field=field, old=old):
-        return True
-    if field == "category" and (old is None or isinstance(old, int)):
-        update["category_id"] = old
-        return True
-    if field == "participants_limit" and isinstance(old, int):
-        update["participants_limit"] = old
-        return True
-    if field == "min_age" and isinstance(old, int):
-        update["min_age"] = old
-        return True
-    return False
+    _inverse_text_update(update=update, field=field, old=old)
+    match field, old:
+        case "category", int() | None:
+            update["category_id"] = old
+        case "participants_limit", int():
+            update["participants_limit"] = old
+        case "min_age", int():
+            update["min_age"] = old
 
 
 def _inverse_field_value(
@@ -544,16 +537,6 @@ class SessionContentEditService:
             )
             if field_values is not None:
                 self._sessions.save_field_values(session_id, field_values)
-            values_for_diff = (
-                field_values
-                if field_values is not None
-                else [
-                    SessionFieldValueData(
-                        session_id=session_id, field_id=fv.field_id, value=fv.value
-                    )
-                    for fv in old_values
-                ]
-            )
             # Logged as old -> None so the entry reverts by re-saving the value
             # (build_inverse_content_edit restores `old`).
             removal_changes: list[ContentFieldChange] = []
@@ -600,7 +583,7 @@ class SessionContentEditService:
                 )
                 _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
-                old_session, data.update, old_values, values_for_diff
+                old_session, data.update, old_values, field_values or []
             )
             changes.extend(removal_changes)
             changes.extend(m2m_changes)
@@ -718,32 +701,31 @@ class SessionSelfEditService:
 
     def _gate(
         self, session_id: int, user_id: int | None
-    ) -> tuple[bool, SessionDTO | None, EventDTO | None]:
+    ) -> tuple[SessionDTO, EventDTO]:
         if user_id is None:
-            return False, None, None
+            raise SessionEditNotAllowedError
         try:
             session = self._sessions.read(session_id)
         except NotFoundError:
-            return False, None, None
-        if session.presenter_id is None or session.presenter_id != user_id:
-            return False, session, None
+            raise SessionEditNotAllowedError from None
+        if session.presenter_id != user_id:
+            raise SessionEditNotAllowedError
         try:
             event = self._sessions.read_event(session_id)
         except NotFoundError:
-            return False, session, None
+            raise SessionEditNotAllowedError from None
         sphere = self._spheres.read(event.sphere_id)
-        allowed = resolve_facilitator_session_edit(
+        if not resolve_facilitator_session_edit(
             event_override=event.allow_facilitator_session_edit,
             sphere_default=sphere.allow_facilitator_session_edit,
-        )
-        return allowed, session, event
+        ):
+            raise SessionEditNotAllowedError
+        return session, event
 
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext:
-        allowed, session, event = self._gate(session_id, user_id)
-        if not allowed or session is None or event is None:
-            raise SessionEditNotAllowedError
+        session, event = self._gate(session_id, user_id)
         fields = self._session_fields.list_by_event(event.pk)
         existing = self._sessions.read_field_values(session_id)
         values_by_slug = {fv.field_slug: fv.value for fv in existing}
@@ -761,9 +743,7 @@ class SessionSelfEditService:
         cleaned_data: dict[str, object],
         field_values: list[SessionFieldValueData] | None,
     ) -> None:
-        allowed, _session, event = self._gate(session_id, user_id)
-        if not allowed or event is None:
-            raise SessionEditNotAllowedError
+        _session, event = self._gate(session_id, user_id)
 
         def _str(key: str) -> str:
             value = cleaned_data.get(key)

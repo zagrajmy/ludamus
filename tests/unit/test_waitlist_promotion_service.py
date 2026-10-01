@@ -53,6 +53,7 @@ class FakeRepo:
             tokens_read=[],
             participations_read=[],
             members_read=[],
+            claim_windows_read=[],
         )
 
     def list_lapsed_offers(self, now):
@@ -69,8 +70,8 @@ class FakeRepo:
         self.log.created.append(seat)
         return _HELD_ID
 
-    @staticmethod
-    def read_offer_claim_window(_session_id):
+    def read_offer_claim_window(self, session_id):
+        self.log.claim_windows_read.append(session_id)
         return timedelta(hours=24)
 
     def lock_and_read_state(self, session_id):
@@ -485,6 +486,7 @@ class TestHoldSeat:
         assert held.actor_name == "Lea Leader"
         assert held.claim_token == "tok-xyz"
         assert held.offer_expires_at == _NOW + timedelta(hours=24)
+        assert repo.log.claim_windows_read == [_SESSION_ID]
         assert scheduler.scheduled == [(_HELD_ID, _NOW + timedelta(hours=24))]
 
 
@@ -529,9 +531,10 @@ class TestDeclineOffer:
 class TestPeekOffer:
     def test_returns_the_offer_behind_the_token(self):
         offer = _offer(expires=_NOW + timedelta(hours=1))
-        service, _, _, _ = _build(offer=offer)
+        service, repo, _, _ = _build(offer=offer)
 
         assert service.peek_offer(token="tok-xyz") == offer
+        assert repo.log.tokens_read == ["tok-xyz"]
 
     def test_unknown_token_is_none(self):
         service, _, _, _ = _build()

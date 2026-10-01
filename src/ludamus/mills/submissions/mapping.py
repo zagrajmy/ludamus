@@ -1,5 +1,6 @@
 """Pure mapping helpers: import-row cells to domain values, titles to slugs."""
 
+import json
 import re
 from dataclasses import dataclass
 from hashlib import blake2b
@@ -198,7 +199,7 @@ def _parse_int(header: str, answer: str) -> int:
     # Pass-through numeric mapping (currently: participants_limit, a
     # PositiveIntegerField). Blank answers default to 0; non-numeric or
     # negative answers skip the row instead of crashing the insert.
-    if not (text := (answer or "").strip()):
+    if not (text := answer.strip()):
         return 0
     try:
         value = int(text)
@@ -231,7 +232,7 @@ def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     if target is not None and target.to and not row.has_column(header):
         return _skip(f"{header!r}: mapped column is missing from the response data")
     try:
-        raw = row.get_value(header, "")
+        raw = row.get_value(header)
     except DuplicateValueError as exc:
         return _skip(
             f"{header}: duplicate values for column "
@@ -253,8 +254,9 @@ def field_answer(
     # whitespace-only cell reads as unanswered and stored values carry no padding.
     target = settings.questions.get(header)
     raw = cell(target=target, row=row, header=header).strip()
-    slug = (target.to or "").split(".", 1)[-1] if target else ""
-    definition = definitions.get(slug)
+    definition = (
+        definitions.get(target.to.partition(".")[2]) if target and target.to else None
+    )
     if definition is None or not definition.multiple:
         return raw
     return split_imported_answers(raw, definition.options)
@@ -330,10 +332,14 @@ def chosen_entities(target: QuestionTarget, value: str) -> list[EntityRef]:
 
 def decode_response(response_json: str) -> ImportRow:
     try:
-        data = _RESPONSE_ADAPTER.validate_json(response_json or "{}")
+        data = _RESPONSE_ADAPTER.validate_json(response_json)
     except ValidationError:
         data = {}
     return ImportRow(data)
+
+
+def encode_response(data: dict[str, str]) -> str:
+    return json.dumps(data, ensure_ascii=False)
 
 
 def locate_row(
@@ -349,11 +355,11 @@ def locate_row(
     # doesn't shuffle rows between runs.
     if settings.unique_key_columns:
         target_key = {
-            col: response.get_value(col, "") for col in settings.unique_key_columns
+            col: response.get_value(col) for col in settings.unique_key_columns
         }
         for idx, row in enumerate(rows):
             if all(
-                row.get_value(col, "") == target_key[col]
+                row.get_value(col) == target_key[col]
                 for col in settings.unique_key_columns
             ):
                 return idx, row

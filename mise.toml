@@ -256,8 +256,12 @@ run = "pytest -m postgres tests/integration"
 env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
 
 [tasks."test:mutation"]
-description = "Run mutation tests"
-run = "mutmut run"
+description = "Run mutation tests; fails on any survivor not listed in mutmut-equivalents.txt"
+run = [
+    "mutmut run",
+    "mutmut results",
+    "! mutmut results | grep ': survived$' | sed 's/^ *//; s/: survived$//' | grep -vxFf mutmut-equivalents.txt | grep .",
+]
 env = { _.file = '.env.test' }
 
 ## Complex

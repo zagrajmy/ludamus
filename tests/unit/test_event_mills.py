@@ -26,6 +26,7 @@ from ludamus.pacts.legacy import (
     EventStatsData,
     EventUpdateData,
     NotFoundError,
+    PanelStatsDTO,
     TrackDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
@@ -43,6 +44,13 @@ _EXPECTED_SESSIONS = 7
 _EXPECTED_PROPOSALS = 8
 _EXPECTED_STATS = LandingStatsDTO(events=3, sessions=40)
 _FRESH_STATS = LandingStatsDTO(events=4, sessions=41)
+_STATS_DATA = EventStatsData(
+    pending_proposals=3,
+    scheduled_sessions=4,
+    total_proposals=9,
+    hosts_count=5,
+    rooms_count=2,
+)
 
 
 def _event(
@@ -79,6 +87,7 @@ def _track(*, pk: int, event_id: int) -> TrackDTO:
 class FakeEvents:
     def __init__(self, events: list[EventDTO], *, conflict: bool = False) -> None:
         self.rows = {event.pk: event for event in events}
+        self.stats = {event.pk: _STATS_DATA for event in events}
         self.locked: list[int] = []
         self._conflict = conflict
 
@@ -110,15 +119,8 @@ class FakeEvents:
             if include_unpublished or e.publication_time is not None
         ]
 
-    @staticmethod
-    def get_stats_data(_pk: int) -> EventStatsData:
-        return EventStatsData(
-            pending_proposals=3,
-            scheduled_sessions=4,
-            total_proposals=9,
-            hosts_count=5,
-            rooms_count=2,
-        )
+    def get_stats_data(self, pk: int) -> EventStatsData:
+        return self.stats[pk]
 
     def slug_exists(self, sphere_id: int, slug: str) -> bool:
         return any(
@@ -259,6 +261,14 @@ class TestWidenEventDates:
         assert events.rows[EVENT].end_time == _END
         assert events.locked == [EVENT]
 
+    def test_the_exact_event_range_changes_nothing(self):
+        events = FakeEvents([_event()])
+
+        grew = widen_event_dates(events=events, event_pk=EVENT, start=_START, end=_END)
+
+        assert grew is False
+        assert events.rows[EVENT] == _event()
+
     def test_an_earlier_start_moves_the_start_only(self):
         events = FakeEvents([_event()])
         earlier = datetime(2026, 7, 31, 20, tzinfo=UTC)
@@ -292,6 +302,16 @@ class TestWidenEventDates:
 
         assert events.rows[EVENT].start_time == _START
 
+    def test_a_start_at_publication_is_allowed(self):
+        events = FakeEvents([_event()])
+
+        grew = widen_event_dates(
+            events=events, event_pk=EVENT, start=_PUBLISHED, end=_END
+        )
+
+        assert grew is True
+        assert events.rows[EVENT].start_time == _PUBLISHED
+
     def test_an_unpublished_event_can_start_any_time_earlier(self):
         events = FakeEvents([_event(publication=None)])
         earlier = datetime(2026, 1, 1, tzinfo=UTC)
@@ -312,8 +332,7 @@ class TestEventPanelService:
         assert context.current_event.pk == EVENT
         assert [e.pk for e in context.events] == [EVENT, OTHER_EVENT]
         assert context.is_proposal_active is False
-        assert context.stats.total_sessions == _EXPECTED_SESSIONS
-        assert context.stats.hosts_count == FakeEvents.get_stats_data(EVENT).hosts_count
+        assert context.stats == build_panel_stats(_STATS_DATA)
 
     def test_panel_stats_total_is_pending_plus_scheduled(self):
         stats = build_panel_stats(
@@ -326,8 +345,14 @@ class TestEventPanelService:
             )
         )
 
-        assert stats.total_sessions == _EXPECTED_SESSIONS
-        assert stats.total_proposals == _EXPECTED_PROPOSALS
+        assert stats == PanelStatsDTO(
+            total_sessions=_EXPECTED_SESSIONS,
+            scheduled_sessions=5,
+            pending_proposals=2,
+            hosts_count=1,
+            rooms_count=1,
+            total_proposals=_EXPECTED_PROPOSALS,
+        )
 
 
 def _landing(cache: FakeCache, stats: LandingStatsDTO = _FRESH_STATS) -> LandingService:
@@ -362,7 +387,9 @@ class TestLandingService:
             stats = _landing(cache).stats()
 
         assert stats == _FRESH_STATS
-        assert "landing:stats" in caplog.text
+        assert caplog.messages == [
+            "Discarding malformed landing cache entry landing:stats"
+        ]
         assert LandingStatsDTO.model_validate_json(cache.entries["landing:stats"]) == (
             _FRESH_STATS
         )
@@ -455,6 +482,15 @@ class TestEventsService:
             )
 
         assert events.rows == {}
+
+    def test_create_allows_publication_at_the_start(self):
+        events = FakeEvents([])
+
+        created = _events_service(events).create(
+            sphere_id=SPHERE, data=_create_data(publication=_START)
+        )
+
+        assert events.rows[created.pk].publication_time == _START
 
     def test_create_refuses_publication_after_the_start(self):
         events = FakeEvents([])

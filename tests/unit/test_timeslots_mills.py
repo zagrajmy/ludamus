@@ -1,10 +1,16 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS, slot_windows_by_local_date
 from ludamus.pacts import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
+# Zones on either side of UTC whose date differs from the server's at these
+# instants, so a window dated by the server clock lands on the wrong day.
+_WEST = ZoneInfo("America/New_York")
+_EAST = ZoneInfo("Pacific/Auckland")
 
 
 class TestMidnightWindows:
@@ -81,6 +87,23 @@ class TestProgrammeDays:
             (start, midnight)
         ]
 
+    @pytest.mark.parametrize(
+        ("tz", "start", "expected_date"),
+        (
+            (_WEST, datetime(2026, 7, 11, 2, tzinfo=UTC), date(2026, 7, 10)),
+            (_EAST, datetime(2026, 7, 10, 14, tzinfo=UTC), date(2026, 7, 11)),
+        ),
+    )
+    def test_a_day_is_dated_by_the_event_zone_not_the_server_clock(
+        self, tz, start, expected_date
+    ):
+        end = start + timedelta(hours=1)
+
+        assert MIDNIGHT.date_of(start, tz) == expected_date
+        assert MIDNIGHT.windows(start=start, end=end, tz=tz) == [
+            (start.astimezone(tz), end.astimezone(tz))
+        ]
+
 
 class TestSlotWindows:
     def test_groups_split_windows_under_their_local_date(self):
@@ -94,4 +117,17 @@ class TestSlotWindows:
         assert slot_windows_by_local_date([slot], _TZ) == {
             date(2026, 7, 10): [(slot.start_time, midnight)],
             date(2026, 7, 11): [(midnight, slot.end_time)],
+        }
+
+    def test_groups_under_the_event_zone_date_not_the_server_clock(self):
+        slot = TimeSlotDTO(
+            pk=1,
+            start_time=datetime(2026, 7, 10, 14, tzinfo=UTC),
+            end_time=datetime(2026, 7, 10, 15, tzinfo=UTC),
+        )
+
+        assert slot_windows_by_local_date([slot], _EAST) == {
+            date(2026, 7, 11): [
+                (slot.start_time.astimezone(_EAST), slot.end_time.astimezone(_EAST))
+            ]
         }

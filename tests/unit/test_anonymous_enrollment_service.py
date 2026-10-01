@@ -140,9 +140,11 @@ class FakeRepo:
             raise NotFoundError
         return self._cfg["session"]
 
-    def read_participation_status(self, **kwargs):
-        self.log.statuses_read.append(kwargs)
-        return self._cfg.get("participation_status")
+    def read_participation_status(self, *, session_id, user_id):
+        self.log.statuses_read.append({"session_id": session_id, "user_id": user_id})
+        return {(_SESSION_ID, _USER_PK): self._cfg.get("participation_status")}[
+            session_id, user_id
+        ]
 
     def has_conflicts(self, **kwargs):
         self.log.conflicts_checked.append(kwargs)
@@ -168,8 +170,8 @@ class FakeRepo:
         self.log.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
 
-    def first_enrollment_event(self, _user_id):
-        return self._cfg.get("load")
+    def first_enrollment_event(self, user_id):
+        return {_USER_PK: self._cfg.get("load")}[user_id]
 
 
 class FakePromotion:
@@ -306,6 +308,10 @@ class TestGetEnrollPage:
         page = service.get_enroll_page(_request())
 
         assert page.enrollment_status == SessionParticipationStatus.CONFIRMED
+        assert repo.log.statuses_read == [
+            {"session_id": _SESSION_ID, "user_id": _USER_PK},
+            {"session_id": _SESSION_ID, "user_id": _USER_PK},
+        ]
 
 
 class TestEnroll:
@@ -345,6 +351,7 @@ class TestEnroll:
             service.enroll(_request(), "Ala")
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
+        assert excinfo.value.event_slug == "conv"
         assert not repo.log.confirmed
         assert not repo.log.waiting
 
@@ -366,12 +373,15 @@ class TestCancel:
             participation_status=SessionParticipationStatus.CONFIRMED,
         )
         promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
+        users = FakeUsers(_user(""))
+        service = _service(repo=repo, users=users, promotion=promotion)
 
         result = service.cancel(_request(), "Ala")
 
         assert result.cancelled is True
         assert result.session_title == "Warsztat"
+        assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
+        assert repo.log.seatings_locked == [_SESSION_ID]
         assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
 
@@ -499,6 +509,7 @@ class TestValidationOutcomes:
             service.get_enroll_page(_request())
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
+        assert excinfo.value.event_slug == "conv"
 
 
 class TestGetEnrollPageOutcomes:

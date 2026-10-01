@@ -5,7 +5,6 @@ callers open the atomic block and invoke engine methods inside it.
 """
 
 import contextlib
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -18,6 +17,7 @@ from ludamus.mills.submissions.mapping import (
     cell,
     chosen_entities,
     dedup_ident,
+    encode_response,
     extract_identity,
     field_name,
     field_setup,
@@ -26,7 +26,7 @@ from ludamus.mills.submissions.mapping import (
     session_field_values,
     slugify,
 )
-from ludamus.mills.submissions.personal_data_fields import log_facilitator_deletion
+from ludamus.mills.submissions.personal_data_fields import log_facilitator_restored
 from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
@@ -122,8 +122,7 @@ class ImportEngine:
                         integration_id=integration_pk,
                         row_index=row_index,
                         status=ImportLogStatus.SUCCESS,
-                        reason="",
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                         session_id=exc.existing_session_id,
@@ -138,7 +137,7 @@ class ImportEngine:
                         row_index=row_index,
                         status=ImportLogStatus.SKIPPED,
                         reason=exc.reason,
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                     )
@@ -155,7 +154,7 @@ class ImportEngine:
                         row_index=row_index,
                         status=ImportLogStatus.SKIPPED,
                         reason=str(exc),
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                     )
@@ -167,8 +166,7 @@ class ImportEngine:
                     integration_id=integration_pk,
                     row_index=row_index,
                     status=ImportLogStatus.SUCCESS,
-                    reason="",
-                    response_json=json.dumps(row.data, ensure_ascii=False),
+                    response_json=encode_response(row.data),
                     title=title,
                     display_name=display_name,
                     session_id=session_id,
@@ -602,12 +600,11 @@ class ImportEngine:
                 # No organizer behind it, so the log says who only by saying
                 # the import did it — otherwise History's last word stays
                 # "deleted" for a facilitator the panel shows alive.
-                log_facilitator_deletion(
+                log_facilitator_restored(
                     repo=self._repos.facilitator_change_logs,
                     event_id=event_id,
                     facilitator_id=matched.pk,
                     user_id=None,
-                    deleted=False,
                 )
             return matched.pk
         return self._repos.facilitators.create(
@@ -709,13 +706,12 @@ class ImportEngine:
                     continue
                 windows = spec if isinstance(spec, list) else [spec]
                 for window in windows:
-                    if not isinstance(window, TimeSlotSpec):
-                        continue
-                    slot_id = self._repos.time_slots.get_or_create(
-                        event_id, window.start_time, window.end_time
-                    )
-                    if slot_id not in ids:
-                        ids.append(slot_id)
+                    if isinstance(window, TimeSlotSpec):
+                        slot_id = self._repos.time_slots.get_or_create(
+                            event_id, window.start_time, window.end_time
+                        )
+                        if slot_id not in ids:
+                            ids.append(slot_id)
         return ids
 
     def track_ids(

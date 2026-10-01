@@ -7,7 +7,12 @@ import pytest
 from ludamus.mills.encounter import EncounterService
 from ludamus.pacts import EncounterDTO, NotFoundError
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.encounter import EncounterData, EncountersPolicy, RSVPOutcome
+from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
+    EncounterData,
+    EncountersPolicy,
+    RSVPOutcome,
+)
 from ludamus.pacts.multiverse import SphereRole
 from tests.unit.factories import FakeTransaction
 
@@ -17,13 +22,14 @@ SPHERE_ID = 3
 START_TIME = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
 
 
-def _encounter(pk=1, *, max_participants=0):
+def _encounter(pk=1, *, max_participants=0, is_public=True):
     return EncounterDTO(
         creation_time=START_TIME - timedelta(days=7),
         creator_id=CREATOR_ID,
         description="",
         end_time=None,
         game="Gloomhaven",
+        is_public=is_public,
         max_participants=max_participants,
         pk=pk,
         place="",
@@ -141,11 +147,10 @@ class TestEncounterService:
 
 class FakeSites:
     def __init__(self, policy):
-        self.policy = policy
+        self.rows = {SPHERE_ID: SimpleNamespace(encounters_policy=policy)}
 
     def read(self, sphere_id):
-        del sphere_id
-        return SimpleNamespace(encounters_policy=self.policy)
+        return self.rows[sphere_id]
 
 
 class FakeUsers:
@@ -164,11 +169,10 @@ class FakeUsers:
 
 class FakeSpheres:
     def __init__(self, roles=None):
-        self.roles = roles or {}
+        self.roles = {(SPHERE_ID, slug): role for slug, role in (roles or {}).items()}
 
     def manager_role(self, sphere_id, user_slug):
-        del sphere_id
-        return self.roles.get(user_slug)
+        return self.roles.get((sphere_id, user_slug))
 
 
 class FakeEncounters:
@@ -183,14 +187,23 @@ class FakeEncounters:
             if row.sphere_id == sphere_id
         ]
 
+    @staticmethod
+    def _visible(rows, sphere_id, user_id):
+        return [
+            row
+            for row in rows
+            if row.sphere_id == sphere_id
+            and (row.is_public or row.creator_id == user_id)
+        ]
+
     def create(self, data):
         pk = max(self.rows, default=0) + 1
         self.rows[pk] = _encounter(pk).model_copy(update=dict(data))
         return self.rows[pk]
 
     def read(self, pk, sphere_id):
-        del sphere_id
-        return self.rows[pk]
+        row = self.rows[pk]
+        return {row.sphere_id: row}[sphere_id]
 
     def read_by_share_code(self, share_code, sphere_id):
         rows = [
@@ -207,13 +220,10 @@ class FakeEncounters:
         del self.rows[pk]
 
     def list_visible_upcoming(self, sphere_id, user_id, limit):
-        del user_id
-        rows = [row for row in self.rows.values() if row.sphere_id == sphere_id]
-        return rows[:limit] if limit is not None else rows
+        return self._visible(self.rows.values(), sphere_id, user_id)[:limit]
 
     def list_visible_past(self, sphere_id, user_id, limit):
-        del user_id
-        return [row for row in self.past.values() if row.sphere_id == sphere_id][:limit]
+        return self._visible(self.past.values(), sphere_id, user_id)[:limit]
 
 
 class FakeRSVPs:
@@ -237,7 +247,8 @@ class FakeRSVPs:
         return len(self.list_by_encounter(encounter_id))
 
     def count_by_encounters(self, encounter_ids):
-        return {pk: self.count_by_encounter(pk) for pk in encounter_ids}
+        counts = {pk: self.count_by_encounter(pk) for pk in encounter_ids}
+        return {pk: count for pk, count in counts.items() if count}
 
     def recent_rsvp_exists(self, ip_address, seconds=60):
         del seconds
@@ -298,6 +309,7 @@ class TestEncounterPolicy:
         )
 
         assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+        assert not service.can_create(sphere_id=SPHERE_ID, user_id=OTHER_USER_ID)
 
 
 class TestEncounterFeed:
@@ -312,13 +324,14 @@ class TestEncounterFeed:
         assert service.list_upcoming(sphere_id=SPHERE_ID, user_id=None, limit=3) == []
 
     def test_feed_marks_mine_counts_signups_and_names_other_organizers(self):
-        mine = _encounter(1)
+        mine = _encounter(1, is_public=False)
         by_named = _encounter(2).model_copy(update={"creator_id": 30})
         by_username_only = _encounter(3).model_copy(update={"creator_id": 40})
         by_deleted = _encounter(4).model_copy(update={"creator_id": 50})
+        my_past = _encounter(5, is_public=False)
         service = _service(
             encounters=FakeEncounters(
-                [mine, by_named, by_username_only], past=[by_deleted]
+                [mine, by_named, by_username_only], past=[by_deleted, my_past]
             ),
             rsvps=FakeRSVPs([(1, OTHER_USER_ID), (1, 30), (2, CREATOR_ID)]),
             users=FakeUsers(
@@ -336,7 +349,31 @@ class TestEncounterFeed:
             (i.encounter.pk, i.rsvp_count, i.is_mine, i.organizer_name)
             for i in feed.upcoming
         ] == [(1, 2, True, ""), (2, 1, False, "Ola Nowak"), (3, 0, False, "gm40")]
-        assert [(i.encounter.pk, i.organizer_name) for i in feed.past] == [(4, "")]
+        assert [
+            (i.encounter.pk, i.rsvp_count, i.is_mine, i.organizer_name)
+            for i in feed.past
+        ] == [(4, 0, False, ""), (5, 0, True, "")]
+
+    def test_past_feed_is_capped(self):
+        past = [_encounter(pk) for pk in range(100, 100 + PAST_FEED_LIMIT + 1)]
+        service = _service(encounters=FakeEncounters(past=past))
+
+        feed = service.list_feed(sphere_id=SPHERE_ID, user_id=None)
+
+        assert len(feed.past) == PAST_FEED_LIMIT
+
+    def test_upcoming_shows_the_visitor_their_own_private_encounter(self):
+        service = _service(
+            encounters=FakeEncounters([_encounter(1, is_public=False), _encounter(2)])
+        )
+
+        upcoming = service.list_upcoming(
+            sphere_id=SPHERE_ID, user_id=CREATOR_ID, limit=5
+        )
+        for_others = service.list_upcoming(sphere_id=SPHERE_ID, user_id=None, limit=5)
+
+        assert [(i.encounter.pk, i.is_mine) for i in upcoming] == [(1, True), (2, True)]
+        assert [(i.encounter.pk, i.is_mine) for i in for_others] == [(2, False)]
 
     def test_upcoming_is_capped_at_the_limit(self):
         service = _service(
@@ -385,6 +422,7 @@ class TestEncounterDetail:
         )
 
         assert detail.is_creator
+        assert not detail.user_has_rsvpd
 
     def test_read_by_share_code_is_sphere_scoped(self):
         encounter = _encounter(1)
@@ -416,6 +454,18 @@ class TestEncounterOwnership:
         assert created.title == "New night"
         assert encounters.rows == {created.pk: created}
 
+    def test_a_manager_creates_under_the_managers_policy(self):
+        encounters = FakeEncounters()
+        service = _service(
+            policy=EncountersPolicy.MANAGERS,
+            encounters=encounters,
+            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.MANAGER}),
+        )
+
+        created = service.create(_data())
+
+        assert encounters.rows == {created.pk: created}
+
     def test_read_owned_hides_another_users_encounter(self):
         service = _service(encounters=FakeEncounters([_encounter(1)]))
 
@@ -425,7 +475,7 @@ class TestEncounterOwnership:
         assert service.read_owned(pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID).pk == 1
 
     def test_update_drops_the_public_flag_when_the_owner_may_not_publish(self):
-        encounters = FakeEncounters([_encounter(1)])
+        encounters = FakeEncounters([_encounter(1, is_public=False)])
         service = _service(policy=EncountersPolicy.MANAGERS, encounters=encounters)
         data = EncounterData(title="Renamed", is_public=True)
 

@@ -141,6 +141,7 @@ run = { task = "test:int", args = [
     "--cov=tests.integration",
     "--cov={{env.PACKAGE}}",
     "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/",
+    "--cov-fail-under=97",
 ] }
 env = { _.file = '.env.test' }
 

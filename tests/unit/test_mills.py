@@ -223,12 +223,82 @@ class TestMappingHelpers:
 
         assert value == "D&D, 5e"
 
+    def test_answer_of_an_unmapped_header_is_the_stripped_text(self):
+        value = field_answer(
+            settings=ImportSettings(),
+            row=ImportRow({"Note": " free text "}),
+            header="Note",
+            definitions={},
+        )
+
+        assert value == "free text"
+
+    def test_answer_of_an_ignored_question_is_the_stripped_text(self):
+        settings = ImportSettings(questions={"Note": QuestionTarget(ignore=True)})
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Note": "free text"}),
+            header="Note",
+            definitions={},
+        )
+
+        assert value == "free text"
+
+    def test_answer_applies_the_target_overrides(self):
+        settings = ImportSettings(
+            questions={
+                "Kind": QuestionTarget(to="field.kind", overrides={"ttrpg": "RPG"})
+            }
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "ttrpg"}),
+            header="Kind",
+            definitions={},
+        )
+
+        assert value == "RPG"
+
+    def test_answer_keys_the_definition_by_everything_after_the_prefix(self):
+        settings = ImportSettings(
+            questions={"Version": QuestionTarget(to="field.v1.0")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "v1.0": FieldDefinition(
+                        name="Version", type="select", multiple=True
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Version": "a, b"}),
+            header="Version",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["a", "b"]
+
     def test_cell_skips_row_when_mapped_column_is_missing(self):
         target = QuestionTarget(to="track")
         row = ImportRow({"Title": "Talk"})
 
         with pytest.raises(RowSkippedError, match="missing"):
             cell(target=target, row=row, header="Block")
+
+    def test_cell_names_the_conflicting_values_when_skipping(self):
+        target = QuestionTarget(to="field.genre")
+        row = ImportRow({"Genre": "Fantasy", "Genre (2)": "Sci-Fi"})
+
+        with pytest.raises(RowSkippedError) as exc_info:
+            cell(target=target, row=row, header="Genre")
+
+        assert exc_info.value.reason == (
+            "Genre: duplicate values for column ('Fantasy', 'Sci-Fi')"
+        )
 
     def test_resolve_builtins_treats_whitespace_participants_limit_as_zero(self):
         settings = ImportSettings(
@@ -244,8 +314,10 @@ class TestMappingHelpers:
             questions={"Cap": QuestionTarget(to="session.participants_limit")}
         )
 
-        with pytest.raises(RowSkippedError):
+        with pytest.raises(RowSkippedError) as exc_info:
             resolve_builtins(settings, ImportRow({"Cap": "-5"}))
+
+        assert exc_info.value.reason == "Cap: '-5' is negative"
 
     def test_extract_identity_truncates_over_long_values_for_logging(self):
         settings = ImportSettings(
@@ -278,25 +350,59 @@ class TestMappingHelpers:
 
 
 class TestGenerateUniqueSlug:
+    SUFFIX_LENGTH = 4  # token_urlsafe(3) as base64
+    DEFAULT_ATTEMPTS = 8
+
     def test_appends_suffix_until_free(self):
         taken = {"my-talk"}
 
         slug = generate_unique_slug("My Talk", lambda s: s in taken)
 
         assert slug.startswith("my-talk-")
-        assert slug != "my-talk"
+        assert len(slug) == len("my-talk-") + self.SUFFIX_LENGTH
 
     def test_raises_when_retry_budget_exhausted(self):
-        with pytest.raises(SlugCollisionError):
+        with pytest.raises(SlugCollisionError) as exc_info:
             generate_unique_slug("My Talk", lambda _s: True, max_attempts=3)
+
+        assert exc_info.value.base_slug == "my-talk"
+        assert str(exc_info.value) == "Could not generate a unique slug for 'my-talk'."
+
+    def test_tries_eight_slugs_by_default(self):
+        tried: list[str] = []
+
+        def taken(slug: str) -> bool:
+            tried.append(slug)
+            return True
+
+        with pytest.raises(SlugCollisionError):
+            generate_unique_slug("My Talk", taken)
+
+        assert len(tried) == self.DEFAULT_ATTEMPTS
 
     def test_keeps_slug_within_max_length_with_suffix(self):
         taken = {slugify("x" * 80)}
 
         slug = generate_unique_slug("x" * 80, lambda s: s in taken)
 
-        assert len(slug) <= TestSlugify.MAX_SLUG_LENGTH
+        assert len(slug) == TestSlugify.MAX_SLUG_LENGTH
         assert slug not in taken
+
+    def test_honours_a_custom_max_length(self):
+        assert generate_unique_slug("x" * 80, lambda _s: False, max_length=10) == (
+            "x" * 10
+        )
+
+    def test_strips_the_dash_the_cut_leaves_before_the_suffix(self):
+        slug = generate_unique_slug(
+            "aaaa bbbb", lambda s: s == "aaaa-bbbb", max_length=10
+        )
+
+        assert slug.startswith("aaaa-")
+        assert len(slug) == len("aaaa-") + self.SUFFIX_LENGTH
+
+    def test_without_a_fallback_an_unsluggable_title_yields_an_empty_slug(self):
+        assert not generate_unique_slug("!!!", lambda _s: False)
 
 
 class TestSlugify:
@@ -305,6 +411,12 @@ class TestSlugify:
     def test_truncation_drops_trailing_dash(self):
         # 49 chars then a space+word so the cut lands on a separator
         assert not slugify(f"{'a' * 49} bb").endswith("-")
+
+    def test_caps_at_the_slug_column_width_by_default(self):
+        assert len(slugify("x" * 80)) == self.MAX_SLUG_LENGTH
+
+    def test_strips_a_leading_dash_before_capping(self):
+        assert slugify(f"-{'a' * self.MAX_SLUG_LENGTH}") == "a" * self.MAX_SLUG_LENGTH
 
 
 class TestDedupIdent:

@@ -59,22 +59,57 @@ def log_facilitator_changes(
 _DELETED_LOG_VALUE = "yes"
 
 
-def log_facilitator_deletion(
+def log_facilitator_deleted(
     *,
     repo: FacilitatorChangeLogRepositoryProtocol,
     event_id: int,
     facilitator_id: int,
     user_id: int | None,
-    deleted: bool,
 ) -> None:
     # Taking a facilitator out of the program is the largest state change the
     # panel makes. `deleted_at` records when and a restore erases even that, so
     # the log is the only trace of who.
+    _log_deleted_flag(
+        repo=repo,
+        event_id=event_id,
+        facilitator_id=facilitator_id,
+        user_id=user_id,
+        old="",
+        new=_DELETED_LOG_VALUE,
+    )
+
+
+def log_facilitator_restored(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+) -> None:
+    _log_deleted_flag(
+        repo=repo,
+        event_id=event_id,
+        facilitator_id=facilitator_id,
+        user_id=user_id,
+        old=_DELETED_LOG_VALUE,
+        new="",
+    )
+
+
+def _log_deleted_flag(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    old: str,
+    new: str,
+) -> None:
     change: ContentFieldChange = {
         "field": "deleted",
         "field_id": None,
-        "old": "" if deleted else _DELETED_LOG_VALUE,
-        "new": _DELETED_LOG_VALUE if deleted else "",
+        "old": old,
+        "new": new,
     }
     log_facilitator_changes(
         repo=repo,

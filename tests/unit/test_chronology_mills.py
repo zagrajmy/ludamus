@@ -21,11 +21,13 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionFieldValueDTO,
     SessionStatus,
+    SpaceOptionDTO,
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
+    ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
     ProposalScheduledError,
     SpaceTimeConflictError,
@@ -347,11 +349,10 @@ class TestContentEditResizesAgendaItem:
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
-            agenda_items=MagicMock(),
+            agenda_items=_FakeAgendaItems(_make_item()),
         )
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
         repos.sessions.read_field_values.return_value = []
-        repos.agenda_items.read_by_session.return_value = _make_item()
         return repos
 
     @pytest.fixture
@@ -376,9 +377,14 @@ class TestContentEditResizesAgendaItem:
     def test_a_longer_duration_moves_the_end_time(self, service, repos):
         self._apply(service, "PT2H30M")
 
-        repos.agenda_items.update.assert_called_once_with(
-            1, {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
-        )
+        assert repos.agenda_items.updates == {
+            1: {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
+        }
+
+    def test_an_unchanged_duration_leaves_the_block_alone(self, service, repos):
+        self._apply(service, "PT1H")
+
+        assert not repos.agenda_items.updates
 
     # "PT2Hjunk" and "P1DT2H" are the ones a lenient parser gets wrong: the
     # first would resize a real block to two hours, the second to zero.
@@ -388,7 +394,7 @@ class TestContentEditResizesAgendaItem:
     ):
         self._apply(service, duration)
 
-        repos.agenda_items.update.assert_not_called()
+        assert not repos.agenda_items.updates
 
 
 class TestSessionConfirmation:
@@ -640,8 +646,8 @@ class _FakeSessions:
     def __init__(self, *sessions, event=None):
         self.rows = {session.pk: session for session in sessions}
         self.event = event or _event_dto()
+        self.form: dict = {"presenter": None, "space_options": [], "field_values": []}
         self.updates: dict[int, dict] = {}
-        self.field_values: list = []
         self.related: dict[str, dict] = {
             "facilitators": {},
             "tracks": {},
@@ -683,7 +689,28 @@ class _FakeSessions:
         self.calls["restored"].append((pk, event_pk))
 
     def read_field_values(self, session_id):
-        return list(self.field_values)
+        self.read(session_id)
+        return list(self.form["field_values"])
+
+    def read_presenter(self, session_id):
+        self.read(session_id)
+        return self.form["presenter"]
+
+    def read_space_options(self, session_id):
+        self.read(session_id)
+        return list(self.form["space_options"])
+
+    def read_time_slots(self, session_id):
+        self.read(session_id)
+        return list(self.related["time_slots"].values())
+
+    def read_time_slot(self, session_id, time_slot_id):
+        self.read(session_id)
+        return self.related["time_slots"][time_slot_id]
+
+    def read_preferred_time_slot_ids(self, session_id):
+        self.read(session_id)
+        return list(self.related_ids["time_slots"])
 
     def delete_field_values_for_fields(self, session_id, field_ids):
         self.calls["deleted_field_ids"].append((session_id, field_ids))
@@ -714,9 +741,29 @@ class _FakeAgendaItems:
     def __init__(self, *items):
         self.rows = {item.pk: item for item in items}
         self.updates: dict[int, dict] = {}
+        self.created: list = []
+        self.overlap_queries: list = []
 
     def read(self, pk):
         return self.rows[pk]
+
+    def create(self, data):
+        self.created.append(data)
+
+    def list_overlapping_in_space(
+        self, space_pk, start_time, end_time, exclude_session_pk=None
+    ):
+        self.overlap_queries.append(
+            (space_pk, start_time, end_time, exclude_session_pk)
+        )
+        return [
+            item
+            for item in self.rows.values()
+            if item.space_id == space_pk
+            and item.session_id != exclude_session_pk
+            and item.start_time < end_time
+            and item.end_time > start_time
+        ]
 
     def read_by_session(self, session_pk):
         return next(
@@ -737,6 +784,30 @@ class _FakeScheduleChangeLogs:
     def create(self, data):
         self.rows.append(data)
         return len(self.rows)
+
+
+class _FakeSessionFields:
+    def __init__(self, *fields):
+        self.rows = list(fields)
+
+    def list_by_event(self, event_id):
+        return [field for field in self.rows if field.event_id == event_id]
+
+
+class _FakeUsers:
+    def __init__(self, *users):
+        self.rows = {user.slug: user for user in users}
+
+    def read(self, slug):
+        return self.rows[slug]
+
+
+class _FakeSpheres:
+    def __init__(self, *, managers=()):
+        self.managers = set(managers)
+
+    def manager_role(self, sphere_id, user_slug):
+        return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
 
 
 class _FakeContentChangeLogs:
@@ -963,7 +1034,7 @@ class TestContentEditWithFakes:
 
     def test_dropping_answers_of_removed_fields_logs_them_for_revert(self):
         sessions = _FakeSessions(_session_dto())
-        sessions.field_values = [self._field_value(7, "Pathfinder")]
+        sessions.form["field_values"] = [self._field_value(7, "Pathfinder")]
         logs = _FakeContentChangeLogs()
 
         self._service(sessions, logs).apply(
@@ -1006,8 +1077,8 @@ class TestContentEditWithFakes:
             2: _facilitator_dto(2, "Alice"),
         }
         sessions.related_ids["facilitators"] = [1]
-        sessions.related["tracks"] = {4: _track_dto(4, "RPG")}
-        sessions.related_ids["tracks"] = [4]
+        sessions.related["tracks"] = {4: _track_dto(4, "RPG"), 5: _track_dto(5, "LARP")}
+        sessions.related_ids["tracks"] = [5, 4]
         sessions.related["time_slots"] = {
             8: TimeSlotDTO(pk=8, start_time=_NOW, end_time=_NOW + timedelta(hours=2))
         }
@@ -1034,6 +1105,7 @@ class TestContentEditWithFakes:
                 "old": "Bob",
                 "new": "Alice, Bob",
             },
+            {"field": "tracks", "field_id": None, "old": "LARP, RPG", "new": "RPG"},
             {
                 "field": "time_slots",
                 "field_id": None,
@@ -1135,11 +1207,11 @@ class TestContentEditWithFakes:
         assert service.list_log(_EVENT_PK) == [mine]
 
     def test_list_field_names_maps_pk_to_current_name(self):
-        session_fields = MagicMock()
-        session_fields.list_by_event.return_value = [
-            SimpleNamespace(pk=7, name="System"),
-            SimpleNamespace(pk=8, name="Diet"),
-        ]
+        session_fields = _FakeSessionFields(
+            SimpleNamespace(pk=7, name="System", event_id=_EVENT_PK),
+            SimpleNamespace(pk=8, name="Diet", event_id=_EVENT_PK),
+            SimpleNamespace(pk=9, name="Other", event_id=_EVENT_PK + 1),
+        )
         service = self._service(
             _FakeSessions(), _FakeContentChangeLogs(), session_fields=session_fields
         )
@@ -1160,3 +1232,77 @@ class TestContentEditWithFakes:
         service = self._service(_FakeSessions(), _FakeContentChangeLogs(*logs))
 
         assert service.revertible_log_pks(_EVENT_PK, logs) == {2}
+
+
+class TestProposalAcceptanceWithFakes:
+    _SLOT = TimeSlotDTO(pk=2, start_time=_NOW, end_time=_NOW + timedelta(hours=1))
+
+    @classmethod
+    def _sessions(cls):
+        sessions = _FakeSessions(_session_dto(facilitator_name="Alice"))
+        sessions.related["time_slots"] = {cls._SLOT.pk: cls._SLOT}
+        return sessions
+
+    @staticmethod
+    def _service(sessions, agenda_items):
+        return ProposalAcceptanceService(
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            agenda_items=agenda_items,
+            active_users=_FakeUsers(_user_dto(slug="manager")),
+            spheres=_FakeSpheres(managers=[(3, "manager")]),
+        )
+
+    def test_accept_context_reads_everything_about_the_session(self):
+        sessions = self._sessions()
+        sessions.form["presenter"] = _user_dto(pk=2, slug="speaker")
+        sessions.form["space_options"] = [SpaceOptionDTO(pk=7, name="Hall", group="")]
+        sessions.related_ids["time_slots"] = [2]
+        sessions.form["field_values"] = [
+            SessionFieldValueDTO(
+                field_id=4, field_name="System", field_question="", value="D&D"
+            )
+        ]
+
+        context = self._service(sessions, _FakeAgendaItems()).get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+
+        assert context == ProposalAcceptContextDTO(
+            session=sessions.rows[_SESSION_PK],
+            event=sessions.event,
+            presenter=sessions.form["presenter"],
+            space_options=sessions.form["space_options"],
+            time_slots=[self._SLOT],
+            preferred_time_slot_ids=[2],
+            field_values=sessions.form["field_values"],
+            can_accept=True,
+        )
+
+    def test_accept_session_places_the_session_in_the_chosen_slot(self):
+        sessions = self._sessions()
+        agenda_items = _FakeAgendaItems()
+
+        self._service(sessions, agenda_items).accept_session(
+            session_id=_SESSION_PK,
+            space_id=7,
+            time_slot_id=2,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        assert agenda_items.overlap_queries == [
+            (7, self._SLOT.start_time, self._SLOT.end_time, _SESSION_PK)
+        ]
+        assert sessions.updates == {
+            _SESSION_PK: {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+        }
+        assert agenda_items.created == [
+            {
+                "space_id": 7,
+                "session_id": _SESSION_PK,
+                "session_confirmed": True,
+                "start_time": self._SLOT.start_time,
+                "end_time": self._SLOT.end_time,
+            }
+        ]

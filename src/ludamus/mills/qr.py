@@ -18,4 +18,4 @@ def qr_svg(
     qr = segno.make(url)
     buffer = io.BytesIO()
     qr.save(buffer, kind="svg", scale=scale, dark=dark, xmldecl=xmldecl)
-    return buffer.getvalue().decode("utf-8")
+    return buffer.getvalue().decode()

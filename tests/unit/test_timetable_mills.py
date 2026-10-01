@@ -39,6 +39,7 @@ from ludamus.pacts.chronology import (
     HeatmapDTO,
     HeatmapRowDTO,
     SessionPlacement,
+    SpaceGroupDTO,
     TimetableGridFilter,
     TrackProgressDTO,
 )
@@ -151,6 +152,59 @@ class TestBuildGridOverlappingSessions:
         assert sessions[0].lane_start_pct == pytest.approx(0.0)
         assert sessions[1].lane_start_pct == pytest.approx(expected_half_width)
 
+    def test_a_chain_of_overlaps_shares_one_group(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(
+                _make_item(
+                    pk=1,
+                    session_id=1,
+                    start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                    end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+                ),
+                _make_item(
+                    pk=2,
+                    session_id=2,
+                    start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
+                    end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+                ),
+                _make_item(
+                    pk=3,
+                    session_id=3,
+                    start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+                    end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+                ),
+            )
+        )
+        uow.spaces.list_by_event.side_effect = _lookup({1: [_space(1)]})
+        uow.time_slots.list_by_event.side_effect = _lookup(
+            {1: [_slot(_START, _START + timedelta(hours=2))]}
+        )
+        _stub_warning_reads(uow)
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        sessions = grid.days[0].columns[0].sessions
+        assert [pos.lane_width_pct for pos in sessions] == pytest.approx([100 / 3] * 3)
+        assert [pos.lane_start_pct for pos in sessions] == pytest.approx(
+            [0, 100 / 3, 200 / 3]
+        )
+
+    def test_a_booking_ending_as_the_day_opens_is_not_shown(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(
+                _make_item(
+                    start_time=_START - timedelta(hours=1), end_time=_START, space_id=1
+                )
+            )
+        )
+        uow.spaces.list_by_event.side_effect = _lookup({1: [_space(1)]})
+        uow.time_slots.list_by_event.side_effect = _lookup({1: [_slot(_START, _END)]})
+        _stub_warning_reads(uow)
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert grid.days[0].columns[0].sessions == []
+
     def test_all_days_share_rooms_and_one_time_axis(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -229,7 +283,7 @@ class TestBuildGridOverlappingSessions:
             slug="room-1",
         )
         uow.spaces.list_by_event.return_value = [space]
-        uow.tracks.list_space_pks.return_value = [1]
+        uow.tracks.list_space_pks.side_effect = _lookup({5: [1]})
         uow.time_slots.list_by_event.return_value = [
             TimeSlotDTO(
                 pk=1,
@@ -259,12 +313,11 @@ class TestBuildGridOverlappingSessions:
         )
         uow.agenda_items.list_by_event.return_value = [mine, theirs, untracked]
         uow.agenda_items.list_by_track.return_value = [mine]
-        uow.tracks.read.return_value = _event_track(event_pk=1)
-        uow.sessions.read_facilitators_by_sessions.return_value = {}
-        uow.sessions.read_participants_limits.return_value = {}
-        uow.sessions.read_preferred_time_slots_by_sessions.return_value = {}
-        uow.sessions.list_track_names_by_session.return_value = {}
-        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        uow.tracks.read.side_effect = _lookup({5: _event_track(event_pk=1)})
+        _stub_warning_reads(uow)
+        uow.sessions.read_preferred_time_slots_by_sessions.side_effect = _subset(
+            {3: [_slot(_START + timedelta(days=1), _END + timedelta(days=1))]}
+        )
 
         grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(track_pk=5)
@@ -275,6 +328,9 @@ class TestBuildGridOverlappingSessions:
             ("Mine", "conflict"),
             ("Theirs", "conflict"),
             ("Untracked", "normal"),
+        ]
+        assert [(c.subject_session_pk, c.session_pk) for c in grid.conflicts] == [
+            (1, 2)
         ]
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
@@ -479,6 +535,7 @@ class TestRevertChange:
             service.revert_change(log_pk=1, event_pk=1)
 
         assert excinfo.value.reason is PlacementRejection.SESSION_NOT_ACCEPTED
+        assert str(excinfo.value) == "Session 1 is not in ACCEPTED status"
         mock_uow.agenda_items.create.assert_not_called()
 
     def test_revert_assign_removes_the_placement_and_logs_where_it_was(
@@ -686,6 +743,23 @@ class TestAssignSession:
             1, before.start_time, after.start_time
         )
 
+    def test_assign_across_two_gaps_closes_each_to_its_neighbour(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow)
+        placement = self._placement()
+        before = _slot_from(1, placement.start_time - timedelta(minutes=30), hours=0.5)
+        middle = _slot_from(2, placement.start_time + timedelta(minutes=10), hours=0.25)
+        after = _slot_from(3, placement.start_time + timedelta(minutes=40), hours=1)
+        mock_uow.time_slots.list_by_event.return_value = [before, after, middle]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        assert mock_uow.time_slots.update.call_args_list == [
+            call(1, before.start_time, middle.start_time),
+            call(2, middle.start_time, after.start_time),
+        ]
+
     def test_assign_accepts_a_placement_across_adjacent_time_slots(
         self, service, mock_uow
     ):
@@ -863,7 +937,7 @@ class TestListAllForTrack:
         uow.agenda_items.list_by_event.return_value = all_items
         uow.agenda_items.list_by_track.return_value = all_items
         uow.spaces.list_by_event.return_value = list(spaces)
-        uow.sessions.read_participants_limits.return_value = (
+        uow.sessions.read_participants_limits.side_effect = _subset(
             limits if limits is not None else {i.session_id: 0 for i in all_items}
         )
         uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
@@ -920,6 +994,26 @@ class TestListAllForTrack:
         assert conflicts[0].space_capacity == _ROOM_CAPACITY
         assert conflicts[0].session_limit == _SESSION_LIMIT
 
+    def test_a_room_as_big_as_the_limit_is_not_exceeded(self):
+        item = _make_item(pk=1, session_id=10, space_id=1)
+        uow = self._uow(
+            all_items=[item],
+            spaces=[_space(1, capacity=_SESSION_LIMIT)],
+            limits={10: _SESSION_LIMIT},
+        )
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert not conflicts
+
+    def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self):
+        item = _make_item(pk=1, session_id=10, space_id=1)
+        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=0)], limits={})
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert not conflicts
+
     def test_collective_facilitator_overlap_is_not_a_conflict(self):
         subject = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
@@ -966,6 +1060,8 @@ class TestBuildHeatmap:
         ("slot_end", "row_times"),
         (
             (datetime(2026, 1, 1, 11, 0, tzinfo=UTC), [10]),
+            (datetime(2026, 1, 1, 11, 0, 30, tzinfo=UTC), [10, 11]),
+            (datetime(2026, 1, 1, 11, 0, 0, 500_000, tzinfo=UTC), [10, 11]),
             (datetime(2026, 1, 1, 11, 30, tzinfo=UTC), [10, 11]),
             (datetime(2026, 1, 1, 12, 30, tzinfo=UTC), [10, 11, 12]),
         ),
@@ -1010,6 +1106,24 @@ class TestBuildHeatmap:
             rows=rows,
             days=[HeatmapDayDTO(date=date(2026, 1, 1), rows=rows)],
         )
+
+    def test_build_heatmap_rounds_the_day_start_down_to_the_hour(self, mock_uow):
+        mock_uow.spaces.list_by_event.return_value = [_space(3)]
+        mock_uow.time_slots.list_by_event.return_value = [
+            _slot(
+                datetime(2026, 1, 1, 10, 30, 30, 500_000, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            )
+        ]
+
+        result = TimetableOverviewService(mock_uow).build_heatmap(
+            event_pk=1, tz=UTC, conflicts=[]
+        )
+
+        assert [row.time for row in result.rows] == [
+            datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        ]
 
     def test_build_heatmap_columns_are_leaf_spaces_only(self, mock_uow):
         mock_uow.spaces.list_by_event.return_value = [
@@ -1091,11 +1205,11 @@ class TestBuildHeatmap:
         }
 
 
-def _space(pk, parent_id=None):
+def _space(pk, parent_id=None, capacity=None):
     return SpaceDTO(
         pk=pk,
         parent_id=parent_id,
-        capacity=None,
+        capacity=capacity,
         creation_time=datetime(2026, 1, 1, tzinfo=UTC),
         modification_time=datetime(2026, 1, 1, tzinfo=UTC),
         name=f"Room {pk}",
@@ -1153,6 +1267,24 @@ class TestTimetableOverviewCapacityHours:
             scheduled_hours=0.2,
             hours_to_fill=0.5,
             filled_pct=25,
+        )
+
+    def test_hours_count_every_second(self):
+        uow = self._uow(
+            spaces=[_space(1)],
+            slots=[_slot(_START, _START + timedelta(hours=2, minutes=3, seconds=1))],
+            items=[],
+        )
+
+        result = _overview_service(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=2.1,
+            capacity_hours=2.1,
+            scheduled_hours=0.0,
+            hours_to_fill=2.1,
+            filled_pct=0,
         )
 
     def test_empty_event_has_zero_everywhere(self):
@@ -1218,6 +1350,22 @@ class TestTimetableOverviewCapacityHours:
         )
 
 
+def _lookup(mapping):
+    return mapping.__getitem__
+
+
+def _subset(mapping):
+    return lambda pks: {pk: mapping[pk] for pk in mapping.keys() & pks}
+
+
+def _stub_warning_reads(uow):
+    uow.sessions.read_facilitators_by_sessions.side_effect = _subset({})
+    uow.sessions.read_participants_limits.side_effect = _subset({})
+    uow.sessions.read_preferred_time_slots_by_sessions.side_effect = _subset({})
+    uow.sessions.list_track_names_by_session.side_effect = _subset({})
+    uow.tracks.list_manager_names_by_tracks.side_effect = _subset({})
+
+
 def _spec_uow(**repos):
     uow = SimpleNamespace(
         atomic=nullcontext,
@@ -1236,13 +1384,25 @@ def _spec_uow(**repos):
 class _FakeAgendaItems:
     def __init__(self, *items):
         self.rows = {item.pk: item for item in items}
+        self.event_pk = 1
+        self.by_track: dict[int, list[AgendaItemDTO]] = {}
+        self.facilitators_by_session: dict[int, set[int]] = {}
         self.created: list[dict] = []
 
     def list_by_event(self, event_pk, facilitator_pks=None):
-        return list(self.rows.values())
+        return [
+            item
+            for item in self.rows.values()
+            if event_pk == self.event_pk
+            and (
+                not facilitator_pks
+                or self.facilitators_by_session.get(item.session_id, set())
+                & facilitator_pks
+            )
+        ]
 
     def list_by_track(self, track_pk):
-        return list(self.rows.values())
+        return list(self.by_track.get(track_pk, []))
 
     def read_by_session(self, session_pk):
         return next(
@@ -1270,7 +1430,11 @@ class _FakeScheduleChangeLogs:
 
     def latest_pk_for_session(self, event_pk, session_id):
         return max(
-            (log.pk for log in self.rows.values() if log.session_id == session_id),
+            (
+                log.pk
+                for log in self.rows.values()
+                if log.event_id == event_pk and log.session_id == session_id
+            ),
             default=None,
         )
 
@@ -1278,10 +1442,11 @@ class _FakeScheduleChangeLogs:
 class _FakeTimeSlots:
     def __init__(self, *slots):
         self.rows = list(slots)
+        self.event_pk = 1
         self.created: list[tuple] = []
 
     def list_by_event(self, event_id):
-        return list(self.rows)
+        return [slot for slot in self.rows if event_id == self.event_pk]
 
     def create(self, event_id, start_time, end_time):
         self.created.append((event_id, start_time, end_time))
@@ -1349,17 +1514,20 @@ def _track(pk, name="Track"):
 class TestSpaceTree:
     @pytest.fixture
     def uow(self):
-        uow = _spec_uow()
-        uow.spaces.list_by_event.return_value = [
-            _space(1),
-            _space(2, parent_id=1),
-            _space(3, parent_id=2),
-            _space(4, parent_id=2),
-            _space(5),
-        ]
-        uow.time_slots.list_by_event.return_value = [_slot(_START, _END)]
-        uow.agenda_items.list_by_event.return_value = []
-        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        uow = _spec_uow(agenda_items=_FakeAgendaItems())
+        uow.spaces.list_by_event.side_effect = _lookup(
+            {
+                1: [
+                    _space(1),
+                    _space(2, parent_id=1),
+                    _space(3, parent_id=2),
+                    _space(4, parent_id=2),
+                    _space(5),
+                ]
+            }
+        )
+        uow.time_slots.list_by_event.side_effect = _lookup({1: [_slot(_START, _END)]})
+        _stub_warning_reads(uow)
         return uow
 
     def test_filter_options_follow_the_tree_with_depths(self, uow):
@@ -1374,7 +1542,7 @@ class TestSpaceTree:
         ]
 
     def test_the_tree_is_read_once_per_service(self, uow):
-        tree = uow.spaces.list_by_event.return_value
+        tree = uow.spaces.list_by_event(1)
         uow.spaces.list_by_event.side_effect = [tree, []]
         service = _timetable_service(uow)
 
@@ -1382,6 +1550,62 @@ class TestSpaceTree:
         grid = service.build_grid(event_pk=1, tz=UTC)
 
         assert [space.pk for space in grid.spaces] == [3, 4, 5]
+
+    def test_leaf_columns_group_under_their_parent(self, uow):
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert grid.groups == [
+            SpaceGroupDTO(parent_pk=2, parent_name="Room 2", span=2),
+            SpaceGroupDTO(parent_pk=None, parent_name="", span=1),
+        ]
+        assert (grid.page, grid.total_pages, grid.total_spaces) == (1, 1, 3)
+
+    def test_rooms_are_paged_five_at_a_time_from_the_first(self, uow):
+        uow.spaces.list_by_event.side_effect = _lookup(
+            {1: [_space(pk) for pk in range(1, 8)]}
+        )
+        service = _timetable_service(uow)
+
+        first = service.build_grid(event_pk=1, tz=UTC)
+        second = service.build_grid(event_pk=1, tz=UTC, space_page=2)
+
+        assert [
+            (
+                grid.page,
+                grid.total_pages,
+                grid.total_spaces,
+                grid.first_space_number,
+                grid.last_space_number,
+                [space.pk for space in grid.spaces],
+            )
+            for grid in (first, second)
+        ] == [(1, 2, 7, 1, 5, [1, 2, 3, 4, 5]), (2, 2, 7, 6, 7, [6, 7])]
+
+    def test_a_booking_renders_in_its_rooms_column(self, uow):
+        uow.agenda_items.rows = {1: _make_item(space_id=4)}
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert [
+            [pos.agenda_item.session_title for pos in column.sessions]
+            for column in grid.days[0].columns
+        ] == [[], ["Session"], []]
+
+    def test_the_facilitator_filter_narrows_the_shown_sessions(self, uow):
+        uow.agenda_items.rows = {
+            1: _make_item(pk=1, session_id=1, space_id=3, session_title="Mine"),
+            2: _make_item(pk=2, session_id=2, space_id=4, session_title="Theirs"),
+        }
+        uow.agenda_items.facilitators_by_session = {1: {7}, 2: {8}}
+
+        grid = _timetable_service(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
+        )
+
+        assert [
+            [pos.agenda_item.session_title for pos in column.sessions]
+            for column in grid.days[0].columns
+        ] == [["Mine"], [], []]
 
     def test_selecting_a_branch_keeps_every_leaf_beneath_it(self, uow):
         grid = _timetable_service(uow).build_grid(
@@ -1399,9 +1623,13 @@ class TestSpaceTree:
         assert grid.total_pages == 1
 
     def test_without_time_slots_there_are_no_days(self, uow):
-        uow.time_slots.list_by_event.return_value = []
+        uow.time_slots.list_by_event.side_effect = _lookup({1: []})
 
-        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+        grid = _timetable_service(uow).build_grid(
+            event_pk=1,
+            tz=UTC,
+            filters=TimetableGridFilter(date_selection=_START.date()),
+        )
 
         assert grid.days == []
         assert grid.total_columns == 0
@@ -1440,7 +1668,7 @@ class TestAssignSessionRejections:
             publication_time=_START + timedelta(hours=1),
         )
         uow.sessions.read_event.return_value = published
-        uow.events.read.return_value = published
+        uow.events.read.side_effect = _lookup({1: published})
 
         with pytest.raises(PlacementRejectedError) as excinfo:
             _timetable_service(uow).assign_session(
@@ -1448,7 +1676,29 @@ class TestAssignSessionRejections:
             )
 
         assert excinfo.value.reason is PlacementRejection.BEFORE_PUBLICATION
+        assert str(excinfo.value) == (
+            "start_time is before the event's publication_time; move the "
+            "publication first (update_event)"
+        )
         assert uow.agenda_items.created == []
+
+    def test_a_drop_covered_by_adjacent_slots_leaves_the_event_alone(self, uow):
+        published = _event(
+            start_time=_START + timedelta(days=1),
+            publication_time=_START + timedelta(hours=1),
+        )
+        uow.sessions.read_event.return_value = published
+        uow.events.read.side_effect = _lookup({1: published})
+        middle = _START + timedelta(minutes=30)
+        uow.time_slots.rows = [_slot_from(1, _START, hours=0.5), _slot(middle, _END)]
+
+        _timetable_service(uow).assign_session(
+            session_pk=1, placement=self._placement(), event_pk=1
+        )
+
+        assert [item["session_id"] for item in uow.agenda_items.created] == [1]
+        assert uow.time_slots.created == []
+        uow.events.update.assert_not_called()
 
     def test_a_drop_away_from_every_slot_opens_its_own_window(self, uow):
         far = _slot_from(1, _START + timedelta(days=1), hours=1)
@@ -1495,8 +1745,8 @@ class TestRevertChangeOutcomes:
             agenda_items=_FakeAgendaItems(),
             schedule_change_logs=_FakeScheduleChangeLogs(),
         )
-        uow.sessions.read.return_value = _session()
-        uow.sessions.read_event.return_value = _event()
+        uow.sessions.read.side_effect = _lookup({1: _session()})
+        uow.sessions.read_event.side_effect = _lookup({1: _event()})
         return uow
 
     @staticmethod
@@ -1515,7 +1765,9 @@ class TestRevertChangeOutcomes:
             2: _schedule_log(pk=2, action=ScheduleChangeAction.UNASSIGN),
         }
 
-        with pytest.raises(ValueError, match="Only the latest change"):
+        with pytest.raises(
+            ValueError, match=r"^Only the latest change for a session can be reverted$"
+        ):
             self._revert(uow, log_pk=1)
 
         assert uow.schedule_change_logs.created == []
@@ -1528,6 +1780,7 @@ class TestRevertChangeOutcomes:
 
         self._revert(uow)
 
+        uow.sessions.lock.assert_called_once_with(1)
         assert uow.agenda_items.rows == {}
         assert uow.schedule_change_logs.created == [
             {
@@ -1582,12 +1835,23 @@ class TestRevertChangeOutcomes:
             }
         ]
 
-    def test_an_unassign_without_its_old_placement_cannot_revert(self, uow):
+    @pytest.mark.parametrize(
+        "missing", ("old_space_id", "old_start_time", "old_end_time")
+    )
+    def test_an_unassign_missing_any_part_of_its_placement_cannot_revert(
+        self, uow, missing
+    ):
+        placement = {"old_space_id": 3, "old_start_time": _START, "old_end_time": _END}
         uow.schedule_change_logs.rows = {
-            1: _schedule_log(action=ScheduleChangeAction.UNASSIGN, old_space_id=3)
+            1: _schedule_log(
+                action=ScheduleChangeAction.UNASSIGN, **(placement | {missing: None})
+            )
         }
 
-        with pytest.raises(ValueError, match="missing original placement"):
+        with pytest.raises(
+            ValueError,
+            match=r"^Cannot revert UNASSIGN: missing original placement data$",
+        ):
             self._revert(uow)
 
         assert uow.agenda_items.created == []
@@ -1613,10 +1877,7 @@ class TestDetectForAssignment:
             )
         )
         uow.spaces.list_by_event.return_value = [_space(1)]
-        uow.sessions.read_facilitators_by_sessions.return_value = {}
-        uow.sessions.read_participants_limits.return_value = {}
-        uow.sessions.list_track_names_by_session.return_value = {}
-        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        _stub_warning_reads(uow)
         return uow
 
     def test_reports_the_placed_sessions_clashes(self, uow):
@@ -1627,6 +1888,31 @@ class TestDetectForAssignment:
         assert [(c.type, c.subject_session_pk, c.session_pk) for c in conflicts] == [
             (ConflictType.SPACE_OVERLAP, 10, 20)
         ]
+
+    def test_reports_a_room_too_small_for_the_session(self, uow):
+        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
+        uow.spaces.list_by_event.return_value = [_space(1, capacity=_ROOM_CAPACITY)]
+        uow.sessions.read_participants_limits.side_effect = _subset(
+            {10: _SESSION_LIMIT}
+        )
+
+        conflicts = _conflict_service(uow).detect_for_assignment(
+            event_pk=1, session_pk=10
+        )
+
+        assert [(c.type, c.space_capacity, c.session_limit) for c in conflicts] == [
+            (ConflictType.CAPACITY_EXCEEDED, _ROOM_CAPACITY, _SESSION_LIMIT)
+        ]
+
+    def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self, uow):
+        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
+        uow.spaces.list_by_event.return_value = [_space(1, capacity=0)]
+
+        conflicts = _conflict_service(uow).detect_for_assignment(
+            event_pk=1, session_pk=10
+        )
+
+        assert not conflicts
 
     def test_an_unscheduled_session_is_not_found(self, uow):
         with pytest.raises(NotFoundError):
@@ -1643,36 +1929,66 @@ class TestTrackAttribution:
                 _make_item(pk=2, session_id=20, space_id=2, session_title="Theirs"),
             )
         )
+        uow.agenda_items.by_track = {3: [uow.agenda_items.rows[1]]}
         uow.spaces.list_by_event.return_value = [_space(1), _space(2)]
-        uow.sessions.read_facilitators_by_sessions.return_value = {
-            10: [shared],
-            20: [shared],
-        }
-        uow.sessions.read_participants_limits.return_value = {}
-        uow.sessions.list_track_names_by_session.return_value = {
-            20: {5: "Zeta", 3: "Alpha"}
-        }
-        uow.tracks.list_manager_names_by_tracks.return_value = {3: ["Ann"]}
-        uow.tracks.read.return_value = _track(3)
+        _stub_warning_reads(uow)
+        uow.sessions.read_facilitators_by_sessions.side_effect = _subset(
+            {10: [shared], 20: [shared]}
+        )
+        uow.sessions.list_track_names_by_session.side_effect = _subset(
+            {20: {3: "Zeta", 5: "Alpha"}}
+        )
+        uow.tracks.list_manager_names_by_tracks.side_effect = _subset({5: ["Ann"]})
+        uow.tracks.read.side_effect = _lookup({3: _track(3)})
         return uow
 
     def test_a_facilitator_clash_names_the_other_sessions_track(self, uow):
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
-        assert [(c.type, c.track_name, c.manager_names) for c in conflicts] == [
-            (ConflictType.FACILITATOR_OVERLAP, "Alpha", ["Ann"])
+        assert [
+            (c.type, c.facilitator_name, c.track_name, c.manager_names)
+            for c in conflicts
+        ] == [(ConflictType.FACILITATOR_OVERLAP, "Alice", "Alpha", ["Ann"])]
+
+    def test_a_foreign_track_without_managers_is_still_named(self, uow):
+        uow.tracks.list_manager_names_by_tracks.side_effect = _subset({})
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert [(c.track_name, c.manager_names) for c in conflicts] == [("Alpha", [])]
+
+    def test_only_facilitator_clashes_are_attributed(self, uow):
+        uow.agenda_items.rows[2] = _make_item(
+            pk=2, session_id=20, space_id=1, session_title="Theirs"
+        )
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert [(c.type, c.track_name) for c in conflicts] == [
+            (ConflictType.SPACE_OVERLAP, None),
+            (ConflictType.FACILITATOR_OVERLAP, "Alpha"),
         ]
 
     def test_the_current_track_is_never_named_as_foreign(self, uow):
-        uow.sessions.list_track_names_by_session.return_value = {20: {3: "Alpha"}}
+        uow.sessions.list_track_names_by_session.side_effect = _subset(
+            {20: {3: "Alpha"}}
+        )
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=3)
 
         assert [(c.track_name, c.manager_names) for c in conflicts] == [(None, [])]
 
+    def test_a_track_listing_only_reports_its_own_sessions_clashes(self, uow):
+        uow.agenda_items.rows[3] = _make_item(pk=3, session_id=30, space_id=9)
+        uow.agenda_items.rows[4] = _make_item(pk=4, session_id=40, space_id=9)
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=3)
+
+        assert [(c.subject_session_pk, c.session_pk) for c in conflicts] == [(10, 20)]
+
     def test_a_foreign_track_is_not_found(self, uow):
-        uow.tracks.read.return_value = TrackDTO(
-            **(_track(3).model_dump() | {"event_id": 2})
+        uow.tracks.read.side_effect = _lookup(
+            {3: TrackDTO(**(_track(3).model_dump() | {"event_id": 2}))}
         )
 
         with pytest.raises(NotFoundError):
@@ -1682,33 +1998,94 @@ class TestTrackAttribution:
 class TestPreferredSlotViolations:
     @pytest.fixture
     def uow(self):
-        inside = _make_item(pk=1, session_id=10, session_title="Inside")
+        free = _make_item(pk=1, session_id=30, session_title="Free")
+        inside = _make_item(pk=2, session_id=10, session_title="Inside")
         outside = _make_item(
-            pk=2,
+            pk=3,
             session_id=20,
             session_title="Outside",
             start_time=_START + timedelta(hours=5),
             end_time=_END + timedelta(hours=5),
         )
-        uow = _spec_uow(agenda_items=_FakeAgendaItems(inside, outside))
-        uow.sessions.read_preferred_time_slots_by_sessions.return_value = {
-            10: [_slot(_START, _END)],
-            20: [_slot(_START, _END)],
-        }
-        uow.sessions.list_track_names_by_session.return_value = {}
-        uow.tracks.list_manager_names_by_tracks.return_value = {}
-        uow.tracks.read.return_value = _track(3)
+        elsewhere = _make_item(
+            pk=4,
+            session_id=40,
+            session_title="Elsewhere",
+            start_time=_START + timedelta(hours=5),
+            end_time=_END + timedelta(hours=5),
+        )
+        uow = _spec_uow(agenda_items=_FakeAgendaItems(free, inside, outside, elsewhere))
+        uow.agenda_items.by_track = {3: [free, inside, outside]}
+        _stub_warning_reads(uow)
+        uow.sessions.read_preferred_time_slots_by_sessions.side_effect = _subset(
+            {
+                10: [_slot(_START, _END)],
+                20: [_slot(_START, _END)],
+                40: [_slot(_START, _END)],
+            }
+        )
+        uow.tracks.read.side_effect = _lookup({3: _track(3)})
         return uow
 
-    @pytest.mark.parametrize("track_pk", (None, 3))
-    def test_only_sessions_outside_their_picks_are_reported(self, uow, track_pk):
+    @pytest.mark.parametrize(
+        ("track_pk", "titles"), ((None, ["Outside", "Elsewhere"]), (3, ["Outside"]))
+    )
+    def test_only_sessions_outside_their_picks_are_reported(
+        self, uow, track_pk, titles
+    ):
         violations = _conflict_service(uow).list_preferred_slot_violations(
             event_pk=1, track_pk=track_pk
         )
 
         assert [(v.session_title, v.track_name) for v in violations] == [
-            ("Outside", None)
+            (title, None) for title in titles
         ]
+
+    def test_a_violation_names_the_sessions_foreign_track(self, uow):
+        uow.sessions.list_track_names_by_session.side_effect = _subset(
+            {20: {3: "Alpha", 5: "Beta"}}
+        )
+        uow.tracks.list_manager_names_by_tracks.side_effect = _subset({5: ["Bob"]})
+
+        violations = _conflict_service(uow).list_preferred_slot_violations(
+            event_pk=1, track_pk=3
+        )
+
+        assert [(v.session_pk, v.track_name, v.manager_names) for v in violations] == [
+            (20, "Beta", ["Bob"])
+        ]
+
+
+class TestListGridWarnings:
+    def test_warnings_are_about_the_tracks_sessions_and_name_foreign_tracks(self):
+        shared = _facilitator(7)
+        mine = _make_item(pk=1, session_id=10, space_id=1, session_title="Mine")
+        theirs = _make_item(pk=2, session_id=20, space_id=2, session_title="Theirs")
+        uow = _spec_uow(agenda_items=_FakeAgendaItems(mine, theirs))
+        uow.agenda_items.by_track = {3: [mine]}
+        _stub_warning_reads(uow)
+        uow.sessions.read_facilitators_by_sessions.side_effect = _subset(
+            {10: [shared], 20: [shared]}
+        )
+        far = _slot(_START + timedelta(days=1), _END + timedelta(days=1))
+        uow.sessions.read_preferred_time_slots_by_sessions.side_effect = _subset(
+            {10: [far], 20: [far]}
+        )
+        uow.sessions.list_track_names_by_session.side_effect = _subset(
+            {10: {3: "Alpha"}, 20: {3: "Alpha"}}
+        )
+        uow.tracks.list_manager_names_by_tracks.side_effect = _subset({3: ["Ann"]})
+        uow.tracks.read.side_effect = _lookup({3: _track(3)})
+
+        conflicts, violations = _conflict_service(uow).list_grid_warnings(
+            event_pk=1, track_pk=3, items=[mine, theirs], spaces=[_space(1), _space(2)]
+        )
+
+        assert [
+            (c.type, c.subject_session_pk, c.session_pk, c.track_name)
+            for c in conflicts
+        ] == [(ConflictType.FACILITATOR_OVERLAP, 10, 20, None)]
+        assert [(v.session_pk, v.track_name) for v in violations] == [(10, None)]
 
 
 class TestOverviewConflicts:
@@ -1720,12 +2097,9 @@ class TestOverviewConflicts:
                 _make_item(pk=2, session_id=20, space_id=3, session_title="Theirs"),
             )
         )
-        uow.spaces.list_by_event.return_value = [_space(3)]
-        uow.time_slots.list_by_event.return_value = [_slot(_START, _END)]
-        uow.sessions.read_facilitators_by_sessions.return_value = {}
-        uow.sessions.read_participants_limits.return_value = {}
-        uow.sessions.list_track_names_by_session.return_value = {}
-        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        uow.spaces.list_by_event.side_effect = _lookup({1: [_space(3)]})
+        uow.time_slots.list_by_event.side_effect = _lookup({1: [_slot(_START, _END)]})
+        _stub_warning_reads(uow)
         return uow
 
     def test_heatmap_detects_conflicts_when_none_are_handed_in(self, uow):
@@ -1734,7 +2108,9 @@ class TestOverviewConflicts:
         assert [c.status for c in result.rows[0].cells] == [HeatmapCellStatus.CONFLICT]
 
     def test_heatmap_ignores_bookings_on_branch_spaces(self, uow):
-        uow.spaces.list_by_event.return_value = [_space(1), _space(3, parent_id=1)]
+        uow.spaces.list_by_event.side_effect = _lookup(
+            {1: [_space(1), _space(3, parent_id=1)]}
+        )
         uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
 
         result = _overview_service(uow).build_heatmap(event_pk=1, tz=UTC, conflicts=[])
@@ -1742,9 +2118,9 @@ class TestOverviewConflicts:
         assert [c.status for c in result.rows[0].cells] == [HeatmapCellStatus.EMPTY]
 
     def test_heatmap_rounds_a_partial_last_hour_up(self, uow):
-        uow.time_slots.list_by_event.return_value = [
-            _slot(_START, _END + timedelta(minutes=30))
-        ]
+        uow.time_slots.list_by_event.side_effect = _lookup(
+            {1: [_slot(_START, _END + timedelta(minutes=30))]}
+        )
 
         result = _overview_service(uow).build_heatmap(event_pk=1, tz=UTC, conflicts=[])
 
@@ -1792,13 +2168,19 @@ class TestTrackProgress:
 
     def test_progress_is_measured_against_the_active_pool(self):
         uow = _spec_uow()
-        uow.tracks.list_by_event.return_value = [_track(1, "Busy"), _track(2, "Empty")]
-        uow.sessions.count_by_track.return_value = {
-            1: TrackSessionCountsDTO(
-                pending=1, accepted=3, scheduled=2, on_hold=1, rejected=5
-            )
-        }
-        uow.tracks.list_manager_names_by_tracks.return_value = {1: ["Ann"]}
+        uow.tracks.list_by_event.side_effect = _lookup(
+            {1: [_track(1, "Busy"), _track(2, "Empty")]}
+        )
+        uow.sessions.count_by_track.side_effect = _lookup(
+            {
+                1: {
+                    1: TrackSessionCountsDTO(
+                        pending=1, accepted=3, scheduled=2, on_hold=1, rejected=5
+                    )
+                }
+            }
+        )
+        uow.tracks.list_manager_names_by_tracks.side_effect = _subset({1: ["Ann"]})
 
         assert _overview_service(uow).track_progress(event_pk=1) == [
             TrackProgressDTO(

@@ -27,6 +27,9 @@ class TestMergeCustom:
             is_multiple=True,
         ) == ["przyciemnione światło, ściszone dźwięki", "brak migających świateł"]
 
+    def test_multiple_with_nothing_chosen_holds_only_the_write_in(self):
+        assert merge_custom(chosen=None, custom="krew", is_multiple=True) == ["krew"]
+
     def test_multiple_does_not_repeat_a_chosen_option(self):
         assert merge_custom(chosen=["horror"], custom="horror", is_multiple=True) == [
             "horror"
@@ -45,6 +48,12 @@ class TestMergeCustom:
 
 
 class TestSplitStored:
+    def test_single_known_value_is_the_selected_option(self):
+        assert split_stored(stored="horror", known={"horror"}, is_multiple=False) == (
+            "horror",
+            "",
+        )
+
     def test_single_write_in_leaves_no_option_selected(self):
         assert split_stored(stored="krew", known={"horror"}, is_multiple=False) == (
             "",

@@ -21,6 +21,7 @@ from ludamus.pacts.tracks import (
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 42
+SPHERE_ID = 3
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 
 
@@ -195,20 +196,18 @@ def _space(pk):
 
 class FakeSpaces:
     def __init__(self, pks):
-        self.pks = list(pks)
+        self.by_event = {EVENT_PK: [_space(pk) for pk in pks]}
 
     def list_by_event(self, event_pk):
-        del event_pk
-        return [_space(pk) for pk in self.pks]
+        return self.by_event.get(event_pk, [])
 
 
 class FakeSpheres:
     def __init__(self, pks):
-        self.pks = list(pks)
+        self.by_sphere = {SPHERE_ID: [_user(pk) for pk in pks]}
 
     def list_managers(self, sphere_id):
-        del sphere_id
-        return [_user(pk) for pk in self.pks]
+        return self.by_sphere.get(sphere_id, [])
 
 
 class FakeTracks:
@@ -240,18 +239,18 @@ class FakeTracks:
     def delete(self, pk):
         del self.rows[pk]
 
+    def _tracks_of(self, event_pk):
+        return [row for row in self.rows.values() if row[0].event_id == event_pk]
+
     def read_by_slug(self, event_pk, slug):
-        del event_pk
-        for track, _spaces, _managers in self.rows.values():
+        for track, _spaces, _managers in self._tracks_of(event_pk):
             if track.slug == slug:
                 return track
         raise NotFoundError
 
     def find_by_event_and_name(self, event_pk, name):
-        del event_pk
-        return next(
-            (track for track, _s, _m in self.rows.values() if track.name == name), None
-        )
+        tracks = (track for track, _s, _m in self._tracks_of(event_pk))
+        return next((track for track in tracks if track.name == name), None)
 
     def list_space_pks(self, pk):
         return self.rows[pk][1]
@@ -260,11 +259,9 @@ class FakeTracks:
         return self.rows[pk][2]
 
     def list_space_pks_by_event(self, event_pk):
-        del event_pk
-        return {pk: spaces for pk, (_t, spaces, _m) in self.rows.items()}
+        return {track.pk: spaces for track, spaces, _m in self._tracks_of(event_pk)}
 
     def list_by_event_with_assignments(self, event_pk):
-        del event_pk
         return [
             TrackListItemDTO(
                 pk=track.pk,
@@ -274,7 +271,7 @@ class FakeTracks:
                 space_names=[_space(pk).name for pk in spaces],
                 manager_names=[_user(pk).username for pk in managers],
             )
-            for track, spaces, managers in self.rows.values()
+            for track, spaces, managers in self._tracks_of(event_pk)
         ]
 
 
@@ -396,4 +393,9 @@ class TestTracksPanelServiceOutcomes:
         assert [m.pk for m in form.managers] == [7, 8]
         assert (edit_form.spaces, edit_form.managers) == (form.spaces, form.managers)
         assert edit_form.track == track
+        assert (edit.spaces, edit.managers, edit.track) == (
+            form.spaces,
+            form.managers,
+            track,
+        )
         assert (edit.selected_space_pks, edit.selected_manager_pks) == ([1, 2], [8])

@@ -26,7 +26,7 @@ class _SpaceTree:
         # The schedule filters a session by its room or by the room's direct
         # parent (`venue:<pk>`), the same two facts its cards carry. A venue
         # whose rooms sit deeper has no filter, so its node stays plain text.
-        if not (children := self.children.get(pk, [])):
+        if not (children := self.children.get(pk)):
             return str(pk)
         if all(not self.children.get(child) for child in children):
             return f"venue:{pk}"

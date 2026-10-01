@@ -23,6 +23,7 @@ class FakeSubscriptionsRepo:
         self.pending = list(pending)
         self.announced: list[tuple[int, datetime]] = []
         self.subscribed: set[tuple[int, int]] = set()
+        self.swept_at: list[datetime] = []
 
     def subscribe(self, *, sphere_id, user_id):
         self.subscribed.add((sphere_id, user_id))
@@ -31,7 +32,7 @@ class FakeSubscriptionsRepo:
         self.subscribed.discard((sphere_id, user_id))
 
     def list_pending_announcements(self, *, now):
-        del now
+        self.swept_at.append(now)
         return self.pending
 
     def mark_announced(self, event_pk, *, at):
@@ -51,24 +52,27 @@ def _card(n, *, role):
 class FakeDashboardRepo:
     # Every section has more rows than its limit, so the read shows which
     # limit it hands each one.
+    def __init__(self):
+        self.asked: list[tuple[str, int, datetime]] = []
+
     def list_agenda(self, user_id, *, now):
-        del user_id, now
+        self.asked.append(("agenda", user_id, now))
         return [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
 
     def list_bookmarks(self, user_id, *, now):
-        del user_id, now
+        self.asked.append(("bookmarks", user_id, now))
         return [_card(n, role=DashboardRole.OPEN) for n in range(AGENDA_ROWS)]
 
     def list_open_encounters(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("open_encounters", user_id, now))
         return [_card(n, role=DashboardRole.OPEN) for n in range(limit)]
 
     def list_sphere_feed(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("sphere_feed", user_id, now))
         return [_card(n, role=DashboardRole.ORGANIZING) for n in range(limit)]
 
     def list_spheres_to_discover(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("discover", user_id, now))
         return [
             DashboardSphereDTO(pk=n, name=f"Sphere {n}", url=f"/s/{n}")
             for n in range(limit)
@@ -110,6 +114,7 @@ class TestSphereSubscriptionService:
         announced = _service(repo, notifier).announce_published_events(now=NOW)
 
         assert announced == 1
+        assert repo.swept_at == [NOW]
         assert repo.announced == [(7, NOW)]
         assert not notifier.sent
 
@@ -146,8 +151,20 @@ class TestSphereSubscriptionService:
 
 class TestDashboardService:
     def test_read_caps_every_section_but_the_agenda(self):
-        dashboard = DashboardService(FakeDashboardRepo()).read(user_id=USER_ID, now=NOW)
+        repo = FakeDashboardRepo()
 
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert repo.asked == [
+            (section, USER_ID, NOW)
+            for section in (
+                "agenda",
+                "bookmarks",
+                "open_encounters",
+                "sphere_feed",
+                "discover",
+            )
+        ]
         assert len(dashboard.agenda) == AGENDA_ROWS
         assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
         assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED

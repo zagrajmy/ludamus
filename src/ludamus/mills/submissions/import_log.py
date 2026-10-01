@@ -1,12 +1,12 @@
 """Import-log operations: list entries, retry or reimport a logged row."""
 
-import json
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.engine import ImportEngine
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
     decode_response,
+    encode_response,
     extract_identity,
     locate_row,
 )
@@ -174,7 +174,7 @@ class ImportLogService:
                         row_index=target_idx,
                         status=ImportLogStatus.SKIPPED,
                         reason=str(exc),
-                        response_json=json.dumps(target_row.data, ensure_ascii=False),
+                        response_json=encode_response(target_row.data),
                         title=title,
                         display_name=display_name,
                         session_id=entry.session_id,
@@ -186,7 +186,7 @@ class ImportLogService:
                     integration_id=integration.pk,
                     row_index=target_idx,
                     status=ImportLogStatus.SUCCESS,
-                    response_json=json.dumps(target_row.data, ensure_ascii=False),
+                    response_json=encode_response(target_row.data),
                     title=title,
                     display_name=display_name,
                     session_id=entry.session_id,

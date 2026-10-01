@@ -101,19 +101,15 @@ def _position_sessions(
         return []
 
     groups: list[list[AgendaItemDTO]] = []
-    current_group: list[AgendaItemDTO] = []
     group_end: datetime | None = None
 
     for item in items:
         if group_end is None or item.start_time >= group_end:
-            if current_group:
-                groups.append(current_group)
-            current_group = [item]
+            groups.append([item])
             group_end = item.end_time
         else:
-            current_group.append(item)
+            groups[-1].append(item)
             group_end = max(group_end, item.end_time)
-    groups.append(current_group)
 
     positions: list[SessionPositionDTO] = []
     for group in groups:
@@ -206,18 +202,18 @@ class TimetableService(TimetableServiceProtocol):
     def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
         self._transaction = transaction
         self._repos = repos
-        self._walked_event_pk: int | None = None
-        self._walked: list[tuple[SpaceDTO, int]] = []
+        self._walked: dict[int, list[tuple[SpaceDTO, int]]] = {}
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
         # The page builds the grid and the space filter's options from the same
         # tree; the instance lives for one request and sees one event, so read
         # and walk it once. Nothing this service writes touches spaces, so
         # there is nothing to invalidate.
-        if self._walked_event_pk != event_pk:
-            self._walked = _walk_tree(self._repos.spaces.list_by_event(event_pk))
-            self._walked_event_pk = event_pk
-        return self._walked
+        if event_pk not in self._walked:
+            self._walked[event_pk] = _walk_tree(
+                self._repos.spaces.list_by_event(event_pk)
+            )
+        return self._walked[event_pk]
 
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
         return [
@@ -419,7 +415,7 @@ class TimetableService(TimetableServiceProtocol):
                 groups.append(
                     SpaceGroupDTO(
                         parent_pk=parent_pk,
-                        parent_name=name_by_pk.get(parent_pk, "") if parent_pk else "",
+                        parent_name=name_by_pk[parent_pk] if parent_pk else "",
                         span=0,
                     )
                 )
@@ -477,12 +473,15 @@ class TimetableService(TimetableServiceProtocol):
         # Stretch the first touched slot back to the placement's start and
         # the last one out to its end; the ones between close their gaps so
         # the windows merge into one that holds the whole placement.
-        first, *rest = touched
-        reaches = [slot.start_time for slot in rest] + [placement.end_time]
-        for slot, reach in zip(touched, reaches, strict=True):
+        for index, slot in enumerate(touched):
+            reach = (
+                touched[index + 1].start_time
+                if index + 1 < len(touched)
+                else placement.end_time
+            )
             start = (
                 min(slot.start_time, placement.start_time)
-                if slot is first
+                if index == 0
                 else slot.start_time
             )
             end = max(slot.end_time, reach)
@@ -491,15 +490,16 @@ class TimetableService(TimetableServiceProtocol):
 
     @staticmethod
     def _require_placeable(placement: SessionPlacement) -> None:
-        if (
-            placement.start_time.utcoffset() is None
-            or placement.end_time.utcoffset() is None
-        ):
+        TimetableService._require_aware(placement.start_time, placement.end_time)
+
+    @staticmethod
+    def _require_aware(start_time: datetime, end_time: datetime) -> None:
+        if start_time.utcoffset() is None or end_time.utcoffset() is None:
             raise PlacementRejectedError(
                 PlacementRejection.NAIVE_DATETIME,
                 "placement datetimes must include a timezone",
             )
-        if placement.end_time <= placement.start_time:
+        if end_time <= start_time:
             raise PlacementRejectedError(
                 PlacementRejection.END_NOT_AFTER_START,
                 "end_time must be after start_time",
@@ -619,15 +619,10 @@ class TimetableService(TimetableServiceProtocol):
                 ):
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
-                restored = SessionPlacement(
-                    space_pk=log.old_space_id,
-                    start_time=log.old_start_time,
-                    end_time=log.old_end_time,
-                )
                 # Undo restores a placement that was legitimate when it was
                 # made, so the time-slot windows are not re-checked here: a
                 # window edited afterwards must not strand the change log.
-                self._require_placeable(restored)
+                self._require_aware(log.old_start_time, log.old_end_time)
                 self._require_accepted(log.session_id)
                 self._repos.agenda_items.create(
                     {
@@ -832,7 +827,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 session_title=other.session_title,
                 session_pk=other.session_id,
             )
-            for other in items_by_space.get(item.space_id, [])
+            for other in items_by_space[item.space_id]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 
@@ -875,7 +870,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             # person, so its parallel program points are not a clash.
             for facilitator in facilitators_by_session.get(item.session_id, [])
             if not facilitator.is_collective
-            for other in items_by_facilitator.get(facilitator.pk, [])
+            for other in items_by_facilitator[facilitator.pk]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 
@@ -967,7 +962,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
 
         violating: list[tuple[AgendaItemDTO, list[TimeSlotDTO]]] = []
         for item in scheduled:
-            if not (preferred := preferred_by_session.get(item.session_id, [])):
+            if not (preferred := preferred_by_session.get(item.session_id)):
                 continue
             if any(
                 start <= item.start_time and end >= item.end_time

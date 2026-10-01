@@ -859,14 +859,25 @@ class TestProposalImportService(_ImportServiceMocks):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"unique_key_columns": ["Timestamp", "Email"],'
-                ' "questions": {"Title": {"to": "session.title"}}}'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Name": {"to": "facilitator.display_name"}}}'
             )
         )
         # First two rows hit no existing session → created. Third row repeats
         # the first row's Timestamp+Email and finds the first row's session →
         # counted as a duplicate, not a failure.
-        row_a = {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Tałk A"}
-        row_b = {"Timestamp": "2026-06-04T10:30", "Email": "b@x.z", "Title": "Talk B"}
+        row_a = {
+            "Timestamp": "2026-06-04T10:00",
+            "Email": "a@x.z",
+            "Title": "Tałk A",
+            "Name": "Ann",
+        }
+        row_b = {
+            "Timestamp": "2026-06-04T10:30",
+            "Email": "b@x.z",
+            "Title": "Talk B",
+            "Name": "Bob",
+        }
         event_integrations.fetch_responses.return_value = _rows(
             [row_a, row_b, row_a, row_b]
         )
@@ -900,7 +911,7 @@ class TestProposalImportService(_ImportServiceMocks):
                     reason="",
                     response_json=_json.dumps(row, ensure_ascii=False),
                     title=row["Title"],
-                    display_name="",
+                    display_name=row["Name"],
                     session_id=session_id,
                 )
             )
@@ -1993,7 +2004,20 @@ class TestImportLogService(_ImportServiceMocks):
         event_integrations.fetch_responses.assert_called_once_with(
             sphere_id=1, event_id=2, pk=3
         )
-        sessions.create.assert_called_once()
+        sessions.create.assert_called_once_with(
+            {
+                "event_id": 2,
+                "status": SessionStatus.PENDING,
+                "title": "Tałk",
+                "description": "",
+                "facilitator_name": "",
+                "participants_limit": 0,
+                "slug": "talk",
+            },
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
         # The entry at (integration_id, row_index) is upserted with the new
         # success state — same row, replaces the prior skipped one.
         log_entries.upsert.assert_called_once_with(
@@ -2545,6 +2569,7 @@ class TestImportLogService(_ImportServiceMocks):
         succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
 
         assert succeeded is True
+        session_fields.read_by_slug.assert_called_once_with(2, "system")
         sessions.save_field_values.assert_called_once_with(
             session_pk,
             [
@@ -2725,6 +2750,7 @@ class TestImportLogService(_ImportServiceMocks):
             pk=3,
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
+                ' "Name": {"to": "facilitator.display_name"},'
                 ' "Cap": {"to": "session.participants_limit"}}}'
             ),
         )
@@ -2733,13 +2759,13 @@ class TestImportLogService(_ImportServiceMocks):
             integration_id=3,
             row_index=0,
             status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Tałk", "Cap": "loads"}',
+            response_json='{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}',
             title="Tałk",
             session_id=session_pk,
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Tałk", "Cap": "loads"}]
+            [{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}]
         )
 
         succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
@@ -2751,9 +2777,55 @@ class TestImportLogService(_ImportServiceMocks):
                 row_index=0,
                 status=ImportLogStatus.SKIPPED,
                 reason="Cap: 'loads' is not an integer",
-                response_json='{"Title": "Tałk", "Cap": "loads"}',
+                response_json='{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}',
                 title="Tałk",
-                display_name="",
+                display_name="Ann",
+                session_id=session_pk,
+            )
+        )
+
+    def test_reimport_entry_locates_the_row_by_its_unique_key(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        session_pk = 42
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"unique_key_columns": ["Title"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Name": {"to": "facilitator.display_name"}}}'
+            ),
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk", "Name": "Ann"}',
+            title="Talk",
+            session_id=session_pk,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Other", "Name": "Bob"}, {"Title": "Talk", "Name": "Ann"}]
+        )
+        sessions.read.return_value = self._empty_session()
+        sessions.read_facilitators.return_value = []
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.update.assert_called_once_with(
+            session_pk, {"title": "Talk", "facilitator_name": "Ann"}
+        )
+        log_entries.upsert.assert_called_once_with(
+            ImportLogEntryCreateData(
+                integration_id=3,
+                row_index=1,
+                status=ImportLogStatus.SUCCESS,
+                response_json='{"Title": "Talk", "Name": "Ann"}',
+                title="Talk",
+                display_name="Ann",
                 session_id=session_pk,
             )
         )

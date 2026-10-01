@@ -719,27 +719,27 @@ def window_slots(
     Returns:
         The slots this window grants, user and domain counted apart.
     """
-    slots = VirtualEnrollmentConfig()
     existing_user_config = enrollment_config_repo.read_user_config(window, user_email)
-    if api_user_config := get_or_create_user_enrollment_config(
+    api_user_config = get_or_create_user_enrollment_config(
         enrollment_config=window,
         user_email=user_email,
         ticket_api=ticket_api,
         existing_user_config=existing_user_config,
         enrollment_config_repo=enrollment_config_repo,
-    ):
-        slots.user_slots += api_user_config.allowed_slots
-    elif existing_user_config:
-        slots.user_slots += existing_user_config.allowed_slots
-
+    )
+    user_config = api_user_config or existing_user_config
     email_domain = user_email.split("@")[1] if "@" in user_email else ""
-    if email_domain and (
-        domain_config := enrollment_config_repo.read_domain_config(window, email_domain)
-    ):
-        slots.domain_slots += domain_config.allowed_slots_per_user
-        if domain_config.allowed_slots_per_user:
-            slots.domain = email_domain
-    return slots
+    domain_config = (
+        enrollment_config_repo.read_domain_config(window, email_domain)
+        if email_domain
+        else None
+    )
+    domain_slots = domain_config.allowed_slots_per_user if domain_config else 0
+    return VirtualEnrollmentConfig(
+        user_slots=user_config.allowed_slots if user_config else 0,
+        domain_slots=domain_slots,
+        domain=email_domain if domain_slots else "",
+    )
 
 
 def sum_window_slots(

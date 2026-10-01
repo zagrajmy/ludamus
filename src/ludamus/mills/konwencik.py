@@ -121,7 +121,7 @@ def _local_span(item: AgendaItemDTO, zone: tzinfo) -> tuple[datetime, datetime] 
 
 def _last_run(integration: EventIntegrationDTO) -> KonwencikLastRun | None:
     try:
-        return KonwencikLastRun.model_validate_json(integration.last_run_json or "{}")
+        return KonwencikLastRun.model_validate_json(integration.last_run_json)
     except ValidationError:
         # Never run, or a blob from an older shape: the sheet is the output.
         return None
@@ -197,7 +197,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         memberships = self._repos.sessions.list_track_names_by_session(
             [item.session_id for item in items if item.session_id in alive]
         )
-        combinations: dict[tuple[int, int | None], None] = {}
+        combinations: list[tuple[int, int | None]] = []
         for item in items:
             if (
                 item.session_id not in alive
@@ -209,8 +209,10 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             track = _first_public_track(tracks, session_tracks)
             if session_tracks and track is None:
                 continue
-            combinations[item.category_id, track.pk if track else None] = None
-        return list(combinations)
+            combination = (item.category_id, track.pk if track else None)
+            if combination not in combinations:
+                combinations.append(combination)
+        return combinations
 
     def save_settings(
         self,

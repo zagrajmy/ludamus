@@ -200,14 +200,14 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 session_id=session_id, event_id=event.pk, session_data=session_data
             )
 
-            if personal_data := wizard_data.get("personal_data", {}):
+            if personal_data := wizard_data.get("personal_data"):
                 self._save_personal_data(
                     event_id=event.pk,
                     personal_data=personal_data,
                     facilitator=facilitator,
                 )
 
-            if track_pks := wizard_data.get("track_pks", []):
+            if track_pks := wizard_data.get("track_pks"):
                 # Track ids come from wizard state, so they are trusted only
                 # after being matched against this event's own public tracks —
                 # a foreign event's track must never be attached.
