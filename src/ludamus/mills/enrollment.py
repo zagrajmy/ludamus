@@ -298,19 +298,40 @@ class WaitlistPromotionService:
         # status + token guard makes claim and expiry race-safe: whichever runs
         # first flips the party out of OFFERED and the other becomes a no-op.
         with self._transaction.atomic():
-            if (offer := self._participations.read_offer_by_token(token)) is None:
-                return ClaimResult(success=False, reason="not_found")
-            if _now() > offer.offer_expires_at:
-                return ClaimResult(
-                    success=False,
-                    reason="expired",
-                    session_id=offer.session_id,
-                    event_slug=offer.event_slug,
+            return self._claim(self._participations.read_offer_by_token(token))
+
+    def claim_member_offer(self, *, user_id: int, session_id: int) -> ClaimResult:
+        # The signed-in route to the same claim: the offer is looked up among
+        # this member's own seats, so a session id alone never reaches anyone
+        # else's.
+        with self._transaction.atomic():
+            result = self._claim(
+                self._participations.read_offer_for_member(
+                    user_id=user_id, session_id=session_id
                 )
-            self._participations.mark_claimed(offer.participant_ids, claimed_at=_now())
-            return ClaimResult(
-                success=True, session_id=offer.session_id, event_slug=offer.event_slug
             )
+        logger.info(
+            "Dashboard offer claim by member %s on session %s: %s",
+            user_id,
+            session_id,
+            "claimed" if result.success else result.reason,
+        )
+        return result
+
+    def _claim(self, offer: OfferDTO | None) -> ClaimResult:
+        if offer is None:
+            return ClaimResult(success=False, reason="not_found")
+        if _now() > offer.offer_expires_at:
+            return ClaimResult(
+                success=False,
+                reason="expired",
+                session_id=offer.session_id,
+                event_slug=offer.event_slug,
+            )
+        self._participations.mark_claimed(offer.participant_ids, claimed_at=_now())
+        return ClaimResult(
+            success=True, session_id=offer.session_id, event_slug=offer.event_slug
+        )
 
     def decline_offer(self, *, token: str) -> ClaimResult:
         # Token-authorised way out: a member turning down a held seat or a

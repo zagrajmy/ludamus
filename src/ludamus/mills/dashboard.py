@@ -38,6 +38,7 @@ class DashboardService(DashboardServiceProtocol):
     def read(self, *, user_id: int, now: datetime) -> DashboardDTO:
         return DashboardDTO(
             agenda=self._dashboard.list_agenda(user_id, now=now),
+            bookmarks=self._dashboard.list_bookmarks(user_id, now=now),
             open_encounters=self._dashboard.list_open_encounters(
                 user_id, now=now, limit=DASHBOARD_OPEN_ENCOUNTERS
             ),

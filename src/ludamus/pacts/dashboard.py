@@ -25,6 +25,9 @@ class DashboardRole(StrEnum):
     """Why a row is on this dashboard — the template's one branch."""
 
     SIGNED_UP = auto()
+    WAITLISTED = auto()
+    # A seat is held for this member until ``offer_expires_at``.
+    OFFERED = auto()
     ORGANIZING = auto()
     OPEN = auto()
 
@@ -43,6 +46,10 @@ class DashboardCardDTO(BaseModel):
     attending_count: int = 0
     # 0 when the thing takes anyone, like a talk with no seat limit.
     capacity: int = 0
+    # Set for OFFERED rows only: when the held seat is released, and the
+    # dashboard action that claims it.
+    offer_expires_at: datetime | None = None
+    claim_url: str = ""
 
     @property
     def spots_remaining(self) -> int | None:
@@ -63,6 +70,8 @@ class DashboardSphereDTO(BaseModel):
 class DashboardDTO(BaseModel):
     # What this member holds, soonest first.
     agenda: list[DashboardCardDTO]
+    # Programme items this member starred but holds no seat at, soonest first.
+    bookmarks: list[DashboardCardDTO]
     # Open encounters anyone may join, across every sphere.
     open_encounters: list[DashboardCardDTO]
     # What is coming up where this member already plays, minus their own rows.
@@ -98,6 +107,8 @@ class SphereEventPublishedNotification(BaseModel):
 class DashboardRepositoryProtocol(Protocol):
     @staticmethod
     def list_agenda(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
+    @staticmethod
+    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
     @staticmethod
     def list_open_encounters(
         user_id: int, *, now: datetime, limit: int

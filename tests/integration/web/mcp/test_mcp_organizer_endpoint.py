@@ -14,6 +14,7 @@ from ludamus.gates.web.django.mcp.tokens import (
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
+    Event,
     EventMap,
     Facilitator,
     ScheduleChangeLog,
@@ -71,6 +72,7 @@ ORGANIZER_TOOL_NAMES = [
     "update_map",
     "set_map_spaces",
     "delete_map",
+    "create_event",
     "get_konwencik_settings",
     "update_konwencik_styles",
     "list_announcements",
@@ -383,22 +385,88 @@ class TestOrganizerTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
 
-    def test_create_event_is_unreachable(self, client, org_token):
+    def test_create_event_writes_token_sphere(self, client, org_token, sphere):
         response = call_org_tool(
             client,
             org_token,
             "create_event",
             {
-                "name": "Bachanalia Fantastyczne 2026",
-                "slug": "bachanalia-2026",
-                "start_time": "2026-09-25T10:00:00+02:00",
-                "end_time": "2026-09-27T18:00:00+02:00",
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
             },
         )
 
-        assert_response(response, HTTPStatus.OK)
-        error = response.json()["error"]
-        assert error == {"code": -32602, "message": "Unknown tool: create_event"}
+        created = json.loads(tool_text(response))
+        new_event = Event.objects.get(pk=created["pk"])
+        assert new_event.sphere_id == sphere.pk
+        assert new_event.slug == "zkf-2026"
+        assert new_event.publication_time is None
+        assert Space.objects.filter(event=new_event).count() == 1
+
+    def test_create_event_refuses_a_sphere_argument(self, client, org_token, sphere):
+        foreign = SphereFactory()
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "sphere_id": foreign.pk,
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: sphere_id: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="zkf-2026").exists()
+
+    def test_create_event_rejects_slug_taken_in_sphere(
+        self, client, org_token, sphere, event
+    ):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Duplicate",
+                "slug": event.slug,
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == f"Slug already taken: {event.slug}"
+        assert Event.objects.filter(sphere=sphere).count() == 1
+
+    def test_create_event_allows_slug_taken_in_another_sphere(
+        self, client, org_token, sphere
+    ):
+        EventFactory(sphere=SphereFactory(), slug="zkf-2026")
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        created = json.loads(tool_text(response))
+        assert Event.objects.get(pk=created["pk"]).sphere_id == sphere.pk
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})

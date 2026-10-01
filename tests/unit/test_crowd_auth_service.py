@@ -3,11 +3,12 @@ from contextlib import contextmanager
 
 import pytest
 
-from ludamus.mills.crowd import CrowdAuthService, LegacyAccountLinker
+from ludamus.mills.crowd import ClaimService, CrowdAuthService, LegacyAccountLinker
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
     AuthenticationDTO,
+    ClaimableProfileDTO,
     ClaimOutcome,
     ClaimResultDTO,
     IdentityDTO,
@@ -17,6 +18,7 @@ from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
 
 SLUG_MAX_LENGTH = 50
+_TOKEN_MIN_LENGTH = 48
 USERNAME = "workos|user_01ME"
 
 
@@ -174,6 +176,86 @@ class FakeSpheres:
         return domain in self._domains
 
 
+class FakeClaimRepo:
+    def __init__(self, *, claimable=None, usernames=(), accept=True):
+        self._claimable = claimable
+        self._usernames = set(usernames)
+        self._accept = accept
+        self.issued = []
+        self.converted = []
+
+    def issue_token(self, *, manager_slug, user_slug, token):
+        self.issued.append((manager_slug, user_slug, token))
+        return self._accept
+
+    def read_claimable(self, token):
+        return self._claimable if token == "valid" else None
+
+    def username_exists(self, username):
+        return username in self._usernames
+
+    def convert(self, *, token, username):
+        if token != "valid":
+            return None
+        self.converted.append((token, username))
+        return self._claimable.slug
+
+
+def _claim_service(repo):
+    return ClaimService(FakeTransaction(), repo)
+
+
+def _claimable():
+    return ClaimableProfileDTO(name="Kid", slug="kid", manager_name="Parent")
+
+
+class TestClaimServiceIssue:
+    def test_returns_a_fresh_token_the_repo_recorded(self):
+        repo = FakeClaimRepo()
+
+        token = _claim_service(repo).issue(manager_slug="parent", user_slug="kid")
+
+        assert token is not None
+        assert len(token) >= _TOKEN_MIN_LENGTH
+        assert repo.issued == [("parent", "kid", token)]
+
+    def test_refused_by_repo_yields_none(self):
+        repo = FakeClaimRepo(accept=False)
+
+        assert _claim_service(repo).issue(manager_slug="parent", user_slug="x") is None
+
+    def test_read_claimable_passes_through(self):
+        service = _claim_service(FakeClaimRepo(claimable=_claimable()))
+
+        assert service.read_claimable("valid") == _claimable()
+        assert service.read_claimable("spent") is None
+
+
+class TestClaimServiceRedeem:
+    def test_recipient_already_has_an_account(self):
+        repo = FakeClaimRepo(claimable=_claimable(), usernames=["auth0|sub"])
+
+        result = _claim_service(repo).redeem(token="valid", username="auth0|sub")
+
+        assert result == ClaimResultDTO(outcome=ClaimOutcome.ALREADY_AUTHENTICATED)
+        assert not repo.converted
+
+    def test_unknown_or_spent_token_is_invalid(self):
+        repo = FakeClaimRepo(claimable=_claimable())
+
+        result = _claim_service(repo).redeem(token="spent", username="auth0|sub")
+
+        assert result == ClaimResultDTO(outcome=ClaimOutcome.INVALID)
+
+    def test_converts_the_profile_row(self):
+        repo = FakeClaimRepo(claimable=_claimable())
+
+        result = _claim_service(repo).redeem(token="valid", username="auth0|sub")
+
+        assert result == ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug="kid")
+        assert repo.converted == [("valid", "auth0|sub")]
+
+
 class FakeIdentity:
     def __init__(self, identity=None):
         self.identity = identity or _identity()
@@ -276,6 +358,17 @@ class TestCompleteLogin:
         assert result.claim_outcome == ClaimOutcome.ALREADY_AUTHENTICATED
         assert result.user.username == USERNAME
 
+    def test_invalid_claim_still_creates_the_account(self):
+        users = FakeUsers()
+        claims = FakeClaims(ClaimResultDTO(outcome=ClaimOutcome.INVALID))
+        service = _service(users=users, claims=claims)
+
+        result = _login(service, claim_token="spent")
+
+        assert result.claim_outcome == ClaimOutcome.INVALID
+        assert result.user.username == USERNAME
+        assert users.created[0]["username"] == USERNAME
+
     def test_no_claim_token_skips_redemption(self):
         claims = FakeClaims()
         service = _service(users=FakeUsers(users=[_user_dto()]), claims=claims)
@@ -336,6 +429,15 @@ class TestSyncIdentity:
         assert transaction.entered == 1
         assert users.updated == [("me", {"name": "New Name"})]
         assert result.user.name == "New Name"
+
+    def test_own_email_is_not_a_collision(self):
+        users = FakeUsers(users=[_user_dto(email="old@example.com")])
+        identity = FakeIdentity(_identity(email="mine@example.com"))
+        service = _service(users=users, identity=identity)
+
+        _login(service)
+
+        assert users.updated == [("me", {"email": "mine@example.com"})]
 
     def test_drops_colliding_email_but_applies_rest(self):
         users = FakeUsers(
@@ -451,3 +553,11 @@ class TestLegacyLinking:
         assert users.updated[0] == ("old", {"username": USERNAME})
         assert claims.redeemed == [("token", USERNAME)]
         assert result.user.slug == "old"
+
+
+class TestIsKnownSphereDomain:
+    def test_answers_from_the_sphere_repo(self):
+        service = _service(users=FakeUsers(), spheres=FakeSpheres(["a.example.com"]))
+
+        assert service.is_known_sphere_domain("a.example.com") is True
+        assert service.is_known_sphere_domain("b.example.com") is False

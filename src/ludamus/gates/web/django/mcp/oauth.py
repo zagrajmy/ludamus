@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.template.response import TemplateResponse
@@ -22,6 +23,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csp import csp_override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
@@ -58,16 +60,16 @@ logger = logging.getLogger(__name__)
 TEMPLATE = "mcp/authorize.html"
 # One slot: a new consent page replaces an abandoned one, and the id pins the
 # decision to the page the user actually saw.
-PENDING_SESSION_KEY = "mcp_oauth_pending"
+# Versioned: bump it whenever `begin` vets more strictly, so a request saved
+# under the older rules reads as expired instead of skipping the new checks.
+PENDING_SESSION_KEY = "mcp_oauth_pending_v2"
 
 _ENDPOINT_URL_NAMES = {
     ToolScope.MAINTAINER: "mcp:endpoint",
     ToolScope.ORGANIZER: "mcp:organizer-endpoint",
 }
-_METADATA_URL_NAMES = {
-    ToolScope.MAINTAINER: "oauth-protected-resource-maintainer",
-    ToolScope.ORGANIZER: "oauth-protected-resource-organizer",
-}
+# RFC 9728 §3.1: a resource's metadata lives at this prefix plus its path.
+RESOURCE_METADATA_PREFIX = "/.well-known/oauth-protected-resource"
 _CLIENT_REJECTIONS: dict[ClientRejection, _StrPromise] = {
     ClientRejection.BAD_CLIENT_ID: _(
         "The client did not identify itself with a metadata document URL."
@@ -102,8 +104,10 @@ def issuer(request: RootRequest) -> str:
     return f"{request.scheme}://{request.get_host()}"
 
 
-def resource_metadata_url(request: RootRequest, scope: ToolScope) -> str:
-    return request.build_absolute_uri(reverse(_METADATA_URL_NAMES[scope]))
+# Both follow the path the client used: a client checks the metadata's
+# resource against the URL it was given.
+def resource_metadata_url(request: RootRequest) -> str:
+    return request.build_absolute_uri(f"{RESOURCE_METADATA_PREFIX}{request.path}")
 
 
 def _resource_url(request: RootRequest, scope: ToolScope) -> str:
@@ -122,7 +126,9 @@ def protected_resource_metadata(request: RootRequest, scope: ToolScope) -> JsonR
     """RFC 9728: tells a client which authorization server guards the endpoint."""
     return JsonResponse(
         {
-            "resource": _resource_url(request, scope),
+            "resource": request.build_absolute_uri(
+                request.path.removeprefix(RESOURCE_METADATA_PREFIX)
+            ),
             "authorization_servers": [issuer(request)],
             "bearer_methods_supported": ["header"],
             "resource_name": f"Zagrajmy MCP ({scope})",
@@ -266,7 +272,7 @@ class McpAuthorizeView(LoginRequiredMixin, View):
         form: McpConsentForm | None,
     ) -> TemplateResponse:
         wants_event = consent.may_grant and pending.scope is ToolScope.ORGANIZER
-        return TemplateResponse(
+        response = TemplateResponse(
             self.request,
             TEMPLATE,
             {
@@ -284,6 +290,9 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             },
             status=200 if consent.may_grant else 403,
         )
+        return _allow_form_redirect(
+            self.request, response, redirect_uri=pending.client.redirect_uri
+        )
 
     def _client_error(self, reason: ClientRejection) -> TemplateResponse:
         # Without a verified redirect_uri there is nowhere safe to send the
@@ -295,6 +304,37 @@ class McpAuthorizeView(LoginRequiredMixin, View):
             {"client_error": _CLIENT_REJECTIONS[reason]},
             status=400,
         )
+
+
+def _allow_form_redirect(
+    request: RootRequest, response: TemplateResponse, *, redirect_uri: str
+) -> TemplateResponse:
+    """Let the consent form's POST end in a redirect to the vetted client.
+
+    Browsers check form-action against every redirect a form submission
+    follows, so under 'self' alone the approval silently goes nowhere.
+
+    Returns:
+        The response, carrying the site policy with the client's origin (or
+        custom scheme) added to form-action; untouched when the policy sets
+        no form-action.
+    """
+    policy = settings.SECURE_CSP
+    # Absent or disabled, form-action restricts nothing: leave it that way.
+    if not (sources := policy.get("form-action")):
+        return response
+    config = {**policy, "form-action": [*sources, _csp_source(redirect_uri)]}
+    return csp_override(config)(lambda _request: response)(request)
+
+
+def _csp_source(redirect_uri: str) -> str:
+    # SAFETY: the mill admits a web redirect only when its host fits a CSP
+    # host-source (`_is_web_host`); anything looser writes into the header.
+    parts = urlsplit(redirect_uri)
+    if parts.scheme not in {"http", "https"}:
+        return f"{parts.scheme}:"
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{parts.hostname}{port}"
 
 
 def _authorization_request(request: RootRequest) -> McpAuthorizationRequest:

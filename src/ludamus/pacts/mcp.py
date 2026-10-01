@@ -49,6 +49,7 @@ class ClientMetadataDocument(TypedDict, total=False):
     client_name: str
     redirect_uris: list[str]
     token_endpoint_auth_method: str
+    token_endpoint_auth_methods_supported: list[str]
 
 
 class McpClientDTO(BaseModel):

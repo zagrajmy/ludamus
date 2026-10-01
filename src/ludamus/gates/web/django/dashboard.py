@@ -11,11 +11,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.pacts.legacy import NotFoundError
@@ -81,4 +83,25 @@ class SphereUnsubscribeActionView(LoginRequiredMixin, View):
         request.services.sphere_subscriptions.unsubscribe(
             sphere_id=pk, user_id=request.context.current_user_id
         )
+        return redirect(reverse("web:dashboard"))
+
+
+class OfferClaimActionView(LoginRequiredMixin, View):
+    """Claim the seat held for this member straight from their agenda."""
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, session_id: int) -> HttpResponse:
+        _require_root_sphere(request)
+        result = request.services.waitlist_promotion.claim_member_offer(
+            user_id=request.context.current_user_id, session_id=session_id
+        )
+        # Every failure lands back on the dashboard: the lookup only ever
+        # searched this member's own seats, and "not found" is as often a
+        # double click or a party-mate's earlier claim as anything else.
+        if result.success:
+            messages.success(
+                request, _("Spot claimed — you are now confirmed for this session.")
+            )
+        else:
+            messages.error(request, _("This offer has expired or was already claimed."))
         return redirect(reverse("web:dashboard"))

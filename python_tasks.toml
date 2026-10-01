@@ -103,13 +103,20 @@ description = "Run unit tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py unit"
+run = 'pytest -n auto -o testpaths=tests/unit {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test' }
 
 ["test:unit:cov"]
-description = "Run unit tests"
-run = { task = "test:unit", args = ["--cov=tests.unit", "--cov={{env.PACKAGE}}.mills"] }
-env = { _.file = '.env.test' }
+description = "Run unit tests, which must cover mills and themselves in full"
+run = { task = "test:unit", args = [
+    "--cov=tests.unit",
+    "--cov={{env.PACKAGE}}.mills",
+    "--cov-fail-under=100",
+] }
+# Its own data file: devcheck runs this next to the combined test:py:cov, and a
+# shared `.coverage` would leave the mills-only run deciding what the
+# `coverage xml` after it — and so diff-cover — reads.
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.mills" }
 
 ["test:unit:cov:diff"]
 description = "Show test coverage of unit tests for lines changed since main"
@@ -118,14 +125,14 @@ run = [
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main",
 ]
-env = { _.file = '.env.test' }
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.mills" }
 
 ["test:int"]
 description = "Run integration tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py integration"
+run = 'pytest -n auto -o testpaths=tests/integration {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test' }
 
 ["test:int:cov"]
@@ -151,7 +158,7 @@ description = "Run all Python tests"
 usage = '''
 arg "[pytest_args]" var=#true double_dash="optional"
 '''
-run = "python scripts/pytest_targets.py integration unit"
+run = 'pytest -n auto -o "testpaths=tests/integration tests/unit" {{ arg(name="pytest_args", var=true) }}'
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ["test:py:cov"]
