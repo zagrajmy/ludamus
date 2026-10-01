@@ -4460,13 +4460,12 @@ msgstr ""
 #, python-format
 msgid ""
 "Piotrek also wrote his own games, but he only released one: <a "
-"href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> It's "
-"about violence, change, and sacrifice, like most of his contributions to the "
-"system."
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> It's about violence, "
+"change, and sacrifice, like most of his contributions to the system."
 msgstr ""
 "Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
-"href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> Jest o "
-"przemocy, przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> Jest o przemocy, "
+"przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
 
 #: src/ludamus/templates/about.html
 msgid "How Zagrajmy works"
