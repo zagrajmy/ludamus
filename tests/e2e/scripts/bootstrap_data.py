@@ -41,6 +41,7 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldRequirement,
     ProposalCategory,
     Session,
     SessionBookmark,
@@ -1209,6 +1210,55 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_discord_proposal_scenario(sphere: Sphere) -> None:
+    """Seed an event asking proposers for their Discord handle, for discord-proposal.
+
+    The dedicated user already holds a handle, so the wizard has nothing to ask
+    them; the shared e2e-tester has none and still sees the question.
+    """
+    user = User.objects.create_user(
+        username="e2e-discord",
+        email="e2e-discord@test.local",
+        password="e2e-discord-123",
+        name="E2E Discord",
+        slug="e2e-discord",
+        discord_username="e2e_dragon",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-discord.json",
+    )
+    event = _create_event(
+        sphere,
+        name="Pub Night Proposals",
+        slug="pub-night",
+        description="RPG sessions at the pub; GMs get a Discord channel.",
+        start_offset=timedelta(days=20),
+        duration_hours=6,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="RPG",
+        slug="rpg",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT3H"],
+    )
+    field = PersonalDataField.objects.create(
+        event=event,
+        name="Discord",
+        question="Identyfikator discord",
+        slug="discord",
+        field_type="discord",
+    )
+    PersonalDataFieldRequirement.objects.create(
+        category=category, field=field, is_required=True
+    )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1505,6 +1555,7 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
