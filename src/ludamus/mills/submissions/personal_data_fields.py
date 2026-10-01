@@ -163,10 +163,11 @@ class CFPPersonalDataFieldService(
         data: PersonalDataFieldUpdateData,
         category_requirements: RequirementSelectionDTO,
     ) -> None:
-        # One transaction, so the type check and the write see the same row.
         with self._transaction.atomic():
             if (new_type := data.get("field_type")) is not None:
-                _check_switch(self._fields.read_by_slug(event_pk, field_slug), new_type)
+                self._switch_type(
+                    self._fields.read_by_slug(event_pk, field_slug), new_type
+                )
             super().update(
                 event_pk=event_pk,
                 field_slug=field_slug,
@@ -178,25 +179,26 @@ class CFPPersonalDataFieldService(
         self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
     ) -> OrganizerFieldDTO:
         with self._transaction.atomic():
-            field = self._fields.read_by_slug(event_pk, field_slug)
-            _check_switch(field, field_type)
-            if field.field_type == field_type:
-                return field
-            return self._personal_fields.set_field_type(field.pk, field_type)
+            return self._switch_type(
+                self._fields.read_by_slug(event_pk, field_slug), field_type
+            )
 
-
-def _check_switch(field: OrganizerFieldDTO, new_type: TextFieldKind) -> None:
-    if field.field_type == new_type:
-        return
-    if not is_text_field_kind(field.field_type):
-        raise FieldTypeSwitchError
-    logger.info(
-        "Personal data field %s (pk %s) switches type %s -> %s",
-        field.slug,
-        field.pk,
-        field.field_type,
-        new_type,
-    )
+    def _switch_type(
+        self, field: OrganizerFieldDTO, new_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        if field.field_type == new_type:
+            return field
+        if not is_text_field_kind(field.field_type):
+            raise FieldTypeSwitchError
+        switched = self._personal_fields.set_field_type(field.pk, new_type)
+        logger.info(
+            "Personal data field %s (pk %s) switched type %s -> %s",
+            field.slug,
+            field.pk,
+            field.field_type,
+            new_type,
+        )
+        return switched
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

@@ -1417,7 +1417,6 @@ msgstr "Potwierdzenie"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -1593,6 +1592,11 @@ msgstr "Pole danych osobowych zostało utworzone."
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field not found."
 msgstr "Pole danych osobowych nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
+msgid "Only text and Discord username fields can switch type."
+msgstr ""
+"Typ można zmieniać tylko między polem tekstowym a nazwą użytkownika Discord."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field updated successfully."
@@ -2004,7 +2008,6 @@ msgstr "adres email"
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/gates/web/django/forms.py src/ludamus/links/db/django/models.py
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 msgid "Discord username"
 msgstr "Nazwa użytkownika Discord"
@@ -7056,6 +7059,18 @@ msgstr ""
 "Zaloguj się, aby zapisać swoje dane między zgłoszeniami, śledzić swoje "
 "propozycje i nie wpisywać danych osobowych ponownie."
 
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/category.html
+msgid "Continue"
+msgstr "Dalej"
+
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
 msgstr "Postęp zgłoszenia"
@@ -7082,13 +7097,6 @@ msgstr "Co chcesz zgłosić?"
 msgid "Choose the type of session you want to run."
 msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 
-#: src/ludamus/templates/event/propose/parts/category.html
-#: src/ludamus/templates/event/propose/parts/details.html
-#: src/ludamus/templates/event/propose/parts/personal.html
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-msgid "Continue"
-msgstr "Dalej"
-
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session Details"
 msgstr "Szczegóły punktu programu"
@@ -7102,15 +7110,6 @@ msgstr ""
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Select the tracks your session belongs to."
 msgstr "Wybierz bloki programowe dla tego punktu programu."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-#: src/ludamus/templates/event/propose/parts/personal.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session details saved. Next step coming soon."

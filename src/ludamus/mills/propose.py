@@ -16,7 +16,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.propose import AccountContactDTO, ProposeSessionServiceProtocol
+from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
@@ -114,12 +114,20 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             facilitator.pk, event_id
         )
 
-    def get_account_contact(self, user_id: int | None) -> AccountContactDTO:
+    def get_account_answers(
+        self, *, user_id: int | None, requirements: list[PersonalFieldRequirementDTO]
+    ) -> AccountAnswersDTO:
         if user_id is None:
-            return AccountContactDTO()
+            return AccountAnswersDTO()
         user = self._repos.users.read_by_id(user_id)
-        return AccountContactDTO(
-            email=user.email, discord_username=user.discord_username
+        handle = user.discord_username
+        return AccountAnswersDTO(
+            email=user.email,
+            personal_data={
+                f"personal_{req.field.slug}": handle
+                for req in requirements
+                if handle and req.field.field_type == "discord"
+            },
         )
 
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool:

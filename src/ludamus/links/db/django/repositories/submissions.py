@@ -614,8 +614,6 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.allow_custom = (
             data["allow_custom"] if field.field_type == "select" else False
         )
-        if new_type := data.get("field_type"):
-            field.field_type = new_type
         field.save()
 
         options = data["options"]

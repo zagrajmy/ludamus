@@ -402,6 +402,17 @@ class PersonalDataFieldForm(forms.Form):
     is_public = forms.BooleanField(required=False, initial=False)
 
 
+class PersonalDataFieldEditForm(PersonalDataFieldForm):
+    """Editing keeps a field's type, except a switch between text kinds."""
+
+    FIELD_TYPE_CHOICES: ClassVar = [
+        ("text", _("Text")),
+        ("discord", _("Discord username")),
+    ]
+
+    field_type = forms.ChoiceField(choices=FIELD_TYPE_CHOICES, required=False)
+
+
 class SessionFieldForm(forms.Form):
     """Form for creating/editing session fields."""
 

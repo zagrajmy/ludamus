@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
-    from ludamus.pacts.propose import AccountContactDTO, ProposeSessionServiceProtocol
+    from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -238,29 +238,22 @@ class _Wizard:
         return self.service.get_personal_requirements(self.category.pk)
 
     @cached_property
-    def account(self) -> AccountContactDTO:
-        return self.service.get_account_contact(self.request.context.current_user_id)
-
-    @cached_property
-    def account_answers(self) -> dict[str, str]:
-        if not (handle := self.account.discord_username):
-            return {}
-        return {
-            f"personal_{req.field.slug}": handle
-            for req in self.personal_requirements
-            if req.field.field_type == "discord"
-        }
+    def account(self) -> AccountAnswersDTO:
+        return self.service.get_account_answers(
+            user_id=self.request.context.current_user_id,
+            requirements=self.personal_requirements,
+        )
 
     @cached_property
     def account_answers_everything(self) -> bool:
         # Every question answered, and answered as the visible form would
         # accept — a profile handle can outgrow an organizer's length limit.
-        if not self.account.email or len(self.account_answers) < len(
+        if not self.account.email or len(self.account.personal_data) < len(
             self.personal_requirements
         ):
             return False
         form = build_personal_data_form(self.personal_requirements)(
-            data={**self.account_answers, "contact_email": self.account.email}
+            data={**self.account.personal_data, "contact_email": self.account.email}
         )
         return form.is_valid()
 
@@ -295,7 +288,7 @@ class _Wizard:
         if len(self.timeslot_requirements) == 1:
             implied["time_slot_ids"] = [self.timeslot_requirements[0].time_slot_id]
         if self.category is not None and "personal" not in self.steps:
-            implied["personal_data"] = dict(self.account_answers)
+            implied["personal_data"] = dict(self.account.personal_data)
             implied["contact_email"] = self.account.email
         return implied
 
@@ -348,7 +341,7 @@ def _personal_context(
                     user_id=wizard.request.context.current_user_id,
                 ).items()
             },
-            **wizard.account_answers,
+            **wizard.account.personal_data,
         }
         initial = unfold_custom_answers(
             stored=stored, fields=[req.field for req in requirements], prefix="personal"
