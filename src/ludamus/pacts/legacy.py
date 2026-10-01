@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 from ludamus.pacts.multiverse import SphereVisibility
 
@@ -1136,6 +1136,9 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
+    ) -> OrganizerFieldDTO: ...
+    def set_field_type(
+        self, pk: int, field_type: TextFieldKind
     ) -> OrganizerFieldDTO: ...
 
 

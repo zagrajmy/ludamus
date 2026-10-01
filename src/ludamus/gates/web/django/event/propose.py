@@ -259,12 +259,10 @@ class _Wizard:
         # is chosen the time-slot and personal steps are assumed present: the
         # strip must not grow a step the moment the first choice is made.
         shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
-        # Nothing to ask when the account already answers every question. A
-        # category with no questions still shows the step to confirm the email.
+        # Nothing to ask when the account already answers every question.
         shows_personal = (
             self.category is None
             or not self.account_email
-            or not self.personal_requirements
             or len(self.account_answers) < len(self.personal_requirements)
         )
         return tuple(

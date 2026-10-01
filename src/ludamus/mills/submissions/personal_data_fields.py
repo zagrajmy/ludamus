@@ -10,6 +10,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
+from ludamus.pacts.fields import TEXT_FIELD_KINDS, FieldTypeSwitchError
 from ludamus.pacts.legacy import (
     PersonalDataFieldCreateData,
     PersonalDataFieldUpdateData,
@@ -30,7 +31,9 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
+        ProposalCategoryRepositoryProtocol,
     )
+    from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -93,6 +96,16 @@ class CFPPersonalDataFieldService(
 ):
     """Backoffice operations for an event's personal-data fields."""
 
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        fields: PersonalDataFieldRepositoryProtocol,
+        categories: ProposalCategoryRepositoryProtocol,
+    ) -> None:
+        super().__init__(transaction=transaction, fields=fields, categories=categories)
+        self._personal_fields = fields
+
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
         usage_counts = self._fields.get_usage_counts(event_pk)
@@ -134,6 +147,16 @@ class CFPPersonalDataFieldService(
             return False
         self._fields.delete(field.pk)
         return True
+
+    def set_field_type(
+        self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        field = self._fields.read_by_slug(event_pk, field_slug)
+        if field.field_type not in TEXT_FIELD_KINDS:
+            raise FieldTypeSwitchError
+        if field.field_type == field_type:
+            return field
+        return self._personal_fields.set_field_type(field.pk, field_type)
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

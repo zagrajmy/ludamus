@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
@@ -49,6 +49,9 @@ from ludamus.pacts.submissions import (
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.fields import TextFieldKind
 
 # The DB stores field_type as a plain CharField; DTOs type it as this Literal.
 _FieldType = Literal["text", "select", "checkbox", "discord"]
@@ -628,6 +631,15 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
                         field=field, label=option_label, value=option_label, order=order
                     )
 
+        return self._to_dto(field)
+
+    def set_field_type(self, pk: int, field_type: TextFieldKind) -> OrganizerFieldDTO:
+        try:
+            field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
+        except PersonalDataField.DoesNotExist as exc:
+            raise NotFoundError from exc
+        field.field_type = field_type
+        field.save(update_fields=["field_type"])
         return self._to_dto(field)
 
     @staticmethod

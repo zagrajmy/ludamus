@@ -183,9 +183,17 @@ class TestProposeSessionPageView:
         )
 
     def test_get_skips_single_category(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
         self._activate_proposals(event, faker, time_zone)
+        active_user.email = ""
+        active_user.save()
 
         response = authenticated_client.get(self._get_url(event.slug))
         form = response.context["form"]
@@ -252,7 +260,7 @@ class TestProposeSessionPageView:
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == cat_b.pk
         assert "session_data" not in wizard
-        assert "contact_email" not in wizard
+        assert wizard["contact_email"] == "testuser@example.com"
 
     def test_post_different_category_deletes_stashed_cover(
         self, authenticated_client, event, faker, time_zone
@@ -386,7 +394,7 @@ class TestProposeSessionPageView:
             == "What is your phone?"
         )
 
-    def test_post_category_shows_personal_step_even_without_fields(
+    def test_post_category_skips_personal_step_the_account_answers(
         self, authenticated_client, event, faker, time_zone
     ):
         self._activate_proposals(event, faker, time_zone)
@@ -398,8 +406,9 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/personal.html"
-        assert response.context["form"]["contact_email"] is not None
+        assert response.template_name == "event/propose/parts/details.html"
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert wizard["contact_email"] == "testuser@example.com"
 
     def test_post_personal_data_valid(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -716,7 +725,7 @@ class TestProposeSessionPageView:
                 ],
                 "error": "Please select at least one time slot.",
                 "current_step": "timeslots",
-                "wizard_steps": ["personal", "timeslots", "details", "review"],
+                "wizard_steps": ["timeslots", "details", "review"],
             },
             template_name="event/propose/parts/timeslots.html",
         )
@@ -854,7 +863,7 @@ class TestProposeSessionPageView:
                 "selected_track_pks": [],
                 "track_error": "Please select at least one track.",
                 "current_step": "details",
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
         )
@@ -1048,9 +1057,17 @@ class TestProposeSessionPageView:
         assert response.context["field_descriptors"]
 
     def test_post_back_from_details_skips_timeslots_when_one_required(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
         self._activate_proposals(event, faker, time_zone)
+        active_user.email = ""
+        active_user.save()
         slot = TimeSlotFactory(event=event)
         TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
         self._set_wizard_category(authenticated_client, event, proposal_category)
@@ -1308,6 +1325,72 @@ class TestProposeSessionPageView:
 
         hpd = PersonalDataFieldValue.objects.get(event=event, field=field)
         assert hpd.value == "+48 555"
+
+    def test_submit_saves_discord_answer_to_profile(
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Discord",
+            question="Discord?",
+            slug="dc",
+            field_type="discord",
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            personal_data={"personal_dc": " gm_bob "},
+        )
+
+        authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        active_user.refresh_from_db()
+        assert active_user.discord_username == "gm_bob"
+
+    def test_submit_keeps_existing_profile_discord(
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        active_user.discord_username = "gm_alice"
+        active_user.save()
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Discord",
+            question="Discord?",
+            slug="dc",
+            field_type="discord",
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            personal_data={"personal_dc": "someone_else"},
+        )
+
+        authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        active_user.refresh_from_db()
+        assert active_user.discord_username == "gm_alice"
 
     def test_submit_sets_time_slots(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1739,7 +1822,7 @@ class TestProposeSessionPageView:
                 ),
                 "review": {
                     "category_name": proposal_category.name,
-                    "contact_email": "",
+                    "contact_email": "testuser@example.com",
                     "description": "A test session",
                     "facilitator_name": "Test User",
                     "duration": "",
@@ -1752,7 +1835,7 @@ class TestProposeSessionPageView:
                     "time_slots": [],
                     "title": "Test Session",
                 },
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/review.html",
         )
@@ -1800,7 +1883,7 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
         )
@@ -1842,7 +1925,7 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
         )
@@ -2345,9 +2428,17 @@ class TestProposeSessionPageView:
         )
 
     def test_personal_step_stepper_omits_timeslots_when_none_required(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
         self._activate_proposals(event, faker, time_zone)
+        active_user.email = ""
+        active_user.save()
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -2426,7 +2517,7 @@ class TestProposeSessionPageView:
                 ],
                 "error": None,
                 "current_step": "timeslots",
-                "wizard_steps": ["personal", "timeslots", "details", "review"],
+                "wizard_steps": ["timeslots", "details", "review"],
             },
             template_name="event/propose/parts/timeslots.html",
         )
@@ -2457,7 +2548,7 @@ class TestProposeSessionPageView:
                 "selected_track_pks": [],
                 "track_error": None,
                 "current_step": "details",
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
         )
@@ -2487,7 +2578,7 @@ class TestProposeSessionPageView:
                     "participants_limit": 6,
                     "min_age": 0,
                     "duration": "",
-                    "contact_email": "proposer@example.com",
+                    "contact_email": "testuser@example.com",
                     "public_session_fields": [],
                     "private_session_fields": [],
                     "public_personal_fields": [],
@@ -2495,7 +2586,7 @@ class TestProposeSessionPageView:
                     "time_slots": [],
                 },
                 "current_step": "review",
-                "wizard_steps": ["personal", "details", "review"],
+                "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/review.html",
         )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -23,9 +23,12 @@ from ludamus.gates.web.django.chronology.panel.views.fields import (
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
+from ludamus.pacts.fields import TEXT_FIELD_KINDS
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.pacts.fields import TextFieldKind
 
 
 class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -154,6 +157,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             "max_length": field.max_length,
             "help_text": field.help_text,
             "is_public": field.is_public,
+            "field_type": field.field_type,
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
@@ -213,6 +217,15 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         options: list[str] | None = None
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
+
+        # Before `update`, which re-derives the slug from the new name.
+        new_type = form.cleaned_data.get("field_type")
+        if field.field_type in TEXT_FIELD_KINDS and new_type in TEXT_FIELD_KINDS:
+            service.set_field_type(
+                event_pk=current_event.pk,
+                field_slug=field_slug,
+                field_type=cast("TextFieldKind", new_type),
+            )
 
         service.update(
             event_pk=current_event.pk,

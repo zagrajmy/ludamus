@@ -11054,6 +11054,14 @@ msgid "Edit Personal Data Field"
 msgstr "Edytuj pole danych osobowych"
 
 #: src/ludamus/templates/panel/personal-data-field-edit.html
+msgid ""
+"Discord username fields are prefilled from the proposer's profile. Answers "
+"already given are kept."
+msgstr ""
+"Pole z nazwą użytkownika Discord jest wypełniane z profilu zgłaszającego. "
+"Udzielone już odpowiedzi zostają zachowane."
+
+#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Field type cannot be changed after creation."
 msgstr "Typ pola nie może być zmieniony po utworzeniu."

@@ -19,6 +19,15 @@ FieldValue = str | list[str] | bool | None
 # The empty option offered above a single-select's real ones.
 BLANK_CHOICE = ("", "—")
 
+# Personal-data field types whose answers are the same plain string, so a field
+# can move between them without touching what proposers already answered.
+type TextFieldKind = Literal["text", "discord"]
+TEXT_FIELD_KINDS: tuple[TextFieldKind, ...] = ("text", "discord")
+
+
+class FieldTypeSwitchError(Exception):
+    """Only text and Discord fields may switch type; other answers don't fit."""
+
 
 class OrganizerFieldOptionDTO(BaseModel):
     """One choice offered by a select-type field."""

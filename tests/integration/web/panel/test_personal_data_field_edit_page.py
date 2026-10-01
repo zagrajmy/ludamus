@@ -441,6 +441,46 @@ class TestPersonalDataFieldEditPageView:
         assert field.is_multiple is False
         assert field.allow_custom is False
 
+    def test_post_switches_text_field_to_discord(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event, name="Discord", question="Identyfikator discord", slug="dc"
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Discord",
+                "question": "Identyfikator discord",
+                "field_type": "discord",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/personal-data/",
+        )
+        field.refresh_from_db()
+        assert field.field_type == "discord"
+
+    def test_post_keeps_select_field_type(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Size",
+            question="T-shirt",
+            slug="size",
+            field_type="select",
+        )
+
+        panel_client.post(
+            self.get_url(event, field),
+            data={"name": "Size", "question": "T-shirt", "field_type": "discord"},
+        )
+
+        field.refresh_from_db()
+        assert field.field_type == "select"
+
     def test_get_returns_field_with_is_multiple_attribute(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,

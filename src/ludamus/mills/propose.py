@@ -14,10 +14,14 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.crowd import UserData
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
-from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
+from ludamus.specs.proposal import (
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    PROPOSAL_RATE_LIMIT_SECONDS,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -153,13 +157,13 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         category_id = wizard_data["category_id"]
         time_slot_ids = wizard_data.get("time_slot_ids", [])
 
-        if user_id is not None and user_slug is not None:
-            current_user = self._repos.users.read(user_slug)
-            default_facilitator_name = current_user.name
-            presenter_id = current_user.pk
-        else:
-            default_facilitator_name = ""
-            presenter_id = None
+        current_user = (
+            self._repos.users.read(user_slug)
+            if user_id is not None and user_slug is not None
+            else None
+        )
+        default_facilitator_name = current_user.name if current_user else ""
+        presenter_id = current_user.pk if current_user else None
 
         facilitator_name = str(
             session_data.get("facilitator_name", default_facilitator_name)
@@ -206,6 +210,19 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                     personal_data=personal_data,
                     facilitator=facilitator,
                 )
+                # A handle typed here saves the proposer typing it next time.
+                if (
+                    current_user
+                    and not current_user.discord_username
+                    and (
+                        handle := self._discord_answer(
+                            event_id=event.pk, personal_data=personal_data
+                        )
+                    )
+                ):
+                    self._repos.users.update(
+                        current_user.slug, UserData(discord_username=handle)
+                    )
 
             if track_pks := wizard_data.get("track_pks", []):
                 # Track ids come from wizard state, so they are trusted only
@@ -255,6 +272,24 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             )
         if values:
             self._repos.sessions.save_field_values(session_id, values)
+
+    def _discord_answer(self, *, event_id: int, personal_data: dict[str, str]) -> str:
+        for key, value in personal_data.items():
+            if not (
+                key.startswith("personal_")
+                and isinstance(value, str)
+                and 0 < len(value.strip()) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH
+            ):
+                continue
+            try:
+                field = self._repos.personal_fields.read_by_slug(
+                    event_id, key.removeprefix("personal_")
+                )
+            except NotFoundError:
+                continue
+            if field.field_type == "discord":
+                return value.strip()
+        return ""
 
     def _save_personal_data(
         self,

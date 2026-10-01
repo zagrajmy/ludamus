@@ -55,21 +55,37 @@
                             </p>
                             {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
-                            <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
-                                {% if field.field_type == "select" %}
-                                    {% translate "Select" %}
-                                {% elif field.field_type == "checkbox" %}
-                                    {% translate "Checkbox" %}
-                                {% elif field.field_type == "discord" %}
-                                    {% translate "Discord username" %}
-                                {% else %}
-                                    {% translate "Text" %}
-                                {% endif %}
+                        {% if field.field_type == "text" or field.field_type == "discord" %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_field_type">{% translate "Field Type" %}</label>
+                                <select name="field_type"
+                                        id="id_field_type"
+                                        class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="text"
+                                            {% if form.field_type.value == "text" %}selected{% endif %}>{% translate "Text" %}</option>
+                                    <option value="discord"
+                                            {% if form.field_type.value == "discord" %}selected{% endif %}>
+                                        {% translate "Discord username" %}
+                                    </option>
+                                </select>
+                                <p class="mt-1 text-sm text-foreground-muted">
+                                    {% translate "Discord username fields are prefilled from the proposer's profile. Answers already given are kept." %}
+                                </p>
                             </div>
-                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
-                        </div>
+                        {% else %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
+                                <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
+                                    {% if field.field_type == "select" %}
+                                        {% translate "Select" %}
+                                    {% else %}
+                                        {% translate "Checkbox" %}
+                                    {% endif %}
+                                </div>
+                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
+                            </div>
+                        {% endif %}
                         {% if field.field_type == "select" %}
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
