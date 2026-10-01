@@ -65,14 +65,10 @@ class FieldIdsByHeader:
 
 class ImportEngine:
     def __init__(
-        self,
-        event_integrations: EventIntegrationsServiceProtocol,
-        repos: ImportRepos,
-        transaction: TransactionProtocol,
+        self, event_integrations: EventIntegrationsServiceProtocol, repos: ImportRepos
     ) -> None:
         self._event_integrations = event_integrations
         self._repos = repos
-        self._transaction = transaction
 
     def settings(self, event_id: int, integration_pk: int) -> ImportSettings:
         integration = self._event_integrations.get(event_id, integration_pk)
@@ -85,6 +81,7 @@ class ImportEngine:
         integration_pk: int,
         settings: ImportSettings,
         indexed_rows: list[tuple[int, ImportRow]],
+        transaction: TransactionProtocol,
     ) -> ProposalImportResult:
         self._guard_key_columns(settings, indexed_rows)
         created = 0
@@ -94,7 +91,7 @@ class ImportEngine:
         for row_index, row in indexed_rows:
             title, display_name = extract_identity(settings, row)
             try:
-                with self._transaction.savepoint():
+                with transaction.savepoint():
                     session_id = self._create_proposal(
                         event_id=event_id,
                         settings=settings,
@@ -112,7 +109,7 @@ class ImportEngine:
                     # skip the backfill then; the next run re-adopts.
                     with (
                         contextlib.suppress(DatabaseConstraintError),
-                        self._transaction.savepoint(),
+                        transaction.savepoint(),
                     ):
                         self._repos.sessions.set_ident(
                             exc.existing_session_id, exc.adopt_ident

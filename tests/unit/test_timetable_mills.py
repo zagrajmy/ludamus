@@ -1388,8 +1388,10 @@ class _FakeAgendaItems:
         self.by_track: dict[int, list[AgendaItemDTO]] = {}
         self.facilitators_by_session: dict[int, set[int]] = {}
         self.created: list[dict] = []
+        self.reads: list[tuple[int, set[int] | None]] = []
 
     def list_by_event(self, event_pk, facilitator_pks=None):
+        self.reads.append((event_pk, facilitator_pks))
         return [
             item
             for item in self.rows.values()
@@ -1550,6 +1552,11 @@ class TestSpaceTree:
         grid = service.build_grid(event_pk=1, tz=UTC)
 
         assert [space.pk for space in grid.spaces] == [3, 4, 5]
+
+    def test_an_unfiltered_grid_reads_the_agenda_once(self, uow):
+        _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert uow.agenda_items.reads == [(1, None)]
 
     def test_leaf_columns_group_under_their_parent(self, uow):
         grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)

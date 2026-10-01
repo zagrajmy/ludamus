@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.enrollment import AnonymousEnrollmentService
+from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import (
     AnonymousCancelResultDTO,

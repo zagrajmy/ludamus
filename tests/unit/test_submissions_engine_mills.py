@@ -268,7 +268,7 @@ def _repos(**overrides) -> ImportRepos:
 
 
 def _engine(repos: ImportRepos, settings_json: str = "") -> ImportEngine:
-    return ImportEngine(_Integrations(settings_json), repos, _Transaction())
+    return ImportEngine(_Integrations(settings_json), repos)
 
 
 def _log_entry(
@@ -304,6 +304,7 @@ def _import(
         integration_pk=INTEGRATION_PK,
         settings=settings,
         indexed_rows=list(enumerate(ImportRow(raw) for raw in rows)),
+        transaction=_Transaction(),
     )
 
 

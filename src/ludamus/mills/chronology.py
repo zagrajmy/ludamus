@@ -417,39 +417,48 @@ def _inverse_core_update(
             update["min_age"] = old
 
 
-def _inverse_field_value(
-    *, field_id: int, old: ContentFieldValue, session_id: int
-) -> SessionFieldValueData | None:
+def _inverse_field_value(old: ContentFieldValue) -> str | list[str] | bool | None:
     # A previously unanswered field was logged as None; restore it to "".
     value = "" if old is None else old
     # Dynamic answers are str | list[str] | bool; a plain int never appears.
     if isinstance(value, bool) or not isinstance(value, int):
-        return SessionFieldValueData(
-            session_id=session_id, field_id=field_id, value=value
-        )
+        return value
     return None
 
 
-def build_inverse_content_edit(
-    changes: list[ContentFieldChange], session_id: int
-) -> SessionContentEditData | None:
-    # The inverse of a logged content change: every revertible entry set back
-    # to its `old` value. None when nothing in the change can be restored.
+def _inverse_changes(
+    changes: list[ContentFieldChange],
+) -> tuple[SessionUpdateData, list[tuple[int, str | list[str] | bool]]]:
+    # Every revertible entry of a logged change, set back to its `old` value:
+    # the core-column update and the (field_id, value) answers to restore.
     update: SessionUpdateData = {}
-    field_values: list[SessionFieldValueData] = []
+    restores: list[tuple[int, str | list[str] | bool]] = []
     for change in changes:
         if (field_id := change["field_id"]) is None:
             _inverse_core_update(
                 update=update, field=change["field"], old=change["old"]
             )
-        elif (
-            field_value := _inverse_field_value(
-                field_id=field_id, old=change["old"], session_id=session_id
-            )
-        ) is not None:
-            field_values.append(field_value)
-    if not update and not field_values:
+        elif (value := _inverse_field_value(change["old"])) is not None:
+            restores.append((field_id, value))
+    return update, restores
+
+
+def has_revertible_change(changes: list[ContentFieldChange]) -> bool:
+    update, restores = _inverse_changes(changes)
+    return bool(update or restores)
+
+
+def build_inverse_content_edit(
+    changes: list[ContentFieldChange], session_id: int
+) -> SessionContentEditData | None:
+    # None when nothing in the change can be restored.
+    update, restores = _inverse_changes(changes)
+    if not update and not restores:
         return None
+    field_values = [
+        SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
+        for field_id, value in restores
+    ]
     return SessionContentEditData(update=update, field_values=field_values or None)
 
 
@@ -679,8 +688,7 @@ class SessionContentEditService:
         return {
             log.pk
             for log in logs
-            if log.pk in latest
-            and build_inverse_content_edit(log.changes, log.session_id) is not None
+            if log.pk in latest and has_revertible_change(log.changes)
         }
 
 

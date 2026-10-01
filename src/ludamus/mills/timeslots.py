@@ -55,13 +55,15 @@ class DayTurnover:
             if local_start.timestamp() < local_end.timestamp():
                 return [(local_start, local_end)]
             return []
+        # Openings sit on the hour, never inside the repeated autumn hour, so
+        # clamping to them compares wall clocks safely; only the two ends of
+        # the interval itself can both fall into that hour.
         windows: list[Window] = []
-        for offset in range((last_date - first_date).days + 1):
-            cursor_date = first_date + timedelta(days=offset)
-            day_start = self.opening(cursor_date, tz)
-            day_end = self.opening(cursor_date + timedelta(days=1), tz)
-            window_start = max(local_start, day_start, key=datetime.timestamp)
-            window_end = min(local_end, day_end, key=datetime.timestamp)
+        cursor_date = first_date
+        while cursor_date <= last_date:
+            window_start = max(local_start, self.opening(cursor_date, tz))
+            cursor_date += timedelta(days=1)
+            window_end = min(local_end, self.opening(cursor_date, tz))
             if window_start.timestamp() < window_end.timestamp():
                 windows.append((window_start, window_end))
         return windows

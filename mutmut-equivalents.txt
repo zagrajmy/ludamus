@@ -1,34 +1,8 @@
 # Mutants the unit suite cannot distinguish from the original (reviewed one by
-# one: a flag only tested for truthiness, a default never reached, a DST guard
-# no fixture hits). `mise run test:mutation` fails on any survivor not listed.
-ludamus.mills.chronology.xǁSessionContentEditServiceǁrevertible_log_pks__mutmut_7
-ludamus.mills.crowd.xǁCrowdAuthServiceǁ_create_user__mutmut_24
-ludamus.mills.crowd.xǁCrowdAuthServiceǁ_create_user__mutmut_26
-ludamus.mills.enrollment.xǁAnonymousEnrollmentServiceǁcancel__mutmut_3
-ludamus.mills.enrollment.xǁAnonymousEnrollmentServiceǁget_enroll_page__mutmut_3
-ludamus.mills.enrollment_windows.x_restricts_everyone__mutmut_7
-ludamus.mills.enrollment_windows.xǁEnrollmentPolicyǁfor_anonymous__mutmut_3
-ludamus.mills.errata.x__read_moves__mutmut_8
-ludamus.mills.konwencik.x__build_row__mutmut_4
-ludamus.mills.konwencik.x__room_labels__mutmut_5
-ludamus.mills.konwencik.x__slug_of__mutmut_2
-ludamus.mills.konwencik.x__slug_of__mutmut_4
-ludamus.mills.konwencik.x__slug_of__mutmut_6
-ludamus.mills.konwencik.x__slug_of__mutmut_7
-ludamus.mills.konwencik.x__slug_of__mutmut_9
-ludamus.mills.maps.xǁ_SpaceTreeǁnearest__mutmut_11
-ludamus.mills.propose.xǁProposeSessionServiceǁsubmit__mutmut_113
+# one). `mise run test:mutation` fails on any survivor not listed.
+# qr: segno lower-cases `kind`, and a file-like target needs it spelled out.
 ludamus.mills.qr.x_qr_svg__mutmut_18
-ludamus.mills.submissions.field_layout.xǁImportFieldLayoutServiceǁ__init____mutmut_6
+# normalize_duration maps any unparsable text, "XXXX" included, to "".
+ludamus.mills.propose.xǁProposeSessionServiceǁsubmit__mutmut_113
+# json.dumps treats ensure_ascii=None exactly like False.
 ludamus.mills.submissions.mapping.x_encode_response__mutmut_2
-ludamus.mills.submissions.mapping.x_generate_unique_slug__mutmut_23
-ludamus.mills.submissions.mapping.x_slugify__mutmut_24
-ludamus.mills.submissions.mapping.x_slugify__mutmut_25
-ludamus.mills.timeslots.xǁDayTurnoverǁwindows__mutmut_21
-ludamus.mills.timeslots.xǁDayTurnoverǁwindows__mutmut_41
-ludamus.mills.timeslots.xǁDayTurnoverǁwindows__mutmut_44
-ludamus.mills.timeslots.xǁDayTurnoverǁwindows__mutmut_48
-ludamus.mills.timeslots.xǁDayTurnoverǁwindows__mutmut_51
-ludamus.mills.timetable.xǁTimetableServiceǁ_shared_day_span__mutmut_13
-ludamus.mills.timetable.xǁTimetableServiceǁ_shared_day_span__mutmut_14
-ludamus.mills.timetable.xǁTimetableServiceǁbuild_grid__mutmut_106

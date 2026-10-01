@@ -369,6 +369,9 @@ def locate_row(
     return None
 
 
+_EDGE_DASHES = re.compile(r"^-+|-+$")
+
+
 def slugify(value: str, *, max_length: int = 50) -> str:
     # ASCII slug mirroring the live TS preview (simov/slugify with locale="pl").
     # Unidecode transliterates the full Unicode range (Polish ł/Ł, German ß,
@@ -378,7 +381,8 @@ def slugify(value: str, *, max_length: int = 50) -> str:
     # trailing dash.
     transliterated = unidecode(value).lower()
     slug = re.sub(r"[^\w\s-]", "", transliterated)
-    return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
+    collapsed = _EDGE_DASHES.sub("", re.sub(r"[-\s]+", "-", slug))
+    return _EDGE_DASHES.sub("", collapsed[:max_length])
 
 
 def dedup_ident(*, event_id: int, identity: str) -> str:
@@ -411,6 +415,6 @@ def generate_unique_slug(
         if not exists(slug):
             return slug
         suffix = token_urlsafe(3)
-        trimmed = base_slug[: max_length - len(suffix) - 1].rstrip("-")
+        trimmed = slugify(base_slug, max_length=max_length - len(suffix) - 1)
         slug = f"{trimmed}-{suffix}"
     raise SlugCollisionError(base_slug)

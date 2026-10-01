@@ -37,7 +37,7 @@ class ImportLogService:
         self._transaction = transaction
         self._event_integrations = event_integrations
         self._repos = repos
-        self._engine = ImportEngine(event_integrations, repos, transaction)
+        self._engine = ImportEngine(event_integrations, repos)
 
     def list_log_entries(
         self,
@@ -104,6 +104,7 @@ class ImportLogService:
                 integration_pk=integration.pk,
                 settings=settings,
                 indexed_rows=[(target_idx, target_row)],
+                transaction=self._transaction,
             )
         # A duplicate counts as "reconciled": the log entry now points at the
         # existing session and no skip reason remains.

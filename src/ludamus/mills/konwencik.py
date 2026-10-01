@@ -99,10 +99,10 @@ class KonwencikRow(BaseModel):
 
 
 def _room_labels(spaces: list[SpaceDTO]) -> dict[int, str]:
-    by_pk = {space.pk: space for space in spaces}
+    by_pk: dict[int | None, SpaceDTO] = {space.pk: space for space in spaces}
     labels: dict[int, str] = {}
     for space in spaces:
-        parent = by_pk.get(space.parent_id) if space.parent_id else None
+        parent = by_pk.get(space.parent_id)
         labels[space.pk] = f"{space.name} ({parent.name})" if parent else space.name
     return labels
 
@@ -520,28 +520,29 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         ]
         if not field_pks or not session_ids:
             return {}
-        slugs = {
+        slugs: dict[int | None, str] = {
             field.pk: field.slug
             for field in self._repos.session_fields.list_by_event(event_pk)
         }
         raw = self._repos.sessions.list_field_values_for_sessions(
             session_ids, field_pks
         )
-        photo_slug = _slug_of(slugs, settings.photo_url_field_pk)
-        icon_slug = _slug_of(slugs, settings.icon_field_pk)
+        # No field configured is its own case, not a pk that happens to match
+        # nothing: an unset override never reaches the value store.
+        slug_by_key = {
+            key: slug
+            for key, pk in (
+                ("photo_url", settings.photo_url_field_pk),
+                ("icon", settings.icon_field_pk),
+            )
+            if (slug := slugs.get(pk)) is not None
+        }
         return {
             session_id: {
-                "photo_url": _text(value=values.get(photo_slug)),
-                "icon": _text(value=values.get(icon_slug)),
+                key: _text(value=values.get(slug)) for key, slug in slug_by_key.items()
             }
             for session_id, values in raw.items()
         }
-
-
-def _slug_of(slugs: dict[int, str], pk: int | None) -> str:
-    # No field configured is its own case, not a pk that happens to match
-    # nothing: an unset override never reaches the value store.
-    return slugs.get(pk, "") if pk is not None else ""
 
 
 def _first_public_track(
@@ -565,10 +566,13 @@ def _build_row(
     answers: dict[str, str],
 ) -> KonwencikRow:
     start, end = span
-    default_icon = (
-        settings.category_icons.get(item.category_id, "")
-        if item.category_id is not None
-        else ""
+    default_icon = next(
+        (
+            icon
+            for category_id, icon in settings.category_icons.items()
+            if category_id == item.category_id
+        ),
+        "",
     )
     return KonwencikRow(
         id=str(item.session_id),

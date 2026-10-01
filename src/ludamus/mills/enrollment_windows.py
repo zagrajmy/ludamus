@@ -48,10 +48,7 @@ def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
 
 def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
     listed = list(windows)
-    return (
-        bool(listed)
-        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
-    )
+    return bool(listed) and not EnrollmentPolicy.for_guest(listed).can_enroll
 
 
 @dataclass(frozen=True)
@@ -78,8 +75,17 @@ class EnrollmentPolicy:
         )
 
     @classmethod
+    def for_guest(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
+        # An actor holding no pass: only the windows open to everyone.
+        return cls(
+            tuple(
+                window for window in windows if not window.restrict_to_configured_users
+            )
+        )
+
+    @classmethod
     def for_anonymous(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
-        usable_windows = cls.for_actor(windows, is_configured_user=False).windows
+        usable_windows = cls.for_guest(windows).windows
         return cls(
             tuple(
                 window for window in usable_windows if window.allow_anonymous_enrollment

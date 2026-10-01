@@ -295,18 +295,14 @@ class TimetableService(TimetableServiceProtocol):
             if filters.facilitator_pks
             else all_items
         )
-        states = _card_states(conflicts, violations)
-        span = self._shared_day_span(dates_to_render, windows_by_date, tz)
-        days = [
-            self._build_day_grid(
-                date_to_render=date_to_render,
-                day_range=_day_range(date_to_render, span, tz),
-                spaces=spaces,
-                all_items=shown_items,
-                states=states,
-            )
-            for date_to_render in dates_to_render
-        ]
+        days = self._build_days(
+            dates=dates_to_render,
+            windows_by_date=windows_by_date,
+            tz=tz,
+            spaces=spaces,
+            items=shown_items,
+            states=_card_states(conflicts, violations),
+        )
 
         return TimetableGridDTO(
             spaces=spaces,
@@ -327,6 +323,30 @@ class TimetableService(TimetableServiceProtocol):
             date_selection=date_selection,
             conflicts=conflicts,
         )
+
+    def _build_days(
+        self,
+        *,
+        dates: list[date],
+        windows_by_date: dict[date, list[Window]],
+        tz: tzinfo,
+        spaces: list[SpaceDTO],
+        items: list[AgendaItemDTO],
+        states: dict[int, SessionPositionState],
+    ) -> list[TimetableDayGridDTO]:
+        if not dates:
+            return []
+        span = self._shared_day_span(dates, windows_by_date, tz)
+        return [
+            self._build_day_grid(
+                date_to_render=date_to_render,
+                day_range=_day_range(date_to_render, span, tz),
+                spaces=spaces,
+                all_items=items,
+                states=states,
+            )
+            for date_to_render in dates
+        ]
 
     @staticmethod
     def _build_day_grid(
@@ -397,8 +417,6 @@ class TimetableService(TimetableServiceProtocol):
             for window in windows_by_date[day]
             for edge in window
         ]
-        if not minutes:
-            return (0, 0)
         return (
             math.floor(min(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
             math.ceil(max(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
