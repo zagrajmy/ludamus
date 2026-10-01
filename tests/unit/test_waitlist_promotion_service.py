@@ -178,17 +178,6 @@ class TestFillFreedSeats:
         assert notifier.offered[0].recipient_user_id == _MANAGER_ID
 
 
-class TestClaimOffer:
-    def test_past_deadline_rejected(self):
-        service, repo, _, _ = _build(offer=_offer(expires=_NOW - timedelta(minutes=1)))
-
-        result = service.claim_offer(token="tok-xyz")
-
-        assert result.success is False
-        assert result.reason == "expired"
-        assert not repo.claimed
-
-
 class TestExpireOffer:
     def test_not_yet_due_is_noop(self):
         service, repo, notifier, _ = _build(
@@ -302,19 +291,46 @@ class TestPeekOffer:
         assert service.peek_offer(token="tok-xyz") is None
 
 
-class TestClaimOfferOutcomes:
-    def test_unknown_token_is_not_found(self):
+_CLAIM_ROUTES = pytest.mark.parametrize(
+    "claim",
+    (
+        pytest.param(
+            lambda service: service.claim_offer(token="tok-xyz"), id="by-token"
+        ),
+        pytest.param(
+            lambda service: service.claim_member_offer(
+                user_id=_MANAGER_ID, session_id=_SESSION_ID
+            ),
+            id="by-member",
+        ),
+    ),
+)
+
+
+@_CLAIM_ROUTES
+class TestClaimOffer:
+    def test_no_offer_is_not_found(self, claim):
         service, repo, _, _ = _build()
 
-        result = service.claim_offer(token="tok-xyz")
+        result = claim(service)
 
         assert result == ClaimResult(success=False, reason="not_found")
         assert not repo.claimed
 
-    def test_claims_the_whole_party_before_the_deadline(self):
+    def test_past_deadline_is_rejected(self, claim):
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW - timedelta(minutes=1)))
+
+        result = claim(service)
+
+        assert result == ClaimResult(
+            success=False, reason="expired", session_id=_SESSION_ID, event_slug="con"
+        )
+        assert not repo.claimed
+
+    def test_claims_the_whole_party_before_the_deadline(self, claim):
         service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
 
-        result = service.claim_offer(token="tok-xyz")
+        result = claim(service)
 
         assert result == ClaimResult(
             success=True, session_id=_SESSION_ID, event_slug="con"
@@ -323,20 +339,12 @@ class TestClaimOfferOutcomes:
 
 
 class TestClaimMemberOffer:
-    def test_claims_the_whole_party_for_its_own_member(self):
-        service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
-
-        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID)
-
-        assert result == ClaimResult(
-            success=True, session_id=_SESSION_ID, event_slug="con"
-        )
-        assert repo.claimed == [[1, 2]]
-
     def test_a_session_this_member_holds_no_offer_at_is_not_found(self):
         service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
 
-        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID + 1)
+        result = service.claim_member_offer(
+            user_id=_MANAGER_ID, session_id=_SESSION_ID + 1
+        )
 
         assert result == ClaimResult(success=False, reason="not_found")
         assert not repo.claimed
