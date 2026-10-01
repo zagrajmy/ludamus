@@ -100,6 +100,11 @@ urlpatterns = [
         name="sphere-unsubscribe",
     ),
     path(
+        "dashboard/sessions/<int:session_id>/do/claim-offer",
+        dashboard_gate.OfferClaimActionView.as_view(),
+        name="dashboard-offer-claim",
+    ),
+    path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),
         name="notifications",

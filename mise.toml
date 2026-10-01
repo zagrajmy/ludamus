@@ -308,6 +308,7 @@ run = [
     "aube exec varlock scan",
     { task = "lint-client" },
     { task = "ts-check" },
+    { task = "test:unit:cov" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',
@@ -322,6 +323,7 @@ run = [
     { task = "messages" },
     { task = "lint:djlint" },
     { task = "lint:py" },
+    { task = "test:unit:cov" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=98',
