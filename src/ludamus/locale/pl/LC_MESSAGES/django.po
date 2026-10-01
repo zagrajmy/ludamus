@@ -1637,6 +1637,7 @@ msgid "Pending"
 msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/links/db/django/models.py
 #: src/ludamus/templates/landing/org_hero.html
 #: src/ludamus/templates/landing/scena.html
 #: src/ludamus/templates/panel/_proposal_status_badge.html
@@ -3507,8 +3508,38 @@ msgstr ""
 "zobaczyć."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Invite by email"
+msgstr "Zaproś mailem"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid ""
+"Separate addresses with commas or new lines. Each person gets a calendar "
+"invite and can accept it from their calendar."
+msgstr ""
+"Oddziel adresy przecinkami lub nowymi liniami. Każda osoba dostanie "
+"zaproszenie do kalendarza i może je przyjąć w swoim kalendarzu."
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#, python-format
+msgid "These are not email addresses: %(addresses)s"
+msgstr "To nie są adresy e-mail: %(addresses)s"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#, python-format
+msgid "Invite at most %(limit)d people to one encounter."
+msgstr "Na jedno spotkanie możesz zaprosić najwyżej %(limit)d osób."
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "End time must be after start time."
 msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#: src/ludamus/gates/web/django/notice_board/views.py
+msgid ""
+"You have sent as many calendar invites as one day allows. Try again "
+"tomorrow, or share the encounter link instead."
+msgstr ""
+"Na dziś wysłano już tyle zaproszeń do kalendarza, ile pozwala limit. Spróbuj "
+"jutro albo udostępnij link do spotkania."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Encounter updated."
@@ -3734,6 +3765,66 @@ msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
 msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
 
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Invitation: %(title)s"
+msgstr "Zaproszenie: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Updated: %(title)s"
+msgstr "Zmiana: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Cancelled: %(title)s"
+msgstr "Odwołane: %(title)s"
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "Your encounter %(title)s is in your calendar."
+msgstr "Twoje spotkanie %(title)s jest w kalendarzu."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid ""
+"%(organizer)s invites you to %(title)s. Accept in your calendar or sign up "
+"on the encounter page."
+msgstr ""
+"%(organizer)s zaprasza cię na %(title)s. Przyjmij zaproszenie w kalendarzu "
+"albo zapisz się na stronie spotkania."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "You signed up for %(title)s."
+msgstr "Zapisano cię na %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "%(organizer)s changed %(title)s."
+msgstr "%(organizer)s zmienia %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "You are no longer signed up for %(title)s."
+msgstr "Wypisano cię z %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "You are no longer invited to %(title)s."
+msgstr "Zaproszenie na %(title)s zostało wycofane."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "%(organizer)s cancelled %(title)s."
+msgstr "%(organizer)s odwołuje %(title)s."
+
+#: src/ludamus/links/db/django/encounter_invites.py
+#, python-format
+msgid "%(title)s is full, so your acceptance could not be saved."
+msgstr ""
+"Brak miejsc na %(title)s, więc nie udało się zapisać twojej odpowiedzi."
+
 #: src/ludamus/links/db/django/models.py
 msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
@@ -3836,6 +3927,21 @@ msgstr "Twórca programu"
 #: src/ludamus/links/db/django/models.py
 msgid "Twórcy programu"
 msgstr "Twórcy programu"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Invited"
+msgstr "Zaproszony"
+
+#: src/ludamus/links/db/django/models.py
+#: src/ludamus/templates/notice_board/detail.html
+msgid "Declined"
+msgstr "Odmowa"
+
+#: src/ludamus/links/db/django/models.py
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Removed"
+msgstr "Usunięto"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -8446,6 +8552,19 @@ msgid "No one has signed up yet. Be the first!"
 msgstr "Nikt się jeszcze nie zapisał. Bądź pierwszy!"
 
 #: src/ludamus/templates/notice_board/detail.html
+msgctxt "invitee list heading"
+msgid "Invited"
+msgstr "Zaproszeni"
+
+#: src/ludamus/templates/notice_board/detail.html
+msgid "Going"
+msgstr "Będzie"
+
+#: src/ludamus/templates/notice_board/detail.html
+msgid "No answer yet"
+msgstr "Bez odpowiedzi"
+
+#: src/ludamus/templates/notice_board/detail.html
 msgid "Organized by"
 msgstr "Organizator"
 
@@ -11120,11 +11239,6 @@ msgstr "Zmiany w harmonogramie"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Assigned"
 msgstr "Przypisano"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Removed"
-msgstr "Usunięto"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/timetable-log.html
