@@ -210,3 +210,82 @@ class TestSetImportant:
             service.set_important(event_pk=_EVENT_PK, log_pks=[2], important=True)
 
         logs.set_important.assert_not_called()
+
+    def test_an_unpublished_agenda_has_no_errata_to_flag(self, service, events, logs):
+        events.read.return_value = MagicMock(publication_time=None)
+
+        with pytest.raises(NotFoundError):
+            service.set_important(event_pk=_EVENT_PK, log_pks=[1], important=True)
+
+        logs.set_important.assert_not_called()
+
+    def test_an_empty_batch_is_refused(self, service, logs):
+        with pytest.raises(NotFoundError):
+            service.set_important(event_pk=_EVENT_PK, log_pks=[], important=True)
+
+        logs.set_important.assert_not_called()
+
+    def test_a_whole_move_is_flagged(self, service, logs):
+        logs.list_since.return_value = [
+            _log(
+                2,
+                ScheduleChangeAction.ASSIGN,
+                at=_PUBLISHED + timedelta(seconds=1),
+                new_space="Room B",
+                moved_from_id=1,
+            ),
+            _log(1, ScheduleChangeAction.UNASSIGN, old_space="Room A"),
+        ]
+
+        service.set_important(event_pk=_EVENT_PK, log_pks=[1, 2], important=True)
+
+        assert logs.set_important.call_args.kwargs == {
+            "event_pk": _EVENT_PK,
+            "log_pks": [1, 2],
+            "important": True,
+        }
+
+
+class TestSetAcknowledged:
+    def test_a_listed_erratum_is_ticked_off(self, service, logs):
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")
+        ]
+
+        service.set_acknowledged(
+            event_pk=_EVENT_PK, log_pks=[1], user_id=3, acknowledged=True
+        )
+
+        assert logs.set_acknowledged.call_args.kwargs == {
+            "event_pk": _EVENT_PK,
+            "log_pks": [1],
+            "user_id": 3,
+            "acknowledged": True,
+        }
+
+    def test_a_row_from_before_publication_is_refused(self, service, logs):
+        logs.list_since.return_value = [
+            _log(
+                1,
+                ScheduleChangeAction.ASSIGN,
+                at=_PUBLISHED - timedelta(days=1),
+                new_space="Room A",
+            )
+        ]
+
+        with pytest.raises(NotFoundError):
+            service.set_acknowledged(
+                event_pk=_EVENT_PK, log_pks=[1], user_id=3, acknowledged=True
+            )
+
+        logs.set_acknowledged.assert_not_called()
+
+
+class TestUnpublishedEvent:
+    def test_nothing_is_an_erratum_before_publication(self, service, events, logs):
+        events.read.return_value = MagicMock(publication_time=None)
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")
+        ]
+
+        assert service.list_for_event(_EVENT_PK) == []

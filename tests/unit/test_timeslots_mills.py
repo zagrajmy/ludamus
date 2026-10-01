@@ -67,6 +67,19 @@ class TestProgrammeDays:
             datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ
         ) == date(2026, 10, 24)
 
+    def test_an_empty_or_reversed_interval_yields_no_window(self):
+        start = datetime(2026, 7, 10, 12, tzinfo=_TZ)
+
+        assert not MIDNIGHT.windows(start=start, end=start, tz=_TZ)
+
+    def test_an_interval_ending_exactly_at_midnight_gives_the_next_day_nothing(self):
+        start = datetime(2026, 7, 10, 22, tzinfo=_TZ)
+        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+
+        assert MIDNIGHT.windows(start=start, end=midnight, tz=_TZ) == [
+            (start, midnight)
+        ]
+
 
 class TestEventOpeningHours:
     _SNAP = 60
@@ -155,3 +168,28 @@ class TestEventOpeningHours:
 
         assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11), date(2026, 7, 12)]
         assert hours.span == (10 * 60, 18 * 60)
+
+    def test_an_event_closing_at_midnight_runs_to_the_end_of_the_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 11, 0, tzinfo=_TZ),
+        )
+
+        assert hours.span == (16 * 60, 24 * 60)
+
+    def test_reversed_event_dates_still_list_every_day_in_order(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 12, 10, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 18, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11), date(2026, 7, 12)]
+
+    def test_a_grid_step_that_misses_midnight_falls_back_to_a_full_span(self):
+        late = datetime(2026, 7, 10, 23, 59, tzinfo=_TZ)
+
+        hours = event_opening_hours(
+            start=late, end=late, occupied=(), tz=_TZ, snap_minutes=50
+        )
+
+        assert hours.span == (16 * 60, 24 * 60)

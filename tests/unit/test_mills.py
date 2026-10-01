@@ -567,24 +567,6 @@ class TestOutlookCalendarUrl:
         assert "location=" not in result
 
 
-class TestGetDaysToEvent:
-    @pytest.fixture
-    def base_event_data(self):
-        now = datetime.now(tz=UTC)
-        return {
-            "description": "Test event",
-            "end_time": now + timedelta(days=7),
-            "name": "Test Event",
-            "pk": 1,
-            "proposal_end_time": now + timedelta(days=1),
-            "proposal_start_time": now - timedelta(days=1),
-            "publication_time": now - timedelta(days=2),
-            "slug": "test-event",
-            "sphere_id": 1,
-            "start_time": now + timedelta(days=5),
-        }
-
-
 def _connection_dto(pk=1, sphere_id=1, name="Konto", *, has_secret=False):
     return ConnectionDTO(
         pk=pk, sphere_id=sphere_id, display_name=name, has_secret=has_secret

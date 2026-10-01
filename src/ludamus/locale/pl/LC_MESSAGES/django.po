@@ -551,6 +551,7 @@ msgstr "Zaproponowano miejsce"
 
 #: src/ludamus/adapters/web/django/templatetags/enroll_tags.py
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/templates/dashboard/_role.html
 msgid "On the waiting list"
 msgstr "Jesteś na liście oczekujących"
 
@@ -878,11 +879,13 @@ msgid "This offer is no longer available or has expired."
 msgstr "Ta oferta jest już niedostępna lub wygasła."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "Spot claimed — you are now confirmed for this session."
 msgstr ""
 "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
 
@@ -5499,6 +5502,7 @@ msgid "Claim by:"
 msgstr "Zajmij do:"
 
 #: src/ludamus/templates/chronology/offer_claim.html
+#: src/ludamus/templates/dashboard/_card.html
 msgid "Claim my spot"
 msgstr "Zajmij moje miejsce"
 
@@ -6711,6 +6715,11 @@ msgid "You're signed up"
 msgstr "Jesteś zapisany/a"
 
 #: src/ludamus/templates/dashboard/_role.html
+#, python-format
+msgid "A seat is held for you until %(deadline)s"
+msgstr "Miejsce czeka na Ciebie do %(deadline)s"
+
+#: src/ludamus/templates/dashboard/_role.html
 msgid "You organize this"
 msgstr "Organizujesz"
 
@@ -6726,20 +6735,20 @@ msgid_plural ""
 "        "
 msgstr[0] ""
 "\n"
-"                        %(counter)s punkt programu\n"
-"                    "
+"            %(counter)s wolne miejsce\n"
+"        "
 msgstr[1] ""
 "\n"
-"                        %(counter)s punkty programu\n"
-"                    "
+"            %(counter)s wolne miejsca\n"
+"        "
 msgstr[2] ""
 "\n"
-"                        %(counter)s punktów programu\n"
-"                    "
+"            %(counter)s wolnych miejsc\n"
+"        "
 msgstr[3] ""
 "\n"
-"                        %(counter)s punktów programu\n"
-"                    "
+"            %(counter)s wolnego miejsca\n"
+"        "
 
 #: src/ludamus/templates/dashboard/_role.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -6759,19 +6768,19 @@ msgid_plural ""
 "                    "
 msgstr[0] ""
 "\n"
-"                        %(counter)s punkt programu\n"
+"                        %(counter)s nadchodzące wydarzenie\n"
 "                    "
 msgstr[1] ""
 "\n"
-"                        %(counter)s punkty programu\n"
+"                        %(counter)s nadchodzące wydarzenia\n"
 "                    "
 msgstr[2] ""
 "\n"
-"                        %(counter)s punktów programu\n"
+"                        %(counter)s nadchodzących wydarzeń\n"
 "                    "
 msgstr[3] ""
 "\n"
-"                        %(counter)s punktów programu\n"
+"                        %(counter)s nadchodzącego wydarzenia\n"
 "                    "
 
 #: src/ludamus/templates/dashboard/_sphere.html
@@ -6817,6 +6826,10 @@ msgid ""
 msgstr ""
 "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
 "Ciebie."
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Bookmarks"
+msgstr "Zakładki"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"

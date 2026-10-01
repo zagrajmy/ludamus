@@ -35,6 +35,14 @@ class TestMergeCustom:
     def test_checkbox_value_is_untouched(self):
         assert merge_custom(chosen=True, custom="krew", is_multiple=False) is True
 
+    def test_single_prefers_the_chosen_option_over_the_write_in(self):
+        assert merge_custom(chosen="horror", custom="krew", is_multiple=False) == (
+            "horror"
+        )
+
+    def test_single_falls_back_to_the_write_in(self):
+        assert merge_custom(chosen="", custom="krew", is_multiple=False) == "krew"
+
 
 class TestSplitStored:
     def test_single_write_in_leaves_no_option_selected(self):
@@ -49,3 +57,14 @@ class TestSplitStored:
         chosen, custom = split_stored(stored=stored, known={"horror"}, is_multiple=True)
 
         assert merge_custom(chosen=chosen, custom=custom, is_multiple=True) == stored
+
+
+class TestSplitStoredUnset:
+    def test_unset_multiple_yields_an_empty_list(self):
+        assert split_stored(stored=None, known={"horror"}, is_multiple=True) == ([], "")
+
+    def test_checkbox_value_yields_an_empty_single(self):
+        assert split_stored(stored=True, known={"horror"}, is_multiple=False) == (
+            "",
+            "",
+        )

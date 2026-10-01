@@ -1,0 +1,380 @@
+from datetime import date
+
+import pytest
+from django.core.exceptions import ValidationError
+
+from ludamus.links.db.django.models import (
+    DEFAULT_NAME,
+    AgendaItem,
+    Connection,
+    DomainEnrollmentConfig,
+    Encounter,
+    EncounterRSVP,
+    EnrollmentConfig,
+    Event,
+    EventBan,
+    EventIntegration,
+    EventProposalSettings,
+    EventSettings,
+    Facilitator,
+    PersonalDataField,
+    PersonalDataFieldOption,
+    PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
+    ProposalCategory,
+    Session,
+    SessionAvailability,
+    SessionField,
+    SessionFieldOption,
+    SessionFieldRequirement,
+    SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
+    Shadowban,
+    Space,
+    Sphere,
+    Track,
+    User,
+    UserEnrollmentConfig,
+)
+from ludamus.pacts.availability import DayPart
+
+
+class TestSphere:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert str(Sphere(name=name)) == name
+
+
+class TestConnection:
+    def test_str(self, faker):
+        display_name = faker.word()
+
+        assert str(Connection(display_name=display_name)) == display_name
+
+
+class TestEventIntegration:
+    def test_str(self, faker):
+        display_name = faker.word()
+
+        assert str(EventIntegration(display_name=display_name)) == display_name
+
+
+class TestEnrollmentConfig:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert (
+            str(EnrollmentConfig(event=Event(name=name)))
+            == f"Enrollment config for {name}"
+        )
+
+
+class TestEventSettings:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert str(EventSettings(event=Event(name=name))) == f"Settings for {name}"
+
+
+class TestEventProposalSettings:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert (
+            str(EventProposalSettings(event=Event(name=name)))
+            == f"Proposal settings for {name}"
+        )
+
+
+class TestUserEnrollmentConfig:
+    def test_str(self, faker):
+        email = faker.email()
+        allowed_slots = faker.random_int(min=1)
+
+        assert (
+            str(UserEnrollmentConfig(user_email=email, allowed_slots=allowed_slots))
+            == f"{email}: {allowed_slots} people enrollment limit"
+        )
+
+
+class TestDomainEnrollmentConfig:
+    def test_str(self, faker):
+        domain = faker.domain_name()
+        slots = faker.random_int(min=1, max=100)
+
+        assert str(
+            DomainEnrollmentConfig(domain=domain, allowed_slots_per_user=slots)
+        ) == (f"@{domain}: {slots} people enrollment limit per account")
+
+    def test_clean(self):
+        DomainEnrollmentConfig(
+            enrollment_config=EnrollmentConfig(),
+            domain="example.com",
+            allowed_slots_per_user=1,
+        ).clean()
+
+    def test_clean_empty_domain(self):
+        DomainEnrollmentConfig(
+            enrollment_config=EnrollmentConfig(), domain="", allowed_slots_per_user=1
+        ).clean()
+
+    def test_clean_wrong_domain(self):
+        with pytest.raises(ValidationError):
+            DomainEnrollmentConfig(
+                enrollment_config=EnrollmentConfig(),
+                domain="examplecom",
+                allowed_slots_per_user=1,
+            ).clean()
+
+
+class TestFacilitator:
+    def test_str(self, faker):
+        display_name = faker.name()
+
+        assert str(Facilitator(display_name=display_name)) == display_name
+
+
+class TestSpace:
+    def test_str_root(self, faker):
+        name = faker.word()
+
+        assert str(Space(name=name)) == name
+
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
+
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
+
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
+
+
+class TestSessionAvailability:
+    def test_str(self, faker):
+        pk = faker.random_int(min=1)
+
+        assert (
+            str(SessionAvailability(id=pk, day=date(2025, 1, 2), part=DayPart.EVENING))
+            == f"2025-01-02 evening ({pk})"
+        )
+
+
+class TestSession:
+    def test_str(self, faker):
+        title = faker.word()
+
+        assert str(Session(title=title)) == title
+
+
+class TestAgendaItem:
+    def test_str(self, faker):
+        title = faker.sentence()
+        name = faker.name()
+
+        assert (
+            str(
+                AgendaItem(
+                    session_confirmed=True,
+                    session=Session(title=title, facilitator_name=name),
+                )
+            )
+            == f"{title} by {name} (True)"
+        )
+
+
+class TestProposalCategory:
+    def test_str(self, faker):
+        name = faker.word()
+        pk = faker.random_int(min=1)
+
+        assert str(ProposalCategory(name=name, id=pk)) == f"{name} ({pk})"
+
+
+class TestSessionParticipation:
+    def test_str(self, faker):
+        username = faker.user_name()
+        title = faker.word()
+
+        assert (
+            str(
+                SessionParticipation(
+                    user=User(name=username),
+                    status=SessionParticipationStatus.CONFIRMED,
+                    session=Session(title=title),
+                )
+            )
+            == f"{username} confirmed on {title}"
+        )
+
+
+class TestUser:
+    def test_get_full_name_no_name(self):
+        user = User()
+
+        assert user.get_full_name() == DEFAULT_NAME
+
+    def test_get_full_name(self, faker):
+        user = User(name=faker.name())
+
+        assert user.get_full_name() == user.name
+
+    def test_str(self):
+        user = User(name="John Smith", email="johnny@example.com")
+
+        assert str(user) == "John Smith <johnny@example.com>"
+
+
+class TestPersonalDataField:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert str(PersonalDataField(name=name)) == name
+
+
+class TestPersonalDataFieldOption:
+    def test_str(self, faker):
+        label = faker.word()
+
+        assert str(PersonalDataFieldOption(label=label)) == label
+
+
+class TestPersonalDataFieldRequirement:
+    def test_str_required(self, faker):
+        field_name = faker.word()
+        category_name = faker.word()
+
+        requirement = PersonalDataFieldRequirement(
+            field=PersonalDataField(name=field_name),
+            category=ProposalCategory(name=category_name),
+            is_required=True,
+        )
+
+        assert str(requirement) == f"{field_name} (required) for {category_name}"
+
+    def test_str_optional(self, faker):
+        field_name = faker.word()
+        category_name = faker.word()
+
+        requirement = PersonalDataFieldRequirement(
+            field=PersonalDataField(name=field_name),
+            category=ProposalCategory(name=category_name),
+            is_required=False,
+        )
+
+        assert str(requirement) == f"{field_name} (optional) for {category_name}"
+
+
+class TestPersonalDataFieldValue:
+    def test_str(self, faker):
+        field_name = faker.word()
+        value = faker.sentence()
+
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
+
+        assert str(data) == f"{field_name}: {value[:50]}"
+
+    def test_str_truncates_long_value(self, faker):
+        field_name = faker.word()
+        value = "x" * 100
+
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
+
+        assert str(data) == f"{field_name}: {'x' * 50}"
+
+
+class TestSessionField:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert str(SessionField(name=name)) == name
+
+
+class TestSessionFieldOption:
+    def test_str(self, faker):
+        label = faker.word()
+
+        assert str(SessionFieldOption(label=label)) == label
+
+
+class TestSessionFieldValue:
+    def test_str(self, faker):
+        field_name = faker.word()
+        value = faker.sentence()
+
+        sfv = SessionFieldValue(field=SessionField(name=field_name), value=value)
+
+        assert str(sfv) == f"{field_name}: {value[:50]}"
+
+    def test_str_truncates_long_value(self, faker):
+        field_name = faker.word()
+        value = "x" * 100
+
+        sfv = SessionFieldValue(field=SessionField(name=field_name), value=value)
+
+        assert str(sfv) == f"{field_name}: {'x' * 50}"
+
+
+class TestEncounter:
+    def test_str(self, faker):
+        title = faker.word()
+
+        assert str(Encounter(title=title)) == title
+
+
+class TestEncounterRSVP:
+    def test_str(self):
+        user = User(name="John Smith", email="john@example.com")
+
+        assert str(EncounterRSVP(user=user)) == str(user)
+
+
+class TestSessionFieldRequirement:
+    def test_str_required(self, faker):
+        field_name = faker.word()
+        category_name = faker.word()
+
+        requirement = SessionFieldRequirement(
+            field=SessionField(name=field_name),
+            category=ProposalCategory(name=category_name),
+            is_required=True,
+        )
+
+        assert str(requirement) == f"{field_name} (required) for {category_name}"
+
+    def test_str_optional(self, faker):
+        field_name = faker.word()
+        category_name = faker.word()
+
+        requirement = SessionFieldRequirement(
+            field=SessionField(name=field_name),
+            category=ProposalCategory(name=category_name),
+            is_required=False,
+        )
+
+        assert str(requirement) == f"{field_name} (optional) for {category_name}"
+
+
+class TestTrack:
+    def test_str(self, faker):
+        name = faker.word()
+
+        assert str(Track(name=name)) == name
+
+
+class TestShadowban:
+    def test_str(self):
+        assert str(Shadowban(owner_id=1, target_id=2)) == "1 shadowbanned 2"
+
+
+class TestEventBan:
+    def test_str(self):
+        assert str(EventBan(user_id=3, event_id=4)) == "3 banned from event 4"
