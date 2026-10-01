@@ -1433,6 +1433,7 @@ class PersonalDataFieldType(models.TextChoices):
     TEXT = "text", "Text"
     SELECT = "select", "Select"
     CHECKBOX = "checkbox", "Checkbox"
+    DISCORD = "discord", "Discord username"
 
 
 class PersonalDataField(models.Model):

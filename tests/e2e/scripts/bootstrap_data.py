@@ -41,8 +41,10 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldRequirement,
     ProposalCategory,
     Session,
+    SessionBookmark,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
@@ -1205,6 +1207,55 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_discord_proposal_scenario(sphere: Sphere) -> None:
+    """Seed an event asking proposers for their Discord handle, for discord-proposal.
+
+    The dedicated user already holds a handle, so the wizard has nothing to ask
+    them; the shared e2e-tester has none and still sees the question.
+    """
+    user = User.objects.create_user(
+        username="e2e-discord",
+        email="e2e-discord@test.local",
+        password="e2e-discord-123",
+        name="E2E Discord",
+        slug="e2e-discord",
+        discord_username="e2e_dragon",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-discord.json",
+    )
+    event = _create_event(
+        sphere,
+        name="Pub Night Proposals",
+        slug="pub-night",
+        description="RPG sessions at the pub; GMs get a Discord channel.",
+        start_offset=timedelta(days=20),
+        duration_hours=6,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="RPG",
+        slug="rpg",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT3H"],
+    )
+    field = PersonalDataField.objects.create(
+        event=event,
+        name="Discord",
+        question="Identyfikator discord",
+        slug="discord",
+        field_type="discord",
+    )
+    PersonalDataFieldRequirement.objects.create(
+        category=category, field=field, is_required=True
+    )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1501,6 +1552,7 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
@@ -1551,7 +1603,7 @@ def main() -> None:
     )
 
     _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
-    _create_event(
+    foreign_event = _create_event(
         foreign_sphere,
         name="Foreign Programme",
         slug="foreign-programme",
@@ -1560,6 +1612,55 @@ def main() -> None:
         duration_hours=8,
         publication_offset=timedelta(days=1),
     )
+    # A bookmark from another sphere's event, so the dashboard's Bookmarks
+    # section has a cross-sphere row to show. Driven by dashboard.auth.spec.ts.
+    foreign_hall = _create_venue(
+        foreign_event, name="Foreign Hall", slug="foreign-hall"
+    )
+    foreign_table = _create_space(
+        _create_area(foreign_hall, name="Ground floor", slug="ground-floor"),
+        name="Table 1",
+        slug="table-1",
+    )
+    starred = _scheduled_session(
+        foreign_event,
+        foreign_table,
+        title="Starred Dungeon Crawl",
+        slug="starred-dungeon-crawl",
+        presenter="Foreign GM",
+        description="A session the tester bookmarked but holds no seat at.",
+        seats=5,
+        hour=1,
+    )
+    SessionBookmark.objects.create(user=tester, session=starred)
+    # Where the tester waits and where a seat is held for them: Coming up says
+    # which is which, and the offer carries its claim button.
+    for hour, title, slug, status in (
+        (3, "Waitlisted Heist", "waitlisted-heist", SessionParticipationStatus.WAITING),
+        (5, "Offered Duel", "offered-duel", SessionParticipationStatus.OFFERED),
+    ):
+        SessionParticipation.objects.create(
+            session=_scheduled_session(
+                foreign_event,
+                foreign_table,
+                title=title,
+                slug=slug,
+                presenter="Foreign GM",
+                description="A seat the tester waits for or was offered.",
+                seats=1,
+                hour=hour,
+            ),
+            user=tester,
+            status=status.value,
+            **(
+                {
+                    "claim_token": "e2e-dashboard-offer",
+                    "offer_expires_at": timezone.now() + timedelta(days=1),
+                }
+                if status is SessionParticipationStatus.OFFERED
+                else {}
+            ),
+        )
     # Announcements belong to a sphere that runs a programme: they sit above
     # its feed, for people who came for that feed. The root sphere has none of
     # that, so this is where the rendering is covered.
