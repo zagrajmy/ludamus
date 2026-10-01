@@ -4337,7 +4337,7 @@ msgid ""
 msgstr ""
 "Jak widać po jego wystąpieniu o jakości kodu na <a "
 "href=\"%(talk_url)s\">EuroPython 2019</a>, to on pilnuje, żeby system nie "
-"zamienił się w kłębek nieutrzymywalnego bałaganu."
+"zamienił się w spaghetti nie do utrzymania."
 
 #: src/ludamus/templates/about.html
 msgid ""
@@ -4360,7 +4360,7 @@ msgid ""
 msgstr ""
 "Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
 "href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> Jest o "
-"przemocy, przemianie i poświęceniu, jak większość jego wkładu w system."
+"przemocy, przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
 
 #: src/ludamus/templates/about.html
 msgid "How Zagrajmy works"
