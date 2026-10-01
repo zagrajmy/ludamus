@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from unittest.mock import MagicMock
@@ -12,6 +13,7 @@ from django.utils.timezone import localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
+from zeal import zeal_context
 
 from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
@@ -34,6 +36,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
+from tests.template_checks import MissingTemplateVariableFilter
 
 User = get_user_model()
 
@@ -65,6 +68,48 @@ def _urlconf_loaded():
 @pytest.fixture(autouse=True)
 def _django_db(db):
     pass
+
+
+@pytest.fixture(autouse=True)
+def _fail_on_missing_template_variables():
+    """Raise exception when template variables cannot be resolved.
+
+    Django silently swallows AttributeError when accessing missing
+    methods/properties on template objects. This fixture ensures
+    such errors are caught during tests.
+    """
+    logger = logging.getLogger("django.template")
+    original_level = logger.level
+    filter_instance = MissingTemplateVariableFilter()
+
+    logger.setLevel(logging.DEBUG)
+    logger.addFilter(filter_instance)
+
+    yield
+
+    logger.removeFilter(filter_instance)
+    logger.setLevel(original_level)
+
+
+@pytest.fixture(autouse=True)
+def _zeal_n_plus_one_detection():
+    # The zeal middleware only monitors request paths; this covers tests that
+    # drive services and repositories directly.
+    with zeal_context():
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _media_root(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path / "media")
+
+
+@pytest.fixture(autouse=True)
+def english_language(settings):
+    # Assertions here read rendered pages and model __str__ output, so they are
+    # written against one language. Lives here, not in the root conftest: it is
+    # a `settings` mutation, which tests/unit may not take.
+    settings.LANGUAGE_CODE = "en"
 
 
 def sponsor_user(*, leader, member):

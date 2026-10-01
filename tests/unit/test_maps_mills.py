@@ -146,3 +146,69 @@ class TestScoping:
             service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[1, 99])
 
         maps.set_spaces.assert_not_called()
+
+    def test_read_refuses_a_map_of_another_event(self):
+        service, maps = _service()
+        maps.read.return_value = _record(10, []).model_copy(update={"event_id": 99})
+
+        with pytest.raises(NotFoundError):
+            service.read(event_pk=EVENT_PK, pk=10)
+
+    def test_update_and_delete_go_through_the_scoped_read(self):
+        service, maps = _service()
+        maps.read.return_value = _record(10, []).model_copy(update={"event_id": 99})
+
+        with pytest.raises(NotFoundError):
+            service.update(event_pk=EVENT_PK, pk=10, name="Site", images=None)
+        with pytest.raises(NotFoundError):
+            service.delete(event_pk=EVENT_PK, pk=10)
+
+        maps.update.assert_not_called()
+        maps.delete.assert_not_called()
+
+    def test_attach_writes_the_events_own_spaces(self):
+        service, maps = _service(spaces=[_space(1), _space(2)])
+        maps.read.return_value = _record(10, [])
+
+        service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[1, 2])
+
+        assert maps.set_spaces.call_args.args == (10, [1, 2])
+
+
+class TestWrites:
+    def test_create_hands_back_the_stored_record(self):
+        service, maps = _service()
+        maps.create.return_value = _record(10, [])
+
+        assert service.create(event_pk=EVENT_PK, name="Site", images=[]) == _record(
+            10, []
+        )
+
+    def test_update_returns_the_renamed_record(self):
+        service, maps = _service()
+        maps.read.return_value = _record(10, [])
+        renamed = _record(10, []).model_copy(update={"name": "Floor"})
+        maps.update.return_value = renamed
+
+        assert (
+            service.update(event_pk=EVENT_PK, pk=10, name="Floor", images=None)
+            == renamed
+        )
+
+    def test_delete_removes_the_events_map(self):
+        service, maps = _service()
+        maps.read.return_value = _record(10, [])
+
+        service.delete(event_pk=EVENT_PK, pk=10)
+
+        assert maps.delete.call_args.args == (10,)
+
+
+class TestEmptyEvent:
+    def test_no_maps_means_nothing_to_list_or_resolve(self):
+        service, maps = _service(spaces=[_space(1)])
+        maps.exists_for_event.return_value = False
+
+        assert service.list_for_event(EVENT_PK) == []
+        assert service.map_pk_for_space(event_pk=EVENT_PK, space_pk=1) is None
+        assert service.has_maps(EVENT_PK) is False

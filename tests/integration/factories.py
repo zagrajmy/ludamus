@@ -3,6 +3,7 @@ from django.contrib.auth.hashers import make_password
 from factory.django import DjangoModelFactory
 
 from ludamus.links.db.django.models import User
+from ludamus.pacts import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.crowd import UserType
 
 
@@ -26,3 +27,20 @@ class AnonymousUserFactory(DjangoModelFactory):
     slug = factory.Sequence(lambda n: f"code_{n}")
     user_type = UserType.ANONYMOUS
     username = factory.Faker("uuid4")
+
+
+RPG_OPTION = OrganizerFieldOptionDTO(label="RPG", order=1, pk=1, value="rpg")
+BOARD_OPTION = OrganizerFieldOptionDTO(label="Board", order=0, pk=2, value="board")
+
+
+def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
+    defaults = {
+        "field_type": "select",
+        "name": "Tags",
+        "options": [RPG_OPTION, BOARD_OPTION],
+        "order": 0,
+        "pk": 1,
+        "question": "What tags apply?",
+        "slug": "tags",
+    }
+    return OrganizerFieldDTO(**(defaults | overrides))

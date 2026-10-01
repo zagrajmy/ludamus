@@ -148,9 +148,9 @@ class PanelService:
         if start < event.start_time or end > event.end_time:
             errors.append("Time slot must be within event dates.")
 
-        for slot in existing_slots:
-            if start < slot.end_time and end > slot.start_time:
-                errors.append("Time slot overlaps with an existing slot.")
-                break
+        if any(
+            start < slot.end_time and end > slot.start_time for slot in existing_slots
+        ):
+            errors.append("Time slot overlaps with an existing slot.")
 
         return errors
