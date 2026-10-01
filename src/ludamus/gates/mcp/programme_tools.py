@@ -856,8 +856,9 @@ class _SetPersonalDataFieldTypeInput(BaseModel):
     slug: str = Field(description="Field slug (see list_personal_data_fields)")
     field_type: TextFieldKind = Field(
         description=(
-            '"discord" prefills the answer from the proposer\'s profile and skips '
-            'the question when known; "text" asks it every time'
+            '"discord" prefills the answer from the proposer\'s profile (the '
+            "wizard skips the step only when the account answers all of it); "
+            '"text" asks it every time'
         )
     )
 

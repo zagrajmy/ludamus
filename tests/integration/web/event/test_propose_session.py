@@ -406,7 +406,27 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(cat),
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "current_step": "details",
+                "is_first_step": False,
+                "wizard_steps": ["category", "details", "review"],
+            },
+            template_name="event/propose/parts/details.html",
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["contact_email"] == "testuser@example.com"
 
@@ -712,7 +732,27 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(cat),
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "current_step": "details",
+                "is_first_step": False,
+                "wizard_steps": ["category", "details", "review"],
+            },
+            template_name="event/propose/parts/details.html",
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["personal_data"] == {"personal_dc": "gm_bob"}
 
@@ -740,7 +780,23 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert response.template_name == "event/propose/parts/personal.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(cat),
+                "form": response.context["form"],
+                "field_descriptors": response.context["field_descriptors"],
+                "current_step": "personal",
+                "is_first_step": False,
+                "wizard_steps": ["category", "personal", "details", "review"],
+            },
+            template_name="event/propose/parts/personal.html",
+        )
 
     def test_post_timeslots_with_only_foreign_id_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category

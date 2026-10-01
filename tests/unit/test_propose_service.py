@@ -374,12 +374,27 @@ class TestAccountAnswers:
         assert answers.personal_data == {}
 
 
+class FakeUsers:
+    """Holds one profile handle and fills it only while empty, like the repo."""
+
+    def __init__(self, handle=""):
+        self.handle = handle
+        self.user = _user()
+        self.user.slug = "ada"
+
+    def read(self, _slug):
+        return self.user
+
+    def fill_discord_username(self, _slug, handle):
+        if self.handle:
+            return False
+        self.handle = handle
+        return True
+
+
 class TestProfileDiscordFill:
     @staticmethod
     def _submit(service, repos, handle):
-        user = _user()
-        user.slug = "ada"
-        repos.users.read.return_value = user
         repos.facilitators.read_by_user_and_event.return_value = _facilitator()
         repos.personal_fields.read_by_slug.side_effect = lambda _event_id, slug: (
             _discord_requirement(slug).field if slug == "dc" else _field(4, slug)
@@ -395,18 +410,33 @@ class TestProfileDiscordFill:
             user_slug="ada",
         )
 
-    def test_fills_the_empty_profile_handle_with_the_answer(
-        self, service, submitting_repos
-    ):
-        submitting_repos.users.fill_discord_username.return_value = True
-
-        self._submit(service, submitting_repos, " ada_gm ")
-
-        submitting_repos.users.fill_discord_username.assert_called_once_with(
-            "ada", "ada_gm"
+    @staticmethod
+    def _service(repos, users):
+        return ProposeSessionService(
+            transaction=MagicMock(),
+            repos=repos._replace(users=users),
+            cache=FakeCache(),
         )
 
-    def test_skips_a_handle_too_long_for_the_profile(self, service, submitting_repos):
-        self._submit(service, submitting_repos, "x" * 151)
+    def test_fills_the_empty_profile_handle_with_the_answer(self, submitting_repos):
+        users = FakeUsers()
 
-        submitting_repos.users.fill_discord_username.assert_not_called()
+        self._submit(self._service(submitting_repos, users), submitting_repos, " ada ")
+
+        assert users.handle == "ada"
+
+    def test_keeps_a_handle_the_profile_already_has(self, submitting_repos):
+        users = FakeUsers(handle="ada_gm")
+
+        self._submit(self._service(submitting_repos, users), submitting_repos, "bob")
+
+        assert users.handle == "ada_gm"
+
+    def test_skips_a_handle_too_long_for_the_profile(self, submitting_repos):
+        users = FakeUsers()
+
+        self._submit(
+            self._service(submitting_repos, users), submitting_repos, "x" * 151
+        )
+
+        assert not users.handle

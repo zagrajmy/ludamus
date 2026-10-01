@@ -488,10 +488,24 @@ class TestPersonalDataFieldEditPageView:
             data={"name": "Size", "question": "T-shirt", "field_type": "discord"},
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["form"].errors["field_type"] == [
-            "Only text and Discord username fields can switch type."
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-edit.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "field": response.context["field"],
+                "form": ANY,
+                "can_switch_type": False,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
+                "categories": [],
+                "required_category_pks": set(),
+                "optional_category_pks": set(),
+            },
+        )
         field.refresh_from_db()
         assert field.field_type == "select"
         assert field.name == "Size"
