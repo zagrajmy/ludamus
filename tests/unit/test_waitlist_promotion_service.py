@@ -356,6 +356,25 @@ class TestClaimMemberOffer:
             )
         ]
 
+    def test_past_deadline_is_rejected_and_logged(self, caplog):
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW - timedelta(minutes=1)))
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=_SESSION_ID
+            )
+
+        assert result == ClaimResult(
+            success=False, reason="expired", session_id=_SESSION_ID, event_slug="con"
+        )
+        assert not repo.log.claimed
+        assert caplog.messages == [
+            (
+                f"Dashboard offer claim by member {_MEMBER_ID} "
+                f"on session {_SESSION_ID}: expired"
+            )
+        ]
+
 
 class TestExpireOffer:
     def _offer(self, *, expires=_NOW - timedelta(minutes=1)):
