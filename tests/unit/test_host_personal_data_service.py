@@ -1,24 +1,20 @@
-from contextlib import contextmanager
+from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.submissions.personal_data_fields import PersonalDataFieldValueService
+from ludamus.mills.submissions.personal_data_fields import (
+    CFPPersonalDataFieldService,
+    PersonalDataFieldValueService,
+    log_facilitator_deletion,
+)
 from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
 )
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def atomic(self):
-        return _atomic()
+from ludamus.pacts.legacy import FacilitatorChangeLogDTO
+from tests.unit.factories import FakeTransaction
 
 
 class FakeFacilitators:
@@ -27,8 +23,7 @@ class FakeFacilitators:
         self.updated = []
 
     def read(self, pk):
-        if self._facilitator is None or self._facilitator.pk != pk:
-            raise NotFoundError
+        assert pk == self._facilitator.pk
         return self._facilitator
 
     def update(self, pk, data):
@@ -209,3 +204,223 @@ def test_update_facilitator_rejects_facilitator_from_other_event():
         )
 
     assert not facilitators.updated
+
+
+def test_update_facilitator_logs_personal_data_and_core_changes_in_one_entry():
+    logs = FakeChangeLogs()
+    facilitators = FakeFacilitators(_facilitator())
+    repo = FakePersonalDataFieldValue(existing={"vegan": False})
+    service = _service(
+        facilitators=facilitators,
+        personal_data_field_values=repo,
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_facilitator(
+        event_id=10,
+        facilitator_id=1,
+        data={"accreditation_type": "honorary", "internal_comment": ""},
+        entries=[_entry(value=True)],
+        user_id=7,
+    )
+
+    assert facilitators.updated == [
+        (1, {"accreditation_type": "honorary", "internal_comment": ""})
+    ]
+    assert repo.saved == [[_entry(value=True)]]
+    assert logs.created == [
+        {
+            "event_id": 10,
+            "facilitator_id": 1,
+            "user_id": 7,
+            "changes": [
+                {"field": "", "field_id": 5, "old": False, "new": True},
+                {
+                    "field": "accreditation_type",
+                    "field_id": None,
+                    "old": "none",
+                    "new": "honorary",
+                },
+            ],
+        }
+    ]
+
+
+def test_update_facilitator_with_nothing_changed_logs_nothing():
+    logs = FakeChangeLogs()
+    repo = FakePersonalDataFieldValue()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=repo,
+        change_logs=logs,
+    )
+
+    service.update_facilitator(
+        event_id=10, facilitator_id=1, data={"accreditation_type": "none"}, entries=[]
+    )
+
+    assert not repo.saved
+    assert not logs.created
+
+
+def test_unchanged_answer_and_unknown_field_are_not_logged():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=FakePersonalDataFieldValue(
+            existing={"vegan": "yes"}, existing_field_ids=[5]
+        ),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10,
+        facilitator_id=1,
+        entries=[
+            _entry(value="yes"),
+            PersonalDataFieldValueData(
+                facilitator_id=1, event_id=10, field_id=404, value="stray"
+            ),
+        ],
+    )
+
+    assert not logs.created
+
+
+def test_emptying_a_multi_select_answer_is_not_an_edit():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=FakePersonalDataFieldValue(existing={}),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value=[])]
+    )
+
+    assert not logs.created
+
+
+class FakeLogReader(FakeChangeLogs):
+    def __init__(self, entries):
+        super().__init__()
+        self._entries = entries
+
+    def list_by_event(self, _event_id):
+        return self._entries
+
+
+def test_list_log_and_field_names_read_through():
+    log_entry = FacilitatorChangeLogDTO(
+        pk=1,
+        event_id=10,
+        facilitator_id=1,
+        facilitator_name="Alice",
+        user_id=None,
+        user_name="",
+        changes=[],
+        creation_time=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=FakePersonalDataFieldValue(),
+        fields=[_field()],
+        change_logs=FakeLogReader([log_entry]),
+    )
+
+    assert service.list_log(10) == [log_entry]
+    assert service.list_field_names(10) == {5: "Vegan"}
+
+
+class FakeCFPFields:
+    def __init__(self, *, fields=(), answers=None, answered=()):
+        self._fields = list(fields)
+        self._answers = answers or {}
+        self._answered = set(answered)
+        self.updated = {}
+        self.deleted = []
+
+    def list_by_event(self, _event_id):
+        return self._fields
+
+    def count_values(self, _event_id):
+        return self._answers
+
+    def read_by_slug(self, _event_id, slug):
+        try:
+            return next(field for field in self._fields if field.slug == slug)
+        except StopIteration:
+            raise NotFoundError from None
+
+    def has_values(self, pk):
+        return pk in self._answered
+
+    def update(self, pk, data):
+        self.updated[pk] = data
+
+    def delete(self, pk):
+        self.deleted.append(pk)
+
+
+def _cfp_service(fields):
+    return CFPPersonalDataFieldService(transaction=FakeTransaction(), fields=fields)
+
+
+def test_summaries_default_unanswered_fields_to_zero():
+    other = OrganizerFieldDTO(
+        field_type="text", name="Phone", order=1, pk=6, question="?", slug="phone"
+    )
+    service = _cfp_service(FakeCFPFields(fields=[_field(), other], answers={5: 3}))
+
+    summaries = service.list_summaries(10)
+
+    assert [(s.field.pk, s.answer_count) for s in summaries] == [(5, 3), (6, 0)]
+
+
+def test_update_writes_against_the_pk_the_slug_resolved_to():
+    fields = FakeCFPFields(fields=[_field()])
+
+    _cfp_service(fields).update(
+        event_pk=10, field_slug="vegan", data={"name": "Vegan?"}
+    )
+
+    assert fields.updated == {5: {"name": "Vegan?"}}
+
+
+def test_delete_refuses_a_field_people_have_answered():
+    fields = FakeCFPFields(fields=[_field()], answered=[5])
+
+    assert _cfp_service(fields).delete(10, "vegan") is False
+    assert not fields.deleted
+
+
+def test_delete_removes_an_unanswered_field():
+    fields = FakeCFPFields(fields=[_field()])
+
+    assert _cfp_service(fields).delete(10, "vegan") is True
+    assert fields.deleted == [5]
+
+
+def test_delete_surfaces_an_unknown_slug():
+    with pytest.raises(NotFoundError):
+        _cfp_service(FakeCFPFields()).delete(10, "ghost")
+
+
+def test_deletion_and_restore_log_mirror_each_other():
+    logs = FakeChangeLogs()
+
+    log_facilitator_deletion(
+        repo=logs, event_id=10, facilitator_id=1, user_id=None, deleted=True
+    )
+    log_facilitator_deletion(
+        repo=logs, event_id=10, facilitator_id=1, user_id=None, deleted=False
+    )
+
+    assert [entry["changes"][0] for entry in logs.created] == [
+        {"field": "deleted", "field_id": None, "old": "", "new": "yes"},
+        {"field": "deleted", "field_id": None, "old": "yes", "new": ""},
+    ]

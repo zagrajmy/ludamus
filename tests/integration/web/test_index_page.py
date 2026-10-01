@@ -92,7 +92,11 @@ class TestIndexRedirectView:
             HTTPStatus.OK,
             context_data={
                 "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                    agenda=[],
+                    bookmarks=[],
+                    open_encounters=[],
+                    sphere_feed=[],
+                    discover=[],
                 ),
                 "can_create_encounter": True,
             },

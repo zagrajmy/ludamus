@@ -168,5 +168,17 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     assert page.proposal_count == proposal_count
 
 
+def test_update_writes_submitted_promotion_config() -> None:
+    repos, categories = _mock_repos()
+
+    _service(RecordingTransaction(), repos).update(
+        event_id=4, category_slug="rpg", data=_data()
+    )
+
+    payload = categories.update.call_args.args[1]
+    assert payload["promotion_mode"] == PromotionMode.OFFER_CLAIM
+    assert payload["offer_claim_window"] == timedelta(minutes=30)
+
+
 def assert_transaction_active(transaction: RecordingTransaction) -> None:
     assert transaction.active is True
