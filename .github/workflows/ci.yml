@@ -185,16 +185,18 @@ jobs:
           path="$(mise exec -- printenv PATH)"
           for attempt in 1 2 3; do
             if [ "$attempt" -gt 1 ]; then
-              sudo timeout 60 dpkg --configure -a || true
+              sudo timeout -k 5 60 dpkg --configure -a || true
             fi
-            rc=0
-            sudo env "PATH=$path" timeout -k 10 180 \
-              aube exec --no-install -C tests/e2e playwright install-deps || rc=$?
-            [ "$rc" -eq 0 ] && exit 0
-            # 124: timed out; anything else is apt's own exit code.
+            if sudo env "PATH=$path" timeout -k 10 180 \
+              aube exec --no-install -C tests/e2e playwright install-deps; then
+              exit 0
+            else
+              rc=$?
+            fi
+            # 124: timed out; 137: killed after -k; else playwright's exit code.
             echo "::warning::Playwright system deps exited $rc (attempt $attempt/3)"
           done
-          exit 1
+          exit "$rc"
       - name: Run end-to-end tests
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
