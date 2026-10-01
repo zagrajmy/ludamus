@@ -39,7 +39,9 @@
                                 </span>
                             {% endif %}
                             <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
-                            {% if slot.kind == "current" and event.is_proposal_active %}
+                            {# With a single slot this would repeat the section's Propose #}
+                            {# Session button right above it. #}
+                            {% if slot.kind == "current" and event.is_proposal_active and hour_data|length > 1 %}
                                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                                    class="print:hidden text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
                                     {% icon "plus" class="w-4 h-4" variant="mini" %}
