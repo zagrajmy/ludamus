@@ -1566,13 +1566,14 @@ def main() -> None:
     foreign_hall = _create_venue(
         foreign_event, name="Foreign Hall", slug="foreign-hall"
     )
+    foreign_table = _create_space(
+        _create_area(foreign_hall, name="Ground floor", slug="ground-floor"),
+        name="Table 1",
+        slug="table-1",
+    )
     starred = _scheduled_session(
         foreign_event,
-        _create_space(
-            _create_area(foreign_hall, name="Ground floor", slug="ground-floor"),
-            name="Table 1",
-            slug="table-1",
-        ),
+        foreign_table,
         title="Starred Dungeon Crawl",
         slug="starred-dungeon-crawl",
         presenter="Foreign GM",
@@ -1581,6 +1582,34 @@ def main() -> None:
         hour=1,
     )
     SessionBookmark.objects.create(user=tester, session=starred)
+    # Where the tester waits and where a seat is held for them: Coming up says
+    # which is which, and the offer carries its claim button.
+    for hour, title, slug, status in (
+        (3, "Waitlisted Heist", "waitlisted-heist", SessionParticipationStatus.WAITING),
+        (5, "Offered Duel", "offered-duel", SessionParticipationStatus.OFFERED),
+    ):
+        SessionParticipation.objects.create(
+            session=_scheduled_session(
+                foreign_event,
+                foreign_table,
+                title=title,
+                slug=slug,
+                presenter="Foreign GM",
+                description="A seat the tester waits for or was offered.",
+                seats=1,
+                hour=hour,
+            ),
+            user=tester,
+            status=status.value,
+            **(
+                {
+                    "claim_token": "e2e-dashboard-offer",
+                    "offer_expires_at": timezone.now() + timedelta(days=1),
+                }
+                if status is SessionParticipationStatus.OFFERED
+                else {}
+            ),
+        )
     # Announcements belong to a sphere that runs a programme: they sit above
     # its feed, for people who came for that feed. The root sphere has none of
     # that, so this is where the rendering is covered.
