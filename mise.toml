@@ -257,10 +257,16 @@ env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", D
 
 [tasks."test:mutation"]
 description = "Run mutation tests; fails on any survivor not listed in mutmut-equivalents.txt"
+# NOTE: mutmut reuses mutants/ between runs: its stats only re-collect for new
+# tests, so a function added since the last run maps to no test, and the
+# "no tests" verdict that writes into the .meta files is never reset by a later
+# run. Starting from an empty mutants/ makes every run a full one, as in CI;
+# "no tests" is gated like a survivor so a stale verdict cannot pass either.
 run = [
+    "rm -rf mutants",
     "mutmut run",
     "mutmut results",
-    "! mutmut results | grep ': survived$' | sed 's/^ *//; s/: survived$//' | grep -vxFf mutmut-equivalents.txt | grep .",
+    "! mutmut results | grep -E ': (survived|no tests)$' | sed -E 's/^ *//; s/: (survived|no tests)$//' | grep -vxFf mutmut-equivalents.txt | grep .",
 ]
 env = { _.file = '.env.test' }
 

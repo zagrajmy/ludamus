@@ -988,6 +988,22 @@ class TestKonwencikSaveSettings:
             ).model_dump_json(),
         )
 
+    def test_a_foreign_icon_field_is_dropped_while_the_offered_photo_field_stays(self):
+        env = _settings_env()
+        env.integrations.get.return_value = _integration()
+
+        env.service.save_settings(
+            sphere_id=SPHERE_PK,
+            event_pk=EVENT_PK,
+            pk=INTEGRATION_PK,
+            settings=KonwencikExportSettings(
+                photo_url_field_pk=FIELD_PK, icon_field_pk=FIELD_PK + 1
+            ),
+        )
+
+        saved = _saved_settings(env)
+        assert (saved.photo_url_field_pk, saved.icon_field_pk) == (FIELD_PK, None)
+
     def test_an_empty_value_removes_the_style(self):
         env = _settings_env(tracks=[_track()])
         env.integrations.get.return_value = _integration()

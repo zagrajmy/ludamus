@@ -20,6 +20,7 @@ ludamus.mills.maps.xǁ_SpaceTreeǁnearest__mutmut_11
 ludamus.mills.propose.xǁProposeSessionServiceǁsubmit__mutmut_113
 ludamus.mills.qr.x_qr_svg__mutmut_18
 ludamus.mills.submissions.field_layout.xǁImportFieldLayoutServiceǁ__init____mutmut_6
+ludamus.mills.submissions.mapping.x_encode_response__mutmut_2
 ludamus.mills.submissions.mapping.x_generate_unique_slug__mutmut_23
 ludamus.mills.submissions.mapping.x_slugify__mutmut_24
 ludamus.mills.submissions.mapping.x_slugify__mutmut_25
