@@ -74,6 +74,9 @@ class FakeRepo:
     def read_offer_by_participation(self, _participation_id):
         return self._seed["offer"]
 
+    def read_offer_for_member(self, **_kwargs):
+        return self._seed["offer"]
+
     def mark_claimed(self, ids, **_kwargs):
         self.claimed.append(ids)
 
@@ -316,6 +319,26 @@ class TestClaimOfferOutcomes:
             success=True, session_id=_SESSION_ID, event_slug="con"
         )
         assert repo.claimed == [[1, 2]]
+
+
+class TestClaimMemberOffer:
+    def test_claims_the_whole_party_behind_the_members_own_offer(self):
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
+
+        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID)
+
+        assert result == ClaimResult(
+            success=True, session_id=_SESSION_ID, event_slug="con"
+        )
+        assert repo.claimed == [[1, 2]]
+
+    def test_a_session_the_member_was_offered_no_seat_at_is_not_found(self):
+        service, repo, _, _ = _build()
+
+        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID)
+
+        assert result == ClaimResult(success=False, reason="not_found")
+        assert not repo.claimed
 
 
 class TestDeclineOffer:
