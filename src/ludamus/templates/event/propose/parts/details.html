@@ -56,8 +56,8 @@
                     {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
                 {% endfor %}
             </div>
-            <div class="{% if wizard_steps.0 != current_step %}flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3{% else %}flex justify-end{% endif %} pt-6">
-                {% if wizard_steps.0 != current_step %}
+            <div class="{% if not is_first_step %}flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3{% else %}flex justify-end{% endif %} pt-6">
+                {% if not is_first_step %}
                     <button type="button"
                             class="btn btn-secondary"
                             hx-post="{% url 'web:event:session-propose-timeslots' event_slug=event.slug %}"

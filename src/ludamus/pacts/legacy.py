@@ -1092,6 +1092,8 @@ class PersonalDataFieldUpdateData(TypedDict):
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
+    # Applied only between text kinds; other types keep theirs.
+    field_type: NotRequired[TextFieldKind]
 
 
 class SessionFieldCreateData(TypedDict):

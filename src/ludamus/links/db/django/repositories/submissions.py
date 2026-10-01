@@ -43,6 +43,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
+from ludamus.pacts.fields import TEXT_FIELD_KINDS
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -600,10 +601,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         return self._to_dto(field)
 
     def update(self, pk: int, data: PersonalDataFieldUpdateData) -> OrganizerFieldDTO:
-        try:
-            field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
-        except PersonalDataField.DoesNotExist as exc:
-            raise NotFoundError from exc
+        field = self._read(pk)
 
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(field.event_id, base_slug, exclude_pk=pk)
@@ -620,6 +618,10 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.allow_custom = (
             data["allow_custom"] if field.field_type == "select" else False
         )
+        if (
+            new_type := data.get("field_type")
+        ) and field.field_type in TEXT_FIELD_KINDS:
+            field.field_type = new_type
         field.save()
 
         options = data["options"]
@@ -634,13 +636,17 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         return self._to_dto(field)
 
     def set_field_type(self, pk: int, field_type: TextFieldKind) -> OrganizerFieldDTO:
-        try:
-            field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
-        except PersonalDataField.DoesNotExist as exc:
-            raise NotFoundError from exc
+        field = self._read(pk)
         field.field_type = field_type
         field.save(update_fields=["field_type"])
         return self._to_dto(field)
+
+    @staticmethod
+    def _read(pk: int) -> PersonalDataField:
+        try:
+            return PersonalDataField.objects.prefetch_related("options").get(pk=pk)
+        except PersonalDataField.DoesNotExist as exc:
+            raise NotFoundError from exc
 
     @staticmethod
     def generate_unique_slug(

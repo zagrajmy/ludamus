@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -17,7 +17,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
+    parse_personal_field_form_data,
     undeletable_field_reasons,
 )
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
@@ -28,7 +28,15 @@ from ludamus.pacts.fields import TEXT_FIELD_KINDS
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts.fields import TextFieldKind
+    from ludamus.pacts.legacy import PersonalDataFieldUpdateData
+
+
+# What a text or Discord field may switch to on the edit page.
+_TEXT_KIND_CHOICES = [
+    (value, label)
+    for value, label in PersonalDataFieldForm.FIELD_TYPE_CHOICES
+    if value in TEXT_FIELD_KINDS
+]
 
 
 class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -120,7 +128,7 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
 
         service.create(
             event_pk=current_event.pk,
-            data=parse_field_form_data(form),
+            data=parse_personal_field_form_data(form),
             category_requirements=selection,
         )
 
@@ -167,6 +175,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "cfp"
         context["field"] = field
         context["form"] = PersonalDataFieldForm(initial=initial)
+        context["text_kind_choices"] = _TEXT_KIND_CHOICES
         context["categories"] = edit_ctx.categories
         context["required_category_pks"] = edit_ctx.required_category_pks
         context["optional_category_pks"] = edit_ctx.optional_category_pks
@@ -202,6 +211,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["active_nav"] = "cfp"
             context["field"] = field
             context["form"] = form
+            context["text_kind_choices"] = _TEXT_KIND_CHOICES
             context["categories"] = edit_ctx.categories
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
@@ -218,28 +228,22 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
 
-        # Before `update`, which re-derives the slug from the new name.
-        new_type = form.cleaned_data.get("field_type")
-        if field.field_type in TEXT_FIELD_KINDS and new_type in TEXT_FIELD_KINDS:
-            service.set_field_type(
-                event_pk=current_event.pk,
-                field_slug=field_slug,
-                field_type=cast("TextFieldKind", new_type),
-            )
-
+        data: PersonalDataFieldUpdateData = {
+            "name": form.cleaned_data["name"],
+            "question": form.cleaned_data["question"],
+            "max_length": form.cleaned_data.get("max_length") or 0,
+            "help_text": form.cleaned_data.get("help_text") or "",
+            "is_public": form.cleaned_data.get("is_public", False),
+            "options": options,
+            "is_multiple": form.cleaned_data.get("is_multiple") or False,
+            "allow_custom": form.cleaned_data.get("allow_custom") or False,
+        }
+        if new_type := TEXT_FIELD_KINDS.get(form.cleaned_data.get("field_type") or ""):
+            data["field_type"] = new_type
         service.update(
             event_pk=current_event.pk,
             field_slug=field_slug,
-            data={
-                "name": form.cleaned_data["name"],
-                "question": form.cleaned_data["question"],
-                "max_length": form.cleaned_data.get("max_length") or 0,
-                "help_text": form.cleaned_data.get("help_text") or "",
-                "is_public": form.cleaned_data.get("is_public", False),
-                "options": options,
-                "is_multiple": form.cleaned_data.get("is_multiple") or False,
-                "allow_custom": form.cleaned_data.get("allow_custom") or False,
-            },
+            data=data,
             category_requirements=selection,
         )
 

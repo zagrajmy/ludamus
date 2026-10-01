@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
-
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -22,7 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
+    parse_session_field_form_data,
     read_field_or_redirect,
     undeletable_field_reasons,
 )
@@ -30,9 +28,6 @@ from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.mills import PanelService
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, FieldUsageSummary, NotFoundError
-
-if TYPE_CHECKING:
-    from typing import Literal
 
 
 class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -128,18 +123,9 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/session-field-create.html", context
             )
 
-        parsed = parse_field_form_data(form)
-
         self.request.services.session_fields.create(
             event_pk=current_event.pk,
-            data={
-                **parsed,
-                # SessionFieldForm offers no "discord" choice.
-                "field_type": cast(
-                    "Literal['text', 'select', 'checkbox']", parsed["field_type"]
-                ),
-                "icon": form.cleaned_data.get("icon") or "",
-            },
+            data=parse_session_field_form_data(form),
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
             ),

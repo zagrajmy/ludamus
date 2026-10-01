@@ -22,7 +22,7 @@ BLANK_CHOICE = ("", "—")
 # Personal-data field types whose answers are the same plain string, so a field
 # can move between them without touching what proposers already answered.
 type TextFieldKind = Literal["text", "discord"]
-TEXT_FIELD_KINDS: tuple[TextFieldKind, ...] = ("text", "discord")
+TEXT_FIELD_KINDS: dict[str, TextFieldKind] = {"text": "text", "discord": "discord"}
 
 
 class FieldTypeSwitchError(Exception):

@@ -59,16 +59,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_field_type">{% translate "Field Type" %}</label>
-                                <select name="field_type"
-                                        id="id_field_type"
-                                        class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="text"
-                                            {% if form.field_type.value == "text" %}selected{% endif %}>{% translate "Text" %}</option>
-                                    <option value="discord"
-                                            {% if form.field_type.value == "discord" %}selected{% endif %}>
-                                        {% translate "Discord username" %}
-                                    </option>
-                                </select>
+                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=text_kind_choices selected=form.field_type.value only %}
                                 <p class="mt-1 text-sm text-foreground-muted">
                                     {% translate "Discord username fields are prefilled from the proposer's profile. Answers already given are kept." %}
                                 </p>

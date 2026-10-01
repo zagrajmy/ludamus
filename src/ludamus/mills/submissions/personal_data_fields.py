@@ -31,7 +31,6 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
-        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.services import TransactionProtocol
@@ -96,15 +95,7 @@ class CFPPersonalDataFieldService(
 ):
     """Backoffice operations for an event's personal-data fields."""
 
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        fields: PersonalDataFieldRepositoryProtocol,
-        categories: ProposalCategoryRepositoryProtocol,
-    ) -> None:
-        super().__init__(transaction=transaction, fields=fields, categories=categories)
-        self._personal_fields = fields
+    _fields: PersonalDataFieldRepositoryProtocol
 
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
@@ -156,7 +147,7 @@ class CFPPersonalDataFieldService(
             raise FieldTypeSwitchError
         if field.field_type == field_type:
             return field
-        return self._personal_fields.set_field_type(field.pk, field_type)
+        return self._fields.set_field_type(field.pk, field_type)
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

@@ -168,6 +168,7 @@ class TestProposeSessionPageView:
                 "selected_category_id": None,
                 "error": None,
                 "current_step": "category",
+                "is_first_step": True,
                 "wizard_steps": [
                     "category",
                     "personal",
@@ -210,6 +211,7 @@ class TestProposeSessionPageView:
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
+                "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
                 "show_back_button": False,
                 "show_login_nudge": False,
@@ -725,6 +727,7 @@ class TestProposeSessionPageView:
                 ],
                 "error": "Please select at least one time slot.",
                 "current_step": "timeslots",
+                "is_first_step": True,
                 "wizard_steps": ["timeslots", "details", "review"],
             },
             template_name="event/propose/parts/timeslots.html",
@@ -863,6 +866,7 @@ class TestProposeSessionPageView:
                 "selected_track_pks": [],
                 "track_error": "Please select at least one track.",
                 "current_step": "details",
+                "is_first_step": True,
                 "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
@@ -1816,6 +1820,7 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "review",
+                "is_first_step": False,
                 "event": EventDTO.model_validate(event),
                 "proposal_settings": EventProposalSettingsDTO(
                     allow_anonymous_proposals=False, description="", pk=0
@@ -1873,6 +1878,7 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
+                "is_first_step": True,
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
@@ -1915,6 +1921,7 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
+                "is_first_step": True,
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
@@ -2412,6 +2419,7 @@ class TestProposeSessionPageView:
                 "selected_category_id": None,
                 "error": "Please select a category.",
                 "current_step": "category",
+                "is_first_step": True,
                 "wizard_steps": [
                     "category",
                     "personal",
@@ -2457,6 +2465,7 @@ class TestProposeSessionPageView:
                 "form": response.context["form"],
                 "field_descriptors": [],
                 "current_step": "personal",
+                "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
                 "show_back_button": False,
                 "show_login_nudge": False,
@@ -2517,6 +2526,7 @@ class TestProposeSessionPageView:
                 ],
                 "error": None,
                 "current_step": "timeslots",
+                "is_first_step": True,
                 "wizard_steps": ["timeslots", "details", "review"],
             },
             template_name="event/propose/parts/timeslots.html",
@@ -2548,6 +2558,7 @@ class TestProposeSessionPageView:
                 "selected_track_pks": [],
                 "track_error": None,
                 "current_step": "details",
+                "is_first_step": True,
                 "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/details.html",
@@ -2586,6 +2597,7 @@ class TestProposeSessionPageView:
                     "time_slots": [],
                 },
                 "current_step": "review",
+                "is_first_step": False,
                 "wizard_steps": ["details", "review"],
             },
             template_name="event/propose/parts/review.html",
@@ -3056,6 +3068,7 @@ class TestAnonymousProposalSubmission:
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
+                "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
                 "show_back_button": False,
                 "show_login_nudge": True,

@@ -67,6 +67,10 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
                 "categories": [],
                 "required_category_pks": set(),
                 "optional_category_pks": set(),
@@ -222,6 +226,10 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
                 "categories": [],
                 "required_category_pks": set(),
                 "optional_category_pks": set(),

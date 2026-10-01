@@ -21,6 +21,7 @@ from ludamus.pacts import (
     FacilitatorUpdateData,
     NotFoundError,
 )
+from ludamus.pacts.fields import TEXT_FIELD_KINDS
 from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
 from ludamus.pacts.submissions import (
     FacilitatorListFilters,
@@ -189,7 +190,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             # Text personal-data values are stored JSON-encoded; match both the
             # raw string and its JSON-escaped form (mirrors proposals search).
             encoded = json.dumps(search)[1:-1]
-            text_value = Q(personal_data__field__field_type__in=("text", "discord")) & (
+            text_value = Q(personal_data__field__field_type__in=TEXT_FIELD_KINDS) & (
                 Q(personal_data__value__icontains=search)
                 | Q(personal_data__value__icontains=encoded)
             )

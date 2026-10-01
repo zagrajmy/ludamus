@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from typing import (  # pylint: disable=unused-import
-    TYPE_CHECKING,
-    Literal,
-    Protocol,
-    cast,
-)
+from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
 
 from django.contrib import messages
 from django.utils.translation import gettext as _
 
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
+from ludamus.pacts.legacy import SessionFieldCreateData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -40,17 +36,56 @@ class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
     def read_by_slug(self, event_pk: int, slug: str) -> T: ...
 
 
-def parse_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
-    field_type = cast(
-        "Literal['text', 'select', 'checkbox', 'discord']",
-        form.cleaned_data.get("field_type") or "text",
+type _SessionFieldType = Literal["text", "select", "checkbox"]
+type _PersonalFieldType = Literal["text", "select", "checkbox", "discord"]
+
+_SESSION_FIELD_TYPES: dict[str, _SessionFieldType] = {
+    "text": "text",
+    "select": "select",
+    "checkbox": "checkbox",
+}
+_PERSONAL_FIELD_TYPES: dict[str, _PersonalFieldType] = {
+    **_SESSION_FIELD_TYPES,
+    "discord": "discord",
+}
+
+
+class _FieldFormData(TypedDict):
+    name: str
+    # Never parsed from the form; declared so the create-data types spread it.
+    slug: NotRequired[str]
+    question: str
+    options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
+    max_length: int
+    help_text: str
+    is_public: bool
+
+
+def parse_personal_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
+    raw_type = form.cleaned_data.get("field_type") or ""
+    return PersonalDataFieldCreateData(
+        **_parse_field_form_data(form),
+        field_type=_PERSONAL_FIELD_TYPES.get(raw_type, "text"),
     )
+
+
+def parse_session_field_form_data(form: forms.Form) -> SessionFieldCreateData:
+    raw_type = form.cleaned_data.get("field_type") or ""
+    return SessionFieldCreateData(
+        **_parse_field_form_data(form),
+        field_type=_SESSION_FIELD_TYPES.get(raw_type, "text"),
+        icon=form.cleaned_data.get("icon") or "",
+    )
+
+
+def _parse_field_form_data(form: forms.Form) -> _FieldFormData:
     options_text = form.cleaned_data.get("options") or ""
     options = [o.strip() for o in options_text.split("\n") if o.strip()] or None
-    return PersonalDataFieldCreateData(
+    return _FieldFormData(
         name=form.cleaned_data["name"],
         question=form.cleaned_data["question"],
-        field_type=field_type,
         options=options,
         is_multiple=form.cleaned_data.get("is_multiple") or False,
         allow_custom=form.cleaned_data.get("allow_custom") or False,
