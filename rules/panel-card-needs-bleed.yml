@@ -1,0 +1,38 @@
+id: panel-card-needs-bleed
+language: html
+severity: error
+files:
+  - src/ludamus/templates/**/*.html
+rule:
+  kind: element
+  has:
+    kind: start_tag
+    has:
+      kind: attribute
+      regex: 'class="(card|[^"]*\scard)(\s[^"]*)?"'
+  not:
+    any:
+      - inside:
+          kind: element
+          stopBy: end
+          has:
+            kind: start_tag
+            has:
+              kind: attribute
+              regex: 'class="([^"]*\s)?(panel-bleed|p-\d+)(\s[^"]*)?"'
+      - inside:
+          kind: document
+          stopBy: end
+          has:
+            regex: 'tab_shell_body'
+            stopBy: end
+  inside:
+    kind: document
+    stopBy: end
+    has:
+      regex: 'extends "panel/base.html"'
+      stopBy: end
+message: |
+  A panel card with nothing insetting it sits flush against the sidebar and
+  header on desktop. Wrap the page content in .panel-bleed (padding on wide
+  screens, edge-to-edge cards on a phone), or put it in a {% tab_shell_body %}.

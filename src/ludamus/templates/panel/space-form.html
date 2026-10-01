@@ -24,24 +24,26 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
-        <div class="card card-body max-w-xl">
-            <form method="post" action="" class="space-y-4" data-submit-once>
-                {% csrf_token %}
-                {% tessera_form form %}
-                <div class="flex justify-end gap-2 border-t border-border pt-4">
-                    {% url 'panel:venues' slug=current_event.slug as cancel_url %}
-                    {% translate "Cancel" as t_cancel %}
-                    {% tessera_button t_cancel href=cancel_url button_type="button" variant="secondary" %}
-                    {% if node %}
-                        {% translate "Save" as t_save %}
-                        {% tessera_button t_save %}
-                    {% else %}
-                        {% translate "Create space" as t_create %}
-                        {% tessera_button t_create %}
-                    {% endif %}
-                </div>
-            </form>
-        </div>
-    {% endif %}
+    <div class="panel-bleed">
+        {% if current_event %}
+            <div class="card card-body max-w-xl">
+                <form method="post" action="" class="space-y-4" data-submit-once>
+                    {% csrf_token %}
+                    {% tessera_form form %}
+                    <div class="flex justify-end gap-2 border-t border-border pt-4">
+                        {% url 'panel:venues' slug=current_event.slug as cancel_url %}
+                        {% translate "Cancel" as t_cancel %}
+                        {% tessera_button t_cancel href=cancel_url button_type="button" variant="secondary" %}
+                        {% if node %}
+                            {% translate "Save" as t_save %}
+                            {% tessera_button t_save %}
+                        {% else %}
+                            {% translate "Create space" as t_create %}
+                            {% tessera_button t_create %}
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+    </div>
 {% endblock content %}

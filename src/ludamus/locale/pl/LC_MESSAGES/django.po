@@ -8353,14 +8353,8 @@ msgstr "Usuń ogłoszenie"
 
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #, python-format
-msgid ""
-"\n"
-"                Are you sure you want to delete announcement \"%(title)s\"?\n"
-"            "
-msgstr ""
-"\n"
-"                Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?\n"
-"            "
+msgid "Are you sure you want to delete announcement \"%(title)s\"?"
+msgstr "Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?"
 
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
 msgid "Edit announcement"
@@ -8395,14 +8389,8 @@ msgstr "Usuń połączenie"
 
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #, python-format
-msgid ""
-"\n"
-"                Are you sure you want to delete connection \"%(name)s\"?\n"
-"            "
-msgstr ""
-"\n"
-"                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
-"            "
+msgid "Are you sure you want to delete connection \"%(name)s\"?"
+msgstr "Czy na pewno chcesz usunąć połączenie „%(name)s”?"
 
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
 msgid "Edit connection"
@@ -12082,6 +12070,16 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                Are you sure you want to delete connection \"%(name)s\"?\n"
+#~ "            "
+#~ msgstr ""
+#~ "\n"
+#~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
+#~ "            "
 
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
