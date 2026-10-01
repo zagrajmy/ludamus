@@ -74,6 +74,10 @@
                                         {% if form.field_type.value == "checkbox" %}selected{% endif %}>
                                     {% translate "Checkbox" %}
                                 </option>
+                                <option value="discord"
+                                        {% if form.field_type.value == "discord" %}selected{% endif %}>
+                                    {% translate "Discord username" %}
+                                </option>
                             </select>
                         </div>
                         <div id="options-container" class="hidden">

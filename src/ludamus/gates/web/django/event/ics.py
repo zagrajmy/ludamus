@@ -9,7 +9,7 @@ from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.helpers import read_public_event
-from ludamus.mills.calendar import CalendarEntry, ics_document
+from ludamus.pacts.calendar import CalendarEntry, ics_document
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest

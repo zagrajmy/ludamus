@@ -20,7 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
+    parse_session_field_form_data,
     read_field_or_redirect,
     undeletable_field_reasons,
 )
@@ -123,11 +123,9 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/session-field-create.html", context
             )
 
-        parsed = parse_field_form_data(form)
-
         self.request.services.session_fields.create(
             event_pk=current_event.pk,
-            data={**parsed, "icon": form.cleaned_data.get("icon") or ""},
+            data=parse_session_field_form_data(form),
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
             ),

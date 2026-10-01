@@ -5,13 +5,15 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.meta import encounter_description
-from ludamus.links.db.django.models import EncounterRSVP
+from ludamus.links.db.django.models import EncounterInvitee, EncounterRSVP
 from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
 from ludamus.pacts import EncounterDTO
+from ludamus.pacts.encounter import EncounterInviteeDTO, InviteeStatus
 from tests.integration.conftest import (
     PNG_BYTES,
     EncounterFactory,
+    EncounterInviteeFactory,
     EncounterRSVPFactory,
     UserFactory,
 )
@@ -33,7 +35,14 @@ def _creator_info(creator):
 
 
 def _detail_context(
-    encounter, *, is_creator=False, user_has_rsvpd=False, attendees=None, rsvp_count=0
+    encounter,
+    *,
+    is_creator=False,
+    user_has_rsvpd=False,
+    attendees=None,
+    rsvp_count=0,
+    invitees=(),
+    accepted_guests=0,
 ):
     encounter_dto = EncounterDTO.model_validate(encounter)
     description_html = (
@@ -42,16 +51,15 @@ def _detail_context(
     share_url = "http://testserver" + reverse(
         "web:notice-board:encounter-detail", kwargs={"share_code": encounter.share_code}
     )
-    spots = encounter.max_participants - rsvp_count
+    spots = encounter.max_participants - rsvp_count - accepted_guests
+    remaining = max(0, spots) if encounter.max_participants > 0 else None
     return {
         "encounter": encounter_dto,
         "creator": _creator_info(encounter.creator),
         "attendees": attendees if attendees is not None else [],
         "rsvp_count": rsvp_count,
-        "is_full": (
-            encounter.max_participants > 0 and rsvp_count >= encounter.max_participants
-        ),
-        "spots_remaining": max(0, spots) if encounter.max_participants > 0 else None,
+        "is_full": remaining == 0,
+        "spots_remaining": remaining,
         "is_creator": is_creator,
         "description_html": description_html,
         "encounter_meta_description": encounter_description(
@@ -59,6 +67,7 @@ def _detail_context(
         ),
         "share_url": share_url,
         "user_has_rsvpd": user_has_rsvpd,
+        "invitees": list(invitees),
         "google_calendar_url": google_calendar_url(encounter_dto, share_url),
         "outlook_calendar_url": outlook_calendar_url(encounter_dto, share_url),
     }
@@ -178,6 +187,70 @@ class TestEncounterDetailPageView:
             response,
             HTTPStatus.OK,
             context_data=_detail_context(encounter, is_creator=True),
+            template_name="notice_board/detail.html",
+        )
+
+    def test_only_the_creator_sees_invitees(self, client, user, sphere):
+        encounter = EncounterFactory(creator=user, sphere=sphere, max_participants=3)
+        EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+
+    def test_creator_sees_invitees_and_their_answers(
+        self, authenticated_client, user, sphere
+    ):
+        encounter = EncounterFactory(creator=user, sphere=sphere, max_participants=3)
+        EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email="bob@example.com",
+            status=EncounterInvitee.Status.ACCEPTED,
+        )
+        member = UserFactory(email="cyd@example.com")
+        EncounterInviteeFactory(
+            encounter=encounter,
+            email=member.email,
+            status=EncounterInvitee.Status.DECLINED,
+        )
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(
+                encounter,
+                is_creator=True,
+                accepted_guests=1,
+                invitees=[
+                    EncounterInviteeDTO(
+                        email="ala@example.com", status=InviteeStatus.INVITED
+                    ),
+                    EncounterInviteeDTO(
+                        email="bob@example.com", status=InviteeStatus.ACCEPTED
+                    ),
+                    EncounterInviteeDTO(
+                        email=member.email,
+                        status=InviteeStatus.DECLINED,
+                        user_id=member.pk,
+                    ),
+                ],
+            ),
             template_name="notice_board/detail.html",
         )
 

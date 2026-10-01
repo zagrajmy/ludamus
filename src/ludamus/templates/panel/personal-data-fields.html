@@ -83,6 +83,8 @@
                                             {% endif %}
                                         {% elif entry.field.field_type == "checkbox" %}
                                             {% translate "Checkbox" %}
+                                        {% elif entry.field.field_type == "discord" %}
+                                            {% translate "Discord username" %}
                                         {% else %}
                                             {% translate "Text" %}
                                         {% endif %}
