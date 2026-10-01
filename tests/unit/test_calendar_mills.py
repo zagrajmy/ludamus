@@ -1,14 +1,13 @@
 from datetime import UTC, datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlsplit
 
-from ludamus.mills.calendar import (
+from ludamus.mills.calendar import google_calendar_url, outlook_calendar_url
+from ludamus.pacts.calendar import (
     PRODID,
     CalendarEntry,
-    google_calendar_url,
     ics_document,
     ics_escape,
     ics_utc,
-    outlook_calendar_url,
 )
 
 START = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)

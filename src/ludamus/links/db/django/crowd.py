@@ -73,18 +73,30 @@ class UserRepository(UserRepositoryProtocol):
         return UserDTO.model_validate(user)
 
     def read_by_email(self, email: str) -> UserDTO:
-        # Only non-empty addresses are unique; blanks match many rows.
+        # NOTE: a blank address would match every account that has none.
         if not email:
             raise NotFoundError
-        try:
-            user = User.objects.get(email__iexact=email, user_type=self._user_type)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
+        user = (
+            User.objects.filter(email__iexact=email, user_type=self._user_type)
+            .order_by("pk")
+            .first()
+        )
+        if user is None:
+            raise NotFoundError
         return UserDTO.model_validate(user)
 
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None:
         User.objects.filter(slug=user_slug).update(**user_data)
+
+    @staticmethod
+    def fill_discord_username(user_slug: str, discord_username: str) -> bool:
+        # Conditional in the query, so a handle set meanwhile is never replaced.
+        return bool(
+            User.objects.filter(slug=user_slug, discord_username="").update(
+                discord_username=discord_username
+            )
+        )
 
     @staticmethod
     def email_exists(email: str, exclude_slug: str | None = None) -> bool:
