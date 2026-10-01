@@ -136,9 +136,9 @@ class TestBegin:
 
         assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
 
-    def test_a_registered_private_use_scheme_is_accepted(self):
-        # RFC 8252 §7.1: a native app may claim its own scheme, which no host
-        # or transport rule applies to.
+    def test_native_app_redirect_takes_its_own_scheme(self):
+        # NOTE: RFC 8252 §7.1 — a native app may claim its own scheme, which no
+        # host or transport rule applies to.
         native = "com.example.agent:/callback"
         deps = _Deps(document=_document(redirect_uris=[native]))
 
