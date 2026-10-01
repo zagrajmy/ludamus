@@ -15,8 +15,9 @@ INVITEE_WINDOW = timedelta(days=1)
 NEW_CREATOR_AGE = timedelta(days=7)
 INVITEES_PER_NEW_CREATOR_PER_DAY = 10
 # NOTE: the address cap leaves re-mailing free, so this bounds the messages
-# themselves: invites and change notices a creator sends per calendar day.
+# themselves: invites and change notices to invitees over the last day. Both
+# stay above MAX_INVITEES, so one edit of a full list always fits.
 CALENDAR_MAILS_PER_CREATOR_PER_DAY = 500
-CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY = 50
+CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY = 100
 # NOTE: invitees of an encounter long over serve no list a guest will open.
 INVITEE_RETENTION_AFTER_END = timedelta(days=30)

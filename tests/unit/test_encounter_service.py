@@ -24,7 +24,6 @@ from tests.unit.encounter_fakes import (
     SPHERE_ID,
     START_TIME,
     EncounterWorld,
-    FakeCache,
     FakeEncounters,
     FakeInvitees,
     FakeMailer,
@@ -62,7 +61,6 @@ def _service(
             users=users,
             sites=sites,
             mailer=FakeMailer(),
-            cache=FakeCache(),
         ),
     )
 
@@ -422,33 +420,50 @@ class TestEncounterInvites:
         assert not world.mailer.sent
 
     def test_edits_past_the_daily_mail_budget_are_refused(self):
+        invitees = [f"g{n}@example.com" for n in range(50)]
         world = EncounterWorld(
             encounters=[make_encounter(1)],
-            invitees={
-                (1, f"g{n}@example.com"): InviteeStatus.INVITED for n in range(99)
-            },
+            invitees={(1, email): InviteeStatus.INVITED for email in invitees},
         )
         service = world.service()
-        moves = CALENDAR_MAILS_PER_CREATOR_PER_DAY // 100
+        moves = CALENDAR_MAILS_PER_CREATOR_PER_DAY // len(invitees)
 
-        for hour in range(moves):
+        def move(hour):
             service.update_owned(
                 pk=1,
                 sphere_id=SPHERE_ID,
                 user_id=CREATOR_ID,
                 data=EncounterData(start_time=START_TIME.replace(hour=hour)),
-                invitee_emails=[f"g{n}@example.com" for n in range(99)],
-            )
-        with pytest.raises(InviteLimitError):
-            service.update_owned(
-                pk=1,
-                sphere_id=SPHERE_ID,
-                user_id=CREATOR_ID,
-                data=EncounterData(start_time=START_TIME.replace(hour=23)),
-                invitee_emails=[f"g{n}@example.com" for n in range(99)],
+                invitee_emails=invitees,
             )
 
-        assert len(world.mailer.sent) == moves * 100
+        for hour in range(moves):
+            move(hour)
+        with pytest.raises(InviteLimitError):
+            move(23)
+
+        assert len(world.mailer.sent) == moves * (len(invitees) + 1)
+
+    def test_signups_never_count_against_the_budget(self):
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            signups=[(1, pk) for pk in range(100, 400)],
+            users=[
+                make_user(CREATOR_ID, date_joined=datetime.now(UTC)),
+                *(make_user(pk) for pk in range(100, 400)),
+            ],
+        )
+
+        world.service().update_owned(
+            pk=1,
+            sphere_id=SPHERE_ID,
+            user_id=CREATOR_ID,
+            data=EncounterData(start_time=START_TIME.replace(hour=20)),
+            invitee_emails=[],
+        )
+
+        assert len(world.mailer.sent) == len(range(100, 400)) + 1
+        assert world.invitees.count_mailed_since(CREATOR_ID, START_TIME) == 0
 
     def test_purge_drops_every_row_of_an_encounter_long_over(self):
         world = EncounterWorld(

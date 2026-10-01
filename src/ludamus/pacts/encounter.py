@@ -236,12 +236,19 @@ class EncounterInviteeRepositoryProtocol(Protocol):
         creator_id: int, since: datetime
     ) -> set[str]: ...
     @staticmethod
+    def record_mailing(*, creator_id: int, count: int) -> None:
+        """Note that the creator just mailed `count` invitees."""
+
+    @staticmethod
+    def count_mailed_since(creator_id: int, since: datetime) -> int: ...
+    @staticmethod
     def purge_stale(*, created_before: datetime, ended_before: datetime) -> int:
         """Delete rows nobody needs any more.
 
         Those are rows from before `created_before` that no list shows
-        (removed, or of a deleted encounter), and every row of an encounter
-        that ended before `ended_before`.
+        (removed, or of a deleted encounter), every row of an encounter that
+        ended before `ended_before`, and mailings from before
+        `created_before`.
 
         Returns:
             How many rows were deleted.

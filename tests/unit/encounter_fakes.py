@@ -200,6 +200,7 @@ class FakeInvitees:
         self.users = users or FakeUsers()
         self.rsvps = rsvps or FakeRSVPs()
         self.encounters = encounters or FakeEncounters()
+        self.mailings = []
 
     def _key(self, encounter_id, email):
         return next(
@@ -267,6 +268,16 @@ class FakeInvitees:
             if creator == creator_id and created >= since
         }
 
+    def record_mailing(self, *, creator_id, count):
+        self.mailings.append((creator_id, count, datetime.now(UTC)))
+
+    def count_mailed_since(self, creator_id, since):
+        return sum(
+            count
+            for creator, count, sent in self.mailings
+            if creator == creator_id and sent >= since
+        )
+
     def purge_stale(self, *, created_before, ended_before):
         ended = {
             pk
@@ -284,7 +295,10 @@ class FakeInvitees:
         ]
         for key in stale:
             del self.rows[key], self.born[key]
-        return len(stale)
+        kept = [m for m in self.mailings if m[2] >= created_before]
+        purged = len(stale) + len(self.mailings) - len(kept)
+        self.mailings = kept
+        return purged
 
 
 class FakeMailer:
@@ -297,18 +311,6 @@ class FakeMailer:
 
     def send(self, invites):
         self.invites += invites
-
-
-class FakeCache:
-    def __init__(self):
-        self.values = {}
-
-    def get(self, key):
-        return self.values.get(key)
-
-    def set(self, key, value, timeout=None):
-        del timeout
-        self.values[key] = value
 
 
 class FakeReplyAddresses:
@@ -356,7 +358,6 @@ class EncounterWorld:
             users=self.users,
             sites=self.sites,
             mailer=self.mailer,
-            cache=FakeCache(),
         )
 
     def service(self):

@@ -1,11 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, Now
 
 from ludamus.links.db.django.models import (
     Encounter,
     EncounterInvitee,
+    EncounterInviteMailing,
     EncounterRSVP,
     User,
 )
@@ -254,6 +255,17 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         )
 
     @staticmethod
+    def record_mailing(*, creator_id: int, count: int) -> None:
+        EncounterInviteMailing.objects.create(creator_id=creator_id, count=count)
+
+    @staticmethod
+    def count_mailed_since(creator_id: int, since: datetime) -> int:
+        mailed: int | None = EncounterInviteMailing.objects.filter(
+            creator_id=creator_id, creation_time__gte=since
+        ).aggregate(total=Sum("count"))["total"]
+        return mailed or 0
+
+    @staticmethod
     def purge_stale(*, created_before: datetime, ended_before: datetime) -> int:
         unlisted = Q(creation_time__lt=created_before) & (
             Q(encounter__isnull=True) | Q(status=InviteeStatus.REMOVED)
@@ -265,4 +277,7 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
             .filter(unlisted | Q(ended__lt=ended_before))
             .delete()
         )
-        return deleted
+        mailings, __ = EncounterInviteMailing.objects.filter(
+            creation_time__lt=created_before
+        ).delete()
+        return deleted + mailings

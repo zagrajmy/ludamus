@@ -3,7 +3,7 @@ from io import StringIO
 
 from django.core.management import call_command
 
-from ludamus.links.db.django.models import EncounterInvitee
+from ludamus.links.db.django.models import EncounterInvitee, EncounterInviteMailing
 from ludamus.pacts.encounter import InviteeStatus
 from tests.integration.conftest import EncounterFactory, EncounterInviteeFactory
 
@@ -45,11 +45,19 @@ class TestPurgeEncounterInvitees:
             long_over, status=InviteeStatus.ACCEPTED, age=timedelta(days=41)
         )
 
+        EncounterInviteMailing.objects.create(creator=active_user, count=5)
+        EncounterInviteMailing.objects.filter(creator=active_user).update(
+            creation_time=datetime.now(UTC) - _DAY_AND_A_BIT
+        )
+        EncounterInviteMailing.objects.create(creator=active_user, count=7)
         out = StringIO()
 
         call_command("purge_encounter_invitees", stdout=out)
 
-        assert "Purged 3 stale encounter invitee(s)." in out.getvalue()
+        assert "Purged 4 stale encounter invitee(s)." in out.getvalue()
         remaining = set(EncounterInvitee.objects.values_list("email", flat=True))
         assert remaining == {removed_today, listed_old}
         assert not remaining & {removed_old, orphaned_old, of_long_over}
+        assert list(EncounterInviteMailing.objects.values_list("count", flat=True)) == [
+            7
+        ]

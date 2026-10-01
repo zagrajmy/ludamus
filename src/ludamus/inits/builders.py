@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -96,7 +95,6 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         users=repos.active_users,
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
-        cache=DjangoCache(),
     )
 
 

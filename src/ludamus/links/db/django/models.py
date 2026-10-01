@@ -1770,6 +1770,31 @@ class EncounterInvitee(models.Model):
         return self.email
 
 
+class EncounterInviteMailing(models.Model):
+    """How many calendar messages a creator sent invitees in one save.
+
+    The daily mail budget sums these; the purge drops them once the budget
+    window has passed.
+    """
+
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="encounter_invite_mailings"
+    )
+    count = models.PositiveIntegerField()
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "encounter_invite_mailing"
+        indexes = (
+            models.Index(
+                fields=("creator", "creation_time"), name="encounter_mailing_by_creator"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.count} by {self.creator_id}"
+
+
 class EventSettings(models.Model):
     event = models.OneToOneField(
         Event, on_delete=models.CASCADE, related_name="settings"

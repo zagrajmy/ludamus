@@ -41,15 +41,15 @@ if TYPE_CHECKING:
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.legacy import CacheProtocol
     from ludamus.pacts.multiverse import SitesServiceProtocol
 
 
 logger = logging.getLogger(__name__)
 
 _UID_DOMAIN = "@ludamus"
-# NOTE: what a creator mails on their own initiative, as often as they edit;
-# a guest's own signup or a cancellation is never held back.
+# NOTE: what a creator mails invitees on their own initiative, as often as
+# they edit. Signups chose to hear and the creator's own copy is theirs, so
+# only invitees count; a cancellation is never held back.
 _CHARGED = frozenset({EncounterInviteReason.INVITED, EncounterInviteReason.CHANGED})
 _INVITEE_PARTSTAT = {
     InviteeStatus.INVITED: PartStat.NEEDS_ACTION,
@@ -103,14 +103,12 @@ class EncounterGuests:
         users: UserRepositoryProtocol,
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
-        cache: CacheProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
         self._users = users
         self._sites = sites
         self._mailer = mailer
-        self._cache = cache
 
     def has_room(self, encounter: EncounterDTO, *, email: str) -> bool:
         if not (limit := encounter.max_participants):
@@ -258,7 +256,7 @@ class EncounterGuests:
         except NotFoundError:
             creator = None
         if creator is not None and reason in _CHARGED:
-            self._charge(creator, len(guests))
+            self._charge(creator, sum(guest.invited_only for guest in guests))
         # NOTE: iTIP applies the message with the highest SEQUENCE per UID. A
         # clock reading rises across edits without a stored counter, within
         # limits: sends in the same second tie (clients then compare
@@ -286,16 +284,16 @@ class EncounterGuests:
         )
 
     def _charge(self, creator: UserDTO, count: int) -> None:
-        """Count `count` creator-sent messages against today's budget.
+        """Count `count` invitee messages against the creator's daily budget.
 
         Raises:
             InviteLimitError: the messages would take the creator past the
-                daily budget. Nothing is counted.
+                budget for the last day. Nothing is counted.
         """
+        if not count:
+            return
         now = datetime.now(tz=UTC)
-        key = f"encounter-calendar-mails:{creator.pk}:{now.date().isoformat()}"
-        spent = self._cache.get(key)
-        spent = spent if isinstance(spent, int) else 0
+        spent = self.invitees.count_mailed_since(creator.pk, now - INVITEE_WINDOW)
         budget = (
             CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY
             if _is_new(creator, now)
@@ -310,7 +308,7 @@ class EncounterGuests:
                 budget,
             )
             raise InviteLimitError
-        self._cache.set(key, spent + count, timeout=int(INVITEE_WINDOW.total_seconds()))
+        self.invitees.record_mailing(creator_id=creator.pk, count=count)
 
 
 def _is_new(creator: UserDTO, now: datetime) -> bool:

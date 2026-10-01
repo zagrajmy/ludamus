@@ -9,7 +9,13 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.models import Encounter, EncounterInvitee, EncounterRSVP
+from ludamus.links.db.django.models import (
+    Encounter,
+    EncounterInvitee,
+    EncounterInviteMailing,
+    EncounterRSVP,
+)
+from ludamus.specs.encounter import CALENDAR_MAILS_PER_CREATOR_PER_DAY
 from tests.integration.conftest import (
     EncounterFactory,
     EncounterInviteeFactory,
@@ -494,6 +500,38 @@ class TestInviteLimits:
             template_name="notice_board/create.html",
         )
         assert not Encounter.objects.filter(title="Too many for a newcomer").exists()
+        assert mailoutbox == []
+
+    def test_an_edit_past_the_daily_mail_budget_is_refused(
+        self,
+        active_user,
+        authenticated_client,
+        sphere,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        encounter = _minute_encounter(creator=active_user, sphere=sphere)
+        EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
+        EncounterInviteMailing.objects.create(
+            creator=active_user, count=CALENDAR_MAILS_PER_CREATOR_PER_DAY
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                reverse("web:notice-board:edit", kwargs={"pk": encounter.pk}),
+                data=_edit_data(
+                    encounter, title="Moved again", invitees="ala@example.com"
+                ),
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY, "encounter": ANY},
+            template_name="notice_board/edit.html",
+        )
+        encounter.refresh_from_db()
+        assert encounter.title != "Moved again"
         assert mailoutbox == []
 
     def test_the_same_address_on_two_encounters_counts_once(
