@@ -396,15 +396,15 @@ class EventSettingsRepository(EventSettingsRepositoryProtocol):
         settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
         return EventSettingsDTO(
             pk=settings.pk,
-            displayed_session_field_ids=list(
-                settings.displayed_session_fields.values_list("pk", flat=True)
+            hidden_session_field_ids=list(
+                settings.hidden_session_fields.values_list("pk", flat=True)
             ),
         )
 
     @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
+    def update_hidden_fields(event_id: int, field_ids: list[int]) -> None:
         settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        settings.displayed_session_fields.set(field_ids)
+        settings.hidden_session_fields.set(field_ids)
 
 
 class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):

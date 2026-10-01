@@ -1739,7 +1739,9 @@ class EventSettings(models.Model):
     event = models.OneToOneField(
         Event, on_delete=models.CASCADE, related_name="settings"
     )
-    displayed_session_fields = models.ManyToManyField(SessionField, blank=True)
+    hidden_session_fields = models.ManyToManyField(
+        SessionField, blank=True, related_name="+"
+    )
 
     class Meta:
         db_table = "event_settings"

@@ -145,20 +145,21 @@ class TestEventSettingsService:
                 data={"name": "Renamed", "slug": "new-conf"},
             )
 
-    def test_update_displayed_fields_keeps_only_public_field_ids(
+    def test_update_displayed_fields_hides_unticked_public_fields(
         self, service, events, event_settings, session_fields
     ):
         events.read_by_slug.return_value = _event(pk=7)
         session_fields.list_by_event.return_value = [
             _session_field(pk=1, slug="public"),
-            _session_field(pk=2, slug="hidden", is_public=False),
+            _session_field(pk=2, slug="private", is_public=False),
+            _session_field(pk=3, slug="unticked"),
         ]
 
         service.update_displayed_fields(
             sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 99]
         )
 
-        event_settings.update_displayed_fields.assert_called_once_with(7, [1])
+        event_settings.update_hidden_fields.assert_called_once_with(7, [3])
 
     def test_update_general_refuses_an_end_not_after_the_start(self, service, events):
         events.read_by_slug.return_value = _event(pk=7)
@@ -219,11 +220,11 @@ class FakeSessionFields:
 
 
 class FakeDisplaySettings:
-    def __init__(self, displayed: list[int]) -> None:
-        self.displayed = displayed
+    def __init__(self, hidden: list[int]) -> None:
+        self.hidden = hidden
 
     def read_or_create(self, event_id: int) -> EventSettingsDTO:
-        return EventSettingsDTO(pk=event_id, displayed_session_field_ids=self.displayed)
+        return EventSettingsDTO(pk=event_id, hidden_session_field_ids=self.hidden)
 
 
 class FakeProposalSettings:
@@ -276,12 +277,12 @@ class _Fakes:
         self,
         *,
         fields: list[OrganizerFieldDTO] | None = None,
-        displayed: list[int] | None = None,
+        hidden: list[int] | None = None,
         categories: list[ProposalCategoryDTO] | None = None,
     ) -> None:
         self.events = FakeEvents(_event(pk=7))
         self.session_fields = FakeSessionFields(fields or [])
-        self.display = FakeDisplaySettings(displayed or [])
+        self.display = FakeDisplaySettings(hidden or [])
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
         self.service = EventSettingsService(
@@ -311,14 +312,15 @@ class TestDisplayAndProposalSettings:
         fakes = _Fakes(
             fields=[
                 _session_field(pk=1, slug="public"),
-                _session_field(pk=2, slug="hidden", is_public=False),
+                _session_field(pk=2, slug="private", is_public=False),
+                _session_field(pk=3, slug="unticked"),
             ],
-            displayed=[1],
+            hidden=[3],
         )
 
         context = fakes.service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
-        assert [field.pk for field in context.fields] == [1]
+        assert [field.pk for field in context.fields] == [1, 3]
         assert context.displayed_field_ids == [1]
         assert context.has_any_fields is True
 

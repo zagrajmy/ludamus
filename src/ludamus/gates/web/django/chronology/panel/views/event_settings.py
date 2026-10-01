@@ -187,7 +187,7 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
             sphere_id=self.request.context.current_sphere_id, slug=slug
         )
         context["fields"] = display.fields
-        context["filterable_field_ids"] = display.displayed_field_ids
+        context["displayed_field_ids"] = display.displayed_field_ids
         context["has_any_fields"] = display.has_any_fields
 
         return TemplateResponse(self.request, "panel/display-settings.html", context)

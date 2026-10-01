@@ -86,10 +86,12 @@ class EventSettingsService(EventSettingsServiceProtocol):
         event = self._repos.events.read_by_slug(slug, sphere_id)
         fields = self._repos.session_fields.list_by_event(event.pk)
         public_fields = [field for field in fields if field.is_public]
-        display_settings = self._repos.event_settings.read_or_create(event.pk)
+        hidden = set(
+            self._repos.event_settings.read_or_create(event.pk).hidden_session_field_ids
+        )
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
-            displayed_field_ids=display_settings.displayed_session_field_ids,
+            displayed_field_ids=[f.pk for f in public_fields if f.pk not in hidden],
             has_any_fields=bool(fields),
         )
 
@@ -102,8 +104,9 @@ class EventSettingsService(EventSettingsServiceProtocol):
             for field in self._repos.session_fields.list_by_event(event.pk)
             if field.is_public
         }
-        filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
-        self._repos.event_settings.update_displayed_fields(event.pk, filtered_ids)
+        self._repos.event_settings.update_hidden_fields(
+            event.pk, sorted(valid_pks - set(selected_ids))
+        )
 
     def get_proposal_settings(
         self, *, sphere_id: int, slug: str

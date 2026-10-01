@@ -473,8 +473,6 @@ class TestEventPageView:
             icon="puzzle-piece",
         )
         SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
-        event_settings, _ = EventSettings.objects.get_or_create(event=event)
-        event_settings.displayed_session_fields.add(game_type)
 
         response = client.get(self._get_url(event.slug))
 
@@ -1251,8 +1249,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["a", "b", "c", "d", "e"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -1374,9 +1370,8 @@ class TestEventPageView:
             presenter=session.presenter,
             enrolled_count=1,
             category_name=session.category.name,
-            # The field is public but not on the event's displayed list, so it
-            # reaches the card's values without a display row.
             field_values=[field_value_dto],
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
@@ -2572,8 +2567,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["RPG"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2645,8 +2638,6 @@ class TestEventPageView:
             field=session_field,
             value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2685,10 +2676,9 @@ class TestEventPageView:
             contains=["+2", "Echo", "Foxtrot"],
         )
 
-    def test_ok_session_with_non_displayed_field_excluded_from_rows(
+    def test_ok_session_with_hidden_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
     ):
-        """Field values not in displayed_session_fields are excluded from rows."""
         session_field = SessionField.objects.create(
             event=event,
             name="RPG System",
@@ -2697,6 +2687,8 @@ class TestEventPageView:
             field_type="text",
             is_public=True,
         )
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.hidden_session_fields.add(session_field)
         session = agenda_item.session
         SessionFieldValue.objects.create(
             session=session, field=session_field, value="D&D 5e"
@@ -2765,8 +2757,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value="D&D 5e"
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2832,8 +2822,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=True
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 

@@ -554,7 +554,7 @@ class EventSettingsDTO(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    displayed_session_field_ids: list[int] = []
+    hidden_session_field_ids: list[int] = []
     pk: int
 
 
@@ -1199,7 +1199,7 @@ class EventSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create(event_id: int) -> EventSettingsDTO: ...
     @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None: ...
+    def update_hidden_fields(event_id: int, field_ids: list[int]) -> None: ...
 
 
 class EnrollmentConfigRepositoryProtocol(Protocol):

@@ -184,9 +184,9 @@ class StagingEmailInboxView(View):
         )
 
 
-def _get_displayed_field_ids(event: Event) -> set[int]:
+def _get_hidden_field_ids(event: Event) -> set[int]:
     with suppress(EventSettings.DoesNotExist):
-        return set(event.settings.displayed_session_fields.values_list("id", flat=True))
+        return set(event.settings.hidden_session_fields.values_list("id", flat=True))
     return set()
 
 
@@ -634,12 +634,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             earliest_limit_end_time = min(config.end_time for config in limit_configs)
 
         # Set displayed field values and display status for each session
-        displayed_field_ids = _get_displayed_field_ids(self.object)
+        hidden_field_ids = _get_hidden_field_ids(self.object)
         for session_data in sessions_data.values():
             session_data.displayed_field_rows = [
                 build_display_field_row(fv)
                 for fv in session_data.field_values
-                if fv.field_id in displayed_field_ids
+                if fv.field_id not in hidden_field_ids
             ]
 
             if session_data.agenda_item is None:
