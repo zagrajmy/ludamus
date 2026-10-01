@@ -1,5 +1,5 @@
 import logging
-from contextlib import contextmanager
+import re
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -13,16 +13,20 @@ from ludamus.pacts.enrollment import (
     OfferDTO,
     OfferRecipientDTO,
     PromotionNotification,
+    PromotionResult,
     PromotionStateDTO,
     SeatHoldRequest,
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode
+from tests.unit.factories import FakeTransaction
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _SESSION_ID = 42
 _MANAGER_ID = 99
 _MEMBER_ID = 7
+_HELD_ID = 101
+_URL_SAFE_TOKEN = re.compile(r"[A-Za-z0-9_-]{64}")
 
 
 pytestmark = pytest.mark.usefixtures("_frozen")
@@ -34,21 +38,11 @@ def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._token", lambda: "tok-xyz")
 
 
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
-
-
 class FakeRepo:
-    def __init__(self, states=None, offer=None):
+    def __init__(self, states=None, offer=None, lapsed=None):
         self._states = list(states or [])
         self._offer = offer
+        self._lapsed = None if lapsed is None else list(lapsed)
         self.log = SimpleNamespace(
             confirmed=[],
             offered=[],
@@ -58,18 +52,22 @@ class FakeRepo:
             locked=[],
             tokens_read=[],
             participations_read=[],
+            members_read=[],
         )
 
     def list_lapsed_offers(self, now):
         # Mirrors the real repo: one representative per offered party whose
-        # deadline has passed.
+        # deadline has passed. An explicit `lapsed` seed stands in for several
+        # such parties.
+        if self._lapsed is not None:
+            return list(self._lapsed)
         if self._offer is not None and self._offer.offer_expires_at < now:
             return [self._offer.participant_ids[0]]
         return []
 
     def create_offered(self, seat):
         self.log.created.append(seat)
-        return 101
+        return _HELD_ID
 
     @staticmethod
     def read_offer_claim_window(_session_id):
@@ -96,6 +94,10 @@ class FakeRepo:
         self.log.tokens_read.append(token)
         return self._offer
 
+    def read_offer_for_member(self, *, user_id, session_id):
+        self.log.members_read.append((user_id, session_id))
+        return self._offer
+
     def read_offer_by_participation(self, participation_id):
         self.log.participations_read.append(participation_id)
         return self._offer
@@ -114,9 +116,6 @@ class FakeNotifier:
         self.expired = []
         self.held = []
 
-    def notify_seat_held(self, n):
-        self.held.append(n)
-
     def notify_promoted(self, n):
         self.promoted.append(n)
 
@@ -126,10 +125,13 @@ class FakeNotifier:
     def notify_offer_expired(self, n):
         self.expired.append(n)
 
+    def notify_seat_held(self, n):
+        self.held.append(n)
+
 
 class FakeScheduler:
     def __init__(self):
-        self.scheduled = []
+        self.scheduled: list[tuple[int, datetime]] = []
 
     def schedule_expiry(self, *, participation_id, run_at):
         self.scheduled.append((participation_id, run_at))
@@ -164,12 +166,23 @@ def _state(waiting, *, mode=PromotionMode.AUTO, seats=1):
     )
 
 
-def _build(states=None, offer=None):
-    repo = FakeRepo(states=states, offer=offer)
+def _build(states=None, offer=None, lapsed=None):
+    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed)
     notifier = FakeNotifier()
     scheduler = FakeScheduler()
     service = WaitlistPromotionService(FakeTransaction(), repo, notifier, scheduler)
     return service, repo, notifier, scheduler
+
+
+def _offer(*, expires):
+    return OfferDTO(
+        session_id=_SESSION_ID,
+        session_title="Dragons",
+        event_slug="con",
+        participant_ids=[1, 2],
+        recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+        offer_expires_at=expires,
+    )
 
 
 class TestFillFreedSeats:
@@ -302,6 +315,47 @@ class TestClaimOffer:
         assert not repo.log.claimed
 
 
+class TestClaimMemberOffer:
+    def test_members_own_offer_is_claimed_and_logged(self, caplog):
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=_SESSION_ID
+            )
+
+        assert result == ClaimResult(
+            success=True, session_id=_SESSION_ID, event_slug="con"
+        )
+        assert repo.log.members_read == [(_MEMBER_ID, _SESSION_ID)]
+        assert repo.log.claimed == [([1, 2], _NOW)]
+        assert caplog.messages == [
+            (
+                f"Dashboard offer claim by member {_MEMBER_ID} "
+                f"on session {_SESSION_ID}: claimed"
+            )
+        ]
+
+    def test_offer_of_another_member_is_not_found_and_logged(self, caplog):
+        # The lookup is scoped to this member's own seats, so someone else's
+        # offered seat on the same session reads as nothing to claim.
+        service, repo, _, _ = _build(offer=None)
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=_SESSION_ID
+            )
+
+        assert result == ClaimResult(success=False, reason="not_found")
+        assert not repo.log.claimed
+        assert caplog.messages == [
+            (
+                f"Dashboard offer claim by member {_MEMBER_ID} "
+                f"on session {_SESSION_ID}: not_found"
+            )
+        ]
+
+
 class TestExpireOffer:
     def _offer(self, *, expires=_NOW - timedelta(minutes=1)):
         return OfferDTO(
@@ -379,6 +433,16 @@ class TestExpireLapsedOffers:
         assert repo.log.dropped == [[1, 2]]
         assert len(notifier.expired) == 1
 
+    def test_expires_every_lapsed_party_and_counts_them(self):
+        service, repo, _, _ = _build(
+            lapsed=[1, 9], offer=_offer(expires=_NOW - timedelta(minutes=1))
+        )
+
+        count = service.expire_lapsed_offers(now=_NOW)
+
+        assert count == len(repo.log.dropped)
+        assert repo.log.dropped == [[1, 2], [1, 2]]
+
     def test_no_lapsed_offers_is_noop(self):
         service, repo, notifier, _ = _build()
 
@@ -421,7 +485,7 @@ class TestHoldSeat:
         assert held.actor_name == "Lea Leader"
         assert held.claim_token == "tok-xyz"
         assert held.offer_expires_at == _NOW + timedelta(hours=24)
-        assert scheduler.scheduled == [(101, _NOW + timedelta(hours=24))]
+        assert scheduler.scheduled == [(_HELD_ID, _NOW + timedelta(hours=24))]
 
 
 class TestDeclineOffer:
@@ -436,7 +500,9 @@ class TestDeclineOffer:
         )
 
     def test_drops_whole_party_and_rolls_on(self):
-        service, repo, _, _ = _build(states=[_state([_wp(3)])], offer=self._offer())
+        service, repo, notifier, _ = _build(
+            states=[_state([_wp(3)])], offer=self._offer()
+        )
 
         result = service.decline_offer(token="tok-xyz")
 
@@ -448,6 +514,7 @@ class TestDeclineOffer:
         # The freed seats rolled on to the next waiter.
         assert repo.log.locked == [_SESSION_ID]
         assert repo.log.confirmed == [[3]]
+        assert [n.recipient_user_id for n in notifier.promoted] == [3]
 
     def test_unknown_or_resolved_token_rejected(self):
         service, repo, _, _ = _build(offer=None)
@@ -457,3 +524,56 @@ class TestDeclineOffer:
         assert result.success is False
         assert result.reason == "not_found"
         assert not repo.log.dropped
+
+
+class TestPeekOffer:
+    def test_returns_the_offer_behind_the_token(self):
+        offer = _offer(expires=_NOW + timedelta(hours=1))
+        service, _, _, _ = _build(offer=offer)
+
+        assert service.peek_offer(token="tok-xyz") == offer
+
+    def test_unknown_token_is_none(self):
+        service, _, _, _ = _build()
+
+        assert service.peek_offer(token="tok-xyz") is None
+
+
+class TestFillFreedSeatsOutcomes:
+    def test_no_free_seat_promotes_nobody(self):
+        service, repo, notifier, _ = _build(states=[_state([_wp(1)], seats=0)])
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult()
+        assert not repo.log.confirmed
+        assert not notifier.promoted
+
+    def test_offer_mode_arms_one_expiry_per_party(self):
+        service, repo, notifier, scheduler = _build(
+            states=[_state([_wp(1), _wp(2, order=1)], mode=PromotionMode.OFFER_CLAIM)]
+        )
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result.offered == [1]
+        assert repo.log.offered == [
+            {
+                "ids": [1],
+                "token": "tok-xyz",
+                "at": _NOW,
+                "exp": _NOW + timedelta(hours=24),
+            }
+        ]
+        assert notifier.offered[0].offer_expires_at == _NOW + timedelta(hours=24)
+        assert scheduler.scheduled == [(1, _NOW + timedelta(hours=24))]
+
+    def test_a_fresh_claim_token_is_long_and_url_safe(self, monkeypatch):
+        monkeypatch.undo()
+        service, repo, _, _ = _build(
+            states=[_state([_wp(1)], mode=PromotionMode.OFFER_CLAIM)]
+        )
+
+        service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert _URL_SAFE_TOKEN.fullmatch(repo.log.offered[0]["token"])

@@ -21,7 +21,7 @@ def _entry(**overrides):
         "start": _START,
         "url": "https://zagrajmy.net/s/7",
         "end": _START + timedelta(hours=1, minutes=30),
-        "location": "Room 42",
+        "location": "Klub, sala 42",
         "description": "Bring dice\nand snacks",
     }
     values.update(overrides)
@@ -49,7 +49,7 @@ def test_ics_document_lists_every_line_in_order():
         "DTSTART:20260815T103000Z\r\n"
         "DTEND:20260815T120000Z\r\n"
         "SUMMARY:Dracula\\; part 2\\, act \\\\1\r\n"
-        "LOCATION:Room 42\r\n"
+        "LOCATION:Klub\\, sala 42\r\n"
         "DESCRIPTION:Bring dice\\nand snacks\r\n"
         "URL:https://zagrajmy.net/s/7\r\n"
         "END:VEVENT\r\n"
@@ -85,7 +85,7 @@ def test_google_calendar_url_carries_every_field():
         "&text=Dracula%3B+part+2%2C+act+%5C1"
         "&dates=20260815T103000Z%2F20260815T120000Z"
         "&details=Bring+dice%0Aand+snacks%0A%0Ahttps%3A%2F%2Fzagrajmy.net%2Fs%2F7"
-        "&location=Room+42"
+        "&location=Klub%2C+sala+42"
     )
 
 
@@ -105,7 +105,7 @@ def test_outlook_calendar_url_carries_every_field():
         "&startdt=2026-08-15T10%3A30%3A00%2B00%3A00"
         "&enddt=2026-08-15T12%3A00%3A00%2B00%3A00"
         "&body=Bring+dice%0Aand+snacks%0A%0Ahttps%3A%2F%2Fzagrajmy.net%2Fs%2F7"
-        "&location=Room+42"
+        "&location=Klub%2C+sala+42"
     )
 
 

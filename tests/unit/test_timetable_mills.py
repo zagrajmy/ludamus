@@ -1,4 +1,6 @@
+from contextlib import nullcontext
 from datetime import UTC, date, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -10,11 +12,20 @@ from ludamus.mills.timetable import (
 )
 from ludamus.pacts import (
     AgendaItemDTO,
+    AgendaItemRepositoryProtocol,
+    EventRepositoryProtocol,
     NotFoundError,
     ScheduleChangeAction,
+    ScheduleChangeLogDTO,
+    ScheduleChangeLogRepositoryProtocol,
+    SessionRepositoryProtocol,
     SessionStatus,
     SpaceDTO,
+    SpaceRepositoryProtocol,
     TimeSlotDTO,
+    TimeSlotRepositoryProtocol,
+    TrackDTO,
+    TrackRepositoryProtocol,
     TrackSessionCountsDTO,
 )
 from ludamus.pacts.chronology import (
@@ -36,6 +47,7 @@ from ludamus.pacts.timetable import (
     PlacementRejection,
     TimetableRepos,
 )
+from tests.unit.factories import event_dto, session_dto, track_dto
 
 UNASSIGN_LOG_PK = 77
 
@@ -828,13 +840,6 @@ def _facilitator(pk, display_name="Alice", *, is_collective=False):
     return facilitator
 
 
-def _track_stub(pk, name="Track"):
-    track = MagicMock()
-    track.pk = pk
-    track.name = name
-    return track
-
-
 def _slot_from(pk, start, *, hours):
     return TimeSlotDTO(pk=pk, start_time=start, end_time=start + timedelta(hours=hours))
 
@@ -942,32 +947,6 @@ class TestListAllForTrack:
         )
 
         assert [c.type for c in conflicts] == [ConflictType.SPACE_OVERLAP]
-
-
-class TestTrackProgress:
-    def test_on_hold_sessions_are_reported_but_not_counted_as_active(self):
-        uow = MagicMock()
-        uow.tracks.list_by_event.return_value = [_track_stub(1, "RPG")]
-        uow.sessions.count_by_track.return_value = {
-            1: TrackSessionCountsDTO(pending=1, accepted=2, scheduled=1, on_hold=5)
-        }
-        uow.tracks.list_manager_names_by_tracks.return_value = {}
-
-        result = _overview_service(uow).track_progress(event_pk=1)
-
-        assert result == [
-            TrackProgressDTO(
-                track_pk=1,
-                track_name="RPG",
-                manager_names=[],
-                accepted_count=2,
-                scheduled_count=1,
-                pending_count=1,
-                on_hold_count=5,
-                rejected_count=0,
-                progress_pct=33,
-            )
-        ]
 
 
 class TestBuildHeatmap:
@@ -1237,3 +1216,630 @@ class TestTimetableOverviewCapacityHours:
             hours_to_fill=0.0,
             filled_pct=200,
         )
+
+
+def _spec_uow(**repos):
+    uow = SimpleNamespace(
+        atomic=nullcontext,
+        events=MagicMock(spec=EventRepositoryProtocol),
+        sessions=MagicMock(spec=SessionRepositoryProtocol),
+        agenda_items=MagicMock(spec=AgendaItemRepositoryProtocol),
+        spaces=MagicMock(spec=SpaceRepositoryProtocol),
+        time_slots=MagicMock(spec=TimeSlotRepositoryProtocol),
+        tracks=MagicMock(spec=TrackRepositoryProtocol),
+        schedule_change_logs=MagicMock(spec=ScheduleChangeLogRepositoryProtocol),
+    )
+    uow.__dict__.update(repos)
+    return uow
+
+
+class _FakeAgendaItems:
+    def __init__(self, *items):
+        self.rows = {item.pk: item for item in items}
+        self.created: list[dict] = []
+
+    def list_by_event(self, event_pk, facilitator_pks=None):
+        return list(self.rows.values())
+
+    def list_by_track(self, track_pk):
+        return list(self.rows.values())
+
+    def read_by_session(self, session_pk):
+        return next(
+            (item for item in self.rows.values() if item.session_id == session_pk), None
+        )
+
+    def create(self, data):
+        self.created.append(data)
+
+    def delete(self, pk):
+        del self.rows[pk]
+
+
+class _FakeScheduleChangeLogs:
+    def __init__(self, *logs):
+        self.rows = {log.pk: log for log in logs}
+        self.created: list[dict] = []
+
+    def create(self, data):
+        self.created.append(data)
+        return len(self.rows) + len(self.created)
+
+    def read(self, pk):
+        return self.rows[pk]
+
+    def latest_pk_for_session(self, event_pk, session_id):
+        return max(
+            (log.pk for log in self.rows.values() if log.session_id == session_id),
+            default=None,
+        )
+
+
+class _FakeTimeSlots:
+    def __init__(self, *slots):
+        self.rows = list(slots)
+        self.created: list[tuple] = []
+
+    def list_by_event(self, event_id):
+        return list(self.rows)
+
+    def create(self, event_id, start_time, end_time):
+        self.created.append((event_id, start_time, end_time))
+
+
+_START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+_END = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+
+
+def _event(**overrides):
+    return event_dto(
+        **{
+            "end_time": _END + timedelta(days=1),
+            "name": "Con",
+            "slug": "con",
+            "sphere_id": 3,
+            "start_time": _START - timedelta(days=1),
+            **overrides,
+        }
+    )
+
+
+def _session(**overrides):
+    return session_dto(
+        **{"creation_time": _START, "modification_time": _START, **overrides}
+    )
+
+
+def _schedule_log(**overrides):
+    defaults = {
+        "pk": 1,
+        "event_id": 1,
+        "session_id": 1,
+        "session_title": "Session",
+        "user_id": None,
+        "user_name": "",
+        "action": ScheduleChangeAction.ASSIGN,
+        "old_space_id": None,
+        "old_space_name": None,
+        "new_space_id": None,
+        "new_space_name": None,
+        "old_start_time": None,
+        "old_end_time": None,
+        "new_start_time": None,
+        "new_end_time": None,
+        "creation_time": _START,
+        "moved_from_id": None,
+        "acknowledgement_time": None,
+        "acknowledged_by_name": "",
+        "important": False,
+    }
+    return ScheduleChangeLogDTO(**(defaults | overrides))
+
+
+def _track(pk, name="Track"):
+    return track_dto(
+        creation_time=_START,
+        modification_time=_START,
+        name=name,
+        pk=pk,
+        slug=f"track-{pk}",
+    )
+
+
+class TestSpaceTree:
+    @pytest.fixture
+    def uow(self):
+        uow = _spec_uow()
+        uow.spaces.list_by_event.return_value = [
+            _space(1),
+            _space(2, parent_id=1),
+            _space(3, parent_id=2),
+            _space(4, parent_id=2),
+            _space(5),
+        ]
+        uow.time_slots.list_by_event.return_value = [_slot(_START, _END)]
+        uow.agenda_items.list_by_event.return_value = []
+        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        return uow
+
+    def test_filter_options_follow_the_tree_with_depths(self, uow):
+        options = _timetable_service(uow).space_filter_options(event_pk=1)
+
+        assert [(o.value, o.depth) for o in options] == [
+            (1, 0),
+            (2, 1),
+            (3, 2),
+            (4, 2),
+            (5, 0),
+        ]
+
+    def test_the_tree_is_read_once_per_service(self, uow):
+        tree = uow.spaces.list_by_event.return_value
+        uow.spaces.list_by_event.side_effect = [tree, []]
+        service = _timetable_service(uow)
+
+        service.space_filter_options(event_pk=1)
+        grid = service.build_grid(event_pk=1, tz=UTC)
+
+        assert [space.pk for space in grid.spaces] == [3, 4, 5]
+
+    def test_selecting_a_branch_keeps_every_leaf_beneath_it(self, uow):
+        grid = _timetable_service(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks={2})
+        )
+
+        assert [space.pk for space in grid.spaces] == [3, 4]
+
+    def test_a_foreign_space_pk_narrows_to_nothing(self, uow):
+        grid = _timetable_service(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks={99})
+        )
+
+        assert grid.spaces == []
+        assert grid.total_pages == 1
+
+    def test_without_time_slots_there_are_no_days(self, uow):
+        uow.time_slots.list_by_event.return_value = []
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert grid.days == []
+        assert grid.total_columns == 0
+        assert grid.date_selection == "all"
+
+
+class TestAssignSessionRejections:
+    @staticmethod
+    def _placement(space_pk=1, start=_START, end=_END):
+        return SessionPlacement(space_pk=space_pk, start_time=start, end_time=end)
+
+    @pytest.fixture
+    def uow(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(),
+            schedule_change_logs=_FakeScheduleChangeLogs(),
+            time_slots=_FakeTimeSlots(),
+        )
+        uow.sessions.read.return_value = _session()
+        uow.sessions.read_event.return_value = _event()
+        uow.events.read.return_value = _event()
+        uow.spaces.list_by_event.return_value = [_space(1)]
+        return uow
+
+    def test_a_space_outside_the_event_is_not_found(self, uow):
+        with pytest.raises(NotFoundError):
+            _timetable_service(uow).assign_session(
+                session_pk=1, placement=self._placement(space_pk=2), event_pk=1
+            )
+
+        assert uow.agenda_items.created == []
+
+    def test_a_drop_before_publication_is_rejected(self, uow):
+        published = _event(
+            start_time=_START + timedelta(days=1),
+            publication_time=_START + timedelta(hours=1),
+        )
+        uow.sessions.read_event.return_value = published
+        uow.events.read.return_value = published
+
+        with pytest.raises(PlacementRejectedError) as excinfo:
+            _timetable_service(uow).assign_session(
+                session_pk=1, placement=self._placement(), event_pk=1
+            )
+
+        assert excinfo.value.reason is PlacementRejection.BEFORE_PUBLICATION
+        assert uow.agenda_items.created == []
+
+    def test_a_drop_away_from_every_slot_opens_its_own_window(self, uow):
+        far = _slot_from(1, _START + timedelta(days=1), hours=1)
+        uow.time_slots.rows = [far]
+
+        _timetable_service(uow).assign_session(
+            session_pk=1, placement=self._placement(), event_pk=1, user_pk=4
+        )
+
+        assert uow.time_slots.created == [(1, _START, _END)]
+        assert [item["session_id"] for item in uow.agenda_items.created] == [1]
+        assert uow.schedule_change_logs.created == [
+            {
+                "event_id": 1,
+                "session_id": 1,
+                "user_id": 4,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": 1,
+                "new_start_time": _START,
+                "new_end_time": _END,
+                "moved_from_id": None,
+            }
+        ]
+
+
+class TestUnassignSession:
+    def test_an_unscheduled_session_is_not_found(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(),
+            schedule_change_logs=_FakeScheduleChangeLogs(),
+        )
+        uow.sessions.read_event.return_value = _event()
+
+        with pytest.raises(NotFoundError):
+            _timetable_service(uow).unassign_session(session_pk=1, event_pk=1)
+
+        assert uow.schedule_change_logs.created == []
+
+
+class TestRevertChangeOutcomes:
+    @pytest.fixture
+    def uow(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(),
+            schedule_change_logs=_FakeScheduleChangeLogs(),
+        )
+        uow.sessions.read.return_value = _session()
+        uow.sessions.read_event.return_value = _event()
+        return uow
+
+    @staticmethod
+    def _revert(uow, log_pk=1):
+        _timetable_service(uow).revert_change(log_pk=log_pk, event_pk=1, user_pk=4)
+
+    def test_a_log_from_another_event_is_not_found(self, uow):
+        uow.schedule_change_logs.rows = {1: _schedule_log(event_id=2)}
+
+        with pytest.raises(NotFoundError):
+            self._revert(uow)
+
+    def test_only_the_latest_change_of_a_session_reverts(self, uow):
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(pk=1),
+            2: _schedule_log(pk=2, action=ScheduleChangeAction.UNASSIGN),
+        }
+
+        with pytest.raises(ValueError, match="Only the latest change"):
+            self._revert(uow, log_pk=1)
+
+        assert uow.schedule_change_logs.created == []
+
+    def test_reverting_an_assign_takes_the_session_off_the_grid(self, uow):
+        uow.agenda_items.rows = {7: _make_item(pk=7, session_id=1, space_id=3)}
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(new_space_id=3, new_start_time=_START, new_end_time=_END)
+        }
+
+        self._revert(uow)
+
+        assert uow.agenda_items.rows == {}
+        assert uow.schedule_change_logs.created == [
+            {
+                "event_id": 1,
+                "session_id": 1,
+                "user_id": 4,
+                "action": ScheduleChangeAction.REVERT,
+                "old_space_id": 3,
+                "old_start_time": _START,
+                "old_end_time": _END,
+            }
+        ]
+
+    def test_reverting_an_assign_of_an_already_removed_item_is_not_found(self, uow):
+        uow.schedule_change_logs.rows = {1: _schedule_log()}
+
+        with pytest.raises(NotFoundError):
+            self._revert(uow)
+
+        assert uow.schedule_change_logs.created == []
+
+    def test_reverting_an_unassign_puts_the_session_back(self, uow):
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(
+                action=ScheduleChangeAction.UNASSIGN,
+                old_space_id=3,
+                old_start_time=_START,
+                old_end_time=_END,
+            )
+        }
+
+        self._revert(uow)
+
+        assert uow.agenda_items.created == [
+            {
+                "session_id": 1,
+                "space_id": 3,
+                "start_time": _START,
+                "end_time": _END,
+                "session_confirmed": False,
+            }
+        ]
+        assert uow.schedule_change_logs.created == [
+            {
+                "event_id": 1,
+                "session_id": 1,
+                "user_id": 4,
+                "action": ScheduleChangeAction.REVERT,
+                "new_space_id": 3,
+                "new_start_time": _START,
+                "new_end_time": _END,
+            }
+        ]
+
+    def test_an_unassign_without_its_old_placement_cannot_revert(self, uow):
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(action=ScheduleChangeAction.UNASSIGN, old_space_id=3)
+        }
+
+        with pytest.raises(ValueError, match="missing original placement"):
+            self._revert(uow)
+
+        assert uow.agenda_items.created == []
+
+    def test_a_revert_row_itself_cannot_be_reverted(self, uow):
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(action=ScheduleChangeAction.REVERT)
+        }
+
+        with pytest.raises(ValueError, match="Cannot revert action"):
+            self._revert(uow)
+
+        assert uow.schedule_change_logs.created == []
+
+
+class TestDetectForAssignment:
+    @pytest.fixture
+    def uow(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(
+                _make_item(pk=1, session_id=10, space_id=1, session_title="Mine"),
+                _make_item(pk=2, session_id=20, space_id=1, session_title="Theirs"),
+            )
+        )
+        uow.spaces.list_by_event.return_value = [_space(1)]
+        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        uow.sessions.read_participants_limits.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        return uow
+
+    def test_reports_the_placed_sessions_clashes(self, uow):
+        conflicts = _conflict_service(uow).detect_for_assignment(
+            event_pk=1, session_pk=10
+        )
+
+        assert [(c.type, c.subject_session_pk, c.session_pk) for c in conflicts] == [
+            (ConflictType.SPACE_OVERLAP, 10, 20)
+        ]
+
+    def test_an_unscheduled_session_is_not_found(self, uow):
+        with pytest.raises(NotFoundError):
+            _conflict_service(uow).detect_for_assignment(event_pk=1, session_pk=30)
+
+
+class TestTrackAttribution:
+    @pytest.fixture
+    def uow(self):
+        shared = _facilitator(7, display_name="Alice")
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(
+                _make_item(pk=1, session_id=10, space_id=1, session_title="Mine"),
+                _make_item(pk=2, session_id=20, space_id=2, session_title="Theirs"),
+            )
+        )
+        uow.spaces.list_by_event.return_value = [_space(1), _space(2)]
+        uow.sessions.read_facilitators_by_sessions.return_value = {
+            10: [shared],
+            20: [shared],
+        }
+        uow.sessions.read_participants_limits.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {
+            20: {5: "Zeta", 3: "Alpha"}
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {3: ["Ann"]}
+        uow.tracks.read.return_value = _track(3)
+        return uow
+
+    def test_a_facilitator_clash_names_the_other_sessions_track(self, uow):
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert [(c.type, c.track_name, c.manager_names) for c in conflicts] == [
+            (ConflictType.FACILITATOR_OVERLAP, "Alpha", ["Ann"])
+        ]
+
+    def test_the_current_track_is_never_named_as_foreign(self, uow):
+        uow.sessions.list_track_names_by_session.return_value = {20: {3: "Alpha"}}
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=3)
+
+        assert [(c.track_name, c.manager_names) for c in conflicts] == [(None, [])]
+
+    def test_a_foreign_track_is_not_found(self, uow):
+        uow.tracks.read.return_value = TrackDTO(
+            **(_track(3).model_dump() | {"event_id": 2})
+        )
+
+        with pytest.raises(NotFoundError):
+            _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=3)
+
+
+class TestPreferredSlotViolations:
+    @pytest.fixture
+    def uow(self):
+        inside = _make_item(pk=1, session_id=10, session_title="Inside")
+        outside = _make_item(
+            pk=2,
+            session_id=20,
+            session_title="Outside",
+            start_time=_START + timedelta(hours=5),
+            end_time=_END + timedelta(hours=5),
+        )
+        uow = _spec_uow(agenda_items=_FakeAgendaItems(inside, outside))
+        uow.sessions.read_preferred_time_slots_by_sessions.return_value = {
+            10: [_slot(_START, _END)],
+            20: [_slot(_START, _END)],
+        }
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        uow.tracks.read.return_value = _track(3)
+        return uow
+
+    @pytest.mark.parametrize("track_pk", (None, 3))
+    def test_only_sessions_outside_their_picks_are_reported(self, uow, track_pk):
+        violations = _conflict_service(uow).list_preferred_slot_violations(
+            event_pk=1, track_pk=track_pk
+        )
+
+        assert [(v.session_title, v.track_name) for v in violations] == [
+            ("Outside", None)
+        ]
+
+
+class TestOverviewConflicts:
+    @pytest.fixture
+    def uow(self):
+        uow = _spec_uow(
+            agenda_items=_FakeAgendaItems(
+                _make_item(pk=1, session_id=10, space_id=3, session_title="Mine"),
+                _make_item(pk=2, session_id=20, space_id=3, session_title="Theirs"),
+            )
+        )
+        uow.spaces.list_by_event.return_value = [_space(3)]
+        uow.time_slots.list_by_event.return_value = [_slot(_START, _END)]
+        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        uow.sessions.read_participants_limits.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        return uow
+
+    def test_heatmap_detects_conflicts_when_none_are_handed_in(self, uow):
+        result = _overview_service(uow).build_heatmap(event_pk=1, tz=UTC)
+
+        assert [c.status for c in result.rows[0].cells] == [HeatmapCellStatus.CONFLICT]
+
+    def test_heatmap_ignores_bookings_on_branch_spaces(self, uow):
+        uow.spaces.list_by_event.return_value = [_space(1), _space(3, parent_id=1)]
+        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
+
+        result = _overview_service(uow).build_heatmap(event_pk=1, tz=UTC, conflicts=[])
+
+        assert [c.status for c in result.rows[0].cells] == [HeatmapCellStatus.EMPTY]
+
+    def test_heatmap_rounds_a_partial_last_hour_up(self, uow):
+        uow.time_slots.list_by_event.return_value = [
+            _slot(_START, _END + timedelta(minutes=30))
+        ]
+
+        result = _overview_service(uow).build_heatmap(event_pk=1, tz=UTC, conflicts=[])
+
+        assert [row.time.strftime("%H:%M") for row in result.rows] == ["10:00", "11:00"]
+
+    def test_grouping_detects_conflicts_when_none_are_handed_in(self, uow):
+        grouped = _overview_service(uow).all_conflicts_grouped(event_pk=1)
+
+        assert list(grouped) == [ConflictType.SPACE_OVERLAP]
+        assert [c.session_pk for c in grouped[ConflictType.SPACE_OVERLAP]] == [20]
+
+    def test_grouping_keeps_each_type_together(self, uow):
+        def conflict(kind, pk):
+            return ConflictDTO(
+                type=kind,
+                severity=ConflictSeverity.ERROR,
+                subject_session_title="",
+                subject_session_pk=1,
+                session_title="",
+                session_pk=pk,
+            )
+
+        conflicts = [
+            conflict(ConflictType.SPACE_OVERLAP, 2),
+            conflict(ConflictType.FACILITATOR_OVERLAP, 3),
+            conflict(ConflictType.SPACE_OVERLAP, 4),
+        ]
+
+        grouped = _overview_service(uow).all_conflicts_grouped(
+            event_pk=1, conflicts=conflicts
+        )
+
+        assert {k: [c.session_pk for c in v] for k, v in grouped.items()} == {
+            ConflictType.SPACE_OVERLAP: [2, 4],
+            ConflictType.FACILITATOR_OVERLAP: [3],
+        }
+
+
+class TestTrackProgress:
+    def test_no_tracks_means_no_rows(self):
+        uow = _spec_uow()
+        uow.tracks.list_by_event.return_value = []
+
+        assert not _overview_service(uow).track_progress(event_pk=1)
+
+    def test_progress_is_measured_against_the_active_pool(self):
+        uow = _spec_uow()
+        uow.tracks.list_by_event.return_value = [_track(1, "Busy"), _track(2, "Empty")]
+        uow.sessions.count_by_track.return_value = {
+            1: TrackSessionCountsDTO(
+                pending=1, accepted=3, scheduled=2, on_hold=1, rejected=5
+            )
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {1: ["Ann"]}
+
+        assert _overview_service(uow).track_progress(event_pk=1) == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="Busy",
+                manager_names=["Ann"],
+                accepted_count=3,
+                scheduled_count=2,
+                pending_count=1,
+                on_hold_count=1,
+                rejected_count=5,
+                progress_pct=50,
+            ),
+            TrackProgressDTO(
+                track_pk=2,
+                track_name="Empty",
+                manager_names=[],
+                accepted_count=0,
+                scheduled_count=0,
+                progress_pct=0,
+            ),
+        ]
+
+    def test_on_hold_sessions_are_reported_but_not_counted_as_active(self):
+        uow = _spec_uow()
+        uow.tracks.list_by_event.return_value = [_track(1, "RPG")]
+        uow.sessions.count_by_track.return_value = {
+            1: TrackSessionCountsDTO(pending=1, accepted=2, scheduled=1, on_hold=5)
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+
+        assert _overview_service(uow).track_progress(event_pk=1) == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="RPG",
+                manager_names=[],
+                accepted_count=2,
+                scheduled_count=1,
+                pending_count=1,
+                on_hold_count=5,
+                rejected_count=0,
+                progress_pct=33,
+            )
+        ]
