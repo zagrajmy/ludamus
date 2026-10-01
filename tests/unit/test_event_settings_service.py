@@ -192,9 +192,13 @@ class FakeEvents:
 class FakeSessionFields:
     def __init__(self, fields: list[OrganizerFieldDTO]) -> None:
         self._fields = fields
+        self.shown_on_cards: dict[int, list[int]] = {}
 
     def list_by_event(self, _event_id: int) -> list[OrganizerFieldDTO]:
         return self._fields
+
+    def show_on_cards_only(self, event_id: int, field_ids: list[int]) -> None:
+        self.shown_on_cards[event_id] = field_ids
 
 
 class FakeProposalSettings:
@@ -297,6 +301,25 @@ class TestDisplayAndProposalSettings:
 
         assert not context.fields
         assert context.has_any_fields is False
+
+    def test_shown_on_cards_are_saved_for_the_resolved_event(self):
+        fakes = _Fakes()
+
+        fakes.service.update_shown_on_cards(
+            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 3]
+        )
+
+        assert fakes.session_fields.shown_on_cards == {7: [1, 3]}
+
+    def test_shown_on_cards_of_another_spheres_event_change_nothing(self):
+        fakes = _Fakes()
+
+        with pytest.raises(NotFoundError):
+            fakes.service.update_shown_on_cards(
+                sphere_id=SPHERE_ID + 1, slug="conf", selected_ids=[1]
+            )
+
+        assert not fakes.session_fields.shown_on_cards
 
     def test_proposal_settings_are_read_for_the_event(self):
         fakes = _Fakes()

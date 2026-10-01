@@ -12,6 +12,8 @@ from ludamus.pacts.event_settings import (
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from ludamus.pacts.event_settings import (
         EventSettingsRepos,
@@ -41,9 +43,6 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
     publication = data.get("publication_time", current.publication_time)
     if publication is not None and publication > start:
         raise EventPublicationInvalidError
-
-
-logger = logging.getLogger(__name__)
 
 
 class EventSettingsService(EventSettingsServiceProtocol):
@@ -102,7 +101,9 @@ class EventSettingsService(EventSettingsServiceProtocol):
         event = self._repos.events.read_by_slug(slug, sphere_id)
         with self._transaction.atomic():
             self._repos.session_fields.show_on_cards_only(event.pk, selected_ids)
-        logger.info("Event %s shows session fields %s on cards", event.pk, selected_ids)
+        logger.info(
+            "Event %s requested session fields %s on cards", event.pk, selected_ids
+        )
 
     def get_proposal_settings(
         self, *, sphere_id: int, slug: str
