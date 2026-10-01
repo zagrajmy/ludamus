@@ -128,6 +128,7 @@ class SessionFieldValueDTO(BaseModel):
     field_order: int = 0
     field_type: str = "text"
     is_public: bool = False
+    show_on_cards: bool = True
     value: str | list[str] | bool
 
 
@@ -546,15 +547,6 @@ class EventProposalSettingsDTO(BaseModel):
 
     allow_anonymous_proposals: bool
     description: str
-    pk: int
-
-
-class EventSettingsDTO(BaseModel):
-    """Display settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    hidden_session_field_ids: list[int] = []
     pk: int
 
 
@@ -1153,6 +1145,8 @@ class SessionFieldRepositoryProtocol(Protocol):
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def show_on_cards_only(event_id: int, field_ids: list[int]) -> None: ...
     def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
 
 
@@ -1193,13 +1187,6 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
 
     @staticmethod
     def update_description(event_id: int, description: str) -> None: ...
-
-
-class EventSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO: ...
-    @staticmethod
-    def update_hidden_fields(event_id: int, field_ids: list[int]) -> None: ...
 
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
@@ -1517,8 +1504,6 @@ class UnitOfWorkProtocol(Protocol):
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property
     def events(self) -> EventRepositoryProtocol: ...
-    @property
-    def event_settings(self) -> EventSettingsRepositoryProtocol: ...
     @property
     def facilitators(self) -> FacilitatorRepositoryProtocol: ...
     @property

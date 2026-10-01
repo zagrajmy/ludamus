@@ -19,7 +19,6 @@ if TYPE_CHECKING:
         EventProposalSettingsDTO,
         EventProposalSettingsRepositoryProtocol,
         EventRepositoryProtocol,
-        EventSettingsRepositoryProtocol,
         EventUpdateData,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
@@ -33,7 +32,6 @@ class EventSlugTakenError(Exception):
 @dataclass
 class EventSettingsRepos:
     events: EventRepositoryProtocol
-    event_settings: EventSettingsRepositoryProtocol
     event_proposal_settings: EventProposalSettingsRepositoryProtocol
     proposal_categories: ProposalCategoryRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol

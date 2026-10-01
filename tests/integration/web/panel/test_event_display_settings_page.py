@@ -5,8 +5,9 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.gates.web.django.panel import settings_tab_urls
-from ludamus.links.db.django.models import EventSettings, SessionField
+from ludamus.links.db.django.models import SessionField
 from ludamus.pacts.fields import OrganizerFieldDTO
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -43,6 +44,14 @@ def _expected_field(field):
         pk=field.pk,
         question=field.question,
         slug=field.slug,
+    )
+
+
+def _hidden_pks(event):
+    return list(
+        SessionField.objects.filter(event=event, show_on_cards=False).values_list(
+            "pk", flat=True
+        )
     )
 
 
@@ -172,10 +181,7 @@ class TestEventDisplaySettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/display/",
         )
 
-        settings = EventSettings.objects.get(event=event)
-        assert list(settings.hidden_session_fields.values_list("pk", flat=True)) == [
-            hidden.pk
-        ]
+        assert _hidden_pks(event) == [hidden.pk]
 
     # "²" is `str.isdigit()` but not `int()`-parsable, so it must be rejected
     # by the guard rather than crashing the parse below it.
@@ -184,9 +190,7 @@ class TestEventDisplaySettingsPageViewPost:
         self, authenticated_client, active_user, sphere, event, raw_id
     ):
         sphere.managers.add(active_user)
-        field = _create_session_field(event)
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.hidden_session_fields.set([field.pk])
+        field = _create_session_field(event, show_on_cards=False)
 
         response = authenticated_client.post(
             self.get_url(event), data={"displayed_session_fields": [raw_id]}
@@ -198,9 +202,7 @@ class TestEventDisplaySettingsPageViewPost:
             messages=[(messages.ERROR, "Invalid field selection.")],
             url=f"/panel/event/{event.slug}/settings/display/",
         )
-        assert list(settings.hidden_session_fields.values_list("pk", flat=True)) == [
-            field.pk
-        ]
+        assert _hidden_pks(event) == [field.pk]
 
     def test_unticking_every_field_hides_them_all(
         self, authenticated_client, active_user, sphere, event, panel_client
@@ -217,7 +219,25 @@ class TestEventDisplaySettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/display/",
         )
 
-        settings = EventSettings.objects.get(event=event)
-        assert list(settings.hidden_session_fields.values_list("pk", flat=True)) == [
-            field.pk
-        ]
+        assert _hidden_pks(event) == [field.pk]
+
+    def test_ignores_private_and_foreign_field_ids(self, panel_client, event, sphere):
+        private = _create_session_field(
+            event, slug="private", is_public=False, show_on_cards=False
+        )
+        other_event = EventFactory(sphere=sphere)
+        foreign = _create_session_field(other_event, show_on_cards=False)
+
+        response = panel_client.post(
+            self.get_url(event),
+            data={"displayed_session_fields": [str(private.pk), str(foreign.pk)]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Display settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/display/",
+        )
+        assert _hidden_pks(event) == [private.pk]
+        assert _hidden_pks(other_event) == [foreign.pk]

@@ -56,15 +56,15 @@ _FieldType = Literal["text", "select", "checkbox"]
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
     # Personal-data fields carry no icon, so the DTO's empty default stands.
-    return _field_dto(field, icon="")
+    return _field_dto(field, icon="", show_on_cards=True)
 
 
 def _session_field_dto(field: SessionField) -> OrganizerFieldDTO:
-    return _field_dto(field, icon=field.icon)
+    return _field_dto(field, icon=field.icon, show_on_cards=field.show_on_cards)
 
 
 def _field_dto(
-    field: PersonalDataField | SessionField, *, icon: str
+    field: PersonalDataField | SessionField, *, icon: str, show_on_cards: bool
 ) -> OrganizerFieldDTO:
     # One builder for both tables: they hang off different owners but every
     # column downstream of here is the same, so a column added to one and
@@ -85,6 +85,7 @@ def _field_dto(
         order=field.order,
         pk=field.pk,
         question=field.question,
+        show_on_cards=show_on_cards,
         slug=field.slug,
     )
 
@@ -724,6 +725,12 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
             "options"
         )
         return [self._to_dto(f) for f in fields]
+
+    @staticmethod
+    def show_on_cards_only(event_id: int, field_ids: list[int]) -> None:
+        public = SessionField.objects.filter(event_id=event_id, is_public=True)
+        public.filter(pk__in=field_ids).update(show_on_cards=True)
+        public.exclude(pk__in=field_ids).update(show_on_cards=False)
 
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         try:

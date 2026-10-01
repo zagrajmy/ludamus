@@ -30,7 +30,6 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
-    EventSettings,
     SessionBookmark,
     SessionField,
     SessionFieldOption,
@@ -128,7 +127,7 @@ _PROPOSALS_IN_QUEUE = 5
 # rather than merely "constant in the session count": a prefetch graph
 # nothing reads (#1063) adds a fixed number of queries per page, which a
 # constant-in-N check never sees.
-_EVENT_PAGE_QUERIES = 17
+_EVENT_PAGE_QUERIES = 16
 
 
 class TestEventPageView:
@@ -2686,9 +2685,8 @@ class TestEventPageView:
             slug="rpg-system",
             field_type="text",
             is_public=True,
+            show_on_cards=False,
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.hidden_session_fields.add(session_field)
         session = agenda_item.session
         SessionFieldValue.objects.create(
             session=session, field=session_field, value="D&D 5e"
@@ -2720,6 +2718,7 @@ class TestEventPageView:
                     field_slug="rpg-system",
                     field_type="text",
                     is_public=True,
+                    show_on_cards=False,
                     value="D&D 5e",
                 )
             ],

@@ -53,6 +53,8 @@ class OrganizerFieldDTO(BaseModel):
     order: int
     pk: int
     question: str
+    # Session fields only; personal-data fields never reach a session card.
+    show_on_cards: bool = True
     slug: str
 
     # What the field looks like once configured. The form builds its widgets
