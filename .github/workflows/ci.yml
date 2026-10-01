@@ -99,6 +99,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/toolchain
 
+      # The mills ratchet, before the combined run: tests/unit must cover
+      # ludamus.mills and itself in full, which the combined report cannot
+      # show — an e2e-only mills branch reads the same there.
+      - run: mise run test:unit:cov
       - run: mise run test:py:cov
       - uses: actions/upload-artifact@v4
         with:

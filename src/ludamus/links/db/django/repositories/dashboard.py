@@ -25,6 +25,9 @@ from ludamus.links.db.django.models import (
     SphereSubscription,
     suggested_spheres,
 )
+from ludamus.links.db.django.repositories.sessions import (
+    annotate_session_participation_counts,
+)
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,
@@ -41,9 +44,12 @@ _start_time = attrgetter("start_time")
 
 
 def _session_card(
-    participation: SessionParticipation, *, role: DashboardRole
+    session: Session,
+    *,
+    role: DashboardRole,
+    offer_expires_at: datetime | None = None,
+    claim_url: str = "",
 ) -> DashboardCardDTO:
-    session = participation.session
     event = session.event
     sphere = event.sphere
     item = session.agenda_item
@@ -61,7 +67,31 @@ def _session_card(
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
         place=item.space.name,
+        attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
+        offer_expires_at=offer_expires_at,
+        claim_url=claim_url,
+    )
+
+
+_PARTICIPATION_ROLES = {
+    SessionParticipationStatus.CONFIRMED: DashboardRole.SIGNED_UP,
+    SessionParticipationStatus.WAITING: DashboardRole.WAITLISTED,
+    SessionParticipationStatus.OFFERED: DashboardRole.OFFERED,
+}
+
+
+def _held_session_card(participation: SessionParticipation) -> DashboardCardDTO:
+    role = _PARTICIPATION_ROLES[SessionParticipationStatus(participation.status)]
+    if role is not DashboardRole.OFFERED:
+        return _session_card(participation.session, role=role)
+    return _session_card(
+        participation.session,
+        role=role,
+        offer_expires_at=participation.offer_expires_at,
+        claim_url=reverse(
+            "web:dashboard-offer-claim", kwargs={"session_id": participation.session_id}
+        ),
     )
 
 
@@ -88,9 +118,12 @@ def _encounter_card(encounter: Encounter, *, role: DashboardRole) -> DashboardCa
 def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]:
     return list(
         SessionParticipation.objects.filter(
-            user_id=user_id,
-            status=SessionParticipationStatus.CONFIRMED,
-            session__agenda_item__start_time__gte=now,
+            user_id=user_id, session__agenda_item__start_time__gte=now
+        )
+        # A lapsed offer waits for the expiry sweep; a claim button on it
+        # could only fail.
+        .exclude(
+            status=SessionParticipationStatus.OFFERED, offer_expires_at__lte=now
         ).select_related("session__agenda_item__space", "session__event__sphere__site")
     )
 
@@ -112,12 +145,13 @@ class DashboardRepository(DashboardRepositoryProtocol):
         """List everything this member holds a place at, soonest first.
 
         Returns:
-            Confirmed programme seats and encounters they organise or hold an
-            RSVP to. Uncapped on purpose — the ceiling is what one person can
-            actually attend, which no convention pushes far.
+            Programme seats they hold, wait for, or have been offered, and
+            encounters they organise or hold an RSVP to. Uncapped on purpose —
+            the ceiling is what one person can actually attend, which no
+            convention pushes far.
         """
         sessions = [
-            _session_card(participation, role=DashboardRole.SIGNED_UP)
+            _held_session_card(participation)
             for participation in _held_sessions(user_id, now=now)
         ]
         encounters = [
@@ -132,6 +166,31 @@ class DashboardRepository(DashboardRepositoryProtocol):
             for encounter in _held_encounters(user_id, now=now)
         ]
         return sorted(sessions + encounters, key=_start_time)
+
+    @staticmethod
+    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
+        """List the programme items this member starred, across every event.
+
+        Returns:
+            Upcoming bookmarked sessions, soonest first, minus the ones they
+            already hold, wait for, or were offered a seat at — those are on
+            their agenda. A bookmark stays theirs even after its sphere goes
+            private or its event is unpublished: they had access when they
+            saved it.
+        """
+        sessions = annotate_session_participation_counts(
+            Session.objects.filter(
+                bookmarks__user_id=user_id, agenda_item__start_time__gte=now
+            )
+            .exclude(
+                pk__in=SessionParticipation.objects.filter(user_id=user_id).values(
+                    "session_id"
+                )
+            )
+            .select_related("agenda_item__space", "event__sphere__site")
+            .order_by("agenda_item__start_time")
+        )
+        return [_session_card(session, role=DashboardRole.OPEN) for session in sessions]
 
     @staticmethod
     def list_open_encounters(
