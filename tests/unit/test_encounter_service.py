@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from ludamus.mills.encounter import EncounterService
@@ -363,15 +365,67 @@ class TestEncounterInvites:
         )
         service = world.service()
 
-        with pytest.raises(NotFoundError):
-            service.list_owned_invitees(
-                pk=1, sphere_id=SPHERE_ID, user_id=OTHER_USER_ID
-            )
-        invitees = service.list_owned_invitees(
+        for user_id, sphere_id in ((OTHER_USER_ID, SPHERE_ID), (CREATOR_ID, 99)):
+            with pytest.raises(NotFoundError):
+                service.read_owned_with_invitees(
+                    pk=1, sphere_id=sphere_id, user_id=user_id
+                )
+        encounter, invitees = service.read_owned_with_invitees(
             pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID
         )
 
+        assert encounter.pk == 1
         assert [i.email for i in invitees] == ["ola@example.com"]
+
+    def test_an_owner_the_policy_no_longer_covers_cannot_invite(self):
+        world = EncounterWorld(
+            policy=EncountersPolicy.MANAGERS,
+            encounters=[make_encounter(1)],
+            invitees={(1, "ola@example.com"): InviteeStatus.INVITED},
+        )
+
+        world.service().update_owned(
+            pk=1,
+            sphere_id=SPHERE_ID,
+            user_id=CREATOR_ID,
+            data=EncounterData(game="Catan"),
+            invitee_emails=["new@example.com"],
+        )
+
+        assert world.invitees.rows == {(1, "ola@example.com"): InviteeStatus.INVITED}
+        assert not world.mailer.sent
+
+    def test_an_edit_without_the_invitee_list_leaves_it_alone(self):
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            invitees={(1, "ola@example.com"): InviteeStatus.INVITED},
+        )
+
+        world.service().update_owned(
+            pk=1,
+            sphere_id=SPHERE_ID,
+            user_id=CREATOR_ID,
+            data=EncounterData(game="Catan"),
+            invitee_emails=None,
+        )
+
+        assert world.invitees.rows == {(1, "ola@example.com"): InviteeStatus.INVITED}
+
+    def test_purge_drops_removed_and_orphaned_rows_past_the_window(self):
+        world = EncounterWorld(
+            invitees={
+                (1, "kept@example.com"): InviteeStatus.DECLINED,
+                (1, "removed@example.com"): InviteeStatus.REMOVED,
+            },
+            invited_today=["orphan@example.com"],
+        )
+
+        purged = world.service().purge_stale_invitees(
+            now=datetime.now(UTC) + timedelta(days=2)
+        )
+
+        assert purged == len({"removed@example.com", "orphan@example.com"})
+        assert world.invitees.rows == {(1, "kept@example.com"): InviteeStatus.DECLINED}
 
     def test_moving_it_updates_every_guest_and_invites_only_the_new(self):
         world = EncounterWorld(

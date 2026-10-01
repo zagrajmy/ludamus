@@ -87,17 +87,26 @@ class SignedReplyAddress:
             settings.ENCOUNTER_REPLY_EMAIL.lower().partition("@")
         )
         base, __, token = local.partition("+")
+        # NOTE: invites already out were signed with whatever key was current
+        # then, so a rotated SECRET_KEY still verifies through its fallbacks.
+        keys = [settings.SECRET_KEY, *settings.SECRET_KEY_FALLBACKS]
         return (
             bool(expected_local)
             and base == expected_local
             and domain == expected_domain
-            and constant_time_compare(token, _token(uid, attendee_email))
+            and any(
+                constant_time_compare(token, _token(uid, attendee_email, key=key))
+                for key in keys
+            )
         )
 
 
-def _token(uid: str, attendee_email: str) -> str:
+def _token(uid: str, attendee_email: str, *, key: str | None = None) -> str:
     digest = salted_hmac(
-        _REPLY_HMAC_NAMESPACE, f"{uid}\n{attendee_email.lower()}", algorithm="sha256"
+        _REPLY_HMAC_NAMESPACE,
+        f"{uid}\n{attendee_email.lower()}",
+        secret=key,
+        algorithm="sha256",
     ).digest()
     return b32encode(digest[:_TOKEN_BYTES]).decode().lower()
 
@@ -133,7 +142,7 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         ),
         stamped_at=datetime.now(tz=UTC),
         invite=CalendarInvite(
-            method=invite.method,
+            method=invite.reason.method,
             sequence=invite.sequence,
             organizer=_organizer(invite),
             attendee=Mailbox(name=invite.attendee_name, email=invite.attendee_email),
@@ -145,7 +154,7 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         subject=_subject(invite), body=_body(invite, url), to=[invite.attendee_email]
     )
     message.attach_alternative(
-        ics, f"text/calendar; method={invite.method}; charset=utf-8"
+        ics, f"text/calendar; method={invite.reason.method}; charset=utf-8"
     )
     return message
 

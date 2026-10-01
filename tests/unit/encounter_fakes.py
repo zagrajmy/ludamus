@@ -112,8 +112,10 @@ class FakeEncounters:
         return self.rows[pk]
 
     def read(self, pk, sphere_id):
-        del sphere_id
-        return self.rows[pk]
+        row = self.rows.get(pk)
+        if row is None or row.sphere_id != sphere_id:
+            raise NotFoundError
+        return row
 
     def read_by_share_code(self, share_code, sphere_id):
         rows = [
@@ -180,17 +182,31 @@ class FakeRSVPs:
 
 
 class FakeInvitees:
-    """Invitee rows keyed by (encounter_id, email), linked to accounts by email.
+    """Invitee rows that behave like the Django repository.
 
-    `invited_today` holds the addresses the creator invited elsewhere within
-    the daily window, which the cap counts alongside this encounter's rows.
+    `rows` maps (encounter_id, email) to status; `born` maps the same keys to
+    (creator_id, creation_time). Addresses in `invited_today` become rows of
+    a deleted encounter (encounter_id None) the creator filled within the
+    daily window, which the cap counts but no list shows.
     """
 
     def __init__(self, rows=(), *, users=None, rsvps=None, invited_today=()):
         self.rows = dict(rows)
+        self.rows |= {(None, email): InviteeStatus.INVITED for email in invited_today}
+        now = datetime.now(UTC)
+        self.born = dict.fromkeys(self.rows, (CREATOR_ID, now))
         self.users = users or FakeUsers()
         self.rsvps = rsvps or FakeRSVPs()
-        self.invited_today = set(invited_today)
+
+    def _key(self, encounter_id, email):
+        return next(
+            (
+                (enc, address)
+                for enc, address in self.rows
+                if enc == encounter_id and address.casefold() == email.casefold()
+            ),
+            None,
+        )
 
     def _account(self, email):
         try:
@@ -204,12 +220,14 @@ class FakeInvitees:
                 email=email, status=status, user_id=self._account(email)
             )
             for (enc, email), status in self.rows.items()
-            if enc == encounter_id
+            if enc == encounter_id and status is not InviteeStatus.REMOVED
         ]
 
+    # NOTE: the mill adds only addresses off the list and removes only ones
+    # on it, so an existing row here is always a removed one.
     def add(self, *, encounter_id, emails, creator_id):
-        del creator_id
         for email in emails:
+            self.born.setdefault((encounter_id, email), (creator_id, datetime.now(UTC)))
             self.rows[encounter_id, email] = InviteeStatus.INVITED
 
     def remove(self, encounter_id, emails):
@@ -217,13 +235,15 @@ class FakeInvitees:
             self.rows[encounter_id, email] = InviteeStatus.REMOVED
 
     def set_status(self, *, encounter_id, email, status):
-        if (encounter_id, email) not in self.rows:
+        key = self._key(encounter_id, email)
+        if key is None or self.rows[key] is InviteeStatus.REMOVED:
             return False
-        self.rows[encounter_id, email] = status
+        self.rows[key] = status
         return True
 
     def read_status(self, encounter_id, email):
-        return self.rows.get((encounter_id, email))
+        key = self._key(encounter_id, email)
+        return None if key is None else self.rows[key]
 
     def count_accepted_without_signup(self, encounter_id):
         return sum(
@@ -237,8 +257,22 @@ class FakeInvitees:
         )
 
     def emails_invited_by_creator_since(self, creator_id, since):
-        del creator_id, since
-        return self.invited_today | {email for _enc, email in self.rows}
+        return {
+            email
+            for (_enc, email), (creator, created) in self.born.items()
+            if creator == creator_id and created >= since
+        }
+
+    def purge_stale(self, before):
+        stale = [
+            key
+            for key, (_creator, created) in self.born.items()
+            if created < before
+            and (key[0] is None or self.rows[key] is InviteeStatus.REMOVED)
+        ]
+        for key in stale:
+            del self.rows[key], self.born[key]
+        return len(stale)
 
 
 class FakeMailer:

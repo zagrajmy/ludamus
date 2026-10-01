@@ -10,3 +10,7 @@ ENCOUNTER_DEFAULT_DURATION = timedelta(hours=2)
 # free, so the cap limits whom we mail, not how often.
 INVITEES_PER_CREATOR_PER_DAY = 100
 INVITEE_WINDOW = timedelta(days=1)
+# NOTE: a throwaway account costs nothing, so the full allowance waits until
+# an account has been around a week.
+NEW_CREATOR_AGE = timedelta(days=7)
+INVITEES_PER_NEW_CREATOR_PER_DAY = 10

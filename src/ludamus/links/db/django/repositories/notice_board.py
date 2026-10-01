@@ -249,3 +249,12 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
                 creator_id=creator_id, creation_time__gte=since
             ).values_list("email", flat=True)
         )
+
+    @staticmethod
+    def purge_stale(before: datetime) -> int:
+        deleted, __ = (
+            EncounterInvitee.objects.filter(creation_time__lt=before)
+            .filter(Q(encounter__isnull=True) | Q(status=InviteeStatus.REMOVED))
+            .delete()
+        )
+        return deleted

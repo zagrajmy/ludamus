@@ -3,17 +3,17 @@
 Cloudflare Email Worker that keeps encounter RSVPs in sync with guests'
 calendars. When someone accepts or declines an encounter invite in Gmail,
 Outlook or Apple Calendar, their client mails an iTIP REPLY to the invite's
-organizer address, `rsvp+<token>@zagrajmy.net`. Email Routing hands that
+organizer address, `rsvp+<token>@reply.zagrajmy.net`. Email Routing hands that
 mail to this Worker, which posts it raw to
 `/hooks/calendar-replies`. The app checks the token, then signs the
 guest up or removes them.
 
 ## Deploy
 
-1. Email Routing must be on for `zagrajmy.net` (Compute > Email Service >
-   Email Routing), which needs Cloudflare DNS and its MX records. If the
-   apex domain already receives mail elsewhere, onboard a subdomain instead
-   (for example `reply.zagrajmy.net`) and use it in both places below.
+1. `zagrajmy.net` itself receives mail at OVH, and turning Email Routing on
+   for the apex would replace those MX records. Onboard the subdomain
+   `reply.zagrajmy.net` instead (Email > Email Routing > add subdomain);
+   Cloudflare adds MX and SPF records for that subdomain alone.
 2. Turn on **Subaddressing** in Email Routing > Settings.
 3. Pick a long random secret and set it on both sides:
 
@@ -23,9 +23,9 @@ guest up or removes them.
    ```
 
    In the app environment: `ENCOUNTER_REPLY_WEBHOOK_SECRET=<same value>` and
-   `ENCOUNTER_REPLY_EMAIL=rsvp@zagrajmy.net`.
+   `ENCOUNTER_REPLY_EMAIL=rsvp@reply.zagrajmy.net`.
 4. `npx wrangler deploy`. The `addresses` entry in `wrangler.toml` creates
-   the `rsvp@zagrajmy.net` routing rule pointing at the Worker.
+   the `rsvp@reply.zagrajmy.net` routing rule pointing at the Worker.
 
 Until `ENCOUNTER_REPLY_EMAIL` is set, invites ask for no reply and name
 `DEFAULT_FROM_EMAIL` as organizer, so nothing is sent to this address.

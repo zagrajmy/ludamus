@@ -193,6 +193,20 @@ class EncounterInviteReason(StrEnum):
     DELETED = auto()
     FULL = auto()
 
+    @property
+    def method(self) -> InviteMethod:
+        """REQUEST keeps the event in the guest's calendar; CANCEL takes it out."""
+        match self:
+            case (
+                EncounterInviteReason.LEFT
+                | EncounterInviteReason.UNINVITED
+                | EncounterInviteReason.DELETED
+                | EncounterInviteReason.FULL
+            ):
+                return InviteMethod.CANCEL
+            case _:
+                return InviteMethod.REQUEST
+
 
 class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
@@ -215,6 +229,13 @@ class EncounterInviteeRepositoryProtocol(Protocol):
     def emails_invited_by_creator_since(
         creator_id: int, since: datetime
     ) -> set[str]: ...
+    @staticmethod
+    def purge_stale(before: datetime) -> int:
+        """Delete rows from before `before` that no list shows any more.
+
+        Returns:
+            How many rows were deleted.
+        """
 
 
 class EncounterInvite(BaseModel):
@@ -225,7 +246,6 @@ class EncounterInvite(BaseModel):
     """
 
     reason: EncounterInviteReason
-    method: InviteMethod
     partstat: PartStat
     asks_reply: bool
     uid: str
@@ -284,9 +304,9 @@ class EncounterServiceProtocol(Protocol):
         self, data: EncounterData, *, invitee_emails: list[str]
     ) -> EncounterDTO: ...
     def read_owned(self, *, pk: int, sphere_id: int, user_id: int) -> EncounterDTO: ...
-    def list_owned_invitees(
+    def read_owned_with_invitees(
         self, *, pk: int, sphere_id: int, user_id: int
-    ) -> list[EncounterInviteeDTO]: ...
+    ) -> tuple[EncounterDTO, list[EncounterInviteeDTO]]: ...
     def update_owned(
         self,
         *,
@@ -294,13 +314,14 @@ class EncounterServiceProtocol(Protocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str],
+        invitee_emails: list[str] | None,
     ) -> EncounterDTO: ...
     def delete_owned(self, *, pk: int, sphere_id: int, user_id: int) -> None: ...
     def rsvp(
         self, *, share_code: str, sphere_id: int, user_id: int, ip_address: str
     ) -> RSVPOutcome: ...
     def cancel_rsvp(self, *, share_code: str, sphere_id: int, user_id: int) -> None: ...
+    def purge_stale_invitees(self, *, now: datetime) -> int: ...
 
 
 class EncounterReplyServiceProtocol(Protocol):

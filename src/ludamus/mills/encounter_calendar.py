@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.calendar import InviteMethod, PartStat
+from ludamus.pacts.calendar import PartStat
 from ludamus.pacts.encounter import (
     EncounterInvite,
     EncounterInviteReason,
@@ -25,6 +25,8 @@ from ludamus.specs.encounter import (
     ENCOUNTER_DEFAULT_DURATION,
     INVITEE_WINDOW,
     INVITEES_PER_CREATOR_PER_DAY,
+    INVITEES_PER_NEW_CREATOR_PER_DAY,
+    NEW_CREATOR_AGE,
 )
 
 if TYPE_CHECKING:
@@ -33,7 +35,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterDTO,
-        EncounterInviteeDTO,
         EncounterInviteeRepositoryProtocol,
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
@@ -44,14 +45,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _UID_DOMAIN = "@ludamus"
-_CANCELLING = frozenset(
-    {
-        EncounterInviteReason.LEFT,
-        EncounterInviteReason.UNINVITED,
-        EncounterInviteReason.DELETED,
-        EncounterInviteReason.FULL,
-    }
-)
 _INVITEE_PARTSTAT = {
     InviteeStatus.INVITED: PartStat.NEEDS_ACTION,
     InviteeStatus.ACCEPTED: PartStat.ACCEPTED,
@@ -89,6 +82,13 @@ def _normalised(emails: Iterable[str], *, excluding: str) -> set[str]:
 
 
 class EncounterGuests:
+    """The one place that changes who holds an encounter in their calendar.
+
+    Signing up on the site and accepting from a calendar both go through
+    `admit`; leaving and declining both go through `release`. `invitees` is
+    the invitee repository itself, for reads that need nothing more.
+    """
+
     def __init__(
         self,
         *,
@@ -99,34 +99,60 @@ class EncounterGuests:
         mailer: EncounterInviteMailerProtocol,
     ) -> None:
         self._rsvps = rsvps
-        self._invitees = invitees
+        self.invitees = invitees
         self._users = users
         self._sites = sites
         self._mailer = mailer
 
-    def invitees(self, encounter_id: int) -> list[EncounterInviteeDTO]:
-        return self._invitees.list_by_encounter(encounter_id)
-
-    def invitee_status(self, encounter_id: int, email: str) -> InviteeStatus | None:
-        return self._invitees.read_status(encounter_id, email)
-
-    def answer(self, *, encounter_id: int, email: str, status: InviteeStatus) -> bool:
-        return self._invitees.set_status(
-            encounter_id=encounter_id, email=email, status=status
-        )
-
-    def accepted_guest_count(self, encounter_id: int) -> int:
-        return self._invitees.count_accepted_without_signup(encounter_id)
-
-    def has_room(self, encounter: EncounterDTO, *, email: str = "") -> bool:
+    def has_room(self, encounter: EncounterDTO, *, email: str) -> bool:
         if not (limit := encounter.max_participants):
             return True
         # NOTE: an invitee who accepted already holds a spot; signing up
         # turns that spot into a signup rather than taking a second one.
-        if email and self.invitee_status(encounter.pk, email) is InviteeStatus.ACCEPTED:
+        if self.invitees.read_status(encounter.pk, email) is InviteeStatus.ACCEPTED:
             return True
         taken = self._rsvps.count_by_encounter(encounter.pk)
-        return taken + self.accepted_guest_count(encounter.pk) < limit
+        return taken + self.invitees.count_accepted_without_signup(encounter.pk) < limit
+
+    def admit(
+        self,
+        encounter: EncounterDTO,
+        *,
+        email: str,
+        user: UserDTO | None,
+        ip_address: str | None,
+    ) -> bool:
+        """Take a spot for `email`: a signup for an account, else the invite.
+
+        Returns:
+            False, writing nothing, when the encounter has no room.
+        """
+        if not self.has_room(encounter, email=email):
+            return False
+        if user is not None:
+            self._rsvps.create(encounter.pk, ip_address, user.pk)
+        self.invitees.set_status(
+            encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
+        )
+        return True
+
+    def release(
+        self, encounter: EncounterDTO, *, email: str, user: UserDTO | None
+    ) -> bool:
+        """Give up `email`'s spot: drop the signup, mark the invite declined.
+
+        Returns:
+            Whether there was a signup or an invite to give up.
+        """
+        signed_up = user is not None and self._rsvps.user_has_rsvpd(
+            encounter.pk, user.pk
+        )
+        if signed_up and user is not None:
+            self._rsvps.delete_by_user(encounter.pk, user.pk)
+        declined = self.invitees.set_status(
+            encounter_id=encounter.pk, email=email, status=InviteeStatus.DECLINED
+        )
+        return signed_up or declined
 
     def replace_invitees(
         self, encounter: EncounterDTO, emails: Iterable[str], *, creator: UserDTO
@@ -142,26 +168,36 @@ class EncounterGuests:
                 the daily limit. Nothing is written.
         """
         wanted = _normalised(emails, excluding=creator.email)
-        current = {i.email for i in self.invitees(encounter.pk)}
+        current = {i.email for i in self.invitees.list_by_encounter(encounter.pk)}
         added = wanted - current
-        since = datetime.now(tz=UTC) - INVITEE_WINDOW
-        counted = self._invitees.emails_invited_by_creator_since(creator.pk, since)
+        now = datetime.now(tz=UTC)
+        # NOTE: two saves racing past this read can each stay under the cap
+        # and together exceed it, by at most one form's worth of addresses.
+        counted = self.invitees.emails_invited_by_creator_since(
+            creator.pk, now - INVITEE_WINDOW
+        )
         new = added - counted
-        if new and len(counted) + len(new) > INVITEES_PER_CREATOR_PER_DAY:
+        limit = (
+            INVITEES_PER_NEW_CREATOR_PER_DAY
+            if now - creator.date_joined < NEW_CREATOR_AGE
+            else INVITEES_PER_CREATOR_PER_DAY
+        )
+        if new and len(counted) + len(new) > limit:
             logger.warning(
-                "Encounter %s: creator %s hit the daily invite limit (%d + %d)",
+                "Encounter %s: creator %s hit the daily invite limit (%d + %d > %d)",
                 encounter.share_code,
                 creator.pk,
                 len(counted),
                 len(new),
+                limit,
             )
             raise InviteLimitError
         removed = current - wanted
         dropped = [
             g for g in self.guests(encounter) if g.email in removed and g.invited_only
         ]
-        self._invitees.remove(encounter.pk, sorted(removed))
-        self._invitees.add(
+        self.invitees.remove(encounter.pk, sorted(removed))
+        self.invitees.add(
             encounter_id=encounter.pk, emails=sorted(added), creator_id=creator.pk
         )
         self.send(encounter, reason=EncounterInviteReason.UNINVITED, guests=dropped)
@@ -171,7 +207,7 @@ class EncounterGuests:
         member_ids = [encounter.creator_id] + [
             rsvp.user_id for rsvp in self._rsvps.list_by_encounter(encounter.pk)
         ]
-        invitees = self.invitees(encounter.pk)
+        invitees = self.invitees.list_by_encounter(encounter.pk)
         account_ids = [i.user_id for i in invitees if i.user_id is not None]
         users: dict[int, UserDTO] = {
             int(u.pk): u
@@ -219,12 +255,10 @@ class EncounterGuests:
         # DTSTAMP), worker clock skew can step back, and it outgrows the
         # int32 RFC 5545 INTEGER in 2038.
         sequence = int(datetime.now(tz=UTC).timestamp())
-        method = InviteMethod.CANCEL if reason in _CANCELLING else InviteMethod.REQUEST
         self._mailer.send(
             [
                 EncounterInvite(
                     reason=reason,
-                    method=method,
                     partstat=guest.partstat,
                     asks_reply=guest.asks_reply,
                     uid=encounter_calendar_uid(encounter.share_code),

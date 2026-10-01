@@ -103,37 +103,24 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
             return ReplyOutcome.IGNORED
         # NOTE: only an invitee still on the list may accept. Someone who
         # signed up and left, or was removed, holds an invite we cancelled.
-        status = self._guests.invitee_status(encounter.pk, email)
-        # NOTE: calendars re-send an acceptance, e.g. after each update; an
+        # Calendars also re-send an acceptance, e.g. after each update; an
         # accepted guest already holds their spot.
-        if status in {None, InviteeStatus.REMOVED, InviteeStatus.ACCEPTED}:
+        status = self._guests.invitees.read_status(encounter.pk, email)
+        if status not in {InviteeStatus.INVITED, InviteeStatus.DECLINED}:
             return ReplyOutcome.IGNORED
-        if not self._guests.has_room(encounter):
-            guest = (
-                guest_for(user)
-                if user
-                else Guest(email=email, name="", partstat=PartStat.NEEDS_ACTION)
-            )
-            self._guests.send(
-                encounter, reason=EncounterInviteReason.FULL, guests=[guest]
-            )
-            return ReplyOutcome.FULL
-        if user:
-            self._rsvps.create(encounter.pk, None, user.pk)
-        self._guests.answer(
-            encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
+        if self._guests.admit(encounter, email=email, user=user, ip_address=None):
+            return ReplyOutcome.ACCEPTED
+        guest = (
+            guest_for(user)
+            if user
+            else Guest(email=email, name="", partstat=PartStat.NEEDS_ACTION)
         )
-        return ReplyOutcome.ACCEPTED
+        self._guests.send(encounter, reason=EncounterInviteReason.FULL, guests=[guest])
+        return ReplyOutcome.FULL
 
     def _decline(
         self, *, encounter: EncounterDTO, email: str, user: UserDTO | None
     ) -> ReplyOutcome:
-        had_signup = user is not None and self._rsvps.user_has_rsvpd(
-            encounter.pk, user.pk
-        )
-        if had_signup and user:
-            self._rsvps.delete_by_user(encounter.pk, user.pk)
-        marked = self._guests.answer(
-            encounter_id=encounter.pk, email=email, status=InviteeStatus.DECLINED
-        )
-        return ReplyOutcome.DECLINED if had_signup or marked else ReplyOutcome.IGNORED
+        if self._guests.release(encounter, email=email, user=user):
+            return ReplyOutcome.DECLINED
+        return ReplyOutcome.IGNORED

@@ -68,7 +68,7 @@ env = environ.Env(
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
     # Mailbox calendar replies to encounter invites go to (e.g.
-    # rsvp@zagrajmy.net, routed to the Cloudflare Email Worker in
+    # rsvp@reply.zagrajmy.net, routed to the Cloudflare Email Worker in
     # cloudflare/encounter-replies). Empty turns reply sync off: invites then
     # ask for no reply and name DEFAULT_FROM_EMAIL as organizer.
     ENCOUNTER_REPLY_EMAIL=(str, ""),
@@ -389,14 +389,15 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
-# What a private sphere still serves to strangers: signing in, and the MCP
-# endpoints, which authenticate by token and scope themselves to its sphere.
+# What a private sphere still serves to strangers: signing in, the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere,
+# and the calendar-reply webhook, which authenticates by bearer secret.
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
     "/auth-error/",
     "/mcp/",
-    "/hooks/",
+    "/hooks/calendar-replies",
     "/.well-known/",
 )
 

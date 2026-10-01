@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from ludamus.mills.encounter_calendar import (
@@ -10,7 +12,10 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
     InviteLimitError,
 )
-from ludamus.specs.encounter import INVITEES_PER_CREATOR_PER_DAY
+from ludamus.specs.encounter import (
+    INVITEES_PER_CREATOR_PER_DAY,
+    INVITEES_PER_NEW_CREATOR_PER_DAY,
+)
 from tests.unit.encounter_fakes import (
     CREATOR_ID,
     OTHER_USER_ID,
@@ -35,14 +40,16 @@ class TestRoom:
     def test_an_encounter_without_a_limit_always_has_room(self):
         world = EncounterWorld(signups=[(1, n) for n in range(30)])
 
-        assert world.guests.has_room(make_encounter(1))
+        assert world.guests.has_room(make_encounter(1), email=OTHER_EMAIL)
 
     def test_an_accepted_invitee_without_an_account_takes_a_spot(self):
         world = EncounterWorld(
             invitees={(1, "ola@example.com"): InviteeStatus.ACCEPTED}
         )
 
-        assert not world.guests.has_room(make_encounter(1, max_participants=1))
+        assert not world.guests.has_room(
+            make_encounter(1, max_participants=1), email=OTHER_EMAIL
+        )
 
     def test_the_accepted_invitee_keeps_their_own_spot(self):
         world = EncounterWorld(
@@ -64,8 +71,32 @@ class TestReplaceInvitees:
                 make_encounter(1), ["new@example.com"], creator=make_user()
             )
 
-        assert not world.invitees.rows
+        assert not world.invitees.list_by_encounter(1)
         assert not world.mailer.sent
+
+    def test_a_week_old_account_has_the_smaller_allowance(self):
+        world = EncounterWorld()
+        fresh = make_user(date_joined=datetime.now(UTC) - timedelta(days=1))
+        emails = [f"g{n}@example.com" for n in range(INVITEES_PER_NEW_CREATOR_PER_DAY)]
+
+        world.guests.replace_invitees(make_encounter(1), emails, creator=fresh)
+        with pytest.raises(InviteLimitError):
+            world.guests.replace_invitees(
+                make_encounter(2), ["one-more@example.com"], creator=fresh
+            )
+
+        assert len(world.invitees.list_by_encounter(1)) == len(emails)
+        assert not world.invitees.list_by_encounter(2)
+
+    def test_a_removed_address_put_back_is_invited_again(self):
+        world = EncounterWorld(invitees={(1, "ola@example.com"): InviteeStatus.REMOVED})
+
+        added = world.guests.replace_invitees(
+            make_encounter(1), ["ola@example.com"], creator=make_user()
+        )
+
+        assert added == {"ola@example.com"}
+        assert world.invitees.rows == {(1, "ola@example.com"): InviteeStatus.INVITED}
 
     def test_inviting_an_address_already_counted_today_is_free(self):
         earlier = {f"g{n}@example.com" for n in range(INVITEES_PER_CREATOR_PER_DAY)}

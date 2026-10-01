@@ -161,6 +161,27 @@ class TestCalendarReplies:
         assert encounter.invitees.get(email="friend@example.com").status == "accepted"
         assert not encounter.rsvps.exists()
 
+    def test_a_reply_signed_before_a_key_rotation_still_counts(
+        self, client, encounter, settings
+    ):
+        EncounterInviteeFactory(encounter=encounter, email="friend@example.com")
+        address = self._address(encounter, "friend@example.com")
+        settings.SECRET_KEY_FALLBACKS = [settings.SECRET_KEY]
+        settings.SECRET_KEY = "rotated-" + settings.SECRET_KEY
+
+        response = self._post(
+            client,
+            _reply_mail(
+                uid=encounter_calendar_uid(encounter.share_code),
+                attendee="friend@example.com",
+                partstat="ACCEPTED",
+            ),
+            to=address,
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "accepted"})
+        assert encounter.invitees.get(email="friend@example.com").status == "accepted"
+
     def test_reply_for_someone_else_is_forged(self, client, encounter):
         victim = UserFactory(email="victim@example.com")
         EncounterRSVPFactory(encounter=encounter, user=victim)

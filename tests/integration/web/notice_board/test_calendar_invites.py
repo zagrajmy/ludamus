@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY, patch
 
@@ -433,7 +433,42 @@ class TestAcceptedInviteeSigningUp:
         assert encounter.rsvps.filter(user=user).exists()
 
 
+@pytest.fixture(name="established_account")
+def established_account_fixture(active_user):
+    # NOTE: accounts younger than a week get a smaller daily allowance; these
+    # tests measure the full one.
+    type(active_user).objects.filter(pk=active_user.pk).update(
+        date_joined=datetime.now(UTC) - timedelta(days=30)
+    )
+
+
+@pytest.mark.usefixtures("established_account")
 class TestInviteLimits:
+    def test_a_new_account_gets_the_smaller_allowance(
+        self, active_user, authenticated_client, mailoutbox
+    ):
+        type(active_user).objects.filter(pk=active_user.pk).update(
+            date_joined=datetime.now(UTC)
+        )
+
+        response = authenticated_client.post(
+            reverse("web:notice-board:create"),
+            data={
+                "title": "Too many for a newcomer",
+                "start_time": "2031-05-01T19:00",
+                "invitees": ", ".join(f"n{n}@example.com" for n in range(11)),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+        assert not Encounter.objects.filter(title="Too many for a newcomer").exists()
+        assert mailoutbox == []
+
     def test_the_same_address_on_two_encounters_counts_once(
         self, authenticated_client, django_capture_on_commit_callbacks
     ):

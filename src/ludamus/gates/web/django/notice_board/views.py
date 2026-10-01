@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.decorators.cache import cache_control
 from django.views.generic.base import View
 
@@ -42,11 +43,10 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
 
 
-def _invite_limit_message() -> str:
-    return _(
-        "You have invited as many new people as one day allows. Try again "
-        "tomorrow, or share the encounter link instead."
-    )
+_INVITE_LIMIT_MESSAGE = gettext_lazy(
+    "You have invited as many new people as one day allows. Try again "
+    "tomorrow, or share the encounter link instead."
+)
 
 
 class _EncounterGate(View):
@@ -93,13 +93,14 @@ class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
     ) -> EncounterForm:
         form = EncounterForm(data, files, initial=initial)
         # An owner the policy no longer covers may still edit their
-        # encounter, but not list it. The service enforces this again on
-        # write, so a forged flag never gets through.
+        # encounter, but not list it or invite anyone. The service enforces
+        # both again on write, so a forged field never gets through.
         if not self.request.services.encounters.can_create(
             sphere_id=self.request.context.current_sphere_id,
             user_id=self.request.context.current_user_id,
         ):
             del form.fields["is_public"]
+            del form.fields["invitees"]
         return form
 
 
@@ -142,7 +143,7 @@ class EncounterCreatePageView(_EncounterFormPageView):
         except NotFoundError as exc:
             raise Http404 from exc
         except InviteLimitError:
-            form.add_error("invitees", _invite_limit_message())
+            form.add_error("invitees", _INVITE_LIMIT_MESSAGE)
             return TemplateResponse(request, "notice_board/create.html", {"form": form})
         return redirect(
             reverse(
@@ -172,13 +173,22 @@ class EncounterEditPageView(_EncounterFormPageView):
         # encounter by the offset on every save.
         return localtime(dt).strftime("%Y-%m-%dT%H:%M")
 
-    def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
-        encounter = self._get_encounter(pk)
-        invitees = request.services.encounters.list_owned_invitees(
-            pk=pk,
-            sphere_id=request.context.current_sphere_id,
-            user_id=request.context.current_user_id,
+    def _rerender(self, form: EncounterForm, pk: int) -> TemplateResponse:
+        return TemplateResponse(
+            self.request,
+            "notice_board/edit.html",
+            {"form": form, "encounter": self._get_encounter(pk)},
         )
+
+    def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
+        try:
+            encounter, invitees = request.services.encounters.read_owned_with_invitees(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
         form = self._form(
             initial={
                 "title": encounter.title,
@@ -202,11 +212,7 @@ class EncounterEditPageView(_EncounterFormPageView):
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         form = self._form(request.POST, request.FILES)
         if not form.is_valid():
-            return TemplateResponse(
-                request,
-                "notice_board/edit.html",
-                {"form": form, "encounter": self._get_encounter(pk)},
-            )
+            return self._rerender(form, pk)
 
         data = EncounterData(
             title=form.cleaned_data["title"],
@@ -231,17 +237,13 @@ class EncounterEditPageView(_EncounterFormPageView):
                 sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 data=data,
-                invitee_emails=form.cleaned_data["invitees"],
+                invitee_emails=form.cleaned_data.get("invitees"),
             )
         except NotFoundError as exc:
             raise Http404 from exc
         except InviteLimitError:
-            form.add_error("invitees", _invite_limit_message())
-            return TemplateResponse(
-                request,
-                "notice_board/edit.html",
-                {"form": form, "encounter": self._get_encounter(pk)},
-            )
+            form.add_error("invitees", _INVITE_LIMIT_MESSAGE)
+            return self._rerender(form, pk)
         messages.success(request, _("Encounter updated."))
         return redirect(
             reverse(

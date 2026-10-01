@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
@@ -12,11 +13,11 @@ from ludamus.pacts.encounter import (
     EncounterInviteReason,
     EncounterServiceProtocol,
     EncountersPolicy,
-    InviteeStatus,
     RSVPOutcome,
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.specs.encounter import INVITEE_WINDOW
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -33,6 +34,8 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import SphereRepositoryProtocol
     from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
+
+logger = logging.getLogger(__name__)
 
 
 # The feed renders every past encounter as a card, and a sphere accumulates
@@ -170,8 +173,14 @@ class EncounterService(EncounterServiceProtocol):
             rsvp_count=len(rsvps),
             is_creator=is_creator,
             user_has_rsvpd=user_has_rsvpd,
-            invitees=self._guests.invitees(encounter.pk) if is_creator else [],
-            accepted_guest_count=self._guests.accepted_guest_count(encounter.pk),
+            invitees=(
+                self._guests.invitees.list_by_encounter(encounter.pk)
+                if is_creator
+                else []
+            ),
+            accepted_guest_count=(
+                self._guests.invitees.count_accepted_without_signup(encounter.pk)
+            ),
         )
 
     def read_by_share_code(self, *, share_code: str, sphere_id: int) -> EncounterDTO:
@@ -211,11 +220,11 @@ class EncounterService(EncounterServiceProtocol):
             raise NotFoundError
         return encounter
 
-    def list_owned_invitees(
+    def read_owned_with_invitees(
         self, *, pk: int, sphere_id: int, user_id: int
-    ) -> list[EncounterInviteeDTO]:
-        self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-        return self._guests.invitees(pk)
+    ) -> tuple[EncounterDTO, list[EncounterInviteeDTO]]:
+        encounter = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
+        return encounter, self._guests.invitees.list_by_encounter(pk)
 
     def update_owned(
         self,
@@ -224,13 +233,17 @@ class EncounterService(EncounterServiceProtocol):
         sphere_id: int,
         user_id: int,
         data: EncounterData,
-        invitee_emails: list[str],
+        invitee_emails: list[str] | None,
     ) -> EncounterDTO:
+        """Save the owner's edit; `invitee_emails` None leaves the list as is.
+
+        Returns:
+            The encounter as saved.
+        """
         with self._transaction.atomic():
             before = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            if "is_public" in data and not self.can_create(
-                sphere_id=sphere_id, user_id=user_id
-            ):
+            may_create = self.can_create(sphere_id=sphere_id, user_id=user_id)
+            if "is_public" in data and not may_create:
                 # Owning an encounter is enough to edit it, but not to list
                 # it: publishing is what the sphere's policy governs. The key
                 # is dropped rather than forced false, so a sphere narrowing
@@ -238,10 +251,16 @@ class EncounterService(EncounterServiceProtocol):
                 data = _without_public_flag(data)
             self._encounters.update(pk, data)
             encounter = self._encounters.read(pk, sphere_id)
-            added = self._guests.replace_invitees(
-                encounter,
-                invitee_emails,
-                creator=self._users.read_by_id(encounter.creator_id),
+            # NOTE: inviting mails strangers from our domain, so it follows
+            # the policy that governs creating, like publishing does.
+            added = (
+                self._guests.replace_invitees(
+                    encounter,
+                    invitee_emails,
+                    creator=self._users.read_by_id(encounter.creator_id),
+                )
+                if invitee_emails is not None and may_create
+                else set()
             )
             if _calendar_view(encounter) != _calendar_view(before):
                 self._guests.send(
@@ -277,19 +296,15 @@ class EncounterService(EncounterServiceProtocol):
         # a repo method in pacts/encounter.py — held by open PRs.
         with self._transaction.atomic():
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
-            user = self._users.read_by_id(user_id)
-            if not self._guests.has_room(encounter, email=user.email):
-                return RSVPOutcome.FULL
             if self._rsvps.recent_rsvp_exists(ip_address):
                 return RSVPOutcome.THROTTLED
             if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return RSVPOutcome.ALREADY_SIGNED_UP
-            self._rsvps.create(encounter.pk, ip_address, user.pk)
-            self._guests.answer(
-                encounter_id=encounter.pk,
-                email=user.email,
-                status=InviteeStatus.ACCEPTED,
-            )
+            user = self._users.read_by_id(user_id)
+            if not self._guests.admit(
+                encounter, email=user.email, user=user, ip_address=ip_address
+            ):
+                return RSVPOutcome.FULL
             self._guests.send(
                 encounter, reason=EncounterInviteReason.JOINED, guests=[guest_for(user)]
             )
@@ -301,15 +316,17 @@ class EncounterService(EncounterServiceProtocol):
             if not self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return
             user = self._users.read_by_id(user_id)
-            self._rsvps.delete_by_user(encounter.pk, user.pk)
-            self._guests.answer(
-                encounter_id=encounter.pk,
-                email=user.email,
-                status=InviteeStatus.DECLINED,
-            )
+            self._guests.release(encounter, email=user.email, user=user)
             self._guests.send(
                 encounter, reason=EncounterInviteReason.LEFT, guests=[guest_for(user)]
             )
+
+    def purge_stale_invitees(self, *, now: datetime) -> int:
+        # NOTE: a removed invitee, or one of a deleted encounter, stays only
+        # as long as the daily invite cap still counts it.
+        purged = self._guests.invitees.purge_stale(now - INVITEE_WINDOW)
+        logger.info("Purged %d stale encounter invitee(s)", purged)
+        return purged
 
 
 def _calendar_view(
