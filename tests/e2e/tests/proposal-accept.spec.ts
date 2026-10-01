@@ -45,9 +45,12 @@ test.describe("Accepting a proposal", () => {
     await scroller.evaluate((el) => el.scrollTo(0, 150));
     await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(150);
 
-    const navBox = await page.locator("nav").first().boundingBox();
-    const cardBox = await card.boundingBox();
-    expect(cardBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+    const navBottom = await page
+      .locator("nav")
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().bottom);
+    const cardTop = await card.evaluate((el) => el.getBoundingClientRect().top);
+    expect(cardTop).toBeGreaterThanOrEqual(navBottom);
   });
 
   test("the room and time it names are the ones it submits", async ({ page }) => {

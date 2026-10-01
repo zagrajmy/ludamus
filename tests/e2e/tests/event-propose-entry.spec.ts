@@ -15,7 +15,7 @@ test.describe("Proposing from a small event", () => {
     await expect(schedule.locator('a[href="/event/lone-table/session/propose/"]')).toHaveCount(1);
   });
 
-  test("several slots each offer their own way in", async ({ page }) => {
+  test("several slots put a propose link on the slot headers too", async ({ page }) => {
     await page.goto("/event/autumn-open/");
     const schedule = page.locator("#schedule-region");
 
