@@ -2002,7 +2002,10 @@ msgid "email address"
 msgstr "adres email"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/links/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py src/ludamus/links/db/django/models.py
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
 msgid "Discord username"
 msgstr "Nazwa użytkownika Discord"
 

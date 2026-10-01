@@ -62,6 +62,8 @@
                                     {% translate "Select" %}
                                 {% elif field.field_type == "checkbox" %}
                                     {% translate "Checkbox" %}
+                                {% elif field.field_type == "discord" %}
+                                    {% translate "Discord username" %}
                                 {% else %}
                                     {% translate "Text" %}
                                 {% endif %}

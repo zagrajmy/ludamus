@@ -51,7 +51,7 @@ from ludamus.pacts.submissions import (
 )
 
 # The DB stores field_type as a plain CharField; DTOs type it as this Literal.
-_FieldType = Literal["text", "select", "checkbox"]
+_FieldType = Literal["text", "select", "checkbox", "discord"]
 
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:

@@ -346,6 +346,7 @@ class PersonalDataFieldForm(forms.Form):
         ("text", _("Text")),
         ("select", _("Select")),
         ("checkbox", _("Checkbox")),
+        ("discord", _("Discord username")),
     ]
 
     name = forms.CharField(

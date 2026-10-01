@@ -232,16 +232,47 @@ class _Wizard:
         return self.service.get_timeslot_requirements(self.category.pk)
 
     @cached_property
+    def personal_requirements(self) -> list[PersonalFieldRequirementDTO]:
+        if self.category is None:
+            return []
+        return self.service.get_personal_requirements(self.category.pk)
+
+    @cached_property
+    def account_answers(self) -> dict[str, str]:
+        # AnonymousUser carries no `discord_username`.
+        if not (discord := getattr(self.request.user, "discord_username", "")):
+            return {}
+        return {
+            f"personal_{req.field.slug}": discord
+            for req in self.personal_requirements
+            if req.field.field_type == "discord"
+        }
+
+    @cached_property
+    def account_email(self) -> str:
+        # AnonymousUser carries no `email`.
+        return getattr(self.request.user, "email", "")
+
+    @cached_property
     def steps(self) -> tuple[str, ...]:
         # One time slot is no more a choice than one category. Before a category
-        # is chosen the time-slot step is assumed present: the strip must not
-        # grow a step the moment the first choice is made.
+        # is chosen the time-slot and personal steps are assumed present: the
+        # strip must not grow a step the moment the first choice is made.
         shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
+        # Nothing to ask when the account already answers every question. A
+        # category with no questions still shows the step to confirm the email.
+        shows_personal = (
+            self.category is None
+            or not self.account_email
+            or not self.personal_requirements
+            or len(self.account_answers) < len(self.personal_requirements)
+        )
         return tuple(
             key
             for key in _STEP_KEYS
             if (key != "category" or len(self.categories) != 1)
             and (key != "timeslots" or shows_timeslots)
+            and (key != "personal" or shows_personal)
         )
 
     @property
@@ -289,7 +320,7 @@ def _personal_context(
     wizard: _Wizard, state: WizardState, *, form: Form | None = None
 ) -> StepContext:
     category = wizard.chosen
-    requirements = wizard.service.get_personal_requirements(category.pk)
+    requirements = wizard.personal_requirements
 
     if form is None:
         stored: WizardData = state.get("personal_data") or {
@@ -298,14 +329,10 @@ def _personal_context(
                 event_id=wizard.event.pk, user_id=wizard.request.context.current_user_id
             ).items()
         }
-        initial = unfold_custom_answers(
+        initial = wizard.account_answers | unfold_custom_answers(
             stored=stored, fields=[req.field for req in requirements], prefix="personal"
         )
-        # AnonymousUser carries no `email`, and an anonymous proposer is exactly
-        # who this step exists for.
-        initial["contact_email"] = state.get(
-            "contact_email", getattr(wizard.request.user, "email", "")
-        )
+        initial["contact_email"] = state.get("contact_email", wizard.account_email)
         form = build_personal_data_form(requirements)(initial=initial)
 
     has_category = "category" in wizard.steps
@@ -388,7 +415,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         prefix="session",
     )
     personal_fields = _review_fields(
-        requirements=wizard.service.get_personal_requirements(category.pk),
+        requirements=wizard.personal_requirements,
         answers=state.get("personal_data", {}),
         prefix="personal",
     )
@@ -435,6 +462,10 @@ def _step_context(wizard: _Wizard, step: str) -> StepContext:
         # answer is recorded as the step is walked past.
         if step == "details" and len(wizard.timeslot_requirements) == 1:
             state["time_slot_ids"] = [wizard.timeslot_requirements[0].time_slot_id]
+        # Likewise the personal step the account answers in full.
+        if step != "category" and "personal" not in wizard.steps:
+            state["personal_data"] = dict(wizard.account_answers)
+            state["contact_email"] = wizard.account_email
         return _STEP_CONTEXTS[step](wizard, state)
 
 
@@ -576,7 +607,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin):
         if request.POST.get("back"):
             return _render(wizard, wizard.at_or_before("personal"))
 
-        requirements = wizard.service.get_personal_requirements(wizard.chosen.pk)
+        requirements = wizard.personal_requirements
         form = build_personal_data_form(requirements)(data=request.POST)
 
         if not form.is_valid():

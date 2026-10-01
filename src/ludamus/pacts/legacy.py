@@ -1074,7 +1074,7 @@ class PersonalDataFieldCreateData(TypedDict):
     name: str
     slug: NotRequired[str]
     question: str
-    field_type: Literal["text", "select", "checkbox"]
+    field_type: Literal["text", "select", "checkbox", "discord"]
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool

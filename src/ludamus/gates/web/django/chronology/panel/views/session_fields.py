@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -28,6 +30,9 @@ from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.mills import PanelService
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, FieldUsageSummary, NotFoundError
+
+if TYPE_CHECKING:
+    from typing import Literal
 
 
 class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -127,7 +132,14 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         self.request.services.session_fields.create(
             event_pk=current_event.pk,
-            data={**parsed, "icon": form.cleaned_data.get("icon") or ""},
+            data={
+                **parsed,
+                # SessionFieldForm offers no "discord" choice.
+                "field_type": cast(
+                    "Literal['text', 'select', 'checkbox']", parsed["field_type"]
+                ),
+                "icon": form.cleaned_data.get("icon") or "",
+            },
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
             ),

@@ -41,7 +41,7 @@ class OrganizerFieldDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox"]
+    field_type: Literal["text", "select", "checkbox", "discord"]
     help_text: str = ""
     # Session fields carry an icon; personal-data fields leave it empty.
     icon: str = ""

@@ -42,7 +42,7 @@ class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
 
 def parse_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
     field_type = cast(
-        "Literal['text', 'select', 'checkbox']",
+        "Literal['text', 'select', 'checkbox', 'discord']",
         form.cleaned_data.get("field_type") or "text",
     )
     options_text = form.cleaned_data.get("options") or ""
