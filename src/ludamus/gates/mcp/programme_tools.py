@@ -211,7 +211,7 @@ class OrganizerListPersonalDataFieldsTool(Tool[EventIdInput]):
     name = "list_personal_data_fields"
     description = (
         "List an event's host data fields (questions asked of proposers on the "
-        "wizard's first step) with slug, question and field_type."
+        "wizard's Your info step) with slug, question and field_type."
     )
     scope = ToolScope.ORGANIZER
     input_model = EventIdInput
