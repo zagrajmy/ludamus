@@ -4336,7 +4336,7 @@ msgid ""
 "quality, he keeps the system from becoming a ball of unmaintainable mess."
 msgstr ""
 "Jak widać po jego wystąpieniu o jakości kodu na <a "
-"href=\"%(talk_url)s\">EuroPython 2019</a>, to on pilnuje, żeby system nie "
+"href=\"%(talk_url)s\">EuroPythonie 2019</a>, to on pilnuje, żeby system nie "
 "zamienił się w spaghetti nie do utrzymania."
 
 #: src/ludamus/templates/about.html
