@@ -619,6 +619,9 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin):
         if request.POST.get("back"):
             return _render(wizard, wizard.at_or_before("personal"))
 
+        if "personal" not in wizard.steps:
+            return _render(wizard, wizard.after("personal"))
+
         requirements = wizard.personal_requirements
         form = build_personal_data_form(requirements)(data=request.POST)
 

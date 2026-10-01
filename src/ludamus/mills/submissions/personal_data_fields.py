@@ -1,5 +1,6 @@
 """Backoffice management of an event's personal-data fields."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
@@ -31,10 +32,14 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
+        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import RequirementSelectionDTO
+
+
+logger = logging.getLogger(__name__)
 
 
 def log_facilitator_changes(
@@ -96,7 +101,16 @@ class CFPPersonalDataFieldService(
 ):
     """Backoffice operations for an event's personal-data fields."""
 
-    _fields: PersonalDataFieldRepositoryProtocol
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        fields: PersonalDataFieldRepositoryProtocol,
+        categories: ProposalCategoryRepositoryProtocol,
+    ) -> None:
+        super().__init__(transaction=transaction, fields=fields, categories=categories)
+        # The base keeps the CRUD face; switching type needs this repo's own.
+        self._personal_fields = fields
 
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
@@ -126,6 +140,7 @@ class CFPPersonalDataFieldService(
             categories=categories,
             required_category_pks={pk for pk, req in field_cats.items() if req},
             optional_category_pks={pk for pk, req in field_cats.items() if not req},
+            can_switch_type=is_text_field_kind(field.field_type),
         )
 
     def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
@@ -148,28 +163,40 @@ class CFPPersonalDataFieldService(
         data: PersonalDataFieldUpdateData,
         category_requirements: RequirementSelectionDTO,
     ) -> None:
-        if "field_type" in data:
-            self._check_text_kind(self._fields.read_by_slug(event_pk, field_slug))
-        super().update(
-            event_pk=event_pk,
-            field_slug=field_slug,
-            data=data,
-            category_requirements=category_requirements,
-        )
+        # One transaction, so the type check and the write see the same row.
+        with self._transaction.atomic():
+            if (new_type := data.get("field_type")) is not None:
+                _check_switch(self._fields.read_by_slug(event_pk, field_slug), new_type)
+            super().update(
+                event_pk=event_pk,
+                field_slug=field_slug,
+                data=data,
+                category_requirements=category_requirements,
+            )
 
     def set_field_type(
         self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
     ) -> OrganizerFieldDTO:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        self._check_text_kind(field)
-        if field.field_type == field_type:
-            return field
-        return self._fields.set_field_type(field.pk, field_type)
+        with self._transaction.atomic():
+            field = self._fields.read_by_slug(event_pk, field_slug)
+            _check_switch(field, field_type)
+            if field.field_type == field_type:
+                return field
+            return self._personal_fields.set_field_type(field.pk, field_type)
 
-    @staticmethod
-    def _check_text_kind(field: OrganizerFieldDTO) -> None:
-        if not is_text_field_kind(field.field_type):
-            raise FieldTypeSwitchError
+
+def _check_switch(field: OrganizerFieldDTO, new_type: TextFieldKind) -> None:
+    if field.field_type == new_type:
+        return
+    if not is_text_field_kind(field.field_type):
+        raise FieldTypeSwitchError
+    logger.info(
+        "Personal data field %s (pk %s) switches type %s -> %s",
+        field.slug,
+        field.pk,
+        field.field_type,
+        new_type,
+    )
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

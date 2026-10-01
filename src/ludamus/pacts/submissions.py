@@ -359,6 +359,7 @@ class PersonalDataFieldEditContextDTO:
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+    can_switch_type: bool
 
 
 class OrganizerActionRefusal(StrEnum):

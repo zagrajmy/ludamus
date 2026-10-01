@@ -55,11 +55,12 @@
                             </p>
                             {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
                         </div>
-                        {% if field.field_type == "text" or field.field_type == "discord" %}
+                        {% if can_switch_type %}
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_field_type">{% translate "Field Type" %}</label>
-                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=text_kind_choices selected=form.field_type.value only %}
+                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=text_kind_choices selected=form.field_type.value has_errors=form.field_type.errors only %}
+                                {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
                                 <p class="mt-1 text-sm text-foreground-muted">
                                     {% translate "Discord username fields are prefilled from the proposer's profile. Answers already given are kept." %}
                                 </p>

@@ -67,6 +67,7 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "can_switch_type": True,
                 "text_kind_choices": [
                     ("text", "Text"),
                     ("discord", "Discord username"),
@@ -226,6 +227,7 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "can_switch_type": True,
                 "text_kind_choices": [
                     ("text", "Text"),
                     ("discord", "Discord username"),
@@ -472,7 +474,7 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.field_type == "discord"
 
-    def test_post_keeps_select_field_type(self, panel_client, event):
+    def test_post_refuses_to_switch_a_select_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Size",
@@ -481,13 +483,18 @@ class TestPersonalDataFieldEditPageView:
             field_type="select",
         )
 
-        panel_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={"name": "Size", "question": "T-shirt", "field_type": "discord"},
         )
 
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["form"].errors["field_type"] == [
+            "Only text and Discord username fields can switch type."
+        ]
         field.refresh_from_db()
         assert field.field_type == "select"
+        assert field.name == "Size"
 
     def test_get_returns_field_with_is_multiple_attribute(self, panel_client, event):
         field = PersonalDataField.objects.create(

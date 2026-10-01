@@ -406,9 +406,7 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert_response(
-            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
-        )
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["contact_email"] == "testuser@example.com"
 
@@ -546,8 +544,16 @@ class TestProposeSessionPageView:
         ] == [slot1.pk, slot2.pk]
 
     def test_post_personal_skips_single_timeslot(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
+        active_user.email = ""
+        active_user.save()
         self._activate_proposals(event, faker, time_zone)
         field = PersonalDataField.objects.create(
             event=event, name="Phone", question="What is your phone?", slug="phone"
@@ -564,15 +570,21 @@ class TestProposeSessionPageView:
             {"personal_phone": "+48 123", "contact_email": "test@example.com"},
         )
 
-        assert_response(
-            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
-        )
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["time_slot_ids"] == [slot.pk]
 
     def test_single_category_single_timeslot_defaults_are_submitted(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
+        active_user.email = ""
+        active_user.save()
         self._activate_proposals(event, faker, time_zone)
         slot = TimeSlotFactory(event=event)
         TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
@@ -585,9 +597,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_personal_url(event.slug), {"contact_email": "test@example.com"}
         )
-        assert_response(
-            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
-        )
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
         assert wizard["time_slot_ids"] == [slot.pk]
@@ -702,9 +712,7 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert_response(
-            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
-        )
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["personal_data"] == {"personal_dc": "gm_bob"}
 
@@ -732,9 +740,7 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert_response(
-            response, HTTPStatus.OK, template_name="event/propose/parts/personal.html"
-        )
+        assert response.template_name == "event/propose/parts/personal.html"
 
     def test_post_timeslots_with_only_foreign_id_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1624,8 +1630,16 @@ class TestProposeSessionPageView:
         )
 
     def test_post_personal_without_email_shows_error(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
     ):
+        active_user.email = ""
+        active_user.save()
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 

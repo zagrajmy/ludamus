@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
@@ -42,6 +43,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.fields import FieldValue
     from ludamus.pacts.propose import ProposeRepos
     from ludamus.pacts.services import TransactionProtocol
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProposeSessionService(ProposeSessionServiceProtocol):
@@ -229,8 +233,18 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                         ]
                     )
                 # A handle typed here saves the proposer typing it next time.
-                if current_user and (handle := _discord_answer(answers)):
-                    self._repos.users.fill_discord_username(current_user.slug, handle)
+                if (
+                    current_user
+                    and (handle := _discord_answer(answers))
+                    and self._repos.users.fill_discord_username(
+                        current_user.slug, handle
+                    )
+                ):
+                    logger.info(
+                        "Proposal to event %s filled user %s's Discord handle",
+                        event.pk,
+                        current_user.pk,
+                    )
 
             if track_pks := wizard_data.get("track_pks", []):
                 # Track ids come from wizard state, so they are trusted only

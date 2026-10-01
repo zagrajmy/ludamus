@@ -74,10 +74,12 @@ class UserRepository(UserRepositoryProtocol):
         User.objects.filter(slug=user_slug).update(**user_data)
 
     @staticmethod
-    def fill_discord_username(user_slug: str, discord_username: str) -> None:
+    def fill_discord_username(user_slug: str, discord_username: str) -> bool:
         # Conditional in the query, so a handle set meanwhile is never replaced.
-        User.objects.filter(slug=user_slug, discord_username="").update(
-            discord_username=discord_username
+        return bool(
+            User.objects.filter(slug=user_slug, discord_username="").update(
+                discord_username=discord_username
+            )
         )
 
     @staticmethod
