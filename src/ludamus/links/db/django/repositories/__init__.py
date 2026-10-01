@@ -3,7 +3,6 @@ from ludamus.links.db.django.repositories.chronology import (
     EventIntegrationsRepository,
     EventPanelSettingsRepository,
     EventRepository,
-    EventSettingsRepository,
     PartySessionHistoryRepository,
 )
 from ludamus.links.db.django.repositories.dashboard import DashboardRepository
@@ -54,7 +53,6 @@ __all__ = [
     "EventPanelSettingsRepository",
     "EventProposalSettingsRepository",
     "EventRepository",
-    "EventSettingsRepository",
     "FacilitatorRepository",
     "ImportLogEntryRepository",
     "LandingStatsRepository",

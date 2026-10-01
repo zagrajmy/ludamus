@@ -70,7 +70,7 @@ def carry_preferences_to_availability(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0169_encounter_invite_mailing")]
+    dependencies = [("db_main", "0170_session_field_show_on_cards")]
 
     operations = [
         migrations.CreateModel(
