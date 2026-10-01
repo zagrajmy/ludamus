@@ -1729,7 +1729,8 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    ip_address = models.GenericIPAddressField()
+    # NOTE: null for a signup that arrived as a calendar reply, not a request.
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1742,6 +1743,64 @@ class EncounterRSVP(models.Model):
 
     def __str__(self) -> str:
         return str(self.user)
+
+
+class EncounterInvitee(models.Model):
+    class Status(models.TextChoices):
+        INVITED = "invited", _("Invited")
+        ACCEPTED = "accepted", _("Accepted")
+        DECLINED = "declined", _("Declined")
+        REMOVED = "removed", _("Removed")
+
+    # NOTE: kept when the encounter is deleted, keyed to who sent it, so the
+    # creator's daily invite limit survives deleting and recreating.
+    encounter = models.ForeignKey(
+        Encounter, on_delete=models.SET_NULL, null=True, related_name="invitees"
+    )
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_encounter_invites"
+    )
+    email = models.EmailField()
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.INVITED
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "encounter_invitee"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("encounter", "email"), name="encounter_invitee_unique_email"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.email
+
+
+class EncounterInviteMailing(models.Model):
+    """How many calendar messages a creator sent invitees in one save.
+
+    The daily mail budget sums these; the purge drops them once the budget
+    window has passed.
+    """
+
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="encounter_invite_mailings"
+    )
+    count = models.PositiveIntegerField()
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "encounter_invite_mailing"
+        indexes = (
+            models.Index(
+                fields=("creator", "creation_time"), name="encounter_mailing_by_creator"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.count} by {self.creator_id}"
 
 
 class EventSettings(models.Model):
