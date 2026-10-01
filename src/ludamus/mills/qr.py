@@ -11,11 +11,13 @@ import io
 
 import segno
 
+_SVG = "svg"
+
 
 def qr_svg(
     url: str, *, scale: int = 4, dark: str = "#111827", xmldecl: bool = True
 ) -> str:
     qr = segno.make(url)
     buffer = io.BytesIO()
-    qr.save(buffer, kind="svg", scale=scale, dark=dark, xmldecl=xmldecl)
+    qr.save(buffer, kind=_SVG, scale=scale, dark=dark, xmldecl=xmldecl)
     return buffer.getvalue().decode()

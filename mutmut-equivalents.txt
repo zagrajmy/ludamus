@@ -1,8 +1,0 @@
-# Mutants the unit suite cannot distinguish from the original (reviewed one by
-# one). `mise run test:mutation` fails on any survivor not listed.
-# qr: segno lower-cases `kind`, and a file-like target needs it spelled out.
-ludamus.mills.qr.x_qr_svg__mutmut_18
-# normalize_duration maps any unparsable text, "XXXX" included, to "".
-ludamus.mills.propose.xǁProposeSessionServiceǁsubmit__mutmut_113
-# json.dumps treats ensure_ascii=None exactly like False.
-ludamus.mills.submissions.mapping.x_encode_response__mutmut_2

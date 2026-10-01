@@ -147,6 +147,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             msg = "session_data must contain 'title'"
             raise ValueError(msg)
         title = str(session_data["title"])
+        duration = session_data.get("duration")
         description = str(session_data.get("description", ""))
         raw_limit = session_data.get("participants_limit") or 0
         participants_limit = int(str(raw_limit))
@@ -181,7 +182,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 title=title,
                 slug=slug,
                 description=description,
-                duration=normalize_duration(str(session_data.get("duration") or "")),
+                duration=(
+                    normalize_duration(duration) if isinstance(duration, str) else ""
+                ),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),

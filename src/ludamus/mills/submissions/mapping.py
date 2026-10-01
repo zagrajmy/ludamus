@@ -43,6 +43,7 @@ def field_setup(
 
 
 _RESPONSE_ADAPTER = TypeAdapter(dict[str, str])
+_RESPONSE_ENCODER = json.JSONEncoder(ensure_ascii=False)
 
 _BUILTIN_PROPOSAL_TARGETS = frozenset(
     {
@@ -339,7 +340,7 @@ def decode_response(response_json: str) -> ImportRow:
 
 
 def encode_response(data: dict[str, str]) -> str:
-    return json.dumps(data, ensure_ascii=False)
+    return _RESPONSE_ENCODER.encode(data)
 
 
 def locate_row(

@@ -56,7 +56,7 @@ def build_duration(*, hours: int, minutes: int) -> str:
 
 
 def normalize_duration(text: str) -> str:
-    if not (match := _LOOSE_DURATION_RE.fullmatch((text or "").strip().lower())):
+    if not (match := _LOOSE_DURATION_RE.fullmatch(text.strip().lower())):
         return ""
     return build_duration(
         hours=int(match["hours"] or 0), minutes=int(match["minutes"] or 0)
