@@ -172,7 +172,16 @@ jobs:
         # Fails in 10min rather than starving the specs of the job budget and
         # reporting as a 30min job timeout that names no step.
         timeout-minutes: 10
-        run: mise run test:e2e:install
+        # A healthy install takes 25-80s; a hung one is apt stalled on a
+        # mirror and never recovers. Three 160s attempts fit the 10min cap.
+        run: |
+          for attempt in 1 2 3; do
+            timeout -k 10 150 mise run test:e2e:install && exit 0
+            echo "::warning::Playwright install failed or hung (attempt $attempt/3)"
+            # A killed attempt can leave its root apt-get holding the lock.
+            sudo pkill -x apt-get || true
+          done
+          exit 1
       - name: Run end-to-end tests
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
