@@ -4342,12 +4342,13 @@ msgstr ""
 #: src/ludamus/templates/about.html
 msgid ""
 "Every story needs a villain, and Piotrek oscillates between asking “Why are "
-"we torturing the users? Can we streamline this?” and shipping large PRs to "
-"prod during a convention."
+"we torturing the users?”, “Can we streamline this?”, “Shall we rewrite in "
+"Bend?” and shipping large PRs straight to prod during a convention."
 msgstr ""
-"Każda historia potrzebuje złoczyńcy, a Piotrek miota się między pytaniem "
-"„Czemu torturujemy użytkowników? Da się to uprościć?” a wrzucaniem dużych PR-"
-"ów na produkcję w trakcie konwentu."
+"Każda historia potrzebuje złoczyńcy, a Piotrek miota się między pytaniami "
+"„Czemu torturujemy użytkowników?”, „Da się to uprościć?”, „Może przepiszemy "
+"to w Bendzie?” a wrzucaniem dużych PR-ów prosto na produkcję w trakcie "
+"konwentu."
 
 #: src/ludamus/templates/about.html
 #, python-format
