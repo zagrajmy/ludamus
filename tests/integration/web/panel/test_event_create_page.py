@@ -116,6 +116,17 @@ def source_fixture(sphere, active_user):
     return source
 
 
+def _assert_created(response, *, name, url):
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        messages=[
+            (messages.SUCCESS, f"Created {name}. It stays hidden until you publish it.")
+        ],
+        url=url,
+    )
+
+
 class TestEventCreatePageView:
     def test_asks_anonymous_users_to_log_in(self, client):
         assert_login_required(client.get(URL), URL)
@@ -124,17 +135,7 @@ class TestEventCreatePageView:
         response = panel_client.post(URL, data=_post_data(slug=""))
 
         event = Event.objects.get(sphere=sphere)
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    "Created MiM 2027. It stays hidden until you publish it.",
-                )
-            ],
-            url=f"/panel/event/{event.slug}/",
-        )
+        _assert_created(response, name="MiM 2027", url=f"/panel/event/{event.slug}/")
         assert event.slug == "mim-2027"
         assert event.publication_time is None
         assert list(event.spaces.values_list("parent", flat=True)) == [None]
@@ -145,17 +146,7 @@ class TestEventCreatePageView:
         response = panel_client.post(URL, data=_post_data(based_on=source.pk))
 
         event = Event.objects.get(slug="mim-2027")
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    "Created MiM 2027. It stays hidden until you publish it.",
-                )
-            ],
-            url="/panel/event/mim-2027/",
-        )
+        _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
         assert (
             event.address,
             event.use_participants_label,
@@ -203,16 +194,8 @@ class TestEventCreatePageView:
 
         response = panel_client.post(URL, data=data)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    "Created Łódzkie Dni Gier. It stays hidden until you publish it.",
-                )
-            ],
-            url="/panel/event/lodzkie-dni-gier/",
+        _assert_created(
+            response, name="Łódzkie Dni Gier", url="/panel/event/lodzkie-dni-gier/"
         )
         assert Event.objects.filter(sphere=sphere, slug="lodzkie-dni-gier").exists()
 
@@ -232,17 +215,7 @@ class TestEventCreatePageView:
             URL, data=_post_data(based_on=source.pk, start=winter)
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    "Created MiM 2027. It stays hidden until you publish it.",
-                )
-            ],
-            url="/panel/event/mim-2027/",
-        )
+        _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
         slot = TimeSlot.objects.get(event__slug="mim-2027")
         assert localtime(slot.start_time).strftime("%H:%M") == "12:00"
 
@@ -253,20 +226,10 @@ class TestEventCreatePageView:
 
         response = panel_client.post(URL, data=_post_data(based_on=source.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    "Created MiM 2027. It stays hidden until you publish it.",
-                )
-            ],
-            url="/panel/event/mim-2027/",
-        )
+        _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
         assert Space.objects.filter(event__slug="mim-2027", parent=None).count() == 1
 
-    def test_refuses_an_event_from_another_sphere_as_the_base(
+    def test_offers_no_event_from_another_sphere_as_the_base(
         self, panel_client, source
     ):
         foreign = EventFactory(sphere=SphereFactory())

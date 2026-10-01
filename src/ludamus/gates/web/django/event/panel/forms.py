@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy
 
 from ludamus.pacts.discounts import DiscountMethod
 
@@ -30,7 +31,7 @@ def _datetime_local_field(label: str | _StrPromise) -> forms.DateTimeField:
 def event_create_form(events: Sequence[EventDTO]) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {
         "name": forms.CharField(
-            label=_("Name"),
+            label=pgettext_lazy("place", "Name"),
             max_length=255,
             strip=True,
             error_messages={

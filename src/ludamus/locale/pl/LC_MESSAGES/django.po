@@ -2363,12 +2363,22 @@ msgid "Map deleted."
 msgstr "Mapa usunięta."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/multiverse/panel/sphere-settings.html
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/cfp-create.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/track-create.html
+#: src/ludamus/templates/panel/track-edit.html
+#: src/ludamus/templates/panel/tracks.html
+msgctxt "place"
 msgid "Name"
-msgstr "Imię"
+msgstr "Nazwa"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 #: src/ludamus/gates/web/django/forms.py
@@ -2576,7 +2586,7 @@ msgstr "Wybierz wydarzenie z tej sfery."
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 #, python-format
 msgid "Created %(name)s. It stays hidden until you publish it."
-msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
+msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki je nie opublikujesz."
 
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
 msgid "Someone else already handles this facilitator."
@@ -3215,23 +3225,6 @@ msgstr "Wybierz docelowe wydarzenie."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid event selection."
 msgstr "Nieprawidłowy wybór wydarzenia."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/cfp-create.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/track-create.html
-#: src/ludamus/templates/panel/track-edit.html
-#: src/ludamus/templates/panel/tracks.html
-msgctxt "place"
-msgid "Name"
-msgstr "Nazwa"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "What the picture shows: a building, a floor, the whole site."
@@ -5322,6 +5315,13 @@ msgstr "Status: Na liście oczekujących"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Please provide your name to complete the enrollment."
 msgstr "Podaj swoje imię, aby dokończyć zapis."
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/integration-settings.html
+msgid "Name"
+msgstr "Imię"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Back to Event"
