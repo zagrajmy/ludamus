@@ -30,7 +30,7 @@ rule:
     kind: document
     stopBy: end
     has:
-      regex: 'extends "panel/base.html"'
+      regex: 'extends ["'']panel/base.html["'']'
       stopBy: end
 message: |
   A panel card with nothing insetting it sits flush against the sidebar and

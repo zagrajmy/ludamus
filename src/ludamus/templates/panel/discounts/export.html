@@ -17,7 +17,7 @@
         {% if current_event %}
             {% if has_connections %}
                 <form method="post"
-                      class="max-w-xl p-3 sm:p-4"
+                      class="max-w-xl"
                       action="{% url 'panel:discount-export' slug=current_event.slug %}"
                       data-submit-once>
                     {% csrf_token %}
@@ -44,7 +44,7 @@
                     </div>
                 </form>
             {% else %}
-                <div class="card m-3 p-8 text-center max-w-xl sm:m-4">
+                <div class="card p-8 text-center max-w-xl">
                     <p class="text-foreground-muted mb-4">
                         {% translate "No connections yet. Add a Google service account connection to export the accreditation sheet." %}
                     </p>

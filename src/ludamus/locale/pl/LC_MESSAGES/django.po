@@ -12071,16 +12071,6 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                Are you sure you want to delete connection \"%(name)s\"?\n"
-#~ "            "
-#~ msgstr ""
-#~ "\n"
-#~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
-#~ "            "
-
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
