@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import TYPE_CHECKING, cast
 
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
@@ -48,8 +48,8 @@ from ludamus.pacts.submissions import (
     ImportLogStatus,
 )
 
-# The DB stores field_type as a plain CharField; DTOs type it as this Literal.
-_FieldType = Literal["text", "select", "checkbox"]
+if TYPE_CHECKING:
+    from ludamus.pacts.fields import PersonalFieldType, TextFieldKind
 
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
@@ -70,7 +70,7 @@ def _field_dto(
     # forgotten in the other can't silently fall back to a DTO default.
     return OrganizerFieldDTO(
         allow_custom=field.allow_custom,
-        field_type=cast("_FieldType", field.field_type),
+        field_type=cast("PersonalFieldType", field.field_type),
         help_text=field.help_text,
         icon=icon,
         is_multiple=field.is_multiple,
@@ -493,10 +493,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         return self._to_dto(field)
 
     def update(self, pk: int, data: PersonalDataFieldUpdateData) -> OrganizerFieldDTO:
-        try:
-            field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
-        except PersonalDataField.DoesNotExist as exc:
-            raise NotFoundError from exc
+        field = self._read(pk)
 
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(field.event_id, base_slug, exclude_pk=pk)
@@ -517,9 +514,8 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         )
         field.save()
 
-        # The type is fixed at creation, so `data["field_type"]` is ignored and
-        # the stored one decides whether options mean anything here. Emptying
-        # the box clears them.
+        # An edit carries no type, so the stored one decides whether options
+        # mean anything here. Emptying the box clears them.
         if field.field_type == "select":
             field.options.all().delete()
             for order, raw_option in enumerate(data["options"] or []):
@@ -529,6 +525,19 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
                     )
 
         return self._to_dto(field)
+
+    def set_field_type(self, pk: int, field_type: TextFieldKind) -> OrganizerFieldDTO:
+        field = self._read(pk)
+        field.field_type = field_type
+        field.save(update_fields=["field_type"])
+        return self._to_dto(field)
+
+    @staticmethod
+    def _read(pk: int) -> PersonalDataField:
+        try:
+            return PersonalDataField.objects.prefetch_related("options").get(pk=pk)
+        except PersonalDataField.DoesNotExist as exc:
+            raise NotFoundError from exc
 
     @staticmethod
     def generate_unique_slug(

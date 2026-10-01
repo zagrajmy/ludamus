@@ -13,6 +13,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
 )
+from ludamus.pacts.fields import FieldTypeSwitchError
 from ludamus.pacts.legacy import FacilitatorChangeLogDTO
 from tests.unit.factories import FakeTransaction
 
@@ -343,6 +344,7 @@ class FakeCFPFields:
         self._answered = set(answered)
         self.updated = {}
         self.deleted = []
+        self.updates = []
 
     def list_by_event(self, _event_id):
         return self._fields
@@ -364,6 +366,12 @@ class FakeCFPFields:
 
     def delete(self, pk):
         self.deleted.append(pk)
+
+    def set_field_type(self, pk, field_type):
+        field = next(field for field in self._fields if field.pk == pk)
+        switched = field.model_copy(update={"field_type": field_type})
+        self._fields = [switched if f.pk == pk else f for f in self._fields]
+        return switched
 
 
 def _cfp_service(fields):
@@ -424,3 +432,77 @@ def test_deletion_and_restore_log_mirror_each_other():
         {"field": "deleted", "field_id": None, "old": "", "new": "yes"},
         {"field": "deleted", "field_id": None, "old": "yes", "new": ""},
     ]
+
+
+def _text_field(field_type="text"):
+    return OrganizerFieldDTO(
+        field_type=field_type, name="Discord", order=0, pk=7, question="?", slug="dc"
+    )
+
+
+def _update_data():
+    return {
+        "name": "Discord",
+        "question": "?",
+        "max_length": 50,
+        "help_text": "",
+        "is_public": False,
+        "options": None,
+        "is_multiple": False,
+        "allow_custom": False,
+    }
+
+
+def test_update_switches_a_text_field_to_discord_alongside_the_edit():
+    fields = FakeCFPFields(fields=[_text_field()])
+
+    _cfp_service(fields=fields).update(
+        event_pk=10, field_slug="dc", data=_update_data(), field_type="discord"
+    )
+
+    assert fields.read_by_slug(10, "dc").field_type == "discord"
+    assert list(fields.updated) == [7]
+
+
+def test_update_refuses_to_switch_a_select_field_and_writes_nothing():
+    fields = FakeCFPFields(fields=[_text_field("select")])
+
+    with pytest.raises(FieldTypeSwitchError):
+        _cfp_service(fields=fields).update(
+            event_pk=10, field_slug="dc", data=_update_data(), field_type="discord"
+        )
+
+    assert fields.read_by_slug(10, "dc").field_type == "select"
+    assert not fields.updated
+
+
+def test_set_field_type_keeps_a_field_already_of_that_type():
+    field = _text_field("discord")
+
+    assert (
+        _cfp_service(fields=FakeCFPFields(fields=[field])).set_field_type(
+            event_pk=10, field_slug="dc", field_type="discord"
+        )
+        == field
+    )
+
+
+def test_set_field_type_switches_discord_back_to_text():
+    fields = FakeCFPFields(fields=[_text_field("discord")])
+
+    switched = _cfp_service(fields=fields).set_field_type(
+        event_pk=10, field_slug="dc", field_type="text"
+    )
+
+    assert switched.field_type == "text"
+
+
+def test_update_without_a_type_leaves_the_type_alone():
+    fields = FakeCFPFields(fields=[_text_field("select")])
+
+    _cfp_service(fields=fields).update(
+        event_pk=10, field_slug="dc", data=_update_data()
+    )
+
+    assert fields.read_by_slug(10, "dc").field_type == "select"
+    assert list(fields.updated) == [7]

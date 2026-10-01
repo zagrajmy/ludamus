@@ -1,5 +1,6 @@
 """Backoffice management of an event's personal-data fields."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import (
@@ -8,6 +9,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
+from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 from ludamus.pacts.submissions import (
     CFPPersonalDataFieldServiceProtocol,
     PersonalFieldSummary,
@@ -24,11 +26,15 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
     )
+    from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.legacy import (
         PersonalDataFieldCreateData,
         PersonalDataFieldUpdateData,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+logger = logging.getLogger(__name__)
 
 
 def log_facilitator_changes(
@@ -110,13 +116,6 @@ class CFPPersonalDataFieldService(CFPPersonalDataFieldServiceProtocol):
         with self._transaction.atomic():
             return self._fields.create(event_pk, data)
 
-    def update(
-        self, *, event_pk: int, field_slug: str, data: PersonalDataFieldUpdateData
-    ) -> None:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        with self._transaction.atomic():
-            self._fields.update(field.pk, data)
-
     def delete(self, event_pk: int, field_slug: str) -> bool:
         # False when people have answered: removing the field would drop what
         # they told the organiser. NotFoundError on a bad slug surfaces to the
@@ -126,6 +125,45 @@ class CFPPersonalDataFieldService(CFPPersonalDataFieldServiceProtocol):
             return False
         self._fields.delete(field.pk)
         return True
+
+    def update(
+        self,
+        *,
+        event_pk: int,
+        field_slug: str,
+        data: PersonalDataFieldUpdateData,
+        field_type: TextFieldKind | None = None,
+    ) -> None:
+        with self._transaction.atomic():
+            field = self._fields.read_by_slug(event_pk, field_slug)
+            if field_type is not None:
+                self._switch_type(field, field_type)
+            self._fields.update(field.pk, data)
+
+    def set_field_type(
+        self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        with self._transaction.atomic():
+            return self._switch_type(
+                self._fields.read_by_slug(event_pk, field_slug), field_type
+            )
+
+    def _switch_type(
+        self, field: OrganizerFieldDTO, new_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        if field.field_type == new_type:
+            return field
+        if not is_text_field_kind(field.field_type):
+            raise FieldTypeSwitchError
+        switched = self._fields.set_field_type(field.pk, new_type)
+        logger.info(
+            "Personal data field %s (pk %s) switched type %s -> %s",
+            field.slug,
+            field.pk,
+            field.field_type,
+            new_type,
+        )
+        return switched
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

@@ -1,12 +1,18 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.fields import (
+    FieldValue,
+    OrganizerFieldDTO,
+    PersonalFieldType,
+    SessionFieldType,
+    TextFieldKind,
+)
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 from ludamus.pacts.multiverse import SphereVisibility
 
@@ -1047,12 +1053,15 @@ class ProposalCategoryRepositoryProtocol(Protocol):
 
 
 class OrganizerFieldFormData(TypedDict):
-    """What the field forms share, personal-data and session alike."""
+    """What the field forms share, personal-data and session alike.
+
+    The type itself is not here: a personal-data field may be a Discord
+    username and a session field may not, so each kind declares its own.
+    """
 
     name: str
     slug: NotRequired[str]
     question: str
-    field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
@@ -1062,18 +1071,20 @@ class OrganizerFieldFormData(TypedDict):
 
 
 class PersonalDataFieldCreateData(OrganizerFieldFormData):
+    field_type: PersonalFieldType
     is_required: bool
     order: int
 
 
 class PersonalDataFieldUpdateData(OrganizerFieldFormData):
-    # `field_type` rides along because the form data carries it, but the type
-    # is fixed at creation: the repository reads the stored one.
+    # No `field_type`: switching one is its own operation, so an edit leaves
+    # the stored type alone unless `set_field_type` changes it.
     is_required: bool
     order: int
 
 
 class SessionFieldCreateData(OrganizerFieldFormData):
+    field_type: SessionFieldType
     icon: str
 
 
@@ -1105,6 +1116,9 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
+    ) -> OrganizerFieldDTO: ...
+    def set_field_type(
+        self, pk: int, field_type: TextFieldKind
     ) -> OrganizerFieldDTO: ...
 
 

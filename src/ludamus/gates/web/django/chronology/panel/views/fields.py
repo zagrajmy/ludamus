@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import (  # pylint: disable=unused-import
-    TYPE_CHECKING,
-    Literal,
-    Protocol,
-    cast,
-)
+from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
 from django.utils.translation import gettext as _
 
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.legacy import OrganizerFieldFormData
+from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
+from ludamus.pacts.fields import is_personal_field_type, is_session_field_type
+from ludamus.pacts.legacy import OrganizerFieldFormData, SessionFieldCreateData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -41,17 +37,31 @@ class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
     def read_by_slug(self, event_pk: int, slug: str) -> T: ...
 
 
-def parse_field_form_data(form: forms.Form) -> OrganizerFieldFormData:
-    field_type = cast(
-        "Literal['text', 'select', 'checkbox']",
-        form.cleaned_data.get("field_type") or "text",
+def parse_personal_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
+    raw_type = form.cleaned_data.get("field_type") or ""
+    return PersonalDataFieldCreateData(
+        **parse_field_form_data(form),
+        field_type=raw_type if is_personal_field_type(raw_type) else "text",
+        is_required=form.cleaned_data.get("is_required") or False,
+        order=form.cleaned_data.get("order") or 0,
     )
+
+
+def parse_session_field_form_data(form: forms.Form) -> SessionFieldCreateData:
+    raw_type = form.cleaned_data.get("field_type") or ""
+    return SessionFieldCreateData(
+        **parse_field_form_data(form),
+        field_type=raw_type if is_session_field_type(raw_type) else "text",
+        icon=form.cleaned_data.get("icon") or "",
+    )
+
+
+def parse_field_form_data(form: forms.Form) -> OrganizerFieldFormData:
     options_text = form.cleaned_data.get("options") or ""
     options = [o.strip() for o in options_text.split("\n") if o.strip()] or None
     return OrganizerFieldFormData(
         name=form.cleaned_data["name"],
         question=form.cleaned_data["question"],
-        field_type=field_type,
         options=options,
         is_multiple=form.cleaned_data.get("is_multiple") or False,
         allow_custom=form.cleaned_data.get("allow_custom") or False,

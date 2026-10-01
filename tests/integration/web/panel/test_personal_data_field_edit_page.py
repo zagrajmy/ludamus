@@ -66,6 +66,11 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "can_switch_type": True,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
             },
         )
         assert response.context["current_event"].pk == event.pk
@@ -226,6 +231,11 @@ class TestPersonalDataFieldEditPageView:
                     is_required=["A checkbox cannot be required."],
                     __all__=["A checkbox cannot be required."],
                 ),
+                "can_switch_type": False,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
             },
         )
         field.refresh_from_db()
@@ -277,6 +287,11 @@ class TestPersonalDataFieldEditPageView:
                 **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
+                "can_switch_type": True,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
             },
         )
         field.refresh_from_db()
@@ -492,6 +507,62 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.is_multiple is False
         assert field.allow_custom is False
+
+    def test_post_switches_text_field_to_discord(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event, name="Discord", question="Identyfikator discord", slug="dc"
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Discord",
+                "question": "Identyfikator discord",
+                "field_type": "discord",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/personal-data/",
+        )
+        field.refresh_from_db()
+        assert field.field_type == "discord"
+
+    def test_post_refuses_to_switch_a_select_field(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Size",
+            question="T-shirt",
+            slug="size",
+            field_type="select",
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={"name": "Size", "question": "T-shirt", "field_type": "discord"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-edit.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "field": response.context["field"],
+                "form": ANY,
+                "can_switch_type": False,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
+            },
+        )
+        field.refresh_from_db()
+        assert field.field_type == "select"
+        assert field.name == "Size"
 
     def test_get_returns_field_with_is_multiple_attribute(self, panel_client, event):
         field = PersonalDataField.objects.create(

@@ -38,8 +38,6 @@
                 {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
             {% endfor %}
         </div>
-        <div class="flex justify-end pt-6">
-            <button type="submit" class="btn btn-primary">{% translate "Continue" %} →</button>
-        </div>
+        {% include "event/propose/parts/_nav.html" %}
     </form>
 </div>
