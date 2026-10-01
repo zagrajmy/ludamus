@@ -77,29 +77,27 @@ class FakeUsers:
             )
         )
 
+    def _find(self, predicate):
+        matches = (user for user in self._users if predicate(user))
+        if (found := next(matches, None)) is None:
+            raise NotFoundError
+        return found
+
     def read(self, slug):
-        for user in self._users:
-            if user.slug == slug:
-                return user
-        raise NotFoundError
+        return self._find(lambda user: user.slug == slug)
 
     def read_by_username(self, username):
-        for user in self._users:
-            if user.username == username:
-                return user
-        raise NotFoundError
+        return self._find(lambda user: user.username == username)
 
     def read_by_email(self, email):
-        for user in self._users:
-            if email and user.email.lower() == email.lower():
-                return user
-        raise NotFoundError
+        return self._find(lambda user: user.email.lower() == email.lower())
 
     def update(self, user_slug, user_data):
         self.updated.append((user_slug, user_data))
-        for index, user in enumerate(self._users):
-            if user.slug == user_slug:
-                self._users[index] = user.model_copy(update=dict(user_data))
+        self._users = [
+            user.model_copy(update=dict(user_data)) if user.slug == user_slug else user
+            for user in self._users
+        ]
 
     def email_exists(self, email, exclude_slug=None):
         if not email:
@@ -131,10 +129,6 @@ class _RacingUsers:
         if self._reads <= self._misses:
             raise NotFoundError
         return _user_dto(username=username)
-
-    @staticmethod
-    def read_by_email(email):
-        raise NotFoundError(email)
 
     @staticmethod
     def email_exists(email, exclude_slug=None):
@@ -286,6 +280,22 @@ def _service(*, users, claims=None, spheres=None, transaction=None, identity=Non
 
 def _login(service, **kwargs):
     return service.complete_login(code="code", **kwargs)
+
+
+class TestProviderUrls:
+    def test_sign_up_hint_and_state_reach_the_provider(self):
+        service = _service(users=FakeUsers())
+
+        url = service.login_url(redirect_uri="https://cb", state="s1", sign_up=True)
+
+        assert url == "https://idp.example/authorize?https://cb&s1&True"
+
+    def test_logout_ends_the_provider_session(self):
+        service = _service(users=FakeUsers())
+
+        url = service.logout_url(session_id="session_01", return_to="https://home")
+
+        assert url == "https://idp.example/logout?session_01&https://home"
 
 
 class TestCompleteLogin:
