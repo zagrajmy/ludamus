@@ -136,6 +136,15 @@ class TestBegin:
 
         assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
 
+    def test_native_app_private_use_scheme_redirect_is_accepted(self):
+        # RFC 8252 §7.1: how a mobile client gets handed the code back.
+        redirect = "com.example.app:/callback"
+        deps = _Deps(document=_document(redirect_uris=[redirect]))
+
+        pending = deps.service.begin(_request(redirect_uri=redirect))
+
+        assert pending.client.redirect_uri == redirect
+
     def test_name_falls_back_to_host_and_is_capped(self):
         unnamed = _Deps(document=_document(client_name="  ")).service
         long_named = _Deps(document=_document(client_name="x" * 300)).service
