@@ -22,6 +22,7 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
@@ -54,6 +55,7 @@ _SPACE_LEAF_LIST = TypeAdapter(list["_SpaceLeaf"])
 _SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
 _FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
+_PERSONAL_FIELD_LIST = TypeAdapter(list[OrganizerFieldDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -182,6 +184,27 @@ class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
         )
         context = call.services.proposal_categories.get_page_context(event.pk)
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
+
+
+class OrganizerListPersonalDataFieldsTool(Tool[EventIdInput]):
+    name = "list_personal_data_fields"
+    description = (
+        "List an event's host data fields (questions asked of proposers on the "
+        "wizard's Your info step) with slug, question and field_type."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = EventIdInput
+
+    @staticmethod
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
+        fields = [
+            summary.field
+            for summary in call.services.personal_data_fields.list_summaries(event.pk)
+        ]
+        return _PERSONAL_FIELD_LIST.dump_json(fields, indent=2).decode()
 
 
 class OrganizerListSessionsTool(Tool[EventIdInput]):
@@ -783,12 +806,48 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
+class _SetPersonalDataFieldTypeInput(BaseModel):
+    slug: str = Field(description="Field slug (see list_personal_data_fields)")
+    field_type: TextFieldKind = Field(
+        description=(
+            '"discord" prefills the answer from the proposer\'s profile (the '
+            "wizard skips the step only when the account answers all of it); "
+            '"text" asks it every time'
+        )
+    )
+
+
+class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]):
+    name = "set_personal_data_field_type"
+    description = (
+        "Switch a host data field in this token's event between text and "
+        "Discord username. Answers already given are kept."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _SetPersonalDataFieldTypeInput
+
+    @staticmethod
+    def handle(call: ToolCall[_SetPersonalDataFieldTypeInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        try:
+            field = call.services.personal_data_fields.set_field_type(
+                event_pk=event.pk,
+                field_slug=call.data.slug,
+                field_type=call.data.field_type,
+            )
+        except FieldTypeSwitchError as error:
+            message = "Only text and Discord username fields can switch type"
+            raise ToolError(message) from error
+        return field.model_dump_json(indent=2)
+
+
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
         OrganizerListTracksTool(),
         OrganizerListProposalCategoriesTool(),
+        OrganizerListPersonalDataFieldsTool(),
         OrganizerListSessionsTool(),
         OrganizerListFacilitatorsTool(),
         OrganizerCreateSpaceTool(),
@@ -801,6 +860,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
+        OrganizerSetPersonalDataFieldTypeTool(),
         *event_tools(),
         *sphere_tools(),
         *map_tools(),

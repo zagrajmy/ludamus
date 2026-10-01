@@ -1404,7 +1404,6 @@ msgstr "Potwierdzenie"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -1580,6 +1579,11 @@ msgstr "Pole danych osobowych zostało utworzone."
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field not found."
 msgstr "Pole danych osobowych nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
+msgid "Only text and Discord username fields can switch type."
+msgstr ""
+"Typ można zmieniać tylko między polem tekstowym a nazwą użytkownika Discord."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field updated successfully."
@@ -1941,7 +1945,9 @@ msgid "email address"
 msgstr "adres email"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/links/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py src/ludamus/links/db/django/models.py
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-fields.html
 msgid "Discord username"
 msgstr "Nazwa użytkownika Discord"
 
@@ -4307,13 +4313,12 @@ msgstr ""
 #, python-format
 msgid ""
 "Piotrek also wrote his own games, but he only released one: <a "
-"href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> It's "
-"about violence, change, and sacrifice, like most of his contributions to the "
-"system."
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> It's about violence, "
+"change, and sacrifice, like most of his contributions to the system."
 msgstr ""
 "Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
-"href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> Jest o "
-"przemocy, przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> Jest o przemocy, "
+"przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
 
 #: src/ludamus/templates/about.html
 msgid "How Zagrajmy works"
@@ -6989,6 +6994,18 @@ msgstr ""
 "Zaloguj się, aby zapisać swoje dane między zgłoszeniami, śledzić swoje "
 "propozycje i nie wpisywać danych osobowych ponownie."
 
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/category.html
+msgid "Continue"
+msgstr "Dalej"
+
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
 msgstr "Postęp zgłoszenia"
@@ -7021,13 +7038,6 @@ msgstr "Co chcesz zgłosić?"
 msgid "Choose the type of session you want to run."
 msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 
-#: src/ludamus/templates/event/propose/parts/category.html
-#: src/ludamus/templates/event/propose/parts/days.html
-#: src/ludamus/templates/event/propose/parts/details.html
-#: src/ludamus/templates/event/propose/parts/personal.html
-msgid "Continue"
-msgstr "Dalej"
-
 #: src/ludamus/templates/event/propose/parts/days.html
 msgid "When could you host?"
 msgstr "Kiedy możesz poprowadzić?"
@@ -7036,15 +7046,6 @@ msgstr "Kiedy możesz poprowadzić?"
 msgid "Tick every time that would work. We settle the exact hours later."
 msgstr ""
 "Zaznacz każdą porę, która Ci pasuje. Dokładne godziny ustalamy później."
-
-#: src/ludamus/templates/event/propose/parts/days.html
-#: src/ludamus/templates/event/propose/parts/details.html
-#: src/ludamus/templates/event/propose/parts/personal.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/days.html
 msgid "Availability saved. Next step coming soon."
@@ -10980,6 +10981,14 @@ msgid "Edit Personal Data Field"
 msgstr "Edytuj pole danych osobowych"
 
 #: src/ludamus/templates/panel/personal-data-field-edit.html
+msgid ""
+"Discord username fields are prefilled from the proposer's profile. Answers "
+"already given are kept."
+msgstr ""
+"Pole z nazwą użytkownika Discord jest wypełniane z profilu zgłaszającego. "
+"Udzielone już odpowiedzi zostają zachowane."
+
+#: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Field type cannot be changed after creation."
 msgstr "Typ pola nie może być zmieniony po utworzeniu."
@@ -11760,16 +11769,17 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#
+#, python-format
 #~ msgid ""
-#~ "Piotrek cares about the small details of how software feels to use, which "
-#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ "Piotrek also wrote his own games, but he only released one: <a "
+#~ "href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> It's "
+#~ "about violence, change, and sacrifice, like most of his contributions to "
+#~ "the system."
 #~ msgstr ""
-#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
-#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
-
-#~ msgid "Swipe the grid sideways to see all the rooms."
-#~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
+#~ "Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
+#~ "href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> Jest "
+#~ "o przemocy, przemianie i poświęceniu, jak większość tego, co wniósł do "
+#~ "systemu."
 
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
@@ -12007,6 +12017,17 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "All scheduled sessions are inside their preferred slots."
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+
+#
+#~ msgid ""
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ msgstr ""
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+
+#~ msgid "Swipe the grid sideways to see all the rooms."
+#~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
 #~ msgid "Enabled pages"
 #~ msgstr "Włączone strony"

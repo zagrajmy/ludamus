@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict, Field
 
 from ludamus.pacts.availability import DayPart
-from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO
 
 if TYPE_CHECKING:
@@ -359,6 +359,7 @@ class PersonalDataFieldEditContextDTO:
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+    can_switch_type: bool
 
 
 class OrganizerActionRefusal(StrEnum):
@@ -516,8 +517,12 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         field_slug: str,
         data: PersonalDataFieldUpdateData,
         category_requirements: RequirementSelectionDTO,
+        field_type: TextFieldKind | None = None,
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
+    def set_field_type(
+        self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO: ...
 
 
 class PersonalDataFieldValueServiceProtocol(Protocol):

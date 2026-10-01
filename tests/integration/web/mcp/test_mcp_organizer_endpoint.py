@@ -17,6 +17,7 @@ from ludamus.links.db.django.models import (
     Event,
     EventMap,
     Facilitator,
+    PersonalDataField,
     ScheduleChangeLog,
     Session,
     Space,
@@ -48,6 +49,7 @@ ORGANIZER_TOOL_NAMES = [
     "list_spaces",
     "list_tracks",
     "list_proposal_categories",
+    "list_personal_data_fields",
     "list_sessions",
     "list_facilitators",
     "create_space",
@@ -60,6 +62,7 @@ ORGANIZER_TOOL_NAMES = [
     "assign_sessions",
     "update_session",
     "update_space",
+    "set_personal_data_field_type",
     "update_event",
     "set_event_image",
     "update_sphere_settings",
@@ -1445,6 +1448,66 @@ class TestOrganizerEventSettingsTools:
         assert sphere.logo_original_name == "sphere.svg"
         assert sphere.logo.name
         assert updated["logo_original_name"] == "sphere.svg"
+
+
+class TestOrganizerPersonalDataFieldTools:
+    def test_switches_a_text_field_to_discord(self, client, org_token, event):
+        field = PersonalDataField.objects.create(
+            event=event, name="Discord", question="Identyfikator discord", slug="dc"
+        )
+
+        listed = call_org_json(
+            client, org_token, "list_personal_data_fields", {"event_id": event.pk}
+        )
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": listed[0]["slug"], "field_type": "discord"},
+        )
+
+        field.refresh_from_db()
+        assert field.field_type == "discord"
+        assert updated["field_type"] == "discord"
+
+    def test_refuses_a_select_field(self, client, org_token, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Size",
+            question="T-shirt",
+            slug="size",
+            field_type="select",
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": "size", "field_type": "discord"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        field.refresh_from_db()
+        assert field.field_type == "select"
+
+    def test_rejects_a_foreign_events_field(self, client, org_token, sphere):
+        foreign = PersonalDataField.objects.create(
+            event=EventFactory(sphere=sphere), name="Discord", question="Q", slug="dc"
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": "dc", "field_type": "discord"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        foreign.refresh_from_db()
+        assert foreign.field_type == "text"
 
 
 class TestOrganizerUpdateSpaceTool:

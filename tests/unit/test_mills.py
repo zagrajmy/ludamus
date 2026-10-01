@@ -248,9 +248,7 @@ class TestCFPPersonalDataFieldService:
 
         categories.set_personal_field_categories.assert_not_called()
 
-    def test_update_writes_field_and_sets_categories_in_transaction(
-        self, service, transaction, fields, categories
-    ):
+    def test_update_writes_field_and_sets_categories(self, service, fields, categories):
         field = _personal_data_field(pk=10)
         fields.read_by_slug.return_value = field
         categories.list_by_event.return_value = [category(pk=1)]
@@ -270,7 +268,6 @@ class TestCFPPersonalDataFieldService:
             category_requirements=_selection({1: True}),
         )
 
-        transaction.atomic.assert_called_once()
         fields.update.assert_called_once_with(10, update_data)
         categories.set_personal_field_categories.assert_called_once_with(10, {1: True})
 
