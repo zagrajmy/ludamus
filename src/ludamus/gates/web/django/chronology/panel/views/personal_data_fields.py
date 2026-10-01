@@ -224,12 +224,14 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         if not form.is_valid():
             return rerender()
 
+        new_type = form.cleaned_data.get("field_type") or ""
         try:
             service.update(
                 event_pk=current_event.pk,
                 field_slug=field_slug,
                 data=_update_data(form, field),
                 category_requirements=selection,
+                field_type=new_type if is_text_field_kind(new_type) else None,
             )
         except FieldTypeSwitchError:
             form.add_error(
@@ -249,7 +251,7 @@ def _update_data(
     if field.field_type == "select":
         options_text = form.cleaned_data.get("options") or ""
         options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
-    data: PersonalDataFieldUpdateData = {
+    return {
         "name": form.cleaned_data["name"],
         "question": form.cleaned_data["question"],
         "max_length": form.cleaned_data.get("max_length") or 0,
@@ -259,9 +261,6 @@ def _update_data(
         "is_multiple": form.cleaned_data.get("is_multiple") or False,
         "allow_custom": form.cleaned_data.get("allow_custom") or False,
     }
-    if is_text_field_kind(new_type := form.cleaned_data.get("field_type") or ""):
-        data["field_type"] = new_type
-    return data
 
 
 class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):

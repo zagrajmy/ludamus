@@ -76,6 +76,7 @@
                                     {% endif %}
                                 </div>
                                 <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
+                                {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
                             </div>
                         {% endif %}
                         {% if field.field_type == "select" %}

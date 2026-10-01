@@ -1101,9 +1101,6 @@ class PersonalDataFieldUpdateData(TypedDict):
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
-    # A switch between text kinds, applied by the service in the same
-    # transaction; the repository's update leaves the type alone.
-    field_type: NotRequired[TextFieldKind]
 
 
 class SessionFieldCreateData(FieldCreateData):

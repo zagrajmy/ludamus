@@ -162,11 +162,12 @@ class CFPPersonalDataFieldService(
         field_slug: str,
         data: PersonalDataFieldUpdateData,
         category_requirements: RequirementSelectionDTO,
+        field_type: TextFieldKind | None = None,
     ) -> None:
         with self._transaction.atomic():
-            if (new_type := data.get("field_type")) is not None:
+            if field_type is not None:
                 self._switch_type(
-                    self._fields.read_by_slug(event_pk, field_slug), new_type
+                    self._fields.read_by_slug(event_pk, field_slug), field_type
                 )
             super().update(
                 event_pk=event_pk,

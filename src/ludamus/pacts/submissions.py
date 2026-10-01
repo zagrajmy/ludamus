@@ -520,6 +520,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         field_slug: str,
         data: PersonalDataFieldUpdateData,
         category_requirements: RequirementSelectionDTO,
+        field_type: TextFieldKind | None = None,
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
     def set_field_type(

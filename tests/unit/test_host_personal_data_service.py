@@ -508,7 +508,7 @@ def _text_field(field_type="text"):
     )
 
 
-def _update_data(**extra):
+def _update_data():
     return {
         "name": "Discord",
         "question": "?",
@@ -518,7 +518,6 @@ def _update_data(**extra):
         "options": None,
         "is_multiple": False,
         "allow_custom": False,
-        **extra,
     }
 
 
@@ -532,8 +531,9 @@ def test_update_switches_a_text_field_to_discord_alongside_the_edit():
     _cfp_service(fields=fields).update(
         event_pk=10,
         field_slug="dc",
-        data=_update_data(field_type="discord"),
+        data=_update_data(),
         category_requirements=_no_categories(),
+        field_type="discord",
     )
 
     assert fields.read_by_slug(10, "dc").field_type == "discord"
@@ -547,8 +547,9 @@ def test_update_refuses_to_switch_a_select_field_and_writes_nothing():
         _cfp_service(fields=fields).update(
             event_pk=10,
             field_slug="dc",
-            data=_update_data(field_type="discord"),
+            data=_update_data(),
             category_requirements=_no_categories(),
+            field_type="discord",
         )
 
     assert fields.read_by_slug(10, "dc").field_type == "select"

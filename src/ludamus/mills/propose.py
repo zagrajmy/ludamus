@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         UploadedFileProtocol,
         WizardData,
     )
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.fields import FieldValue
     from ludamus.pacts.propose import ProposeRepos
     from ludamus.pacts.services import TransactionProtocol
@@ -225,33 +226,14 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             )
 
             if personal_data := wizard_data.get("personal_data", {}):
-                answers = self._resolve_personal_data(
-                    event_id=event.pk, personal_data=personal_data
+                answers = self._save_personal_data(
+                    event_id=event.pk,
+                    facilitator=facilitator,
+                    personal_data=personal_data,
                 )
-                if answers:
-                    self._repos.personal_data_field_values.save(
-                        [
-                            PersonalDataFieldValueData(
-                                facilitator_id=facilitator.pk,
-                                event_id=event.pk,
-                                field_id=field.pk,
-                                value=value,
-                            )
-                            for field, value in answers
-                        ]
-                    )
-                # A handle typed here saves the proposer typing it next time.
-                if (
-                    current_user
-                    and (handle := _discord_answer(answers))
-                    and self._repos.users.fill_discord_username(
-                        current_user.slug, handle
-                    )
-                ):
-                    logger.info(
-                        "Proposal to event %s filled user %s's Discord handle",
-                        event.pk,
-                        current_user.pk,
+                if current_user:
+                    self._fill_profile_discord(
+                        user=current_user, event_id=event.pk, answers=answers
                     )
 
             if track_pks := wizard_data.get("track_pks", []):
@@ -303,8 +285,12 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         if values:
             self._repos.sessions.save_field_values(session_id, values)
 
-    def _resolve_personal_data(
-        self, *, event_id: int, personal_data: dict[str, str]
+    def _save_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator: FacilitatorDTO,
+        personal_data: dict[str, str],
     ) -> list[tuple[OrganizerFieldDTO, str]]:
         answers: list[tuple[OrganizerFieldDTO, str]] = []
         for key, value in personal_data.items():
@@ -320,7 +306,35 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             except NotFoundError:
                 continue
             answers.append((field, value))
+        if answers:
+            self._repos.personal_data_field_values.save(
+                [
+                    PersonalDataFieldValueData(
+                        facilitator_id=facilitator.pk,
+                        event_id=event_id,
+                        field_id=field.pk,
+                        value=value,
+                    )
+                    for field, value in answers
+                ]
+            )
         return answers
+
+    def _fill_profile_discord(
+        self,
+        *,
+        user: UserDTO,
+        event_id: int,
+        answers: list[tuple[OrganizerFieldDTO, str]],
+    ) -> None:
+        # A handle typed here saves the proposer typing it next time.
+        handle = _discord_answer(answers)
+        if handle and self._repos.users.fill_discord_username(user.slug, handle):
+            logger.info(
+                "Proposal to event %s filled user %s's Discord handle",
+                event_id,
+                user.pk,
+            )
 
 
 def _discord_answer(answers: list[tuple[OrganizerFieldDTO, str]]) -> str:
