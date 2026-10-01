@@ -136,15 +136,15 @@ class TestBegin:
 
         assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
 
-    def test_accepts_a_private_use_scheme_redirect(self):
-        # RFC 8252 §7.1: a native app claims its own reversed-domain scheme,
-        # which no browser runs locally, so the web-host rules do not apply.
-        app_redirect = "com.example.agent:/oauth2redirect"
-        deps = _Deps(document=_document(redirect_uris=[app_redirect]))
+    def test_native_app_redirect_takes_its_own_scheme(self):
+        # NOTE: RFC 8252 §7.1 — a private-use scheme is the app's own, so the
+        # http(s) host rules don't apply to it.
+        native = "com.example.agent:/callback"
+        deps = _Deps(document=_document(redirect_uris=[native]))
 
-        pending = deps.service.begin(_request(redirect_uri=app_redirect))
+        pending = deps.service.begin(_request(redirect_uri=native))
 
-        assert pending.client.redirect_uri == app_redirect
+        assert pending.client.redirect_uri == native
 
     def test_name_falls_back_to_host_and_is_capped(self):
         unnamed = _Deps(document=_document(client_name="  ")).service

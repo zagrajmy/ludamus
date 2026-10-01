@@ -4308,35 +4308,48 @@ msgstr ""
 #: src/ludamus/templates/about.html
 #, python-format
 msgid ""
-"Radek has been running tabletop RPGs for more than twenty years. He writes "
-"his own games, like the narrative RPG <a href=\"%(tern_url)s\"><cite>Tern</"
-"cite></a> and the dungeon crawl <a "
-"href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, and "
-"sings RPG songs on YouTube as Radek MG."
+"Radek has been running tabletop RPGs and building software in Python for "
+"more than 20 years. In his spare time, he designs small roleplaying games <a "
+"href=\"%(moose_url)s\">about Moose</a> and <a "
+"href=\"%(island_url)s\">Islands</a>, and sings <a "
+"href=\"%(songs_url)s\">nerdy songs on YouTube</a>."
 msgstr ""
-"Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
-"narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy eksploracyjne "
-"<a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, a "
-"na YouTubie jako Radek MG śpiewa erpegowe piosenki."
-
-#
-#: src/ludamus/templates/about.html
-msgid ""
-"Piotrek cares about the small details of how software feels to use, which is "
-"most of the reason Zagrajmy's interface looks the way it does."
-msgstr ""
-"Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i to "
-"głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+"Radek od ponad 20 lat prowadzi sesje RPG i pisze oprogramowanie w Pythonie. "
+"W wolnym czasie projektuje małe gry fabularne <a href=\"%(moose_url)s\">o "
+"łosiu</a> i <a href=\"%(island_url)s\">wyspach</a>, a także śpiewa <a "
+"href=\"%(songs_url)s\">nerdowskie piosenki na YouTubie</a>."
 
 #: src/ludamus/templates/about.html
 #, python-format
 msgid ""
-"Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would You "
-"Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
-"sacrifice."
+"As seen on his <a href=\"%(talk_url)s\">EuroPython 2019</a> talk on code "
+"quality, he keeps the system from becoming a ball of unmaintainable mess."
 msgstr ""
-"Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
-"Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i poświęceniu."
+"Jak widać po jego wystąpieniu o jakości kodu na <a "
+"href=\"%(talk_url)s\">EuroPythonie 2019</a>, to on pilnuje, żeby system nie "
+"zamienił się w spaghetti nie do utrzymania."
+
+#: src/ludamus/templates/about.html
+msgid ""
+"Every story needs a villain, and Piotrek oscillates between asking “Why are "
+"we torturing the users?”, “Can we streamline this?”, “Shall we rewrite in "
+"Bend?” and shipping large PRs straight to prod during a convention."
+msgstr ""
+"Każda historia potrzebuje złoczyńcy, a Piotrek miota się między pytaniami "
+"„Czemu torturujemy użytkowników?”, „Da się to uprościć?”, „Może przepiszemy "
+"to w Bendzie?” a wrzucaniem dużych PR-ów prosto na produkcję w trakcie "
+"konwentu."
+
+#: src/ludamus/templates/about.html
+#, python-format
+msgid ""
+"Piotrek also wrote his own games, but he only released one: <a "
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> It's about violence, "
+"change, and sacrifice, like most of his contributions to the system."
+msgstr ""
+"Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
+"href=\"%(game_url)s\">Why Would You Fight a Dragon?</a> Jest o przemocy, "
+"przemianie i poświęceniu, jak większość tego, co wniósł do systemu."
 
 #: src/ludamus/templates/about.html
 msgid "How Zagrajmy works"
@@ -11847,6 +11860,14 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#
+#~ msgid ""
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ msgstr ""
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
