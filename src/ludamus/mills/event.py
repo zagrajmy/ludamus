@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -553,18 +554,23 @@ class EventsService(EventsServiceProtocol):
                 if based_on_id is None
                 else self._events.read_in_sphere(based_on_id, sphere_id)
             )
+            slug = data["slug"] or generate_unique_slug(
+                data["name"],
+                lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                fallback="event",
+            )
             try:
                 with self._transaction.savepoint():
-                    event = self._events.create(sphere_id, data)
+                    event = self._events.create(sphere_id, {**data, "slug": slug})
             except DatabaseConstraintError as error:
-                if self._events.slug_exists(sphere_id, data["slug"]):
+                if self._events.slug_exists(sphere_id, slug):
                     raise EventSlugConflictError from error
                 raise
             if source is not None:
                 self._setup.copy(
                     source_id=source.pk,
                     target_id=event.pk,
-                    shift=data["start_time"] - source.start_time,
+                    start_time=data["start_time"],
                 )
             # Every event created through this service owns a space: accepting
             # a proposal, drawing the timetable and printing all need somewhere

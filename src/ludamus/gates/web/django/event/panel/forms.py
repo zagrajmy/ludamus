@@ -1,11 +1,74 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts.discounts import DiscountMethod
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from django.utils.functional import _StrPromise
+
+    from ludamus.pacts.legacy import EventDTO
+
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
+
+
+def _datetime_local_field(label: str | _StrPromise) -> forms.DateTimeField:
+    return forms.DateTimeField(
+        label=label,
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format=_DATETIME_LOCAL_FORMAT
+        ),
+        input_formats=(_DATETIME_LOCAL_FORMAT,),
+    )
+
+
+def event_create_form(events: Sequence[EventDTO]) -> type[forms.Form]:
+    fields: dict[str, forms.Field] = {
+        "name": forms.CharField(
+            label=_("Name"),
+            max_length=255,
+            strip=True,
+            error_messages={
+                "max_length": _("Event name is too long (max 255 characters)."),
+                "required": _("Event name is required."),
+            },
+        ),
+        "slug": forms.SlugField(
+            label=_("Slug"),
+            max_length=50,
+            required=False,
+            help_text=_(
+                "Part of the event's address. Leave empty to derive it from the name."
+            ),
+        ),
+        "start_time": _datetime_local_field(_("Start time")),
+        "end_time": _datetime_local_field(_("End time")),
+    }
+    if events:
+        latest = max(events, key=lambda event: event.start_time)
+        fields["based_on"] = forms.TypedChoiceField(
+            coerce=int,
+            empty_value=None,
+            required=False,
+            label=_("Based on"),
+            choices=[
+                ("", _("No event, start empty")),
+                *((event.pk, event.name) for event in events),
+            ],
+            initial=latest.pk,
+            help_text=_(
+                "Copies its venues, tracks with their managers, time slots, session"
+                " and personal-data fields, categories, enrollment and discount"
+                " rules, and settings. Dates move with the new start, proposal"
+                " windows included. Sessions are not copied."
+            ),
+        )
+    return type("EventCreateForm", (forms.Form,), fields)
 
 
 class EnrollmentWindowForm(forms.Form):

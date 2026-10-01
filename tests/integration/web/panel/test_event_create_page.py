@@ -33,7 +33,6 @@ from tests.integration.utils import assert_login_required, assert_response
 URL = reverse("panel:event-create")
 SOURCE_START = datetime(2026, 11, 6, 17, tzinfo=UTC)
 NEW_START = datetime(2027, 11, 5, 17, tzinfo=UTC)
-SHIFT = NEW_START - SOURCE_START
 
 
 def _local(moment):
@@ -121,19 +120,6 @@ class TestEventCreatePageView:
     def test_asks_anonymous_users_to_log_in(self, client):
         assert_login_required(client.get(URL), URL)
 
-    def test_offers_the_latest_event_as_the_base(self, panel_client, source, sphere):
-        EventFactory(sphere=sphere, start_time=SOURCE_START - timedelta(days=365))
-
-        response = panel_client.get(URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/event-create.html",
-            context_data={"events": ANY, "form": ANY, "active_nav": "event-create"},
-        )
-        assert response.context["form"]["based_on"].initial == source.pk
-
     def test_creates_an_empty_event_with_a_default_space(self, panel_client, sphere):
         response = panel_client.post(URL, data=_post_data(slug=""))
 
@@ -175,7 +161,8 @@ class TestEventCreatePageView:
             event.use_participants_label,
             event.publication_time,
         ) == (source.address, True, None)
-        assert event.proposal_start_time == source.proposal_start_time + SHIFT
+        assert _local(source.proposal_start_time) == "2026-10-27T18:00"
+        assert _local(event.proposal_start_time) == "2027-10-26T18:00"
         room = Space.objects.get(event=event, slug="hall")
         assert (room.parent.slug, room.parent.event_id) == ("pub", event.pk)
         track = Track.objects.get(event=event)
@@ -211,7 +198,77 @@ class TestEventCreatePageView:
             Space.objects.filter(event=source).values_list("slug", flat=True)
         ) == ["hall", "pub"]
 
-    def test_refuses_an_event_from_another_sphere_as_the_base(self, panel_client):
+    def test_derives_a_polish_aware_slug_from_the_name(self, panel_client, sphere):
+        data = _post_data(slug="") | {"name": "Łódzkie Dni Gier"}
+
+        response = panel_client.post(URL, data=data)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Created Łódzkie Dni Gier. It stays hidden until you publish it.",
+                )
+            ],
+            url="/panel/event/lodzkie-dni-gier/",
+        )
+        assert Event.objects.filter(sphere=sphere, slug="lodzkie-dni-gier").exists()
+
+    def test_keeps_wall_clock_times_across_a_clock_change(self, panel_client, sphere):
+        summer = datetime(2026, 7, 4, 8, tzinfo=UTC)
+        source = EventFactory(
+            sphere=sphere, start_time=summer, end_time=summer + timedelta(hours=8)
+        )
+        TimeSlot.objects.create(
+            event=source,
+            start_time=summer + timedelta(hours=2),
+            end_time=summer + timedelta(hours=4),
+        )
+        winter = datetime(2026, 12, 5, 9, tzinfo=UTC)
+
+        response = panel_client.post(
+            URL, data=_post_data(based_on=source.pk, start=winter)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Created MiM 2027. It stays hidden until you publish it.",
+                )
+            ],
+            url="/panel/event/mim-2027/",
+        )
+        slot = TimeSlot.objects.get(event__slug="mim-2027")
+        assert localtime(slot.start_time).strftime("%H:%M") == "12:00"
+
+    def test_gives_a_default_space_to_a_copy_of_an_event_without_one(
+        self, panel_client, sphere
+    ):
+        source = EventFactory(sphere=sphere)
+
+        response = panel_client.post(URL, data=_post_data(based_on=source.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Created MiM 2027. It stays hidden until you publish it.",
+                )
+            ],
+            url="/panel/event/mim-2027/",
+        )
+        assert Space.objects.filter(event__slug="mim-2027", parent=None).count() == 1
+
+    def test_refuses_an_event_from_another_sphere_as_the_base(
+        self, panel_client, source
+    ):
         foreign = EventFactory(sphere=SphereFactory())
 
         response = panel_client.post(URL, data=_post_data(based_on=foreign.pk))
@@ -220,38 +277,33 @@ class TestEventCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/event-create.html",
-            context_data={"events": [], "form": ANY, "active_nav": "event-create"},
+            context_data={"events": [ANY], "form": ANY, "active_nav": "event-create"},
         )
-        assert response.context["form"].errors == {
-            "based_on": [
-                (
-                    f"Select a valid choice. {foreign.pk} is not one of the available"
-                    " choices."
-                )
-            ]
+        assert set(Event.objects.values_list("slug", flat=True)) == {
+            source.slug,
+            foreign.slug,
         }
-        assert not Event.objects.filter(slug="mim-2027").exists()
 
-    def test_reports_a_slug_taken_in_the_sphere(self, panel_client, source):
+    def test_keeps_a_taken_slug_for_its_event(self, panel_client, source):
         response = panel_client.post(URL, data=_post_data(slug=source.slug))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/event-create.html",
-            context_data={"events": ANY, "form": ANY, "active_nav": "event-create"},
+            context_data={"events": [ANY], "form": ANY, "active_nav": "event-create"},
         )
-        assert response.context["form"].errors == {
-            "slug": ["Another event in this sphere uses this slug."]
-        }
-        assert Event.objects.filter(slug=source.slug).count() == 1
+        assert list(Event.objects.values_list("slug", flat=True)) == [source.slug]
 
-    def test_refuses_an_end_before_the_start(self, panel_client):
+    def test_refuses_an_end_before_the_start(self, panel_client, sphere):
         data = _post_data() | {"end_time": _local(NEW_START - timedelta(hours=1))}
 
         response = panel_client.post(URL, data=data)
 
-        assert response.context["form"].errors == {
-            "end_time": ["End time must be after start time."]
-        }
-        assert not Event.objects.filter(slug="mim-2027").exists()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/event-create.html",
+            context_data={"events": [], "form": ANY, "active_nav": "event-create"},
+        )
+        assert not Event.objects.filter(sphere=sphere).exists()

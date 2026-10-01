@@ -85,6 +85,7 @@ test("panel sends a manager of an empty sphere to create its first event", async
   await page.goto(`${EMPTY_SPHERE}/panel/`);
   await expect(page).toHaveURL(`${EMPTY_SPHERE}/panel/events/new/`);
   await expect(page.getByText("This sphere has no events yet.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Based on")).toHaveCount(0);
 
   await context.close();
 });

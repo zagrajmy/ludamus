@@ -8,11 +8,11 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    PanelAccessMixin,
-    PanelRequest,
+from ludamus.gates.web.django.event.panel.forms import event_create_form
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelAccessMixin,
+    EventPanelRequest,
 )
-from ludamus.gates.web.django.forms import EventCreateForm
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
@@ -21,21 +21,22 @@ from ludamus.pacts.event import (
 from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
+    from django import forms
     from django.http import HttpResponse
 
     from ludamus.pacts.legacy import EventDTO
 
 
-class EventCreatePageView(PanelAccessMixin, View):
-    request: PanelRequest
+class EventCreatePageView(EventPanelAccessMixin, View):
+    request: EventPanelRequest
 
-    def get(self, _request: PanelRequest) -> HttpResponse:
+    def get(self, _request: EventPanelRequest) -> HttpResponse:
         events = self._events()
-        return self._render(EventCreateForm(events=events), events=events)
+        return self._render(event_create_form(events)(), events=events)
 
-    def post(self, _request: PanelRequest) -> HttpResponse:
+    def post(self, _request: EventPanelRequest) -> HttpResponse:
         events = self._events()
-        form = EventCreateForm(self.request.POST, events=events)
+        form = event_create_form(events)(self.request.POST)
         if not form.is_valid():
             return self._render(form, events=events)
         data = form.cleaned_data
@@ -51,7 +52,7 @@ class EventCreatePageView(PanelAccessMixin, View):
                     publication_time=None,
                     auto_confirm_sessions=False,
                 ),
-                based_on_id=data["based_on"],
+                based_on_id=data.get("based_on"),
             )
         except EventSlugConflictError:
             form.add_error("slug", _("Another event in this sphere uses this slug."))
@@ -74,7 +75,7 @@ class EventCreatePageView(PanelAccessMixin, View):
             self.request.context.current_sphere_id
         )
 
-    def _render(self, form: EventCreateForm, *, events: list[EventDTO]) -> HttpResponse:
+    def _render(self, form: forms.Form, *, events: list[EventDTO]) -> HttpResponse:
         return TemplateResponse(
             self.request,
             "panel/event-create.html",

@@ -14,11 +14,18 @@ test.describe("Panel event creation", () => {
 
     await page.getByRole("link", { name: "New event" }).click();
     await expect(page.getByRole("heading", { name: "New event" })).toBeVisible();
+    await expect(page.getByLabel("Based on").locator("option:checked")).not.toHaveText(
+      "No event, start empty",
+    );
     await page.getByLabel("Name").fill("Thornwood Tabletop Days, again");
-    await page.getByLabel("Slug").fill(slug);
+    await page.getByLabel("Slug").fill("thornwood-days");
     await page.getByLabel("Start time").fill(START);
     await page.getByLabel("End time").fill(END);
     await page.getByLabel("Based on").selectOption({ label: "Thornwood Tabletop Days" });
+    await page.getByRole("button", { name: "Create event" }).click();
+    await expect(page.getByText("Another event in this sphere uses this slug.")).toBeVisible();
+
+    await page.getByLabel("Slug").fill(slug);
     await page.getByRole("button", { name: "Create event" }).click();
 
     await page.waitForURL(`**/panel/event/${slug}/`);

@@ -187,10 +187,10 @@ class FakeSpaces:
 class FakeSetup:
     def __init__(self, spaces: FakeSpaces) -> None:
         self._spaces = spaces
-        self.copies: list[tuple[int, int, timedelta]] = []
+        self.copies: list[tuple[int, int, datetime]] = []
 
-    def copy(self, *, source_id: int, target_id: int, shift: timedelta) -> None:
-        self.copies.append((source_id, target_id, shift))
+    def copy(self, *, source_id: int, target_id: int, start_time: datetime) -> None:
+        self.copies.append((source_id, target_id, start_time))
         self._spaces.filled.add(target_id)
 
 
@@ -465,7 +465,7 @@ class TestEventsService:
         assert events.rows[created.pk].slug == "new-conf"
         assert spaces.default_for == [created.pk]
 
-    def test_create_based_on_an_event_copies_its_setup_moved_to_the_new_start(self):
+    def test_create_based_on_an_event_copies_its_setup_to_the_new_start(self):
         year = timedelta(days=365)
         events = FakeEvents([_event(start=_START - year, end=_END - year)])
         spaces = FakeSpaces()
@@ -475,7 +475,7 @@ class TestEventsService:
             sphere_id=SPHERE, data=_create_data(), based_on_id=EVENT
         )
 
-        assert setup.copies == [(EVENT, created.pk, year)]
+        assert setup.copies == [(EVENT, created.pk, _START)]
         assert not spaces.default_for
 
     def test_create_based_on_another_spheres_event_creates_nothing(self):
@@ -490,6 +490,16 @@ class TestEventsService:
 
         assert list(events.rows) == [EVENT]
         assert not setup.copies
+
+    def test_create_without_a_slug_derives_a_free_one_from_the_name(self):
+        events = FakeEvents([_event(slug="new")])
+
+        created = _events_service(events).create(
+            sphere_id=SPHERE, data=_create_data(slug="")
+        )
+
+        assert created.slug.startswith("new-")
+        assert created.slug != "new"
 
     def test_create_refuses_an_end_not_after_the_start(self):
         events = FakeEvents([])

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol, TypedDict
 
@@ -47,7 +47,7 @@ class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
 
 class EventSetupRepositoryProtocol(Protocol):
     @staticmethod
-    def copy(*, source_id: int, target_id: int, shift: timedelta) -> None: ...
+    def copy(*, source_id: int, target_id: int, start_time: datetime) -> None: ...
 
 
 class EventsServiceProtocol(Protocol):
