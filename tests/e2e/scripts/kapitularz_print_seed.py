@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -169,11 +169,22 @@ SESSION_KINDS = (
 )
 
 
+def _crosses_clock_change(start_day: date, local_tz: tzinfo) -> bool:
+    first = datetime.combine(start_day, time(0, 0), tzinfo=local_tz)
+    last = datetime.combine(start_day + timedelta(days=3), time(0, 0), tzinfo=local_tz)
+    return first.utcoffset() != last.utcoffset()
+
+
 def seed_kapitularz_print_event(sphere: Sphere) -> None:
     Event.objects.filter(slug=EVENT_SLUG, sphere=sphere).delete()
 
     local_tz = get_current_timezone()
     start_day = (timezone.now() + timedelta(days=21)).astimezone(local_tz).date()
+    # A clock change inside the programme makes the overnight session read
+    # "22:00 CEST–06:00 CET", so the specs pinning its times would fail for the
+    # few days a year the seeded weekend straddles one.
+    while _crosses_clock_change(start_day, local_tz):
+        start_day += timedelta(weeks=1)
     event_start = datetime.combine(start_day, time(10, 0), tzinfo=local_tz)
     event = Event.objects.create(
         sphere=sphere,
