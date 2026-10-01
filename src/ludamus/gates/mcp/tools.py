@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.inputs import (
     SLUG_MAX_LENGTH,
@@ -307,7 +307,11 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
         return event.model_dump_json(indent=2)
 
 
-class _CreateEventInput(_SphereInput):
+class _CreateEventBody(BaseModel):
+    # SAFETY: unknown fields are refused, not dropped: an organizer's sphere
+    # comes from the token, and a sphere_id sent anyway must not look accepted.
+    model_config = ConfigDict(extra="forbid")
+
     name: NonBlankName = Field(description="Public event name")
     slug: str = Field(
         max_length=SLUG_MAX_LENGTH, description="URL slug; unique within the sphere"
@@ -349,6 +353,36 @@ class _CreateEventInput(_SphereInput):
         return require_aware_datetime(value)
 
 
+class _CreateEventInput(_SphereInput, _CreateEventBody):
+    pass
+
+
+def _create_event(
+    *, services: ServicesProtocol, sphere_id: int, body: _CreateEventBody
+) -> str:
+    try:
+        event = services.events.create(
+            sphere_id=sphere_id,
+            data={
+                "name": body.name,
+                "slug": body.slug,
+                "description": body.description,
+                "start_time": body.start_time,
+                "end_time": body.end_time,
+                "publication_time": body.publication_time,
+                "auto_confirm_sessions": body.auto_confirm_sessions,
+            },
+        )
+    except EventDatesInvalidError as error:
+        raise ToolError("end_time must be after start_time") from error
+    except EventPublicationInvalidError as error:
+        raise ToolError("publication_time must not be after start_time") from error
+    except EventSlugConflictError as error:
+        message = f"Slug already taken: {body.slug}"
+        raise ToolError(message) from error
+    return event.model_dump_json(indent=2)
+
+
 class CreateEventTool(Tool[_CreateEventInput]):
     name = "create_event"
     description = "Create an event in a sphere."
@@ -357,27 +391,26 @@ class CreateEventTool(Tool[_CreateEventInput]):
 
     @staticmethod
     def handle(call: ToolCall[_CreateEventInput]) -> str:
-        try:
-            event = call.services.events.create(
-                sphere_id=call.data.sphere_id,
-                data={
-                    "name": call.data.name,
-                    "slug": call.data.slug,
-                    "description": call.data.description,
-                    "start_time": call.data.start_time,
-                    "end_time": call.data.end_time,
-                    "publication_time": call.data.publication_time,
-                    "auto_confirm_sessions": call.data.auto_confirm_sessions,
-                },
-            )
-        except EventDatesInvalidError as error:
-            raise ToolError("end_time must be after start_time") from error
-        except EventPublicationInvalidError as error:
-            raise ToolError("publication_time must not be after start_time") from error
-        except EventSlugConflictError as error:
-            message = f"Slug already taken: {call.data.slug}"
-            raise ToolError(message) from error
-        return event.model_dump_json(indent=2)
+        return _create_event(
+            services=call.services, sphere_id=call.data.sphere_id, body=call.data
+        )
+
+
+class OrganizerCreateEventTool(Tool[_CreateEventBody]):
+    name = "create_event"
+    description = (
+        "Create another event in your sphere. The token stays bound to its "
+        "own event: to write the new event's programme, connect again and "
+        "pick the new event."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _CreateEventBody
+
+    @staticmethod
+    def handle(call: ToolCall[_CreateEventBody]) -> str:
+        return _create_event(
+            services=call.services, sphere_id=actor_sphere(call.actor), body=call.data
+        )
 
 
 def _all_tools() -> tuple[ToolProtocol, ...]:
@@ -395,6 +428,7 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
         *programme_tools(),
+        OrganizerCreateEventTool(),
         OrganizerGetKonwencikSettingsTool(),
         OrganizerUpdateKonwencikStylesTool(),
         OrganizerListAnnouncementsTool(),

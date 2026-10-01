@@ -1,30 +1,21 @@
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.printing import PrintMaterialsService
-from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO
-from ludamus.pacts.printing import PrintQueryDTO
+from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
+from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
+from tests.unit.factories import event_dto
 
 
 def _event():
-    return EventDTO(
-        description="Konwent dla nerdów",
-        end_time=datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
-        name="Konwent",
-        pk=1,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
-        slug="konwent",
-        sphere_id=1,
-        start_time=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-    )
+    return event_dto(description="Konwent dla nerdów")
 
 
-def _space(pk, name, order, area_id=None):
+def _space(pk, name, order, parent_id=None):
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return SpaceDTO(
-        area_id=area_id,
+        parent_id=parent_id,
         capacity=20,
         creation_time=now,
         modification_time=now,
@@ -81,13 +72,23 @@ class _ListByEvent:
 
 
 class _Tracks:
+    def __init__(self, tracks=(), space_pks=()):
+        self._tracks = list(tracks)
+        self._space_pks = list(space_pks)
+
     def list_public_by_event(self, _event_pk):
-        return []
+        return self._tracks
+
+    def list_space_pks(self, _track_pk):
+        return self._space_pks
 
 
-def _service(*, spaces, items):
+def _service(*, spaces, items, tracks=(), track_space_pks=()):
     return PrintMaterialsService(
-        _Events(_event()), _ListByEvent(spaces), _ListByEvent(items), _Tracks()
+        _Events(_event()),
+        _ListByEvent(spaces),
+        _ListByEvent(items),
+        _Tracks(tracks, track_space_pks),
     )
 
 
@@ -299,3 +300,169 @@ class TestBuildAreaSchedule:
         assert [s.title for s in document.spaces[0].sessions] == ["Beyond declared end"]
         assert document.range_start == _event().start_time
         assert document.range_end == items[0].end_time
+
+    def test_a_time_range_frames_the_page_and_clips_sessions(self):
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [
+            _item(1, 1, 9, 10, title="Morning", confirmed=True),
+            _item(2, 1, 15, 16, title="Afternoon", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+        time_range = (
+            datetime(2026, 6, 1, 8, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(
+            PrintQueryDTO(event_pk=1, tz=UTC, time_range=time_range)
+        )
+
+        assert (document.range_start, document.range_end) == time_range
+        assert [[s.title for s in space.sessions] for space in document.spaces] == [
+            ["Morning"],
+            [],
+        ]
+
+    def test_a_track_narrows_rooms_to_the_ones_it_uses(self):
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, track_space_pks=[1])
+
+        document = service.build_area_schedule(
+            PrintQueryDTO(event_pk=1, tz=UTC, track_pk=5)
+        )
+
+        assert [space.space_name for space in document.spaces] == ["Alfa"]
+
+
+class TestBuildDoorCards:
+    def test_one_card_per_room_and_day_with_sessions_in_time_order(self):
+        hall = _space(9, "Hall", 0)
+        spaces = [hall, _space(1, "Alfa", 0, parent_id=9), _space(2, "Bravo", 1)]
+        items = [
+            _item(1, 1, 11, 12, title="Late", confirmed=True),
+            _item(2, 1, 9, 10, title="Early", confirmed=True),
+            _item(3, 1, 9, 10, title="Next day", confirmed=True, day=2),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        document = service.build_door_cards(
+            PrintQueryDTO(event_pk=1, tz=UTC, scope_name="Ground floor")
+        )
+
+        assert document.scope_name == "Ground floor"
+        assert [
+            (card.space_name, card.day.day, [e.session.title for e in card.entries])
+            for card in document.cards
+        ] == [("Alfa", 1, ["Early", "Late"]), ("Alfa", 2, ["Next day"])]
+
+    def test_a_time_range_drops_sessions_outside_it(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="Morning", confirmed=True),
+            _item(2, 1, 15, 16, title="Afternoon", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        document = service.build_door_cards(
+            PrintQueryDTO(
+                event_pk=1,
+                tz=UTC,
+                time_range=(
+                    datetime(2026, 6, 1, 14, 0, tzinfo=UTC),
+                    datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
+                ),
+            )
+        )
+
+        assert [[e.session.title for e in card.entries] for card in document.cards] == [
+            ["Afternoon"]
+        ]
+
+
+class TestListTracks:
+    def test_public_tracks_become_print_options(self):
+        service = _service(
+            spaces=[],
+            items=[],
+            tracks=[TrackDTO.model_construct(pk=5, name="Larp", slug="larp")],
+        )
+
+        assert service.list_tracks(1) == [
+            PrintOptionDTO(pk=5, name="Larp", slug="larp")
+        ]
+
+
+class _Reminders:
+    def __init__(self, due):
+        self._due = due
+        self.printed = []
+        self.sent = []
+
+    def list_pending_reminders(self, *, now, lead_time):
+        del now, lead_time
+        return list(self._due)
+
+    def mark_printed(self, event_pk):
+        self.printed.append(event_pk)
+
+    def mark_reminder_sent(self, event_pk, *, at):
+        self.sent.append((event_pk, at))
+
+
+class _Notifier:
+    def __init__(self):
+        self.notifications = []
+
+    def notify_printables_ready(self, notification):
+        self.notifications.append(notification)
+
+
+class _Transaction:
+    @staticmethod
+    def atomic():
+        return nullcontext()
+
+
+class TestPrintablesReminderService:
+    def test_marks_each_event_sent_and_notifies_every_recipient(self):
+        now = datetime(2026, 5, 30, 9, 0, tzinfo=UTC)
+        due = [
+            PrintablesReminderDTO(
+                event_pk=1,
+                event_name="Konwent",
+                event_slug="konwent",
+                sphere_domain="k.example",
+                recipients=[1, 2],
+            ),
+            PrintablesReminderDTO(
+                event_pk=2,
+                event_name="Sesja",
+                event_slug="sesja",
+                sphere_domain="z.example",
+                recipients=[],
+            ),
+        ]
+        reminders = _Reminders(due)
+        notifier = _Notifier()
+        service = PrintablesReminderService(
+            transaction=_Transaction(), reminders=reminders, notifier=notifier
+        )
+
+        sent = service.send_due_reminders(now=now)
+
+        assert sent == len(due)
+        assert reminders.sent == [(1, now), (2, now)]
+        assert [
+            (n.recipient_user_id, n.event_slug) for n in notifier.notifications
+        ] == [(1, "konwent"), (2, "konwent")]
+
+    def test_mark_printed_records_the_event(self):
+        reminders = _Reminders([])
+        service = PrintablesReminderService(
+            transaction=_Transaction(), reminders=reminders, notifier=_Notifier()
+        )
+
+        service.mark_printed(7)
+
+        assert reminders.printed == [7]

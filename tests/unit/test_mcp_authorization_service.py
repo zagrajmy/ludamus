@@ -113,6 +113,20 @@ class TestBegin:
         assert pending == _pending()
         deps.fetcher.fetch.assert_called_once_with(CLIENT_ID)
 
+    def test_client_that_also_supports_public_exchange_is_accepted(self):
+        # ChatGPT's document: a private_key_jwt preference in the legacy
+        # field, with "none" among the methods it supports.
+        deps = _Deps(
+            document=_document(
+                token_endpoint_auth_method="private_key_jwt",
+                token_endpoint_auth_methods_supported=["none", "private_key_jwt"],
+            )
+        )
+
+        pending = deps.service.begin(_request())
+
+        assert pending.client.client_id == CLIENT_ID
+
     def test_loopback_redirect_matches_on_any_port(self):
         deps = _Deps()
 
@@ -121,6 +135,16 @@ class TestBegin:
         )
 
         assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
+
+    def test_private_scheme_redirect_is_accepted(self):
+        # RFC 8252 §7.1: a native app claims its own reverse-DNS scheme, and
+        # only an http(s) redirect has to prove it is loopback.
+        redirect = "com.example.agent:/oauth2redirect"
+        deps = _Deps(document=_document(redirect_uris=[redirect]))
+
+        pending = deps.service.begin(_request(redirect_uri=redirect))
+
+        assert pending.client.redirect_uri == redirect
 
     def test_name_falls_back_to_host_and_is_capped(self):
         unnamed = _Deps(document=_document(client_name="  ")).service
@@ -161,6 +185,13 @@ class TestBegin:
                 _document(token_endpoint_auth_method="private_key_jwt"),
                 ClientRejection.CONFIDENTIAL_CLIENT,
             ),
+            (
+                _document(
+                    token_endpoint_auth_method="private_key_jwt",
+                    token_endpoint_auth_methods_supported=["private_key_jwt"],
+                ),
+                ClientRejection.CONFIDENTIAL_CLIENT,
+            ),
             (_document(redirect_uris=[]), ClientRejection.NO_REDIRECT_URIS),
             ({"client_id": CLIENT_ID}, ClientRejection.NO_REDIRECT_URIS),
         ),
@@ -182,6 +213,10 @@ class TestBegin:
             ("javascript:alert(1)", ClientRejection.BAD_REDIRECT_URI),
             ("https://client.example/callback#x", ClientRejection.BAD_REDIRECT_URI),
             ("http://client.example/callback", ClientRejection.BAD_REDIRECT_URI),
+            ("https://a.example;script-src */cb", ClientRejection.BAD_REDIRECT_URI),
+            ("https://client.example:99999/cb", ClientRejection.BAD_REDIRECT_URI),
+            ("https:///callback", ClientRejection.BAD_REDIRECT_URI),
+            ("http://[::1]:43117/callback", ClientRejection.BAD_REDIRECT_URI),
             ("", ClientRejection.BAD_REDIRECT_URI),
         ),
     )

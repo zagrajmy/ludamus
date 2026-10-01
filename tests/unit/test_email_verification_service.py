@@ -32,23 +32,20 @@ class FakeTransaction:
 
 class FakeUsers:
     def __init__(self, *, users=(), existing_emails=(), constraint_on_email=None):
-        self._users = list(users)
+        self._users = {user.slug: user for user in users}
         self._existing_emails = set(existing_emails)
         self._constraint_on_email = constraint_on_email
         self.updated = []
         self.claimed = []
 
     def read(self, slug):
-        for user in self._users:
-            if user.slug == slug:
-                return user
-        raise NotFoundError
+        return self._users[slug]
 
     def read_by_id(self, pk):
-        for user in self._users:
-            if user.pk == pk:
-                return user
-        raise NotFoundError
+        by_pk = {user.pk: user for user in self._users.values()}
+        if pk not in by_pk:
+            raise NotFoundError
+        return by_pk[pk]
 
     def update(self, user_slug, user_data):
         if self._constraint_on_email and (
@@ -56,27 +53,24 @@ class FakeUsers:
         ):
             raise DatabaseConstraintError("duplicate email")
         self.updated.append((user_slug, user_data))
-        for index, user in enumerate(self._users):
-            if user.slug == user_slug:
-                self._users[index] = user.model_copy(update=dict(user_data))
+        self._users[user_slug] = self._users[user_slug].model_copy(
+            update=dict(user_data)
+        )
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
         _ = (now, exclude_slug)
         return email in self._existing_emails
 
     def claim_verification_send(self, *, user_slug, now, throttle):
-        for index, user in enumerate(self._users):
-            if user.slug != user_slug:
-                continue
-            sent_at = user.email_verification_sent_at
-            if sent_at and now - sent_at < throttle:
-                return False
-            self._users[index] = user.model_copy(
-                update={"email_verification_sent_at": now}
-            )
-            self.claimed.append(user_slug)
-            return True
-        return False
+        user = self._users[user_slug]
+        sent_at = user.email_verification_sent_at
+        if sent_at and now - sent_at < throttle:
+            return False
+        self._users[user_slug] = user.model_copy(
+            update={"email_verification_sent_at": now}
+        )
+        self.claimed.append(user_slug)
+        return True
 
 
 class FakeCodec:
