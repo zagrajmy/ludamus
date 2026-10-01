@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.mills.submissions.mapping import generate_unique_slug
+from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -554,11 +554,14 @@ class EventsService(EventsServiceProtocol):
                 if based_on_id is None
                 else self._events.read_in_sphere(based_on_id, sphere_id)
             )
-            slug = data["slug"] or generate_unique_slug(
-                data["name"],
-                lambda candidate: self._events.slug_exists(sphere_id, candidate),
-                fallback="event",
-            )
+            try:
+                slug = data["slug"] or generate_unique_slug(
+                    data["name"],
+                    lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                    fallback="event",
+                )
+            except SlugCollisionError as error:
+                raise EventSlugConflictError from error
             try:
                 with self._transaction.savepoint():
                     event = self._events.create(sphere_id, {**data, "slug": slug})
@@ -584,4 +587,4 @@ class EventsService(EventsServiceProtocol):
                 sphere_id,
                 based_on_id,
             )
-            return event
+            return self._events.read_in_sphere(event.pk, sphere_id)

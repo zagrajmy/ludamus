@@ -2586,7 +2586,7 @@ msgstr "Wybierz wydarzenie z tej sfery."
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 #, python-format
 msgid "Created %(name)s. It stays hidden until you publish it."
-msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki je nie opublikujesz."
+msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
 
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
 msgid "Someone else already handles this facilitator."
@@ -12082,9 +12082,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Enter a slug; the name has no letters to use."
-#~ msgstr "Wpisz slug; nazwa nie ma liter, z których dałoby się go utworzyć."
 
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."

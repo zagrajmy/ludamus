@@ -501,6 +501,17 @@ class TestEventsService:
         assert created.slug.startswith("new-")
         assert created.slug != "new"
 
+    def test_create_reports_a_slug_conflict_when_no_derived_slug_is_free(
+        self, monkeypatch
+    ):
+        events = FakeEvents([])
+        monkeypatch.setattr(events, "slug_exists", lambda _sphere_id, _slug: True)
+
+        with pytest.raises(EventSlugConflictError):
+            _events_service(events).create(sphere_id=SPHERE, data=_create_data(slug=""))
+
+        assert events.rows == {}
+
     def test_create_refuses_an_end_not_after_the_start(self):
         events = FakeEvents([])
 
