@@ -165,6 +165,7 @@ jobs:
           Acquire::Retries "3";
           Acquire::http::Timeout "20";
           Acquire::https::Timeout "20";
+          DPkg::Lock::Timeout "60";
           APT::Keep-Downloaded-Packages "true";
           Binary::apt::APT::Keep-Downloaded-Packages "true";
           CONF
@@ -172,14 +173,20 @@ jobs:
         # Fails in 10min rather than starving the specs of the job budget and
         # reporting as a 30min job timeout that names no step.
         timeout-minutes: 10
-        # A healthy install takes 25-80s; a hung one is apt stalled on a
-        # mirror and never recovers. Three 160s attempts fit the 10min cap.
+        run: mise run test:e2e:install:node && mise run test:e2e:install:browser
+      - name: Install Playwright system deps
+        timeout-minutes: 10
+        # A healthy apt run takes under 2min. A stalled one has trickled past
+        # apt's own Acquire timeouts for the full 10min, so cut each attempt
+        # short and retry. As root, playwright calls apt-get without sudo, so
+        # timeout can signal it; dpkg is repaired if a kill interrupted it.
         run: |
+          path="$(mise exec -- printenv PATH)"
           for attempt in 1 2 3; do
-            timeout -k 10 150 mise run test:e2e:install && exit 0
-            echo "::warning::Playwright install failed or hung (attempt $attempt/3)"
-            # A killed attempt can leave its root apt-get holding the lock.
-            sudo pkill -x apt-get || true
+            sudo env "PATH=$path" timeout -k 10 150 \
+              aube exec -C tests/e2e playwright install-deps && exit 0
+            echo "::warning::Playwright system deps failed or hung (attempt $attempt/3)"
+            sudo dpkg --configure -a || true
           done
           exit 1
       - name: Run end-to-end tests
