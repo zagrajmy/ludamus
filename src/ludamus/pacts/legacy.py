@@ -1,12 +1,18 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO, TextFieldKind
+from ludamus.pacts.fields import (
+    FieldValue,
+    OrganizerFieldDTO,
+    PersonalFieldType,
+    SessionFieldType,
+    TextFieldKind,
+)
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 from ludamus.pacts.multiverse import SphereVisibility
 
@@ -1070,17 +1076,20 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO: ...
 
 
-class PersonalDataFieldCreateData(TypedDict):
+class FieldCreateData(TypedDict):
     name: str
     slug: NotRequired[str]
     question: str
-    field_type: Literal["text", "select", "checkbox", "discord"]
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
     max_length: int
     help_text: str
     is_public: bool
+
+
+class PersonalDataFieldCreateData(FieldCreateData):
+    field_type: PersonalFieldType
 
 
 class PersonalDataFieldUpdateData(TypedDict):
@@ -1092,22 +1101,13 @@ class PersonalDataFieldUpdateData(TypedDict):
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
-    # Applied only between text kinds; other types keep theirs.
+    # Only a text-kind field may take one; the service enforces it.
     field_type: NotRequired[TextFieldKind]
 
 
-class SessionFieldCreateData(TypedDict):
-    name: str
-    slug: NotRequired[str]
-    question: str
-    field_type: Literal["text", "select", "checkbox"]
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
-    max_length: int
-    help_text: str
+class SessionFieldCreateData(FieldCreateData):
+    field_type: SessionFieldType
     icon: str
-    is_public: bool
 
 
 class SessionFieldUpdateData(TypedDict):

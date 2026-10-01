@@ -10,7 +10,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
-from ludamus.pacts.fields import TEXT_FIELD_KINDS, FieldTypeSwitchError
+from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 from ludamus.pacts.legacy import (
     PersonalDataFieldCreateData,
     PersonalDataFieldUpdateData,
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import RequirementSelectionDTO
 
 
 def log_facilitator_changes(
@@ -139,15 +140,36 @@ class CFPPersonalDataFieldService(
         self._fields.delete(field.pk)
         return True
 
+    def update(
+        self,
+        *,
+        event_pk: int,
+        field_slug: str,
+        data: PersonalDataFieldUpdateData,
+        category_requirements: RequirementSelectionDTO,
+    ) -> None:
+        if "field_type" in data:
+            self._check_text_kind(self._fields.read_by_slug(event_pk, field_slug))
+        super().update(
+            event_pk=event_pk,
+            field_slug=field_slug,
+            data=data,
+            category_requirements=category_requirements,
+        )
+
     def set_field_type(
         self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
     ) -> OrganizerFieldDTO:
         field = self._fields.read_by_slug(event_pk, field_slug)
-        if field.field_type not in TEXT_FIELD_KINDS:
-            raise FieldTypeSwitchError
+        self._check_text_kind(field)
         if field.field_type == field_type:
             return field
         return self._fields.set_field_type(field.pk, field_type)
+
+    @staticmethod
+    def _check_text_kind(field: OrganizerFieldDTO) -> None:
+        if not is_text_field_kind(field.field_type):
+            raise FieldTypeSwitchError
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

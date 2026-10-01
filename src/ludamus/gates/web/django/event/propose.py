@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
-    from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
+    from ludamus.pacts.propose import AccountContactDTO, ProposeSessionServiceProtocol
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -238,11 +238,31 @@ class _Wizard:
         return self.service.get_personal_requirements(self.category.pk)
 
     @cached_property
-    def account(self) -> AccountAnswersDTO:
-        return self.service.get_account_answers(
-            user_id=self.request.context.current_user_id,
-            requirements=self.personal_requirements,
+    def account(self) -> AccountContactDTO:
+        return self.service.get_account_contact(self.request.context.current_user_id)
+
+    @cached_property
+    def account_answers(self) -> dict[str, str]:
+        if not (handle := self.account.discord_username):
+            return {}
+        return {
+            f"personal_{req.field.slug}": handle
+            for req in self.personal_requirements
+            if req.field.field_type == "discord"
+        }
+
+    @cached_property
+    def account_answers_everything(self) -> bool:
+        # Every question answered, and answered as the visible form would
+        # accept — a profile handle can outgrow an organizer's length limit.
+        if not self.account.email or len(self.account_answers) < len(
+            self.personal_requirements
+        ):
+            return False
+        form = build_personal_data_form(self.personal_requirements)(
+            data={**self.account_answers, "contact_email": self.account.email}
         )
+        return form.is_valid()
 
     @cached_property
     def steps(self) -> tuple[str, ...]:
@@ -251,7 +271,7 @@ class _Wizard:
         # strip must not grow a step the moment the first choice is made.
         shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
         # Nothing to ask when the account already answers every question.
-        shows_personal = self.category is None or not self.account.covers_all
+        shows_personal = self.category is None or not self.account_answers_everything
         return tuple(
             key
             for key in _STEP_KEYS
@@ -275,7 +295,7 @@ class _Wizard:
         if len(self.timeslot_requirements) == 1:
             implied["time_slot_ids"] = [self.timeslot_requirements[0].time_slot_id]
         if self.category is not None and "personal" not in self.steps:
-            implied["personal_data"] = dict(self.account.answers)
+            implied["personal_data"] = dict(self.account_answers)
             implied["contact_email"] = self.account.email
         return implied
 
@@ -328,7 +348,7 @@ def _personal_context(
                     user_id=wizard.request.context.current_user_id,
                 ).items()
             },
-            **wizard.account.answers,
+            **wizard.account_answers,
         }
         initial = unfold_custom_answers(
             stored=stored, fields=[req.field for req in requirements], prefix="personal"
@@ -336,7 +356,6 @@ def _personal_context(
         initial["contact_email"] = state.get("contact_email", wizard.account.email)
         form = build_personal_data_form(requirements)(initial=initial)
 
-    has_category = "category" in wizard.steps
     context: StepContext = {
         **wizard.base_context("personal"),
         "category": category,
@@ -344,9 +363,8 @@ def _personal_context(
         "field_descriptors": field_descriptors(
             prefix="personal", fields=requirement_fields(requirements), form=form
         ),
-        "show_back_button": has_category,
     }
-    if not has_category:
+    if "category" not in wizard.steps:
         context.update(_login_nudge_context(wizard.request))
     return context
 
@@ -459,8 +477,7 @@ _STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
 
 def _step_context(wizard: _Wizard, step: str) -> StepContext:
     with _WizardState(wizard.request, wizard.event.slug) as state:
-        if step != "category":
-            state.update(wizard.implied_answers())
+        state.update(wizard.implied_answers())
         return _STEP_CONTEXTS[step](wizard, state)
 
 

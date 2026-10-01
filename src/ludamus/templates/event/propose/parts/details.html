@@ -56,17 +56,8 @@
                     {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
                 {% endfor %}
             </div>
-            <div class="{% if not is_first_step %}flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3{% else %}flex justify-end{% endif %} pt-6">
-                {% if not is_first_step %}
-                    <button type="button"
-                            class="btn btn-secondary"
-                            hx-post="{% url 'web:event:session-propose-timeslots' event_slug=event.slug %}"
-                            hx-target="#wizard-content"
-                            hx-swap="outerHTML show:#wizard-content:top"
-                            hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>
-                {% endif %}
-                <button type="submit" class="btn btn-primary">{% translate "Continue" %} →</button>
-            </div>
+            {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
+            {% include "event/propose/parts/_nav.html" %}
         </form>
     {% elif submitted|default:False %}
         <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>

@@ -14,9 +14,8 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
-from ludamus.pacts.crowd import UserData
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
+from ludamus.pacts.propose import AccountContactDTO, ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
         EventDTO,
         EventProposalSettingsDTO,
         FacilitatorDTO,
+        OrganizerFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
@@ -110,25 +110,12 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             facilitator.pk, event_id
         )
 
-    def get_account_answers(
-        self, *, user_id: int | None, requirements: list[PersonalFieldRequirementDTO]
-    ) -> AccountAnswersDTO:
+    def get_account_contact(self, user_id: int | None) -> AccountContactDTO:
         if user_id is None:
-            return AccountAnswersDTO()
+            return AccountContactDTO()
         user = self._repos.users.read_by_id(user_id)
-        answers = (
-            {
-                f"personal_{req.field.slug}": user.discord_username
-                for req in requirements
-                if req.field.field_type == "discord"
-            }
-            if user.discord_username
-            else {}
-        )
-        return AccountAnswersDTO(
-            email=user.email,
-            answers=answers,
-            covers_all=bool(user.email) and len(answers) == len(requirements),
+        return AccountContactDTO(
+            email=user.email, discord_username=user.discord_username
         )
 
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool:
@@ -226,16 +213,24 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             )
 
             if personal_data := wizard_data.get("personal_data", {}):
-                handle = self._save_personal_data(
-                    event_id=event.pk,
-                    personal_data=personal_data,
-                    facilitator=facilitator,
+                answers = self._resolve_personal_data(
+                    event_id=event.pk, personal_data=personal_data
                 )
-                # A handle typed here saves the proposer typing it next time.
-                if handle and current_user and not current_user.discord_username:
-                    self._repos.users.update(
-                        current_user.slug, UserData(discord_username=handle)
+                if answers:
+                    self._repos.personal_data_field_values.save(
+                        [
+                            PersonalDataFieldValueData(
+                                facilitator_id=facilitator.pk,
+                                event_id=event.pk,
+                                field_id=field.pk,
+                                value=value,
+                            )
+                            for field, value in answers
+                        ]
                     )
+                # A handle typed here saves the proposer typing it next time.
+                if current_user and (handle := _discord_answer(answers)):
+                    self._repos.users.fill_discord_username(current_user.slug, handle)
 
             if track_pks := wizard_data.get("track_pks", []):
                 # Track ids come from wizard state, so they are trusted only
@@ -286,16 +281,10 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         if values:
             self._repos.sessions.save_field_values(session_id, values)
 
-    def _save_personal_data(
-        self,
-        *,
-        event_id: int,
-        personal_data: dict[str, str],
-        facilitator: FacilitatorDTO,
-    ) -> str:
-        """Save the answers, returning the Discord handle among them, if any."""
-        entries: list[PersonalDataFieldValueData] = []
-        handle = ""
+    def _resolve_personal_data(
+        self, *, event_id: int, personal_data: dict[str, str]
+    ) -> list[tuple[OrganizerFieldDTO, str]]:
+        answers: list[tuple[OrganizerFieldDTO, str]] = []
         for key, value in personal_data.items():
             if not key.startswith("personal_"):
                 continue
@@ -305,23 +294,17 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             if is_empty_answer(value=value):
                 continue
             try:
-                field_dto = self._repos.personal_fields.read_by_slug(event_id, slug)
+                field = self._repos.personal_fields.read_by_slug(event_id, slug)
             except NotFoundError:
                 continue
-            if (
-                field_dto.field_type == "discord"
-                and isinstance(value, str)
-                and len(value.strip()) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH
-            ):
-                handle = value.strip()
-            entries.append(
-                PersonalDataFieldValueData(
-                    facilitator_id=facilitator.pk,
-                    event_id=event_id,
-                    field_id=field_dto.pk,
-                    value=value,
-                )
-            )
-        if entries:
-            self._repos.personal_data_field_values.save(entries)
-        return handle
+            answers.append((field, value))
+        return answers
+
+
+def _discord_answer(answers: list[tuple[OrganizerFieldDTO, str]]) -> str:
+    for field, value in answers:
+        if field.field_type == "discord" and isinstance(value, str):
+            handle = value.strip()
+            if 0 < len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
+                return handle
+    return ""

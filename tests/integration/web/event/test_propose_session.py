@@ -213,7 +213,6 @@ class TestProposeSessionPageView:
                 "current_step": "personal",
                 "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
-                "show_back_button": False,
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
                 "wizard_part_template": "event/propose/parts/personal.html",
@@ -407,8 +406,9 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["contact_email"] == "testuser@example.com"
 
@@ -564,8 +564,9 @@ class TestProposeSessionPageView:
             {"personal_phone": "+48 123", "contact_email": "test@example.com"},
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["time_slot_ids"] == [slot.pk]
 
@@ -584,8 +585,9 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_personal_url(event.slug), {"contact_email": "test@example.com"}
         )
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
         assert wizard["time_slot_ids"] == [slot.pk]
@@ -676,6 +678,63 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["time_slot_ids"] == [slot1.pk]
+
+    def test_post_category_skips_personal_step_the_profile_handle_answers(
+        self, authenticated_client, active_user, event, faker, time_zone
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        active_user.discord_username = "gm_bob"
+        active_user.save()
+        cat = ProposalCategoryFactory(event=event, name="RPG")
+        ProposalCategoryFactory(event=event, name="Workshop")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Discord",
+            question="Discord?",
+            slug="dc",
+            field_type="discord",
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=cat, field=field, is_required=True
+        )
+
+        response = authenticated_client.post(
+            self._get_category_url(event.slug), {"category_id": cat.pk}
+        )
+
+        assert_response(
+            response, HTTPStatus.OK, template_name="event/propose/parts/details.html"
+        )
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert wizard["personal_data"] == {"personal_dc": "gm_bob"}
+
+    def test_post_category_asks_when_profile_handle_exceeds_field_limit(
+        self, authenticated_client, active_user, event, faker, time_zone
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        active_user.discord_username = "x" * 20
+        active_user.save()
+        cat = ProposalCategoryFactory(event=event, name="RPG")
+        ProposalCategoryFactory(event=event, name="Workshop")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Discord",
+            question="Discord?",
+            slug="dc",
+            field_type="discord",
+            max_length=10,
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=cat, field=field, is_required=True
+        )
+
+        response = authenticated_client.post(
+            self._get_category_url(event.slug), {"category_id": cat.pk}
+        )
+
+        assert_response(
+            response, HTTPStatus.OK, template_name="event/propose/parts/personal.html"
+        )
 
     def test_post_timeslots_with_only_foreign_id_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2467,7 +2526,6 @@ class TestProposeSessionPageView:
                 "current_step": "personal",
                 "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
-                "show_back_button": False,
                 "show_login_nudge": False,
                 "login_url": (
                     f"/crowd/login-required/?next={self._get_category_url(event.slug)}"
@@ -3070,7 +3128,6 @@ class TestAnonymousProposalSubmission:
                 "current_step": "personal",
                 "is_first_step": True,
                 "wizard_steps": ["personal", "details", "review"],
-                "show_back_button": False,
                 "show_login_nudge": True,
                 "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
                 "wizard_part_template": "event/propose/parts/personal.html",

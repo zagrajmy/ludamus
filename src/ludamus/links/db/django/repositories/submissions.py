@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, cast
 
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
@@ -43,7 +43,6 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
-from ludamus.pacts.fields import TEXT_FIELD_KINDS
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -52,10 +51,7 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.fields import TextFieldKind
-
-# The DB stores field_type as a plain CharField; DTOs type it as this Literal.
-_FieldType = Literal["text", "select", "checkbox", "discord"]
+    from ludamus.pacts.fields import PersonalFieldType, TextFieldKind
 
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
@@ -75,7 +71,7 @@ def _field_dto(
     # forgotten in the other can't silently fall back to a DTO default.
     return OrganizerFieldDTO(
         allow_custom=field.allow_custom,
-        field_type=cast("_FieldType", field.field_type),
+        field_type=cast("PersonalFieldType", field.field_type),
         help_text=field.help_text,
         icon=icon,
         is_multiple=field.is_multiple,
@@ -618,9 +614,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.allow_custom = (
             data["allow_custom"] if field.field_type == "select" else False
         )
-        if (
-            new_type := data.get("field_type")
-        ) and field.field_type in TEXT_FIELD_KINDS:
+        if new_type := data.get("field_type"):
             field.field_type = new_type
         field.save()
 

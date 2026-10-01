@@ -23,7 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.fields import (
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
-from ludamus.pacts.fields import TEXT_FIELD_KINDS
+from ludamus.pacts.fields import is_text_field_kind
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 _TEXT_KIND_CHOICES = [
     (value, label)
     for value, label in PersonalDataFieldForm.FIELD_TYPE_CHOICES
-    if value in TEXT_FIELD_KINDS
+    if is_text_field_kind(value)
 ]
 
 
@@ -238,7 +238,8 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             "is_multiple": form.cleaned_data.get("is_multiple") or False,
             "allow_custom": form.cleaned_data.get("allow_custom") or False,
         }
-        if new_type := TEXT_FIELD_KINDS.get(form.cleaned_data.get("field_type") or ""):
+        new_type = form.cleaned_data.get("field_type") or ""
+        if is_text_field_kind(field.field_type) and is_text_field_kind(new_type):
             data["field_type"] = new_type
         service.update(
             event_pk=current_event.pk,

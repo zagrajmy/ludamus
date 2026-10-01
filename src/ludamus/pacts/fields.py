@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, TypeIs
 
 from pydantic import BaseModel, ConfigDict
 
@@ -19,10 +19,26 @@ FieldValue = str | list[str] | bool | None
 # The empty option offered above a single-select's real ones.
 BLANK_CHOICE = ("", "—")
 
+type SessionFieldType = Literal["text", "select", "checkbox"]
+type PersonalFieldType = Literal["text", "select", "checkbox", "discord"]
 # Personal-data field types whose answers are the same plain string, so a field
 # can move between them without touching what proposers already answered.
 type TextFieldKind = Literal["text", "discord"]
-TEXT_FIELD_KINDS: dict[str, TextFieldKind] = {"text": "text", "discord": "discord"}
+TEXT_FIELD_KINDS: frozenset[str] = frozenset({"text", "discord"})
+_SESSION_FIELD_TYPES: frozenset[str] = frozenset({"text", "select", "checkbox"})
+_PERSONAL_FIELD_TYPES: frozenset[str] = _SESSION_FIELD_TYPES | TEXT_FIELD_KINDS
+
+
+def is_session_field_type(value: str) -> TypeIs[SessionFieldType]:
+    return value in _SESSION_FIELD_TYPES
+
+
+def is_personal_field_type(value: str) -> TypeIs[PersonalFieldType]:
+    return value in _PERSONAL_FIELD_TYPES
+
+
+def is_text_field_kind(value: str) -> TypeIs[TextFieldKind]:
+    return value in TEXT_FIELD_KINDS
 
 
 class FieldTypeSwitchError(Exception):
@@ -50,7 +66,7 @@ class OrganizerFieldDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox", "discord"]
+    field_type: PersonalFieldType
     help_text: str = ""
     # Session fields carry an icon; personal-data fields leave it empty.
     icon: str = ""

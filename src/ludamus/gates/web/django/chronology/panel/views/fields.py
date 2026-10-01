@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
 from django.utils.translation import gettext as _
 
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
-from ludamus.pacts.legacy import SessionFieldCreateData
+from ludamus.pacts.fields import is_personal_field_type, is_session_field_type
+from ludamus.pacts.legacy import FieldCreateData, SessionFieldCreateData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,38 +37,11 @@ class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
     def read_by_slug(self, event_pk: int, slug: str) -> T: ...
 
 
-type _SessionFieldType = Literal["text", "select", "checkbox"]
-type _PersonalFieldType = Literal["text", "select", "checkbox", "discord"]
-
-_SESSION_FIELD_TYPES: dict[str, _SessionFieldType] = {
-    "text": "text",
-    "select": "select",
-    "checkbox": "checkbox",
-}
-_PERSONAL_FIELD_TYPES: dict[str, _PersonalFieldType] = {
-    **_SESSION_FIELD_TYPES,
-    "discord": "discord",
-}
-
-
-class _FieldFormData(TypedDict):
-    name: str
-    # Never parsed from the form; declared so the create-data types spread it.
-    slug: NotRequired[str]
-    question: str
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
-    max_length: int
-    help_text: str
-    is_public: bool
-
-
 def parse_personal_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
     raw_type = form.cleaned_data.get("field_type") or ""
     return PersonalDataFieldCreateData(
         **_parse_field_form_data(form),
-        field_type=_PERSONAL_FIELD_TYPES.get(raw_type, "text"),
+        field_type=raw_type if is_personal_field_type(raw_type) else "text",
     )
 
 
@@ -75,15 +49,15 @@ def parse_session_field_form_data(form: forms.Form) -> SessionFieldCreateData:
     raw_type = form.cleaned_data.get("field_type") or ""
     return SessionFieldCreateData(
         **_parse_field_form_data(form),
-        field_type=_SESSION_FIELD_TYPES.get(raw_type, "text"),
+        field_type=raw_type if is_session_field_type(raw_type) else "text",
         icon=form.cleaned_data.get("icon") or "",
     )
 
 
-def _parse_field_form_data(form: forms.Form) -> _FieldFormData:
+def _parse_field_form_data(form: forms.Form) -> FieldCreateData:
     options_text = form.cleaned_data.get("options") or ""
     options = [o.strip() for o in options_text.split("\n") if o.strip()] or None
-    return _FieldFormData(
+    return FieldCreateData(
         name=form.cleaned_data["name"],
         question=form.cleaned_data["question"],
         options=options,
