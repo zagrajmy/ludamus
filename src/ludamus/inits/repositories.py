@@ -23,6 +23,7 @@ from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
+from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
@@ -94,10 +95,6 @@ class Repositories:
     @cached_property
     def landing_stats(self) -> repositories.LandingStatsRepository:
         return repositories.LandingStatsRepository()
-
-    @cached_property
-    def event_settings(self) -> repositories.EventSettingsRepository:
-        return repositories.EventSettingsRepository()
 
     @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
@@ -234,3 +231,7 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def encounter_invitees(self) -> EncounterInviteeRepository:
+        return EncounterInviteeRepository()
