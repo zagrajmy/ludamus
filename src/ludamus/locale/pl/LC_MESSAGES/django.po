@@ -2801,7 +2801,6 @@ msgid "Happening now!"
 msgstr "Trwa teraz!"
 
 #: src/ludamus/gates/web/django/event/status_pills.py
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Completed"
 msgstr "Ukończone"
 
@@ -4940,10 +4939,6 @@ msgstr ""
 msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/_schedule_now_marker.html
@@ -12024,6 +12019,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"

@@ -894,7 +894,7 @@ select:not([multiple]):not([size]) {
   z-index: 20;
 }
 
-.time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
+.time-slot-section[data-ended] .session:not(:hover) {
   filter: grayscale(50%) brightness(0.95);
 }
 

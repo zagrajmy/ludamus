@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from itertools import groupby, pairwise
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils import timezone
 
@@ -351,15 +351,13 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
     return days
 
 
-CardSlotKind = Literal["ended", "current", "future"]
-
-
 @dataclass
 class CardSlot:
-    kind: CardSlotKind
     hour: datetime
     sessions: list[SessionData]
-    # The first not-yet-ended slot page-wide: the one the "Now" pill belongs to
+    # Every session in the slot is over, so its cards grey out.
+    is_ended: bool
+    # The first slot still to run page-wide: the one the "Now" pill belongs to
     # while the event is live.
     is_first_current: bool = False
     # The pill prints its own date only on a single-day schedule; under a day
@@ -377,39 +375,23 @@ class CardDay:
         return _day_panel_id(self.day_start)
 
 
-def _card_slots(
-    kind: CardSlotKind, data: dict[datetime, list[SessionData]]
-) -> list[CardSlot]:
-    return [
-        CardSlot(kind=kind, hour=hour, sessions=sessions)
-        for hour, sessions in data.items()
-    ]
-
-
-def build_card_days(
-    *,
-    ended: dict[datetime, list[SessionData]],
-    current: dict[datetime, list[SessionData]],
-    future_unavailable: dict[datetime, list[SessionData]],
-) -> list[CardDay]:
-    # Day-major for the card layout: each local day folds as one unit, and
-    # within a day the ended / current / future groups keep their old order,
-    # so a single-day event renders exactly as it always has.
+def build_card_days(hour_data: dict[datetime, list[SessionData]]) -> list[CardDay]:
+    # Day-major for the card layout, each local day folding as one unit, and
+    # one slot per start time in time order within it. Whether a session can
+    # be joined yet is its card's to say: sorting or splitting slots by it put
+    # a 10:00 below a 14:00 and printed one hour under two headings.
     tz = timezone.get_current_timezone()
-    kind_order = {"ended": 0, "current": 1, "future": 2}
-    slots = (
-        _card_slots("ended", ended)
-        + _card_slots("current", current)
-        + _card_slots("future", future_unavailable)
-    )
-    slots.sort(
-        key=lambda slot: (
-            PROGRAMME_DAYS.date_of(slot.hour, tz).toordinal(),
-            kind_order[slot.kind],
-            slot.hour.timestamp(),
+    slots = [
+        CardSlot(
+            hour=hour,
+            sessions=sessions,
+            is_ended=all(data.is_ended for data in sessions),
         )
-    )
-    if first_current := next((slot for slot in slots if slot.kind == "current"), None):
+        for hour, sessions in sorted(
+            hour_data.items(), key=lambda item: item[0].timestamp()
+        )
+    ]
+    if first_current := next((slot for slot in slots if not slot.is_ended), None):
         first_current.is_first_current = True
     days = [
         CardDay(day_start=PROGRAMME_DAYS.opening(day, tz), slots=list(group))
@@ -421,30 +403,6 @@ def build_card_days(
         for slot in days[0].slots:
             slot.show_date = True
     return days
-
-
-def group_sessions_by_state(
-    sessions_data: dict[int, SessionData],
-) -> tuple[
-    dict[datetime, list[SessionData]],
-    dict[datetime, list[SessionData]],
-    dict[datetime, list[SessionData]],
-]:
-    now = datetime.now(tz=UTC)
-    ended: dict[datetime, list[SessionData]] = defaultdict(list)
-    current: dict[datetime, list[SessionData]] = defaultdict(list)
-    future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
-    for data in sessions_data.values():
-        if data.agenda_item is None:
-            continue
-        start = data.agenda_item.start_time
-        if data.agenda_item.end_time <= now:
-            ended[start].append(data)
-        elif data.availability == "unavailable" and start > now:
-            future_unavailable[start].append(data)
-        else:
-            current[start].append(data)
-    return dict(ended), dict(current), dict(future_unavailable)
 
 
 class _RoomKey(NamedTuple):
