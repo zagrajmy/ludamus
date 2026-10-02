@@ -1,8 +1,15 @@
 from datetime import UTC, datetime, timedelta
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery, Sum
+from django.db.models.functions import Coalesce, Now
 
-from ludamus.links.db.django.models import Encounter, EncounterRSVP
+from ludamus.links.db.django.models import (
+    Encounter,
+    EncounterInvitee,
+    EncounterInviteMailing,
+    EncounterRSVP,
+    User,
+)
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -14,6 +21,12 @@ from ludamus.pacts import (
     EncounterRSVPDTO,
     EncounterRSVPRepositoryProtocol,
     NotFoundError,
+)
+from ludamus.pacts.crowd import UserType
+from ludamus.pacts.encounter import (
+    EncounterInviteeDTO,
+    EncounterInviteeRepositoryProtocol,
+    InviteeStatus,
 )
 
 
@@ -48,6 +61,16 @@ class EncounterRepository(EncounterRepositoryProtocol):
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
 
+    # NOTE: sphere-free on purpose, for calendar replies arriving by mail; the
+    # caller must first prove the reply answers an invite we sent.
+    @staticmethod
+    def read_by_share_code_in_any_sphere(share_code: str) -> EncounterDTO:
+        try:
+            encounter = Encounter.objects.get(share_code=share_code)
+        except Encounter.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return EncounterDTO.model_validate(encounter)
+
     # What a given visitor may see of a sphere's encounters: the listed ones,
     # plus the ones they organise or hold an RSVP to. An anonymous visitor has
     # neither, so they see the listed ones alone.
@@ -68,18 +91,18 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
     @staticmethod
     def list_visible_upcoming(
-        sphere_id: int, user_id: int | None
+        sphere_id: int, user_id: int | None, *, limit: int | None = None
     ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)
             .exclude(EncounterRepository._ended())
-            .order_by("start_time")
+            .order_by("start_time")[:limit]
         )
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
     def list_visible_past(
-        sphere_id: int, user_id: int | None, limit: int
+        sphere_id: int, user_id: int | None, *, limit: int
     ) -> list[EncounterDTO]:
         encounters = (
             EncounterRepository._visible(sphere_id, user_id)
@@ -100,7 +123,9 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
 class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
     @staticmethod
-    def create(encounter_id: int, ip_address: str, user_id: int) -> EncounterRSVPDTO:
+    def create(
+        encounter_id: int, ip_address: str | None, user_id: int
+    ) -> EncounterRSVPDTO:
         rsvp = EncounterRSVP.objects.create(
             encounter_id=encounter_id, ip_address=ip_address, user_id=user_id
         )
@@ -144,3 +169,115 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
         EncounterRSVP.objects.filter(
             encounter_id=encounter_id, user_id=user_id
         ).delete()
+
+
+def _active_account() -> QuerySet[User]:
+    return User.objects.filter(
+        email__iexact=OuterRef("email"), user_type=UserType.ACTIVE
+    )
+
+
+class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
+    @staticmethod
+    def list_by_encounter(encounter_id: int) -> list[EncounterInviteeDTO]:
+        rows = (
+            EncounterInvitee.objects.filter(encounter_id=encounter_id)
+            .exclude(status=InviteeStatus.REMOVED)
+            .annotate(user_id=Subquery(_active_account().values("pk")[:1]))
+            .order_by("creation_time", "pk")
+        )
+        return [EncounterInviteeDTO.model_validate(row) for row in rows]
+
+    @staticmethod
+    def add(*, encounter_id: int, emails: list[str], creator_id: int) -> None:
+        # NOTE: a fresh creation_time, so the daily cap counts the address
+        # from today rather than from when it was first invited.
+        EncounterInvitee.objects.filter(
+            encounter_id=encounter_id, email__in=emails, status=InviteeStatus.REMOVED
+        ).update(status=InviteeStatus.INVITED, creation_time=Now())
+        EncounterInvitee.objects.bulk_create(
+            [
+                EncounterInvitee(
+                    encounter_id=encounter_id, email=email, creator_id=creator_id
+                )
+                for email in emails
+            ],
+            ignore_conflicts=True,
+        )
+
+    @staticmethod
+    def remove(encounter_id: int, emails: list[str]) -> None:
+        EncounterInvitee.objects.filter(
+            encounter_id=encounter_id, email__in=emails
+        ).exclude(status=InviteeStatus.DECLINED).update(status=InviteeStatus.REMOVED)
+
+    @staticmethod
+    def set_status(*, encounter_id: int, email: str, status: InviteeStatus) -> bool:
+        updated = (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, email__iexact=email
+            )
+            .exclude(status=InviteeStatus.REMOVED)
+            .update(status=status)
+        )
+        return updated > 0
+
+    @staticmethod
+    def read_status(encounter_id: int, email: str) -> InviteeStatus | None:
+        status = (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, email__iexact=email
+            )
+            .values_list("status", flat=True)
+            .first()
+        )
+        return InviteeStatus(status) if status else None
+
+    @staticmethod
+    def count_accepted_without_signup(encounter_id: int) -> int:
+        signups = EncounterRSVP.objects.filter(
+            encounter_id=OuterRef("encounter_id"), user__email__iexact=OuterRef("email")
+        )
+        return (
+            EncounterInvitee.objects.filter(
+                encounter_id=encounter_id, status=InviteeStatus.ACCEPTED
+            )
+            .exclude(Exists(signups))
+            .count()
+        )
+
+    @staticmethod
+    def emails_invited_by_creator_since(creator_id: int, since: datetime) -> set[str]:
+        return set(
+            EncounterInvitee.objects.filter(
+                creator_id=creator_id, creation_time__gte=since
+            ).values_list("email", flat=True)
+        )
+
+    @staticmethod
+    def record_mailing(*, creator_id: int, count: int) -> None:
+        EncounterInviteMailing.objects.create(creator_id=creator_id, count=count)
+
+    @staticmethod
+    def count_mailed_since(creator_id: int, since: datetime) -> int:
+        mailed: int | None = EncounterInviteMailing.objects.filter(
+            creator_id=creator_id, creation_time__gte=since
+        ).aggregate(total=Sum("count"))["total"]
+        return mailed or 0
+
+    @staticmethod
+    def purge_stale(*, created_before: datetime, ended_before: datetime) -> int:
+        unlisted = Q(creation_time__lt=created_before) & (
+            Q(encounter__isnull=True) | Q(status=InviteeStatus.REMOVED)
+        )
+        deleted, __ = (
+            EncounterInvitee.objects.annotate(
+                ended=Coalesce("encounter__end_time", "encounter__start_time")
+            )
+            .filter(unlisted | Q(ended__lt=ended_before))
+            .delete()
+        )
+        mailings, __ = EncounterInviteMailing.objects.filter(
+            creation_time__lt=created_before
+        ).delete()
+        return deleted + mailings

@@ -1,5 +1,4 @@
 import re
-from dataclasses import replace
 from datetime import UTC, timedelta
 from http import HTTPStatus
 
@@ -31,7 +30,6 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
-    EventSettings,
     SessionBookmark,
     SessionField,
     SessionFieldOption,
@@ -123,6 +121,13 @@ _PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 
 # The review queue the query-count guard grows to, from one proposal.
 _PROPOSALS_IN_QUEUE = 5
+
+# What the public event page costs, in queries, for an anonymous viewer of a
+# schedule whose sessions carry attendees and custom field values. Pinned
+# rather than merely "constant in the session count": a prefetch graph
+# nothing reads (#1063) adds a fixed number of queries per page, which a
+# constant-in-N check never sees.
+_EVENT_PAGE_QUERIES = 16
 
 
 class TestEventPageView:
@@ -467,8 +472,6 @@ class TestEventPageView:
             icon="puzzle-piece",
         )
         SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
-        event_settings, _ = EventSettings.objects.get_or_create(event=event)
-        event_settings.displayed_session_fields.add(game_type)
 
         response = client.get(self._get_url(event.slug))
 
@@ -532,32 +535,10 @@ class TestEventPageView:
                 minute=0, second=0, microsecond=0
             )
 
-        def with_participants(session):
-            # Every card carries the people already seated on its session.
-            return replace(
-                base_cards[session.pk],
-                session_participations=[
-                    ParticipationInfo(
-                        user=UserInfo.from_user_dto(
-                            UserDTO.model_validate(participation.user),
-                            gravatar_url=gravatar_url,
-                        ),
-                        status=participation.status,
-                        creation_time=participation.creation_time,
-                        is_shadowbanned=False,
-                    )
-                    for participation in (
-                        SessionParticipation.objects.filter(session=session)
-                        .select_related("user")
-                        .order_by("pk")
-                    )
-                ],
-            )
-
-        cards = {
-            session.pk: with_participants(session)
-            for session in (ended, ongoing, plenty, scarce, no_enrollment, full)
-        }
+        # No roster on a compact card: the ledger and the rooms grid print the
+        # counts and never the people, so the page does not read them for a
+        # schedule this size.
+        cards = base_cards
 
         def tile(session):
             return ScheduleTile(
@@ -883,14 +864,10 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_ok_live_event_card_slot_shows_now_and_propose(
-        self, agenda_item, client, event
-    ):
+    def test_ok_live_event_card_slot_shows_now(self, agenda_item, client, event):
         now = timezone.now()
         event.start_time = now - timedelta(hours=2)
         event.end_time = now + timedelta(days=1)
-        event.proposal_start_time = now - timedelta(days=1)
-        event.proposal_end_time = now + timedelta(days=1)
         event.save()
         agenda_item.start_time = now - timedelta(minutes=30)
         agenda_item.end_time = now + timedelta(hours=1)
@@ -921,7 +898,6 @@ class TestEventPageView:
         )
         content = response.content.decode()
         assert re.search(r">\s*Now\s*</span>", content)
-        assert re.search(r">\s*Propose\s*</span>", content)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
@@ -1267,8 +1243,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["a", "b", "c", "d", "e"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -1390,9 +1364,8 @@ class TestEventPageView:
             presenter=session.presenter,
             enrolled_count=1,
             category_name=session.category.name,
-            # The field is public but not on the event's displayed list, so it
-            # reaches the card's values without a display row.
             field_values=[field_value_dto],
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
@@ -1561,6 +1534,42 @@ class TestEventPageView:
         assert len(big_event_queries.captured_queries) == len(
             small_event_queries.captured_queries
         )
+
+    def test_query_count_with_attendees_and_field_values(self, client, event, space):
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        self._add_choices(session_field, "a", "b")
+        sessions = [
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
+            for _ in range(2)
+        ]
+        client.get(self._get_url(event.slug))
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+                scheduled_count=2,
+            ),
+            template_name=["chronology/event.html"],
+        )
+        assert len(queries.captured_queries) == _EVENT_PAGE_QUERIES
 
     def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
@@ -2552,8 +2561,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["RPG"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2625,8 +2632,6 @@ class TestEventPageView:
             field=session_field,
             value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2665,10 +2670,9 @@ class TestEventPageView:
             contains=["+2", "Echo", "Foxtrot"],
         )
 
-    def test_ok_session_with_non_displayed_field_excluded_from_rows(
+    def test_ok_session_with_hidden_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
     ):
-        """Field values not in displayed_session_fields are excluded from rows."""
         session_field = SessionField.objects.create(
             event=event,
             name="RPG System",
@@ -2676,6 +2680,7 @@ class TestEventPageView:
             slug="rpg-system",
             field_type="text",
             is_public=True,
+            show_on_cards=False,
         )
         session = agenda_item.session
         SessionFieldValue.objects.create(
@@ -2708,6 +2713,7 @@ class TestEventPageView:
                     field_slug="rpg-system",
                     field_type="text",
                     is_public=True,
+                    show_on_cards=False,
                     value="D&D 5e",
                 )
             ],
@@ -2745,8 +2751,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value="D&D 5e"
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2812,8 +2816,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=True
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2874,7 +2876,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
@@ -2888,7 +2890,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:events"),
+            url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
 

@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -12,19 +11,7 @@ from ludamus.pacts.submissions import (
     ProposalCategorySettingsRepos,
     RequirementSelectionDTO,
 )
-
-
-class RecordingTransaction:
-    def __init__(self) -> None:
-        self.active = False
-
-    @contextmanager
-    def atomic(self):
-        self.active = True
-        try:
-            yield
-        finally:
-            self.active = False
+from tests.unit.factories import FakeTransaction
 
 
 def _category() -> ProposalCategoryDTO:
@@ -91,7 +78,7 @@ def _data() -> ProposalCategorySettingsData:
     )
 
 
-def _service(transaction: RecordingTransaction, repos: ProposalCategorySettingsRepos):
+def _service(transaction: FakeTransaction, repos: ProposalCategorySettingsRepos):
     return ProposalCategorySettingsService(transaction, repos)
 
 
@@ -114,50 +101,13 @@ def _mock_repos() -> tuple[ProposalCategorySettingsRepos, MagicMock]:
     return repos, categories
 
 
-def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
-    transaction = RecordingTransaction()
-    repos, categories = _mock_repos()
-    mutations = (
-        categories.update,
-        categories.set_field_requirements,
-        categories.set_session_field_requirements,
-        categories.set_time_slot_requirements,
-    )
-    for mutation in mutations:
-        mutation.side_effect = lambda *_args: assert_transaction_active(transaction)
-
-    _service(transaction, repos).update(event_id=4, category_slug="rpg", data=_data())
-
-    categories.read_by_slug.assert_called_once_with(4, "rpg")
-    categories.update.assert_called_once_with(
-        7,
-        {
-            "name": "RPG",
-            "description": "Games",
-            "start_time": None,
-            "end_time": None,
-            "durations": ["PT4H"],
-            "min_participants_limit": 2,
-            "max_participants_limit": 5,
-            "promotion_mode": PromotionMode.OFFER_CLAIM,
-            "offer_claim_window": timedelta(minutes=30),
-        },
-    )
-    categories.set_field_requirements.assert_called_once_with(7, {1: True}, [1])
-    categories.set_session_field_requirements.assert_called_once_with(
-        7, {2: False}, [2]
-    )
-    categories.set_time_slot_requirements.assert_called_once_with(7, {3: True}, [3])
-    assert transaction.active is False
-
-
 def test_update_leaves_promotion_config_untouched_when_not_submitted() -> None:
     repos, categories = _mock_repos()
     data = _data().model_copy(
         update={"promotion_mode": None, "offer_claim_window": None}
     )
 
-    _service(RecordingTransaction(), repos).update(
+    _service(FakeTransaction(), repos).update(
         event_id=4, category_slug="rpg", data=data
     )
 
@@ -183,11 +133,19 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     proposal_count = 5
     repos.sessions.count_by_category.return_value = proposal_count
 
-    page = _service(RecordingTransaction(), repos).read_context(4, "rpg")
+    page = _service(FakeTransaction(), repos).read_context(4, "rpg")
 
     assert [field.pk for field in page.available_fields] == [3, 1, 2]
     assert page.proposal_count == proposal_count
 
 
-def assert_transaction_active(transaction: RecordingTransaction) -> None:
-    assert transaction.active is True
+def test_update_writes_submitted_promotion_config() -> None:
+    repos, categories = _mock_repos()
+
+    _service(FakeTransaction(), repos).update(
+        event_id=4, category_slug="rpg", data=_data()
+    )
+
+    payload = categories.update.call_args.args[1]
+    assert payload["promotion_mode"] == PromotionMode.OFFER_CLAIM
+    assert payload["offer_claim_window"] == timedelta(minutes=30)

@@ -104,6 +104,29 @@ class TestEncounterFormWithManagersOnlyPolicy:
             template_name="notice_board/create.html",
         )
 
+    def test_create_asks_an_anonymous_visitor_to_sign_in_first(self, client, settings):
+        response = client.get(reverse("web:notice-board:create"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"{settings.LOGIN_URL}?next={reverse('web:notice-board:create')}",
+        )
+
+    def test_edit_stays_open_to_the_member_who_made_it(
+        self, authenticated_client, encounter
+    ):
+        response = authenticated_client.get(
+            reverse("web:notice-board:edit", kwargs={"pk": encounter.pk})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY, "encounter": ANY},
+            template_name="notice_board/edit.html",
+        )
+
     def test_share_code_page_stays_served(self, client, encounter):
         response = client.get(
             reverse(

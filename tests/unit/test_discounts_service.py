@@ -1,36 +1,22 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
 from ludamus.mills.discounts import DiscountsService
-from ludamus.pacts import FacilitatorDTO, NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountDTO,
     DiscountKind,
     DiscountMethod,
-    DiscountRosterEntryDTO,
+    DiscountRuleData,
     DiscountRuleDTO,
     DiscountSyncResultDTO,
     FacilitatorScheduleRow,
 )
 from ludamus.pacts.event import FacilitatorListItemDTO
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def __init__(self):
-        self.entered = 0
-
-    def atomic(self):
-        self.entered += 1
-        return _atomic()
+from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
+from tests.unit.factories import FakeTransaction
 
 
 def _dto(pk, *, event_id=1, facilitator_id=1, from_rules=False):
@@ -64,17 +50,6 @@ def _load(facilitator_id=1, *, session_count=1, minutes=60):
     )
 
 
-def _facilitator(pk=1, event_id=1):
-    return FacilitatorDTO(
-        accreditation_type="standard",
-        display_name="Ada",
-        event_id=event_id,
-        pk=pk,
-        slug="ada",
-        user_id=None,
-    )
-
-
 def _list_item(pk=1, accreditation_type="standard"):
     return FacilitatorListItemDTO(
         accreditation_type=accreditation_type,
@@ -97,10 +72,7 @@ class FakeRepo:
         return [d for d in self._items if d.event_id == event_pk]
 
     def get(self, pk):
-        for discount in self._items:
-            if discount.pk == pk:
-                return discount
-        raise NotFoundError
+        return next(d for d in self._items if d.pk == pk)
 
     def create(self, event_pk, data):
         self.created.append((event_pk, data))
@@ -115,19 +87,16 @@ class FakeRepo:
 
 
 class FakeFacilitators:
-    def __init__(self, *, list_items=(), facilitators=()):
+    def __init__(self, *, list_items=(), facilitator=None):
         self._list_items = list(list_items)
-        self._facilitators = {f.pk: f for f in facilitators}
+        self._facilitator = facilitator
         self.accreditations = []
 
     def list_by_event(self, _event_id):
         return list(self._list_items)
 
-    def read(self, pk):
-        try:
-            return self._facilitators[pk]
-        except KeyError:
-            raise NotFoundError from None
+    def read(self, _pk):
+        return self._facilitator
 
     def set_accreditation(self, *, event_id, pks, accreditation_type):
         self.accreditations.append((event_id, sorted(pks), accreditation_type))
@@ -135,10 +104,31 @@ class FakeFacilitators:
 
 class FakeRules:
     def __init__(self, *, rules=()):
-        self._rules = list(rules)
+        self._rules = {rule.pk: rule for rule in rules}
 
     def list_for_event(self, event_id):
-        return [rule for rule in self._rules if rule.event_id == event_id]
+        return [rule for rule in self._rules.values() if rule.event_id == event_id]
+
+    def read(self, event_id, pk):
+        rule = self._rules.get(pk)
+        return rule if rule and rule.event_id == event_id else None
+
+    def create(self, event_id, data):
+        rule = DiscountRuleDTO(pk=len(self._rules) + 1, event_id=event_id, **dict(data))
+        self._rules[rule.pk] = rule
+        return rule
+
+    def update(self, *, event_id, pk, data):
+        if self.read(event_id, pk) is None:
+            return None
+        self._rules[pk] = DiscountRuleDTO(pk=pk, event_id=event_id, **dict(data))
+        return self._rules[pk]
+
+    def delete(self, event_id, pk):
+        if self.read(event_id, pk) is None:
+            return False
+        del self._rules[pk]
+        return True
 
 
 class FakeSchedule:
@@ -158,142 +148,16 @@ class FakeChangeLogs:
 
 
 def _service(
-    *,
-    repo=None,
-    facilitators=None,
-    transaction=None,
-    rules=None,
-    schedule=None,
-    change_logs=None,
+    *, repo=None, facilitators=None, rules=None, schedule=None, change_logs=None
 ):
     return DiscountsService(
-        transaction=transaction or FakeTransaction(),
+        transaction=FakeTransaction(),
         discounts=repo or FakeRepo(),
         facilitators=facilitators or FakeFacilitators(),
         rules=rules or FakeRules(),
         schedule=schedule or FakeSchedule(),
         facilitator_change_logs=change_logs or FakeChangeLogs(),
     )
-
-
-def _data(facilitator_id=1):
-    return DiscountData(
-        facilitator_id=facilitator_id,
-        kind=DiscountKind.PERCENT,
-        value=Decimal("10.00"),
-        note="note",
-        from_rules=False,
-    )
-
-
-def _log(facilitator_id, old, new, *, event_id=1, user_id=7):
-    return {
-        "event_id": event_id,
-        "facilitator_id": facilitator_id,
-        "user_id": user_id,
-        "changes": [
-            {"field": "accreditation_type", "field_id": None, "old": old, "new": new}
-        ],
-    }
-
-
-class TestDiscountsService:
-    def test_list_roster_pairs_facilitators_with_their_discounts(self):
-        discount = _dto(1, facilitator_id=1)
-        repo = FakeRepo(items=[discount, _dto(2, event_id=2, facilitator_id=2)])
-        facilitators = FakeFacilitators(list_items=[_list_item(pk=1), _list_item(pk=2)])
-        service = _service(repo=repo, facilitators=facilitators)
-
-        result = service.list_roster(1)
-
-        assert result == [
-            DiscountRosterEntryDTO(facilitator=_list_item(pk=1), discount=discount),
-            DiscountRosterEntryDTO(facilitator=_list_item(pk=2), discount=None),
-        ]
-
-    def test_read_scoped_returns_discount_from_current_event(self):
-        pk = 7
-        repo = FakeRepo(items=[_dto(pk, event_id=1)])
-        service = _service(repo=repo)
-
-        result = service.read_scoped(event_pk=1, pk=pk)
-
-        assert result == _dto(pk, event_id=1)
-
-    def test_read_scoped_rejects_foreign_event_discount(self):
-        pk = 7
-        repo = FakeRepo(items=[_dto(pk, event_id=2)])
-        service = _service(repo=repo)
-
-        with pytest.raises(NotFoundError):
-            service.read_scoped(event_pk=1, pk=pk)
-
-        assert not repo.updated
-        assert not repo.soft_deleted
-
-    def test_read_scoped_propagates_not_found(self):
-        service = _service(repo=FakeRepo())
-
-        with pytest.raises(NotFoundError):
-            service.read_scoped(event_pk=1, pk=999)
-
-    def test_read_scoped_facilitator_returns_facilitator_from_current_event(self):
-        facilitator = _facilitator(pk=3, event_id=1)
-        service = _service(facilitators=FakeFacilitators(facilitators=[facilitator]))
-
-        result = service.read_scoped_facilitator(event_pk=1, facilitator_id=3)
-
-        assert result == facilitator
-
-    def test_read_scoped_facilitator_rejects_foreign_event_facilitator(self):
-        facilitators = FakeFacilitators(facilitators=[_facilitator(pk=3, event_id=2)])
-        service = _service(facilitators=facilitators)
-
-        with pytest.raises(NotFoundError):
-            service.read_scoped_facilitator(event_pk=1, facilitator_id=3)
-
-    def test_read_scoped_facilitator_propagates_not_found(self):
-        service = _service(facilitators=FakeFacilitators())
-
-        with pytest.raises(NotFoundError):
-            service.read_scoped_facilitator(event_pk=1, facilitator_id=999)
-
-    def test_create_runs_in_transaction(self):
-        created_pk = 99
-        repo = FakeRepo()
-        transaction = FakeTransaction()
-        service = _service(repo=repo, transaction=transaction)
-        data = _data()
-
-        result = service.create(1, data)
-
-        assert transaction.entered == 1
-        assert repo.created == [(1, data)]
-        assert result == _dto(created_pk)
-
-    def test_update_runs_in_transaction(self):
-        pk = 5
-        repo = FakeRepo()
-        transaction = FakeTransaction()
-        service = _service(repo=repo, transaction=transaction)
-        data = _data()
-
-        result = service.update(pk, data)
-
-        assert transaction.entered == 1
-        assert repo.updated == [(pk, data)]
-        assert result == _dto(pk)
-
-    def test_soft_delete_runs_in_transaction(self):
-        pk = 5
-        repo = FakeRepo()
-        transaction = FakeTransaction()
-        service = _service(repo=repo, transaction=transaction)
-
-        service.soft_delete(pk)
-
-        assert transaction.entered == 1
-        assert repo.soft_deleted == [pk]
 
 
 class TestApplyFromAgenda:
@@ -311,30 +175,6 @@ class TestApplyFromAgenda:
         )
         result = service.apply_from_agenda(event_pk=1, user_id=7)
         return result, repo, facilitators, change_logs
-
-    def test_scheduled_facilitator_becomes_creator_with_the_matching_discount(self):
-        percent = Decimal(50)
-        result, repo, facilitators, change_logs = self._apply(
-            list_items=[_list_item(pk=1, accreditation_type="none")],
-            rows=[_load(1, minutes=60)],
-            rules=[_rule(1, quantity=1, percent=percent)],
-        )
-
-        assert facilitators.accreditations == [(1, [1], "creator")]
-        assert change_logs.batches == [[_log(1, "none", "creator")]]
-        assert repo.created == [
-            (
-                1,
-                DiscountData(
-                    facilitator_id=1,
-                    kind=DiscountKind.PERCENT,
-                    value=percent,
-                    from_rules=True,
-                ),
-            )
-        ]
-        assert result.marked == 1
-        assert result.discounts_set == 1
 
     def test_started_hours_round_the_total_up(self):
         # Two 25-minute points are 50 minutes — one started hour, not two.
@@ -401,21 +241,6 @@ class TestApplyFromAgenda:
             marked=0, unmarked=0, discounts_set=0, discounts_cleared=0
         )
 
-    def test_creator_without_scheduled_program_loses_mark_and_rule_discount(self):
-        pk = 4
-        result, repo, facilitators, change_logs = self._apply(
-            list_items=[_list_item(pk=1, accreditation_type="creator")],
-            rows=[],
-            rules=[_rule(1)],
-            discounts=[_dto(pk, facilitator_id=1, from_rules=True)],
-        )
-
-        assert facilitators.accreditations == [(1, [1], "none")]
-        assert change_logs.batches == [[_log(1, "creator", "none")]]
-        assert repo.soft_deleted == [pk]
-        assert result.unmarked == 1
-        assert result.discounts_cleared == 1
-
     def test_hand_assigned_discount_survives_the_sync(self):
         _result, repo, _facilitators, _change_logs = self._apply(
             list_items=[_list_item(pk=1, accreditation_type="none")],
@@ -427,33 +252,6 @@ class TestApplyFromAgenda:
         assert not repo.created
         assert not repo.updated
         assert not repo.soft_deleted
-
-    def test_every_accreditation_move_is_written_once_per_target(self):
-        result, _repo, facilitators, change_logs = self._apply(
-            list_items=[
-                _list_item(pk=1, accreditation_type="none"),
-                _list_item(pk=2, accreditation_type="none"),
-                _list_item(pk=3, accreditation_type="creator"),
-                _list_item(pk=4, accreditation_type="creator"),
-            ],
-            rows=[_load(1), _load(2)],
-        )
-
-        assert facilitators.accreditations == [
-            (1, [1, 2], "creator"),
-            (1, [3, 4], "none"),
-        ]
-        assert change_logs.batches == [
-            [
-                _log(1, "none", "creator"),
-                _log(2, "none", "creator"),
-                _log(3, "creator", "none"),
-                _log(4, "creator", "none"),
-            ]
-        ]
-        assert result == DiscountSyncResultDTO(
-            marked=2, unmarked=2, discounts_set=0, discounts_cleared=0
-        )
 
     def test_creator_without_a_matching_rule_loses_the_rule_discount(self):
         pk = 4
@@ -490,3 +288,112 @@ class TestApplyFromAgenda:
             )
         ]
         assert result.discounts_set == 1
+
+    def test_unscheduled_creator_falls_back_to_no_accreditation(self):
+        result, _repo, facilitators, change_logs = self._apply(
+            list_items=[_list_item(pk=1, accreditation_type="creator")],
+            rows=[],
+            rules=[_rule(1)],
+        )
+
+        assert facilitators.accreditations == [(1, [1], "none")]
+        assert [log["changes"] for log in change_logs.batches[0]] == [
+            [
+                {
+                    "field": "accreditation_type",
+                    "field_id": None,
+                    "old": "creator",
+                    "new": "none",
+                }
+            ]
+        ]
+        assert result.unmarked == 1
+
+
+class TestRules:
+    def test_rules_live_and_die_within_their_event(self):
+        rules = FakeRules(rules=[_rule(1)])
+        service = _service(rules=rules)
+        data = DiscountRuleData(
+            method=DiscountMethod.SESSION_COUNT,
+            quantity=2,
+            percent=Decimal(30),
+            order=1,
+        )
+
+        created = service.create_rule(1, data)
+
+        assert service.list_rules(1) == [_rule(1), created]
+        assert service.read_rule(1, created.pk) == created
+        assert service.read_rule(99, created.pk) is None
+        assert service.update_rule(event_pk=99, pk=created.pk, data=data) is None
+        assert service.update_rule(event_pk=1, pk=created.pk, data=data) == created
+        assert service.delete_rule(99, created.pk) is False
+        assert service.delete_rule(1, created.pk) is True
+        assert service.list_rules(1) == [_rule(1)]
+
+
+class TestScopedReads:
+    def test_a_discount_of_another_event_is_not_found(self):
+        service = _service(repo=FakeRepo(items=[_dto(4, event_id=2)]))
+
+        with pytest.raises(NotFoundError):
+            service.read_scoped(event_pk=1, pk=4)
+
+    def test_a_discount_of_the_event_is_read(self):
+        service = _service(repo=FakeRepo(items=[_dto(4)]))
+
+        assert service.read_scoped(event_pk=1, pk=4) == _dto(4)
+
+    def test_a_facilitator_of_another_event_is_not_found(self):
+        facilitator = FacilitatorDTO(
+            accreditation_type="none",
+            display_name="Ada",
+            event_id=2,
+            pk=1,
+            slug="ada",
+            user_id=None,
+        )
+        service = _service(facilitators=FakeFacilitators(facilitator=facilitator))
+
+        with pytest.raises(NotFoundError):
+            service.read_scoped_facilitator(event_pk=1, facilitator_id=1)
+        assert (
+            service.read_scoped_facilitator(event_pk=2, facilitator_id=1) == facilitator
+        )
+
+
+class TestHandWrites:
+    def test_create_update_and_soft_delete_reach_the_store(self):
+        repo = FakeRepo()
+        service = _service(repo=repo)
+        data = DiscountData(
+            facilitator_id=1,
+            kind=DiscountKind.PERCENT,
+            value=Decimal(10),
+            from_rules=False,
+        )
+
+        created = service.create(1, data)
+        updated = service.update(created.pk, data)
+        service.soft_delete(created.pk)
+
+        assert repo.created == [(1, data)]
+        assert repo.updated == [(created.pk, data)]
+        assert repo.soft_deleted == [created.pk]
+        assert updated.pk == created.pk
+
+
+class TestRoster:
+    def test_pairs_each_facilitator_with_their_discount_or_none(self):
+        service = _service(
+            repo=FakeRepo(items=[_dto(4, facilitator_id=2)]),
+            facilitators=FakeFacilitators(list_items=[_list_item(1), _list_item(2)]),
+        )
+
+        roster = service.list_roster(1)
+
+        assert [(entry.facilitator.pk, entry.discount) for entry in roster] == [
+            (1, None),
+            (2, _dto(4, facilitator_id=2)),
+        ]

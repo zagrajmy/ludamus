@@ -25,6 +25,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
+from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
@@ -348,6 +349,23 @@ class ParticipationPromotionRepository:
             participation.session_id, participation.claim_token
         )
 
+    def read_offer_for_member(
+        self, *, user_id: int, session_id: int
+    ) -> OfferDTO | None:
+        token = (
+            SessionParticipation.objects.filter(
+                user_id=user_id,
+                session_id=session_id,
+                status=SessionParticipationStatus.OFFERED,
+            )
+            .exclude(claim_token="")
+            .values_list("claim_token", flat=True)
+            .first()
+        )
+        if token is None:
+            return None
+        return self._read_locked_party(session_id, token)
+
     def _read_locked_party(self, session_id: int, token: str) -> OfferDTO | None:
         # Lock the party's still-OFFERED rows for the caller's transaction so
         # claim and expiry serialise; the loser re-reads an empty set and no-ops.
@@ -473,6 +491,10 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             raise NotFoundError from exception
         event = session.event
         has_agenda_item = hasattr(session, "agenda_item")
+        if has_agenda_item and not is_publicly_scheduled(
+            event_id=event.pk, session_id=session.pk
+        ):
+            raise NotFoundError
         return AnonymousSessionDTO(
             session_id=session.pk,
             event_id=event.pk,

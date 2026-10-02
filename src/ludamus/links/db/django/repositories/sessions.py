@@ -56,7 +56,7 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     SessionModalDTO,
     SessionModalRepositoryProtocol,
-    SessionModalSeatDTO,
+    SessionSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import ConfirmationSessionRow
@@ -200,6 +200,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
         field_slug=fv.field.slug,
         field_type=fv.field.field_type,
         is_public=fv.field.is_public,
+        show_on_cards=fv.field.show_on_cards,
         value=fv.value,
     )
 
@@ -230,7 +231,7 @@ def _session_modal_dto(
             user_dto(session.presenter) if session.presenter is not None else None
         ),
         participations=[
-            SessionModalSeatDTO(
+            SessionSeatDTO(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,

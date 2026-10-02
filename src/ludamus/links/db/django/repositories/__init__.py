@@ -3,13 +3,14 @@ from ludamus.links.db.django.repositories.chronology import (
     EventIntegrationsRepository,
     EventPanelSettingsRepository,
     EventRepository,
-    EventSettingsRepository,
     PartySessionHistoryRepository,
 )
+from ludamus.links.db.django.repositories.dashboard import DashboardRepository
 from ludamus.links.db.django.repositories.discounts import (
     DiscountRepository,
     DiscountRuleRepository,
 )
+from ludamus.links.db.django.repositories.event import LandingStatsRepository
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.maps import EventMapRepository
 from ludamus.links.db.django.repositories.multiverse import (
@@ -42,6 +43,7 @@ from ludamus.links.db.django.repositories.venues import (
 __all__ = [
     "AnnouncementsRepository",
     "ConnectionsRepository",
+    "DashboardRepository",
     "DiscountRepository",
     "DiscountRuleRepository",
     "EncounterRSVPRepository",
@@ -52,9 +54,9 @@ __all__ = [
     "EventPanelSettingsRepository",
     "EventProposalSettingsRepository",
     "EventRepository",
-    "EventSettingsRepository",
     "FacilitatorRepository",
     "ImportLogEntryRepository",
+    "LandingStatsRepository",
     "PartySessionHistoryRepository",
     "PersonalDataFieldRepository",
     "PersonalDataFieldValueRepository",

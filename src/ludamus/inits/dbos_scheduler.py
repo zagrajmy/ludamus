@@ -36,8 +36,11 @@ from dbos import DBOS
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_encounters,
     build_konwencik_export,
     build_printables_reminder,
+    build_sites,
+    build_sphere_subscriptions,
     build_waitlist_promotion,
 )
 
@@ -55,6 +58,12 @@ PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
 # rewrite, so re-running is free and nothing accumulates between ticks. The
 # sweep is already bounded by sync-on and event-not-long-finished.
 KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
+# Subscribers hear about a new programme within the hour, not the minute:
+# publishing is an editorial act, and a burst of mail on the exact tick
+# would catch the organizer's own last-second fixes.
+SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
+# Rows only wait out the one-day invite window, so daily is enough.
+ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
 
 
 @DBOS.step()
@@ -97,6 +106,18 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+def _announce_published_events_step(now: datetime) -> None:
+    announced = build_sphere_subscriptions().announce_published_events(now=now)
+    logger.info("sphere announcements: announced %s event(s)", announced)
+
+
+@DBOS.scheduled(SPHERE_ANNOUNCEMENTS_SCHEDULE)
+@DBOS.workflow()
+def sphere_announcements_tick(scheduled: datetime, _actual: datetime) -> None:
+    _announce_published_events_step(scheduled)
+
+
+@DBOS.step()
 def _export_konwencik_step(now: datetime) -> None:
     exported = build_konwencik_export().run_sweep(now=now)
     logger.info("konwencik export sweep: exported %s integration(s)", exported)
@@ -106,6 +127,17 @@ def _export_konwencik_step(now: datetime) -> None:
 @DBOS.workflow()
 def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
     _export_konwencik_step(scheduled)
+
+
+@DBOS.step()
+def _purge_encounter_invitees_step(now: datetime) -> None:
+    build_encounters(build_sites()).purge_stale_invitees(now=now)
+
+
+@DBOS.scheduled(ENCOUNTER_INVITEE_PURGE_SCHEDULE)
+@DBOS.workflow()
+def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None:
+    _purge_encounter_invitees_step(scheduled)
 
 
 def _ensure_launched() -> None:
@@ -130,7 +162,9 @@ def _ensure_launched() -> None:
                 for w in (
                     expire_offers_sweep,
                     printables_reminders_tick,
+                    sphere_announcements_tick,
                     konwencik_export_tick,
+                    encounter_invitee_purge_tick,
                 )
             ],
         )

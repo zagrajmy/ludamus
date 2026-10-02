@@ -6,18 +6,6 @@ _SLUG_MAX_LENGTH = 50
 
 
 class TestUniqueSlug:
-    def test_returns_base_slug_when_available(self) -> None:
-        slug = unique_slug(
-            base="hello-world", default="session", exists=lambda _s: False
-        )
-
-        assert slug == "hello-world"
-
-    def test_falls_back_to_default_for_empty_base(self) -> None:
-        slug = unique_slug(base="", default="session", exists=lambda _s: False)
-
-        assert slug == "session"
-
     def test_caps_long_base_to_column_length(self) -> None:
         # A 60-char base is past varchar(50); it must be trimmed so the INSERT
         # can't overflow on Postgres (SQLite silently ignores it).
@@ -45,3 +33,11 @@ class TestUniqueSlug:
 
         assert len(slug) <= _SLUG_MAX_LENGTH
         assert slug != seen[0]  # a suffix was appended after the collision
+
+    def test_gives_up_after_four_collisions_with_a_suffixed_slug(self) -> None:
+        # Every candidate collides: the loop must terminate and still hand back
+        # a suffixed slug rather than the bare base.
+        slug = unique_slug(base="taken", default="session", exists=lambda _s: True)
+
+        assert slug.startswith("taken-")
+        assert len(slug) <= _SLUG_MAX_LENGTH

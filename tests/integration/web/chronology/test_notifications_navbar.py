@@ -25,7 +25,7 @@ class TestNavbarNotifications:
     ):
         notification = _make_notification(active_user)
 
-        response = authenticated_client.get(reverse("web:events"))
+        response = authenticated_client.get(reverse("web:index"))
 
         # The bell comes from a context processor, so it never reaches
         # `response.context_data` — the rendering context is the only place
@@ -38,7 +38,7 @@ class TestNavbarNotifications:
         other = UserFactory(username="someone-else", email="else@example.com")
         _make_notification(other)
 
-        response = authenticated_client.get(reverse("web:events"))
+        response = authenticated_client.get(reverse("web:index"))
 
         assert response.context["navbar_notifications"] == NavbarNotificationsDTO(
             unread_count=0, items=[]

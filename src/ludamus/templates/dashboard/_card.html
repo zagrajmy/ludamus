@@ -1,0 +1,39 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    One dated thing on the dashboard. `card` is a DashboardCardDTO, which
+    carries an absolute URL — these rows come from every sphere at once, so a
+    relative link would point at whichever domain is rendering. An offered
+    seat also carries a claim button.
+{% endcomment %}
+<article class="card flex flex-col overflow-hidden">
+    <a href="{{ card.url }}"
+       class="flex flex-1 flex-col hover:bg-bg-tertiary transition-colors">
+        {% if card.cover_url %}
+            {% include "components/cover_tint.html" with url=card.cover_url extra_class="min-h-28" only %}
+        {% endif %}
+        <div class="flex flex-col gap-1 p-4">
+            <h3 {% if card.claim_url %}id="{{ card.claim_url|slugify }}"{% endif %}
+                class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>
+            <p class="text-sm text-foreground-secondary tabular-nums">{{ card.start_time|date:"j E, H:i" }}</p>
+            <p class="text-xs text-foreground-muted">
+                {{ card.origin_name }}
+                {% if card.place %}· {{ card.place }}{% endif %}
+            </p>
+            {% include "dashboard/_role.html" %}
+        </div>
+    </a>
+    {% if card.claim_url %}
+        {% comment %}
+            Outside the link: a form can't nest in an anchor. The claim posts to
+            the root domain and comes back here, so no cross-site form is needed.
+        {% endcomment %}
+        <form method="post" action="{{ card.claim_url }}" class="px-4 pb-4">
+            {% csrf_token %}
+            {% translate "Claim my spot" as claim_label %}
+            {% with claim_title_id=card.claim_url|slugify %}
+                {% tessera_button claim_label size="sm" icon="check" full_width_mobile=False aria_describedby=claim_title_id %}
+            {% endwith %}
+        </form>
+    {% endif %}
+</article>

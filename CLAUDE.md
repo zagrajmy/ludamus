@@ -27,6 +27,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
   resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
   publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
+- No redundant migrations: if something can be done with a settings toggle or a
+  single MCP call, it does not require a migration.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
@@ -87,6 +89,20 @@ migration. [docs/agents/services-migration.md](docs/agents/services-migration.md
 has the per-file recipe. New code must use `request.services`; never extend the
 `request.di.uow` surface.
 
+## Testing
+
+- Never write unit tests after you write code.
+- Highly prefer E2E tests as the sole testing mechanism. Use them to verify
+  complex features work. At the end of E2E tests, produce a verifiable and
+  repeatable artifact.
+- If you must test a system in isolation, first write down all the ways it
+  could fail, then write the code.
+- Tautological tests considered harmful: a test that restates the code it
+  checks always passes and catches nothing.
+- Change-detector tests considered harmful: a test that breaks on every
+  refactor without a behavior change (asserting call sequences, mock
+  arguments, field-by-field mapping) costs more than it guards.
+
 ## Rules
 
 - Functions/methods with 3+ parameters (excluding `self`) take them as
@@ -100,10 +116,9 @@ has the per-file recipe. New code must use `request.services`; never extend the
   split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
   deliberate deviation, `TODO:` known gap, issue link. No narration, no
   summaries, no work history microblogging.
-- Test type follows the layer under test: `mills` gets unit tests; `gates`,
-  `links`, `adapters.web`, and templates get integration tests. This holds
-  when raising coverage too. Details and the pure-helper exception:
-  [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
+- `gates`, `links`, `adapters.web`, and templates get integration tests when
+  they need a Python test at all. Never raise coverage with a mock-everything
+  unit test. Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - View tests use `assert_response`, never manual assertions, and use ANY only
   for forms/views, never for simple values ([], {}, booleans, strings, ints).
   Patterns: [docs/agents/testing-assertions.md](docs/agents/testing-assertions.md).
@@ -118,8 +133,7 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - Panel access proves you manage the current sphere/event, not the objects the
   request names. Scope every request-supplied id (URL pk/slug and body ids)
   to `current_event`/sphere before read or write. Do it in the service, not
-  the view, and test that a foreign id 404/422s without side effects. See
-  [panel object-scope authz](docs/refactors/panel-object-scope-authz.md).
+  the view, and test that a foreign id 404/422s without side effects.
 - Keep `__init__.py` empty and import each symbol from the module that defines
   it. The allowed facade exceptions are listed in the `glimpse` skill.
 
@@ -150,6 +164,11 @@ has the per-file recipe. New code must use `request.services`; never extend the
   integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
+- [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
+  Cloudflare MCP triage. In Claude web sandboxes `.mcp.json` servers stay
+  unauthenticated; use the claude.ai PostHog and Cloudflare connectors,
+  which are already set up. The `zagrajmy-cloudflare`/`zagrajmy-posthog`
+  auth warnings there are expected — don't report them.
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)

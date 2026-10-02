@@ -1,34 +1,31 @@
-from contextlib import contextmanager
-
 from ludamus.mills.guild import GuildService
 from ludamus.pacts.guild import (
     AssignableFacilitatorRef,
     AssignMemberOutcome,
     DeleteGuildOutcome,
+    GuildDTO,
     GuildMarkDTO,
     GuildSummaryDTO,
 )
+from tests.unit.factories import FakeTransaction
 
 SPHERE_PK = 3
 GUILD_PK = 7
-OTHER_GUILD_PK = 8
 MEMBER_PK = 42
 FACILITATOR_PK = 77
-MEMBERSHIP_PK = 99
+SESSION_PK = 91
 
 
-class FakeTransaction:
-    @contextmanager
-    def atomic(self):
-        yield
-
-    @contextmanager
-    def savepoint(self):
-        yield
+def _summary(pk):
+    return GuildSummaryDTO(pk=pk, name="Topory", slug="topory")
 
 
-def _summary(pk=GUILD_PK, name="Topory"):
-    return GuildSummaryDTO(pk=pk, name=name, slug=name.lower())
+def _guild():
+    return GuildDTO(pk=GUILD_PK, name="Topory", slug="topory", members=[])
+
+
+def _mark():
+    return GuildMarkDTO(pk=GUILD_PK, name="Topory")
 
 
 class FakeGuilds:
@@ -38,10 +35,9 @@ class FakeGuilds:
         matches=None,
         facilitator_matches=None,
         current=None,
-        assigns=True,
-        sets_facilitator=True,
-        deletes=True,
         taken_slugs=(),
+        assign_ok=True,
+        set_ok=True,
     ):
         self.calls = []
         self._cfg = {
@@ -50,38 +46,60 @@ class FakeGuilds:
                 [] if facilitator_matches is None else facilitator_matches
             ),
             "current": current,
-            "assigns": assigns,
-            "sets_facilitator": sets_facilitator,
-            "deletes": deletes,
             "taken_slugs": set(taken_slugs),
+            "assign_ok": assign_ok,
+            "set_ok": set_ok,
         }
 
-    def list_for_sphere(self, *, sphere_id):
-        self.calls.append(("list_for_sphere", sphere_id))
-        return [_summary()]
+    @staticmethod
+    def list_for_sphere(*, sphere_id):
+        return [_summary(GUILD_PK)] if sphere_id == SPHERE_PK else []
 
-    def read(self, *, sphere_id, guild_pk):
-        self.calls.append(("read", sphere_id, guild_pk))
+    @staticmethod
+    def read(*, sphere_id, guild_pk):
+        return _guild() if (sphere_id, guild_pk) == (SPHERE_PK, GUILD_PK) else None
 
     def create(self, *, sphere_id, data):
         self.calls.append(("create", sphere_id, dict(data)))
         return GUILD_PK
 
-    def slug_exists(self, *, sphere_id, slug):
-        self.calls.append(("slug_exists", sphere_id, slug))
-        return slug in self._cfg["taken_slugs"]
-
     def update(self, *, sphere_id, guild_pk, data):
         self.calls.append(("update", sphere_id, guild_pk, dict(data)))
-        return True
+        return (sphere_id, guild_pk) == (SPHERE_PK, GUILD_PK)
 
     def delete(self, *, sphere_id, guild_pk):
         self.calls.append(("delete", sphere_id, guild_pk))
-        return self._cfg["deletes"]
+        return (sphere_id, guild_pk) == (SPHERE_PK, GUILD_PK)
 
-    def list_facilitator_names(self, *, sphere_id):
-        self.calls.append(("list_facilitator_names", sphere_id))
-        return []
+    @staticmethod
+    def list_facilitator_names(*, sphere_id):
+        return ["Marek"] if sphere_id == SPHERE_PK else []
+
+    @staticmethod
+    def remove_member(*, sphere_id, guild_pk, membership_pk):
+        return (sphere_id, guild_pk, membership_pk) == (SPHERE_PK, GUILD_PK, MEMBER_PK)
+
+    @staticmethod
+    def clear_facilitator(*, sphere_id, guild_pk, facilitator_pk):
+        return (sphere_id, guild_pk, facilitator_pk) == (
+            SPHERE_PK,
+            GUILD_PK,
+            FACILITATOR_PK,
+        )
+
+    @staticmethod
+    def marks_for_facilitators(*, sphere_id, facilitator_pks):
+        assert sphere_id == SPHERE_PK
+        return {pk: _mark() for pk in facilitator_pks if pk == FACILITATOR_PK}
+
+    @staticmethod
+    def marks_for_sessions(*, sphere_id, session_pks):
+        assert sphere_id == SPHERE_PK
+        return {pk: _mark() for pk in session_pks if pk == SESSION_PK}
+
+    def slug_exists(self, *, sphere_id, slug):
+        self.calls.append(("slug_exists", sphere_id, slug))
+        return slug in self._cfg["taken_slugs"]
 
     def find_assignable_users(self, *, identifier):
         self.calls.append(("find_assignable_users", identifier))
@@ -95,7 +113,7 @@ class FakeGuilds:
         self.calls.append(
             ("set_facilitator_guild", sphere_id, facilitator_pk, guild_pk)
         )
-        return self._cfg["sets_facilitator"]
+        return self._cfg["set_ok"]
 
     def read_member_guild(self, *, sphere_id, user_pk):
         self.calls.append(("read_member_guild", sphere_id, user_pk))
@@ -103,23 +121,7 @@ class FakeGuilds:
 
     def assign_member(self, *, sphere_id, guild_pk, user_pk):
         self.calls.append(("assign_member", sphere_id, guild_pk, user_pk))
-        return self._cfg["assigns"]
-
-    def remove_member(self, *, sphere_id, guild_pk, membership_pk):
-        self.calls.append(("remove_member", sphere_id, guild_pk, membership_pk))
-        return True
-
-    def clear_facilitator(self, *, sphere_id, guild_pk, facilitator_pk):
-        self.calls.append(("clear_facilitator", sphere_id, guild_pk, facilitator_pk))
-        return True
-
-    def marks_for_facilitators(self, *, sphere_id, facilitator_pks):
-        self.calls.append(("marks_for_facilitators", sphere_id, tuple(facilitator_pks)))
-        return {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
-
-    def marks_for_sessions(self, *, sphere_id, session_pks):
-        self.calls.append(("marks_for_sessions", sphere_id, tuple(session_pks)))
-        return {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
+        return self._cfg["assign_ok"]
 
 
 def _service(guilds):
@@ -127,18 +129,6 @@ def _service(guilds):
 
 
 class TestCreate:
-    def test_slugifies_and_creates(self):
-        guilds = FakeGuilds()
-
-        result = _service(guilds).create(
-            sphere_id=SPHERE_PK, base_slug="topory", data={"name": "Topory"}
-        )
-
-        assert result == GUILD_PK
-        assert ("create", SPHERE_PK, {"name": "Topory", "slug": "topory"}) in (
-            guilds.calls
-        )
-
     def test_suffixes_a_taken_slug(self):
         guilds = FakeGuilds(taken_slugs={"topory"})
 
@@ -161,153 +151,7 @@ class TestCreate:
         assert created[2]["slug"] == "guild"
 
 
-class TestUpdate:
-    def test_never_rewrites_the_slug(self):
-        guilds = FakeGuilds()
-
-        _service(guilds).update(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, data={"name": "Topory Rawa"}
-        )
-
-        assert ("update", SPHERE_PK, GUILD_PK, {"name": "Topory Rawa"}) in guilds.calls
-
-
-class TestDelete:
-    def test_deletes_guild(self):
-        guilds = FakeGuilds()
-
-        outcome = _service(guilds).delete(sphere_id=SPHERE_PK, guild_pk=GUILD_PK)
-
-        assert outcome == DeleteGuildOutcome.DELETED
-        assert ("delete", SPHERE_PK, GUILD_PK) in guilds.calls
-
-    def test_reports_not_found_for_a_foreign_guild(self):
-        guilds = FakeGuilds(deletes=False)
-
-        outcome = _service(guilds).delete(sphere_id=SPHERE_PK, guild_pk=GUILD_PK)
-
-        assert outcome == DeleteGuildOutcome.NOT_FOUND
-
-
 class TestAssignMember:
-    def test_assigns_a_presenter_with_no_guild_yet(self):
-        guilds = FakeGuilds(current=None)
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="marek@example.com"
-        )
-
-        assert outcome == AssignMemberOutcome.ASSIGNED
-        assert ("assign_member", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
-
-    def test_reports_moved_when_reassigning_from_another_guild(self):
-        guilds = FakeGuilds(current=_summary(pk=OTHER_GUILD_PK, name="TolCalen"))
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="marek@example.com"
-        )
-
-        assert outcome == AssignMemberOutcome.MOVED
-        assert ("assign_member", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
-
-    def test_is_a_no_op_when_already_in_this_guild(self):
-        guilds = FakeGuilds(current=_summary(pk=GUILD_PK))
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="marek@example.com"
-        )
-
-        assert outcome == AssignMemberOutcome.ALREADY_MEMBER
-        assert not [call for call in guilds.calls if call[0] == "assign_member"]
-
-    def test_rejects_an_unknown_handle(self):
-        guilds = FakeGuilds(matches=[])
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="nobody@example.com"
-        )
-
-        assert outcome == AssignMemberOutcome.NO_SUCH_USER
-        assert not [call for call in guilds.calls if call[0] == "assign_member"]
-
-    def test_rejects_an_ambiguous_handle(self):
-        guilds = FakeGuilds(matches=[1, 2])
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="ann"
-        )
-
-        assert outcome == AssignMemberOutcome.AMBIGUOUS_HANDLE
-        assert not [call for call in guilds.calls if call[0] == "assign_member"]
-
-    def test_reports_no_such_user_when_the_guild_is_foreign(self):
-        guilds = FakeGuilds(assigns=False)
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="marek@example.com"
-        )
-
-        assert outcome == AssignMemberOutcome.NO_SUCH_USER
-
-    def test_assigns_an_accountless_presenter_by_name(self):
-        guilds = FakeGuilds(
-            matches=[],
-            facilitator_matches=[
-                AssignableFacilitatorRef(pk=FACILITATOR_PK, user_id=None, guild_id=None)
-            ],
-        )
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Bea"
-        )
-
-        assert outcome == AssignMemberOutcome.ASSIGNED
-        assert (
-            "set_facilitator_guild",
-            SPHERE_PK,
-            FACILITATOR_PK,
-            GUILD_PK,
-        ) in guilds.calls
-
-    def test_is_a_no_op_when_the_accountless_presenter_is_already_in_this_guild(self):
-        guilds = FakeGuilds(
-            matches=[],
-            facilitator_matches=[
-                AssignableFacilitatorRef(
-                    pk=FACILITATOR_PK, user_id=None, guild_id=GUILD_PK
-                )
-            ],
-        )
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Bea"
-        )
-
-        assert outcome == AssignMemberOutcome.ALREADY_MEMBER
-        assert not [call for call in guilds.calls if call[0] == "set_facilitator_guild"]
-
-    def test_moves_an_accountless_presenter_from_another_guild(self):
-        guilds = FakeGuilds(
-            matches=[],
-            facilitator_matches=[
-                AssignableFacilitatorRef(
-                    pk=FACILITATOR_PK, user_id=None, guild_id=OTHER_GUILD_PK
-                )
-            ],
-        )
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Bea"
-        )
-
-        assert outcome == AssignMemberOutcome.MOVED
-        assert (
-            "set_facilitator_guild",
-            SPHERE_PK,
-            FACILITATOR_PK,
-            GUILD_PK,
-        ) in guilds.calls
-
     def test_assigns_a_linked_presenter_found_by_name(self):
         guilds = FakeGuilds(
             matches=[],
@@ -325,23 +169,6 @@ class TestAssignMember:
 
         assert outcome == AssignMemberOutcome.ASSIGNED
         assert ("assign_member", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
-
-    def test_assigns_every_accountless_row_sharing_the_name(self):
-        guilds = FakeGuilds(
-            matches=[],
-            facilitator_matches=[
-                AssignableFacilitatorRef(pk=1, user_id=None, guild_id=None),
-                AssignableFacilitatorRef(pk=2, user_id=None, guild_id=None),
-            ],
-        )
-
-        outcome = _service(guilds).assign_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Ann"
-        )
-
-        assert outcome == AssignMemberOutcome.ASSIGNED
-        assert ("set_facilitator_guild", SPHERE_PK, 1, GUILD_PK) in guilds.calls
-        assert ("set_facilitator_guild", SPHERE_PK, 2, GUILD_PK) in guilds.calls
 
     def test_rejects_a_name_shared_by_two_linked_accounts(self):
         guilds = FakeGuilds(
@@ -383,37 +210,197 @@ class TestAssignMember:
         assert not [call for call in guilds.calls if call[0] == "find_assignable_users"]
 
 
-class TestMarksForSessions:
-    def test_unwraps_the_single_session(self):
-        guilds = FakeGuilds()
+def _ref(pk=FACILITATOR_PK, user_id=None, guild_id=None):
+    return AssignableFacilitatorRef(pk=pk, user_id=user_id, guild_id=guild_id)
 
-        mark = _service(guilds).mark_for_session(
-            sphere_id=SPHERE_PK, session_pk=MEMBER_PK
+
+def _assign(guilds, identifier="Marek"):
+    return _service(guilds).assign_member(
+        sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier=identifier
+    )
+
+
+class TestAssignMemberByHandle:
+    def test_assigns_a_single_account_match(self):
+        guilds = FakeGuilds(matches=[MEMBER_PK])
+
+        assert _assign(guilds) == AssignMemberOutcome.ASSIGNED
+        assert ("assign_member", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
+
+    def test_rejects_an_ambiguous_handle(self):
+        guilds = FakeGuilds(matches=[MEMBER_PK, MEMBER_PK + 1])
+
+        assert _assign(guilds) == AssignMemberOutcome.AMBIGUOUS_HANDLE
+        assert not [call for call in guilds.calls if call[0] == "assign_member"]
+
+    def test_reports_an_unknown_handle(self):
+        assert _assign(FakeGuilds(matches=[])) == AssignMemberOutcome.NO_SUCH_USER
+
+    def test_already_a_member_of_this_guild(self):
+        guilds = FakeGuilds(current=_summary(GUILD_PK))
+
+        assert _assign(guilds) == AssignMemberOutcome.ALREADY_MEMBER
+        assert not [call for call in guilds.calls if call[0] == "assign_member"]
+
+    def test_moved_from_another_guild(self):
+        assert _assign(FakeGuilds(current=_summary(GUILD_PK + 1))) == (
+            AssignMemberOutcome.MOVED
         )
 
-        assert mark == GuildMarkDTO(pk=GUILD_PK, name="Topory")
-        assert ("marks_for_sessions", SPHERE_PK, (MEMBER_PK,)) in guilds.calls
+    def test_foreign_guild_pk_fails_as_no_such_user(self):
+        assert _assign(FakeGuilds(assign_ok=False)) == AssignMemberOutcome.NO_SUCH_USER
 
 
-class TestRemoveMember:
-    def test_removes_a_membership_row(self):
-        guilds = FakeGuilds()
+class TestAssignAccountlessFacilitator:
+    def test_already_in_this_guild(self):
+        guilds = FakeGuilds(facilitator_matches=[_ref(guild_id=GUILD_PK)])
 
-        removed = _service(guilds).remove_member(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, membership_pk=MEMBERSHIP_PK
+        assert _assign(guilds) == AssignMemberOutcome.ALREADY_MEMBER
+        assert not [call for call in guilds.calls if call[0] == "set_facilitator_guild"]
+
+    def test_moved_from_another_guild(self):
+        guilds = FakeGuilds(facilitator_matches=[_ref(guild_id=GUILD_PK + 1)])
+
+        assert _assign(guilds) == AssignMemberOutcome.MOVED
+
+    def test_foreign_guild_pk_fails_as_no_such_user(self):
+        guilds = FakeGuilds(
+            facilitator_matches=[_ref(pk=1), _ref(pk=2, guild_id=GUILD_PK)],
+            set_ok=False,
         )
 
-        assert removed is True
-        assert ("remove_member", SPHERE_PK, GUILD_PK, MEMBERSHIP_PK) in guilds.calls
+        assert _assign(guilds) == AssignMemberOutcome.NO_SUCH_USER
 
-
-class TestClearFacilitator:
-    def test_clears_a_facilitator_row(self):
-        guilds = FakeGuilds()
-
-        removed = _service(guilds).clear_facilitator(
-            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, facilitator_pk=MEMBER_PK
+    def test_assigned_wins_over_moved_and_already(self):
+        guilds = FakeGuilds(
+            facilitator_matches=[
+                _ref(pk=1, guild_id=GUILD_PK),
+                _ref(pk=2, guild_id=GUILD_PK + 1),
+                _ref(pk=3),
+            ]
         )
 
-        assert removed is True
-        assert ("clear_facilitator", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
+        assert _assign(guilds) == AssignMemberOutcome.ASSIGNED
+
+    def test_moved_wins_over_already(self):
+        guilds = FakeGuilds(
+            facilitator_matches=[
+                _ref(pk=1, guild_id=GUILD_PK),
+                _ref(pk=2, guild_id=GUILD_PK + 1),
+            ]
+        )
+
+        assert _assign(guilds) == AssignMemberOutcome.MOVED
+
+
+class TestCrudPassThrough:
+    def test_list_and_read_are_scoped_to_the_sphere(self):
+        guilds = FakeGuilds()
+        service = _service(guilds)
+
+        assert service.list_for_sphere(sphere_id=SPHERE_PK) == [_summary(GUILD_PK)]
+        assert service.list_for_sphere(sphere_id=SPHERE_PK + 1) == []
+        assert service.read(sphere_id=SPHERE_PK, guild_pk=GUILD_PK) == _guild()
+        assert service.read(sphere_id=SPHERE_PK + 1, guild_pk=GUILD_PK) is None
+
+    def test_create_uses_the_free_slug(self):
+        guilds = FakeGuilds()
+
+        pk = _service(guilds).create(
+            sphere_id=SPHERE_PK, base_slug="topory", data={"name": "Topory"}
+        )
+
+        assert pk == GUILD_PK
+        assert (
+            "create",
+            SPHERE_PK,
+            {"name": "Topory", "slug": "topory"},
+        ) in guilds.calls
+
+    def test_update_reports_the_repo_answer(self):
+        service = _service(FakeGuilds())
+
+        assert (
+            service.update(sphere_id=SPHERE_PK, guild_pk=GUILD_PK, data={"name": "New"})
+            is True
+        )
+        assert (
+            service.update(
+                sphere_id=SPHERE_PK + 1, guild_pk=GUILD_PK, data={"name": "New"}
+            )
+            is False
+        )
+
+    def test_delete_outcomes(self):
+        service = _service(FakeGuilds())
+
+        assert service.delete(sphere_id=SPHERE_PK, guild_pk=GUILD_PK) == (
+            DeleteGuildOutcome.DELETED
+        )
+        assert service.delete(sphere_id=SPHERE_PK + 1, guild_pk=GUILD_PK) == (
+            DeleteGuildOutcome.NOT_FOUND
+        )
+
+    def test_list_facilitator_names(self):
+        assert _service(FakeGuilds()).list_facilitator_names(sphere_id=SPHERE_PK) == [
+            "Marek"
+        ]
+
+    def test_remove_member_and_clear_facilitator_report_the_repo_answer(self):
+        service = _service(FakeGuilds())
+
+        assert (
+            service.remove_member(
+                sphere_id=SPHERE_PK, guild_pk=GUILD_PK, membership_pk=MEMBER_PK
+            )
+            is True
+        )
+        assert (
+            service.remove_member(
+                sphere_id=SPHERE_PK + 1, guild_pk=GUILD_PK, membership_pk=MEMBER_PK
+            )
+            is False
+        )
+        assert (
+            service.clear_facilitator(
+                sphere_id=SPHERE_PK, guild_pk=GUILD_PK, facilitator_pk=FACILITATOR_PK
+            )
+            is True
+        )
+        assert (
+            service.clear_facilitator(
+                sphere_id=SPHERE_PK + 1,
+                guild_pk=GUILD_PK,
+                facilitator_pk=FACILITATOR_PK,
+            )
+            is False
+        )
+
+
+class TestMarks:
+    def test_batch_and_single_facilitator_marks(self):
+        service = _service(FakeGuilds())
+
+        assert service.marks_for_facilitators(
+            sphere_id=SPHERE_PK, facilitator_pks=[FACILITATOR_PK, 1]
+        ) == {FACILITATOR_PK: _mark()}
+        assert (
+            service.mark_for_facilitator(
+                sphere_id=SPHERE_PK, facilitator_pk=FACILITATOR_PK
+            )
+            == _mark()
+        )
+        assert (
+            service.mark_for_facilitator(sphere_id=SPHERE_PK, facilitator_pk=1) is None
+        )
+
+    def test_batch_and_single_session_marks(self):
+        service = _service(FakeGuilds())
+
+        assert service.marks_for_sessions(
+            sphere_id=SPHERE_PK, session_pks=[SESSION_PK, 1]
+        ) == {SESSION_PK: _mark()}
+        assert service.mark_for_session(sphere_id=SPHERE_PK, session_pk=SESSION_PK) == (
+            _mark()
+        )
+        assert service.mark_for_session(sphere_id=SPHERE_PK, session_pk=1) is None

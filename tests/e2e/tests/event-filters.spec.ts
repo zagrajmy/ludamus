@@ -686,7 +686,7 @@ test.describe("Filter state in the URL", () => {
   const card = (page: Page, title: string) => page.locator(".session", { hasText: title });
 
   test("mirrors active filters into the URL without adding history entries", async ({ page }) => {
-    await page.goto("/events/");
+    await page.goto("/");
     await page.goto("/event/autumn-open/");
 
     await page.locator("#session-filter").fill("alex");
@@ -701,7 +701,7 @@ test.describe("Filter state in the URL", () => {
     // The mirror is replaceState-only: Back leaves the page in one step
     // instead of walking through every filter edit.
     await page.goBack();
-    expect(new URL(page.url()).pathname).toBe("/events/");
+    expect(new URL(page.url()).pathname).toBe("/");
   });
 
   test("restores filters from a shared URL", async ({ page }) => {

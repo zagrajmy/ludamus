@@ -11,7 +11,9 @@ from ludamus.gates.web.django.chronology.schedule import (
     RoomLanes,
     RoomLaneTile,
 )
+from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.models import SessionBookmark
+from ludamus.pacts.bookmarks import BookmarkStateDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -224,9 +226,9 @@ class TestEventPageBookmarkCounts:
             ),
             session_card(other, presenter=other.session.presenter),
         ]
-        # The class strings are the data-bookmark-count contract with
-        # session-bookmarks.ts: a visible "3" on the bookmarked session and a
-        # hidden "0" inside the other session's toggle button.
+        # The toggle's own structure — a visible "3" here, a hidden "0" on the
+        # other session — is the schedule tags' contract, pinned in
+        # test_schedule_tags; this asserts the page hands them the counts.
         assert_response(
             response,
             HTTPStatus.OK,
@@ -244,5 +246,35 @@ class TestEventPageBookmarkCounts:
                 scheduled_count=2,
             ),
             template_name=["chronology/event.html"],
-            contains=['tabular-nums ">3</span>', 'tabular-nums hidden">0</span>'],
         )
+
+
+class TestBookmarkRepositorySessionState:
+    def test_counts_every_bookmark_and_flags_the_viewers(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=True, count=2)
+
+    def test_anonymous_viewer_sees_the_count_only(self, session):
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=None, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=1)
+
+    def test_session_of_another_event_reads_as_empty(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        other_event = EventFactory(sphere=session.event.sphere)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=other_event.pk
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=0)

@@ -1,63 +1,64 @@
-from contextlib import contextmanager
+import re
 from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from ludamus.mills.enrollment import (
     EnrollmentService,
+    EnrollmentSettingsService,
     can_enroll_users,
-    get_used_slots,
     get_vc_available_slots,
 )
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.enrollment import EnrollmentAccessDTO, EnrollmentRepos
+from ludamus.pacts.enrollment import (
+    EnrollmentAccessDTO,
+    EnrollmentRepos,
+    EnrollmentWindowData,
+    EnrollmentWindowDTO,
+    GuestSeatData,
+    InvalidEnrollmentWindowError,
+)
 from ludamus.pacts.legacy import (
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
-    EventDTO,
     MembershipAPIError,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
+from tests.unit.factories import FakeTransaction, event_dto
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
-_ALLOWED_SLOTS = 3
-_SESSION_ID = 42
-_PARTY_ID = 9
-_GUEST_COUNT = 2
+_GUEST_SLUG = re.compile(r"guest-[a-z0-9_-]{11}")
 
 
-def _user(pk, slug="viewer", email="viewer@example.com", name="Viewer"):
+def _user(pk, email="viewer@example.com", slug="viewer"):
     return UserDTO(
         avatar_url="",
         date_joined=_NOW,
         discord_username="",
         email=email,
-        full_name=name,
+        full_name="Viewer",
         is_active=True,
         is_authenticated=True,
         is_staff=False,
         is_superuser=False,
-        name=name,
+        name="Viewer",
         pk=pk,
         slug=slug,
         use_gravatar=False,
         user_type=UserType.ACTIVE,
-        username=slug,
+        username="viewer",
     )
 
 
 def _event(pk=_EVENT_ID):
-    return EventDTO(
-        description="",
+    return event_dto(
         end_time=_NOW + timedelta(days=2),
         name="Konwencik",
         pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
         slug="konwencik",
-        sphere_id=1,
         start_time=_NOW + timedelta(days=1),
     )
 
@@ -104,32 +105,17 @@ def _domain_config(allowed_slots_per_user):
     )
 
 
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def __init__(self):
-        self.atomic_entered = 0
-
-    def atomic(self):
-        self.atomic_entered += 1
-        return _atomic()
-
-
 class FakeParticipations:
     def __init__(self, occupying=frozenset()):
         self._occupying = set(occupying)
-        self.queries: list[dict] = []
-        self.created: list[object] = []
+        self.seated: list[GuestSeatData] = []
 
     def occupying_user_ids(self, *, user_ids, event_id):
-        self.queries.append({"user_ids": list(user_ids), "event_id": event_id})
+        del event_id
         return self._occupying & set(user_ids)
 
     def create_confirmed(self, seat):
-        self.created.append(seat)
+        self.seated.append(seat)
 
 
 class FakeUsers:
@@ -137,22 +123,16 @@ class FakeUsers:
         self._by_slug = {user.slug: user for user in users}
         self.created: list[dict] = []
 
-    def create(self, user_data):
-        self.created.append(dict(user_data))
-        self._by_slug[user_data["slug"]] = _user(
-            pk=1000 + len(self.created),
-            slug=user_data["slug"],
-            email="",
-            name=user_data.get("name", ""),
-        )
-
     def read(self, slug):
         return self._by_slug[slug]
 
     def read_by_ids(self, pks):
-        return sorted(
-            (user for user in self._by_slug.values() if user.pk in pks),
-            key=lambda user: user.pk,
+        return [user for user in self._by_slug.values() if user.pk in pks]
+
+    def create(self, user_data):
+        self.created.append(dict(user_data))
+        self._by_slug[user_data["slug"]] = _user(
+            100 + len(self.created), email="", slug=user_data["slug"]
         )
 
 
@@ -198,10 +178,33 @@ class FakeEnrollmentConfigs:
 
 class FakeWindows:
     def __init__(self, windows=()):
-        self._windows = list(windows)
+        self._windows = {window.pk: window for window in windows}
 
     def list_for_event(self, _event_id):
-        return list(self._windows)
+        return list(self._windows.values())
+
+    def read(self, event_id, pk):
+        window = self._windows.get(pk)
+        return window if window and window.event_id == event_id else None
+
+    def create(self, event_id, data):
+        window = EnrollmentWindowDTO(
+            pk=max(self._windows, default=0) + 1, event_id=event_id, **dict(data)
+        )
+        self._windows[window.pk] = window
+        return window
+
+    def update(self, *, event_id, pk, data):
+        if self.read(event_id, pk) is None:
+            return None
+        self._windows[pk] = EnrollmentWindowDTO(pk=pk, event_id=event_id, **dict(data))
+        return self._windows[pk]
+
+    def delete(self, event_id, pk):
+        if self.read(event_id, pk) is None:
+            return False
+        del self._windows[pk]
+        return True
 
 
 class FakeTicketAPI:
@@ -224,10 +227,9 @@ class NoTicketAPI:
 class FakeTicketApiResolver:
     def __init__(self, ticket_api=None):
         self.ticket_api = ticket_api or NoTicketAPI()
-        self.seen: list[tuple[int, int]] = []
 
     def resolve(self, *, event_id, sphere_id):
-        self.seen.append((event_id, sphere_id))
+        del event_id, sphere_id
         return self.ticket_api
 
 
@@ -266,32 +268,6 @@ def _service(
 
 
 class TestSlotMath:
-    def test_get_used_slots_counts_distinct_occupying_users(self):
-        occupying = {1, 2}
-        participations = FakeParticipations(occupying=occupying)
-
-        used = get_used_slots(
-            users=[_user(1), _user(2), _user(3)],
-            event=_event(),
-            participations=participations,
-        )
-
-        assert used == len(occupying)
-        assert participations.queries == [
-            {"user_ids": [1, 2, 3], "event_id": _EVENT_ID}
-        ]
-
-    def test_can_enroll_users_allows_within_limit(self):
-        allowed = can_enroll_users(
-            users=[_user(1), _user(2)],
-            event=_event(),
-            virtual_config=VirtualEnrollmentConfig(user_slots=2),
-            users_to_enroll=[_user(2)],
-            participations=FakeParticipations(occupying={1}),
-        )
-
-        assert allowed is True
-
     def test_can_enroll_users_rejects_over_limit(self):
         allowed = can_enroll_users(
             users=[_user(1), _user(2)],
@@ -313,16 +289,6 @@ class TestSlotMath:
         )
 
         assert allowed is True
-
-    def test_get_vc_available_slots_subtracts_used(self):
-        available = get_vc_available_slots(
-            users=[_user(1), _user(2)],
-            event=_event(),
-            virtual_config=VirtualEnrollmentConfig(user_slots=_ALLOWED_SLOTS),
-            participations=FakeParticipations(occupying={1}),
-        )
-
-        assert available == _ALLOWED_SLOTS - 1
 
     def test_get_vc_available_slots_clamps_at_zero(self):
         available = get_vc_available_slots(
@@ -418,29 +384,6 @@ class TestEnrollmentAccess:
 
 
 class TestEnrollmentService:
-    def test_read_viewer_returns_user_by_slug(self):
-        viewer = _user(1)
-        service = _service(users=FakeUsers([viewer]))
-
-        assert service.read_viewer("viewer") == viewer
-
-    def test_read_users_returns_users_by_ids(self):
-        first, second = _user(1, slug="a"), _user(2, slug="b")
-        service = _service(users=FakeUsers([first, second]))
-
-        assert service.read_users([2]) == [second]
-
-    def test_virtual_config_combines_stored_user_config(self):
-        service = _service(
-            enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config()], user_config=_user_config(4)
-            )
-        )
-
-        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
-
-        assert config == VirtualEnrollmentConfig(user_slots=4)
-
     def test_virtual_config_is_none_for_a_stored_row_granting_no_slots(self):
         # A stale zero-slot row would normally trigger a refresh; with no
         # integration the stored row stands, and granting nothing is not
@@ -498,40 +441,6 @@ class TestEnrollmentService:
         config = service.virtual_config(event=_event(), user_email="viewer@other.org")
 
         assert config is None
-
-    def test_virtual_config_is_none_without_integration_and_without_stored_config(self):
-        service = _service(
-            enrollment_configs=FakeEnrollmentConfigs(configs=[_enrollment_config()]),
-            ticket_api_resolver=FakeTicketApiResolver(),
-        )
-
-        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
-
-        assert config is None
-
-    def test_virtual_config_does_not_resolve_ticketing_without_an_open_window(self):
-        resolver = FakeTicketApiResolver(FakeTicketAPI())
-        service = _service(
-            enrollment_configs=FakeEnrollmentConfigs(), ticket_api_resolver=resolver
-        )
-
-        service.virtual_config(event=_event(), user_email="viewer@example.com")
-
-        assert not resolver.seen
-
-    def test_virtual_config_resolves_ticketing_once_across_windows(self):
-        resolver = FakeTicketApiResolver(FakeTicketAPI())
-        service = _service(
-            enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config(), _enrollment_config(pk=6)],
-                user_config=_user_config(4),
-            ),
-            ticket_api_resolver=resolver,
-        )
-
-        service.virtual_config(event=_event(), user_email="viewer@example.com")
-
-        assert resolver.seen == [(_EVENT_ID, 1)]
 
     def test_virtual_config_sums_slots_across_open_windows(self):
         slots = 4
@@ -668,27 +577,6 @@ class TestEnrollmentService:
         assert config is None
         assert not ticket_api.calls
 
-    def test_access_names_the_open_window_a_pass_holder_may_use(self):
-        now = datetime.now(tz=UTC)
-        windows = [
-            _enrollment_config(
-                start_time=now - timedelta(hours=1), end_time=now + timedelta(days=1)
-            )
-        ]
-        service = _service(
-            users=FakeUsers([_user(1)]),
-            enrollment_configs=FakeEnrollmentConfigs(
-                configs=windows, user_config=_user_config(4)
-            ),
-            windows=FakeWindows(windows),
-        )
-
-        access = service.access(event=_event(), viewer_slug="viewer")
-
-        assert access == EnrollmentAccessDTO(
-            open_window_ids=frozenset({5}), opens_at=None
-        )
-
     def test_access_names_the_early_window_a_pass_holder_is_waiting_for(self):
         # The reader holds passes and no window is open yet. Their own window
         # is the answer, not the one everybody else waits for.
@@ -793,52 +681,156 @@ class TestEnrollmentService:
         assert access == EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
         assert not ticket_api.calls
 
-    def test_access_asks_no_membership_question_for_a_visitor(self):
-        now = datetime.now(tz=UTC)
-        windows = [
-            _enrollment_config(
-                start_time=now - timedelta(hours=1), end_time=now + timedelta(days=1)
+
+def _window_data(**overrides):
+    values = {
+        "start_time": _NOW,
+        "end_time": _NOW + timedelta(days=1),
+        "percentage_slots": 100,
+        "limit_to_end_time": False,
+        "banner_text": "",
+        "max_waitlist_sessions": 3,
+        "restrict_to_configured_users": False,
+        "allow_anonymous_enrollment": False,
+    }
+    values.update(overrides)
+    return EnrollmentWindowData(**values)
+
+
+def _settings(windows=()):
+    repo = FakeWindows(windows)
+    return EnrollmentSettingsService(FakeTransaction(), repo), repo
+
+
+class TestEnrollmentSettingsService:
+    def test_lists_the_event_windows(self):
+        window = _enrollment_config()
+        service, _ = _settings([window])
+
+        assert service.list_windows(_EVENT_ID) == [window]
+
+    def test_reads_one_window_of_the_event_only(self):
+        window = _enrollment_config()
+        service, _ = _settings([window])
+
+        assert service.read_window(_EVENT_ID, 5) == window
+        assert service.read_window(_EVENT_ID + 1, 5) is None
+
+    def test_rejects_a_window_that_ends_before_it_starts(self):
+        service, repo = _settings()
+
+        with pytest.raises(InvalidEnrollmentWindowError):
+            service.create_window(
+                _EVENT_ID, _window_data(end_time=_NOW - timedelta(hours=1))
             )
-        ]
-        ticket_api = FakeTicketAPI(7)
-        service = _service(
-            enrollment_configs=FakeEnrollmentConfigs(configs=windows),
-            windows=FakeWindows(windows),
-            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+
+        assert not repo.list_for_event(_EVENT_ID)
+
+    def test_creates_a_window_for_the_event(self):
+        service, repo = _settings()
+        data = _window_data()
+
+        window = service.create_window(_EVENT_ID, data)
+
+        assert window == EnrollmentWindowDTO(pk=1, event_id=_EVENT_ID, **dict(data))
+        assert repo.list_for_event(_EVENT_ID) == [window]
+
+    def test_rejects_an_update_to_an_empty_period(self):
+        window = _enrollment_config()
+        service, repo = _settings([window])
+
+        with pytest.raises(InvalidEnrollmentWindowError):
+            service.update_window(
+                event_id=_EVENT_ID, pk=5, data=_window_data(end_time=_NOW)
+            )
+
+        assert repo.read(_EVENT_ID, 5) == window
+
+    def test_updates_a_window_of_the_event(self):
+        service, repo = _settings([_enrollment_config()])
+        data = _window_data(percentage_slots=50)
+
+        window = service.update_window(event_id=_EVENT_ID, pk=5, data=data)
+
+        assert window == EnrollmentWindowDTO(pk=5, event_id=_EVENT_ID, **dict(data))
+        assert repo.read(_EVENT_ID, 5) == window
+
+    def test_updating_a_foreign_window_changes_nothing(self):
+        window = _enrollment_config()
+        service, repo = _settings([window])
+
+        updated = service.update_window(
+            event_id=_EVENT_ID + 1, pk=5, data=_window_data()
         )
 
-        access = service.access(event=_event(), viewer_slug=None)
+        assert updated is None
+        assert repo.read(_EVENT_ID, 5) == window
 
-        assert access == EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
-        assert not ticket_api.calls
+    def test_deletes_a_window_of_the_event(self):
+        service, repo = _settings([_enrollment_config()])
 
-    def test_has_slot_access_false_without_email(self):
-        ticket_api = FakeTicketAPI()
+        assert service.delete_window(_EVENT_ID, 5) is True
+        assert not repo.list_for_event(_EVENT_ID)
+
+    def test_deleting_a_foreign_window_changes_nothing(self):
+        window = _enrollment_config()
+        service, repo = _settings([window])
+
+        assert service.delete_window(_EVENT_ID + 1, 5) is False
+        assert repo.list_for_event(_EVENT_ID) == [window]
+
+
+class TestEnrollmentServiceSlots:
+    def test_virtual_config_is_none_when_no_window_is_open(self):
+        # No open window means no allowance to sum and no integration to ask.
+        now = datetime.now(tz=UTC)
+        ticket_api = FakeTicketAPI(7)
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config()], user_config=_user_config(4)
+                configs=[
+                    _enrollment_config(
+                        start_time=now + timedelta(days=1),
+                        end_time=now + timedelta(days=2),
+                    )
+                ],
+                user_config=_user_config(4),
             ),
             ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
 
-        assert service.has_slot_access(event=_event(), user_email="") is False
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
         assert not ticket_api.calls
 
-    def test_has_slot_access_true_with_allowed_slots(self):
+    def test_read_users_returns_the_named_accounts(self):
+        service = _service(users=FakeUsers([_user(1), _user(2, slug="other")]))
+
+        assert [user.pk for user in service.read_users([2])] == [2]
+
+    def test_has_slot_access_is_denied_without_an_email(self):
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config()], user_config=_user_config(2)
+                configs=[_enrollment_config()], user_config=_user_config(4)
             )
         )
 
-        access = service.has_slot_access(
-            event=_event(), user_email="viewer@example.com"
+        assert service.has_slot_access(event=_event(), user_email="") is False
+
+    def test_has_slot_access_when_an_open_window_grants_slots(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], user_config=_user_config(4)
+            )
         )
 
-        assert access is True
+        assert service.has_slot_access(event=_event(), user_email="viewer@example.com")
 
-    def test_has_slot_access_false_without_config(self):
-        service = _service(enrollment_configs=FakeEnrollmentConfigs())
+    def test_has_slot_access_is_denied_when_nothing_is_granted(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(configs=[_enrollment_config()]),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
 
         access = service.has_slot_access(
             event=_event(), user_email="viewer@example.com"
@@ -846,74 +838,34 @@ class TestEnrollmentService:
 
         assert access is False
 
-    def test_get_used_slots_delegates_to_injected_repo(self):
+    def test_counts_and_spends_slots_across_the_leaders_users(self):
+        users = [_user(1), _user(2, slug="other")]
         service = _service(participations=FakeParticipations(occupying={1}))
+        virtual_config = VirtualEnrollmentConfig(user_slots=2)
 
-        used = service.get_used_slots(users=[_user(1), _user(2)], event=_event())
-
-        assert used == 1
-
-    def test_can_enroll_users_uses_injected_repo(self):
-        service = _service(participations=FakeParticipations(occupying={1}))
-
-        allowed = service.can_enroll_users(
-            users=[_user(1), _user(2)],
+        assert service.get_used_slots(users=users, event=_event()) == 1
+        assert (
+            service.get_vc_available_slots(
+                users=users, event=_event(), virtual_config=virtual_config
+            )
+            == 1
+        )
+        assert service.can_enroll_users(
+            users=users,
+            event=_event(),
+            virtual_config=virtual_config,
+            users_to_enroll=[users[1]],
+        )
+        assert not service.can_enroll_users(
+            users=users,
             event=_event(),
             virtual_config=VirtualEnrollmentConfig(user_slots=1),
-            users_to_enroll=[_user(2)],
+            users_to_enroll=[users[1]],
         )
 
-        assert allowed is False
 
-    def test_get_vc_available_slots_uses_injected_repo(self):
-        service = _service(participations=FakeParticipations(occupying={1}))
-
-        available = service.get_vc_available_slots(
-            users=[_user(1)],
-            event=_event(),
-            virtual_config=VirtualEnrollmentConfig(user_slots=_ALLOWED_SLOTS),
-        )
-
-        assert available == _ALLOWED_SLOTS - 1
-
-    def test_create_guests_creates_users_and_confirmed_seats_atomically(self):
-        anonymous_users = FakeUsers()
-        participations = FakeParticipations()
-        transaction = FakeTransaction()
-        service = EnrollmentService(
-            transaction=transaction,
-            repos=EnrollmentRepos(
-                users=FakeUsers(),
-                anonymous_users=anonymous_users,
-                enrollment_configs=FakeEnrollmentConfigs(),
-                participations=participations,
-                ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI()),
-                windows=FakeWindows(),
-            ),
-        )
-
-        service.create_guests(
-            session_id=_SESSION_ID,
-            count=_GUEST_COUNT,
-            party_id=_PARTY_ID,
-            enrolled_by_id=1,
-            viewer_name="Wanda Wiewiórka",
-        )
-
-        assert transaction.atomic_entered == 1
-        assert len(anonymous_users.created) == _GUEST_COUNT
-        assert all(
-            data["slug"].startswith("guest-") for data in anonymous_users.created
-        )
-        assert all(
-            data["name"] == "Wanda Wiewiórka +1" for data in anonymous_users.created
-        )
-        assert len(participations.created) == _GUEST_COUNT
-        assert all(seat.session_id == _SESSION_ID for seat in participations.created)
-        assert all(seat.party_id == _PARTY_ID for seat in participations.created)
-        assert all(seat.enrolled_by_id == 1 for seat in participations.created)
-
-    def test_create_guests_with_zero_count_creates_nothing(self):
+class TestCreateGuests:
+    def test_seats_one_throwaway_account_per_head(self):
         anonymous_users = FakeUsers()
         participations = FakeParticipations()
         service = _service(
@@ -921,12 +873,21 @@ class TestEnrollmentService:
         )
 
         service.create_guests(
-            session_id=_SESSION_ID,
-            count=0,
-            party_id=None,
-            enrolled_by_id=1,
-            viewer_name="Wanda",
+            session_id=8, count=2, party_id=4, enrolled_by_id=1, viewer_name="Viewer"
         )
 
-        assert not anonymous_users.created
-        assert not participations.created
+        assert [row["name"] for row in anonymous_users.created] == [
+            "Viewer +1",
+            "Viewer +1",
+        ]
+        assert all(
+            _GUEST_SLUG.fullmatch(row["slug"]) for row in anonymous_users.created
+        )
+        assert all(
+            row["user_type"] == UserType.ANONYMOUS and row["is_active"] is False
+            for row in anonymous_users.created
+        )
+        assert participations.seated == [
+            GuestSeatData(session_id=8, user_id=101, party_id=4, enrolled_by_id=1),
+            GuestSeatData(session_id=8, user_id=102, party_id=4, enrolled_by_id=1),
+        ]

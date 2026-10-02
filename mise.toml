@@ -8,6 +8,14 @@ jobs = 8
 # resolve yet and its self-install can leave a broken .aube store (bit the
 # macOS CI runner on aube 1.32.0), so mise's npm backend uses plain npm.
 npm.package_manager = "npm"
+# The default 3 retries back off ~200ms/1s/4s — under five seconds all told,
+# which covers a blip rather than an outage: consecutive 504s from the GitHub
+# release host outlasted all of them and cost a CI run that had installed
+# neither python nor poetry. The schedule then repeats 15s, so 12 retries wait
+# under two and a half minutes on one URL. A DNS failure is never retried and
+# neither is a deterministic status, so an offline laptop and a bad version pin
+# both still fail on the first attempt.
+http_retries = 12
 
 [hooks]
 enter = "poetry install"
@@ -136,7 +144,12 @@ env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 dir = "tests/e2e"
 
 [tasks."test:e2e:install"]
-description = "Install Playwright (node deps + browsers)"
+description = "Install Playwright (node deps + browsers + system deps)"
+depends = ["test:e2e:install:node"]
+run = "aube exec -C tests/e2e playwright install --with-deps"
+
+[tasks."test:e2e:install:node"]
+description = "Install node deps, Playwright among them"
 run = '''
 set -eu
 # .npmrc's fetch-retries=5 hasn't caught this one: the registry sometimes
@@ -150,16 +163,16 @@ for attempt in 1 2 3; do
   echo "aube install failed (attempt $attempt/3); retrying in 5s" >&2
   sleep 5
 done
-aube exec -C tests/e2e playwright install --with-deps
 '''
 
-# One browser at a time, without --with-deps. The fallback session-start.sh uses
-# when the task above fails: `playwright install` walks the browsers in a single
+# Browsers without --with-deps. CI installs them all here and runs apt on its
+# own. session-start.sh falls back to one browser at a time when
+# test:e2e:install fails: `playwright install` walks the browsers in a single
 # sequential loop and rethrows the first download failure, so one unreachable
 # artifact skips every browser behind it. Lives here rather than inline in the
 # hook so the command and its working directory are stated once.
 [tasks."test:e2e:install:browser"]
-description = "Install a single Playwright browser (e.g. mise run test:e2e:install:browser webkit)"
+description = "Install Playwright browsers without system deps: all, or one (e.g. mise run test:e2e:install:browser webkit)"
 run = "aube exec -C tests/e2e playwright install"
 raw_args = true
 
@@ -296,6 +309,7 @@ run = [
     "aube exec varlock scan",
     { task = "lint-client" },
     { task = "ts-check" },
+    { task = "test:unit:cov" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',
@@ -310,6 +324,7 @@ run = [
     { task = "messages" },
     { task = "lint:djlint" },
     { task = "lint:py" },
+    { task = "test:unit:cov" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=98',

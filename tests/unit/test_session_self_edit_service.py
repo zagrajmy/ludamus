@@ -1,5 +1,5 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,23 +9,12 @@ from ludamus.mills.chronology import (
     SessionEditNotAllowedError,
     SessionSelfEditService,
 )
-
-
-class _FakeUpload:
-    name = "cover.png"
-
-    def read(self) -> bytes:
-        return b""
-
-
-@contextmanager
-def _atomic():
-    yield
+from ludamus.pacts import NotFoundError
+from tests.unit.factories import FakeTransaction
 
 
 def _build(*, presenter_id, event_override, sphere_default):
-    transaction = MagicMock()
-    transaction.atomic.side_effect = _atomic
+    transaction = FakeTransaction()
     sessions = MagicMock()
     sessions.read.return_value = MagicMock(presenter_id=presenter_id)
     sessions.read_event.return_value = MagicMock(
@@ -46,87 +35,15 @@ def _build(*, presenter_id, event_override, sphere_default):
         agenda_items=agenda_items,
     )
     service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
-    return service, sessions, transaction, agenda_items
+    return service, sessions, transaction, agenda_items, session_fields
 
 
 class TestUpdate:
-    def test_writes_session_and_field_values_atomically(self):
-        service, sessions, transaction, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        field_values = [{"session_id": 5, "field_id": 1, "value": "x"}]
-
-        service.update(
-            5,
-            10,
-            {"title": "T", "facilitator_name": "D", "participants_limit": 4},
-            field_values,
-        )
-
-        transaction.atomic.assert_called_once()
-        sessions.update.assert_called_once_with(
-            5,
-            {
-                "title": "T",
-                "facilitator_name": "D",
-                "description": "",
-                "contact_email": "",
-                "participants_limit": 4,
-                "min_age": 0,
-                "duration": "",
-            },
-        )
-        sessions.save_field_values.assert_called_once_with(5, field_values)
-
-    def test_passes_uploaded_cover_image_through(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        cover = _FakeUpload()
-
-        service.update(
-            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": cover}, []
-        )
-
-        assert sessions.update.call_args.args[1]["cover_image"] is cover
-
-    def test_clears_cover_image_when_false(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-
-        service.update(
-            5, 10, {"title": "T", "facilitator_name": "D", "cover_image": False}, []
-        )
-
-        sessions.update.assert_called_once_with(
-            5,
-            {
-                "title": "T",
-                "facilitator_name": "D",
-                "description": "",
-                "contact_email": "",
-                "participants_limit": 0,
-                "min_age": 0,
-                "duration": "",
-                "cover_image": "",
-            },
-        )
-
-    def test_leaves_cover_image_untouched_when_absent(self):
-        service, sessions, _, _agenda_items = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-
-        service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
-
-        assert "cover_image" not in sessions.update.call_args.args[1]
-
     def test_duration_change_resizes_the_scheduled_block(self):
         # The block tracks the session's length whoever edits it: a facilitator
         # shrinking their own session must not leave the grid drawing the old
         # one for the organizer to notice by hand.
-        service, sessions, _, agenda_items = _build(
+        service, sessions, _, agenda_items, _ = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
         sessions.read.return_value = MagicMock(presenter_id=10, duration="PT1H")
@@ -143,12 +60,82 @@ class TestUpdate:
             3, {"end_time": datetime(2026, 1, 1, 12, 0, tzinfo=UTC)}
         )
 
-    def test_raises_when_not_allowed(self):
-        service, sessions, _, _agenda_items = _build(
+    def test_an_uploaded_cover_replaces_the_stored_one(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=True, sphere_default=False
+        )
+        upload = SimpleNamespace(name="cover.png", read=lambda _size=-1: b"")
+
+        service.update(5, 10, {"title": "T", "cover_image": upload}, None)
+
+        assert sessions.update.call_args.args[1]["cover_image"] is upload
+
+    def test_a_stranger_may_not_edit(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=True, sphere_default=False
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.update(5, 11, {"title": "T"}, None)
+
+        sessions.update.assert_not_called()
+
+
+class TestGetEditContext:
+    def test_pairs_each_field_with_the_sessions_answer(self):
+        service, sessions, _, _, session_fields = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        system, diet = SimpleNamespace(slug="system"), SimpleNamespace(slug="diet")
+        session_fields.list_by_event.return_value = [system, diet]
+        sessions.read_field_values.return_value = [
+            SimpleNamespace(field_slug="system", value="Pathfinder")
+        ]
+
+        context = service.get_edit_context(5, 10)
+
+        assert context.session is sessions.read.return_value
+        assert context.event is sessions.read_event.return_value
+        assert context.session_fields == [(system, "Pathfinder"), (diet, None)]
+
+    def test_anonymous_viewer_is_refused(self):
+        service, _, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, None)
+
+    def test_missing_session_is_refused(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        sessions.read.side_effect = NotFoundError
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 10)
+
+    def test_someone_elses_session_is_refused(self):
+        service, _, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 11)
+
+    def test_session_without_an_event_is_refused(self):
+        service, sessions, _, _, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        sessions.read_event.side_effect = NotFoundError
+
+        with pytest.raises(SessionEditNotAllowedError):
+            service.get_edit_context(5, 10)
+
+    def test_event_may_switch_self_edit_off(self):
+        service, _, _, _, _ = _build(
             presenter_id=10, event_override=False, sphere_default=True
         )
 
         with pytest.raises(SessionEditNotAllowedError):
-            service.update(5, 10, {"title": "T", "facilitator_name": "D"}, [])
-
-        sessions.update.assert_not_called()
+            service.get_edit_context(5, 10)

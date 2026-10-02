@@ -19,11 +19,13 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
+from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import Notification, Session
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import NotificationDTO
 
 if TYPE_CHECKING:
+    from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
     from ludamus.pacts.party import (
         HeldSeatNotification,
@@ -37,13 +39,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _absolute(path: str, *, domain: str) -> str:
-    scheme = "http" if "localhost" in domain else "https"
-    return f"{scheme}://{domain}{path}"
-
-
 def _session_enrollment_url(event_slug: str, session_id: int) -> str:
-    return _absolute(
+    return absolute_url(
         reverse(
             "web:chronology:session-enrollment",
             kwargs={"event_slug": event_slug, "session_id": session_id},
@@ -88,7 +85,7 @@ class DjangoUserNotifier:
         )
 
     def notify_offered(self, notification: OfferNotification) -> None:
-        url = _absolute(
+        url = absolute_url(
             reverse(
                 "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
             ),
@@ -162,7 +159,7 @@ class DjangoUserNotifier:
                 kind=NotificationKind.PARTY_INVITE.value,
                 title=title,
                 body=body,
-                url=_absolute(
+                url=absolute_url(
                     reverse("web:crowd:profile-parties"), domain=settings.ROOT_DOMAIN
                 ),
                 payload={},
@@ -193,7 +190,7 @@ class DjangoUserNotifier:
         )
 
     def notify_seat_held(self, notification: HeldSeatNotification) -> None:
-        url = _absolute(
+        url = absolute_url(
             reverse(
                 "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
             ),
@@ -229,7 +226,7 @@ class DjangoUserNotifier:
     def notify_printables_ready(
         self, notification: PrintablesReadyNotification
     ) -> None:
-        url = _absolute(
+        url = absolute_url(
             reverse(
                 "web:chronology:event-print", kwargs={"slug": notification.event_slug}
             ),
@@ -246,6 +243,33 @@ class DjangoUserNotifier:
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PRINTABLES_READY.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={"event_slug": notification.event_slug},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_sphere_event_published(
+        self, notification: SphereEventPublishedNotification
+    ) -> None:
+        url = absolute_url(
+            reverse("web:chronology:event", kwargs={"slug": notification.event_slug}),
+            domain=notification.sphere_domain,
+        )
+        title = _("%(sphere)s announced %(event)s") % {
+            "sphere": notification.sphere_name,
+            "event": notification.event_name,
+        }
+        body = _(
+            "You subscribe to %(sphere)s. Its programme for %(event)s is up — "
+            "open it to see what is on and sign up."
+        ) % {"sphere": notification.sphere_name, "event": notification.event_name}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.SPHERE_EVENT_PUBLISHED.value,
                 title=title,
                 body=body,
                 url=url,
@@ -292,7 +316,7 @@ class DjangoUserNotifier:
                 kind=NotificationKind.SHADOWBANNED_SIGNUP.value,
                 title=title,
                 body=body,
-                url=_absolute(
+                url=absolute_url(
                     reverse(
                         "web:chronology:event", kwargs={"slug": notification.event_slug}
                     ),

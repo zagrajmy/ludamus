@@ -1,0 +1,161 @@
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
+import pytest
+from pydantic import BaseModel
+
+from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
+from ludamus.gates.mcp.tools import build_registry
+from ludamus.pacts.mcp import ActorContext, ToolScope
+from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
+
+
+class _EchoInput(BaseModel):
+    suffix: str
+
+
+class _EchoActorTool(Tool[_EchoInput]):
+    name = "echo_actor"
+    description = "Echo the acting user id."
+    scope = ToolScope.ORGANIZER
+    input_model = _EchoInput
+
+    @staticmethod
+    def handle(call: ToolCall[_EchoInput]) -> str:
+        return f"{call.actor.user_id}:{call.actor.scope}:{call.data.suffix}"
+
+
+class _FakeServices:
+    pass
+
+
+def test_invalid_arguments_message_hides_input_values():
+    registry = ToolRegistry([_EchoActorTool()])
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError) as excinfo:
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="echo_actor",
+            arguments={"suffix": 424242},
+        )
+
+    message = str(excinfo.value)
+    assert message == "Invalid arguments: suffix: Input should be a valid string"
+    assert "424242" not in message
+
+
+def test_sanitize_audit_arguments_redacts_sensitive_fields():
+    arguments = {
+        "event_id": 1,
+        "facilitator_name": "Alice",
+        "description": "Secret plot",
+        "title": "Workshop",
+    }
+
+    redacted = build_registry(ToolScope.ORGANIZER).audit_arguments(
+        "create_session", arguments
+    )
+
+    assert redacted == {
+        "event_id": 1,
+        "facilitator_name": "[redacted]",
+        "description": "[redacted]",
+        "title": "Workshop",
+    }
+
+
+def test_sanitize_batch_audit_arguments_keeps_only_correlation_keys():
+    arguments = {
+        "sessions": [
+            {
+                "source_row_id": "row-1",
+                "facilitator_name": "Alice",
+                "description": "Secret plot",
+                "title": "Workshop",
+            },
+            {
+                "source_row_id": "row-2",
+                "facilitator_name": "Bob",
+                "description": "Another secret",
+                "title": "Panel",
+            },
+        ]
+    }
+
+    redacted = build_registry(ToolScope.ORGANIZER).audit_arguments(
+        "create_sessions", arguments
+    )
+
+    assert redacted == {"session_count": 2, "source_row_ids": ["row-1", "row-2"]}
+
+
+def _organizer_actor():
+    return ActorContext(user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=11)
+
+
+def _session_input(source_row_id: str) -> dict[str, str | int]:
+    return {"source_row_id": source_row_id, "title": "Session", "category_id": 5}
+
+
+def test_create_sessions_rejects_duplicate_source_ids():
+    registry = build_registry(ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError, match="must be unique within a batch"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="create_sessions",
+            arguments={"sessions": [_session_input("same"), _session_input("same")]},
+        )
+
+
+def test_assign_sessions_rejects_duplicate_session_ids():
+    registry = build_registry(ToolScope.ORGANIZER)
+    assignment = {
+        "session_id": 1,
+        "space_id": 2,
+        "start_time": "2026-09-25T10:00:00+02:00",
+        "end_time": "2026-09-25T11:00:00+02:00",
+    }
+
+    with pytest.raises(ToolError, match="must be unique within a batch"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="assign_sessions",
+            arguments={"assignments": [assignment, assignment]},
+        )
+
+
+def _assign_session_call(*, side_effect: Exception) -> None:
+    services = MagicMock()
+    services.events.require_in_sphere.return_value.pk = 11
+    services.timetable.assign_session.side_effect = side_effect
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=11)
+    build_registry(ToolScope.ORGANIZER).call(
+        services=services,
+        actor=actor,
+        name="assign_session",
+        arguments={
+            "session_id": 13,
+            "space_id": 17,
+            "start_time": datetime(2025, 9, 19, 16, 0, tzinfo=UTC),
+            "end_time": datetime(2025, 9, 19, 17, 0, tzinfo=UTC),
+        },
+    )
+
+
+def test_assign_session_converts_placement_rejection_to_tool_error():
+    with pytest.raises(ToolError, match="placement rejected"):
+        _assign_session_call(
+            side_effect=PlacementRejectedError(
+                PlacementRejection.SESSION_NOT_ACCEPTED, "placement rejected"
+            )
+        )
+
+
+def test_assign_session_does_not_hide_unrelated_value_error():
+    with pytest.raises(ValueError, match="unexpected failure"):
+        _assign_session_call(side_effect=ValueError("unexpected failure"))

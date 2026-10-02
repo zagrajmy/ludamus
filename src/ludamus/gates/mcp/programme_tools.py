@@ -1,29 +1,28 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
+from ludamus.gates.mcp.event_tools import event_tools
 from ludamus.gates.mcp.inputs import (
     AwareDatetimeRange,
     EmptyInput,
     EventIdInput,
-    ImageUploadInput,
     NonBlankName,
-    require_aware_datetime,
 )
 from ludamus.gates.mcp.map_tools import map_tools
 from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
-from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
+from ludamus.gates.mcp.sphere_tools import sphere_tools
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
@@ -49,7 +48,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ludamus.gates.mcp.registry import ToolProtocol
-    from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -59,6 +57,7 @@ _TIME_SLOT_LIST = TypeAdapter(list[TimeSlotDTO])
 _SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
 _FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
+_PERSONAL_FIELD_LIST = TypeAdapter(list[OrganizerFieldDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -208,6 +207,27 @@ class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
+class OrganizerListPersonalDataFieldsTool(Tool[EventIdInput]):
+    name = "list_personal_data_fields"
+    description = (
+        "List an event's host data fields (questions asked of proposers on the "
+        "wizard's Your info step) with slug, question and field_type."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = EventIdInput
+
+    @staticmethod
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
+        fields = [
+            summary.field
+            for summary in call.services.personal_data_fields.list_summaries(event.pk)
+        ]
+        return _PERSONAL_FIELD_LIST.dump_json(fields, indent=2).decode()
+
+
 class OrganizerListSessionsTool(Tool[EventIdInput]):
     name = "list_sessions"
     description = (
@@ -297,8 +317,9 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
         "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends, lie inside the event dates, and not overlap "
-        "an existing slot; a rejection names which rule failed."
+        "must start before it ends and not overlap an existing slot; a "
+        "rejection names which rule failed. A window past the event dates "
+        "widens them, which the result reports as event_dates_widened."
     )
     scope = ToolScope.ORGANIZER
     input_model = AwareDatetimeRange
@@ -307,14 +328,14 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     def handle(call: ToolCall[AwareDatetimeRange]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         try:
-            created = call.services.panel_time_slots.create(
+            saved = call.services.panel_time_slots.create(
                 event=event,
                 start_time=call.data.start_time,
                 end_time=call.data.end_time,
             )
         except TimeSlotRejectedError as error:
             raise ToolError(str(error)) from error
-        return created.model_dump_json(indent=2)
+        return saved.model_dump_json(indent=2)
 
 
 class _CreateTrackInput(BaseModel):
@@ -666,7 +687,9 @@ def _assign_session(
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
     name = "assign_session"
     description = (
-        "Place an accepted session of this token's event into a space and time window."
+        "Place an accepted session of this token's event into a space and time "
+        "window. A placement past the time slots widens them (and the event "
+        "dates behind them) rather than being refused."
     )
     scope = ToolScope.ORGANIZER
     input_model = _AssignSessionInput
@@ -725,38 +748,6 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
                 services=call.services, actor=call.actor, event=event, data=assignment
             ),
         )
-
-
-class _UpdateEventInput(BaseModel):
-    description: str | None = Field(
-        default=None, description="New event description; omit to keep the current one"
-    )
-    start_time: datetime | None = Field(
-        default=None, description="New aware start time; omit to keep"
-    )
-    end_time: datetime | None = Field(
-        default=None, description="New aware end time; omit to keep"
-    )
-    publication_time: datetime | None = Field(
-        default=None, description="New aware publication time; omit to keep"
-    )
-    clear_publication_time: bool = Field(
-        default=False, description="Unset the publication time (hides the event)"
-    )
-
-    @field_validator("start_time", "end_time", "publication_time")
-    @classmethod
-    def _aware(cls, value: datetime | None) -> datetime | None:
-        return None if value is None else require_aware_datetime(value)
-
-
-class _SetEventImageInput(ImageUploadInput):
-    kind: Literal["cover", "logo"] = Field(
-        description=(
-            "cover: the event cover image (raster only, 1920×1080 16:9 works "
-            "best). logo: the printable-schedule logo (SVG allowed)."
-        )
-    )
 
 
 class _UpdateSessionInput(BaseModel):
@@ -861,74 +852,39 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-def _apply_event_update(
-    *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
-) -> str:
-    event = token_event(services=services, actor=actor)
-    services.event_settings.update_general(
-        sphere_id=actor_sphere(actor), slug=event.slug, data=data
+class _SetPersonalDataFieldTypeInput(BaseModel):
+    slug: str = Field(description="Field slug (see list_personal_data_fields)")
+    field_type: TextFieldKind = Field(
+        description=(
+            '"discord" prefills the answer from the proposer\'s profile (the '
+            "wizard skips the step only when the account answers all of it); "
+            '"text" asks it every time'
+        )
     )
-    return token_event(services=services, actor=actor).model_dump_json(indent=2)
 
 
-class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
-    name = "update_event"
+class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]):
+    name = "set_personal_data_field_type"
     description = (
-        "Update the token event's description, start/end times, or publication "
-        "time. Only provided fields change."
+        "Switch a host data field in this token's event between text and "
+        "Discord username. Answers already given are kept."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _UpdateEventInput
+    input_model = _SetPersonalDataFieldTypeInput
 
     @staticmethod
-    def handle(call: ToolCall[_UpdateEventInput]) -> str:
-        data: EventUpdateData = {}
-        if call.data.description is not None:
-            data["description"] = call.data.description
-        if call.data.start_time is not None:
-            data["start_time"] = call.data.start_time
-        if call.data.end_time is not None:
-            data["end_time"] = call.data.end_time
-        if call.data.clear_publication_time:
-            data["publication_time"] = None
-        elif call.data.publication_time is not None:
-            data["publication_time"] = call.data.publication_time
-        if not data:
-            raise ToolError("Provide at least one field to update")
-        return _apply_event_update(services=call.services, actor=call.actor, data=data)
-
-
-class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
-    name = "set_event_image"
-    description = "Replace the token event's cover image or printable logo."
-    scope = ToolScope.ORGANIZER
-    input_model = _SetEventImageInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[_SetEventImageInput]) -> str:
-        if call.data.kind == "cover":
-            upload = call.data.validated_upload(validate_uploaded_raster)
-            data: EventUpdateData = {"cover_image": upload}
-        else:
-            upload = call.data.validated_upload(validate_uploaded_logo)
-            data = {"logo": upload}
-        return _apply_event_update(services=call.services, actor=call.actor, data=data)
-
-
-class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
-    name = "set_sphere_logo"
-    description = "Replace the sphere's logo (SVG allowed)."
-    scope = ToolScope.ORGANIZER
-    input_model = ImageUploadInput
-    audit_redacted_keys = frozenset({"content_base64"})
-
-    @staticmethod
-    def handle(call: ToolCall[ImageUploadInput]) -> str:
-        sphere_id = actor_sphere(call.actor)
-        upload = call.data.validated_upload(validate_uploaded_logo)
-        call.services.sphere_panel.update_logo(sphere_id, upload)
-        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
+    def handle(call: ToolCall[_SetPersonalDataFieldTypeInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        try:
+            field = call.services.personal_data_fields.set_field_type(
+                event_pk=event.pk,
+                field_slug=call.data.slug,
+                field_type=call.data.field_type,
+            )
+        except FieldTypeSwitchError as error:
+            message = "Only text and Discord username fields can switch type"
+            raise ToolError(message) from error
+        return field.model_dump_json(indent=2)
 
 
 def programme_tools() -> tuple[ToolProtocol, ...]:
@@ -938,6 +894,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),
         OrganizerListProposalCategoriesTool(),
+        OrganizerListPersonalDataFieldsTool(),
         OrganizerListSessionsTool(),
         OrganizerListFacilitatorsTool(),
         OrganizerCreateSpaceTool(),
@@ -951,8 +908,8 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
-        OrganizerUpdateEventTool(),
-        OrganizerSetEventImageTool(),
-        OrganizerSetSphereLogoTool(),
+        OrganizerSetPersonalDataFieldTypeTool(),
+        *event_tools(),
+        *sphere_tools(),
         *map_tools(),
     )

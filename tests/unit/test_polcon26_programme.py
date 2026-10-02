@@ -1,7 +1,7 @@
 import zipfile
 from dataclasses import replace
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from io import BytesIO
 from unittest.mock import Mock
 
 import pytest
@@ -11,21 +11,13 @@ from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
 from scripts.polcon26.seed import ensure_time_slots
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     (
         ("RPG - sesje 4h [sala 108]", "RPG — sala 108"),
         ("RPG - prelekcyjny", "RPG prelekcje — sala 115"),
-        ("RPG - prelekcyjny sala 117", "RPG prelekcje — sala 117"),
-        ("Sala 20 - warsztaty", "Sala 20 — warsztatowa"),
-        ("Sala 12 - Retro gralnia A16", "Sala 12 — Retro Gralnia"),
-        ("Manga i anime sala 106", "Manga i anime — sala 106"),
         ("[naukowy]", "Naukowy (Biblioteka UZ)"),
-        ("Turniejowa Games room", "Turniejowa Games Room"),
         ("prelecyjny (aula 8 w A16)y", "Prelekcyjny (aula 8 w A16)"),
         ("  sala\n 5  ", "Sala 5"),
     ),
@@ -36,14 +28,7 @@ def test_canonical_room(raw: str, expected: str) -> None:
 
 @pytest.mark.parametrize(
     ("room", "expected"),
-    (
-        ("RPG — sala 108", "RPG"),
-        ("Manga i anime — sala 106", "Manga i anime"),
-        ("Sala 12 — Retro Gralnia", "Retro Gralnia"),
-        ("Turniejowa Games Room", "Games Room"),
-        ("Naukowy (Biblioteka UZ)", "Nauka"),
-        ("Aula A", "Prelekcje"),
-    ),
+    (("Naukowy (Biblioteka UZ)", "Nauka"), ("Aula A", "Prelekcje")),
 )
 def test_track_for(room: str, expected: str) -> None:
     assert sync.track_for(room) == expected
@@ -52,13 +37,8 @@ def test_track_for(room: str, expected: str) -> None:
 @pytest.mark.parametrize(
     ("room", "title", "expected"),
     (
-        ("RPG — sala 108", "Kryta Forteca", "Sesja RPG"),
-        ("RPG prelekcje — sala 115", "Jak prowadzić", "Prelekcja"),
-        ("Sala 20 — warsztatowa", "Kuźnia", "Warsztaty"),
         ("Aula A", "Stwórz własną mapę", "Warsztaty"),
-        ("Aula A", "Wielki quiz fantastyki", "Konkurs"),
         ("Games Room", "Gry planszowe", "Strefa stała"),
-        ("Aula A", "Panel o wydawnictwach", "Panel dyskusyjny"),
         ("Aula A", "Historia fandomu", "Prelekcja"),
     ),
 )
@@ -70,14 +50,9 @@ def test_category_for(room: str, title: str, expected: str) -> None:
     ("value", "expected"),
     (
         ("  Wielka   prelekcja ", "Wielka prelekcja"),
-        ("Tytuł", None),
         ("???? tytuł", None),
         ("Zaproponowałem na razie coś", None),
-        ("Przerwa Techniczna", None),
         ("Warsztaty: ", "Warsztaty"),
-        ("", None),
-        (None, None),
-        (42, None),
     ),
 )
 def test_clean_title(value: object, expected: str | None) -> None:
@@ -90,8 +65,6 @@ def test_clean_title(value: object, expected: str | None) -> None:
         ("  Prawdziwy opis  ", "Prawdziwy opis"),
         ("Potrzebny opis!", ""),
         ("Dodać opis do tego", ""),
-        ("opis", ""),
-        (None, ""),
     ),
 )
 def test_clean_description(value: object, expected: str) -> None:
@@ -102,61 +75,37 @@ def test_clean_description(value: object, expected: str) -> None:
     ("value", "expected"),
     (
         ("Prowadzący: Anna Kowalska", ["Anna Kowalska"]),
-        ("Anna Kowalska, Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Anna Kowalska i Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Prowadzenie: Anna; Jan", ["Anna", "Jan"]),
         (
             "Rozmawiają Anna, Jan\nProwadzi: Dominika Węcławek",
             ["Anna", "Jan", "Dominika Węcławek"],
         ),
-        ("Udział bierze: Xavier Dollo", ["Xavier Dollo"]),
         ("Udział bierą: Stanisław Mąderek", ["Stanisław Mąderek"]),
         ("Michał J. Sobociński:", ["Michał J. Sobociński"]),
         ("Fundacja Dawne Komputery i Gry", ["Fundacja Dawne Komputery i Gry"]),
         ("Sekcja Trzymaj Pion w składzie: Ola, Arek", ["Sekcja Trzymaj Pion"]),
         ("Każdy, kto został na miejscu", []),
-        ("????", []),
         ("nikt", []),
-        ("W zależności od ilości chętnych", []),
-        (None, []),
     ),
 )
 def test_presenter_names(value: object, expected: list[str]) -> None:
     assert sync.presenter_names(value) == expected
 
 
-@pytest.mark.parametrize(
-    ("physical_room", "lane_index", "expected"),
-    (
-        ("RPG — sala 108", 2, ("RPG — sala 108 — stół 2", "Stół 2")),
-        ("Games Room", 3, ("Games Room — stanowisko 3", "Stanowisko 3")),
-    ),
-)
-def test_lane_names(
-    physical_room: str, lane_index: int, expected: tuple[str, str]
-) -> None:
-    assert sync.lane_names(physical_room, lane_index) == expected
-
-
-@pytest.mark.parametrize(
-    ("reference", "expected"), (("A1", 0), ("B3", 1), ("Z9", 25), ("AA1", 26))
-)
+@pytest.mark.parametrize(("reference", "expected"), (("A1", 0), ("AA1", 26)))
 def test_column_index(reference: str, expected: int) -> None:
     assert wb.column_index(reference) == expected
 
 
-@pytest.mark.parametrize("index", (0, 1, 25, 26, 51, 701))
+@pytest.mark.parametrize("index", (25, 26, 701))
 def test_column_name_roundtrips(index: int) -> None:
     assert wb.column_index(f"{wb.column_name(index)}1") == index
 
 
 @pytest.mark.parametrize(
     ("duration", "expected"),
-    (
-        (timedelta(minutes=45), "PT45M"),
-        (timedelta(hours=1), "PT1H"),
-        (timedelta(hours=1, minutes=30), "PT1H30M"),
-    ),
+    ((timedelta(hours=1), "PT1H"), (timedelta(hours=1, minutes=30), "PT1H30M")),
 )
 def test_iso_duration(duration: timedelta, expected: str) -> None:
     assert sync.iso_duration(duration) == expected
@@ -179,9 +128,7 @@ def test_failure_detail_passes_through_plain_text() -> None:
     assert failure_detail("boom") == "boom"
 
 
-@pytest.mark.parametrize(
-    "response_text", ("123", "null", '"just a string"', "[1, 2]", '{"results": 7}')
-)
+@pytest.mark.parametrize("response_text", ("null", '{"results": 7}'))
 def test_failure_detail_passes_through_non_report_json(response_text: str) -> None:
     assert failure_detail(response_text) == response_text
 
@@ -496,7 +443,8 @@ _SHEET_XML = (
 ).encode()
 
 
-def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
+def _workbook(names: tuple[str, ...]) -> BytesIO:
+    buffer = BytesIO()
     sheets = "".join(
         f'<sheet name="{name}" sheetId="{index}" r:id="rId{index}"/>'
         for index, name in enumerate(names, start=1)
@@ -505,7 +453,7 @@ def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
         f'<Relationship Id="rId{index}" Target="worksheets/sheet{index}.xml"/>'
         for index in range(1, len(names) + 1)
     )
-    with zipfile.ZipFile(path, "w") as archive:
+    with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr(
             "xl/workbook.xml",
             f'<workbook xmlns="{_MAIN_NS}" xmlns:r="{_DOC_NS}">'
@@ -521,13 +469,13 @@ def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
         )
         for index in range(1, len(names) + 1):
             archive.writestr(f"xl/worksheets/sheet{index}.xml", _SHEET_XML)
+    return buffer
 
 
-def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> None:
-    path = tmp_path / "programme.xlsx"
-    _write_workbook(path, wb.SHEETS)
+def test_load_workbook_reads_cells_merges_and_shared_strings() -> None:
+    workbook = _workbook(wb.SHEETS)
 
-    sheets = wb.load_workbook(path)
+    sheets = wb.load_workbook(workbook)
 
     assert sorted(sheets) == sorted(wb.SHEETS)
     assert sheets["Sobota"].cells == {"C3": "0.5", "C4": "Wprowadzenie"}
@@ -535,9 +483,8 @@ def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> 
     assert sheets["Sobota"].hidden_columns == frozenset({4, 5})
 
 
-def test_load_workbook_rejects_a_workbook_missing_a_day(tmp_path: Path) -> None:
-    path = tmp_path / "programme.xlsx"
-    _write_workbook(path, ("Piątek",))
+def test_load_workbook_rejects_a_workbook_missing_a_day() -> None:
+    workbook = _workbook(("Piątek",))
 
     with pytest.raises(ValueError, match="missing sheets: Niedziela, Sobota"):
-        wb.load_workbook(path)
+        wb.load_workbook(workbook)

@@ -1,17 +1,23 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
-from ludamus.gates.web.django.events import EventsPageView
+from ludamus.gates.web.django.landing import (
+    index_page,
+    landing_page,
+    legacy_feed_redirect,
+)
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -75,10 +81,30 @@ chronology_urls = [
 ]
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="web:events"), name="index"),
-    path("events/", EventsPageView.as_view(), name="events"),
-    # The timeline was folded into the events feed; the URL was public.
-    path("timeline/", RedirectView.as_view(pattern_name="web:events", permanent=True)),
+    path("", index_page, name="index"),
+    # The pitch on purpose, not by default: once a signed-in visitor is
+    # sent to their dashboard from / (#1307), this is the way back to it.
+    path("landing/", landing_page, name="landing"),
+    # The feed lives at the sphere root now. /events/ and /timeline/ were
+    # public, so they redirect permanently rather than 404.
+    path("events/", legacy_feed_redirect),
+    path("timeline/", legacy_feed_redirect),
+    path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
+    path(
+        "dashboard/spheres/<int:pk>/do/subscribe",
+        dashboard_gate.SphereSubscribeActionView.as_view(),
+        name="sphere-subscribe",
+    ),
+    path(
+        "dashboard/spheres/<int:pk>/do/unsubscribe",
+        dashboard_gate.SphereUnsubscribeActionView.as_view(),
+        name="sphere-unsubscribe",
+    ),
+    path(
+        "dashboard/sessions/<int:session_id>/do/claim-offer",
+        dashboard_gate.OfferClaimActionView.as_view(),
+        name="dashboard-offer-claim",
+    ),
     path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),
@@ -116,6 +142,11 @@ urlpatterns = [
     # The Auth0 tenant's error page setting points here; the path must stay
     # /auth-error to match it.
     path("auth-error/", auth_error_page, name="auth-error"),
+    path(
+        "hooks/calendar-replies",
+        EncounterCalendarReplyView.as_view(),
+        name="calendar-replies",
+    ),
     path(
         "",
         include(

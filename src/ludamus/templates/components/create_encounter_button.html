@@ -1,0 +1,5 @@
+{% load i18n %}
+{% load tessera %}
+{% translate "Create Encounter" as create_encounter_label %}
+{% url 'web:notice-board:create' as create_encounter_url %}
+{% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}

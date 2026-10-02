@@ -28,11 +28,18 @@ if TYPE_CHECKING:
         CrowdAuthServiceProtocol,
         ProfileServiceProtocol,
     )
+    from ludamus.pacts.dashboard import (
+        DashboardServiceProtocol,
+        SphereSubscriptionServiceProtocol,
+    )
     from ludamus.pacts.discounts import (
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
-    from ludamus.pacts.encounter import EncounterServiceProtocol
+    from ludamus.pacts.encounter import (
+        EncounterReplyServiceProtocol,
+        EncounterServiceProtocol,
+    )
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -44,12 +51,14 @@ if TYPE_CHECKING:
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
         EventsServiceProtocol,
+        LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
+    from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -151,6 +160,12 @@ class ServicesProtocol(Protocol):
     @property
     def sites(self) -> SitesServiceProtocol: ...
     @property
+    def landing(self) -> LandingServiceProtocol: ...
+    @property
+    def dashboard(self) -> DashboardServiceProtocol: ...
+    @property
+    def sphere_subscriptions(self) -> SphereSubscriptionServiceProtocol: ...
+    @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
@@ -187,6 +202,8 @@ class ServicesProtocol(Protocol):
     @property
     def event_maps(self) -> EventMapsServiceProtocol: ...
     @property
+    def mcp_authorization(self) -> McpAuthorizationServiceProtocol: ...
+    @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
@@ -216,5 +233,7 @@ class ServicesProtocol(Protocol):
     def timetable_overview(self) -> TimetableOverviewServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

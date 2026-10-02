@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
+
+from pydantic import TypeAdapter, ValidationError
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
@@ -21,6 +24,10 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    LandingConventionDTO,
+    LandingServiceProtocol,
+    LandingStatsDTO,
+    LandingStatsRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -43,8 +50,14 @@ from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import datetime
+
+    from ludamus.pacts.legacy import CacheProtocol, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
+
+logger = logging.getLogger(__name__)
 
 
 # Panel access only proves you manage an event; every id the request names has
@@ -56,6 +69,33 @@ def require_session_in_event(
 ) -> None:
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
+
+
+def widen_event_dates(
+    *, events: EventRepositoryProtocol, event_pk: int, start: datetime, end: datetime
+) -> bool:
+    """Grow the event's dates until the range fits; say whether they grew.
+
+    Programme placed past the event's edges is the organizer's decision, so
+    the edges follow it rather than refusing. Publication is the one edge
+    that cannot move on its own: an event cannot start before it is public.
+    """
+    # SAFETY: compare against the locked row, not the caller's copy. Two
+    # placements widening at once would otherwise let the later write shrink
+    # the dates the earlier one had just grown.
+    events.lock(event_pk)
+    event = events.read(event_pk)
+    data: EventUpdateData = {}
+    if start < event.start_time:
+        if event.publication_time is not None and start < event.publication_time:
+            raise EventPublicationInvalidError
+        data["start_time"] = start
+    if end > event.end_time:
+        data["end_time"] = end
+    if not data:
+        return False
+    events.update(event_pk, data)
+    return True
 
 
 def require_track_in_event(
@@ -416,6 +456,56 @@ class EventPanelService(EventPanelServiceProtocol):
             is_proposal_active=current_event.is_proposal_active,
             stats=build_panel_stats(stats_data),
         )
+
+
+# The landing is the most-hit anonymous page, and its numbers are a claim
+# about volume, not a live counter: two hours stale costs nothing.
+LANDING_CACHE_SECONDS = 2 * 60 * 60
+_STATS = TypeAdapter(LandingStatsDTO)
+_CONVENTIONS = TypeAdapter(list[LandingConventionDTO])
+
+
+class LandingService(LandingServiceProtocol):
+    def __init__(
+        self,
+        stats: LandingStatsRepositoryProtocol,
+        *,
+        cache: CacheProtocol,
+        convention_domains: tuple[str, ...],
+    ) -> None:
+        self._stats = stats
+        self._cache = cache
+        self._convention_domains = convention_domains
+
+    def stats(self) -> LandingStatsDTO:
+        return self._cached(
+            key="landing:stats", adapter=_STATS, load=self._stats.count_landing_stats
+        )
+
+    def conventions(self) -> list[LandingConventionDTO]:
+        return self._cached(
+            key="landing:conventions",
+            adapter=_CONVENTIONS,
+            load=lambda: self._stats.list_conventions(self._convention_domains),
+        )
+
+    # NOTE: entries are stored as JSON and validated on the way out, so a
+    # deploy that reshapes a DTO reloads instead of rendering a stale shape.
+    def _cached[T](
+        self, *, key: str, adapter: TypeAdapter[T], load: Callable[[], T]
+    ) -> T:
+        cached = self._cache.get(key)
+        if isinstance(cached, str | bytes):
+            try:
+                return adapter.validate_json(cached)
+            except ValidationError:
+                logger.warning("Discarding malformed landing cache entry %s", key)
+        value = load()
+        self._cache.set(key, adapter.dump_json(value), timeout=LANDING_CACHE_SECONDS)
+        return value
+
+    def showcase_slug(self, sphere_id: int) -> str | None:
+        return self._stats.read_newest_published_slug(sphere_id)
 
 
 class EventsService(EventsServiceProtocol):

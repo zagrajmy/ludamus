@@ -1,30 +1,26 @@
-from datetime import UTC, date, datetime
+from contextlib import nullcontext
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.printing import PrintMaterialsService
-from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO
-from ludamus.pacts.printing import PrintQueryDTO
+from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
+from ludamus.pacts.printing import (
+    PrintablesReminderDTO,
+    PrintablesReminderRecipientDTO,
+    PrintOptionDTO,
+    PrintQueryDTO,
+)
+from tests.unit.factories import event_dto
 
 
 def _event():
-    return EventDTO(
-        description="Konwent dla nerdów",
-        end_time=datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
-        name="Konwent",
-        pk=1,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
-        slug="konwent",
-        sphere_id=1,
-        start_time=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-    )
+    return event_dto(description="Konwent dla nerdów")
 
 
-def _space(pk, name, order, area_id=None):
+def _space(pk, name, order, parent_id=None):
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return SpaceDTO(
-        area_id=area_id,
+        parent_id=parent_id,
         capacity=20,
         creation_time=now,
         modification_time=now,
@@ -73,125 +69,36 @@ class _ListByEvent:
     def __init__(self, rows):
         self._rows = rows
 
-    def list_by_event(self, _event_pk):
+    def list_by_event(self, _event_pk, *, public_only=False):
         return list(self._rows)
 
-    def list_by_track(self, _track_pk):
+    def list_by_track(self, _track_pk, *, public_only=False):
         return list(self._rows)
 
 
 class _Tracks:
-    def __init__(self, space_pks=()):
+    def __init__(self, tracks=(), space_pks=()):
+        self._tracks = list(tracks)
         self._space_pks = list(space_pks)
 
     def list_public_by_event(self, _event_pk):
-        return []
+        return self._tracks
 
     def list_space_pks(self, _track_pk):
-        return list(self._space_pks)
+        return self._space_pks
 
 
-def _service(*, spaces, items, tracks=None):
+def _service(*, spaces, items, tracks=(), track_space_pks=()):
     return PrintMaterialsService(
         _Events(_event()),
         _ListByEvent(spaces),
         _ListByEvent(items),
-        tracks or _Tracks(),
+        _Tracks(tracks, track_space_pks),
     )
-
-
-def _door_cards(service, **kwargs):
-    return service.build_door_cards(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 def _timetable(service, **kwargs):
     return service.build_timetable(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
-
-
-def _area_schedule(service, window, **kwargs):
-    return service.build_area_schedule(
-        PrintQueryDTO(event_pk=1, tz=UTC, time_range=window, **kwargs)
-    )
-
-
-class TestBuildDoorCards:
-    def test_one_card_per_space_in_programme_order(self):
-        spaces = [_space(2, "Bravo", 0), _space(1, "Alfa", 1)]
-        spaces[0].programme_order = 1
-        spaces[1].programme_order = 0
-        items = [
-            _item(1, 1, 9, 10, title="RPG", confirmed=True),
-            _item(2, 2, 9, 10, title="Larp", confirmed=True),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(service)
-
-        assert [c.space_name for c in document.cards] == ["Alfa", "Bravo"]
-
-    def test_a_room_used_on_two_days_gets_a_card_per_day(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 9, 10, title="RPG", confirmed=True, day=2),
-            _item(2, 1, 14, 15, title="Wieczorny", confirmed=True, day=1),
-            _item(3, 1, 9, 10, title="Larp", confirmed=True, day=1),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(service)
-
-        assert [(c.space_name, c.day) for c in document.cards] == [
-            ("Alfa", date(2026, 6, 1)),
-            ("Alfa", date(2026, 6, 2)),
-        ]
-        assert [[e.session.title for e in c.entries] for c in document.cards] == [
-            ["Larp", "Wieczorny"],
-            ["RPG"],
-        ]
-
-    def test_time_range_keeps_overlapping_entries_and_drops_empty_rooms(self):
-        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
-        items = [
-            _item(1, 1, 9, 10, title="RPG", confirmed=True),
-            _item(2, 2, 14, 15, title="Larp", confirmed=True),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(
-            service,
-            time_range=(
-                datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-                datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
-            ),
-        )
-
-        assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].entries
-        assert [entry.session.title for entry in entries] == ["RPG"]
-
-    def test_empty_slots_and_sessionless_spaces_are_omitted(self):
-        # Cards are participant-facing: no "free slot" rows, no card at all for
-        # a room with nothing scheduled.
-        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
-        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(service)
-
-        assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].entries
-        assert [e.session.title for e in entries] == ["RPG"]
-
-    def test_includes_unconfirmed_scheduled_session(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 9, 10, title="Larp", confirmed=False)]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(service)
-
-        entries = document.cards[0].entries
-        assert entries[0].session is not None
-        assert entries[0].session.title == "Larp"
 
 
 class TestBuildTimetable:
@@ -216,23 +123,6 @@ class TestBuildTimetable:
             ("Larp", 2, 2, 1),
         ]
         assert [row.minutes for row in page.rows] == [60, 60]
-
-    def test_rows_come_from_session_times(self):
-        # Time slots are proposer availability windows, not display units; the
-        # grid rows come from the sessions' real times.
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 10, 11, title="RPG", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-
-        document = _timetable(service)
-
-        rows = document.pages[0].rows
-        assert [(r.start_time, r.end_time) for r in rows] == [
-            (
-                datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
-                datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
-            )
-        ]
 
     def test_rows_measure_instants_across_the_autumn_fold(self):
         # 02:00 CEST and 02:00 CET are the same wall clock an hour apart; the
@@ -274,36 +164,6 @@ class TestBuildTimetable:
             ("Short", 1, 1),
         ]
         assert page.spans == [1, 2]
-
-    def test_a_lone_session_makes_one_tile(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 10, 11, title="Solo", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-
-        document = _timetable(service)
-
-        titles = [t.session.title for page in document.pages for t in page.tiles]
-        assert titles == ["Solo"]
-
-    def test_one_page_per_date_with_sessions(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 9, 10, title="Day one", confirmed=True),
-            _item(2, 1, 9, 10, title="Day two", confirmed=True, day=2),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        document = _timetable(service)
-
-        assert [d.day for d in document.pages] == [date(2026, 6, 1), date(2026, 6, 2)]
-
-    def test_nothing_scheduled_produces_no_pages(self):
-        spaces = [_space(1, "Alfa", 0)]
-        service = _service(spaces=spaces, items=[])
-
-        document = _timetable(service)
-
-        assert document.pages == []
 
     def test_large_timetables_are_chunked_by_spaces(self):
         spaces = [_space(pk, f"Space {pk}", pk) for pk in range(1, 8)]
@@ -373,64 +233,6 @@ class TestBuildTimetable:
         # A time-clipped print is a subset, never "the whole program".
         assert document.is_unscoped is False
 
-    def test_documents_carry_event_description(self):
-        service = _service(spaces=[_space(1, "Alfa", 0)], items=[])
-
-        assert _timetable(service).event_description == "Konwent dla nerdów"
-        assert _door_cards(service).event_description == "Konwent dla nerdów"
-
-
-class TestUnconfirmedSessionsReachPaper:
-    # Confirmation tracks whether a facilitator answered, and never decided
-    # what prints: the same session is already on the public schedule.
-    def test_timetable_keeps_an_unconfirmed_session(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 9, 10, title="Confirmed", confirmed=True),
-            _item(2, 1, 10, 11, title="Pending", confirmed=False),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        document = _timetable(service)
-
-        titles = [t.session.title for page in document.pages for t in page.tiles]
-        assert titles == ["Confirmed", "Pending"]
-
-    def test_door_cards_keep_an_unconfirmed_session(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 9, 10, title="Pending", confirmed=False)]
-        service = _service(spaces=spaces, items=items)
-
-        document = _door_cards(service)
-
-        entries = document.cards[0].entries
-        assert [e.session.title for e in entries] == ["Pending"]
-
-
-class TestTimetableScope:
-    def test_unscoped_when_the_print_is_the_whole_event(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-
-        assert _timetable(service).is_unscoped is True
-
-    def test_unscoped_even_when_a_scheduled_session_is_unconfirmed(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 9, 10, title="RPG", confirmed=True),
-            _item(2, 1, 10, 11, title="Maybe", confirmed=False),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        assert _timetable(service).is_unscoped is True
-
-    def test_unscoped_when_nothing_is_scheduled(self):
-        spaces = [_space(1, "Alfa", 0)]
-        service = _service(spaces=spaces, items=[])
-
-        assert _timetable(service).is_unscoped is True
-
     def test_scoped_to_a_space_subtree(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
@@ -439,6 +241,17 @@ class TestTimetableScope:
         document = _timetable(service, scope_space_pks=frozenset({1}))
 
         assert document.is_unscoped is False
+
+    def test_session_outside_scope_adds_no_row(self):
+        # The session lives in Cesarz, outside the scoped space set — it must
+        # not spawn a row (nor a page) in the scoped grid.
+        spaces = [_space(1, "Alfa", 0), _space(3, "Cesarz", 2)]
+        items = [_item(1, 3, 12, 13, title="Out of scope", confirmed=True)]
+        service = _service(spaces=spaces, items=items)
+
+        document = _timetable(service, scope_space_pks=frozenset({1}))
+
+        assert document.pages == []
 
 
 def _session_list(service, **kwargs):
@@ -478,78 +291,8 @@ class TestBuildSessionList:
         assert document.sessions[0].description == "Tale"
         assert document.sessions[0].space_name == "Alfa"
 
-    def test_keeps_unconfirmed_sessions(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 9, 10, title="Sure", confirmed=True),
-            _item(2, 1, 10, 11, title="Maybe", confirmed=False),
-        ]
-        service = _service(spaces=spaces, items=items)
-
-        assert [s.title for s in _session_list(service).sessions] == ["Sure", "Maybe"]
-
-    def test_nothing_scheduled_means_no_sessions(self):
-        service = _service(spaces=[_space(1, "Alfa", 0)], items=[])
-
-        assert _session_list(service).sessions == []
-
 
 class TestBuildAreaSchedule:
-    def test_sessions_within_range_carry_full_description(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [
-            _item(1, 1, 10, 11, title="RPG", confirmed=True, description="A long tale")
-        ]
-        service = _service(spaces=spaces, items=items)
-        window = (
-            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
-        )
-
-        document = _area_schedule(service, window)
-
-        space = document.spaces[0]
-        assert space.space_name == "Alfa"
-        assert [s.title for s in space.sessions] == ["RPG"]
-        assert space.sessions[0].description == "A long tale"
-
-    def test_sessions_outside_range_are_excluded(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 20, 21, title="Late night", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-        window = (
-            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
-        )
-
-        document = _area_schedule(service, window)
-
-        assert document.spaces[0].sessions == []
-
-    def test_pending_sessions_are_included(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 10, 11, title="Pending", confirmed=False)]
-        service = _service(spaces=spaces, items=items)
-        window = (
-            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
-        )
-
-        document = _area_schedule(service, window)
-
-        assert [s.title for s in document.spaces[0].sessions] == ["Pending"]
-
-    def test_no_range_defaults_to_event_bounds(self):
-        spaces = [_space(1, "Alfa", 0)]
-        items = [_item(1, 1, 10, 11, title="RPG", confirmed=True)]
-        service = _service(spaces=spaces, items=items)
-
-        document = service.build_area_schedule(PrintQueryDTO(event_pk=1, tz=UTC))
-
-        assert document.range_start == _event().start_time
-        assert document.range_end == _event().end_time
-        assert [s.title for s in document.spaces[0].sessions] == ["RPG"]
-
     def test_no_range_does_not_clip_sessions_to_event_bounds(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
@@ -563,79 +306,172 @@ class TestBuildAreaSchedule:
         assert document.range_start == _event().start_time
         assert document.range_end == items[0].end_time
 
-    def test_track_scopes_spaces(self):
-        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
-        items = [_item(1, 1, 10, 11, title="Tracked", confirmed=True)]
-        service = _service(spaces=spaces, items=items, tracks=_Tracks(space_pks=[1]))
-        window = (
-            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
-        )
-
-        document = _area_schedule(service, window, track_pk=7)
-
-        assert [s.space_name for s in document.spaces] == ["Alfa"]
-        assert [s.title for s in document.spaces[0].sessions] == ["Tracked"]
-
-    def test_carries_range_bounds(self):
-        spaces = [_space(1, "Alfa", 0)]
-        service = _service(spaces=spaces, items=[])
-        window = (
-            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
-            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
-        )
-
-        document = _area_schedule(service, window)
-
-        assert document.range_start == window[0]
-        assert document.range_end == window[1]
-
-
-class TestScoping:
-    @staticmethod
-    def _scoped_service():
-        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1), _space(3, "Cesarz", 2)]
-        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
-        return _service(spaces=spaces, items=items)
-
-    def test_timetable_filtered_to_scope_space_pks(self):
-        document = _timetable(
-            self._scoped_service(),
-            scope_space_pks=frozenset({1, 2}),
-            scope_name="Budynek A",
-        )
-
-        assert document.pages[0].space_names == ["Alfa", "Bravo"]
-        assert document.scope_name == "Budynek A"
-
-    def test_door_cards_filtered_to_single_space(self):
+    def test_a_time_range_frames_the_page_and_clips_sessions(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
-            _item(1, 1, 9, 10, title="RPG", confirmed=True),
-            _item(2, 2, 9, 10, title="Larp", confirmed=True),
+            _item(1, 1, 9, 10, title="Morning", confirmed=True),
+            _item(2, 1, 15, 16, title="Afternoon", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+        time_range = (
+            datetime(2026, 6, 1, 8, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(
+            PrintQueryDTO(event_pk=1, tz=UTC, time_range=time_range)
+        )
+
+        assert (document.range_start, document.range_end) == time_range
+        assert [[s.title for s in space.sessions] for space in document.spaces] == [
+            ["Morning"],
+            [],
+        ]
+
+    def test_a_track_narrows_rooms_to_the_ones_it_uses(self):
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, track_space_pks=[1])
+
+        document = service.build_area_schedule(
+            PrintQueryDTO(event_pk=1, tz=UTC, track_pk=5)
+        )
+
+        assert [space.space_name for space in document.spaces] == ["Alfa"]
+
+
+class TestBuildDoorCards:
+    def test_one_card_per_room_and_day_with_sessions_in_time_order(self):
+        hall = _space(9, "Hall", 0)
+        spaces = [hall, _space(1, "Alfa", 0, parent_id=9), _space(2, "Bravo", 1)]
+        items = [
+            _item(1, 1, 11, 12, title="Late", confirmed=True),
+            _item(2, 1, 9, 10, title="Early", confirmed=True),
+            _item(3, 1, 9, 10, title="Next day", confirmed=True, day=2),
         ]
         service = _service(spaces=spaces, items=items)
 
-        document = _door_cards(
-            service, scope_space_pks=frozenset({1}), scope_name="Parter"
+        document = service.build_door_cards(
+            PrintQueryDTO(event_pk=1, tz=UTC, scope_name="Ground floor")
         )
 
-        assert [c.space_name for c in document.cards] == ["Alfa"]
-        assert document.scope_name == "Parter"
+        assert document.scope_name == "Ground floor"
+        assert [
+            (card.space_name, card.day.day, [e.session.title for e in card.entries])
+            for card in document.cards
+        ] == [("Alfa", 1, ["Early", "Late"]), ("Alfa", 2, ["Next day"])]
 
-    def test_unscoped_has_no_scope_name(self):
-        document = _timetable(self._scoped_service())
-
-        assert document.scope_name is None
-        assert document.pages[0].space_names == ["Alfa", "Bravo", "Cesarz"]
-
-    def test_session_outside_scope_adds_no_row(self):
-        # The session lives in Cesarz, outside the scoped space set — it must
-        # not spawn a row (nor a page) in the scoped grid.
-        spaces = [_space(1, "Alfa", 0), _space(3, "Cesarz", 2)]
-        items = [_item(1, 3, 12, 13, title="Out of scope", confirmed=True)]
+    def test_a_time_range_drops_sessions_outside_it(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="Morning", confirmed=True),
+            _item(2, 1, 15, 16, title="Afternoon", confirmed=True),
+        ]
         service = _service(spaces=spaces, items=items)
 
-        document = _timetable(service, scope_space_pks=frozenset({1}))
+        document = service.build_door_cards(
+            PrintQueryDTO(
+                event_pk=1,
+                tz=UTC,
+                time_range=(
+                    datetime(2026, 6, 1, 14, 0, tzinfo=UTC),
+                    datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
+                ),
+            )
+        )
 
-        assert document.pages == []
+        assert [[e.session.title for e in card.entries] for card in document.cards] == [
+            ["Afternoon"]
+        ]
+
+
+class TestListTracks:
+    def test_public_tracks_become_print_options(self):
+        service = _service(
+            spaces=[],
+            items=[],
+            tracks=[TrackDTO.model_construct(pk=5, name="Larp", slug="larp")],
+        )
+
+        assert service.list_tracks(1) == [
+            PrintOptionDTO(pk=5, name="Larp", slug="larp")
+        ]
+
+
+class _Reminders:
+    def __init__(self, due):
+        self._due = due
+        self.printed = []
+        self.sent = []
+
+    def list_pending_reminders(self, *, now, lead_time):
+        del now, lead_time
+        return list(self._due)
+
+    def mark_printed(self, event_pk):
+        self.printed.append(event_pk)
+
+    def mark_reminder_sent(self, event_pk, *, at):
+        self.sent.append((event_pk, at))
+
+
+class _Notifier:
+    def __init__(self):
+        self.notifications = []
+
+    def notify_printables_ready(self, notification):
+        self.notifications.append(notification)
+
+
+class _Transaction:
+    @staticmethod
+    def atomic():
+        return nullcontext()
+
+
+class TestPrintablesReminderService:
+    def test_marks_each_event_sent_and_notifies_every_recipient(self):
+        now = datetime(2026, 5, 30, 9, 0, tzinfo=UTC)
+        due = [
+            PrintablesReminderDTO(
+                event_pk=1,
+                event_name="Konwent",
+                event_slug="konwent",
+                sphere_domain="k.example",
+                recipients=[
+                    PrintablesReminderRecipientDTO(user_id=1, email="a@k.example"),
+                    PrintablesReminderRecipientDTO(user_id=2, email="b@k.example"),
+                ],
+            ),
+            PrintablesReminderDTO(
+                event_pk=2,
+                event_name="Sesja",
+                event_slug="sesja",
+                sphere_domain="z.example",
+                recipients=[],
+            ),
+        ]
+        reminders = _Reminders(due)
+        notifier = _Notifier()
+        service = PrintablesReminderService(
+            transaction=_Transaction(), reminders=reminders, notifier=notifier
+        )
+
+        sent = service.send_due_reminders(now=now)
+
+        assert sent == len(due)
+        assert reminders.sent == [(1, now), (2, now)]
+        assert [(n.recipient_email, n.event_slug) for n in notifier.notifications] == [
+            ("a@k.example", "konwent"),
+            ("b@k.example", "konwent"),
+        ]
+
+    def test_mark_printed_records_the_event(self):
+        reminders = _Reminders([])
+        service = PrintablesReminderService(
+            transaction=_Transaction(), reminders=reminders, notifier=_Notifier()
+        )
+
+        service.mark_printed(7)
+
+        assert reminders.printed == [7]

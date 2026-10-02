@@ -86,7 +86,7 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
     # (A clean URL to a public event renders normally and never reaches here.)
     if state in {_EVENT_MISSING, _EVENT_UNPUBLISHED}:
         messages.info(request, _("That event isn't available."))
-        return HttpResponseRedirect(reverse("web:events"))
+        return HttpResponseRedirect(reverse("web:index"))
 
     return None
 
