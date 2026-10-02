@@ -132,10 +132,25 @@ class SessionFieldValueDTO(BaseModel):
     field_question: str
     field_slug: str = ""
     field_order: int = 0
-    field_type: str = "text"
+    field_type: SessionFieldType = "text"
     is_public: bool = False
     show_on_cards: bool = True
     value: str | list[str] | bool
+
+    @property
+    def select_values(self) -> list[str]:
+        """The choices this answer picks, for a select field.
+
+        Returns:
+            One entry per chosen value — a multiple select stores a list, a
+            single one a bare string — and nothing for a field of another
+            type, whose answer is no choice.
+        """
+        if self.field_type != "select":
+            return []
+        if isinstance(self.value, list):
+            return [value for value in self.value if value]
+        return [self.value] if isinstance(self.value, str) and self.value else []
 
 
 UNSCHEDULED_LIST_LIMIT = 20

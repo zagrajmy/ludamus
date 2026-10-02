@@ -204,6 +204,13 @@ const matchesTag =
     return categoryPattern.test(card.dataset.tagCategories ?? "");
   };
 
+// A ticked checkbox field rides the same channel as a tag, under the fixed
+// value "true", so one pattern per flag outlives every card it tests.
+const matchesFlag = (categorySlug: string): FlagFilter["matches"] => {
+  const flagPattern = new RegExp(`(?:^|;)${escapeRegExp(categorySlug)}:true(?:;|$)`, "i");
+  return (card) => flagPattern.test(card.dataset.tagCategories ?? "");
+};
+
 const FIELD_FLAG_PREFIX = "field-flag-";
 
 // An upgraded combobox keeps its options in JS, not in the page, and a
@@ -404,7 +411,7 @@ const initSessionFilters = (): void => {
       document.querySelectorAll<HTMLInputElement>(`input[id^="${FIELD_FLAG_PREFIX}"]`),
       (el): FlagFilter => {
         const slug = el.id.slice(FIELD_FLAG_PREFIX.length);
-        return { el, matches: (card) => matchesTag(slug)(card, "true"), param: `flag-${slug}` };
+        return { el, matches: matchesFlag(slug), param: `flag-${slug}` };
       },
     ),
   ].filter((f) => f !== null);

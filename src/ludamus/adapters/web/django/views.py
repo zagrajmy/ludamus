@@ -38,7 +38,6 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
-    card_pills,
     filter_availability,
     filterable_flag_fields,
     filterable_tag_fields,
@@ -632,15 +631,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         if limit_configs:
             earliest_limit_end_time = min(config.end_time for config in limit_configs)
 
-        # Set displayed field values and display status for each session
+        # Set display status for each session
         for session_data in sessions_data.values():
-            session_data.card_pills = [
-                pill
-                for fv in session_data.field_values
-                if fv.show_on_cards
-                for pill in card_pills(fv)
-            ]
-
             if session_data.agenda_item is None:
                 continue
             session_start = session_data.agenda_item.start_time

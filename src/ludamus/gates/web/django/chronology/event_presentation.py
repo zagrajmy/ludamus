@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import EnrollmentAccessDTO
+    from ludamus.pacts.fields import SessionFieldType
     from ludamus.pacts.guild import GuildMarkDTO
     from ludamus.pacts.ids import EventId, UserId
 
@@ -53,7 +54,7 @@ _VENUE_FILTER_PREFIX = "venue:"
 _MAX_VISIBLE_PILLS = 4
 
 
-def card_pills(field_value: SessionFieldValueDTO) -> list[CloudPill]:
+def field_pills(field_value: SessionFieldValueDTO) -> list[CloudPill]:
     """Turn one answer into the pills a session card can show.
 
     Returns:
@@ -61,14 +62,13 @@ def card_pills(field_value: SessionFieldValueDTO) -> list[CloudPill]:
         checkbox, and nothing for free text: that only fits the modal.
     """
     icon = field_value.field_icon
-    match field_value.field_type, field_value.value:
-        case "select", list() as values:
-            return [CloudPill(icon=icon, value=v) for v in values if isinstance(v, str)]
-        case "select", str() as value if value:
-            return [CloudPill(icon=icon, value=value)]
-        case "checkbox", True:
-            return [CloudPill(icon=icon, value=field_value.field_name)]
-    return []
+    if field_value.field_type == "checkbox":
+        return (
+            [CloudPill(icon=icon, value=field_value.field_name)]
+            if field_value.value is True
+            else []
+        )
+    return [CloudPill(icon=icon, value=value) for value in field_value.select_values]
 
 
 @dataclass
@@ -106,7 +106,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     user_waiting: bool = False
     user_bookmarked: bool = False
     bookmark_count: int = 0
-    card_pills: list[CloudPill] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
     track_names: list[str] = field(default_factory=list)
     category_name: str = ""
@@ -129,6 +128,21 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
+
+    @property
+    def card_pills(self) -> list[CloudPill]:
+        """Every pill this card's answers earn, in field order.
+
+        Returns:
+            The pills of the fields the organizer put on cards; a field kept
+            off them answers in the modal only.
+        """
+        return [
+            pill
+            for field_value in self.field_values
+            if field_value.show_on_cards
+            for pill in field_pills(field_value)
+        ]
 
     @property
     def cloud_pills(self) -> list[CloudPill]:
@@ -208,20 +222,29 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
             return _seats_free(self.spots_left)
         return _seat_count(self.effective_participants_limit)
 
+    def _public_answers(
+        self, field_type: SessionFieldType
+    ) -> Iterator[SessionFieldValueDTO]:
+        """Yield the public answers of one field type.
+
+        Yields:
+            One answer per public field of that type, in field order. A
+            private answer never leaves the modal, so every reader below
+            filters the same way.
+        """
+        for field_value in self.field_values:
+            if field_value.field_type == field_type and field_value.is_public:
+                yield field_value
+
     def public_select_answers(self) -> Iterator[tuple[str, str]]:
         """Yield every (field slug, value) a public select field carries.
 
         Yields:
             One pair per selected value, in field order.
         """
-        for field_value in self.field_values:
-            if (
-                field_value.field_type == "select"
-                and field_value.is_public
-                and isinstance(field_value.value, list)
-            ):
-                for value in field_value.value:
-                    yield field_value.field_slug, str(value)
+        for field_value in self._public_answers("select"):
+            for value in field_value.select_values:
+                yield field_value.field_slug, value
 
     def ticked_public_checkboxes(self) -> Iterator[str]:
         """Yield the slug of every public checkbox field this session ticks.
@@ -229,12 +252,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         Yields:
             One slug per ticked field, in field order.
         """
-        for field_value in self.field_values:
-            if (
-                field_value.field_type == "checkbox"
-                and field_value.is_public
-                and field_value.value is True
-            ):
+        for field_value in self._public_answers("checkbox"):
+            if field_value.value is True:
                 yield field_value.field_slug
 
     @property
@@ -244,10 +263,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         terms = [value for _slug, value in self.public_select_answers()]
         terms.extend(
             field_value.value
-            for field_value in self.field_values
-            if field_value.field_type == "text"
-            and field_value.is_public
-            and isinstance(field_value.value, str)
+            for field_value in self._public_answers("text")
+            if isinstance(field_value.value, str)
         )
         return " ".join(terms)
 

@@ -29,6 +29,10 @@ class EventSlugTakenError(Exception):
     pass
 
 
+class CardFieldInvalidError(Exception):
+    """A field asked onto the cards is not one this event can put there."""
+
+
 @dataclass
 class EventSettingsRepos:
     events: EventRepositoryProtocol

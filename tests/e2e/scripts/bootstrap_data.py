@@ -794,24 +794,32 @@ def _create_tone_field_scenario(
 def _create_flag_and_text_scenario(
     event: Event, *, ticked_session: Session, other_session: Session
 ) -> None:
-    beginners, pitch, notes = (
-        SessionField.objects.create(
-            event=event,
-            name=name,
-            question=name,
-            slug=slug,
-            field_type=field_type,
-            is_public=is_public,
-            order=order,
-        )
-        for order, (name, slug, field_type, is_public) in enumerate(
-            (
-                ("Beginner friendly", "beginners", "checkbox", True),
-                ("Pitch", "pitch", "text", True),
-                ("Organizer notes", "notes", "text", False),
-            ),
-            start=1,
-        )
+    beginners = SessionField.objects.create(
+        event=event,
+        name="Beginner friendly",
+        question="Beginner friendly",
+        slug="beginners",
+        field_type="checkbox",
+        is_public=True,
+        order=1,
+    )
+    pitch = SessionField.objects.create(
+        event=event,
+        name="Pitch",
+        question="Pitch",
+        slug="pitch",
+        field_type="text",
+        is_public=True,
+        order=2,
+    )
+    notes = SessionField.objects.create(
+        event=event,
+        name="Organizer notes",
+        question="Organizer notes",
+        slug="notes",
+        field_type="text",
+        is_public=False,
+        order=3,
     )
     SessionFieldValue.objects.create(
         session=ticked_session, field=beginners, value=True

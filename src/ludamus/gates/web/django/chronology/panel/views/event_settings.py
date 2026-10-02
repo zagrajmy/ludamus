@@ -20,7 +20,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
-from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
+from ludamus.pacts.event_settings import (
+    CardFieldInvalidError,
+    EventSlugTakenError,
+    ProposalSettingsUpdateData,
+)
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
@@ -205,6 +209,9 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 slug=slug,
                 selected_ids=selected_ids,
             )
+        except CardFieldInvalidError:
+            messages.error(self.request, _("Invalid field selection."))
+            return redirect("panel:event-display-settings", slug=slug)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")

@@ -15,7 +15,6 @@ from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
-    card_pills,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
@@ -508,7 +507,6 @@ class TestEventPageView:
                 plenty.agenda_item,
                 presenter=plenty.presenter,
                 is_enrollment_available=True,
-                card_pills=card_pills(field_value_dto),
                 field_values=[field_value_dto],
             ),
             scarce.pk: session_card(
@@ -1258,10 +1256,7 @@ class TestEventPageView:
             value=["a", "b", "c", "d", "e"],
         )
         card = session_card(
-            agenda_item,
-            presenter=session.presenter,
-            card_pills=card_pills(field_value_dto),
-            field_values=[field_value_dto],
+            agenda_item, presenter=session.presenter, field_values=[field_value_dto]
         )
         assert_response(
             response,
@@ -1365,7 +1360,6 @@ class TestEventPageView:
             enrolled_count=1,
             category_name=session.category.name,
             field_values=[field_value_dto],
-            card_pills=card_pills(field_value_dto),
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
@@ -2579,7 +2573,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2647,10 +2640,7 @@ class TestEventPageView:
             value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
         card = session_card(
-            agenda_item,
-            presenter=session.presenter,
-            card_pills=card_pills(field_value_dto),
-            field_values=[field_value_dto],
+            agenda_item, presenter=session.presenter, field_values=[field_value_dto]
         )
         # Four values stay visible; the two extras collapse into the "+N" popover.
         assert_response(
@@ -2769,7 +2759,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2834,7 +2823,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,

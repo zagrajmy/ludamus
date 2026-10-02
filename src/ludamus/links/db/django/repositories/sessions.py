@@ -59,6 +59,7 @@ from ludamus.pacts.chronology import (
     SessionSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.fields import is_session_field_type
 from ludamus.pacts.legacy import ConfirmationSessionRow
 
 if TYPE_CHECKING:
@@ -190,6 +191,7 @@ def own_pending_proposals(*, event_id: int, presenter_id: int) -> QuerySet[Sessi
 
 
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
+    field_type = fv.field.field_type
     return SessionFieldValueDTO(
         allow_custom=fv.field.allow_custom,
         field_icon=fv.field.icon,
@@ -198,7 +200,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
         field_order=fv.field.order,
         field_question=fv.field.question,
         field_slug=fv.field.slug,
-        field_type=fv.field.field_type,
+        field_type=field_type if is_session_field_type(field_type) else "text",
         is_public=fv.field.is_public,
         show_on_cards=fv.field.show_on_cards,
         value=fv.value,

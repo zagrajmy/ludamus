@@ -7,7 +7,7 @@ from django.utils import timezone
 from ludamus.gates.web.django.chronology.event_presentation import (
     CloudPill,
     SessionData,
-    card_pills,
+    field_pills,
     filterable_flag_fields,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -16,9 +16,23 @@ from ludamus.gates.web.django.chronology.schedule import (
     group_sessions_by_state,
 )
 from ludamus.pacts import AgendaItemDTO
-from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldType
 from ludamus.pacts.legacy import SessionFieldValueDTO
 from tests.integration.web.chronology.helpers import make_session_data
+
+
+def _answer(
+    slug: str, field_type: SessionFieldType, *, value: object, is_public: bool = True
+) -> SessionFieldValueDTO:
+    return SessionFieldValueDTO(
+        field_icon=f"{slug}-icon",
+        field_name=slug.title(),
+        field_question="",
+        field_slug=slug,
+        field_type=field_type,
+        is_public=is_public,
+        value=value,
+    )
 
 
 class TestSessionDataSpotsLeft:
@@ -111,20 +125,6 @@ class TestSessionDataFilterCategories:
         assert data.filter_categories == "beginners:true"
 
 
-def _answer(
-    slug: str, field_type: str, *, value: object, is_public: bool = True
-) -> SessionFieldValueDTO:
-    return SessionFieldValueDTO(
-        field_icon=f"{slug}-icon",
-        field_name=slug.title(),
-        field_question="",
-        field_slug=slug,
-        field_type=field_type,
-        is_public=is_public,
-        value=value,
-    )
-
-
 class TestSessionDataSearchTerms:
     def test_holds_public_select_values_and_text(self):
         data = make_session_data(
@@ -138,18 +138,22 @@ class TestSessionDataSearchTerms:
 
         assert data.search_terms == "D&D Homebrew Heist in Lviv"
 
+    def test_holds_a_single_selects_bare_answer(self):
+        data = make_session_data(
+            field_values=[_answer("system", "select", value="D&D")]
+        )
+
+        assert data.search_terms == "D&D"
+        assert data.public_tag_categories == "system:D&D"
+
 
 class TestCardPills:
     def test_one_cap_spans_every_field(self):
         data = make_session_data(
-            card_pills=[
-                pill
-                for answer in (
-                    _answer("system", "select", value=["a", "b", "c"]),
-                    _answer("beginners", "checkbox", value=True),
-                    _answer("triggers", "select", value=["one", "two"]),
-                )
-                for pill in card_pills(answer)
+            field_values=[
+                _answer("system", "select", value=["a", "b", "c"]),
+                _answer("beginners", "checkbox", value=True),
+                _answer("triggers", "select", value=["one", "two"]),
             ]
         )
 
@@ -169,7 +173,22 @@ class TestCardPills:
         (("text", "A long pitch"), ("checkbox", False), ("select", "")),
     )
     def test_answer_without_a_pill(self, field_type, value):
-        assert card_pills(_answer("f", field_type, value=value)) == []
+        assert field_pills(_answer("f", field_type, value=value)) == []
+
+    def test_a_single_select_answer_earns_its_pill(self):
+        data = make_session_data(
+            field_values=[_answer("system", "select", value="D&D")]
+        )
+
+        assert data.cloud_pills == [CloudPill(icon="system-icon", value="D&D")]
+
+    def test_a_field_kept_off_cards_earns_none(self):
+        answer = _answer("system", "select", value=["D&D"])
+        data = make_session_data(
+            field_values=[answer.model_copy(update={"show_on_cards": False})]
+        )
+
+        assert data.card_pills == []
 
 
 class TestFilterableFlagFields:

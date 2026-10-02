@@ -46,6 +46,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
+from ludamus.pacts.fields import is_session_field_type
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -150,6 +151,7 @@ def _agenda_item_dto(row: _SessionRow) -> AgendaItemDTO:
 
 
 def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
+    field_type = row.field__field_type
     return SessionFieldValueDTO(
         allow_custom=row.field__allow_custom,
         field_icon=row.field__icon,
@@ -158,7 +160,7 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
         field_order=row.field__order,
         field_question=row.field__question,
         field_slug=row.field__slug,
-        field_type=row.field__field_type,
+        field_type=field_type if is_session_field_type(field_type) else "text",
         is_public=row.field__is_public,
         show_on_cards=row.field__show_on_cards,
         value=row.value,

@@ -10,7 +10,6 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     ParticipationInfo,
     SessionData,
-    card_pills,
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
@@ -165,7 +164,6 @@ def mock_session_data() -> SessionData:
         session_participations=session_participations,
         loc=_mock_venue_and_space(),
         field_values=field_values,
-        card_pills=[pill for fv in field_values for pill in card_pills(fv)],
     )
 
 
@@ -243,7 +241,6 @@ def mock_session_data_overflow() -> SessionData:
         is_public=True,
         value=list(_OVERFLOW_TRIGGERS),
     )
-    field_values = [system, triggers]
     return replace(
         data,
         session=data.session.model_copy(
@@ -255,8 +252,7 @@ def mock_session_data_overflow() -> SessionData:
                 "title": "Overflow Tags (Design Preview)",
             }
         ),
-        field_values=field_values,
-        card_pills=[pill for fv in field_values for pill in card_pills(fv)],
+        field_values=[system, triggers],
     )
 
 
@@ -302,7 +298,6 @@ def mock_session_data_ended() -> SessionData:
         session_participations=ended_participations,
         loc=_mock_venue_and_space(),
         field_values=data.field_values[:1],
-        card_pills=card_pills(data.field_values[0]),
         is_ongoing=True,
         is_ended=True,
     )

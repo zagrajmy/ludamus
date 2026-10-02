@@ -6,6 +6,7 @@ import pytest
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import (
+    CardFieldInvalidError,
     EventSettingsRepos,
     EventSlugTakenError,
     ProposalSettingsUpdateData,
@@ -141,22 +142,38 @@ class TestEventSettingsService:
                 data={"name": "Renamed", "slug": "new-conf"},
             )
 
-    def test_update_shown_on_cards_keeps_only_public_pill_fields(
+    def test_update_shown_on_cards_saves_every_public_pill_field(
         self, service, events, session_fields
+    ):
+        events.read_by_slug.return_value = _event(pk=7)
+        session_fields.list_by_event.return_value = [
+            _session_field(pk=1, slug="public"),
+            _session_field(pk=4, slug="beginners", field_type="checkbox"),
+        ]
+
+        service.update_shown_on_cards(
+            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 4]
+        )
+
+        session_fields.show_on_cards_only.assert_called_once_with(7, [1, 4])
+
+    @pytest.mark.parametrize("selected_pk", (2, 3, 99))
+    def test_update_shown_on_cards_refuses_a_field_that_cannot_be_shown(
+        self, service, events, session_fields, selected_pk
     ):
         events.read_by_slug.return_value = _event(pk=7)
         session_fields.list_by_event.return_value = [
             _session_field(pk=1, slug="public"),
             _session_field(pk=2, slug="hidden", is_public=False),
             _session_field(pk=3, slug="pitch", field_type="text"),
-            _session_field(pk=4, slug="beginners", field_type="checkbox"),
         ]
 
-        service.update_shown_on_cards(
-            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 3, 4, 99]
-        )
+        with pytest.raises(CardFieldInvalidError):
+            service.update_shown_on_cards(
+                sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, selected_pk]
+            )
 
-        session_fields.show_on_cards_only.assert_called_once_with(7, [1, 4])
+        session_fields.show_on_cards_only.assert_not_called()
 
     def test_update_general_refuses_an_end_not_after_the_start(self, service, events):
         events.read_by_slug.return_value = _event(pk=7)

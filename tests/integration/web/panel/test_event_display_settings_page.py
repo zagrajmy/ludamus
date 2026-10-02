@@ -220,7 +220,8 @@ class TestEventDisplaySettingsPageViewPost:
 
         assert _hidden_pks(event) == [field.pk]
 
-    def test_ignores_private_and_foreign_field_ids(self, panel_client, event, sphere):
+    def test_refuses_private_and_foreign_field_ids(self, panel_client, event, sphere):
+        shown = _create_session_field(event, slug="shown")
         private = _create_session_field(
             event, slug="private", is_public=False, show_on_cards=False
         )
@@ -235,8 +236,11 @@ class TestEventDisplaySettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Display settings saved successfully.")],
+            messages=[(messages.ERROR, "Invalid field selection.")],
             url=f"/panel/event/{event.slug}/settings/display/",
         )
+        # Nothing moved: not the ticked field the refused selection left out,
+        # not the two it named.
         assert _hidden_pks(event) == [private.pk]
+        assert shown.pk not in _hidden_pks(event)
         assert _hidden_pks(other_event) == [foreign.pk]

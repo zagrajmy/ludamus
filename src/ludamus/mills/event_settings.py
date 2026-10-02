@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import (
+    CardFieldInvalidError,
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
     EventSlugTakenError,
@@ -104,17 +105,30 @@ class EventSettingsService(EventSettingsServiceProtocol):
     def update_shown_on_cards(
         self, *, sphere_id: int, slug: str, selected_ids: list[int]
     ) -> None:
-        event = self._repos.events.read_by_slug(slug, sphere_id)
-        valid_pks = {
-            field.pk
-            for field in self._repos.session_fields.list_by_event(event.pk)
-            if _fits_card(field)
-        }
-        filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
+        """Put exactly the named fields on this event's cards.
+
+        Raises:
+            CardFieldInvalidError: one of the ids is not a field of this event
+                that fits a card. Saving the rest would report success for a
+                selection the organizer never made.
+        """
         with self._transaction.atomic():
-            self._repos.session_fields.show_on_cards_only(event.pk, filtered_ids)
+            event = self._repos.events.read_by_slug(slug, sphere_id)
+            valid_pks = {
+                field.pk
+                for field in self._repos.session_fields.list_by_event(event.pk)
+                if _fits_card(field)
+            }
+            if unknown := set(selected_ids) - valid_pks:
+                logger.warning(
+                    "Event %s asked unknown session fields %s onto cards",
+                    event.pk,
+                    sorted(unknown),
+                )
+                raise CardFieldInvalidError
+            self._repos.session_fields.show_on_cards_only(event.pk, selected_ids)
         logger.info(
-            "Event %s requested session fields %s on cards", event.pk, filtered_ids
+            "Event %s requested session fields %s on cards", event.pk, selected_ids
         )
 
     def get_proposal_settings(
