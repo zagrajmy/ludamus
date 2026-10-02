@@ -1160,6 +1160,36 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# Enrollment and proposals both open around one scheduled session: a single
+# enrollable slot, whose header must not repeat the section's propose button.
+# Driven by event-propose-entry.spec.ts.
+def _create_single_slot_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Lone Table Evening",
+        slug="lone-table",
+        description="One table, one slot, and room for your own game.",
+        start_offset=timedelta(days=18),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+        enrollment_banner="Enrollment is open",
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Lone Venue", slug="lone-venue")
+    area = _create_area(venue, name="Lone Area", slug="lone-area")
+    space = _create_space(area, name="Lone Room", slug="lone-room", capacity=6)
+    _scheduled_session(
+        event,
+        space,
+        title="Lone Table Demo",
+        slug="lone-table-demo",
+        presenter="Lone GM",
+        description="The only session of the evening.",
+        seats=6,
+        hour=1,
+    )
+
+
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -1551,6 +1581,7 @@ def main() -> None:
     _create_anon_proposals_event(sphere)
     _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_single_slot_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

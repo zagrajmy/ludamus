@@ -67,6 +67,14 @@ env = environ.Env(
     # smtp+tls://user:pass@host:587 in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
+    # Mailbox calendar replies to encounter invites go to (e.g.
+    # rsvp@reply.zagrajmy.net, routed to the Cloudflare Email Worker in
+    # cloudflare/encounter-replies). Empty turns reply sync off: invites then
+    # ask for no reply and name DEFAULT_FROM_EMAIL as organizer.
+    ENCOUNTER_REPLY_EMAIL=(str, ""),
+    # Bearer secret the Email Worker sends with each forwarded reply. Empty
+    # closes the webhook.
+    ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -381,13 +389,15 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
-# What a private sphere still serves to strangers: signing in, and the MCP
-# endpoints, which authenticate by token and scope themselves to its sphere.
+# What a private sphere still serves to strangers: signing in, the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere,
+# and the calendar-reply webhook, which authenticates by bearer secret.
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
     "/auth-error/",
     "/mcp/",
+    "/hooks/calendar-replies",
     "/.well-known/",
 )
 
@@ -615,6 +625,8 @@ EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
 # Set only by the filemail:// (file-based) dev transport; ignored otherwise.
 EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
+ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
