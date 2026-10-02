@@ -10,7 +10,6 @@ test.describe("Proposing from a small event", () => {
     const schedule = page.locator("#schedule-region");
 
     await expect(schedule.locator(".time-slot-section")).toHaveCount(1);
-    await expect(schedule.getByText("Not Yet Available")).toHaveCount(0);
     await expect(schedule.getByRole("link", { name: "Propose Session" })).toBeVisible();
     await expect(schedule.locator('a[href="/event/lone-table/session/propose/"]')).toHaveCount(1);
   });

@@ -48,7 +48,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
     build_room_lanes,
     build_schedule_days,
-    group_sessions_by_state,
 )
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
@@ -289,12 +288,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # The day-major grouping only feeds the card-grid layout; the compact
         # schedule renders from schedule_days instead, so skip the pass there.
-        card_days: list[CardDay] = []
-        if not compact_schedule:
-            ended, current, future_unavailable = group_sessions_by_state(sessions_data)
-            card_days = build_card_days(
-                ended=ended, current=current, future_unavailable=future_unavailable
-            )
+        card_days: list[CardDay] = (
+            [] if compact_schedule else build_card_days(hour_data)
+        )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
         # The compact schedule offers two layouts: the chronological ledger
