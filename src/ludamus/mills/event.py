@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -21,6 +22,7 @@ from ludamus.pacts.event import (
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
@@ -516,11 +518,13 @@ class EventsService(EventsServiceProtocol):
         events: EventsRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         spaces: SpaceTreeRepositoryProtocol,
+        setup: EventSetupRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._events = events
         self._spheres = spheres
         self._spaces = spaces
+        self._setup = setup
 
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -535,7 +539,9 @@ class EventsService(EventsServiceProtocol):
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
         return self._events.read_in_sphere(event_id, sphere_id)
 
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
+    def create(
+        self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
+    ) -> EventDTO:
         if data["end_time"] <= data["start_time"]:
             raise EventDatesInvalidError
         publication_time = data["publication_time"]
@@ -543,16 +549,42 @@ class EventsService(EventsServiceProtocol):
             raise EventPublicationInvalidError
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
+            source = (
+                None
+                if based_on_id is None
+                else self._events.read_in_sphere(based_on_id, sphere_id)
+            )
+            try:
+                slug = data["slug"] or generate_unique_slug(
+                    data["name"],
+                    lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                    fallback="event",
+                )
+            except SlugCollisionError as error:
+                raise EventSlugConflictError from error
             try:
                 with self._transaction.savepoint():
-                    event = self._events.create(sphere_id, data)
+                    event = self._events.create(sphere_id, {**data, "slug": slug})
             except DatabaseConstraintError as error:
-                if self._events.slug_exists(sphere_id, data["slug"]):
+                if self._events.slug_exists(sphere_id, slug):
                     raise EventSlugConflictError from error
                 raise
+            if source is not None:
+                self._setup.copy(
+                    source_id=source.pk,
+                    target_id=event.pk,
+                    start_time=data["start_time"],
+                )
             # Every event created through this service owns a space: accepting
             # a proposal, drawing the timetable and printing all need somewhere
             # to put a session, and a brand-new event would otherwise dead-end
             # those flows. Direct ORM writes (admin, fixtures) bypass this.
-            self._spaces.create_default(event.pk)
-            return event
+            if not self._spaces.list_tree(event.pk):
+                self._spaces.create_default(event.pk)
+            logger.info(
+                "Created event %s in sphere %s based on %s",
+                event.pk,
+                sphere_id,
+                based_on_id,
+            )
+            return self._events.read_in_sphere(event.pk, sphere_id)
