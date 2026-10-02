@@ -4,6 +4,9 @@
         {% tessera_field form.title %}
         {% tessera_field form.header_image %}
         {% tessera_field form.description %}
+        {% if "invitees" in form.fields %}
+            {% tessera_field form.invitees %}
+        {% endif %}
     </div>
     <div class="flex flex-col">
         {% tessera_field form.game %}

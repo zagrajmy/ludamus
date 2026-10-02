@@ -7,8 +7,11 @@ from django.conf import settings
 
 from ludamus.inits.builders import (
     build_email_verification,
+    build_encounter_guests,
+    build_encounters,
     build_konwencik_export,
     build_printables_reminder,
+    build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
@@ -16,6 +19,7 @@ from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
+from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -43,7 +47,7 @@ from ludamus.mills.crowd import (
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
-from ludamus.mills.encounter import EncounterService
+from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
@@ -109,6 +113,7 @@ from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
+    from ludamus.mills.encounter import EncounterService
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.pacts.chronology import (
         ImportIntegrationImplementation,
@@ -271,7 +276,6 @@ class Services:
             transaction=self._transaction,
             repos=EventSettingsRepos(
                 events=self._repos.events,
-                event_settings=self._repos.event_settings,
                 event_proposal_settings=self._repos.event_proposal_settings,
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
@@ -334,7 +338,7 @@ class Services:
 
     @cached_property
     def sites(self) -> SitesService:
-        return SitesService(self._repos.spheres, self._repos.spheres)
+        return build_sites()
 
     @cached_property
     def landing(self) -> LandingService:
@@ -529,12 +533,17 @@ class Services:
 
     @cached_property
     def encounters(self) -> EncounterService:
-        return EncounterService(
+        return build_encounters(self.sites)
+
+    @cached_property
+    def encounter_replies(self) -> EncounterReplyService:
+        return EncounterReplyService(
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
-            spheres=self._repos.spheres,
+            guests=build_encounter_guests(self.sites),
+            reply_addresses=SignedReplyAddress(),
             sites=self.sites,
         )
 
