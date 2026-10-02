@@ -97,10 +97,6 @@ class Repositories:
         return repositories.LandingStatsRepository()
 
     @cached_property
-    def event_settings(self) -> repositories.EventSettingsRepository:
-        return repositories.EventSettingsRepository()
-
-    @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
         return repositories.EventProposalSettingsRepository()
 
@@ -183,6 +179,10 @@ class Repositories:
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
         return repositories.SpaceRepository()
+
+    @cached_property
+    def event_setup(self) -> repositories.EventSetupRepository:
+        return repositories.EventSetupRepository()
 
     @cached_property
     def space_tree(self) -> repositories.SpaceTreeRepository:
