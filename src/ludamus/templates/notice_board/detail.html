@@ -176,6 +176,34 @@
                     {% endif %}
                 </div>
             </div>
+            {# NOTE: organizer only; invitees' addresses are not for other guests #}
+            {% if is_creator and invitees %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-xs text-foreground-secondary uppercase tracking-wide mb-3">
+                            {% translate "Invited" context "invitee list heading" %} ({{ invitees|length }})
+                        </h3>
+                        <ul class="space-y-2">
+                            {% for invitee in invitees %}
+                                <li class="flex items-center justify-between gap-2 text-sm">
+                                    <span class="text-foreground truncate"
+                                          title="{{ invitee.email }}">{{ invitee.email }}</span>
+                                    {% if invitee.status == "accepted" %}
+                                        {% translate "Going" as status_label %}
+                                        {% include "components/_field_pill.html" with value=status_label icon="check" size="sm" %}
+                                    {% elif invitee.status == "declined" %}
+                                        {% translate "Declined" as status_label %}
+                                        {% include "components/_field_pill.html" with value=status_label icon="x-mark" size="sm" %}
+                                    {% else %}
+                                        {% translate "No answer yet" as status_label %}
+                                        {% include "components/_field_pill.html" with value=status_label icon="clock" size="sm" %}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
             {# Organizer info #}
             <div class="card">
                 <div class="card-body">

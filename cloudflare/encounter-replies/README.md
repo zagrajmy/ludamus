@@ -1,0 +1,41 @@
+# encounter-replies
+
+Cloudflare Email Worker that keeps encounter RSVPs in sync with guests'
+calendars. When someone accepts or declines an encounter invite in Gmail,
+Outlook or Apple Calendar, their client mails an iTIP REPLY to the invite's
+organizer address, `rsvp+<token>@reply.zagrajmy.net`. Email Routing hands that
+mail to this Worker, which posts it raw to
+`/hooks/calendar-replies`. The app checks the token, then signs the
+guest up or removes them.
+
+## Deploy
+
+1. `zagrajmy.net` itself receives mail at OVH, and turning Email Routing on
+   for the apex would replace those MX records. Onboard the subdomain
+   `reply.zagrajmy.net` instead (Email > Email Routing > add subdomain);
+   Cloudflare adds MX and SPF records for that subdomain alone.
+2. Turn on **Subaddressing** in Email Routing > Settings.
+3. Pick a long random secret and set it on both sides:
+
+   ```sh
+   cd cloudflare/encounter-replies
+   npx wrangler secret put WEBHOOK_SECRET
+   ```
+
+   In the app environment: `ENCOUNTER_REPLY_WEBHOOK_SECRET=<same value>` and
+   `ENCOUNTER_REPLY_EMAIL=rsvp@reply.zagrajmy.net`.
+4. `npx wrangler deploy`. The `addresses` entry in `wrangler.toml` creates
+   the `rsvp@reply.zagrajmy.net` routing rule pointing at the Worker.
+
+Until `ENCOUNTER_REPLY_EMAIL` is set, invites ask for no reply and name
+`DEFAULT_FROM_EMAIL` as organizer, so nothing is sent to this address.
+
+## Responses
+
+The app answers 200 for a reply it applied or ignored (a deleted encounter
+included), 403 for a token that does not match the attendee, and 422 for
+mail that holds no calendar reply or is larger than Django's
+`DATA_UPLOAD_MAX_MEMORY_SIZE`. The Worker bounces 403 and 422 back to the
+sender. A 401 (secret mismatch), a 404 (webhook closed: no secret set) and any
+5xx are ours to fix, so the Worker throws: they land in the Worker logs and the
+Email Routing activity log rather than in the guest's inbox.

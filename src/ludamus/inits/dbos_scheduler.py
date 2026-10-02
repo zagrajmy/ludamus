@@ -38,8 +38,10 @@ from django.db import transaction
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
+    build_encounters,
     build_konwencik_export,
     build_printables_reminder,
+    build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
@@ -65,6 +67,8 @@ KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
 # publishing is an editorial act, and a burst of mail on the exact tick
 # would catch the organizer's own last-second fixes.
 SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
+# Rows only wait out the one-day invite window, so daily is enough.
+ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
 
 
 @DBOS.step()
@@ -157,6 +161,17 @@ def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
     _export_konwencik_step(scheduled)
 
 
+@DBOS.step()
+def _purge_encounter_invitees_step(now: datetime) -> None:
+    build_encounters(build_sites()).purge_stale_invitees(now=now)
+
+
+@DBOS.scheduled(ENCOUNTER_INVITEE_PURGE_SCHEDULE)
+@DBOS.workflow()
+def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None:
+    _purge_encounter_invitees_step(scheduled)
+
+
 def _ensure_launched() -> None:
     if _launched.is_set():
         return
@@ -182,6 +197,7 @@ def _ensure_launched() -> None:
                     announcement_fanout_sweep,
                     sphere_announcements_tick,
                     konwencik_export_tick,
+                    encounter_invitee_purge_tick,
                 )
             ],
         )
