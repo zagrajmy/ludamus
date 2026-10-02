@@ -1,5 +1,6 @@
 """Backoffice management of an event's personal-data fields."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
@@ -10,6 +11,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
+from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 from ludamus.pacts.legacy import (
     PersonalDataFieldCreateData,
     PersonalDataFieldUpdateData,
@@ -30,8 +32,14 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
+        ProposalCategoryRepositoryProtocol,
     )
+    from ludamus.pacts.fields import TextFieldKind
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import RequirementSelectionDTO
+
+
+logger = logging.getLogger(__name__)
 
 
 def log_facilitator_changes(
@@ -93,6 +101,17 @@ class CFPPersonalDataFieldService(
 ):
     """Backoffice operations for an event's personal-data fields."""
 
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        fields: PersonalDataFieldRepositoryProtocol,
+        categories: ProposalCategoryRepositoryProtocol,
+    ) -> None:
+        super().__init__(transaction=transaction, fields=fields, categories=categories)
+        # The base keeps the CRUD face; switching type needs this repo's own.
+        self._personal_fields = fields
+
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
         usage_counts = self._fields.get_usage_counts(event_pk)
@@ -121,6 +140,7 @@ class CFPPersonalDataFieldService(
             categories=categories,
             required_category_pks={pk for pk, req in field_cats.items() if req},
             optional_category_pks={pk for pk, req in field_cats.items() if not req},
+            can_switch_type=is_text_field_kind(field.field_type),
         )
 
     def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
@@ -134,6 +154,52 @@ class CFPPersonalDataFieldService(
             return False
         self._fields.delete(field.pk)
         return True
+
+    def update(
+        self,
+        *,
+        event_pk: int,
+        field_slug: str,
+        data: PersonalDataFieldUpdateData,
+        category_requirements: RequirementSelectionDTO,
+        field_type: TextFieldKind | None = None,
+    ) -> None:
+        with self._transaction.atomic():
+            if field_type is not None:
+                self._switch_type(
+                    self._fields.read_by_slug(event_pk, field_slug), field_type
+                )
+            super().update(
+                event_pk=event_pk,
+                field_slug=field_slug,
+                data=data,
+                category_requirements=category_requirements,
+            )
+
+    def set_field_type(
+        self, *, event_pk: int, field_slug: str, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        with self._transaction.atomic():
+            return self._switch_type(
+                self._fields.read_by_slug(event_pk, field_slug), field_type
+            )
+
+    def _switch_type(
+        self, field: OrganizerFieldDTO, new_type: TextFieldKind
+    ) -> OrganizerFieldDTO:
+        if field.field_type == new_type:
+            return field
+        if not is_text_field_kind(field.field_type):
+            raise FieldTypeSwitchError
+        switched = self._personal_fields.set_field_type(field.pk, new_type)
+        logger.info(
+            "Personal data field %s (pk %s) switched type %s -> %s",
+            field.slug,
+            field.pk,
+            field.field_type,
+            new_type,
+        )
+        return switched
 
 
 def _means_unset(*, value: str | list[str] | bool | None) -> bool:

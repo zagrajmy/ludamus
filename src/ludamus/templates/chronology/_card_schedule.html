@@ -21,7 +21,7 @@
                          data-time-slot="{{ slot.kind }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
                         <!-- Time Slot Header -->
                         <div class="flex items-center gap-4 mb-4">
-                            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold {% if slot.kind == 'ended' %}bg-bg-tertiary text-foreground-muted{% elif slot.kind == 'current' %}bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800{% else %}bg-warning-bg text-warning-text{% endif %}">
+                            <div class="inline-flex items-center gap-2 text-sm font-semibold {% if slot.kind == 'ended' %}rounded-xl px-4 py-2 bg-bg-tertiary text-foreground-muted{% elif slot.kind == 'current' %}rounded-xl px-4 py-2 bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800{% else %}text-foreground-muted{% endif %}">
                                 {% icon "clock" class="w-4 h-4" variant="mini" %}
                                 {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
                                 {{ slot.hour|time:"H:i" }}
@@ -39,7 +39,10 @@
                                 </span>
                             {% endif %}
                             <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
-                            {% if slot.kind == "current" and event.is_proposal_active %}
+                            {# hour_data is keyed by slot start, so this counts time slots: #}
+                            {# with only one, the link would repeat the section's Propose #}
+                            {# Session button right above it. #}
+                            {% if slot.kind == "current" and event.is_proposal_active and hour_data|length > 1 %}
                                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                                    class="print:hidden text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
                                     {% icon "plus" class="w-4 h-4" variant="mini" %}

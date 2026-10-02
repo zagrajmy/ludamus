@@ -100,6 +100,7 @@ class _FieldValueRow(BaseModel):
     field__slug: str
     field__field_type: str
     field__is_public: bool
+    field__show_on_cards: bool
 
 
 class _SpaceRow(BaseModel):
@@ -159,6 +160,7 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
         field_slug=row.field__slug,
         field_type=row.field__field_type,
         is_public=row.field__is_public,
+        show_on_cards=row.field__show_on_cards,
         value=row.value,
     )
 
@@ -234,6 +236,7 @@ def _field_values_by_session(
                 "field__slug",
                 "field__field_type",
                 "field__is_public",
+                "field__show_on_cards",
             )
         )
     )
