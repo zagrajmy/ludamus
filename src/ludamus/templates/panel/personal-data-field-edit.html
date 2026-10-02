@@ -24,147 +24,149 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event and field %}
-        <form id="personal-data-field-form" method="post" class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
-                    {% if form.non_field_errors %}
-                        <div class="alert backdrop-blur-lg alert-error mb-6">
-                            {% for error in form.non_field_errors %}<p class="text-sm">{{ error }}</p>{% endfor %}
-                        </div>
-                    {% endif %}
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_name">{% translate "Name" context "place" %}</label>
-                            <input type="text"
-                                   name="name"
-                                   id="id_name"
-                                   value="{{ form.name.value|default:'' }}"
-                                   class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   placeholder="{% translate "e.g., Email, Phone, Bio" %}">
-                            {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_question">{% translate "Question" %}</label>
-                            <textarea name="question"
-                                      id="id_question"
-                                      rows="2"
-                                      class="w-full border {% if form.question.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                      placeholder="{% translate "e.g., What is your email address?" %}">{{ form.question.value|default:'' }}</textarea>
-                            <p class="mt-1 text-sm text-foreground-muted">
-                                {% translate "Full question text shown as the form label in the proposal wizard." %}
-                            </p>
-                            {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
-                        </div>
-                        {% if can_switch_type %}
-                            <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_field_type">{% translate "Field Type" %}</label>
-                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=text_kind_choices selected=form.field_type.value has_errors=form.field_type.errors only %}
-                                {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
-                                <p class="mt-1 text-sm text-foreground-muted">
-                                    {% translate "Discord username fields are prefilled from the proposer's profile. Answers already given are kept." %}
-                                </p>
-                            </div>
-                        {% else %}
-                            <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
-                                <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
-                                    {% if field.field_type == "select" %}
-                                        {% translate "Select" %}
-                                    {% else %}
-                                        {% translate "Checkbox" %}
-                                    {% endif %}
-                                </div>
-                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
-                                {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
+    <div class="panel-bleed">
+        {% if current_event and field %}
+            <form id="personal-data-field-form" method="post" class="max-w-2xl">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
+                        {% if form.non_field_errors %}
+                            <div class="alert backdrop-blur-lg alert-error mb-6">
+                                {% for error in form.non_field_errors %}<p class="text-sm">{{ error }}</p>{% endfor %}
                             </div>
                         {% endif %}
-                        {% if field.field_type == "select" %}
+                        <div class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_options">{% translate "Options" %}</label>
-                                <textarea name="options"
-                                          id="id_options"
-                                          rows="5"
+                                       for="id_name">{% translate "Name" context "place" %}</label>
+                                <input type="text"
+                                       name="name"
+                                       id="id_name"
+                                       value="{{ form.name.value|default:'' }}"
+                                       class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                       placeholder="{% translate "e.g., Email, Phone, Bio" %}">
+                                {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_question">{% translate "Question" %}</label>
+                                <textarea name="question"
+                                          id="id_question"
+                                          rows="2"
+                                          class="w-full border {% if form.question.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                          placeholder="{% translate "e.g., What is your email address?" %}">{{ form.question.value|default:'' }}</textarea>
+                                <p class="mt-1 text-sm text-foreground-muted">
+                                    {% translate "Full question text shown as the form label in the proposal wizard." %}
+                                </p>
+                                {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
+                            </div>
+                            {% if can_switch_type %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_field_type">{% translate "Field Type" %}</label>
+                                    {% include "components/select.html" with name="field_type" id="id_field_type" choices=text_kind_choices selected=form.field_type.value has_errors=form.field_type.errors only %}
+                                    {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
+                                    <p class="mt-1 text-sm text-foreground-muted">
+                                        {% translate "Discord username fields are prefilled from the proposer's profile. Answers already given are kept." %}
+                                    </p>
+                                </div>
+                            {% else %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
+                                    <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
+                                        {% if field.field_type == "select" %}
+                                            {% translate "Select" %}
+                                        {% else %}
+                                            {% translate "Checkbox" %}
+                                        {% endif %}
+                                    </div>
+                                    <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
+                                    {% if form.field_type.errors %}<p class="mt-1 text-sm text-danger">{{ form.field_type.errors.0 }}</p>{% endif %}
+                                </div>
+                            {% endif %}
+                            {% if field.field_type == "select" %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_options">{% translate "Options" %}</label>
+                                    <textarea name="options"
+                                              id="id_options"
+                                              rows="5"
+                                              class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                              placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
+                                    <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
+                                    {% translate "Allow multiple selections" as t_is_multiple %}
+                                    {% translate "Allow custom values" as t_allow_custom %}
+                                    <div class="mt-4 flex flex-col gap-3">
+                                        {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
+                                        {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if field.field_type != "checkbox" %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_max_length">{% translate "Max Length" %}</label>
+                                    <input type="number"
+                                           name="max_length"
+                                           id="id_max_length"
+                                           value="{{ form.max_length.value|default:'50' }}"
+                                           min="0"
+                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <p class="mt-1 text-sm text-foreground-muted">
+                                        {% translate "Maximum number of characters allowed (0 = no limit). Applies to text fields and custom value inputs." %}
+                                    </p>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_help_text">{% translate "Help Text" %}</label>
+                                <textarea name="help_text"
+                                          id="id_help_text"
+                                          rows="2"
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                          placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
-                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
-                                {% translate "Allow multiple selections" as t_is_multiple %}
-                                {% translate "Allow custom values" as t_allow_custom %}
-                                <div class="mt-4 flex flex-col gap-3">
-                                    {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
-                                    {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
-                                </div>
-                            </div>
-                        {% endif %}
-                        {% if field.field_type != "checkbox" %}
-                            <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_max_length">{% translate "Max Length" %}</label>
-                                <input type="number"
-                                       name="max_length"
-                                       id="id_max_length"
-                                       value="{{ form.max_length.value|default:'50' }}"
-                                       min="0"
-                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                          placeholder="{% translate "Optional guidance for proposal submitters" %}">{{ form.help_text.value|default:'' }}</textarea>
                                 <p class="mt-1 text-sm text-foreground-muted">
-                                    {% translate "Maximum number of characters allowed (0 = no limit). Applies to text fields and custom value inputs." %}
+                                    {% translate "Supports markdown (links, bold). Shown below the field in the proposal form." %}
                                 </p>
                             </div>
-                        {% endif %}
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_help_text">{% translate "Help Text" %}</label>
-                            <textarea name="help_text"
-                                      id="id_help_text"
-                                      rows="2"
-                                      class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                      placeholder="{% translate "Optional guidance for proposal submitters" %}">{{ form.help_text.value|default:'' }}</textarea>
-                            <p class="mt-1 text-sm text-foreground-muted">
-                                {% translate "Supports markdown (links, bold). Shown below the field in the proposal form." %}
-                            </p>
-                        </div>
-                        <label class="flex items-center">
-                            <input type="checkbox"
-                                   name="is_public"
-                                   id="id_is_public"
-                                   {% if form.is_public.value %}checked{% endif %}
-                                   class="rounded border-border text-primary focus:ring-primary">
-                            <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
-                        </label>
-                        {% if field.field_type != "checkbox" %}
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="is_public"
+                                       id="id_is_public"
+                                       {% if form.is_public.value %}checked{% endif %}
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
+                            </label>
+                            {% if field.field_type != "checkbox" %}
+                                <div>
+                                    <label class="flex items-center">
+                                        <input type="checkbox"
+                                               name="is_required"
+                                               id="id_is_required"
+                                               {% if form.is_required.value %}checked{% endif %}
+                                               class="rounded border-border text-primary focus:ring-primary">
+                                        <span class="ml-2 text-sm text-foreground-secondary">{% translate "Required" %}</span>
+                                    </label>
+                                    {% if form.is_required.errors %}<p class="mt-1 text-sm text-danger">{{ form.is_required.errors.0 }}</p>{% endif %}
+                                </div>
+                            {% endif %}
                             <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox"
-                                           name="is_required"
-                                           id="id_is_required"
-                                           {% if form.is_required.value %}checked{% endif %}
-                                           class="rounded border-border text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm text-foreground-secondary">{% translate "Required" %}</span>
-                                </label>
-                                {% if form.is_required.errors %}<p class="mt-1 text-sm text-danger">{{ form.is_required.errors.0 }}</p>{% endif %}
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_order">{% translate "Order" %}</label>
+                                <input type="number"
+                                       name="order"
+                                       id="id_order"
+                                       min="0"
+                                       value="{{ form.order.value|default:0 }}"
+                                       class="w-32 border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Lower numbers are asked first." %}</p>
+                                {% if form.order.errors %}<p class="mt-1 text-sm text-danger">{{ form.order.errors.0 }}</p>{% endif %}
                             </div>
-                        {% endif %}
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_order">{% translate "Order" %}</label>
-                            <input type="number"
-                                   name="order"
-                                   id="id_order"
-                                   min="0"
-                                   value="{{ form.order.value|default:0 }}"
-                                   class="w-32 border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Lower numbers are asked first." %}</p>
-                            {% if form.order.errors %}<p class="mt-1 text-sm text-danger">{{ form.order.errors.0 }}</p>{% endif %}
                         </div>
                     </div>
                 </div>
-            </div>
-        </form>
-    {% endif %}
+            </form>
+        {% endif %}
+    </div>
 {% endblock content %}
