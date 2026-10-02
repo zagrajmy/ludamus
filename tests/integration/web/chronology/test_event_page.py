@@ -866,14 +866,10 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_ok_live_event_card_slot_shows_now_and_propose(
-        self, agenda_item, client, event
-    ):
+    def test_ok_live_event_card_slot_shows_now(self, agenda_item, client, event):
         now = timezone.now()
         event.start_time = now - timedelta(hours=2)
         event.end_time = now + timedelta(days=1)
-        event.proposal_start_time = now - timedelta(days=1)
-        event.proposal_end_time = now + timedelta(days=1)
         event.save()
         agenda_item.start_time = now - timedelta(minutes=30)
         agenda_item.end_time = now + timedelta(hours=1)
@@ -904,7 +900,6 @@ class TestEventPageView:
         )
         content = response.content.decode()
         assert re.search(r">\s*Now\s*</span>", content)
-        assert re.search(r">\s*Propose\s*</span>", content)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):

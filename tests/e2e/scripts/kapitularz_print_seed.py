@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -168,11 +168,21 @@ SESSION_KINDS = (
 )
 
 
+def _utc_offset(day: date, tz: tzinfo) -> timedelta | None:
+    return datetime.combine(day, time(0, 0), tzinfo=tz).utcoffset()
+
+
 def seed_kapitularz_print_event(sphere: Sphere) -> None:
     Event.objects.filter(slug=EVENT_SLUG, sphere=sphere).delete()
 
     local_tz = get_current_timezone()
     start_day = (timezone.now() + timedelta(days=21)).astimezone(local_tz).date()
+    # NOTE: across a DST switch the views name the zones ("22:00 CEST–07:00
+    # CET"), and the specs read the plain times, so the programme starts after it.
+    while _utc_offset(start_day, local_tz) != _utc_offset(
+        start_day + timedelta(days=3), local_tz
+    ):
+        start_day += timedelta(days=1)
     event_start = datetime.combine(start_day, time(10, 0), tzinfo=local_tz)
     event = Event.objects.create(
         sphere=sphere,
