@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 
 from django.db import IntegrityError
-from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     Event,
     EventIntegration,
     EventPanelSettings,
-    EventSettings,
     Session,
     SessionParticipation,
     Space,
@@ -22,6 +21,7 @@ from ludamus.links.db.django.models import (
     effective_participants_limit,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.links.db.django.session_visibility import public_scheduled_sessions
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     DomainEnrollmentConfigDTO,
@@ -30,8 +30,6 @@ from ludamus.pacts import (
     EventDTO,
     EventListItemDTO,
     EventRepositoryProtocol,
-    EventSettingsDTO,
-    EventSettingsRepositoryProtocol,
     EventStatsData,
     EventUpdateData,
     NotFoundError,
@@ -223,17 +221,6 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
     )
 
 
-def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs every one of them public, so a session sitting in
-    # both a public and a private track stays hidden. exclude() over the m2m
-    # compiles to a correlated NOT EXISTS, so it neither fans the joins out nor
-    # inflates the participation counts annotated alongside.
-    return Session.objects.filter(event_id=event_id, agenda_item__isnull=False).exclude(
-        tracks__is_public=False
-    )
-
-
 def _party_session_history(
     session: Session, *, viewer_pk: int
 ) -> PartySessionHistoryDTO:
@@ -398,23 +385,6 @@ class EventRepository(EventRepositoryProtocol):
             raise NotFoundError from exception
 
         save_replacing_files(event, data)
-
-
-class EventSettingsRepository(EventSettingsRepositoryProtocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        return EventSettingsDTO(
-            pk=settings.pk,
-            displayed_session_field_ids=list(
-                settings.displayed_session_fields.values_list("pk", flat=True)
-            ),
-        )
-
-    @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        settings.displayed_session_fields.set(field_ids)
 
 
 class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):

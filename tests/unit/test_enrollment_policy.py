@@ -39,6 +39,20 @@ class TestWindowSelection:
 
         assert policy.can_enroll is True
 
+    def test_no_usable_window_means_no_seating_window(self) -> None:
+        assert (
+            _policy(_Window(restrict_to_configured_users=True)).seating_window is None
+        )
+
+
+class TestCapacityWithoutWindows:
+    def test_no_window_grants_no_seats(self) -> None:
+        assert _policy().effective_participants_limit(participants_limit=100) == 0
+
+    def test_no_window_is_never_full(self) -> None:
+        # Closed is not full: the caller reports "closed", not "waitlisted".
+        assert _policy().is_full(participants_limit=0, enrolled_count=0) is False
+
 
 class TestCapacityStaysInsideUsableWindows:
     def test_unconfigured_actor_cannot_draw_on_a_restricted_pool(self) -> None:

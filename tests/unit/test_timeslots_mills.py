@@ -1,7 +1,8 @@
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS
+from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS, slot_windows_by_local_date
+from ludamus.pacts import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
 
@@ -66,3 +67,31 @@ class TestProgrammeDays:
         assert PROGRAMME_DAYS.date_of(
             datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ
         ) == date(2026, 10, 24)
+
+    def test_an_empty_or_reversed_interval_yields_no_window(self):
+        start = datetime(2026, 7, 10, 12, tzinfo=_TZ)
+
+        assert not MIDNIGHT.windows(start=start, end=start, tz=_TZ)
+
+    def test_an_interval_ending_exactly_at_midnight_gives_the_next_day_nothing(self):
+        start = datetime(2026, 7, 10, 22, tzinfo=_TZ)
+        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+
+        assert MIDNIGHT.windows(start=start, end=midnight, tz=_TZ) == [
+            (start, midnight)
+        ]
+
+
+class TestSlotWindows:
+    def test_groups_split_windows_under_their_local_date(self):
+        slot = TimeSlotDTO(
+            pk=1,
+            start_time=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            end_time=datetime(2026, 7, 11, 2, tzinfo=_TZ),
+        )
+        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+
+        assert slot_windows_by_local_date([slot], _TZ) == {
+            date(2026, 7, 10): [(slot.start_time, midnight)],
+            date(2026, 7, 11): [(midnight, slot.end_time)],
+        }
