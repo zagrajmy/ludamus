@@ -52,17 +52,17 @@ function proposalCategoryOption(page: Page, name: string) {
   return page.getByText(name, { exact: true }).last();
 }
 
-test("panel redirects to home with message when sphere has no events", async ({ browser }) => {
+test("panel sends a manager of an empty sphere to create its first event", async ({ browser }) => {
   // Use pre-built session cookie for the empty-sphere manager
   const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
   const storageState = JSON.parse(fs.readFileSync(statePath, "utf8"));
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
-  // Visit panel — should redirect to the sphere root, which is its feed
   await page.goto(`${EMPTY_SPHERE}/panel/`);
-  await expect(page).toHaveURL(`${EMPTY_SPHERE}/`);
-  await expect(page.getByText("Nothing scheduled yet")).toBeVisible();
+  await expect(page).toHaveURL(`${EMPTY_SPHERE}/panel/events/new/`);
+  await expect(page.getByText("This sphere has no events yet.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Based on")).toHaveCount(0);
 
   await context.close();
 });
