@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("db_main", "0163_session_schedule_confirmed"),
-        ("db_main", "0169_encounter_invite_mailing"),
+        ("db_main", "0170_session_field_show_on_cards"),
     ]
 
     operations = []
