@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -175,9 +175,23 @@ class FakeSpheres:
 class FakeSpaces:
     def __init__(self) -> None:
         self.default_for: list[int] = []
+        self.filled: set[int] = set()
 
     def create_default(self, event_pk: int) -> None:
         self.default_for.append(event_pk)
+
+    def list_tree(self, event_pk: int) -> list[object]:
+        return [object()] if event_pk in self.filled else []
+
+
+class FakeSetup:
+    def __init__(self, spaces: FakeSpaces) -> None:
+        self._spaces = spaces
+        self.copies: list[tuple[int, int, datetime]] = []
+
+    def copy(self, *, source_id: int, target_id: int, start_time: datetime) -> None:
+        self.copies.append((source_id, target_id, start_time))
+        self._spaces.filled.add(target_id)
 
 
 class FakeCache:
@@ -401,13 +415,18 @@ def _create_data(
 
 
 def _events_service(
-    events: FakeEvents, *, spaces: FakeSpaces | None = None
+    events: FakeEvents,
+    *,
+    spaces: FakeSpaces | None = None,
+    setup: FakeSetup | None = None,
 ) -> EventsService:
+    spaces = spaces or FakeSpaces()
     return EventsService(
         transaction=FakeTransaction(),
         events=events,
         spheres=FakeSpheres({SPHERE}),
-        spaces=spaces or FakeSpaces(),
+        spaces=spaces,
+        setup=setup or FakeSetup(spaces),
     )
 
 
@@ -445,6 +464,53 @@ class TestEventsService:
 
         assert events.rows[created.pk].slug == "new-conf"
         assert spaces.default_for == [created.pk]
+
+    def test_create_based_on_an_event_copies_its_setup_to_the_new_start(self):
+        year = timedelta(days=365)
+        events = FakeEvents([_event(start=_START - year, end=_END - year)])
+        spaces = FakeSpaces()
+        setup = FakeSetup(spaces)
+
+        created = _events_service(events, spaces=spaces, setup=setup).create(
+            sphere_id=SPHERE, data=_create_data(), based_on_id=EVENT
+        )
+
+        assert setup.copies == [(EVENT, created.pk, _START)]
+        assert not spaces.default_for
+
+    def test_create_based_on_another_spheres_event_creates_nothing(self):
+        events = FakeEvents([_event(sphere_id=OTHER_SPHERE)])
+        spaces = FakeSpaces()
+        setup = FakeSetup(spaces)
+
+        with pytest.raises(NotFoundError):
+            _events_service(events, spaces=spaces, setup=setup).create(
+                sphere_id=SPHERE, data=_create_data(), based_on_id=EVENT
+            )
+
+        assert list(events.rows) == [EVENT]
+        assert not setup.copies
+
+    def test_create_without_a_slug_derives_a_free_one_from_the_name(self):
+        events = FakeEvents([_event(slug="new")])
+
+        created = _events_service(events).create(
+            sphere_id=SPHERE, data=_create_data(slug="")
+        )
+
+        assert created.slug.startswith("new-")
+        assert created.slug != "new"
+
+    def test_create_reports_a_slug_conflict_when_no_derived_slug_is_free(
+        self, monkeypatch
+    ):
+        events = FakeEvents([])
+        monkeypatch.setattr(events, "slug_exists", lambda _sphere_id, _slug: True)
+
+        with pytest.raises(EventSlugConflictError):
+            _events_service(events).create(sphere_id=SPHERE, data=_create_data(slug=""))
+
+        assert events.rows == {}
 
     def test_create_refuses_an_end_not_after_the_start(self):
         events = FakeEvents([])

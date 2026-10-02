@@ -24,153 +24,155 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event and field %}
-        <form id="session-field-form" method="post" class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_name">{% translate "Name" context "place" %}</label>
-                            <input type="text"
-                                   name="name"
-                                   id="id_name"
-                                   value="{{ form.name.value|default:'' }}"
-                                   class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   placeholder="{% translate "e.g., RPG System, Genre, Difficulty" %}">
-                            {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_question">{% translate "Question" %}</label>
-                            <textarea name="question"
-                                      id="id_question"
-                                      rows="2"
-                                      class="w-full border {% if form.question.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                      placeholder="{% translate "e.g., What RPG system will you use?" %}">{{ form.question.value|default:'' }}</textarea>
-                            <p class="mt-1 text-sm text-foreground-muted">
-                                {% translate "Full question text shown as the form label in the proposal wizard." %}
-                            </p>
-                            {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
-                            <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
-                                {% if field.field_type == "select" %}
-                                    {% translate "Select" %}
-                                {% elif field.field_type == "checkbox" %}
-                                    {% translate "Checkbox" %}
-                                {% else %}
-                                    {% translate "Text" %}
-                                {% endif %}
-                            </div>
-                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
-                        </div>
-                        {% if field.field_type == "select" %}
+    <div class="panel-bleed">
+        {% if current_event and field %}
+            <form id="session-field-form" method="post" class="max-w-2xl">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
+                        <div class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_options">{% translate "Options" %}</label>
-                                <textarea name="options"
-                                          id="id_options"
-                                          rows="5"
-                                          class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                          placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
-                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
-                                {% translate "Allow multiple selections" as t_is_multiple %}
-                                {% translate "Allow custom values" as t_allow_custom %}
-                                <div class="mt-4 flex flex-col gap-3">
-                                    {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
-                                    {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
-                                </div>
+                                       for="id_name">{% translate "Name" context "place" %}</label>
+                                <input type="text"
+                                       name="name"
+                                       id="id_name"
+                                       value="{{ form.name.value|default:'' }}"
+                                       class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                       placeholder="{% translate "e.g., RPG System, Genre, Difficulty" %}">
+                                {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
                             </div>
-                        {% endif %}
-                        {% if field.field_type != "checkbox" %}
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_max_length">{% translate "Max Length" %}</label>
-                                <input type="number"
-                                       name="max_length"
-                                       id="id_max_length"
-                                       value="{{ form.max_length.value|default:'50' }}"
-                                       min="0"
-                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                       for="id_question">{% translate "Question" %}</label>
+                                <textarea name="question"
+                                          id="id_question"
+                                          rows="2"
+                                          class="w-full border {% if form.question.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                          placeholder="{% translate "e.g., What RPG system will you use?" %}">{{ form.question.value|default:'' }}</textarea>
                                 <p class="mt-1 text-sm text-foreground-muted">
-                                    {% translate "Maximum number of characters allowed (0 = no limit). Applies to text fields and custom value inputs." %}
+                                    {% translate "Full question text shown as the form label in the proposal wizard." %}
+                                </p>
+                                {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
+                                <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
+                                    {% if field.field_type == "select" %}
+                                        {% translate "Select" %}
+                                    {% elif field.field_type == "checkbox" %}
+                                        {% translate "Checkbox" %}
+                                    {% else %}
+                                        {% translate "Text" %}
+                                    {% endif %}
+                                </div>
+                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Field type cannot be changed after creation." %}</p>
+                            </div>
+                            {% if field.field_type == "select" %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_options">{% translate "Options" %}</label>
+                                    <textarea name="options"
+                                              id="id_options"
+                                              rows="5"
+                                              class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                              placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
+                                    <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
+                                    {% translate "Allow multiple selections" as t_is_multiple %}
+                                    {% translate "Allow custom values" as t_allow_custom %}
+                                    <div class="mt-4 flex flex-col gap-3">
+                                        {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
+                                        {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if field.field_type != "checkbox" %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_max_length">{% translate "Max Length" %}</label>
+                                    <input type="number"
+                                           name="max_length"
+                                           id="id_max_length"
+                                           value="{{ form.max_length.value|default:'50' }}"
+                                           min="0"
+                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <p class="mt-1 text-sm text-foreground-muted">
+                                        {% translate "Maximum number of characters allowed (0 = no limit). Applies to text fields and custom value inputs." %}
+                                    </p>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_help_text">{% translate "Help Text" %}</label>
+                                <textarea name="help_text"
+                                          id="id_help_text"
+                                          rows="2"
+                                          class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                          placeholder="{% translate "Optional guidance for proposal submitters" %}">{{ form.help_text.value|default:'' }}</textarea>
+                                <p class="mt-1 text-sm text-foreground-muted">
+                                    {% translate "Supports markdown (links, bold). Shown below the field in the proposal form." %}
                                 </p>
                             </div>
-                        {% endif %}
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_help_text">{% translate "Help Text" %}</label>
-                            <textarea name="help_text"
-                                      id="id_help_text"
-                                      rows="2"
-                                      class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                      placeholder="{% translate "Optional guidance for proposal submitters" %}">{{ form.help_text.value|default:'' }}</textarea>
-                            <p class="mt-1 text-sm text-foreground-muted">
-                                {% translate "Supports markdown (links, bold). Shown below the field in the proposal form." %}
-                            </p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_icon">{% translate "Icon" %}</label>
-                            <div class="flex items-center gap-3">
-                                <input type="text"
-                                       name="icon"
-                                       id="id_icon"
-                                       value="{{ form.icon.value|default:'' }}"
-                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                       placeholder="{% translate "e.g., puzzle-piece, star" %}"
-                                       hx-get="{% url 'panel:icon-preview' %}"
-                                       hx-trigger="input changed delay:300ms, load"
-                                       hx-target="#icon-preview"
-                                       hx-swap="innerHTML">
-                                <span id="icon-preview" class="flex-shrink-0 text-foreground-secondary"></span>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_icon">{% translate "Icon" %}</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="text"
+                                           name="icon"
+                                           id="id_icon"
+                                           value="{{ form.icon.value|default:'' }}"
+                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                           placeholder="{% translate "e.g., puzzle-piece, star" %}"
+                                           hx-get="{% url 'panel:icon-preview' %}"
+                                           hx-trigger="input changed delay:300ms, load"
+                                           hx-target="#icon-preview"
+                                           hx-swap="innerHTML">
+                                    <span id="icon-preview" class="flex-shrink-0 text-foreground-secondary"></span>
+                                </div>
+                                <p class="mt-1 text-sm text-foreground-muted">{% translate "Heroicon name to display next to the field." %}</p>
                             </div>
-                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Heroicon name to display next to the field." %}</p>
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="is_public"
+                                       id="id_is_public"
+                                       {% if form.is_public.value %}checked{% endif %}
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Visible to participants" %}</span>
+                            </label>
                         </div>
-                        <label class="flex items-center">
-                            <input type="checkbox"
-                                   name="is_public"
-                                   id="id_is_public"
-                                   {% if form.is_public.value %}checked{% endif %}
-                                   class="rounded border-border text-primary focus:ring-primary">
-                            <span class="ml-2 text-sm text-foreground-secondary">{% translate "Visible to participants" %}</span>
-                        </label>
                     </div>
                 </div>
-            </div>
-            <div class="card p-6 mt-6">
-                <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Categories" %}</h3>
-                <p class="text-sm text-foreground-muted mb-6">{% translate "Select which categories should include this field." %}</p>
-                {% if categories %}
-                    <div class="space-y-3">
-                        {% for category in categories %}
-                            <label class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-foreground-secondary">{{ category.name }}</span>
-                                <select name="category_{{ category.pk }}"
-                                        class="border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="none"
-                                            {% if category.pk not in required_category_pks and category.pk not in optional_category_pks %}selected{% endif %}>
-                                        {% translate "Not included" %}
-                                    </option>
-                                    {% if field.field_type != "checkbox" %}
-                                        <option value="required"
-                                                {% if category.pk in required_category_pks %}selected{% endif %}>
-                                            {% translate "Required" %}
+                <div class="card p-6 mt-6">
+                    <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Categories" %}</h3>
+                    <p class="text-sm text-foreground-muted mb-6">{% translate "Select which categories should include this field." %}</p>
+                    {% if categories %}
+                        <div class="space-y-3">
+                            {% for category in categories %}
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-foreground-secondary">{{ category.name }}</span>
+                                    <select name="category_{{ category.pk }}"
+                                            class="border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="none"
+                                                {% if category.pk not in required_category_pks and category.pk not in optional_category_pks %}selected{% endif %}>
+                                            {% translate "Not included" %}
                                         </option>
-                                    {% endif %}
-                                    <option value="optional" {% if field.field_type == "checkbox" %}{% if category.pk in optional_category_pks or category.pk in required_category_pks %}selected{% endif %} {% else %} {% if category.pk in optional_category_pks %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
-                                </select>
-                            </label>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-sm text-foreground-muted italic">{% translate "No categories have been created yet." %}</p>
-                {% endif %}
-            </div>
-        </form>
-    {% endif %}
+                                        {% if field.field_type != "checkbox" %}
+                                            <option value="required"
+                                                    {% if category.pk in required_category_pks %}selected{% endif %}>
+                                                {% translate "Required" %}
+                                            </option>
+                                        {% endif %}
+                                        <option value="optional" {% if field.field_type == "checkbox" %}{% if category.pk in optional_category_pks or category.pk in required_category_pks %}selected{% endif %} {% else %} {% if category.pk in optional_category_pks %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
+                                    </select>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-sm text-foreground-muted italic">{% translate "No categories have been created yet." %}</p>
+                    {% endif %}
+                </div>
+            </form>
+        {% endif %}
+    </div>
 {% endblock content %}

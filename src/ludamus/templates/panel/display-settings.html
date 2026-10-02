@@ -36,9 +36,9 @@
                                     {% for field in fields %}
                                         <label class="flex items-center">
                                             <input type="checkbox"
-                                                   name="displayed_session_fields"
+                                                   name="show_on_cards"
                                                    value="{{ field.pk }}"
-                                                   {% if field.pk in displayed_field_ids %}checked{% endif %}
+                                                   {% if field.pk in shown_on_cards_ids %}checked{% endif %}
                                                    class="rounded border-border text-primary focus:ring-primary">
                                             <span class="ml-2 text-sm text-foreground-secondary">
                                                 {% if field.icon %}

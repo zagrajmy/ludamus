@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
@@ -10,6 +11,8 @@ from ludamus.pacts.event_settings import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ludamus.pacts.event_settings import (
@@ -91,14 +94,14 @@ class EventSettingsService(EventSettingsServiceProtocol):
     ) -> EventDisplaySettingsContextDTO:
         event = self._repos.events.read_by_slug(slug, sphere_id)
         fields = self._repos.session_fields.list_by_event(event.pk)
-        display_settings = self._repos.event_settings.read_or_create(event.pk)
+        card_fields = [field for field in fields if _fits_card(field)]
         return EventDisplaySettingsContextDTO(
-            fields=[field for field in fields if _fits_card(field)],
-            displayed_field_ids=display_settings.displayed_session_field_ids,
+            fields=card_fields,
+            shown_on_cards_ids=[f.pk for f in card_fields if f.show_on_cards],
             has_any_fields=bool(fields),
         )
 
-    def update_displayed_fields(
+    def update_shown_on_cards(
         self, *, sphere_id: int, slug: str, selected_ids: list[int]
     ) -> None:
         event = self._repos.events.read_by_slug(slug, sphere_id)
@@ -108,7 +111,11 @@ class EventSettingsService(EventSettingsServiceProtocol):
             if _fits_card(field)
         }
         filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
-        self._repos.event_settings.update_displayed_fields(event.pk, filtered_ids)
+        with self._transaction.atomic():
+            self._repos.session_fields.show_on_cards_only(event.pk, filtered_ids)
+        logger.info(
+            "Event %s requested session fields %s on cards", event.pk, filtered_ids
+        )
 
     def get_proposal_settings(
         self, *, sphere_id: int, slug: str
