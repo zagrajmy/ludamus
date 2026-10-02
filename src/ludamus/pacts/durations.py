@@ -12,8 +12,8 @@ MAX_DURATION_MINUTES = 59
 
 _CANONICAL_DURATION_RE = re.compile(r"PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?")
 _LOOSE_DURATION_RE = re.compile(
-    r"p?t?\s*(?:(?P<hours>\d+)\s*h(?:ours?|rs?)?)?"
-    r"\s*(?:(?P<minutes>\d+)\s*m(?:inutes?|ins?)?)?"
+    r"p?t?\s*(?:(?P<hours>\d{1,4})\s*h(?:ours?|rs?)?)?"
+    r"\s*(?:(?P<minutes>\d{1,4})\s*m(?:inutes?|ins?)?)?"
 )
 
 
