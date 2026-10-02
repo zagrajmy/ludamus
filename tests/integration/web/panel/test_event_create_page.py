@@ -219,6 +219,28 @@ class TestEventCreatePageView:
         slot = TimeSlot.objects.get(event__slug="mim-2027")
         assert localtime(slot.start_time).strftime("%H:%M") == "12:00"
 
+    def test_keeps_a_slot_moved_into_the_spring_gap_after_its_start(
+        self, panel_client, sphere
+    ):
+        june = datetime(2026, 6, 5, 22, 30, tzinfo=UTC)
+        source = EventFactory(
+            sphere=sphere, start_time=june, end_time=june + timedelta(hours=8)
+        )
+        TimeSlot.objects.create(
+            event=source,
+            start_time=june + timedelta(hours=2),
+            end_time=june + timedelta(hours=2, minutes=30),
+        )
+        spring_night = datetime(2027, 3, 27, 23, 30, tzinfo=UTC)
+
+        response = panel_client.post(
+            URL, data=_post_data(based_on=source.pk, start=spring_night)
+        )
+
+        _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
+        slot = TimeSlot.objects.get(event__slug="mim-2027")
+        assert slot.end_time - slot.start_time == timedelta(minutes=30)
+
     def test_gives_a_default_space_to_a_copy_of_an_event_without_one(
         self, panel_client, sphere
     ):

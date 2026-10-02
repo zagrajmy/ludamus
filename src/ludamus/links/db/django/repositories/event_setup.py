@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
+from datetime import UTC
 from functools import partial
 from typing import TYPE_CHECKING, Final
 
@@ -72,8 +73,23 @@ class _Mover:
     def __call__(self, moment: datetime) -> datetime:
         return make_aware(_naive(moment) + self._shift)
 
-    def optional(self, moment: datetime | None) -> datetime | None:
-        return None if moment is None else self(moment)
+    def span(self, start: datetime, end: datetime) -> dict[str, datetime]:
+        moved_start, moved_end = self(start), self(end)
+        if moved_end.astimezone(UTC) <= moved_start.astimezone(UTC):
+            moved_end = moved_start.astimezone(UTC) + (
+                end.astimezone(UTC) - start.astimezone(UTC)
+            )
+        return {"start_time": moved_start, "end_time": moved_end}
+
+    def optional_span(
+        self, start: datetime | None, end: datetime | None
+    ) -> dict[str, datetime | None]:
+        if start is None or end is None:
+            return {
+                "start_time": None if start is None else self(start),
+                "end_time": None if end is None else self(end),
+            }
+        return dict(self.span(start, end))
 
 
 def _naive(moment: datetime) -> datetime:
@@ -107,8 +123,10 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
         Event.objects.filter(pk=target_id).update(
             **{name: getattr(source, name) for name in COPIED_FIELDS}
             | {
-                "proposal_start_time": move.optional(source.proposal_start_time),
-                "proposal_end_time": move.optional(source.proposal_end_time),
+                f"proposal_{name}": moved
+                for name, moved in move.optional_span(
+                    source.proposal_start_time, source.proposal_end_time
+                ).items()
             }
         )
         spaces = _copy_spaces(source_id=source_id, target_id=target_id)
@@ -117,8 +135,7 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
             TimeSlot.objects.filter(event_id=source_id),
             lambda slot: {
                 "event_id": target_id,
-                "start_time": move(slot.start_time),
-                "end_time": move(slot.end_time),
+                **move.span(slot.start_time, slot.end_time),
             },
         )
         session_fields = _copy_fields(
@@ -134,8 +151,7 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
             ProposalCategory.objects.filter(event_id=source_id),
             lambda category: {
                 "event_id": target_id,
-                "start_time": move.optional(category.start_time),
-                "end_time": move.optional(category.end_time),
+                **move.optional_span(category.start_time, category.end_time),
             },
         )
         for requirements, targets in (
@@ -165,8 +181,7 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
             EnrollmentConfig.objects.filter(event_id=source_id),
             lambda config: {
                 "event_id": target_id,
-                "start_time": move(config.start_time),
-                "end_time": move(config.end_time),
+                **move.span(config.start_time, config.end_time),
             },
         )
         _clone_each(
