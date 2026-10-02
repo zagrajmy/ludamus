@@ -262,6 +262,7 @@ class Services:
             events=self._repos.events,
             spheres=self._repos.spheres,
             spaces=self._repos.space_tree,
+            setup=self._repos.event_setup,
         )
 
     @cached_property

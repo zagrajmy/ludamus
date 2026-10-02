@@ -193,6 +193,10 @@ class Repositories:
         return repositories.SpaceRepository()
 
     @cached_property
+    def event_setup(self) -> repositories.EventSetupRepository:
+        return repositories.EventSetupRepository()
+
+    @cached_property
     def space_tree(self) -> repositories.SpaceTreeRepository:
         return repositories.SpaceTreeRepository()
 
