@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     Event,
     EventIntegration,
     EventPanelSettings,
-    EventSettings,
     Session,
     SessionParticipation,
     Space,
@@ -31,8 +30,6 @@ from ludamus.pacts import (
     EventDTO,
     EventListItemDTO,
     EventRepositoryProtocol,
-    EventSettingsDTO,
-    EventSettingsRepositoryProtocol,
     EventStatsData,
     EventUpdateData,
     NotFoundError,
@@ -388,23 +385,6 @@ class EventRepository(EventRepositoryProtocol):
             raise NotFoundError from exception
 
         save_replacing_files(event, data)
-
-
-class EventSettingsRepository(EventSettingsRepositoryProtocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        return EventSettingsDTO(
-            pk=settings.pk,
-            displayed_session_field_ids=list(
-                settings.displayed_session_fields.values_list("pk", flat=True)
-            ),
-        )
-
-    @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        settings.displayed_session_fields.set(field_ids)
 
 
 class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):

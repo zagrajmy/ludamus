@@ -9509,15 +9509,16 @@ msgid "Display Settings"
 msgstr "Ustawienia wyświetlania"
 
 #: src/ludamus/templates/panel/display-settings.html
-msgid "Filterable Session Fields"
-msgstr "Pola filtrowania punktów programu"
+msgid "Tags on session cards"
+msgstr "Tagi na kartach punktów programu"
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
-"Select which session fields appear as filters on the public session list."
+"Public session fields show as tags on session cards. Untick a field to hide "
+"it."
 msgstr ""
-"Wybierz, które pola punktu programu będą widoczne jako filtry na publicznej "
-"liście punktów programu."
+"Publiczne pola punktów programu pojawiają się jako tagi na kartach. Odznacz "
+"pole, żeby je ukryć."
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
@@ -12023,6 +12024,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Filterable Session Fields"
+#~ msgstr "Pola filtrowania punktów programu"
+
+#~ msgid ""
+#~ "Select which session fields appear as filters on the public session list."
+#~ msgstr ""
+#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
+#~ "publicznej liście punktów programu."
 
 #
 #~ msgid ""

@@ -13,7 +13,6 @@ from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import (
     EventDTO,
     EventProposalSettingsDTO,
-    EventSettingsDTO,
     EventUpdateData,
     NotFoundError,
     ProposalCategoryDTO,
@@ -44,7 +43,7 @@ def _event(
     )
 
 
-def _session_field(pk=1, slug="system", *, is_public=True):
+def _session_field(pk=1, slug="system", *, is_public=True, show_on_cards=True):
     return OrganizerFieldDTO(
         field_type="text",
         is_public=is_public,
@@ -52,6 +51,7 @@ def _session_field(pk=1, slug="system", *, is_public=True):
         order=0,
         pk=pk,
         question="Q",
+        show_on_cards=show_on_cards,
         slug=slug,
     )
 
@@ -89,22 +89,13 @@ class FakeEvents:
 class FakeSessionFields:
     def __init__(self, fields: list[OrganizerFieldDTO]) -> None:
         self._fields = {_EVENT_PK: fields}
+        self.shown_on_cards: dict[int, list[int]] = {}
 
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         return self._fields[event_id]
 
-
-class FakeDisplaySettings:
-    def __init__(self, displayed: list[int]) -> None:
-        self.displayed = {_EVENT_PK: displayed}
-
-    def read_or_create(self, event_id: int) -> EventSettingsDTO:
-        return EventSettingsDTO(
-            pk=event_id, displayed_session_field_ids=self.displayed[event_id]
-        )
-
-    def update_displayed_fields(self, event_id: int, field_ids: list[int]) -> None:
-        self.displayed[event_id] = field_ids
+    def show_on_cards_only(self, event_id: int, field_ids: list[int]) -> None:
+        self.shown_on_cards[event_id] = field_ids
 
 
 class FakeProposalSettings:
@@ -163,21 +154,18 @@ class _Fakes:
         events: list[EventDTO] | None = None,
         update_error: DatabaseConstraintError | None = None,
         fields: list[OrganizerFieldDTO] | None = None,
-        displayed: list[int] | None = None,
         categories: list[ProposalCategoryDTO] | None = None,
     ) -> None:
         self.events = FakeEvents(
             events if events is not None else [_event()], update_error=update_error
         )
         self.session_fields = FakeSessionFields(fields or [])
-        self.display = FakeDisplaySettings(displayed or [])
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
         self.service = EventSettingsService(
             transaction=FakeTransaction(),
             repos=EventSettingsRepos(
                 events=self.events,
-                event_settings=self.display,
                 event_proposal_settings=self.proposal,
                 proposal_categories=self.categories,
                 session_fields=self.session_fields,
@@ -319,15 +307,15 @@ class TestDisplayAndProposalSettings:
         fakes = _Fakes(
             fields=[
                 _session_field(pk=1, slug="public"),
-                _session_field(pk=2, slug="hidden", is_public=False),
-            ],
-            displayed=[1],
+                _session_field(pk=2, slug="private", is_public=False),
+                _session_field(pk=3, slug="unticked", show_on_cards=False),
+            ]
         )
 
         context = fakes.service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
-        assert [field.pk for field in context.fields] == [1]
-        assert context.displayed_field_ids == [1]
+        assert [field.pk for field in context.fields] == [1, 3]
+        assert context.shown_on_cards_ids == [1]
         assert context.has_any_fields is True
 
     def test_display_context_of_an_event_without_fields(self):
@@ -338,19 +326,24 @@ class TestDisplayAndProposalSettings:
         assert not context.fields
         assert context.has_any_fields is False
 
-    def test_update_displayed_fields_keeps_only_public_field_ids(self):
-        fakes = _Fakes(
-            fields=[
-                _session_field(pk=1, slug="public"),
-                _session_field(pk=2, slug="hidden", is_public=False),
-            ]
+    def test_shown_on_cards_are_saved_for_the_resolved_event(self):
+        fakes = _Fakes()
+
+        fakes.service.update_shown_on_cards(
+            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 3]
         )
 
-        fakes.service.update_displayed_fields(
-            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 99]
-        )
+        assert fakes.session_fields.shown_on_cards == {_EVENT_PK: [1, 3]}
 
-        assert fakes.display.displayed == {_EVENT_PK: [1]}
+    def test_shown_on_cards_of_another_spheres_event_change_nothing(self):
+        fakes = _Fakes()
+
+        with pytest.raises(NotFoundError):
+            fakes.service.update_shown_on_cards(
+                sphere_id=SPHERE_ID + 1, slug="conf", selected_ids=[1]
+            )
+
+        assert not fakes.session_fields.shown_on_cards
 
     def test_proposal_settings_are_read_for_the_event(self):
         fakes = _Fakes()
