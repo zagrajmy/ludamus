@@ -58,7 +58,7 @@ def enforced_header_fixture(client, settings, non_root_sphere) -> str:
 
 class TestCSPEnforceHeader:
     def test_header_sent_when_production_policy_active(self, enforced_header):
-        assert "default-src 'self'" in enforced_header
+        assert "default-src 'none'" in enforced_header
         assert "unsafe-eval" not in enforced_header
         assert "img-src 'self' data: blob: https:" in enforced_header
         assert "frame-ancestors 'none'" in enforced_header
@@ -88,6 +88,24 @@ class TestCSPEnforceHeader:
         )
         assert REPORT_ONLY_HEADER not in response.headers
         assert ENFORCE_HEADER not in response.headers
+
+
+class TestPermissionsPolicy:
+    def test_header_sent_on_every_response(self, client):
+        response = client.get(reverse("web:index"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(),
+            template_name=["landing_page.html"],
+            headers={
+                "Permissions-Policy": (
+                    "camera=(), microphone=(), geolocation=(), payment=(), "
+                    "usb=(), display-capture=()"
+                )
+            },
+        )
 
 
 class TestCSPNonce:

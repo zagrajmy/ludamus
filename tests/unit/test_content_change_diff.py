@@ -75,3 +75,24 @@ class TestSessionFields:
         changes = diff_session_content(_session(), {}, [], new)
 
         assert changes == [{"field": "", "field_id": 1, "old": None, "new": "D&D"}]
+
+    def test_changed_category_is_logged(self):
+        changes = diff_session_content(
+            _session(category_id=3), {"category_id": 4}, [], []
+        )
+
+        assert changes == [{"field": "category", "field_id": None, "old": 3, "new": 4}]
+
+    def test_clearing_an_existing_cover_is_logged(self):
+        changes = diff_session_content(
+            _session(cover_image_url="http://img/old.png"), {"cover_image": ""}, [], []
+        )
+
+        assert changes == [
+            {
+                "field": "cover_image",
+                "field_id": None,
+                "old": "http://img/old.png",
+                "new": "",
+            }
+        ]
