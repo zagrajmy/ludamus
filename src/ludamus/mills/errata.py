@@ -50,13 +50,13 @@ def _read_moves(logs: list[ScheduleChangeLogDTO]) -> list[ErratumDTO]:
     # The write says which rows were one move, so reading them back is a
     # lookup: the row a move left is read with the row it landed on, never on
     # its own.
-    by_pk: dict[int | None, ScheduleChangeLogDTO] = {log.pk: log for log in logs}
+    by_pk = {log.pk: log for log in logs}
     left_behind = {log.moved_from_id for log in logs}
     errata = []
     for log in logs:
         if log.pk in left_behind:
             continue
-        before = by_pk.get(log.moved_from_id)
+        before = by_pk.get(log.moved_from_id) if log.moved_from_id else None
         errata.append(_erratum(before, log) if before else _erratum(log))
     return errata
 

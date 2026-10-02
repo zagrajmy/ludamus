@@ -26,7 +26,7 @@ from ludamus.mills.submissions.mapping import (
     session_field_values,
     slugify,
 )
-from ludamus.mills.submissions.personal_data_fields import log_facilitator_restored
+from ludamus.mills.submissions.personal_data_fields import log_facilitator_deletion
 from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
@@ -597,11 +597,12 @@ class ImportEngine:
                 # No organizer behind it, so the log says who only by saying
                 # the import did it — otherwise History's last word stays
                 # "deleted" for a facilitator the panel shows alive.
-                log_facilitator_restored(
+                log_facilitator_deletion(
                     repo=self._repos.facilitator_change_logs,
                     event_id=event_id,
                     facilitator_id=matched.pk,
                     user_id=None,
+                    deleted=False,
                 )
             return matched.pk
         return self._repos.facilitators.create(

@@ -383,23 +383,6 @@ def _append_m2m_change(
         changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
-def _inverse_text_update(
-    *, update: SessionUpdateData, field: str, old: ContentFieldValue
-) -> None:
-    if not isinstance(old, str):
-        return
-    if field == "title":
-        update["title"] = old
-    elif field == "facilitator_name":
-        update["facilitator_name"] = old
-    elif field == "description":
-        update["description"] = old
-    elif field == "contact_email":
-        update["contact_email"] = old
-    elif field == "duration":
-        update["duration"] = old
-
-
 def _inverse_core_update(
     *, update: SessionUpdateData, field: str, old: ContentFieldValue
 ) -> None:
@@ -407,8 +390,11 @@ def _inverse_core_update(
     # leave it untouched: the old cover-image binary is gone, and m2m
     # assignments (facilitators/tracks/time_slots) are logged as display
     # names, not ids.
-    _inverse_text_update(update=update, field=field, old=old)
     match field, old:
+        case (
+            "title" | "facilitator_name" | "description" | "contact_email" | "duration"
+        ) as key, str():
+            update[key] = old
         case "category", int() | None:
             update["category_id"] = old
         case "participants_limit", int():

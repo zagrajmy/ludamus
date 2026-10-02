@@ -9,8 +9,9 @@ from __future__ import annotations
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
+from ludamus.mills.crowd import build_anonymous_user
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
-from ludamus.pacts.crowd import UserData, UserDTO, UserType
+from ludamus.pacts.crowd import UserData, UserDTO
 from ludamus.pacts.enrollment import (
     AnonymousActivationDTO,
     AnonymousCancelResultDTO,
@@ -34,18 +35,6 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-
-
-def build_anonymous_user(slug: str, name: str = "") -> UserData:
-    # The single recipe for throwaway ANONYMOUS accounts (code-based
-    # self-enrollment, +N headcount guests); only the slug/name vary.
-    return UserData(
-        username=f"anon_{token_urlsafe(8).lower()}",
-        slug=slug,
-        name=name,
-        user_type=UserType.ANONYMOUS,
-        is_active=False,
-    )
 
 
 class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):

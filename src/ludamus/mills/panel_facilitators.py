@@ -13,8 +13,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
-    log_facilitator_deleted,
-    log_facilitator_restored,
+    log_facilitator_deletion,
 )
 from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValueData
 from ludamus.pacts.panel import (
@@ -784,11 +783,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
                 )
             self._repos.facilitators.soft_delete(facilitator.pk)
-            log_facilitator_deleted(
+            log_facilitator_deletion(
                 repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
+                deleted=True,
             )
 
     def restore(
@@ -800,11 +800,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 event_id, facilitator_slug
             )
             self._repos.facilitators.restore(facilitator.pk)
-            log_facilitator_restored(
+            log_facilitator_deletion(
                 repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
+                deleted=False,
             )
 
     def _place_guild(

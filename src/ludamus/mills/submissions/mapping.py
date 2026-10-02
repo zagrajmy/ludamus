@@ -340,7 +340,7 @@ def decode_response(response_json: str) -> ImportRow:
 
 
 def encode_response(data: dict[str, str]) -> str:
-    return _RESPONSE_ENCODER.encode(data)
+    return json.dumps(data, ensure_ascii=False)
 
 
 def locate_row(
@@ -370,9 +370,6 @@ def locate_row(
     return None
 
 
-_EDGE_DASHES = re.compile(r"^-+|-+$")
-
-
 def slugify(value: str, *, max_length: int = 50) -> str:
     # ASCII slug mirroring the live TS preview (simov/slugify with locale="pl").
     # Unidecode transliterates the full Unicode range (Polish ł/Ł, German ß,
@@ -382,8 +379,7 @@ def slugify(value: str, *, max_length: int = 50) -> str:
     # trailing dash.
     transliterated = unidecode(value).lower()
     slug = re.sub(r"[^\w\s-]", "", transliterated)
-    collapsed = _EDGE_DASHES.sub("", re.sub(r"[-\s]+", "-", slug))
-    return _EDGE_DASHES.sub("", collapsed[:max_length])
+    return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
 
 
 def dedup_ident(*, event_id: int, identity: str) -> str:

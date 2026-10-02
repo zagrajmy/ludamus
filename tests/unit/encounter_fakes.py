@@ -89,7 +89,9 @@ class FakeUsers:
 
 class FakeSpheres:
     def __init__(self, roles=None):
-        self.roles = {(SPHERE_ID, slug): role for slug, role in (roles or {}).items()}
+        # Keyed on (sphere_pk, user_slug), so a test can give someone a role in
+        # another sphere and see it refused here.
+        self.roles = roles or {}
 
     def manager_role(self, sphere_id, user_slug):
         return self.roles.get((sphere_id, user_slug))
@@ -105,15 +107,6 @@ class FakeEncounters:
             row
             for row in {**self.rows, **self.past}.values()
             if row.sphere_id == sphere_id
-        ]
-
-    @staticmethod
-    def _visible(rows, sphere_id, user_id):
-        return [
-            row
-            for row in rows
-            if row.sphere_id == sphere_id
-            and (row.is_public or row.creator_id == user_id)
         ]
 
     def create(self, data):
@@ -148,10 +141,13 @@ class FakeEncounters:
         del self.rows[pk]
 
     def list_visible_upcoming(self, sphere_id, user_id, limit):
-        return self._visible(self.rows.values(), sphere_id, user_id)[:limit]
+        del user_id
+        rows = [row for row in self.rows.values() if row.sphere_id == sphere_id]
+        return rows[:limit] if limit is not None else rows
 
     def list_visible_past(self, sphere_id, user_id, limit):
-        return self._visible(self.past.values(), sphere_id, user_id)[:limit]
+        del user_id
+        return [row for row in self.past.values() if row.sphere_id == sphere_id][:limit]
 
 
 class FakeRSVPs:

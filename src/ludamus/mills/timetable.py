@@ -206,9 +206,8 @@ class TimetableService(TimetableServiceProtocol):
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
         # The page builds the grid and the space filter's options from the same
-        # tree; the instance lives for one request and sees one event, so read
-        # and walk it once. Nothing this service writes touches spaces, so
-        # there is nothing to invalidate.
+        # tree, so read and walk it once per event. Nothing this service writes
+        # touches spaces, so there is nothing to invalidate.
         if event_pk not in self._walked:
             self._walked[event_pk] = _walk_tree(
                 self._repos.spaces.list_by_event(event_pk)
@@ -295,14 +294,24 @@ class TimetableService(TimetableServiceProtocol):
             if filters.facilitator_pks
             else all_items
         )
-        days = self._build_days(
-            dates=dates_to_render,
-            windows_by_date=windows_by_date,
-            tz=tz,
-            spaces=spaces,
-            items=shown_items,
-            states=_card_states(conflicts, violations),
+        states = _card_states(conflicts, violations)
+        # Every rendered date is a `windows_by_date` key, so it carries at least
+        # one window; with no dates there is no span and nothing to render.
+        span = (
+            self._shared_day_span(dates_to_render, windows_by_date, tz)
+            if dates_to_render
+            else (0, 0)
         )
+        days = [
+            self._build_day_grid(
+                date_to_render=date_to_render,
+                day_range=_day_range(date_to_render, span, tz),
+                spaces=spaces,
+                all_items=shown_items,
+                states=states,
+            )
+            for date_to_render in dates_to_render
+        ]
 
         return TimetableGridDTO(
             spaces=spaces,
@@ -323,30 +332,6 @@ class TimetableService(TimetableServiceProtocol):
             date_selection=date_selection,
             conflicts=conflicts,
         )
-
-    def _build_days(
-        self,
-        *,
-        dates: list[date],
-        windows_by_date: dict[date, list[Window]],
-        tz: tzinfo,
-        spaces: list[SpaceDTO],
-        items: list[AgendaItemDTO],
-        states: dict[int, SessionPositionState],
-    ) -> list[TimetableDayGridDTO]:
-        if not dates:
-            return []
-        span = self._shared_day_span(dates, windows_by_date, tz)
-        return [
-            self._build_day_grid(
-                date_to_render=date_to_render,
-                day_range=_day_range(date_to_render, span, tz),
-                spaces=spaces,
-                all_items=items,
-                states=states,
-            )
-            for date_to_render in dates
-        ]
 
     @staticmethod
     def _build_day_grid(
@@ -491,24 +476,17 @@ class TimetableService(TimetableServiceProtocol):
         # Stretch the first touched slot back to the placement's start and
         # the last one out to its end; the ones between close their gaps so
         # the windows merge into one that holds the whole placement.
-        for index, slot in enumerate(touched):
-            reach = (
-                touched[index + 1].start_time
-                if index + 1 < len(touched)
-                else placement.end_time
-            )
+        first, *rest = touched
+        reaches = [slot.start_time for slot in rest] + [placement.end_time]
+        for slot, reach in zip(touched, reaches, strict=True):
             start = (
                 min(slot.start_time, placement.start_time)
-                if index == 0
+                if slot is first
                 else slot.start_time
             )
             end = max(slot.end_time, reach)
             if (start, end) != (slot.start_time, slot.end_time):
                 self._repos.time_slots.update(slot.pk, start, end)
-
-    @staticmethod
-    def _require_placeable(placement: SessionPlacement) -> None:
-        TimetableService._require_aware(placement.start_time, placement.end_time)
 
     @staticmethod
     def _require_aware(start_time: datetime, end_time: datetime) -> None:
@@ -536,7 +514,7 @@ class TimetableService(TimetableServiceProtocol):
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        self._require_placeable(placement)
+        self._require_aware(placement.start_time, placement.end_time)
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -693,8 +671,10 @@ def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
 class _EventConflictContext(NamedTuple):
     # Everything conflict detection needs about an event, loaded once.
     items: list[AgendaItemDTO]
-    items_by_space: dict[int, list[AgendaItemDTO]]
-    items_by_facilitator: dict[int, list[AgendaItemDTO]]
+    # defaultdicts on purpose: a space or facilitator with nothing scheduled is
+    # read as an empty list rather than a KeyError.
+    items_by_space: defaultdict[int, list[AgendaItemDTO]]
+    items_by_facilitator: defaultdict[int, list[AgendaItemDTO]]
     facilitators_by_session: dict[int, list[FacilitatorDTO]]
     spaces: dict[int, SpaceDTO]
 
@@ -804,8 +784,8 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         facilitators_by_session = self._repos.sessions.read_facilitators_by_sessions(
             {item.session_id for item in items}
         )
-        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
-        items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_space: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_facilitator: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
             items_by_space[item.space_id].append(item)
             for facilitator in facilitators_by_session.get(item.session_id, []):

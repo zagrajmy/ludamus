@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.enrollment_anonymous import build_anonymous_user
+from ludamus.mills.crowd import build_anonymous_user
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts import (
     MembershipAPIError,

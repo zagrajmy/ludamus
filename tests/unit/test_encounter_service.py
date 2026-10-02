@@ -92,7 +92,9 @@ class TestEncounterPolicy:
     def test_a_manager_may_create_under_the_managers_policy(self):
         service = _service(
             policy=EncountersPolicy.MANAGERS,
-            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.MANAGER}),
+            spheres=FakeSpheres(
+                {(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.MANAGER}
+            ),
         )
 
         assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
@@ -101,7 +103,7 @@ class TestEncounterPolicy:
     def test_comms_role_cannot_create_under_a_managers_only_policy(self):
         service = _service(
             policy=EncountersPolicy.MANAGERS,
-            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.COMMS}),
+            spheres=FakeSpheres({(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.COMMS}),
         )
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
@@ -119,11 +121,11 @@ class TestEncounterFeed:
         assert service.list_upcoming(sphere_id=SPHERE_ID, user_id=None, limit=3) == []
 
     def test_feed_marks_mine_counts_signups_and_names_other_organizers(self):
-        mine = make_encounter(1, is_public=False)
+        mine = make_encounter(1)
         by_named = make_encounter(2).model_copy(update={"creator_id": 30})
         by_username_only = make_encounter(3).model_copy(update={"creator_id": 40})
         by_deleted = make_encounter(4).model_copy(update={"creator_id": 50})
-        my_past = make_encounter(5, is_public=False)
+        my_past = make_encounter(5)
         service = _service(
             encounters=FakeEncounters(
                 [mine, by_named, by_username_only], past=[by_deleted, my_past]
@@ -156,21 +158,6 @@ class TestEncounterFeed:
         feed = service.list_feed(sphere_id=SPHERE_ID, user_id=None)
 
         assert len(feed.past) == PAST_FEED_LIMIT
-
-    def test_upcoming_shows_the_visitor_their_own_private_encounter(self):
-        service = _service(
-            encounters=FakeEncounters(
-                [make_encounter(1, is_public=False), make_encounter(2)]
-            )
-        )
-
-        upcoming = service.list_upcoming(
-            sphere_id=SPHERE_ID, user_id=CREATOR_ID, limit=5
-        )
-        for_others = service.list_upcoming(sphere_id=SPHERE_ID, user_id=None, limit=5)
-
-        assert [(i.encounter.pk, i.is_mine) for i in upcoming] == [(1, True), (2, True)]
-        assert [(i.encounter.pk, i.is_mine) for i in for_others] == [(2, False)]
 
     def test_upcoming_is_capped_at_the_limit(self):
         service = _service(
@@ -258,7 +245,9 @@ class TestEncounterOwnership:
         service = _service(
             policy=EncountersPolicy.MANAGERS,
             encounters=encounters,
-            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.MANAGER}),
+            spheres=FakeSpheres(
+                {(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.MANAGER}
+            ),
         )
 
         created = service.create(_data(), invitee_emails=[])

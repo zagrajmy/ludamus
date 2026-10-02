@@ -77,11 +77,7 @@ class EnrollmentPolicy:
     @classmethod
     def for_guest(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
         # An actor holding no pass: only the windows open to everyone.
-        return cls(
-            tuple(
-                window for window in windows if not window.restrict_to_configured_users
-            )
-        )
+        return cls.for_actor(windows, is_configured_user=False)
 
     @classmethod
     def for_anonymous(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:

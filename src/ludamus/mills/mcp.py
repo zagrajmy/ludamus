@@ -133,7 +133,7 @@ class McpAuthorizationService:
             grant = OrganizerGrant(
                 user_id=user_id, sphere_id=sphere_id, event_id=event_id
             )
-        code = secrets.token_urlsafe()
+        code = secrets.token_urlsafe(32)
         self._codes.put(
             code,
             McpIssuedCode(
@@ -286,5 +286,5 @@ def _pkce_matches(*, verifier: str, challenge: str) -> bool:
     if not CODE_VERIFIER_PATTERN.fullmatch(verifier):
         return False
     digest = hashlib.sha256(verifier.encode()).digest()
-    expected = base64.urlsafe_b64encode(digest).removesuffix(b"=").decode()
+    expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
     return hmac.compare_digest(expected, challenge)

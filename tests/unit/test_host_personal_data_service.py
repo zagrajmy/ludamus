@@ -5,8 +5,7 @@ import pytest
 from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
-    log_facilitator_deleted,
-    log_facilitator_restored,
+    log_facilitator_deletion,
 )
 from ludamus.pacts import (
     FacilitatorDTO,
@@ -559,8 +558,12 @@ def test_delete_surfaces_an_unknown_slug():
 def test_deletion_and_restore_log_mirror_each_other():
     logs = FakeChangeLogs()
 
-    log_facilitator_deleted(repo=logs, event_id=10, facilitator_id=1, user_id=7)
-    log_facilitator_restored(repo=logs, event_id=10, facilitator_id=1, user_id=7)
+    log_facilitator_deletion(
+        repo=logs, event_id=10, facilitator_id=1, user_id=7, deleted=True
+    )
+    log_facilitator_deletion(
+        repo=logs, event_id=10, facilitator_id=1, user_id=7, deleted=False
+    )
 
     assert logs.created == [
         {

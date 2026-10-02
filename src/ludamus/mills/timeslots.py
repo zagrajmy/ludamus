@@ -55,15 +55,21 @@ class DayTurnover:
             if local_start.timestamp() < local_end.timestamp():
                 return [(local_start, local_end)]
             return []
-        # Openings sit on the hour, never inside the repeated autumn hour, so
-        # clamping to them compares wall clocks safely; only the two ends of
-        # the interval itself can both fall into that hour.
+        # NOTE: clamp by instant, not wall clock. Aware datetimes sharing a
+        # tzinfo compare by their fold-less naive value, and a zone whose DST
+        # change lands on the turnover hour itself (America/Havana ends DST at
+        # 00:00) gives an opening and a window edge the same wall time an hour
+        # apart.
         windows: list[Window] = []
         cursor_date = first_date
         while cursor_date <= last_date:
-            window_start = max(local_start, self.opening(cursor_date, tz))
+            window_start = max(
+                local_start, self.opening(cursor_date, tz), key=datetime.timestamp
+            )
             cursor_date += timedelta(days=1)
-            window_end = min(local_end, self.opening(cursor_date, tz))
+            window_end = min(
+                local_end, self.opening(cursor_date, tz), key=datetime.timestamp
+            )
             if window_start.timestamp() < window_end.timestamp():
                 windows.append((window_start, window_end))
         return windows

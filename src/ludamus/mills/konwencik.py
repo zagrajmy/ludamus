@@ -99,10 +99,10 @@ class KonwencikRow(BaseModel):
 
 
 def _room_labels(spaces: list[SpaceDTO]) -> dict[int, str]:
-    by_pk: dict[int | None, SpaceDTO] = {space.pk: space for space in spaces}
+    by_pk = {space.pk: space for space in spaces}
     labels: dict[int, str] = {}
     for space in spaces:
-        parent = by_pk.get(space.parent_id)
+        parent = by_pk.get(space.parent_id) if space.parent_id else None
         labels[space.pk] = f"{space.name} ({parent.name})" if parent else space.name
     return labels
 
@@ -197,7 +197,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         memberships = self._repos.sessions.list_track_names_by_session(
             [item.session_id for item in items if item.session_id in alive]
         )
-        combinations: list[tuple[int, int | None]] = []
+        combinations: dict[tuple[int, int | None], None] = {}
         for item in items:
             if (
                 item.session_id not in alive
@@ -209,10 +209,8 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             track = _first_public_track(tracks, session_tracks)
             if session_tracks and track is None:
                 continue
-            combination = (item.category_id, track.pk if track else None)
-            if combination not in combinations:
-                combinations.append(combination)
-        return combinations
+            combinations[item.category_id, track.pk if track else None] = None
+        return list(combinations)
 
     def save_settings(
         self,
@@ -520,29 +518,28 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         ]
         if not field_pks or not session_ids:
             return {}
-        slugs: dict[int | None, str] = {
+        slugs = {
             field.pk: field.slug
             for field in self._repos.session_fields.list_by_event(event_pk)
         }
         raw = self._repos.sessions.list_field_values_for_sessions(
             session_ids, field_pks
         )
-        # No field configured is its own case, not a pk that happens to match
-        # nothing: an unset override never reaches the value store.
-        slug_by_key = {
-            key: slug
-            for key, pk in (
-                ("photo_url", settings.photo_url_field_pk),
-                ("icon", settings.icon_field_pk),
-            )
-            if (slug := slugs.get(pk)) is not None
-        }
+        photo_slug = _slug_of(slugs, settings.photo_url_field_pk)
+        icon_slug = _slug_of(slugs, settings.icon_field_pk)
         return {
             session_id: {
-                key: _text(value=values.get(slug)) for key, slug in slug_by_key.items()
+                "photo_url": _text(value=values.get(photo_slug)),
+                "icon": _text(value=values.get(icon_slug)),
             }
             for session_id, values in raw.items()
         }
+
+
+def _slug_of(slugs: dict[int, str], pk: int | None) -> str:
+    # No field configured is its own case, not a pk that happens to match
+    # nothing: an unset override never reaches the value store.
+    return slugs.get(pk, "") if pk is not None else ""
 
 
 def _first_public_track(
@@ -566,13 +563,10 @@ def _build_row(
     answers: dict[str, str],
 ) -> KonwencikRow:
     start, end = span
-    default_icon = next(
-        (
-            icon
-            for category_id, icon in settings.category_icons.items()
-            if category_id == item.category_id
-        ),
-        "",
+    default_icon = (
+        settings.category_icons.get(item.category_id, "")
+        if item.category_id is not None
+        else ""
     )
     return KonwencikRow(
         id=str(item.session_id),
