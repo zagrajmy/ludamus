@@ -28,6 +28,7 @@ from ludamus.gates.web.django.event.panel.views import (
     discount_settings,
     enrollment_settings,
     errata,
+    event_create,
     facilitator_actions,
     facilitator_edit,
     konwencik_export,
@@ -121,6 +122,9 @@ _timetable_urlpatterns = [
 
 urlpatterns = [
     path("", index.PanelIndexRedirectView.as_view(), name="index"),
+    path(
+        "events/new/", event_create.EventCreatePageView.as_view(), name="event-create"
+    ),
     path("event/<slug:slug>/", index.EventIndexPageView.as_view(), name="event-index"),
     path(
         "event/<slug:slug>/settings/",
