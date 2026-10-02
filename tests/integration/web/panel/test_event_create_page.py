@@ -152,8 +152,9 @@ class TestEventCreatePageView:
             event.use_participants_label,
             event.publication_time,
         ) == (source.address, True, None)
-        assert _local(source.proposal_start_time) == "2026-10-27T18:00"
-        assert _local(event.proposal_start_time) == "2027-10-26T18:00"
+        assert event.proposal_start_time == source.proposal_start_time + (
+            NEW_START - SOURCE_START
+        )
         room = Space.objects.get(event=event, slug="hall")
         assert (room.parent.slug, room.parent.event_id) == ("pub", event.pk)
         track = Track.objects.get(event=event)
@@ -219,27 +220,34 @@ class TestEventCreatePageView:
         slot = TimeSlot.objects.get(event__slug="mim-2027")
         assert localtime(slot.start_time).strftime("%H:%M") == "12:00"
 
-    def test_keeps_a_slot_moved_into_the_spring_gap_after_its_start(
+    def test_moves_an_hourly_grid_onto_the_spring_clock_change_intact(
         self, panel_client, sphere
     ):
-        june = datetime(2026, 6, 5, 22, 30, tzinfo=UTC)
+        june = datetime(2026, 6, 5, 22, tzinfo=UTC)
         source = EventFactory(
             sphere=sphere, start_time=june, end_time=june + timedelta(hours=8)
         )
-        TimeSlot.objects.create(
-            event=source,
-            start_time=june + timedelta(hours=2),
-            end_time=june + timedelta(hours=2, minutes=30),
-        )
-        spring_night = datetime(2027, 3, 27, 23, 30, tzinfo=UTC)
+        for hour in (2, 3):
+            TimeSlot.objects.create(
+                event=source,
+                start_time=june + timedelta(hours=hour),
+                end_time=june + timedelta(hours=hour + 1),
+            )
+        spring_night = datetime(2027, 3, 27, 23, tzinfo=UTC)
 
         response = panel_client.post(
             URL, data=_post_data(based_on=source.pk, start=spring_night)
         )
 
         _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
-        slot = TimeSlot.objects.get(event__slug="mim-2027")
-        assert slot.end_time - slot.start_time == timedelta(minutes=30)
+        assert list(
+            TimeSlot.objects.filter(event__slug="mim-2027")
+            .order_by("start_time")
+            .values_list("start_time", "end_time")
+        ) == [
+            (spring_night + timedelta(hours=2), spring_night + timedelta(hours=3)),
+            (spring_night + timedelta(hours=3), spring_night + timedelta(hours=4)),
+        ]
 
     def test_gives_a_default_space_to_a_copy_of_an_event_without_one(
         self, panel_client, sphere
