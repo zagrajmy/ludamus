@@ -1562,6 +1562,7 @@ class SessionField(models.Model):
     help_text = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=50, blank=True)
     is_public = models.BooleanField(default=False)
+    show_on_cards = models.BooleanField(default=True)
 
     class Meta:
         db_table = "session_field"
@@ -1793,19 +1794,6 @@ class EncounterInviteMailing(models.Model):
 
     def __str__(self) -> str:
         return f"{self.count} by {self.creator_id}"
-
-
-class EventSettings(models.Model):
-    event = models.OneToOneField(
-        Event, on_delete=models.CASCADE, related_name="settings"
-    )
-    displayed_session_fields = models.ManyToManyField(SessionField, blank=True)
-
-    class Meta:
-        db_table = "event_settings"
-
-    def __str__(self) -> str:
-        return f"Settings for {self.event}"
 
 
 class EventPanelSettings(models.Model):

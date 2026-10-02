@@ -20,12 +20,7 @@ import django
 
 django.setup()
 
-from ludamus.links.db.django.models import (
-    EventSettings,
-    Session,
-    SessionField,
-    SessionFieldValue,
-)
+from ludamus.links.db.django.models import Session, SessionField, SessionFieldValue
 
 
 def main() -> None:
@@ -79,10 +74,6 @@ def main() -> None:
                 "order": 2,
             },
         )
-
-        # Mark all select fields as displayed
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(system_field, triggers_field, tone_field)
 
         # Create field values for this session (skip if already exists)
         SessionFieldValue.objects.get_or_create(
