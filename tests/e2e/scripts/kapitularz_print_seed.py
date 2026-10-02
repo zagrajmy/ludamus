@@ -169,10 +169,8 @@ SESSION_KINDS = (
 )
 
 
-def _crosses_clock_change(start_day: date, local_tz: tzinfo) -> bool:
-    first = datetime.combine(start_day, time(0, 0), tzinfo=local_tz)
-    last = datetime.combine(start_day + timedelta(days=3), time(0, 0), tzinfo=local_tz)
-    return first.utcoffset() != last.utcoffset()
+def _utc_offset(day: date, tz: tzinfo) -> timedelta | None:
+    return datetime.combine(day, time(0, 0), tzinfo=tz).utcoffset()
 
 
 def seed_kapitularz_print_event(sphere: Sphere) -> None:
@@ -180,11 +178,12 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
 
     local_tz = get_current_timezone()
     start_day = (timezone.now() + timedelta(days=21)).astimezone(local_tz).date()
-    # A clock change inside the programme makes the overnight session read
-    # "22:00 CEST–06:00 CET", so the specs pinning its times would fail for the
-    # few days a year the seeded weekend straddles one.
-    while _crosses_clock_change(start_day, local_tz):
-        start_day += timedelta(weeks=1)
+    # NOTE: across a DST switch the views name the zones ("22:00 CEST–07:00
+    # CET"), and the specs read the plain times, so the programme starts after it.
+    while _utc_offset(start_day, local_tz) != _utc_offset(
+        start_day + timedelta(days=3), local_tz
+    ):
+        start_day += timedelta(days=1)
     event_start = datetime.combine(start_day, time(10, 0), tzinfo=local_tz)
     event = Event.objects.create(
         sphere=sphere,

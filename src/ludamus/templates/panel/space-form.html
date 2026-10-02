@@ -24,8 +24,8 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    <div class="panel-bleed">
-        {% if current_event %}
+    {% if current_event %}
+        <div class="panel-bleed">
             <div class="card card-body max-w-xl">
                 <form method="post" action="" class="space-y-4" data-submit-once>
                     {% csrf_token %}
@@ -44,6 +44,6 @@
                     </div>
                 </form>
             </div>
-        {% endif %}
-    </div>
+        </div>
+    {% endif %}
 {% endblock content %}
