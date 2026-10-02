@@ -53,8 +53,6 @@ class RedirectError(Exception):
 
 
 class DateTimeRangeProtocol(Protocol):
-    """Protocol for objects with start_time and end_time datetime fields."""
-
     start_time: datetime
     end_time: datetime
 
@@ -142,8 +140,6 @@ UNSCHEDULED_LIST_LIMIT = 20
 
 
 class UnscheduledSessionDTO(BaseModel):
-    """Session accepted but not yet placed in the timetable."""
-
     pk: int
     title: str
     facilitator_name: str
@@ -426,6 +422,7 @@ class SphereDTO(BaseModel):
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
+    parley_enabled: bool = False
     pk: SphereId
     site: SiteDTO
     logo_url: str = ""
@@ -438,6 +435,7 @@ class SphereUpdateData(TypedDict, total=False):
     visibility: SphereVisibility
     encounters_policy: str
     logo: UploadedFileProtocol | str
+    parley_enabled: bool
 
 
 @dataclass
