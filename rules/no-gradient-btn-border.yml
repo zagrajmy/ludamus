@@ -1,0 +1,13 @@
+id: no-gradient-btn-border
+language: html
+severity: error
+rule:
+  kind: attribute
+  all:
+    - regex: 'class="[^"]*\bbtn-(primary|danger)\b'
+    - regex: 'class="[^"]*\bborder-transparent\b'
+message: |
+  Don't put a transparent border on a gradient button.
+  btn-primary and btn-danger paint a background-image, which repeats under a
+  transparent border and leaves a seam along the edges. To line one up with a
+  bordered btn-secondary or chip, stretch the row (items-stretch) instead.

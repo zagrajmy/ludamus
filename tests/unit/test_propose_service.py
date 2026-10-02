@@ -5,19 +5,22 @@ import pytest
 
 from ludamus.mills.propose import ProposeSessionService
 from ludamus.pacts.legacy import (
-    EventDTO,
     FacilitatorDTO,
+    NotFoundError,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
+    PersonalFieldRequirementDTO,
     SessionFieldValueData,
     TrackDTO,
 )
-from ludamus.pacts.propose import ProposeRepos
+from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos
+from tests.unit.factories import event_dto
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
 OWN_TRACK_PK = 7
 FOREIGN_TRACK_PK = 999
+USER_PK = 5
 
 
 class FakeCache:
@@ -34,7 +37,7 @@ class FakeCache:
 
 def _event(pk=1):
     now = datetime.now(tz=UTC)
-    return EventDTO(
+    return event_dto(
         description="Test",
         end_time=now + timedelta(days=7),
         name="Test Event",
@@ -43,7 +46,6 @@ def _event(pk=1):
         proposal_start_time=now - timedelta(days=1),
         publication_time=now - timedelta(days=2),
         slug="test-event",
-        sphere_id=1,
         start_time=now + timedelta(days=5),
     )
 
@@ -57,6 +59,12 @@ def _facilitator():
         slug="anon-host",
         user_id=None,
     )
+
+
+def _user():
+    user = MagicMock(pk=USER_PK)
+    user.name = "Ada"
+    return user
 
 
 def _field(pk, slug):
@@ -171,3 +179,264 @@ class TestCheckRateLimit:
         cache.store["proposal_rate:1:1.2.3.4"] = 1
 
         assert service.check_rate_limit(ip="1.2.3.4", event_id=2) is True
+
+    def test_blocks_a_second_submission_from_the_same_ip(self, service, cache):
+        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is True
+        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is False
+        assert "proposal_rate:1:1.2.3.4" in cache.store
+
+
+class TestSubmitEdgeCases:
+    def test_requires_a_title(self, service, submitting_repos):
+        with pytest.raises(ValueError, match="title"):
+            service.submit(_event(), {"category_id": 1, "session_data": {}})
+
+        submitting_repos.sessions.create.assert_not_called()
+
+    def test_logged_in_user_reuses_their_facilitator_and_is_the_presenter(
+        self, service, submitting_repos
+    ):
+        submitting_repos.users.read.return_value = _user()
+        submitting_repos.facilitators.read_by_user_and_event.return_value = (
+            _facilitator()
+        )
+
+        service.submit(
+            _event(),
+            {"category_id": 1, "session_data": {"title": "T"}},
+            cover_image=MagicMock(name="cover"),
+            user_id=USER_PK,
+            user_slug="ada",
+        )
+
+        submitting_repos.facilitators.create.assert_not_called()
+        create_data = submitting_repos.sessions.create.call_args.args[0]
+        assert create_data["presenter_id"] == USER_PK
+        assert create_data["facilitator_name"] == "Ada"
+        assert "cover_image" in create_data
+
+    def test_logged_in_user_without_a_facilitator_gets_one(
+        self, service, submitting_repos
+    ):
+        submitting_repos.users.read.return_value = _user()
+        submitting_repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
+
+        service.submit(
+            _event(),
+            {"category_id": 1, "session_data": {"title": "T"}},
+            user_id=USER_PK,
+            user_slug="ada",
+        )
+
+        created = submitting_repos.facilitators.create.call_args.args[0]
+        assert created["user_id"] == USER_PK
+        assert created["display_name"] == "Ada"
+
+    def test_only_foreign_tracks_attaches_none(self, service, submitting_repos):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "T"},
+                "track_pks": [FOREIGN_TRACK_PK],
+            },
+        )
+
+        submitting_repos.sessions.set_session_tracks.assert_not_called()
+
+    def test_ignores_write_in_helpers_builtins_and_unknown_fields(
+        self, service, submitting_repos
+    ):
+        submitting_repos.session_fields.read_by_slug.side_effect = NotFoundError
+        submitting_repos.personal_fields.read_by_slug.side_effect = NotFoundError
+
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {
+                    "title": "T",
+                    "session_system_custom": "Homebrew",
+                    "session_players": 4,
+                    "session_ghost": "boo",
+                },
+                "personal_data": {
+                    "other": "x",
+                    "personal_diet_custom": "vegan",
+                    "personal_diet": "",
+                    "personal_ghost": "boo",
+                },
+            },
+        )
+
+        submitting_repos.sessions.save_field_values.assert_not_called()
+        submitting_repos.personal_data_field_values.save.assert_not_called()
+
+
+class TestReads:
+    def test_getters_read_through_their_repos(self, service, repos):
+        assert service.get_event("slug", 1) is repos.events.read_by_slug.return_value
+        assert (
+            service.get_proposal_settings(1)
+            is repos.event_proposal_settings.read_by_event.return_value
+        )
+        assert (
+            service.get_or_create_proposal_settings(1)
+            is repos.event_proposal_settings.read_or_create_by_event.return_value
+        )
+        assert service.get_categories(1) is repos.categories.list_by_event.return_value
+        assert service.get_category(2, 1) is repos.categories.read.return_value
+        assert (
+            service.get_personal_requirements(2)
+            is repos.categories.list_personal_field_requirements.return_value
+        )
+        assert (
+            service.get_session_requirements(2)
+            is repos.categories.list_session_field_requirements.return_value
+        )
+        assert (
+            service.get_timeslot_requirements(2)
+            is repos.categories.list_time_slot_requirements.return_value
+        )
+        assert (
+            service.get_public_tracks(1)
+            is repos.tracks.list_public_by_event.return_value
+        )
+
+    def test_saved_personal_data_is_empty_for_anonymous_or_new_users(
+        self, service, repos
+    ):
+        assert service.get_saved_personal_data(event_id=1, user_id=None) == {}
+
+        repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
+        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {}
+
+    def test_saved_personal_data_comes_from_the_users_facilitator(self, service, repos):
+        repos.facilitators.read_by_user_and_event.side_effect = None
+        repos.facilitators.read_by_user_and_event.return_value = _facilitator()
+        repos.personal_data_field_values.read_for_facilitator_event.return_value = {
+            "email": "a@x.z"
+        }
+
+        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {
+            "email": "a@x.z"
+        }
+        assert (
+            repos.personal_data_field_values.read_for_facilitator_event.call_args.args
+            == (FACILITATOR_PK, 1)
+        )
+
+
+def _discord_requirement(slug="dc"):
+    return PersonalFieldRequirementDTO(
+        field=OrganizerFieldDTO(
+            field_type="discord", name=slug, order=0, pk=3, question="Q", slug=slug
+        ),
+        is_required=True,
+    )
+
+
+def _text_requirement():
+    return PersonalFieldRequirementDTO(field=_field(4, "phone"), is_required=True)
+
+
+class TestAccountAnswers:
+    def test_anonymous_proposer_has_none(self, service):
+        assert (
+            service.get_account_answers(
+                user_id=None, requirements=[_discord_requirement()]
+            )
+            == AccountAnswersDTO()
+        )
+
+    def test_profile_handle_answers_only_discord_fields(self, service, repos):
+        repos.users.read_by_id.return_value = MagicMock(
+            email="ada@x.z", discord_username="ada_gm"
+        )
+
+        answers = service.get_account_answers(
+            user_id=USER_PK, requirements=[_discord_requirement(), _text_requirement()]
+        )
+
+        assert answers == AccountAnswersDTO(
+            email="ada@x.z", personal_data={"personal_dc": "ada_gm"}
+        )
+
+    def test_no_profile_handle_answers_nothing(self, service, repos):
+        repos.users.read_by_id.return_value = MagicMock(
+            email="ada@x.z", discord_username=""
+        )
+
+        answers = service.get_account_answers(
+            user_id=USER_PK, requirements=[_discord_requirement()]
+        )
+
+        assert answers.personal_data == {}
+
+
+class FakeUsers:
+    """Holds one profile handle and fills it only while empty, like the repo."""
+
+    def __init__(self, handle=""):
+        self.handle = handle
+        self.user = _user()
+        self.user.slug = "ada"
+
+    def read(self, _slug):
+        return self.user
+
+    def fill_discord_username(self, _slug, handle):
+        if self.handle:
+            return False
+        self.handle = handle
+        return True
+
+
+class TestProfileDiscordFill:
+    @staticmethod
+    def _submit(service, repos, handle):
+        repos.facilitators.read_by_user_and_event.return_value = _facilitator()
+        repos.personal_fields.read_by_slug.side_effect = lambda _event_id, slug: (
+            _discord_requirement(slug).field if slug == "dc" else _field(4, slug)
+        )
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "T"},
+                "personal_data": {"personal_phone": "+48 1", "personal_dc": handle},
+            },
+            user_id=USER_PK,
+            user_slug="ada",
+        )
+
+    @staticmethod
+    def _service(repos, users):
+        return ProposeSessionService(
+            transaction=MagicMock(),
+            repos=repos._replace(users=users),
+            cache=FakeCache(),
+        )
+
+    def test_fills_the_empty_profile_handle_with_the_answer(self, submitting_repos):
+        users = FakeUsers()
+
+        self._submit(self._service(submitting_repos, users), submitting_repos, " ada ")
+
+        assert users.handle == "ada"
+
+    def test_keeps_a_handle_the_profile_already_has(self, submitting_repos):
+        users = FakeUsers(handle="ada_gm")
+
+        self._submit(self._service(submitting_repos, users), submitting_repos, "bob")
+
+        assert users.handle == "ada_gm"
+
+    def test_skips_a_handle_too_long_for_the_profile(self, submitting_repos):
+        users = FakeUsers()
+
+        self._submit(
+            self._service(submitting_repos, users), submitting_repos, "x" * 151
+        )
+
+        assert not users.handle

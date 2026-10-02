@@ -17,15 +17,22 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
+    parse_personal_field_form_data,
     undeletable_field_reasons,
 )
-from ludamus.gates.web.django.forms import PersonalDataFieldForm
+from ludamus.gates.web.django.forms import (
+    PersonalDataFieldEditForm,
+    PersonalDataFieldForm,
+)
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
+from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.pacts import OrganizerFieldDTO
+    from ludamus.pacts.legacy import PersonalDataFieldUpdateData
 
 
 class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -117,7 +124,7 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
 
         service.create(
             event_pk=current_event.pk,
-            data=parse_field_form_data(form),
+            data=parse_personal_field_form_data(form),
             category_requirements=selection,
         )
 
@@ -154,6 +161,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             "max_length": field.max_length,
             "help_text": field.help_text,
             "is_public": field.is_public,
+            "field_type": field.field_type,
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
@@ -162,7 +170,9 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "cfp"
         context["field"] = field
-        context["form"] = PersonalDataFieldForm(initial=initial)
+        context["form"] = PersonalDataFieldEditForm(initial=initial)
+        context["can_switch_type"] = edit_ctx.can_switch_type
+        context["text_kind_choices"] = PersonalDataFieldEditForm.FIELD_TYPE_CHOICES
         context["categories"] = edit_ctx.categories
         context["required_category_pks"] = edit_ctx.required_category_pks
         context["optional_category_pks"] = edit_ctx.optional_category_pks
@@ -188,16 +198,18 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:personal-data-fields", slug=slug)
 
         field = edit_ctx.field
-        form = PersonalDataFieldForm(self.request.POST)
+        form = PersonalDataFieldEditForm(self.request.POST)
         selection = parse_requirement_selection(
             self.request.POST, prefix="category_", order_key="category_order"
         )
         cat_reqs = selection.requirements
 
-        if not form.is_valid():
+        def rerender() -> HttpResponse:
             context["active_nav"] = "cfp"
             context["field"] = field
             context["form"] = form
+            context["can_switch_type"] = edit_ctx.can_switch_type
+            context["text_kind_choices"] = PersonalDataFieldEditForm.FIELD_TYPE_CHOICES
             context["categories"] = edit_ctx.categories
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
@@ -209,29 +221,46 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/personal-data-field-edit.html", context
             )
 
-        options_text = form.cleaned_data.get("options") or ""
-        options: list[str] | None = None
-        if field.field_type == "select":
-            options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
+        if not form.is_valid():
+            return rerender()
 
-        service.update(
-            event_pk=current_event.pk,
-            field_slug=field_slug,
-            data={
-                "name": form.cleaned_data["name"],
-                "question": form.cleaned_data["question"],
-                "max_length": form.cleaned_data.get("max_length") or 0,
-                "help_text": form.cleaned_data.get("help_text") or "",
-                "is_public": form.cleaned_data.get("is_public", False),
-                "options": options,
-                "is_multiple": form.cleaned_data.get("is_multiple") or False,
-                "allow_custom": form.cleaned_data.get("allow_custom") or False,
-            },
-            category_requirements=selection,
-        )
+        new_type = form.cleaned_data.get("field_type") or ""
+        try:
+            service.update(
+                event_pk=current_event.pk,
+                field_slug=field_slug,
+                data=_update_data(form, field),
+                category_requirements=selection,
+                field_type=new_type if is_text_field_kind(new_type) else None,
+            )
+        except FieldTypeSwitchError:
+            form.add_error(
+                "field_type",
+                _("Only text and Discord username fields can switch type."),
+            )
+            return rerender()
 
         messages.success(self.request, _("Personal data field updated successfully."))
         return redirect("panel:personal-data-fields", slug=slug)
+
+
+def _update_data(
+    form: PersonalDataFieldEditForm, field: OrganizerFieldDTO
+) -> PersonalDataFieldUpdateData:
+    options: list[str] | None = None
+    if field.field_type == "select":
+        options_text = form.cleaned_data.get("options") or ""
+        options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
+    return {
+        "name": form.cleaned_data["name"],
+        "question": form.cleaned_data["question"],
+        "max_length": form.cleaned_data.get("max_length") or 0,
+        "help_text": form.cleaned_data.get("help_text") or "",
+        "is_public": form.cleaned_data.get("is_public", False),
+        "options": options,
+        "is_multiple": form.cleaned_data.get("is_multiple") or False,
+        "allow_custom": form.cleaned_data.get("allow_custom") or False,
+    }
 
 
 class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):

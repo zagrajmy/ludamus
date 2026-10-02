@@ -9,6 +9,9 @@ _EVENT_CONFIRMED = 7
 _EVENT_PCT = 64
 _UNCLAIMED_FACILITATORS = 5
 _CLAIMED_FACILITATORS = 3
+_RPG_TRACK = 21
+_ORPHANS = 4
+_HALF = 50
 
 
 def _row(
@@ -127,3 +130,31 @@ class TestDashboard:
 
         assert dashboard.progress_pct == 0
         assert dashboard.organizers[0].progress_pct == 0
+
+    def test_track_rows_carry_their_managers_and_a_no_track_row_reads_as_zero(self):
+        service = EventConfirmationsService(
+            facilitators=FakeFacilitators([]),
+            agenda_items=FakeAgendaItems(
+                rows=[
+                    _row(
+                        key=_RPG_TRACK,
+                        name="RPG",
+                        facilitators=2,
+                        scheduled=4,
+                        confirmed=2,
+                    ),
+                    _row(key=None, name="", facilitators=1, scheduled=1, confirmed=0),
+                ],
+                without_facilitator=_ORPHANS,
+            ),
+            tracks=FakeTracks({_RPG_TRACK: ["Ada", "Ben"]}),
+            sessions=None,
+        )
+
+        dashboard = service.dashboard(1)
+
+        assert dashboard.tracks[0].manager_names == ["Ada", "Ben"]
+        assert dashboard.tracks[0].progress_pct == _HALF
+        assert dashboard.tracks[1].track_pk == 0
+        assert dashboard.tracks[1].manager_names == []
+        assert dashboard.without_facilitator_count == _ORPHANS

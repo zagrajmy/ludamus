@@ -437,6 +437,28 @@ class TestTools:
         assert result["content"][0]["text"] == message
         assert not Event.objects.filter(name="Bad input").exists()
 
+    def test_create_event_rejects_unknown_fields(self, client, token, sphere):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Unknown field",
+                "slug": "unknown-field",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "address": "Zgorzelec",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: address: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="unknown-field").exists()
+
     def test_create_event_rejects_publication_after_start(self, client, token, sphere):
         response = call_tool(
             client,

@@ -1,12 +1,18 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.fields import (
+    FieldValue,
+    OrganizerFieldDTO,
+    PersonalFieldType,
+    SessionFieldType,
+    TextFieldKind,
+)
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 from ludamus.pacts.multiverse import SphereVisibility
 
@@ -126,6 +132,7 @@ class SessionFieldValueDTO(BaseModel):
     field_order: int = 0
     field_type: str = "text"
     is_public: bool = False
+    show_on_cards: bool = True
     value: str | list[str] | bool
 
 
@@ -547,15 +554,6 @@ class EventProposalSettingsDTO(BaseModel):
     pk: int
 
 
-class EventSettingsDTO(BaseModel):
-    """Display settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    displayed_session_field_ids: list[int] = []
-    pk: int
-
-
 class EventUpdateData(TypedDict, total=False):
     """Write shape for updating event fields."""
 
@@ -927,11 +925,17 @@ class AgendaItemRepositoryProtocol(Protocol):
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
     def list_by_event(
-        event_pk: int, *, facilitator_pks: set[int] | None = None
+        event_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def list_by_track(
-        track_pk: int, *, facilitator_pks: set[int] | None = None
+        track_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
@@ -1062,17 +1066,20 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO: ...
 
 
-class PersonalDataFieldCreateData(TypedDict):
+class FieldCreateData(TypedDict):
     name: str
     slug: NotRequired[str]
     question: str
-    field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
     max_length: int
     help_text: str
     is_public: bool
+
+
+class PersonalDataFieldCreateData(FieldCreateData):
+    field_type: PersonalFieldType
 
 
 class PersonalDataFieldUpdateData(TypedDict):
@@ -1086,18 +1093,9 @@ class PersonalDataFieldUpdateData(TypedDict):
     allow_custom: bool
 
 
-class SessionFieldCreateData(TypedDict):
-    name: str
-    slug: NotRequired[str]
-    question: str
-    field_type: Literal["text", "select", "checkbox"]
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
-    max_length: int
-    help_text: str
+class SessionFieldCreateData(FieldCreateData):
+    field_type: SessionFieldType
     icon: str
-    is_public: bool
 
 
 class SessionFieldUpdateData(TypedDict):
@@ -1129,6 +1127,9 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
     ) -> OrganizerFieldDTO: ...
+    def set_field_type(
+        self, pk: int, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO: ...
 
 
 class SessionFieldRepositoryProtocol(Protocol):
@@ -1145,6 +1146,8 @@ class SessionFieldRepositoryProtocol(Protocol):
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def show_on_cards_only(event_id: int, field_ids: list[int]) -> None: ...
     def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
 
 
@@ -1185,13 +1188,6 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
 
     @staticmethod
     def update_description(event_id: int, description: str) -> None: ...
-
-
-class EventSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO: ...
-    @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None: ...
 
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
@@ -1509,8 +1505,6 @@ class UnitOfWorkProtocol(Protocol):
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property
     def events(self) -> EventRepositoryProtocol: ...
-    @property
-    def event_settings(self) -> EventSettingsRepositoryProtocol: ...
     @property
     def facilitators(self) -> FacilitatorRepositoryProtocol: ...
     @property

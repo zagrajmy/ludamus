@@ -43,7 +43,7 @@ def _unauthorized(request: RootRequest, scope: ToolScope) -> JsonResponse:
         {"error": f"A valid {scope} Bearer token is required."}, status=401
     )
     # RFC 9728 §5.1: the pointer MCP clients follow to start OAuth.
-    metadata_url = resource_metadata_url(request, scope)
+    metadata_url = resource_metadata_url(request)
     response["WWW-Authenticate"] = f'Bearer resource_metadata="{metadata_url}"'
     return response
 

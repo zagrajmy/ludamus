@@ -1,68 +1,15 @@
-"""Calendar files and links for anything with a title, a time and a place."""
+"""Calendar links for anything with a title, a time and a place."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from ludamus.pacts.calendar import ics_utc
+
 if TYPE_CHECKING:
-    from datetime import datetime
-
-PRODID = "-//Zagrajmy//Ludamus//PL"
-
-
-@dataclass(frozen=True)
-class CalendarEntry:
-    """One dated thing, in the shape every calendar target asks for.
-
-    A caller that wants a default length for an open-ended entry sets `end`
-    itself: an entry without one prints no DTEND, and the web calendars fall
-    back to a zero-length event.
-    """
-
-    uid: str
-    title: str
-    start: datetime
-    url: str
-    end: datetime | None = None
-    location: str = ""
-    description: str = ""
-
-
-def ics_escape(text: str) -> str:
-    return (
-        text.replace("\\", "\\\\")
-        .replace(";", "\\;")
-        .replace(",", "\\,")
-        .replace("\n", "\\n")
-    )
-
-
-def ics_utc(value: datetime) -> str:
-    return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
-
-
-def ics_document(entry: CalendarEntry, *, stamped_at: datetime) -> str:
-    lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        f"PRODID:{PRODID}",
-        "BEGIN:VEVENT",
-        f"UID:{entry.uid}",
-        f"DTSTAMP:{ics_utc(stamped_at)}",
-        f"DTSTART:{ics_utc(entry.start)}",
-    ]
-    if entry.end:
-        lines.append(f"DTEND:{ics_utc(entry.end)}")
-    lines.append(f"SUMMARY:{ics_escape(entry.title)}")
-    if entry.location:
-        lines.append(f"LOCATION:{ics_escape(entry.location)}")
-    if entry.description:
-        lines.append(f"DESCRIPTION:{ics_escape(entry.description)}")
-    lines += [f"URL:{entry.url}", "END:VEVENT", "END:VCALENDAR"]
-    return "\r\n".join(lines) + "\r\n"
+    from ludamus.pacts.calendar import CalendarEntry
 
 
 def _details(entry: CalendarEntry) -> str:

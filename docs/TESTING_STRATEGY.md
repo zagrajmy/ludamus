@@ -41,13 +41,20 @@ owns them, or in a sibling `helpers.py` once a second module needs them — see
 ## Unit tests
 
 Cover: the isolated systems that meet the bar above, with one test per failure
-mode written down before the code.
+mode written down before the code. `tests/unit` covers `ludamus.mills` and
+itself in full, and `mise run test:unit:cov` fails under 100% — it runs in CI,
+`devcheck` and `pr-fix`, because the combined report cannot show this: a mills
+line covered only by an e2e test reads the same there.
 
 Rules:
 
 - mock at highest level
 - assert outcomes, not call sequences
-- no database
+- no side effects: no database, no filesystem (`tmp_path`, reading templates
+  or catalogs), no network, no subprocess, no `settings` fixture. Mutation
+  runs copy test files elsewhere, so a path-based test cannot live here;
+  repo-wide guards (translation catalog, template scans, theme contrast) are
+  integration tests.
 
 ## Integration tests
 
