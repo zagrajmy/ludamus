@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
@@ -48,42 +48,27 @@ class LocationCrumb:
 _VENUE_FILTER_PREFIX = "venue:"
 
 
-@dataclass
-class DisplayFieldRow:
-    icon: str
-    name: str
-    visible_values: list[str]
-    overflow_values: list[str]
-
-    @property
-    def overflow_count(self) -> int:
-        return len(self.overflow_values)
-
-
-def flatten_cloud_overflow(rows: list[DisplayFieldRow]) -> list[CloudPill]:
-    return [
-        CloudPill(icon=row.icon, value=value)
-        for row in rows
-        for value in row.overflow_values
-    ]
-
-
+# One cap for the whole card, not one per field: past this many pills the
+# cloud pushes the card's footer down.
 _MAX_VISIBLE_PILLS = 4
 
 
-def build_display_field_row(field_value: SessionFieldValueDTO) -> DisplayFieldRow:
-    if isinstance(field_value.value, list):
-        values = [value for value in field_value.value if isinstance(value, str)]
-    elif isinstance(field_value.value, str):
-        values = [field_value.value]
-    else:
-        values = []
-    return DisplayFieldRow(
-        icon=field_value.field_icon,
-        name=field_value.field_name,
-        visible_values=values[:_MAX_VISIBLE_PILLS],
-        overflow_values=values[_MAX_VISIBLE_PILLS:],
-    )
+def card_pills(field_value: SessionFieldValueDTO) -> list[CloudPill]:
+    """Turn one answer into the pills a session card can show.
+
+    Returns:
+        A pill per chosen value of a select, the field's name for a ticked
+        checkbox, and nothing for free text: that only fits the modal.
+    """
+    icon = field_value.field_icon
+    match field_value.field_type, field_value.value:
+        case "select", list() as values:
+            return [CloudPill(icon=icon, value=v) for v in values if isinstance(v, str)]
+        case "select", str() as value if value:
+            return [CloudPill(icon=icon, value=value)]
+        case "checkbox", True:
+            return [CloudPill(icon=icon, value=field_value.field_name)]
+    return []
 
 
 @dataclass
@@ -121,7 +106,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     user_waiting: bool = False
     user_bookmarked: bool = False
     bookmark_count: int = 0
-    displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
+    card_pills: list[CloudPill] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
     track_names: list[str] = field(default_factory=list)
     category_name: str = ""
@@ -146,8 +131,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
 
     @property
+    def cloud_pills(self) -> list[CloudPill]:
+        return self.card_pills[:_MAX_VISIBLE_PILLS]
+
+    @property
     def cloud_overflow(self) -> list[CloudPill]:
-        return flatten_cloud_overflow(self.displayed_field_rows)
+        return self.card_pills[_MAX_VISIBLE_PILLS:]
 
     @property
     def is_unscheduled(self) -> bool:
@@ -234,9 +223,33 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
                 for value in field_value.value:
                     yield field_value.field_slug, str(value)
 
+    def ticked_public_checkboxes(self) -> Iterator[str]:
+        """Yield the slug of every public checkbox field this session ticks.
+
+        Yields:
+            One slug per ticked field, in field order.
+        """
+        for field_value in self.field_values:
+            if (
+                field_value.field_type == "checkbox"
+                and field_value.is_public
+                and field_value.value is True
+            ):
+                yield field_value.field_slug
+
     @property
-    def public_tags(self) -> str:
-        return ",".join(value for _slug, value in self.public_select_answers())
+    def search_terms(self) -> str:
+        # Every public answer a filter can't reach: a select's typed-in custom
+        # values ride along with its choices, and free text has no filter.
+        terms = [value for _slug, value in self.public_select_answers()]
+        terms.extend(
+            field_value.value
+            for field_value in self.field_values
+            if field_value.field_type == "text"
+            and field_value.is_public
+            and isinstance(field_value.value, str)
+        )
+        return " ".join(terms)
 
     @property
     def public_tag_categories(self) -> str:
@@ -254,6 +267,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         # ponytail: names with ':' or ';' would break parsing, same as the
         # existing tag values; track/category names never contain them.
         parts = [categories] if (categories := self.public_tag_categories) else []
+        parts.extend(f"{slug}:true" for slug in self.ticked_public_checkboxes())
         parts.extend(f"__track:{name}" for name in self.track_names)
         if self.category_name:
             parts.append(f"__category:{self.category_name}")
@@ -328,6 +342,22 @@ def filterable_tag_fields(
         for field in fields
         if len(answers[field.slug] & {option.value for option in field.options}) > 1
     ]
+
+
+def filterable_flag_fields(
+    fields: Sequence[OrganizerFieldDTO], cards: Iterable[SessionData]
+) -> list[OrganizerFieldDTO]:
+    """Keep the checkbox fields that split the schedule.
+
+    Returns:
+        The fields some sessions tick and some don't, in the order given: a
+        toggle that hides nothing, or everything, is no filter.
+    """
+    card_list = list(cards)
+    ticked = Counter(
+        slug for card in card_list for slug in card.ticked_public_checkboxes()
+    )
+    return [field for field in fields if 0 < ticked[field.slug] < len(card_list)]
 
 
 class EventInfo(EventListItemDTO):

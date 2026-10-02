@@ -68,7 +68,7 @@ _SHEET_KEY = "schedule_tags.sheet"
 
 _SESSION_ATTRS = (
     'data-title="%(title)s" data-session-id="%(pk)s" data-host="%(host)s"'
-    ' data-tags="%(tags)s" data-tag-categories="%(tag_categories)s"'
+    ' data-search-terms="%(search_terms)s" data-tag-categories="%(tag_categories)s"'
     ' data-status="%(status)s" data-takes-enrollment="%(takes_enrollment)s"'
     ' data-user-enrolled="%(user_enrolled)s" data-user-waiting="%(user_waiting)s"'
     ' data-bookmarked="%(bookmarked)s" data-min-age="%(min_age)s"'
@@ -296,7 +296,7 @@ def _session_attrs(
         # As-is casing: the host filter's option value and label both; the
         # search haystack lowercases on its own (normalizeText).
         "host": escape(session.facilitator_name),
-        "tags": escape(data.public_tags),
+        "search_terms": escape(data.search_terms),
         "tag_categories": escape(data.filter_categories),
         # data.availability, with one broader term: the filter counts any
         # started session as in progress, while the label waits for a

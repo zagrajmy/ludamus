@@ -1,11 +1,9 @@
 {% load i18n %}
 {% load tessera %}
-{% if data.displayed_field_rows or data.session.min_age > 0 %}
+{% if data.card_pills or data.session.min_age > 0 %}
     <div class="flex flex-wrap gap-1 mt-2 session-tags-cloud items-center">
-        {% for row in data.displayed_field_rows %}
-            {% for val in row.visible_values %}
-                {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" max_width="max-w-full" %}
-            {% endfor %}
+        {% for pill in data.cloud_pills %}
+            {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
         {% endfor %}
         {% if data.session.min_age > 0 %}
             <span class="px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-full truncate bg-coral-100 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300"

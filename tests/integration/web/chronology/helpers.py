@@ -173,6 +173,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "enrollment_notices": [],
         "event": event,
         "filterable_tag_categories": [],
+        "filterable_flag_fields": [],
         "track_filter_names": [],
         "category_filter_names": [],
         "hour_data": {},

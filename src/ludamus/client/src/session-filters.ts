@@ -197,17 +197,14 @@ const STATUS_CARD_FLAGS: Record<string, "bookmarked" | "userEnrolled" | "userWai
 const matchesTag =
   (categorySlug: string): CardFilter["matches"] =>
   (card, value) => {
-    const requiredTag = escapeRegExp(value);
     const categoryPattern = new RegExp(
-      `(?:^|;)${escapeRegExp(categorySlug)}:${requiredTag}(?:;|$)`,
+      `(?:^|;)${escapeRegExp(categorySlug)}:${escapeRegExp(value)}(?:;|$)`,
       "i",
     );
-    const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
-    return (
-      categoryPattern.test(card.dataset.tagCategories ?? "") ||
-      simpleTagPattern.test(card.dataset.tags ?? "")
-    );
+    return categoryPattern.test(card.dataset.tagCategories ?? "");
   };
+
+const FIELD_FLAG_PREFIX = "field-flag-";
 
 // An upgraded combobox keeps its options in JS, not in the page, and a
 // programmatic write to its value fires no `change` for it to notice. Every
@@ -250,18 +247,17 @@ const initSessionFilters = (): void => {
     "tag-filter-__category",
   ) as HTMLInputElement | null;
 
-  // Field values ride in the haystack because a value typed into an
-  // allow_custom field is not a choice and so never becomes a filter option —
-  // search is where it stays findable.
+  // Field answers ride in the haystack because free text and a value typed
+  // into an allow_custom field are not choices, so never filter options —
+  // search is where they stay findable.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
     const description = descEl ? (descEl.textContent ?? "") : "";
-    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
     cardHaystacks.set(
       card,
       normalizeText(
-        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
+        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${card.dataset.searchTerms ?? ""}`,
       ),
     );
   }
@@ -402,6 +398,15 @@ const initSessionFilters = (): void => {
       (card) => card.dataset.takesEnrollment === "true",
     ),
     flagFilter("hide-ended-filter", "hide-ended", (card) => !Object.hasOwn(card.dataset, "ended")),
+    // A public checkbox field: ticking the toggle keeps the sessions that
+    // ticked the field. The id carries the slug, the param its own prefix.
+    ...Array.from(
+      document.querySelectorAll<HTMLInputElement>(`input[id^="${FIELD_FLAG_PREFIX}"]`),
+      (el): FlagFilter => {
+        const slug = el.id.slice(FIELD_FLAG_PREFIX.length);
+        return { el, matches: (card) => matchesTag(slug)(card, "true"), param: `flag-${slug}` };
+      },
+    ),
   ].filter((f) => f !== null);
   const cardFilters: CardFilter[] = [
     selectFilter(statusFilter, "status", (card, value) => {

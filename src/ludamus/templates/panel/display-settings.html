@@ -27,9 +27,9 @@
                     {% csrf_token %}
                     <div class="card">
                         <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Filterable Session Fields" %}</h3>
+                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Fields on session cards" %}</h3>
                             <p class="text-sm text-foreground-muted mb-6">
-                                {% translate "Select which session fields appear as filters on the public session list." %}
+                                {% translate "Pick what each session card shows. A card fits four values; the rest open from +N. Participants see every public field in the session details either way." %}
                             </p>
                             {% if fields %}
                                 <div class="space-y-3">
@@ -38,7 +38,7 @@
                                             <input type="checkbox"
                                                    name="displayed_session_fields"
                                                    value="{{ field.pk }}"
-                                                   {% if field.pk in filterable_field_ids %}checked{% endif %}
+                                                   {% if field.pk in displayed_field_ids %}checked{% endif %}
                                                    class="rounded border-border text-primary focus:ring-primary">
                                             <span class="ml-2 text-sm text-foreground-secondary">
                                                 {% if field.icon %}
@@ -51,7 +51,7 @@
                                 </div>
                             {% elif has_any_fields %}
                                 <p class="text-sm text-foreground-muted italic mb-3">
-                                    {% translate "Every session field is private. Mark a field as shown on the public session card to make it available here." %}
+                                    {% translate "No public Select or Checkbox field yet. Only those fit on a card: text shows in the session details." %}
                                 </p>
                                 <a class="btn btn-secondary text-sm"
                                    href="{% url 'panel:session-fields' slug=current_event.slug %}">{% translate "Go to session fields" %}</a>

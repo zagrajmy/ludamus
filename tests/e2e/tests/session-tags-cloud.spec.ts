@@ -68,13 +68,13 @@ test.describe("Session tags cloud", () => {
     ).toBeVisible();
 
     await expect(plusCount(page)).toHaveCount(1);
-    await expect(plusCount(page)).toHaveText("+9");
+    await expect(plusCount(page)).toHaveText("+13");
 
     const age = card.getByText("12+", { exact: true });
     await expect(age).toBeVisible();
     const order = await card.innerText();
     expect(order.indexOf("12+")).toBeGreaterThan(-1);
-    expect(order.indexOf("12+")).toBeLessThan(order.indexOf("+9"));
+    expect(order.indexOf("12+")).toBeLessThan(order.indexOf("+13"));
 
     const tip = card.getByRole("tooltip");
     await expect.poll(() => opacityOf(tip)).toBe("0");

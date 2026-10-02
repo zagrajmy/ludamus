@@ -10,7 +10,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     ParticipationInfo,
     SessionData,
-    build_display_field_row,
+    card_pills,
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
@@ -165,7 +165,7 @@ def mock_session_data() -> SessionData:
         session_participations=session_participations,
         loc=_mock_venue_and_space(),
         field_values=field_values,
-        displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+        card_pills=[pill for fv in field_values for pill in card_pills(fv)],
     )
 
 
@@ -256,7 +256,7 @@ def mock_session_data_overflow() -> SessionData:
             }
         ),
         field_values=field_values,
-        displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+        card_pills=[pill for fv in field_values for pill in card_pills(fv)],
     )
 
 
@@ -302,7 +302,7 @@ def mock_session_data_ended() -> SessionData:
         session_participations=ended_participations,
         loc=_mock_venue_and_space(),
         field_values=data.field_values[:1],
-        displayed_field_rows=data.displayed_field_rows[:1],
+        card_pills=card_pills(data.field_values[0]),
         is_ongoing=True,
         is_ended=True,
     )

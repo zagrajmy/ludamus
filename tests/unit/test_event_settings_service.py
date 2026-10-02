@@ -38,9 +38,9 @@ def _event(pk=1, slug="conf", sphere_id=SPHERE_ID):
     )
 
 
-def _session_field(pk=1, slug="system", *, is_public=True):
+def _session_field(pk=1, slug="system", *, is_public=True, field_type="select"):
     return OrganizerFieldDTO(
-        field_type="text",
+        field_type=field_type,
         is_public=is_public,
         name="System",
         order=0,
@@ -145,20 +145,22 @@ class TestEventSettingsService:
                 data={"name": "Renamed", "slug": "new-conf"},
             )
 
-    def test_update_displayed_fields_keeps_only_public_field_ids(
+    def test_update_displayed_fields_keeps_only_public_pill_fields(
         self, service, events, event_settings, session_fields
     ):
         events.read_by_slug.return_value = _event(pk=7)
         session_fields.list_by_event.return_value = [
             _session_field(pk=1, slug="public"),
             _session_field(pk=2, slug="hidden", is_public=False),
+            _session_field(pk=3, slug="pitch", field_type="text"),
+            _session_field(pk=4, slug="beginners", field_type="checkbox"),
         ]
 
         service.update_displayed_fields(
-            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 99]
+            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 3, 4, 99]
         )
 
-        event_settings.update_displayed_fields.assert_called_once_with(7, [1])
+        event_settings.update_displayed_fields.assert_called_once_with(7, [1, 4])
 
     def test_update_general_refuses_an_end_not_after_the_start(self, service, events):
         events.read_by_slug.return_value = _event(pk=7)
@@ -307,18 +309,20 @@ def _proposal_data(*, apply_to_categories: bool) -> ProposalSettingsUpdateData:
 
 
 class TestDisplayAndProposalSettings:
-    def test_display_context_offers_public_fields_and_says_private_ones_exist(self):
+    def test_display_context_offers_public_pill_fields_and_says_others_exist(self):
         fakes = _Fakes(
             fields=[
                 _session_field(pk=1, slug="public"),
                 _session_field(pk=2, slug="hidden", is_public=False),
+                _session_field(pk=3, slug="pitch", field_type="text"),
+                _session_field(pk=4, slug="beginners", field_type="checkbox"),
             ],
             displayed=[1],
         )
 
         context = fakes.service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
-        assert [field.pk for field in context.fields] == [1]
+        assert [field.pk for field in context.fields] == [1, 4]
         assert context.displayed_field_ids == [1]
         assert context.has_any_fields is True
 

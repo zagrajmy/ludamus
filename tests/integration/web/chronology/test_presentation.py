@@ -7,8 +7,8 @@ from django.utils import timezone
 from ludamus.gates.web.django.chronology.event_presentation import (
     CloudPill,
     SessionData,
-    build_display_field_row,
-    flatten_cloud_overflow,
+    card_pills,
+    filterable_flag_fields,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
@@ -16,6 +16,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     group_sessions_by_state,
 )
 from ludamus.pacts import AgendaItemDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import SessionFieldValueDTO
 from tests.integration.web.chronology.helpers import make_session_data
 
@@ -97,6 +98,107 @@ class TestSessionDataFilterCategories:
         )
 
         assert data.filter_categories == "system:D&D;__track:Main;__category:RPG"
+
+    def test_carries_ticked_public_checkboxes_only(self):
+        data = make_session_data(
+            field_values=[
+                _answer("beginners", "checkbox", value=True),
+                _answer("loud", "checkbox", value=False),
+                _answer("secret", "checkbox", value=True, is_public=False),
+            ]
+        )
+
+        assert data.filter_categories == "beginners:true"
+
+
+def _answer(
+    slug: str, field_type: str, *, value: object, is_public: bool = True
+) -> SessionFieldValueDTO:
+    return SessionFieldValueDTO(
+        field_icon=f"{slug}-icon",
+        field_name=slug.title(),
+        field_question="",
+        field_slug=slug,
+        field_type=field_type,
+        is_public=is_public,
+        value=value,
+    )
+
+
+class TestSessionDataSearchTerms:
+    def test_holds_public_select_values_and_text(self):
+        data = make_session_data(
+            field_values=[
+                _answer("system", "select", value=["D&D", "Homebrew"]),
+                _answer("pitch", "text", value="Heist in Lviv"),
+                _answer("beginners", "checkbox", value=True),
+                _answer("notes", "text", value="secret", is_public=False),
+            ]
+        )
+
+        assert data.search_terms == "D&D Homebrew Heist in Lviv"
+
+
+class TestCardPills:
+    def test_one_cap_spans_every_field(self):
+        data = make_session_data(
+            card_pills=[
+                pill
+                for answer in (
+                    _answer("system", "select", value=["a", "b", "c"]),
+                    _answer("beginners", "checkbox", value=True),
+                    _answer("triggers", "select", value=["one", "two"]),
+                )
+                for pill in card_pills(answer)
+            ]
+        )
+
+        assert data.cloud_pills == [
+            CloudPill(icon="system-icon", value="a"),
+            CloudPill(icon="system-icon", value="b"),
+            CloudPill(icon="system-icon", value="c"),
+            CloudPill(icon="beginners-icon", value="Beginners"),
+        ]
+        assert data.cloud_overflow == [
+            CloudPill(icon="triggers-icon", value="one"),
+            CloudPill(icon="triggers-icon", value="two"),
+        ]
+
+    @pytest.mark.parametrize(
+        ("field_type", "value"),
+        (("text", "A long pitch"), ("checkbox", False), ("select", "")),
+    )
+    def test_answer_without_a_pill(self, field_type, value):
+        assert card_pills(_answer("f", field_type, value=value)) == []
+
+
+class TestFilterableFlagFields:
+    @pytest.mark.parametrize(
+        ("ticks", "expected_slugs"),
+        (((True, False), ["beginners"]), ((True, True), []), ((False, False), [])),
+    )
+    def test_offers_a_flag_only_when_it_splits_the_schedule(
+        self, ticks, expected_slugs
+    ):
+        field = OrganizerFieldDTO(
+            field_type="checkbox",
+            is_public=True,
+            name="Beginners",
+            order=0,
+            pk=1,
+            question="",
+            slug="beginners",
+        )
+        cards = [
+            make_session_data(
+                field_values=[_answer("beginners", "checkbox", value=ticked)]
+            )
+            for ticked in ticks
+        ]
+
+        assert [
+            f.slug for f in filterable_flag_fields([field], cards)
+        ] == expected_slugs
 
 
 class TestBuildScheduleDays:
@@ -198,35 +300,3 @@ class TestGroupSessionsByState:
 
         assert list(current.values()) == [[no_enrollment]]
         assert not future_unavailable
-
-
-class TestFlattenCloudOverflow:
-    def test_merges_overflow_from_every_field(self):
-        system = build_display_field_row(
-            SessionFieldValueDTO(
-                field_icon="book-open",
-                field_name="System",
-                field_question="System",
-                field_slug="system",
-                field_type="select",
-                is_public=True,
-                value=["a", "b", "c", "d", "e"],
-            )
-        )
-        triggers = build_display_field_row(
-            SessionFieldValueDTO(
-                field_icon="exclamation-triangle",
-                field_name="Triggers",
-                field_question="Triggers",
-                field_slug="triggers",
-                field_type="select",
-                is_public=True,
-                value=["one", "two", "three", "four", "five", "six"],
-            )
-        )
-
-        assert flatten_cloud_overflow([system, triggers]) == [
-            CloudPill(icon="book-open", value="e"),
-            CloudPill(icon="exclamation-triangle", value="five"),
-            CloudPill(icon="exclamation-triangle", value="six"),
-        ]

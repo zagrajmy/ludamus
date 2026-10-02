@@ -10,7 +10,7 @@
 // Reserved names, owned by push writers and off-limits to mirrors: `session`
 // and `enter-code` (modal.ts trigger links) and the schedule view switcher's
 // `view` (an hx-boosted GET). Event-defined names must carry a feature
-// prefix (session-filters.ts uses `tag-`) so user data can't collide either.
+// prefix (session-filters.ts uses `tag-` and `flag-`) so user data can't collide either.
 
 /** Query updates keyed by param name; null or "" deletes the param. */
 type SearchParamUpdates = ReadonlyMap<string, string | null>;

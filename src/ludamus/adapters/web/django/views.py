@@ -38,8 +38,9 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
-    build_display_field_row,
+    card_pills,
     filter_availability,
+    filterable_flag_fields,
     filterable_tag_fields,
     mask_session_card,
 )
@@ -356,15 +357,20 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # The repository hands back DTOs with their options prefetched, so the
         # filter panel reads its choices without the template walking the ORM.
-        public_select_fields = [
+        public_fields = [
             field
             for field in self.request.di.uow.session_fields.list_by_event(
                 self.object.pk
             )
-            if field.field_type == "select" and field.is_public
+            if field.is_public
         ]
         context["filterable_tag_categories"] = filterable_tag_fields(
-            public_select_fields, sessions_data.values()
+            [field for field in public_fields if field.field_type == "select"],
+            sessions_data.values(),
+        )
+        context["filterable_flag_fields"] = filterable_flag_fields(
+            [field for field in public_fields if field.field_type == "checkbox"],
+            sessions_data.values(),
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
@@ -636,10 +642,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Set displayed field values and display status for each session
         displayed_field_ids = _get_displayed_field_ids(self.object)
         for session_data in sessions_data.values():
-            session_data.displayed_field_rows = [
-                build_display_field_row(fv)
+            session_data.card_pills = [
+                pill
                 for fv in session_data.field_values
                 if fv.field_id in displayed_field_ids
+                for pill in card_pills(fv)
             ]
 
             if session_data.agenda_item is None:

@@ -16,7 +16,7 @@ from tests.integration.web.panel.helpers import (
 
 
 def _create_session_field(event, name="Test Field", slug="test-field", **kwargs):
-    defaults = {"is_public": True}
+    defaults = {"is_public": True, "field_type": "select"}
     return SessionField.objects.create(
         event=event,
         name=name,
@@ -31,7 +31,7 @@ def _expected_field(field):
     # out, so a changed default can't slip through as an equal DTO.
     return OrganizerFieldDTO(
         allow_custom=False,
-        field_type="text",
+        field_type="select",
         help_text="",
         icon="",
         is_multiple=False,
@@ -52,7 +52,7 @@ def _expected_context(event, *, fields, has_any_fields=False):
         "active_tab": "display",
         "tab_urls": settings_tab_urls(event.slug),
         "fields": fields,
-        "filterable_field_ids": [],
+        "displayed_field_ids": [],
         "has_any_fields": has_any_fields,
     }
 
@@ -98,9 +98,10 @@ class TestEventDisplaySettingsPageViewGet:
             ),
         )
 
-    def test_excludes_non_public_fields(self, panel_client, event):
+    def test_offers_only_public_fields_that_fit_a_pill(self, panel_client, event):
         public = _create_session_field(event, name="Public", slug="public")
         _create_session_field(event, name="Private", slug="private", is_public=False)
+        _create_session_field(event, name="Pitch", slug="pitch", field_type="text")
 
         response = panel_client.get(self.get_url(event))
 
@@ -157,7 +158,7 @@ class TestEventDisplaySettingsPageViewPost:
 
         assert_event_not_found(response)
 
-    def test_saves_filterable_fields(self, panel_client, event):
+    def test_saves_card_fields(self, panel_client, event):
         field1 = _create_session_field(event, name="Field 1", slug="field-1")
         field2 = _create_session_field(event, name="Field 2", slug="field-2")
 
@@ -175,7 +176,7 @@ class TestEventDisplaySettingsPageViewPost:
 
         # Verify saved — reload via GET
         response = panel_client.get(self.get_url(event))
-        assert set(response.context["filterable_field_ids"]) == {field1.pk, field2.pk}
+        assert set(response.context["displayed_field_ids"]) == {field1.pk, field2.pk}
 
     # "²" is `str.isdigit()` but not `int()`-parsable, so it must be rejected
     # by the guard rather than crashing the parse below it.
@@ -223,4 +224,4 @@ class TestEventDisplaySettingsPageViewPost:
         )
 
         response = panel_client.get(self.get_url(event))
-        assert response.context["filterable_field_ids"] == []
+        assert response.context["displayed_field_ids"] == []

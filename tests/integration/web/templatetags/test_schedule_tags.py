@@ -163,7 +163,7 @@ class TestSessionDataAttrs:
             "data-title": "difference engines",
             "data-session-id": str(card.session.pk),
             "data-host": "Ada Lovelace",
-            "data-tags": "",
+            "data-search-terms": "",
             "data-tag-categories": "",
             "data-status": "unavailable",
             "data-takes-enrollment": "true",
@@ -406,7 +406,7 @@ class TestEscaping:
         attrs = _session_attrs(rendered)
         assert attrs["data-title"] == _PAYLOAD
         assert attrs["data-host"] == _PAYLOAD
-        assert attrs["data-tags"] == _PAYLOAD
+        assert attrs["data-search-terms"] == _PAYLOAD
         assert attrs["data-tag-categories"] == (
             f"genre:{_PAYLOAD};__track:{_PAYLOAD};__category:{_PAYLOAD}"
         )

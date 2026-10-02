@@ -15,7 +15,7 @@ from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
-    build_display_field_row,
+    card_pills,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
@@ -511,7 +511,7 @@ class TestEventPageView:
                 plenty.agenda_item,
                 presenter=plenty.presenter,
                 is_enrollment_available=True,
-                displayed_field_rows=[build_display_field_row(field_value_dto)],
+                card_pills=card_pills(field_value_dto),
                 field_values=[field_value_dto],
             ),
             scarce.pk: session_card(
@@ -1270,7 +1270,7 @@ class TestEventPageView:
         card = session_card(
             agenda_item,
             presenter=session.presenter,
-            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            card_pills=card_pills(field_value_dto),
             field_values=[field_value_dto],
         )
         assert_response(
@@ -2592,7 +2592,7 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2664,7 +2664,7 @@ class TestEventPageView:
         card = session_card(
             agenda_item,
             presenter=session.presenter,
-            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            card_pills=card_pills(field_value_dto),
             field_values=[field_value_dto],
         )
         # Four values stay visible; the two extras collapse into the "+N" popover.
@@ -2749,10 +2749,10 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_session_with_displayed_text_field(
+    def test_ok_displayed_text_field_stays_off_the_card(
         self, active_user, agenda_item, client, event
     ):
-        """Text field values appear on cards when field is displayed."""
+        """Free text belongs in the modal: no pill even when displayed."""
         session_field = SessionField.objects.create(
             event=event,
             name="RPG System",
@@ -2785,7 +2785,7 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2852,7 +2852,7 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            card_pills=card_pills(field_value_dto),
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,

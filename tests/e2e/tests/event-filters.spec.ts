@@ -348,6 +348,31 @@ test.describe("Event filter panel", () => {
     await expect(card("Mega Strategy Lab")).toBeHidden();
   });
 
+  test("finds public free text through the search box, never private", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    const search = page.locator("#session-filter");
+    await search.fill("heist");
+    await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
+    await expect(card("Mega Strategy Lab")).toBeHidden();
+
+    await search.fill("zakulisowy");
+    await expect(page.locator("#filter-no-results")).toBeVisible();
+  });
+
+  test("a public checkbox field filters as a flag", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await page.getByRole("checkbox", { name: "Beginner friendly" }).check();
+
+    await expect(card("Mega Strategy Lab")).toBeVisible();
+    await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+    await expect.poll(() => new URL(page.url()).searchParams.get("flag-beginners")).toBe("1");
+  });
+
   test("filters by host name case-insensitively", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 

@@ -9509,23 +9509,27 @@ msgid "Display Settings"
 msgstr "Ustawienia wyświetlania"
 
 #: src/ludamus/templates/panel/display-settings.html
-msgid "Filterable Session Fields"
-msgstr "Pola filtrowania punktów programu"
+msgid "Fields on session cards"
+msgstr "Pola na kartach punktów programu"
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
-"Select which session fields appear as filters on the public session list."
+"Pick what each session card shows. A card fits four values; the rest open "
+"from +N. Participants see every public field in the session details either "
+"way."
 msgstr ""
-"Wybierz, które pola punktu programu będą widoczne jako filtry na publicznej "
-"liście punktów programu."
+"Wybierz, co pokazuje każda karta punktu programu. Karta mieści cztery "
+"wartości, resztę otwiera +N. Uczestnicy i tak widzą każde publiczne pole w "
+"szczegółach punktu programu."
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
-"Every session field is private. Mark a field as shown on the public session "
-"card to make it available here."
+"No public Select or Checkbox field yet. Only those fit on a card: text shows "
+"in the session details."
 msgstr ""
-"Wszystkie pola punktu programu są prywatne. Oznacz pole jako widoczne na "
-"publicznej karcie punktu programu, aby było dostępne tutaj."
+"Nie ma jeszcze publicznego pola typu „Wybór z listy” ani „Potwierdzenie”. "
+"Tylko takie mieszczą się na karcie: tekst widać w szczegółach punktu "
+"programu."
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid "Go to session fields"
@@ -11161,8 +11165,6 @@ msgstr "Opcjonalne wskazówki dla zgłaszających"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
 msgid "Show on public session card"
 msgstr "Pokaż na publicznej karcie punktu programu"
 
@@ -11513,6 +11515,11 @@ msgstr "np. puzzle-piece, star"
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Heroicon name to display next to the field."
 msgstr "Nazwa ikony Heroicon wyświetlana obok pola."
+
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Visible to participants"
+msgstr "Widoczne dla uczestników"
 
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Edit Session Field"
@@ -12023,6 +12030,22 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Filterable Session Fields"
+#~ msgstr "Pola filtrowania punktów programu"
+
+#~ msgid ""
+#~ "Select which session fields appear as filters on the public session list."
+#~ msgstr ""
+#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
+#~ "publicznej liście punktów programu."
+
+#~ msgid ""
+#~ "Every session field is private. Mark a field as shown on the public "
+#~ "session card to make it available here."
+#~ msgstr ""
+#~ "Wszystkie pola punktu programu są prywatne. Oznacz pole jako widoczne na "
+#~ "publicznej karcie punktu programu, aby było dostępne tutaj."
 
 #
 #~ msgid ""

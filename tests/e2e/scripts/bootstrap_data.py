@@ -788,6 +788,45 @@ def _create_tone_field_scenario(
     )
 
 
+# A public checkbox ticked by one session only, so it splits the schedule and
+# shows as a flag filter; a public text answer search must find; and a private
+# one it must not.
+def _create_flag_and_text_scenario(
+    event: Event, *, ticked_session: Session, other_session: Session
+) -> None:
+    beginners, pitch, notes = (
+        SessionField.objects.create(
+            event=event,
+            name=name,
+            question=name,
+            slug=slug,
+            field_type=field_type,
+            is_public=is_public,
+            order=order,
+        )
+        for order, (name, slug, field_type, is_public) in enumerate(
+            (
+                ("Beginner friendly", "beginners", "checkbox", True),
+                ("Pitch", "pitch", "text", True),
+                ("Organizer notes", "notes", "text", False),
+            ),
+            start=1,
+        )
+    )
+    SessionFieldValue.objects.create(
+        session=ticked_session, field=beginners, value=True
+    )
+    SessionFieldValue.objects.create(
+        session=other_session, field=beginners, value=False
+    )
+    SessionFieldValue.objects.create(
+        session=other_session, field=pitch, value="A heist through neon alleys"
+    )
+    SessionFieldValue.objects.create(
+        session=ticked_session, field=notes, value="zakulisowy"
+    )
+
+
 # Dedicated event for the backoffice panel e2e tests. panel.spec mutates
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
@@ -1470,6 +1509,9 @@ def main() -> None:
 
     _create_tone_field_scenario(
         upcoming_event, picked_session=mega_session, mixed_session=neon_session
+    )
+    _create_flag_and_text_scenario(
+        upcoming_event, ticked_session=mega_session, other_session=neon_session
     )
 
     proposal_category = ProposalCategory.objects.create(

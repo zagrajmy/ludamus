@@ -16,8 +16,14 @@ if TYPE_CHECKING:
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
+
+
+def _fits_card(field: OrganizerFieldDTO) -> bool:
+    # Free text only fits the modal; a choice or a tick fits in a pill.
+    return field.is_public and field.field_type in {"select", "checkbox"}
 
 
 def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
@@ -85,10 +91,9 @@ class EventSettingsService(EventSettingsServiceProtocol):
     ) -> EventDisplaySettingsContextDTO:
         event = self._repos.events.read_by_slug(slug, sphere_id)
         fields = self._repos.session_fields.list_by_event(event.pk)
-        public_fields = [field for field in fields if field.is_public]
         display_settings = self._repos.event_settings.read_or_create(event.pk)
         return EventDisplaySettingsContextDTO(
-            fields=public_fields,
+            fields=[field for field in fields if _fits_card(field)],
             displayed_field_ids=display_settings.displayed_session_field_ids,
             has_any_fields=bool(fields),
         )
@@ -100,7 +105,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
         valid_pks = {
             field.pk
             for field in self._repos.session_fields.list_by_event(event.pk)
-            if field.is_public
+            if _fits_card(field)
         }
         filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
         self._repos.event_settings.update_displayed_fields(event.pk, filtered_ids)

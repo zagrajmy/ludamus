@@ -43,8 +43,8 @@ class EventSettingsRepos:
 class EventDisplaySettingsContextDTO:
     fields: list[OrganizerFieldDTO]
     displayed_field_ids: list[int]
-    # `fields` holds the public ones only, so this tells an event whose fields
-    # are all private apart from one with no fields at all.
+    # `fields` holds only what fits a card, so this tells an event with none of
+    # those apart from one with no fields at all.
     has_any_fields: bool
 
 
