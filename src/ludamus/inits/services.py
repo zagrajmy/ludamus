@@ -251,6 +251,7 @@ class Services:
             events=self._repos.events,
             spheres=self._repos.spheres,
             spaces=self._repos.space_tree,
+            setup=self._repos.event_setup,
         )
 
     @cached_property
@@ -279,7 +280,6 @@ class Services:
             transaction=self._transaction,
             repos=EventSettingsRepos(
                 events=self._repos.events,
-                event_settings=self._repos.event_settings,
                 event_proposal_settings=self._repos.event_proposal_settings,
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,

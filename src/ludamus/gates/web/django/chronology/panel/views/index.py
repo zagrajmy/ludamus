@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -30,13 +28,12 @@ class PanelIndexRedirectView(PanelAccessMixin, View):
         """Redirect to first event's panel page.
 
         Returns:
-            Redirect to event-index or web:index if no events.
+            Redirect to the first event, or to event creation when there is none.
         """
         sphere_id = self.request.context.current_sphere_id
 
         if not (events := self.request.services.sphere_panel.list_events(sphere_id)):
-            messages.info(self.request, _("No events available for this sphere."))
-            return redirect("web:index")
+            return redirect("panel:event-create")
 
         return redirect("panel:event-index", slug=events[0].slug)
 

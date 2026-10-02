@@ -25,10 +25,12 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event and time_slot %}
-        <form id="time-slot-form" method="post" class="max-w-2xl">
-            {% csrf_token %}
-            {% include "panel/_time-slot-form.html" %}
-        </form>
-    {% endif %}
+    <div class="panel-bleed">
+        {% if current_event and time_slot %}
+            <form id="time-slot-form" method="post" class="max-w-2xl">
+                {% csrf_token %}
+                {% include "panel/_time-slot-form.html" %}
+            </form>
+        {% endif %}
+    </div>
 {% endblock content %}

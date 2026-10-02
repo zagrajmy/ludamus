@@ -14,7 +14,6 @@ from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import (
     EventDTO,
     EventProposalSettingsDTO,
-    EventSettingsDTO,
     EventUpdateData,
     NotFoundError,
     ProposalCategoryDTO,
@@ -38,7 +37,7 @@ def _event(pk=1, slug="conf", sphere_id=SPHERE_ID):
     )
 
 
-def _session_field(pk=1, slug="system", *, is_public=True):
+def _session_field(pk=1, slug="system", *, is_public=True, show_on_cards=True):
     return OrganizerFieldDTO(
         field_type="text",
         is_public=is_public,
@@ -46,6 +45,7 @@ def _session_field(pk=1, slug="system", *, is_public=True):
         order=0,
         pk=pk,
         question="Q",
+        show_on_cards=show_on_cards,
         slug=slug,
     )
 
@@ -53,10 +53,6 @@ def _session_field(pk=1, slug="system", *, is_public=True):
 class TestEventSettingsService:
     @pytest.fixture
     def events(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def event_settings(self):
         return MagicMock()
 
     @pytest.fixture
@@ -80,7 +76,6 @@ class TestEventSettingsService:
         self,
         transaction,
         events,
-        event_settings,
         event_proposal_settings,
         proposal_categories,
         session_fields,
@@ -89,7 +84,6 @@ class TestEventSettingsService:
             transaction=transaction,
             repos=EventSettingsRepos(
                 events=events,
-                event_settings=event_settings,
                 event_proposal_settings=event_proposal_settings,
                 proposal_categories=proposal_categories,
                 session_fields=session_fields,
@@ -145,21 +139,6 @@ class TestEventSettingsService:
                 data={"name": "Renamed", "slug": "new-conf"},
             )
 
-    def test_update_displayed_fields_keeps_only_public_field_ids(
-        self, service, events, event_settings, session_fields
-    ):
-        events.read_by_slug.return_value = _event(pk=7)
-        session_fields.list_by_event.return_value = [
-            _session_field(pk=1, slug="public"),
-            _session_field(pk=2, slug="hidden", is_public=False),
-        ]
-
-        service.update_displayed_fields(
-            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 2, 99]
-        )
-
-        event_settings.update_displayed_fields.assert_called_once_with(7, [1])
-
     def test_update_general_refuses_an_end_not_after_the_start(self, service, events):
         events.read_by_slug.return_value = _event(pk=7)
 
@@ -213,17 +192,13 @@ class FakeEvents:
 class FakeSessionFields:
     def __init__(self, fields: list[OrganizerFieldDTO]) -> None:
         self._fields = fields
+        self.shown_on_cards: dict[int, list[int]] = {}
 
     def list_by_event(self, _event_id: int) -> list[OrganizerFieldDTO]:
         return self._fields
 
-
-class FakeDisplaySettings:
-    def __init__(self, displayed: list[int]) -> None:
-        self.displayed = displayed
-
-    def read_or_create(self, event_id: int) -> EventSettingsDTO:
-        return EventSettingsDTO(pk=event_id, displayed_session_field_ids=self.displayed)
+    def show_on_cards_only(self, event_id: int, field_ids: list[int]) -> None:
+        self.shown_on_cards[event_id] = field_ids
 
 
 class FakeProposalSettings:
@@ -276,19 +251,16 @@ class _Fakes:
         self,
         *,
         fields: list[OrganizerFieldDTO] | None = None,
-        displayed: list[int] | None = None,
         categories: list[ProposalCategoryDTO] | None = None,
     ) -> None:
         self.events = FakeEvents(_event(pk=7))
         self.session_fields = FakeSessionFields(fields or [])
-        self.display = FakeDisplaySettings(displayed or [])
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
         self.service = EventSettingsService(
             transaction=FakeTransaction(),
             repos=EventSettingsRepos(
                 events=self.events,
-                event_settings=self.display,
                 event_proposal_settings=self.proposal,
                 proposal_categories=self.categories,
                 session_fields=self.session_fields,
@@ -311,15 +283,15 @@ class TestDisplayAndProposalSettings:
         fakes = _Fakes(
             fields=[
                 _session_field(pk=1, slug="public"),
-                _session_field(pk=2, slug="hidden", is_public=False),
-            ],
-            displayed=[1],
+                _session_field(pk=2, slug="private", is_public=False),
+                _session_field(pk=3, slug="unticked", show_on_cards=False),
+            ]
         )
 
         context = fakes.service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
-        assert [field.pk for field in context.fields] == [1]
-        assert context.displayed_field_ids == [1]
+        assert [field.pk for field in context.fields] == [1, 3]
+        assert context.shown_on_cards_ids == [1]
         assert context.has_any_fields is True
 
     def test_display_context_of_an_event_without_fields(self):
@@ -329,6 +301,25 @@ class TestDisplayAndProposalSettings:
 
         assert not context.fields
         assert context.has_any_fields is False
+
+    def test_shown_on_cards_are_saved_for_the_resolved_event(self):
+        fakes = _Fakes()
+
+        fakes.service.update_shown_on_cards(
+            sphere_id=SPHERE_ID, slug="conf", selected_ids=[1, 3]
+        )
+
+        assert fakes.session_fields.shown_on_cards == {7: [1, 3]}
+
+    def test_shown_on_cards_of_another_spheres_event_change_nothing(self):
+        fakes = _Fakes()
+
+        with pytest.raises(NotFoundError):
+            fakes.service.update_shown_on_cards(
+                sphere_id=SPHERE_ID + 1, slug="conf", selected_ids=[1]
+            )
+
+        assert not fakes.session_fields.shown_on_cards
 
     def test_proposal_settings_are_read_for_the_event(self):
         fakes = _Fakes()

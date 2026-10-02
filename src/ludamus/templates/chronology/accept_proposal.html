@@ -82,8 +82,8 @@
                 {% endif %}
             </div>
         </div>
-        {# Decision card — sticky on desktop so the action stays in view #}
-        <div class="card lg:sticky lg:top-6">
+        {# Decision card — sticky on desktop so the action stays in view, clear of the h-14 sticky navbar #}
+        <div class="card lg:sticky lg:top-20">
             <div class="card-body">
                 <h3 class="text-base font-semibold text-foreground mb-5">{% translate "Schedule it" %}</h3>
                 {% if schedule_blocker %}

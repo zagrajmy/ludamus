@@ -200,6 +200,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
         field_slug=fv.field.slug,
         field_type=fv.field.field_type,
         is_public=fv.field.is_public,
+        show_on_cards=fv.field.show_on_cards,
         value=fv.value,
     )
 
