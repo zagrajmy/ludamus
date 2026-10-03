@@ -13,7 +13,6 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     PersonalDataField,
     PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
     ProposalCategory,
     SessionField,
     SessionFieldOption,
@@ -136,12 +135,6 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
             (
                 SessionFieldRequirement.objects.filter(category__event_id=source_id),
                 {"category_id": categories, "field_id": session_fields},
-            ),
-            (
-                PersonalDataFieldRequirement.objects.filter(
-                    category__event_id=source_id
-                ),
-                {"category_id": categories, "field_id": personal_fields},
             ),
             (
                 TimeSlotRequirement.objects.filter(category__event_id=source_id),

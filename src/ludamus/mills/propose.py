@@ -32,7 +32,6 @@ if TYPE_CHECKING:
         EventProposalSettingsDTO,
         FacilitatorDTO,
         OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
@@ -82,10 +81,8 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
         return self._repos.categories.read(pk, event_id)
 
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]:
-        return self._repos.categories.list_personal_field_requirements(category_id)
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self._repos.personal_fields.list_by_event(event_id)
 
     def get_session_requirements(
         self, category_id: int
@@ -116,7 +113,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         )
 
     def get_account_answers(
-        self, *, user_id: int | None, requirements: list[PersonalFieldRequirementDTO]
+        self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
     ) -> AccountAnswersDTO:
         if user_id is None:
             return AccountAnswersDTO()
@@ -125,9 +122,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         return AccountAnswersDTO(
             email=user.email,
             personal_data={
-                f"personal_{req.field.slug}": handle
-                for req in requirements
-                if handle and req.field.field_type == "discord"
+                f"personal_{field.slug}": handle
+                for field in fields
+                if handle and field.field_type == "discord"
             },
         )
 
