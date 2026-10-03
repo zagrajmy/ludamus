@@ -19,6 +19,7 @@ from pydantic import BaseModel
 DASHBOARD_SPHERE_FEED = 12
 DASHBOARD_OPEN_ENCOUNTERS = 8
 DASHBOARD_SPHERES_TO_DISCOVER = 6
+DASHBOARD_PAST_EVENTS = 12
 
 
 class DashboardRole(StrEnum):
@@ -30,6 +31,7 @@ class DashboardRole(StrEnum):
     OFFERED = auto()
     ORGANIZING = auto()
     OPEN = auto()
+    ATTENDED = auto()
 
 
 class DashboardCardDTO(BaseModel):
@@ -77,6 +79,8 @@ class DashboardDTO(BaseModel):
     # What is coming up where this member already plays, minus their own rows.
     sphere_feed: list[DashboardCardDTO]
     discover: list[DashboardSphereDTO]
+    # Events this member was at, most recent first.
+    past_events: list[DashboardCardDTO]
 
 
 class SubscriptionRecipientDTO(BaseModel):
@@ -121,6 +125,10 @@ class DashboardRepositoryProtocol(Protocol):
     def list_spheres_to_discover(
         user_id: int, *, now: datetime, limit: int
     ) -> list[DashboardSphereDTO]: ...
+    @staticmethod
+    def list_past_events(
+        user_id: int, *, now: datetime, limit: int
+    ) -> list[DashboardCardDTO]: ...
 
 
 class SphereSubscriptionRepositoryProtocol(Protocol):

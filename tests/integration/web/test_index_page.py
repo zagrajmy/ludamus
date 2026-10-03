@@ -97,6 +97,7 @@ class TestIndexRedirectView:
                     open_encounters=[],
                     sphere_feed=[],
                     discover=[],
+                    past_events=[],
                 ),
                 "can_create_encounter": True,
             },

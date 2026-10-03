@@ -7079,6 +7079,10 @@ msgid "Bookmarks"
 msgstr "Zakładki"
 
 #: src/ludamus/templates/dashboard/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
+
+#: src/ludamus/templates/dashboard/index.html
 msgid "For you"
 msgstr "Dla Ciebie"
 

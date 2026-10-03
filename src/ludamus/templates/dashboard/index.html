@@ -36,6 +36,17 @@
                     </div>
                 </section>
             {% endif %}
+            {% if dashboard.past_events %}
+                <section class="mt-12" aria-labelledby="dashboard-past-events-heading">
+                    <h2 id="dashboard-past-events-heading"
+                        class="mb-4 text-xl font-bold text-foreground">{% translate "Past events" %}</h2>
+                    <div class="grid gap-3">
+                        {% for card in dashboard.past_events %}
+                            {% include "dashboard/_card.html" with date_format="j E Y" %}
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
         </div>
         <div>
             <section aria-labelledby="dashboard-for-you-heading">

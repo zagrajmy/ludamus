@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
+    DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardCardDTO,
@@ -74,6 +75,10 @@ class FakeDashboardRepo:
             DashboardSphereDTO(pk=n, name=f"Sphere {n}", url=f"/s/{n}")
             for n in range(limit)
         ]
+
+    def list_past_events(self, user_id, *, now, limit):
+        del user_id, now
+        return [_card(-n, role=DashboardRole.ATTENDED) for n in range(limit)]
 
 
 class FakeNotifier:
@@ -154,4 +159,5 @@ class TestDashboardService:
         assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
         assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED
         assert len(dashboard.discover) == DASHBOARD_SPHERES_TO_DISCOVER
+        assert len(dashboard.past_events) == DASHBOARD_PAST_EVENTS
         assert {c.role for c in dashboard.open_encounters} == {DashboardRole.OPEN}

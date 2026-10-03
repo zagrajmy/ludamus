@@ -115,6 +115,21 @@ def _encounter_card(encounter: Encounter, *, role: DashboardRole) -> DashboardCa
     )
 
 
+def _event_card(event: Event, *, role: DashboardRole) -> DashboardCardDTO:
+    return DashboardCardDTO(
+        title=event.name,
+        url=absolute_url(
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            domain=event.sphere.site.domain,
+        ),
+        start_time=event.start_time,
+        origin_name=event.sphere.name,
+        role=role,
+        cover_url=event.cover_image_url,
+        place=event.address,
+    )
+
+
 def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]:
     return list(
         SessionParticipation.objects.filter(
@@ -247,21 +262,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
             .select_related("sphere__site")
             .order_by("start_time")[:limit]
         )
-        return [
-            DashboardCardDTO(
-                title=event.name,
-                url=absolute_url(
-                    reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                    domain=event.sphere.site.domain,
-                ),
-                start_time=event.start_time,
-                origin_name=event.sphere.name,
-                role=DashboardRole.OPEN,
-                cover_url=event.cover_image_url,
-                place=event.address,
-            )
-            for event in events
-        ]
+        return [_event_card(event, role=DashboardRole.OPEN) for event in events]
 
     @staticmethod
     def list_spheres_to_discover(
@@ -308,6 +309,34 @@ class DashboardRepository(DashboardRepositoryProtocol):
             )
             for sphere in spheres
         ]
+
+    @staticmethod
+    def list_past_events(
+        user_id: int, *, now: datetime, limit: int
+    ) -> list[DashboardCardDTO]:
+        """List the events this member was at, across every sphere.
+
+        Returns:
+            Up to ``limit`` events that have ended, most recent first, where
+            they held a confirmed seat or ran a programme item. A waitlist
+            spot or a proposal that never made the programme is no visit.
+            Like a bookmark, this stays theirs after the sphere goes private.
+        """
+        attended = Session.objects.filter(
+            Q(
+                session_participations__user_id=user_id,
+                session_participations__status=SessionParticipationStatus.CONFIRMED,
+            )
+            | Q(presenter_id=user_id)
+            | Q(facilitators__user_id=user_id, facilitators__deleted_at__isnull=True),
+            agenda_item__isnull=False,
+        ).values("event_id")
+        events = (
+            Event.objects.filter(pk__in=attended, end_time__lt=now)
+            .select_related("sphere__site")
+            .order_by("-end_time")[:limit]
+        )
+        return [_event_card(event, role=DashboardRole.ATTENDED) for event in events]
 
 
 def _sphere_ids_with_ties(user_id: int) -> set[int]:
