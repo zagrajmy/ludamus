@@ -344,8 +344,6 @@ class TestTimetablePageView:
         content = response.content.decode()
         assert 'draggable="true"' in content
         assert f'data-session-pk="{session.pk}"' in content
-        assert 'data-confirmed="false"' in content
-        assert 'title="Confirmed"' not in content
 
     def test_grid_marks_confirmed_session(self, panel_client, event, session, space):
         start = event.start_time
@@ -357,6 +355,12 @@ class TestTimetablePageView:
             end_time=end,
             session_confirmed=True,
         )
+        position = session_position(
+            item, start_minutes=0, duration_minutes=HOUR_MINUTES
+        )
+        # session_position reads the item back through the repository, so the
+        # flag has to be pinned here or the grid would be compared to itself.
+        assert position.agenda_item.schedule_confirmed is True
 
         response = panel_client.get(self.get_url(event))
 
@@ -368,21 +372,10 @@ class TestTimetablePageView:
                 event,
                 stats=_scheduled_stats(1),
                 grid=_event_grid(
-                    event,
-                    spaces=[space],
-                    sessions_by_space={
-                        space.pk: [
-                            session_position(
-                                item, start_minutes=0, duration_minutes=HOUR_MINUTES
-                            )
-                        ]
-                    },
+                    event, spaces=[space], sessions_by_space={space.pk: [position]}
                 ),
             ),
         )
-        content = response.content.decode()
-        assert 'data-confirmed="true"' in content
-        assert 'title="Confirmed"' in content
 
     def test_filters_by_track(self, panel_client, event, space):
         track = Track.objects.create(

@@ -11,6 +11,7 @@ from ludamus.links.db.django.models import (
     Guild,
     GuildMembership,
     Notification,
+    NotificationSubscription,
     Party,
     PartyMembership,
     ScheduleChangeAction,
@@ -148,6 +149,13 @@ class TestModelStringRepresentations:
 
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
+
+    def test_notification_subscription_str(self, active_user, sphere):
+        subscription = NotificationSubscription.objects.create(
+            user=active_user, sphere=sphere, source="visit"
+        )
+
+        assert str(subscription) == f"{active_user.pk} follows {sphere}"
 
     def test_discount_rule_str(self, event):
         rule = DiscountRule.objects.create(

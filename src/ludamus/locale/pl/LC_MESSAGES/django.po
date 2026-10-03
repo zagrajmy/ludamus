@@ -2036,6 +2036,14 @@ msgstr ""
 "Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Subscription muted."
+msgstr "Subskrypcja wyciszona."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Subscription unmuted."
+msgstr "Subskrypcja ponownie aktywna."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
 msgid "If a matching player exists, they have been shadowbanned."
 msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
 
@@ -4805,6 +4813,8 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/notifications.html
 #: src/ludamus/templates/landing_page.html
 #: src/ludamus/templates/notifications/index.html
 #: src/ludamus/templates/panel/base.html
@@ -6464,6 +6474,35 @@ msgstr[3] ""
 "                                Masz %(counter)s potwierdzonych uczestnictw "
 "w punktach programu.\n"
 "                            "
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Mute"
+msgstr "Wycisz"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Unmute"
+msgstr "Wyłącz wyciszenie"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid ""
+"Announcements from the spheres you follow ring the bell. Mute a subscription "
+"to stop its announcements; unmute it to get them again."
+msgstr ""
+"Ogłoszenia ze sfer, które obserwujesz, trafiają do dzwonka. Wycisz "
+"subskrypcję, aby zatrzymać jej ogłoszenia; wyłącz wyciszenie, aby znów je "
+"otrzymywać."
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Muted"
+msgstr "Wyciszona"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "No subscriptions yet"
+msgstr "Nie masz jeszcze subskrypcji"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Subscriptions appear here when you visit a sphere."
+msgstr "Subskrypcje pojawią się tutaj, gdy odwiedzisz sferę."
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Your parties"
@@ -10317,9 +10356,6 @@ msgid "Mapping"
 msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
-#: src/ludamus/templates/panel/parts/timetable-session-card.html
-#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -10628,6 +10664,13 @@ msgstr[0] "Potwierdź ten punkt"
 msgstr[1] "Potwierdź te %(count)s punkty"
 msgstr[2] "Potwierdź te %(count)s punktów"
 msgstr[3] "Potwierdź te %(count)s punktu"
+
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Schedule confirmed"
+msgstr "Termin potwierdzony"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "no place in the schedule"
@@ -11012,20 +11055,16 @@ msgid "Unassign"
 msgstr "Usuń z harmonogramu"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Program item confirmed"
-msgstr "Punkt programu potwierdzony"
-
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Undo confirmation"
 msgstr "Cofnij potwierdzenie"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Program item not confirmed"
-msgstr "Punkt programu niepotwierdzony"
+msgid "Schedule not confirmed"
+msgstr "Termin niepotwierdzony"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Confirm program item"
-msgstr "Potwierdź punkt programu"
+msgid "Confirm schedule"
+msgstr "Potwierdź termin"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Not assigned"
@@ -11654,8 +11693,8 @@ msgstr ""
 "odwzorować większy obiekt."
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
-msgid "confirmed program items in this track"
-msgstr "potwierdzonych punktów programu w tym bloku"
+msgid "program items with a confirmed schedule in this track"
+msgstr "punktów programu z potwierdzonym terminem w tym bloku"
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "facilitators in this track"
@@ -11675,8 +11714,8 @@ msgstr ""
 "Potwierdzenia pojawią się tutaj, kiedy ułożysz punkty programu tego bloku."
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
-msgid "confirmed program items"
-msgstr "potwierdzonych punktów programu"
+msgid "program items with a confirmed schedule"
+msgstr "punktów programu z potwierdzonym terminem"
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "confirmation progress"
@@ -11831,9 +11870,12 @@ msgid "Search facilitators"
 msgstr "Szukaj twórców programu"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "This program item is confirmed. Moving it will clear the confirmation."
+msgid ""
+"The schedule of this program item is confirmed. Moving it will clear the "
+"confirmation."
 msgstr ""
-"Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+"Termin tego punktu programu jest potwierdzony. Przeniesienie go cofnie "
+"potwierdzenie."
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Move"

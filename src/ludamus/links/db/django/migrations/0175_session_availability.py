@@ -70,7 +70,12 @@ def carry_preferences_to_availability(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0171_personal_data_field_is_required")]
+    # NOTE: main merged two branches that each built on 0171, so this one
+    # depends on both of their leaves and rejoins the graph.
+    dependencies = [
+        ("db_main", "0172_session_schedule_confirmed"),
+        ("db_main", "0174_alter_notification_kind"),
+    ]
 
     operations = [
         migrations.CreateModel(

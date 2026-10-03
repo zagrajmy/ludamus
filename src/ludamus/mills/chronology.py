@@ -72,19 +72,20 @@ class SessionConfirmationService:
         self._sessions = sessions
 
     def set_session_confirmed(
-        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+        self, event_pk: int, session_pk: int, *, confirmed: bool
     ) -> None:
-        # Keyed on the agenda item, not on a facilitator: the confirmations tab
-        # can only reach items whose session has both a facilitator and a track,
-        # so this stays the only way to settle everything else.
-        agenda_item = self._agenda_items.read(agenda_item_pk)
+        # Keyed on the session, not on a facilitator: the confirmations tab
+        # can only reach sessions with both a facilitator and a track, so this
+        # stays the only way to settle everything else.
         require_session_in_event(
-            sessions=self._sessions,
-            session_pk=agenda_item.session_id,
-            event_pk=event_pk,
+            sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
         )
+        # Nothing to confirm without a time and a place.
+        if (agenda_item := self._agenda_items.read_by_session(session_pk)) is None:
+            raise NotFoundError
         with self._transaction.atomic():
-            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+            self._sessions.update(session_pk, {"schedule_confirmed": confirmed})
+            self._agenda_items.update(agenda_item.pk, {"session_confirmed": confirmed})
 
 
 class SessionDeletionService:
@@ -118,7 +119,10 @@ class SessionDeletionService:
             agenda_item = self._agenda_items.read_by_session(session_pk)
             if agenda_item is not None:
                 self._agenda_items.delete(agenda_item.pk)
-                self._sessions.update(session_pk, {"status": SessionStatus.PENDING})
+                self._sessions.update(
+                    session_pk,
+                    {"status": SessionStatus.PENDING, "schedule_confirmed": False},
+                )
                 log_data: ScheduleChangeLogData = {
                     "event_id": event_pk,
                     "session_id": session_pk,
@@ -254,6 +258,11 @@ class ProposalAcceptanceService:
         end_time = start_time + timedelta(minutes=duration_minutes(session.duration))
         with self._transaction.atomic():
             event = self._sessions.read_event(session_id)
+            # Same rule as assign_session: the event decides whether a first
+            # placement counts as agreed. Acceptance is always a first
+            # placement, so the move exemption that path carries does not
+            # apply here.
+            confirmed = event.auto_confirm_sessions
             # Accepting on to a time the event does not cover yet moves the
             # event, the same way dragging a card past its edge does.
             widen_event_dates(
@@ -270,13 +279,14 @@ class ProposalAcceptanceService:
                 {
                     "status": SessionStatus.ACCEPTED,
                     "facilitator_name": session.facilitator_name,
+                    "schedule_confirmed": confirmed,
                 },
             )
             self._agenda_items.create(
                 {
                     "space_id": space_id,
                     "session_id": session_id,
-                    "session_confirmed": True,
+                    "session_confirmed": confirmed,
                     "start_time": start_time,
                     "end_time": end_time,
                 }

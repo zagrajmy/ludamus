@@ -49,7 +49,7 @@ def _make_item(**overrides):
         "space_id": 1,
         "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
         "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "session_confirmed": False,
+        "schedule_confirmed": False,
     }
     defaults.update(overrides)
     return AgendaItemDTO(**defaults)
@@ -346,15 +346,25 @@ class TestSessionConfirmation:
         event.pk = pk
         return event
 
-    def test_rejects_agenda_item_from_another_event(
-        self, service, agenda_items, sessions
-    ):
-        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+    def test_rejects_session_from_another_event(self, service, agenda_items, sessions):
         sessions.read_event.return_value = self._event(2)
 
         with pytest.raises(NotFoundError):
-            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
+        sessions.update.assert_not_called()
+        agenda_items.update.assert_not_called()
+
+    def test_rejects_a_session_not_on_the_timetable(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read_by_session.return_value = None
+        sessions.read_event.return_value = self._event(1)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        sessions.update.assert_not_called()
         agenda_items.update.assert_not_called()
 
 
@@ -452,10 +462,12 @@ class TestProposalAcceptanceService:
         active_users.read.return_value = _user_dto()
 
     @staticmethod
-    def _arrange_accept(sessions):
+    def _arrange_accept(sessions, *, auto_confirm_sessions=False):
         sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
         sessions.read_event.return_value = _event_dto(
-            start_time=_NOW - timedelta(days=1), end_time=_NOW + timedelta(days=1)
+            start_time=_NOW - timedelta(days=1),
+            end_time=_NOW + timedelta(days=1),
+            auto_confirm_sessions=auto_confirm_sessions,
         )
 
     def test_get_accept_context_returns_none_when_session_missing(
@@ -548,14 +560,20 @@ class TestProposalAcceptanceService:
         agenda_items.list_overlapping_in_space.assert_called_once_with(
             7, _NOW, _END, exclude_session_pk=5
         )
+        # The event does not auto-confirm, so the facilitator still has to agree.
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": False,
+            },
         )
         agenda_items.create.assert_called_once_with(
             {
                 "space_id": 7,
                 "session_id": 5,
-                "session_confirmed": True,
+                "session_confirmed": False,
                 "start_time": _NOW,
                 "end_time": _END,
             }
@@ -605,7 +623,7 @@ class TestProposalAcceptanceService:
     def test_accept_session_allowed_for_superuser(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        self._arrange_accept(sessions)
+        self._arrange_accept(sessions, auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
 
@@ -614,7 +632,12 @@ class TestProposalAcceptanceService:
         )
 
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
         )
         spheres.manager_role.assert_not_called()
 
@@ -738,9 +761,6 @@ class _FakeAgendaItems:
         self.rows = {item.pk: item for item in items}
         self.updates: dict[int, dict] = {}
 
-    def read(self, pk):
-        return self.rows[pk]
-
     def read_by_session(self, session_pk):
         return next(
             (item for item in self.rows.values() if item.session_id == session_pk), None
@@ -796,10 +816,11 @@ class TestSessionConfirmationOfOwnEvent:
         service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
 
         service.set_session_confirmed(
-            event_pk=_EVENT_PK, agenda_item_pk=7, confirmed=True
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK, confirmed=True
         )
 
         assert agenda_items.updates == {7: {"session_confirmed": True}}
+        assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": True}}
 
 
 class TestSessionDeletion:
@@ -818,7 +839,9 @@ class TestSessionDeletion:
         )
 
         assert agenda_items.rows == {}
-        assert sessions.updates == {_SESSION_PK: {"status": SessionStatus.PENDING}}
+        assert sessions.updates == {
+            _SESSION_PK: {"status": SessionStatus.PENDING, "schedule_confirmed": False}
+        }
         assert sessions.calls["deleted"] == [_SESSION_PK]
         assert logs.rows == [
             {

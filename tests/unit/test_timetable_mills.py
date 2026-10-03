@@ -90,7 +90,7 @@ def _make_item(**overrides):
         "space_id": 1,
         "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
         "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "session_confirmed": False,
+        "schedule_confirmed": False,
     }
     defaults.update(overrides)
     return AgendaItemDTO(**defaults)
@@ -944,6 +944,11 @@ class TestAssignUnassignScope:
 
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is False
+        # Once for the unassign the move rides on, once for the new slot.
+        assert mock_uow.sessions.update.call_args_list == [
+            call(1, {"schedule_confirmed": False}),
+            call(1, {"schedule_confirmed": False}),
+        ]
 
     def test_move_records_the_row_it_left(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)

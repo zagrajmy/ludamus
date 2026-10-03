@@ -448,10 +448,43 @@ class TestProposalAcceptPageView:
         assert session.facilitator_name == active_user.name
         assert session.agenda_item.space == space
         assert session.agenda_item.session == session
-        assert session.agenda_item.session_confirmed
+        # The event does not auto-confirm, so the placement still needs the
+        # facilitator's agreement — same rule the timetable assign path uses.
+        assert not session.schedule_confirmed
+        assert not session.agenda_item.session_confirmed
         assert session.agenda_item.start_time == start
         # The end follows from the proposal's own length, nothing the form asks.
         assert session.agenda_item.end_time == start + timedelta(hours=1)
+
+    def test_post_confirms_the_schedule_when_the_event_auto_confirms(
+        self, event, pending_session, space, manager_client
+    ):
+        event.auto_confirm_sessions = True
+        event.save(update_fields=["auto_confirm_sessions"])
+        start = _wall_clock(event)
+
+        response = manager_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug),
+            data={"space": space.id, "start_time": start.strftime(POSTED_START)},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        session = Session.objects.get(pk=pending_session.pk)
+        assert session.schedule_confirmed
+        assert session.agenda_item.session_confirmed
 
     def test_post_preserves_unique_slug(
         self, event, pending_session, space, manager_client, manager_user
