@@ -12,6 +12,7 @@
 @import "./room-lanes.css";
 @import "./schedule-fold.css";
 @import "./schedule-now.css";
+@import "./session-tags.css";
 @import "./panel-sidebar.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
@@ -896,47 +897,6 @@ select:not([multiple]):not([size]) {
 
 .time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
   filter: grayscale(50%) brightness(0.95);
-}
-
-.session:has(.session-tags-more:hover) {
-  z-index: 30;
-}
-
-.session-tags-more:hover .session-tags-popover {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(-50%) scale(1) translateY(0);
-}
-
-.session-tags-popover {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  margin-bottom: 8px;
-  transform: translateX(-50%) scale(0.9) translateY(16px);
-  width: max-content;
-  min-width: 12rem;
-  max-width: 18rem;
-  z-index: 50;
-  opacity: 0;
-  transition:
-    opacity 0.35s var(--ease-spring-a-bit),
-    transform 0.35s var(--ease-spring-a-bit);
-}
-
-.session-tags-popover::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -5px;
-  margin-left: -5px;
-  border: 5px solid transparent;
-  border-top-color: var(--color-bg-secondary);
-}
-
-.session-tags-more {
-  position: relative;
-  z-index: 20;
 }
 
 hr {

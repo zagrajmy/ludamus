@@ -3232,6 +3232,32 @@ class TestAnonymousProposalSubmission:
         assert len(msgs) == 1
         assert "Please wait before submitting another proposal." in str(msgs[0])
 
+    def test_rate_limit_falls_back_to_empty_ip_when_all_sources_unparsable(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+
+        self._set_wizard_full(client, event, proposal_category)
+        first = client.post(
+            self._url(event.slug, "submit"),
+            HTTP_CF_CONNECTING_IP="",
+            REMOTE_ADDR="",
+            follow=True,
+        )
+        assert first.status_code == HTTPStatus.OK
+
+        self._set_wizard_full(client, event, proposal_category)
+        second = client.post(
+            self._url(event.slug, "submit"), HTTP_CF_CONNECTING_IP="", REMOTE_ADDR=""
+        )
+
+        assert second.status_code == HTTPStatus.FOUND
+        assert Session.objects.count() == 1
+        msgs = list(messages.get_messages(second.wsgi_request))
+        assert len(msgs) == 1
+        assert "Please wait before submitting another proposal." in str(msgs[0])
+
     def test_two_anonymous_submissions_same_display_name_get_distinct_slugs(
         self, client, event, faker, time_zone, proposal_category
     ):

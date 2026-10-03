@@ -1,0 +1,72 @@
+/* The +N on a session card's tags cloud and the popover listing the tags it
+   folds away (chronology/session_tags_cloud.html). */
+
+/* Over the card's full-bleed .session-link, so hovering it reaches the +N. */
+.session-tags-more {
+  position: relative;
+  z-index: 20;
+}
+
+.session:has(.session-tags-more:hover) {
+  z-index: 30;
+}
+
+.session-tags-popover {
+  margin-bottom: 8px;
+  transform: scale(0.9) translateY(16px);
+  width: max-content;
+  min-width: 12rem;
+  max-width: 18rem;
+  z-index: 50;
+  opacity: 0;
+  transition:
+    opacity 0.35s var(--ease-spring-a-bit),
+    transform 0.35s var(--ease-spring-a-bit);
+}
+
+.session-tags-more:hover .session-tags-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+/* The screen, not the card, bounds the popover: fixed, so the screen is its
+   containing block and anchor-center slides it off the +N only as far as the
+   1rem inset needs. Fixed also keeps it out of the page scroller's overflow —
+   an absolute box there, open or closed, lets a phone pan the page sideways.
+   anchor-scope because every card names the same anchor. */
+@supports (anchor-name: --a) {
+  .session-tags-cloud {
+    anchor-scope: --session-tags-more;
+  }
+
+  .session-tags-more {
+    anchor-name: --session-tags-more;
+  }
+
+  .session-tags-popover {
+    position: fixed;
+    position-anchor: --session-tags-more;
+    inset-inline: 1rem;
+    bottom: anchor(top);
+    justify-self: anchor-center;
+    position-try-fallbacks: flip-block;
+  }
+}
+
+/* NOTE: Safari before 26 (iPhones that cannot update) lacks anchoring, so
+   nothing keeps this box on screen; out of layout while closed, it at least
+   cannot pan the page. */
+@supports not (anchor-name: --a) {
+  .session-tags-popover {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    translate: -50% 0;
+    display: none;
+  }
+
+  .session-tags-more:hover .session-tags-popover {
+    display: flex;
+  }
+}
