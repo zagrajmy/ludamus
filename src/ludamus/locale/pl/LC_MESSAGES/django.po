@@ -5516,6 +5516,7 @@ msgid "I am waiting"
 msgstr "Oczekuję"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/dashboard/_role.html
 msgid "Bookmarked"
 msgstr "Z zakładką"
 
@@ -6907,6 +6908,19 @@ msgstr "Organizujesz"
 
 #: src/ludamus/templates/dashboard/_role.html
 #, python-format
+msgid "Bookmarked · %(counter)s spot left"
+msgid_plural "Bookmarked · %(counter)s spots left"
+msgstr[0] "W zakładkach · %(counter)s wolne miejsce"
+msgstr[1] "W zakładkach · %(counter)s wolne miejsca"
+msgstr[2] "W zakładkach · %(counter)s wolnych miejsc"
+msgstr[3] "W zakładkach · %(counter)s wolne miejsca"
+
+#: src/ludamus/templates/dashboard/_role.html
+msgid "Bookmarked · no spots left"
+msgstr "W zakładkach · brak wolnych miejsc"
+
+#: src/ludamus/templates/dashboard/_role.html
+#, python-format
 msgid ""
 "\n"
 "            %(counter)s spot left\n"
@@ -7003,15 +7017,15 @@ msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid ""
-"Nothing yet. Sign up for a session or an encounter and it will wait for you "
-"here."
+"Nothing yet. Sign up for or bookmark a session, or join an encounter, and it "
+"will wait for you here."
 msgstr ""
-"Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-"Ciebie."
+"Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
+"programu do zakładek, a poczeka tu na Ciebie."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Bookmarks"
-msgstr "Zakładki"
+msgid "Past events"
+msgstr "Minione wydarzenia"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -11927,25 +11941,15 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Select which personal data fields hosts must provide."
-#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
-
-#~ msgid "No personal data fields defined for this event."
-#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Configure host data fields"
-#~ msgstr "Skonfiguruj pola danych twórcy"
-
 #~ msgid ""
-#~ "Host data fields collect contact and personal information from session "
-#~ "hosts when they submit proposals. Examples: email address, phone number, "
-#~ "Discord username. This data is shared across all categories for the event "
-#~ "- each host fills it once."
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
 #~ msgstr ""
-#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
-#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
-#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
+
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
 
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
@@ -12195,6 +12199,26 @@ msgstr "Brak przechwyconych e-maili."
 #~ "zniżek oraz ustawienia. Daty przesuwają się razem z nowym początkiem, "
 #~ "także okna zgłoszeń. Punkty programu nie są kopiowane."
 
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all categories for the event "
+#~ "- each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
@@ -12384,9 +12408,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
-
-#~ msgid "Past events"
-#~ msgstr "Minione wydarzenia"
 
 #~ msgid "No events available"
 #~ msgstr "Brak dostępnych wydarzeń"

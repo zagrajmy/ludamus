@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
+    DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardCardDTO,
@@ -15,7 +16,6 @@ from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 AGENDA_ROWS = 20
-BOOKMARK_ROWS = 3
 USER_ID = 5
 
 
@@ -51,14 +51,10 @@ def _card(n, *, role):
 
 class FakeDashboardRepo:
     # Every capped section returns exactly the limit it was handed, so the read
-    # shows which limit goes where; agenda and bookmarks take none.
+    # shows which limit goes where; the agenda takes none.
     def list_agenda(self, user_id, *, now):
         del user_id, now
         return [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
-
-    def list_bookmarks(self, user_id, *, now):
-        del user_id, now
-        return [_card(n, role=DashboardRole.OPEN) for n in range(BOOKMARK_ROWS)]
 
     def list_open_encounters(self, user_id, *, now, limit):
         del user_id, now
@@ -74,6 +70,10 @@ class FakeDashboardRepo:
             DashboardSphereDTO(pk=n, name=f"Sphere {n}", url=f"/s/{n}")
             for n in range(limit)
         ]
+
+    def list_past_events(self, user_id, *, now, limit):
+        del user_id, now
+        return [_card(-n, role=DashboardRole.ATTENDED) for n in range(limit)]
 
 
 class FakeNotifier:
@@ -146,12 +146,12 @@ class TestSphereSubscriptionService:
 
 
 class TestDashboardService:
-    def test_read_caps_every_section_but_the_agenda_and_bookmarks(self):
+    def test_read_caps_every_section_but_the_agenda(self):
         dashboard = DashboardService(FakeDashboardRepo()).read(user_id=USER_ID, now=NOW)
 
         assert len(dashboard.agenda) == AGENDA_ROWS
-        assert len(dashboard.bookmarks) == BOOKMARK_ROWS
         assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
         assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED
         assert len(dashboard.discover) == DASHBOARD_SPHERES_TO_DISCOVER
+        assert len(dashboard.past_events) == DASHBOARD_PAST_EVENTS
         assert {c.role for c in dashboard.open_encounters} == {DashboardRole.OPEN}
