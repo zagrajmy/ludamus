@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -15,10 +15,12 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SessionUpdateData,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
+    AvailabilitySpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -30,20 +32,15 @@ from ludamus.pacts.submissions import (
     ImportSettings,
     ProposalImportResult,
     QuestionTarget,
-    TimeSlotSpec,
 )
 
 EVENT_ID = 4
 INTEGRATION_PK = 3
 _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
-_SAT = TimeSlotSpec(
-    start_time=datetime(2026, 5, 2, 10, tzinfo=UTC),
-    end_time=datetime(2026, 5, 2, 14, tzinfo=UTC),
-)
-_SUN = TimeSlotSpec(
-    start_time=datetime(2026, 5, 3, 10, tzinfo=UTC),
-    end_time=datetime(2026, 5, 3, 14, tzinfo=UTC),
-)
+_SAT = AvailabilitySpec(day=date(2026, 5, 2), part=DayPart.MORNING)
+_SUN = AvailabilitySpec(day=date(2026, 5, 3), part=DayPart.MORNING)
+_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, part=_SAT.part)
+_SUN_OFFERED = AvailabilityDTO(day=_SUN.day, part=_SUN.part)
 _RPG = EntityRef(name="RPG", slug="rpg")
 
 
@@ -68,19 +65,16 @@ class _Sessions:
         self.stored = {session.pk: session for session in existing}
         self.created: dict[int, SessionData] = {}
         self.updated: dict[int, SessionUpdateData] = {}
-        self.links: dict[str, dict[int, list[int]]] = {
-            "time_slots": {},
-            "tracks": {},
-            "facilitators": {},
-        }
+        self.links: dict[str, dict[int, list[int]]] = {"tracks": {}, "facilitators": {}}
         self.field_values: dict[int, list[SessionFieldValueData]] = {}
+        self.availability: dict[int, list[AvailabilityDTO]] = {}
         self.create_error: Exception | None = None
 
     def create(
         self,
         session_data: SessionData,
         *,
-        time_slot_ids=(),
+        availability=(),
         facilitator_ids=(),
         track_ids=(),
     ) -> int:
@@ -88,7 +82,7 @@ class _Sessions:
             raise self.create_error
         pk = 100 + len(self.created)
         self.created[pk] = session_data
-        self.links["time_slots"][pk] = list(time_slot_ids)
+        self.availability[pk] = list(availability)
         self.links["tracks"][pk] = list(track_ids)
         self.links["facilitators"][pk] = list(facilitator_ids)
         return pk
@@ -119,11 +113,11 @@ class _Sessions:
             for value in self.field_values.get(session_id, [])
         ]
 
-    def read_preferred_time_slot_ids(self, session_id: int) -> list[int]:
-        return self.links["time_slots"].get(session_id, [])
+    def read_availability(self, session_id: int) -> list[AvailabilityDTO]:
+        return self.availability.get(session_id, [])
 
-    def set_time_slots(self, session_id: int, time_slot_ids: list[int]) -> None:
-        self.links["time_slots"][session_id] = time_slot_ids
+    def set_availability(self, session_id: int, offered: list[AvailabilityDTO]) -> None:
+        self.availability[session_id] = offered
 
     def read_track_ids(self, session_id: int) -> list[int]:
         return self.links["tracks"].get(session_id, [])
@@ -181,9 +175,6 @@ class _ProvisionedByKey:
 
     def _id(self, key: object) -> int:
         return self.ids.setdefault(key, len(self.ids) + 1)
-
-    def get_or_create(self, event_id: int, start_time, end_time) -> int:
-        return self._id((event_id, start_time, end_time))
 
     def get_or_create_by_slug(self, event_id: int, name: str, slug: str) -> int:
         return self._id((event_id, slug))
@@ -257,7 +248,6 @@ def _repos(**overrides) -> ImportRepos:
         "session_fields": _Fields(),
         "personal_fields": _Fields(),
         "personal_data_field_values": _PersonalValues(),
-        "time_slots": _ProvisionedByKey(),
         "tracks": _ProvisionedByKey(),
         "categories": _ProvisionedByKey(),
         "facilitators": _Facilitators(),
@@ -640,7 +630,7 @@ class TestUpdateProposal:
         questions={
             "Title": QuestionTarget(to="session.title"),
             "Name": QuestionTarget(to="facilitator.display_name"),
-            "When": QuestionTarget(to="session.time_slots", values={"Sat": _SAT}),
+            "When": QuestionTarget(to="session.availability", values={"Sat": _SAT}),
             "Block": QuestionTarget(to="track", values={"RPG": _RPG}),
             "Genre": QuestionTarget(to="field.genre"),
         }
@@ -656,7 +646,7 @@ class TestUpdateProposal:
             field_ids=FieldIdsByHeader(session={"Genre": 10}, personal={}),
         )
 
-    def test_links_slots_and_tracks_but_leaves_a_filled_session_alone(self):
+    def test_links_availability_and_tracks_but_leaves_a_filled_session_alone(self):
         repos = _repos(sessions=_Sessions(_session(100, title="Talk", category_id=9)))
 
         self._update(
@@ -665,7 +655,7 @@ class TestUpdateProposal:
             {"Title": "Other", "Name": "", "When": "Sat", "Block": "RPG", "Genre": ""},
         )
 
-        assert repos.sessions.links["time_slots"][100] == [1]
+        assert repos.sessions.availability[100] == [_SAT_OFFERED]
         assert repos.sessions.links["tracks"][100] == [1]
         assert repos.sessions.field_values == {}
         assert repos.sessions.updated == {}
@@ -723,7 +713,7 @@ class TestUpdateProposal:
 
     def test_saves_a_session_field_answer_still_missing(self):
         repos = _repos(sessions=_Sessions(_session(100, title="Talk")))
-        repos.sessions.links["time_slots"][100] = [5]
+        repos.sessions.availability[100] = [_SUN_OFFERED]
         repos.sessions.links["tracks"][100] = [6]
 
         self._update(
@@ -735,45 +725,37 @@ class TestUpdateProposal:
         assert repos.sessions.field_values[100] == [
             {"session_id": 100, "field_id": 10, "value": "SF"}
         ]
-        assert repos.sessions.links["time_slots"][100] == [5]
+        assert repos.sessions.availability[100] == [_SUN_OFFERED]
         assert repos.sessions.links["tracks"][100] == [6]
 
 
-class TestTimeSlotIds:
+class TestAvailability:
     @staticmethod
-    def _ids(repos: ImportRepos, target: QuestionTarget, answer: str) -> list[int]:
+    def _offered(target: QuestionTarget, answer: str) -> list[AvailabilityDTO]:
         settings = ImportSettings(questions={"When": target})
-        return _engine(repos).time_slot_ids(
-            event_id=EVENT_ID, settings=settings, row=ImportRow({"When": answer})
+        return ImportEngine.availability(
+            settings=settings, row=ImportRow({"When": answer})
         )
 
-    def test_skips_unchosen_options_and_dedupes_repeated_windows(self):
-        repos = _repos()
+    def test_skips_unchosen_options_and_dedupes_repeated_parts_in_day_order(self):
         target = QuestionTarget(
-            to="session.time_slots",
+            to="session.availability",
             values={"Sat": _SAT, "Sun": _SUN, "Both": [_SAT, _SUN]},
         )
 
-        assert self._ids(repos, target, "Sat, Both") == [1, 2]
-        assert repos.time_slots.ids == {
-            (EVENT_ID, _SAT.start_time, _SAT.end_time): 1,
-            (EVENT_ID, _SUN.start_time, _SUN.end_time): 2,
-        }
+        assert self._offered(target, "Sun, Both") == [_SAT_OFFERED, _SUN_OFFERED]
 
     def test_applies_overrides_before_matching_options(self):
-        repos = _repos()
         target = QuestionTarget(
-            to="session.time_slots", values={"Sat": _SAT}, overrides={"sat": "Sat"}
+            to="session.availability", values={"Sat": _SAT}, overrides={"sat": "Sat"}
         )
 
-        assert self._ids(repos, target, "sat") == [1]
+        assert self._offered(target, "sat") == [_SAT_OFFERED]
 
-    def test_ignores_an_option_mapped_to_something_other_than_a_window(self):
-        repos = _repos()
-        target = QuestionTarget(to="session.time_slots", values={"Sat": _RPG})
+    def test_ignores_an_option_mapped_to_something_other_than_a_part(self):
+        target = QuestionTarget(to="session.availability", values={"Sat": _RPG})
 
-        assert not self._ids(repos, target, "Sat")
-        assert repos.time_slots.ids == {}
+        assert not self._offered(target, "Sat")
 
 
 class TestTrackIds:

@@ -113,7 +113,6 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
         "types": reverse("panel:cfp", kwargs={"slug": slug}),
         "host": reverse("panel:personal-data-fields", kwargs={"slug": slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": slug}),
-        "time_slots": reverse("panel:time-slots", kwargs={"slug": slug}),
     }
 
 

@@ -21,7 +21,6 @@ from ludamus.links.db.django.models import (
     Space,
     Sphere,
     SphereMembership,
-    TimeSlot,
     User,
     UserEnrollmentConfig,
 )
@@ -80,11 +79,6 @@ class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
 class SphereAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     inlines = (SphereMembershipInline,)
     exclude = ("managers",)
-
-
-@admin.register(TimeSlot)
-class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    ...
 
 
 class SendNotificationForm(forms.Form):

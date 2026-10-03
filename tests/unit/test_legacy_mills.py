@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
 
@@ -11,7 +10,6 @@ from ludamus.mills.legacy import (
     render_markdown,
 )
 from ludamus.pacts import EncounterDTO
-from tests.unit.factories import event_dto
 
 START = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
 URL = "https://example.test/e/CODE1"
@@ -35,22 +33,6 @@ def _encounter(**overrides):
         "title": "Game night",
     }
     return EncounterDTO(**{**fields, **overrides})
-
-
-def _event():
-    return event_dto(
-        end_time=START + timedelta(days=2),
-        name="Con",
-        slug="con",
-        sphere_id=3,
-        start_time=START,
-    )
-
-
-@dataclass
-class _Range:
-    start_time: datetime
-    end_time: datetime
 
 
 def _query(url):
@@ -137,22 +119,9 @@ class FakeSessionFields:
         self.rows.remove(pk)
 
 
-class FakeTimeSlots:
-    def __init__(self, *, used=()):
-        self.used = set(used)
-        self.rows = {1, 2}
-
-    def has_proposals(self, pk):
-        return pk in self.used
-
-    def delete(self, pk):
-        self.rows.remove(pk)
-
-
 class FakeUow:
-    def __init__(self, *, used_fields=(), used_slots=()):
+    def __init__(self, *, used_fields=()):
         self.session_fields = FakeSessionFields(used=used_fields)
-        self.time_slots = FakeTimeSlots(used=used_slots)
 
 
 class TestPanelService:
@@ -167,84 +136,3 @@ class TestPanelService:
 
         assert not PanelService(uow).delete_session_field(1)
         assert uow.session_fields.rows == {1, 2}
-
-    def test_deletes_an_unused_time_slot(self):
-        uow = FakeUow()
-
-        assert PanelService(uow).delete_time_slot(2)
-        assert uow.time_slots.rows == {1}
-
-    def test_keeps_a_time_slot_with_proposals(self):
-        uow = FakeUow(used_slots=[2])
-
-        assert not PanelService(uow).delete_time_slot(2)
-        assert uow.time_slots.rows == {1, 2}
-
-    def test_a_slot_inside_the_event_with_no_neighbours_is_valid(self):
-        errors = PanelService.validate_time_slot(
-            START + timedelta(hours=1),
-            START + timedelta(hours=2),
-            _event(),
-            [_Range(START + timedelta(hours=3), START + timedelta(hours=4))],
-        )
-
-        assert not errors
-
-    def test_the_first_slot_of_an_event_is_valid(self):
-        errors = PanelService.validate_time_slot(
-            START, START + timedelta(hours=1), _event(), []
-        )
-
-        assert not errors
-
-    def test_a_slot_ending_when_the_event_ends_is_valid(self):
-        event = _event()
-
-        errors = PanelService.validate_time_slot(
-            event.end_time - timedelta(hours=1), event.end_time, event, []
-        )
-
-        assert not errors
-
-    def test_an_empty_slot_must_start_before_it_ends(self):
-        errors = PanelService.validate_time_slot(START, START, _event(), [])
-
-        assert errors == ["Start must be before end."]
-
-    def test_slots_touching_at_their_edges_do_not_overlap(self):
-        neighbours = [
-            _Range(START, START + timedelta(hours=1)),
-            _Range(START + timedelta(hours=2), START + timedelta(hours=3)),
-        ]
-
-        errors = PanelService.validate_time_slot(
-            START + timedelta(hours=1), START + timedelta(hours=2), _event(), neighbours
-        )
-
-        assert not errors
-
-    def test_reports_every_violation_at_once(self):
-        errors = PanelService.validate_time_slot(
-            START - timedelta(hours=1),
-            START - timedelta(hours=2),
-            _event(),
-            [_Range(START - timedelta(hours=3), START)],
-        )
-
-        assert errors == [
-            "Start must be before end.",
-            "Time slot must be within event dates.",
-            "Time slot overlaps with an existing slot.",
-        ]
-
-    def test_overlap_is_reported_once_however_many_slots_collide(self):
-        overlapping = [
-            _Range(START, START + timedelta(hours=1)),
-            _Range(START + timedelta(minutes=30), START + timedelta(hours=2)),
-        ]
-
-        errors = PanelService.validate_time_slot(
-            START, START + timedelta(hours=2), _event(), overlapping
-        )
-
-        assert errors == ["Time slot overlaps with an existing slot."]

@@ -7,6 +7,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 MINUTES_PER_HOUR = 60
+# What a session lasts when nobody said, so a placement still has a length.
+DEFAULT_DURATION_MINUTES = 60
 MAX_DURATION_HOURS = 23
 MAX_DURATION_MINUTES = 59
 
@@ -25,6 +27,11 @@ def parse_duration(iso_duration: str | None) -> tuple[int, int]:
     if not (match := _CANONICAL_DURATION_RE.fullmatch(iso_duration or "")):
         return 0, 0
     return int(match["hours"] or 0), int(match["minutes"] or 0)
+
+
+def duration_minutes(iso_duration: str | None) -> int:
+    hours, minutes = parse_duration(iso_duration)
+    return hours * MINUTES_PER_HOUR + minutes or DEFAULT_DURATION_MINUTES
 
 
 def parse_duration_part(raw: str, *, maximum: int) -> int:

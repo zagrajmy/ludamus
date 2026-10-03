@@ -1,14 +1,23 @@
+import json
 from datetime import timedelta
 from http import HTTPStatus
 
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 
 from ludamus.pacts import EventDTO
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    part_window,
+    programme_date,
+)
 from ludamus.pacts.legacy import AgendaItemDTO, SessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
 )
@@ -18,6 +27,20 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     make_timetable_session,
 )
+
+
+def _windows_json(availability):
+    # The overlay paints real bands, so each offered part travels as the
+    # instants it opens and closes on.
+    tz = get_current_timezone()
+    return json.dumps(
+        [
+            {"start": start.isoformat(), "end": end.isoformat()}
+            for start, end in (
+                part_window(entry.day, entry.part, tz) for entry in availability
+            )
+        ]
+    )
 
 
 class TestTimetableSessionDetailPartView:
@@ -31,14 +54,20 @@ class TestTimetableSessionDetailPartView:
 
     @staticmethod
     def expected_context(
-        event, session, *, agenda_item=None, back_url=None, duration_minutes=60
+        event,
+        session,
+        *,
+        agenda_item=None,
+        back_url=None,
+        duration_minutes=60,
+        availability=(),
     ):
         return {
             "session": SessionDTO.model_validate(session),
             "agenda_item": agenda_item,
             "facilitators": [],
-            "time_slots": [],
-            "time_slots_json": "[]",
+            "availability": list(availability),
+            "availability_json": _windows_json(availability),
             "duration_minutes": duration_minutes,
             "slug": event.slug,
             "event": EventDTO.model_validate(event),
@@ -109,6 +138,26 @@ class TestTimetableSessionDetailPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-detail.html",
             context_data=self.expected_context(event, session),
+        )
+
+    def test_ok_carries_offered_parts_as_windows(
+        self, panel_client, event, proposal_category
+    ):
+        session = make_timetable_session(proposal_category, participants_limit=10)
+        day = programme_date(event.start_time, get_current_timezone())
+        SessionAvailabilityFactory(session=session, day=day, part=DayPart.EVENING)
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                availability=[AvailabilityDTO(day=day, part=DayPart.EVENING)],
+            ),
         )
 
     def test_ok_reads_duration_from_iso_value(

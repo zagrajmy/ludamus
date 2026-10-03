@@ -1,0 +1,15 @@
+{# Checkbox group drawn as a wrapping cloud of chips, for short tokens that #}
+{# carry their own meaning (parts of a day, tags) rather than named rows. #}
+{# Variables: name, options (list of {value, label, is_selected}) #}
+<div class="flex flex-wrap gap-2">
+    {% for option in options %}
+        <label class="cursor-pointer">
+            <input type="checkbox"
+                   name="{{ name }}"
+                   value="{{ option.value }}"
+                   class="peer sr-only"
+                   {% if option.is_selected %}checked{% endif %}>
+            <span class="inline-block min-w-[44px] rounded-full border-2 border-border px-4 py-2 text-center text-sm text-foreground transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{{ option.label }}</span>
+        </label>
+    {% endfor %}
+</div>

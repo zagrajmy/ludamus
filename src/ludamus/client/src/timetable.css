@@ -206,15 +206,13 @@
     pointer-events: none;
   }
 
-  .timetable-preferred-slot {
+  .timetable-offered {
     position: absolute;
     left: 0;
     right: 0;
-    background: rgba(250, 204, 21, 0.28);
-    border-top: 1px dashed rgba(202, 138, 4, 0.7);
-    border-bottom: 1px dashed rgba(202, 138, 4, 0.7);
+    background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+    border-block: 1px solid color-mix(in oklab, var(--color-primary) 40%, transparent);
     pointer-events: none;
-    z-index: 6;
   }
 
   .timetable-session:hover,
