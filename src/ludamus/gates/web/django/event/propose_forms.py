@@ -9,6 +9,7 @@ from ludamus.gates.uploads import validate_uploaded_image
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
+    requirement_fields,
 )
 from ludamus.gates.web.django.forms import STORAGE_LIMIT_VALIDATOR, cover_image_field
 from ludamus.pacts.durations import duration_choices
@@ -16,20 +17,15 @@ from ludamus.pacts.durations import duration_choices
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import (
-        PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.gates.web.django.dynamic_fields import FieldPairs
+    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
 
-def build_personal_data_form(
-    requirements: Sequence[PersonalFieldRequirementDTO],
-) -> type[forms.Form]:
+def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
 
     custom_required = build_dynamic_fields(
-        fields=fields, requirements=requirements, prefix="personal"
+        fields=fields, pairs=pairs, prefix="personal"
     )
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
@@ -90,7 +86,7 @@ def build_session_details_form(
         )
 
     custom_required = build_dynamic_fields(
-        fields=fields, requirements=requirements, prefix="session"
+        fields=fields, pairs=requirement_fields(requirements), prefix="session"
     )
 
     return type(
