@@ -41,6 +41,7 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldRequirement,
     ProposalCategory,
     Session,
     SessionBookmark,
@@ -1160,6 +1161,36 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# Enrollment and proposals both open around one scheduled session: a single
+# enrollable slot, whose header must not repeat the section's propose button.
+# Driven by event-propose-entry.spec.ts.
+def _create_single_slot_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Lone Table Evening",
+        slug="lone-table",
+        description="One table, one slot, and room for your own game.",
+        start_offset=timedelta(days=18),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+        enrollment_banner="Enrollment is open",
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Lone Venue", slug="lone-venue")
+    area = _create_area(venue, name="Lone Area", slug="lone-area")
+    space = _create_space(area, name="Lone Room", slug="lone-room", capacity=6)
+    _scheduled_session(
+        event,
+        space,
+        title="Lone Table Demo",
+        slug="lone-table-demo",
+        presenter="Lone GM",
+        description="The only session of the evening.",
+        seats=6,
+        hour=1,
+    )
+
+
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -1204,6 +1235,55 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
         category=category, field=triggers, is_required=False
     )
     return event
+
+
+def _create_discord_proposal_scenario(sphere: Sphere) -> None:
+    """Seed an event asking proposers for their Discord handle, for discord-proposal.
+
+    The dedicated user already holds a handle, so the wizard has nothing to ask
+    them; the shared e2e-tester has none and still sees the question.
+    """
+    user = User.objects.create_user(
+        username="e2e-discord",
+        email="e2e-discord@test.local",
+        password="e2e-discord-123",
+        name="E2E Discord",
+        slug="e2e-discord",
+        discord_username="e2e_dragon",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-discord.json",
+    )
+    event = _create_event(
+        sphere,
+        name="Pub Night Proposals",
+        slug="pub-night",
+        description="RPG sessions at the pub; GMs get a Discord channel.",
+        start_offset=timedelta(days=20),
+        duration_hours=6,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="RPG",
+        slug="rpg",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT3H"],
+    )
+    field = PersonalDataField.objects.create(
+        event=event,
+        name="Discord",
+        question="Identyfikator discord",
+        slug="discord",
+        field_type="discord",
+    )
+    PersonalDataFieldRequirement.objects.create(
+        category=category, field=field, is_required=True
+    )
 
 
 def main() -> None:
@@ -1502,7 +1582,9 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_single_slot_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)
