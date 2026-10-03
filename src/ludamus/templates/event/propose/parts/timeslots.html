@@ -32,7 +32,7 @@
                     </div>
                 {% endfor %}
             </div>
-            {% url 'web:event:session-propose-personal' event_slug=event.slug as back_url %}
+            {% url 'web:event:session-propose-category' event_slug=event.slug as back_url %}
             {% include "event/propose/parts/_nav.html" %}
         </form>
     {% elif submitted|default:False %}

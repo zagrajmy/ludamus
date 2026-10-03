@@ -328,6 +328,7 @@ class TestClaimMemberOffer:
         assert result == ClaimResult(
             success=True, session_id=_SESSION_ID, event_slug="con"
         )
+        # A session id alone must never reach someone else's offer.
         assert repo.log.members_read == [(_MEMBER_ID, _SESSION_ID)]
         assert repo.log.claimed == [([1, 2], _NOW)]
         assert caplog.messages == [

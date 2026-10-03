@@ -15,7 +15,7 @@ from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 AGENDA_ROWS = 20
-BOOKMARK_ROWS = 12
+BOOKMARK_ROWS = 3
 USER_ID = 5
 
 
@@ -51,8 +51,8 @@ def _card(n, *, role):
 
 
 class FakeDashboardRepo:
-    # Every section has more rows than its limit, so the read shows which
-    # limit it hands each one.
+    # Every capped section returns exactly the limit it was handed, so the read
+    # shows which limit goes where; agenda and bookmarks take none.
     def __init__(self):
         self.asked: list[tuple[str, int, datetime]] = []
 

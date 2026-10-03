@@ -1,4 +1,4 @@
-from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
+from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.pacts import OrganizerFieldDTO
 from ludamus.pacts.submissions import RequirementSelectionDTO
 from tests.unit.factories import FakeTransaction, category
@@ -38,13 +38,8 @@ class FakeCategories:
     def list_by_event(self, event_id):
         return self._categories.get(event_id, [])
 
-    def set_links(self, field_pk, scoped):
+    def set_session_field_categories(self, field_pk, scoped):
         self.links[field_pk] = scoped
-
-
-class LinkingService(CFPFieldCategoryService):
-    def _set_categories(self, field_pk, scoped):
-        self._categories.set_links(field_pk, scoped)
 
 
 def _category(pk):
@@ -60,7 +55,7 @@ def _field(pk=1, slug="vegan"):
 def _service(*, fields=(), categories=()):
     fake_fields = FakeFields(fields)
     fake_categories = FakeCategories(categories)
-    service = LinkingService(
+    service = CFPSessionFieldService(
         transaction=FakeTransaction(), fields=fake_fields, categories=fake_categories
     )
     return service, fake_fields, fake_categories

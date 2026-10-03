@@ -11,7 +11,6 @@ from ludamus.pacts.legacy import (
     NotFoundError,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
-    PersonalFieldRequirementDTO,
     SessionData,
     SessionFieldValueData,
     SessionStatus,
@@ -607,8 +606,8 @@ class TestReads:
         assert service.get_categories(1) is repos.categories.list_by_event.return_value
         assert service.get_category(2, 1) is repos.categories.read.return_value
         assert (
-            service.get_personal_requirements(2)
-            is repos.categories.list_personal_field_requirements.return_value
+            service.get_personal_fields(1)
+            is repos.personal_fields.list_by_event.return_value
         )
         assert (
             service.get_session_requirements(2)
@@ -627,7 +626,7 @@ class TestReads:
         repos.event_proposal_settings.read_or_create_by_event.assert_called_once_with(1)
         repos.categories.list_by_event.assert_called_once_with(1)
         repos.categories.read.assert_called_once_with(2, 1)
-        repos.categories.list_personal_field_requirements.assert_called_once_with(2)
+        repos.personal_fields.list_by_event.assert_called_once_with(1)
         repos.categories.list_session_field_requirements.assert_called_once_with(2)
         repos.categories.list_time_slot_requirements.assert_called_once_with(2)
         repos.tracks.list_public_by_event.assert_called_once_with(1)
@@ -656,25 +655,16 @@ class TestReads:
         )
 
 
-def _discord_requirement(slug="dc"):
-    return PersonalFieldRequirementDTO(
-        field=OrganizerFieldDTO(
-            field_type="discord", name=slug, order=0, pk=3, question="Q", slug=slug
-        ),
-        is_required=True,
+def _discord_field(slug="dc"):
+    return OrganizerFieldDTO(
+        field_type="discord", name=slug, order=0, pk=3, question="Q", slug=slug
     )
-
-
-def _text_requirement():
-    return PersonalFieldRequirementDTO(field=_field(4, "phone"), is_required=True)
 
 
 class TestAccountAnswers:
     def test_anonymous_proposer_has_none(self, service):
         assert (
-            service.get_account_answers(
-                user_id=None, requirements=[_discord_requirement()]
-            )
+            service.get_account_answers(user_id=None, fields=[_discord_field()])
             == AccountAnswersDTO()
         )
 
@@ -684,7 +674,7 @@ class TestAccountAnswers:
         )
 
         answers = service.get_account_answers(
-            user_id=USER_PK, requirements=[_discord_requirement(), _text_requirement()]
+            user_id=USER_PK, fields=[_discord_field(), _field(4, "phone")]
         )
 
         assert answers == AccountAnswersDTO(
@@ -697,7 +687,7 @@ class TestAccountAnswers:
         )
 
         answers = service.get_account_answers(
-            user_id=USER_PK, requirements=[_discord_requirement()]
+            user_id=USER_PK, fields=[_discord_field()]
         )
 
         assert answers.personal_data == {}
@@ -726,7 +716,7 @@ class TestProfileDiscordFill:
     def _submit(service, repos, handle):
         repos.facilitators.read_by_user_and_event.return_value = _facilitator()
         repos.personal_fields.read_by_slug.side_effect = lambda _event_id, slug: (
-            _discord_requirement(slug).field if slug == "dc" else _field(4, slug)
+            _discord_field(slug) if slug == "dc" else _field(4, slug)
         )
         service.submit(
             _event(),

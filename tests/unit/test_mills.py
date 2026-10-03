@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -20,7 +21,14 @@ from ludamus.mills.submissions.mapping import (
     session_field_values,
     slugify,
 )
-from ludamus.pacts import EncounterDTO, EventDTO, SessionFieldValueData
+from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
+from ludamus.pacts import (
+    EncounterDTO,
+    EventDTO,
+    NotFoundError,
+    OrganizerFieldDTO,
+    SessionFieldValueData,
+)
 from ludamus.pacts.submissions import (
     FieldDefinition,
     FieldDefinitions,
@@ -28,6 +36,143 @@ from ludamus.pacts.submissions import (
     ImportSettings,
     QuestionTarget,
 )
+
+
+def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
+    return OrganizerFieldDTO(
+        field_type="text",
+        max_length=50,
+        name=name,
+        order=0,
+        pk=pk,
+        question=question,
+        slug=slug,
+    )
+
+
+class TestCFPPersonalDataFieldService:
+    @pytest.fixture
+    def fields(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, transaction, fields):
+        return CFPPersonalDataFieldService(transaction=transaction, fields=fields)
+
+    def test_list_summaries_combines_fields_with_answer_counts(self, service, fields):
+        field_a = _personal_data_field(pk=1, slug="a")
+        field_b = _personal_data_field(pk=2, slug="b")
+        answers_a = 3
+        fields.list_by_event.return_value = [field_a, field_b]
+        fields.count_values.return_value = {1: answers_a}
+
+        summaries = service.list_summaries(event_pk=42)
+
+        assert [s.field for s in summaries] == [field_a, field_b]
+        assert summaries[0].answer_count == answers_a
+        assert summaries[1].answer_count == 0
+        fields.list_by_event.assert_called_once_with(42)
+        fields.count_values.assert_called_once_with(42)
+
+    def test_read_propagates_not_found(self, service, fields):
+        fields.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.read(5, "missing")
+
+    def test_create_persists_field_in_transaction(self, service, transaction, fields):
+        created = _personal_data_field(pk=99)
+        fields.create.return_value = created
+        data = {
+            "name": "Email",
+            "question": "Q",
+            "field_type": "text",
+            "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
+            "max_length": 50,
+            "help_text": "",
+            "is_public": False,
+            "is_required": True,
+            "order": 2,
+        }
+
+        result = service.create(7, data)
+
+        assert result is created
+        transaction.atomic.assert_called_once()
+        fields.create.assert_called_once_with(7, data)
+
+    def test_update_writes_field_in_transaction(self, service, transaction, fields):
+        fields.read_by_slug.return_value = _personal_data_field(pk=10)
+        update_data = {
+            "name": "Email",
+            "question": "Q",
+            "max_length": 50,
+            "help_text": "",
+            "is_public": False,
+            "is_required": False,
+            "order": 0,
+            "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
+        }
+
+        service.update(event_pk=5, field_slug="email", data=update_data)
+
+        transaction.atomic.assert_called_once()
+        fields.read_by_slug.assert_called_once_with(5, "email")
+        fields.update.assert_called_once_with(10, update_data)
+
+    def test_update_raises_when_field_missing(self, service, fields):
+        fields.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.update(
+                event_pk=5,
+                field_slug="missing",
+                data={
+                    "name": "x",
+                    "question": "x",
+                    "max_length": 0,
+                    "help_text": "",
+                    "is_public": False,
+                    "is_required": False,
+                    "order": 0,
+                    "options": None,
+                    "is_multiple": False,
+                    "allow_custom": False,
+                },
+            )
+        fields.update.assert_not_called()
+
+    def test_delete_returns_false_when_field_has_answers(self, service, fields):
+        fields.read_by_slug.return_value = _personal_data_field(pk=10)
+        fields.has_values.return_value = True
+
+        result = service.delete(event_pk=5, field_slug="email")
+
+        assert result is False
+        fields.delete.assert_not_called()
+
+    def test_delete_removes_field_when_unanswered(self, service, fields):
+        fields.read_by_slug.return_value = _personal_data_field(pk=10)
+        fields.has_values.return_value = False
+
+        result = service.delete(event_pk=5, field_slug="email")
+
+        assert result is True
+        fields.delete.assert_called_once_with(10)
+
+    def test_delete_propagates_not_found(self, service, fields):
+        fields.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.delete(event_pk=5, field_slug="missing")
 
 
 class TestIsProposalActive:
