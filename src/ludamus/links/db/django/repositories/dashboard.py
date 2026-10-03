@@ -318,8 +318,8 @@ class DashboardRepository(DashboardRepositoryProtocol):
             Up to ``limit`` events that have ended, most recent first, where
             they held a confirmed seat, bookmarked a programme item, or ran
             one. A waitlist spot or a proposal that never made the programme
-            is no visit.
-            Like a bookmark, this stays theirs after the sphere goes private.
+            is no visit. Like a bookmark, this stays theirs after the sphere
+            goes private.
         """
         attended = Session.objects.filter(
             Q(

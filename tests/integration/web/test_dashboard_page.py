@@ -37,17 +37,25 @@ def _titles(cards):
     return [card.title for card in cards]
 
 
-def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+def _scheduled_session(event, *, title="Mörk Borg", start_time=None, presenter=None):
     session = SessionFactory(
         event=event,
         title=title,
+        presenter=presenter or UserFactory(),
         participants_limit=4,
         category=ProposalCategoryFactory(event=event),
     )
     AgendaItemFactory(
         session=session,
         space=SpaceFactory(event=event),
-        start_time=datetime.now(UTC) + timedelta(days=days_ahead),
+        start_time=start_time or event.start_time + timedelta(hours=2),
+    )
+    return session
+
+
+def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+    session = _scheduled_session(
+        event, title=title, start_time=datetime.now(UTC) + timedelta(days=days_ahead)
     )
     SessionBookmark.objects.create(user=user, session=session)
     return session
@@ -58,20 +66,6 @@ def _past_event(sphere, *, name="Kapitularz 2025", days_ago=30):
     return EventFactory(
         sphere=sphere, name=name, start_time=start, end_time=start + timedelta(days=2)
     )
-
-
-def _scheduled_session(event, *, presenter=None):
-    session = SessionFactory(
-        event=event,
-        presenter=presenter or UserFactory(),
-        category=ProposalCategoryFactory(event=event),
-    )
-    AgendaItemFactory(
-        session=session,
-        space=SpaceFactory(event=event),
-        start_time=event.start_time + timedelta(hours=2),
-    )
-    return session
 
 
 class TestDashboardPageView:
