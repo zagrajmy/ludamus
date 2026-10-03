@@ -68,7 +68,7 @@ def restore_requirements(apps, _schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0165_sphere_subscriptions")]
+    dependencies = [("db_main", "0170_session_field_show_on_cards")]
 
     operations = [
         migrations.AddField(
