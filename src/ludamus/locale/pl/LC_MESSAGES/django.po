@@ -5673,6 +5673,7 @@ msgid "I am waiting"
 msgstr "Oczekuję"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/dashboard/_role.html
 msgid "Bookmarked"
 msgstr "Z zakładką"
 
@@ -7168,6 +7169,19 @@ msgstr "Organizujesz"
 
 #: src/ludamus/templates/dashboard/_role.html
 #, python-format
+msgid "Bookmarked · %(counter)s spot left"
+msgid_plural "Bookmarked · %(counter)s spots left"
+msgstr[0] "W zakładkach · %(counter)s wolne miejsce"
+msgstr[1] "W zakładkach · %(counter)s wolne miejsca"
+msgstr[2] "W zakładkach · %(counter)s wolnych miejsc"
+msgstr[3] "W zakładkach · %(counter)s wolne miejsca"
+
+#: src/ludamus/templates/dashboard/_role.html
+msgid "Bookmarked · no spots left"
+msgstr "W zakładkach · brak wolnych miejsc"
+
+#: src/ludamus/templates/dashboard/_role.html
+#, python-format
 msgid ""
 "\n"
 "            %(counter)s spot left\n"
@@ -7264,15 +7278,15 @@ msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid ""
-"Nothing yet. Sign up for a session or an encounter and it will wait for you "
-"here."
+"Nothing yet. Sign up for or bookmark a session, or join an encounter, and it "
+"will wait for you here."
 msgstr ""
-"Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-"Ciebie."
+"Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
+"programu do zakładek, a poczeka tu na Ciebie."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Bookmarks"
-msgstr "Zakładki"
+msgid "Past events"
+msgstr "Minione wydarzenia"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -12264,6 +12278,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
 
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
