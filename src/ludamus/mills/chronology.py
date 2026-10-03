@@ -392,80 +392,68 @@ def _append_m2m_change(
         changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
-def _inverse_text_update(
-    *, update: SessionUpdateData, field: str, old: ContentFieldValue
-) -> bool:
-    if not isinstance(old, str):
-        return False
-    if field == "title":
-        update["title"] = old
-    elif field == "facilitator_name":
-        update["facilitator_name"] = old
-    elif field == "description":
-        update["description"] = old
-    elif field == "contact_email":
-        update["contact_email"] = old
-    elif field == "duration":
-        update["duration"] = old
-    else:
-        return False
-    return True
-
-
 def _inverse_core_update(
     *, update: SessionUpdateData, field: str, old: ContentFieldValue
-) -> bool:
-    # Restores `field` to `old` in the update payload. Returns False for
-    # irreversible entries: the old cover-image binary is gone, and m2m
+) -> None:
+    # Restores `field` to `old` in the update payload. Irreversible entries
+    # leave it untouched: the old cover-image binary is gone, and m2m
     # assignments (facilitators/tracks/time_slots) are logged as display
     # names, not ids.
-    if _inverse_text_update(update=update, field=field, old=old):
-        return True
-    if field == "category" and (old is None or isinstance(old, int)):
-        update["category_id"] = old
-        return True
-    if field == "participants_limit" and isinstance(old, int):
-        update["participants_limit"] = old
-        return True
-    if field == "min_age" and isinstance(old, int):
-        update["min_age"] = old
-        return True
-    return False
+    match field, old:
+        case (
+            "title" | "facilitator_name" | "description" | "contact_email" | "duration"
+        ) as key, str():
+            update[key] = old
+        case "category", int() | None:
+            update["category_id"] = old
+        case "participants_limit", int():
+            update["participants_limit"] = old
+        case "min_age", int():
+            update["min_age"] = old
 
 
-def _inverse_field_value(
-    *, field_id: int, old: ContentFieldValue, session_id: int
-) -> SessionFieldValueData | None:
+def _inverse_field_value(old: ContentFieldValue) -> str | list[str] | bool | None:
     # A previously unanswered field was logged as None; restore it to "".
     value = "" if old is None else old
     # Dynamic answers are str | list[str] | bool; a plain int never appears.
     if isinstance(value, bool) or not isinstance(value, int):
-        return SessionFieldValueData(
-            session_id=session_id, field_id=field_id, value=value
-        )
+        return value
     return None
 
 
-def build_inverse_content_edit(
-    changes: list[ContentFieldChange], session_id: int
-) -> SessionContentEditData | None:
-    # The inverse of a logged content change: every revertible entry set back
-    # to its `old` value. None when nothing in the change can be restored.
+def _inverse_changes(
+    changes: list[ContentFieldChange],
+) -> tuple[SessionUpdateData, list[tuple[int, str | list[str] | bool]]]:
+    # Every revertible entry of a logged change, set back to its `old` value:
+    # the core-column update and the (field_id, value) answers to restore.
     update: SessionUpdateData = {}
-    field_values: list[SessionFieldValueData] = []
+    restores: list[tuple[int, str | list[str] | bool]] = []
     for change in changes:
         if (field_id := change["field_id"]) is None:
             _inverse_core_update(
                 update=update, field=change["field"], old=change["old"]
             )
-        elif (
-            field_value := _inverse_field_value(
-                field_id=field_id, old=change["old"], session_id=session_id
-            )
-        ) is not None:
-            field_values.append(field_value)
-    if not update and not field_values:
+        elif (value := _inverse_field_value(change["old"])) is not None:
+            restores.append((field_id, value))
+    return update, restores
+
+
+def has_revertible_change(changes: list[ContentFieldChange]) -> bool:
+    update, restores = _inverse_changes(changes)
+    return bool(update or restores)
+
+
+def build_inverse_content_edit(
+    changes: list[ContentFieldChange], session_id: int
+) -> SessionContentEditData | None:
+    # None when nothing in the change can be restored.
+    update, restores = _inverse_changes(changes)
+    if not update and not restores:
         return None
+    field_values = [
+        SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
+        for field_id, value in restores
+    ]
     return SessionContentEditData(update=update, field_values=field_values or None)
 
 
@@ -553,16 +541,6 @@ class SessionContentEditService:
             )
             if field_values is not None:
                 self._sessions.save_field_values(session_id, field_values)
-            values_for_diff = (
-                field_values
-                if field_values is not None
-                else [
-                    SessionFieldValueData(
-                        session_id=session_id, field_id=fv.field_id, value=fv.value
-                    )
-                    for fv in old_values
-                ]
-            )
             # Logged as old -> None so the entry reverts by re-saving the value
             # (build_inverse_content_edit restores `old`).
             removal_changes: list[ContentFieldChange] = []
@@ -609,7 +587,7 @@ class SessionContentEditService:
                 )
                 _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
-                old_session, data.update, old_values, values_for_diff
+                old_session, data.update, old_values, field_values or []
             )
             changes.extend(removal_changes)
             changes.extend(m2m_changes)
@@ -705,8 +683,7 @@ class SessionContentEditService:
         return {
             log.pk
             for log in logs
-            if log.pk in latest
-            and build_inverse_content_edit(log.changes, log.session_id) is not None
+            if log.pk in latest and has_revertible_change(log.changes)
         }
 
 
@@ -727,32 +704,31 @@ class SessionSelfEditService:
 
     def _gate(
         self, session_id: int, user_id: int | None
-    ) -> tuple[bool, SessionDTO | None, EventDTO | None]:
+    ) -> tuple[SessionDTO, EventDTO]:
         if user_id is None:
-            return False, None, None
+            raise SessionEditNotAllowedError
         try:
             session = self._sessions.read(session_id)
         except NotFoundError:
-            return False, None, None
-        if session.presenter_id is None or session.presenter_id != user_id:
-            return False, session, None
+            raise SessionEditNotAllowedError from None
+        if session.presenter_id != user_id:
+            raise SessionEditNotAllowedError
         try:
             event = self._sessions.read_event(session_id)
         except NotFoundError:
-            return False, session, None
+            raise SessionEditNotAllowedError from None
         sphere = self._spheres.read(event.sphere_id)
-        allowed = resolve_facilitator_session_edit(
+        if not resolve_facilitator_session_edit(
             event_override=event.allow_facilitator_session_edit,
             sphere_default=sphere.allow_facilitator_session_edit,
-        )
-        return allowed, session, event
+        ):
+            raise SessionEditNotAllowedError
+        return session, event
 
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext:
-        allowed, session, event = self._gate(session_id, user_id)
-        if not allowed or session is None or event is None:
-            raise SessionEditNotAllowedError
+        session, event = self._gate(session_id, user_id)
         fields = self._session_fields.list_by_event(event.pk)
         existing = self._sessions.read_field_values(session_id)
         values_by_slug = {fv.field_slug: fv.value for fv in existing}
@@ -770,9 +746,7 @@ class SessionSelfEditService:
         cleaned_data: dict[str, object],
         field_values: list[SessionFieldValueData] | None,
     ) -> None:
-        allowed, _session, event = self._gate(session_id, user_id)
-        if not allowed or event is None:
-            raise SessionEditNotAllowedError
+        _session, event = self._gate(session_id, user_id)
 
         def _str(key: str) -> str:
             value = cleaned_data.get(key)

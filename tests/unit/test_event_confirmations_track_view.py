@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event import EventConfirmationsService
+from ludamus.pacts.event import ConfirmationSessionDTO
 from ludamus.pacts.legacy import (
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
@@ -21,7 +22,10 @@ _RPG_TRACK = 21
 _TALKS_TRACK = 22
 _FOREIGN_TRACK = 23
 _NAMED_SESSION = 100
+_ORGANIZER = 5
+_ORPHANS = 3
 _EXPECTED_TWO = 2
+_FULL = 100
 _NOW = datetime(2026, 8, 1, tzinfo=UTC)
 
 
@@ -81,11 +85,12 @@ class FakeFacilitators:
     ) -> None:
         self._rows = rows
         self._event_id = event_id
+        self._in_track = {(event_id, _RPG_TRACK): rows}
 
     def list_with_scheduled_session_in_track(
-        self, _event_pk: int, _track_pk: int
+        self, event_pk: int, track_pk: int
     ) -> list[ConfirmationFacilitatorRow]:
-        return self._rows
+        return self._in_track[event_pk, track_pk]
 
     def read(self, pk: int) -> FacilitatorDTO:
         row = next(row for row in self._rows if row["pk"] == pk)
@@ -93,9 +98,11 @@ class FakeFacilitators:
 
 
 class FakeAgendaCounts:
-    @staticmethod
-    def count_without_facilitator(_event_pk: int, _track_pk: int | None = None) -> int:
-        return 0
+    def __init__(self, *, orphans: int = 0) -> None:
+        self._orphans = {(_EVENT, _RPG_TRACK): orphans}
+
+    def count_without_facilitator(self, event_pk: int, track_pk: int) -> int:
+        return self._orphans[event_pk, track_pk]
 
 
 class FakeTracks:
@@ -123,28 +130,41 @@ class FakeSessions:
         *,
         matched: int = 1,
     ) -> None:
-        self._rows = rows
+        self._rows = {_EVENT: rows}
         self._track_names = track_names or {}
         self._facilitator_names = facilitator_names or {}
         self._matched = matched
         self.queried_pks: list[list[int]] = []
-        self.confirmed: list[tuple[int, bool, str | None, int | None]] = []
+        self.queried_session_pks: list[list[int]] = []
+        self.confirmed: list[tuple[int, int, bool, str | None, int | None]] = []
 
     def list_confirmation_rows(
-        self, _event_pk: int, facilitator_pks: list[int]
+        self, event_pk: int, facilitator_pks: list[int]
     ) -> list[ConfirmationSessionRow]:
         self.queried_pks.append(facilitator_pks)
-        return [row for row in self._rows if row["facilitator_pk"] in facilitator_pks]
+        return [
+            row
+            for row in self._rows[event_pk]
+            if row["facilitator_pk"] in facilitator_pks
+        ]
 
     def list_track_names_by_session(
-        self, _session_pks: list[int]
+        self, session_pks: list[int]
     ) -> dict[int, dict[int, str]]:
-        return self._track_names
+        self.queried_session_pks.append(session_pks)
+        return {
+            pk: self._track_names[pk] for pk in session_pks if pk in self._track_names
+        }
 
     def list_facilitator_names_by_session(
-        self, _session_pks: list[int]
+        self, session_pks: list[int]
     ) -> dict[int, dict[int, str]]:
-        return self._facilitator_names
+        self.queried_session_pks.append(session_pks)
+        return {
+            pk: self._facilitator_names[pk]
+            for pk in session_pks
+            if pk in self._facilitator_names
+        }
 
     def set_schedule_confirmed_for_facilitator(
         self,
@@ -155,7 +175,9 @@ class FakeSessions:
         contact_email: str | None = None,
         session_pk: int | None = None,
     ) -> int:
-        self.confirmed.append((facilitator_pk, confirmed, contact_email, session_pk))
+        self.confirmed.append(
+            (event_pk, facilitator_pk, confirmed, contact_email, session_pk)
+        )
         return self._matched
 
 
@@ -185,12 +207,12 @@ class TestTrackView:
         service = _service(
             sessions=[
                 _session(session_pk=1, is_confirmed=True),
-                _session(session_pk=2, title="Talk", is_confirmed=True),
+                _session(session_pk=2, title="Talk"),
             ],
             track_names={1: {_RPG_TRACK: "RPG"}, 2: {_TALKS_TRACK: "Talks"}},
         )
 
-        view = service.track_view(event_pk=1, track_pk=_RPG_TRACK)
+        view = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK)
 
         sessions = view.facilitators[0].email_groups[0].status_groups[0].sessions
         assert sessions[0].other_track_names == []
@@ -198,7 +220,9 @@ class TestTrackView:
         # The strip counts the block; the card counts the whole event.
         assert view.scheduled_count == 1
         assert view.confirmed_count == 1
+        assert view.progress_pct == _FULL
         assert view.facilitators[0].scheduled_count == _EXPECTED_TWO
+        assert view.facilitators[0].confirmed_count == 1
 
     def test_fully_confirmed_facilitators_sort_below_unfinished_ones(self):
         service = _service(
@@ -212,7 +236,7 @@ class TestTrackView:
             ],
         )
 
-        view = service.track_view(event_pk=1, track_pk=_RPG_TRACK)
+        view = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK)
 
         assert [f.display_name for f in view.facilitators] == ["Ben", "Ada"]
         assert view.facilitators[1].is_fully_confirmed
@@ -221,7 +245,7 @@ class TestTrackView:
         sessions = FakeSessions([])
         service = EventConfirmationsService(
             facilitators=FakeFacilitators([]),
-            agenda_items=FakeAgendaCounts(),
+            agenda_items=FakeAgendaCounts(orphans=_ORPHANS),
             tracks=FakeTracks({}),
             sessions=sessions,
         )
@@ -230,10 +254,18 @@ class TestTrackView:
 
         assert view.facilitators == []
         assert view.progress_pct == 0
+        assert view.without_facilitator_count == _ORPHANS
         assert not sessions.queried_pks
+        assert not sessions.queried_session_pks
 
     def test_a_facilitator_with_no_sessions_is_listed_as_unfinished(self):
-        service = _service(sessions=[])
+        sessions = FakeSessions([])
+        service = EventConfirmationsService(
+            facilitators=FakeFacilitators([_facilitator()]),
+            agenda_items=FakeAgendaCounts(),
+            tracks=FakeTracks({}),
+            sessions=sessions,
+        )
 
         view = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK)
 
@@ -241,6 +273,8 @@ class TestTrackView:
         assert card.email_groups == []
         assert card.is_fully_confirmed is False
         assert view.unclaimed_facilitator_count == 1
+        assert sessions.queried_pks == [[_ADA]]
+        assert not sessions.queried_session_pks
 
     def test_unplaced_sessions_are_counted_not_listed(self):
         service = _service(
@@ -256,12 +290,13 @@ class TestTrackView:
                 _session(
                     session_pk=5, is_scheduled=False, status=SessionStatus.REJECTED
                 ),
+                _session(session_pk=6, is_scheduled=False),
             ]
         )
 
         card = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK).facilitators[0]
 
-        assert card.unplaced_count == 1
+        assert card.unplaced_count == _EXPECTED_TWO
         assert card.pending_count == 1
         groups = card.email_groups[0].status_groups
         assert [group.status for group in groups] == [
@@ -304,11 +339,16 @@ class TestTrackView:
 class TestFacilitatorCard:
     def test_returns_the_facilitator_with_every_session_in_the_event(self):
         service = _service(
-            facilitators=[_facilitator(pk=_ADA, organizer_id=5), _facilitator(pk=_BEN)],
+            facilitators=[
+                _facilitator(pk=_ADA, organizer_id=_ORGANIZER),
+                _facilitator(pk=_BEN),
+            ],
             sessions=[
                 _session(session_pk=1, is_confirmed=True),
                 _session(session_pk=2, facilitator_pk=_BEN),
             ],
+            track_names={1: {_RPG_TRACK: "RPG", _TALKS_TRACK: "Talks"}},
+            facilitator_names={1: {_ADA: "Ada", _BEN: "Ben"}},
         )
 
         card = service.facilitator_card(
@@ -316,9 +356,34 @@ class TestFacilitatorCard:
         )
 
         assert card.pk == _ADA
+        assert card.organizer_id == _ORGANIZER
         assert card.organizer_name == "Radek"
         assert card.scheduled_count == 1
         assert card.is_fully_confirmed is True
+        assert card.email_groups[0].status_groups[0].sessions == [
+            ConfirmationSessionDTO(
+                session_pk=1,
+                title="Dragons",
+                category_name="RPG session",
+                room_name="Room 3",
+                start_time=datetime(2026, 8, 1, 10, tzinfo=UTC),
+                end_time=datetime(2026, 8, 1, 12, tzinfo=UTC),
+                is_scheduled=True,
+                is_confirmed=True,
+                co_facilitator_names=["Ben"],
+                other_track_names=["Talks"],
+            )
+        ]
+
+    def test_an_unclaimed_facilitator_has_no_organizer(self):
+        service = _service()
+
+        card = service.facilitator_card(
+            event_pk=_EVENT, track_pk=_RPG_TRACK, facilitator_pk=_ADA
+        )
+
+        assert card.organizer_id is None
+        assert not card.organizer_name
 
     def test_a_facilitator_of_another_event_is_not_found(self):
         service = _service(facilitator_event=_OTHER_EVENT)
@@ -349,7 +414,7 @@ class TestSetConfirmed:
             contact_email="ada@example.com",
         )
 
-        assert sessions.confirmed == [(_ADA, True, "ada@example.com", None)]
+        assert sessions.confirmed == [(_EVENT, _ADA, True, "ada@example.com", None)]
 
     def test_one_session_that_matches_nothing_is_not_found(self):
         sessions = FakeSessions([], matched=0)
@@ -374,7 +439,7 @@ class TestSetConfirmed:
             session_pk=_NAMED_SESSION,
         )
 
-        assert sessions.confirmed == [(_ADA, True, None, _NAMED_SESSION)]
+        assert sessions.confirmed == [(_EVENT, _ADA, True, None, _NAMED_SESSION)]
 
     def test_a_facilitator_of_another_event_is_never_written(self):
         sessions = FakeSessions([])

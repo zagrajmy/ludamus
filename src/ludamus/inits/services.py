@@ -50,11 +50,11 @@ from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
-    AnonymousEnrollmentService,
     EnrollmentService,
     EnrollmentSettingsService,
     WaitlistPromotionService,
 )
+from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
     EventConfirmationsService,

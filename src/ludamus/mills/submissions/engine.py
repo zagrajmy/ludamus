@@ -5,7 +5,6 @@ callers open the atomic block and invoke engine methods inside it.
 """
 
 import contextlib
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -18,6 +17,7 @@ from ludamus.mills.submissions.mapping import (
     cell,
     chosen_entities,
     dedup_ident,
+    encode_response,
     extract_identity,
     field_name,
     field_setup,
@@ -65,14 +65,10 @@ class FieldIdsByHeader:
 
 class ImportEngine:
     def __init__(
-        self,
-        event_integrations: EventIntegrationsServiceProtocol,
-        repos: ImportRepos,
-        transaction: TransactionProtocol,
+        self, event_integrations: EventIntegrationsServiceProtocol, repos: ImportRepos
     ) -> None:
         self._event_integrations = event_integrations
         self._repos = repos
-        self._transaction = transaction
 
     def settings(self, event_id: int, integration_pk: int) -> ImportSettings:
         integration = self._event_integrations.get(event_id, integration_pk)
@@ -85,6 +81,7 @@ class ImportEngine:
         integration_pk: int,
         settings: ImportSettings,
         indexed_rows: list[tuple[int, ImportRow]],
+        transaction: TransactionProtocol,
     ) -> ProposalImportResult:
         self._guard_key_columns(settings, indexed_rows)
         created = 0
@@ -94,7 +91,7 @@ class ImportEngine:
         for row_index, row in indexed_rows:
             title, display_name = extract_identity(settings, row)
             try:
-                with self._transaction.savepoint():
+                with transaction.savepoint():
                     session_id = self._create_proposal(
                         event_id=event_id,
                         settings=settings,
@@ -112,7 +109,7 @@ class ImportEngine:
                     # skip the backfill then; the next run re-adopts.
                     with (
                         contextlib.suppress(DatabaseConstraintError),
-                        self._transaction.savepoint(),
+                        transaction.savepoint(),
                     ):
                         self._repos.sessions.set_ident(
                             exc.existing_session_id, exc.adopt_ident
@@ -122,8 +119,7 @@ class ImportEngine:
                         integration_id=integration_pk,
                         row_index=row_index,
                         status=ImportLogStatus.SUCCESS,
-                        reason="",
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                         session_id=exc.existing_session_id,
@@ -138,7 +134,7 @@ class ImportEngine:
                         row_index=row_index,
                         status=ImportLogStatus.SKIPPED,
                         reason=exc.reason,
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                     )
@@ -155,7 +151,7 @@ class ImportEngine:
                         row_index=row_index,
                         status=ImportLogStatus.SKIPPED,
                         reason=str(exc),
-                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        response_json=encode_response(row.data),
                         title=title,
                         display_name=display_name,
                     )
@@ -167,8 +163,7 @@ class ImportEngine:
                     integration_id=integration_pk,
                     row_index=row_index,
                     status=ImportLogStatus.SUCCESS,
-                    reason="",
-                    response_json=json.dumps(row.data, ensure_ascii=False),
+                    response_json=encode_response(row.data),
                     title=title,
                     display_name=display_name,
                     session_id=session_id,
@@ -604,6 +599,7 @@ class ImportEngine:
                 # No organizer behind it, so the log says who only by saying
                 # the import did it — otherwise History's last word stays
                 # "deleted" for a facilitator the panel shows alive.
+                # pragma: no mutate start
                 log_facilitator_deletion(
                     repo=self._repos.facilitator_change_logs,
                     event_id=event_id,
@@ -611,6 +607,7 @@ class ImportEngine:
                     user_id=None,
                     deleted=False,
                 )
+                # pragma: no mutate end
             return matched.pk
         return self._repos.facilitators.create(
             {
@@ -711,13 +708,12 @@ class ImportEngine:
                     continue
                 windows = spec if isinstance(spec, list) else [spec]
                 for window in windows:
-                    if not isinstance(window, TimeSlotSpec):
-                        continue
-                    slot_id = self._repos.time_slots.get_or_create(
-                        event_id, window.start_time, window.end_time
-                    )
-                    if slot_id not in ids:
-                        ids.append(slot_id)
+                    if isinstance(window, TimeSlotSpec):
+                        slot_id = self._repos.time_slots.get_or_create(
+                            event_id, window.start_time, window.end_time
+                        )
+                        if slot_id not in ids:
+                            ids.append(slot_id)
         return ids
 
     def track_ids(
