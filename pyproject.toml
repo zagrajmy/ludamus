@@ -34,7 +34,7 @@ django-vite = "==3.1.0"
 google-auth = "^2.58.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
-markdown = "^3.10.2"
+markdown = "^3.11.0"
 nh3 = "^0.3.7"
 pillow = "^12.1.1"
 psycopg = "^3.2.9"

@@ -97,7 +97,7 @@ class FakeRepo:
 
     def read_offer_for_member(self, *, user_id, session_id):
         self.log.members_read.append((user_id, session_id))
-        return self._offer
+        return self._offer if session_id == _SESSION_ID else None
 
     def read_offer_by_participation(self, participation_id):
         self.log.participations_read.append(participation_id)
@@ -353,6 +353,27 @@ class TestClaimMemberOffer:
             (
                 f"Dashboard offer claim by member {_MEMBER_ID} "
                 f"on session {_SESSION_ID}: not_found"
+            )
+        ]
+
+    def test_a_session_this_member_holds_no_offer_at_is_not_found(self, caplog):
+        # The lookup is scoped to the session asked for, so the member's offer
+        # on another session is nothing to claim here.
+        other_session_id = _SESSION_ID + 1
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=other_session_id
+            )
+
+        assert result == ClaimResult(success=False, reason="not_found")
+        assert repo.log.members_read == [(_MEMBER_ID, other_session_id)]
+        assert not repo.log.claimed
+        assert caplog.messages == [
+            (
+                f"Dashboard offer claim by member {_MEMBER_ID} "
+                f"on session {other_session_id}: not_found"
             )
         ]
 

@@ -154,8 +154,8 @@ class TestBegin:
         assert pending.client.redirect_uri == "http://127.0.0.1:49152/callback"
 
     def test_private_use_scheme_redirect_is_accepted(self):
-        # RFC 8252 §7.1: a native app may claim its own URI scheme, which has
-        # no host to check against the web-redirect rules.
+        # NOTE: RFC 8252 §7.1 lets a native app claim its own URI scheme, which
+        # has no host; the loopback and host rules apply to http(s) only.
         native = "com.example.agent:/oauth"
         deps = _Deps(document=_document(redirect_uris=[native]))
 
