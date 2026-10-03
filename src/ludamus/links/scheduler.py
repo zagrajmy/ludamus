@@ -1,10 +1,10 @@
-"""Offer-expiry scheduler.
+"""Cron-mode scheduler floors: record intent, let a sweep do the work.
 
-Durable-enough floor: the offer deadline is stored on
-`SessionParticipation.offer_expires_at`, so a cron-driven `expire_offers`
-management command finds and expires lapsed offers — surviving restarts without
-a broker. `schedule_expiry` only records intent. The trigger sits behind
-`OfferExpirySchedulerProtocol`, so swapping in DBOS later is a drop-in change.
+Durable-enough without a broker: the work's due-state lives in the database
+(`SessionParticipation.offer_expires_at`; `Announcement.notified_at IS NULL`),
+so cron-driven management commands (`expire_offers`, `fanout_announcements`)
+find and process it — surviving restarts. `schedule_*` only records intent.
+Each trigger sits behind its protocol, so DBOS is a drop-in swap.
 """
 
 from __future__ import annotations
@@ -26,3 +26,9 @@ class CronSweepOfferScheduler:
             participation_id,
             run_at.isoformat(),
         )
+
+
+class CronSweepAnnouncementFanout:
+    @staticmethod
+    def schedule_fanout(*, announcement_id: int) -> None:
+        logger.info("Announcement fanout registered: announcement=%s", announcement_id)
