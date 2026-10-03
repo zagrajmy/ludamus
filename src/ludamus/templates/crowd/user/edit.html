@@ -16,6 +16,38 @@
             </span>
         </div>
     {% endif %}
+    {% if user.pending_email %}
+        <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
+            {% icon "envelope" class="w-5 h-5 shrink-0" %}
+            <span>
+                {% blocktranslate with pending=user.pending_email %}We sent a confirmation link to <strong>{{ pending }}</strong>. The change takes effect once you confirm it.{% endblocktranslate %}
+            </span>
+            <form method="post"
+                  action="{% url 'web:crowd:email-resend' %}"
+                  class="ms-auto shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm">{% translate "Resend" %}</button>
+            </form>
+        </div>
+    {% elif user.email %}
+        {% if user.email_verified %}
+            <div class="alert backdrop-blur-lg alert-success flex items-center gap-3 mb-4">
+                {% icon "check-badge" class="w-5 h-5 shrink-0" %}
+                <span>{% translate "Your email address is verified." %}</span>
+            </div>
+        {% else %}
+            <div class="alert backdrop-blur-lg alert-warning flex items-center gap-3 mb-4">
+                {% icon "exclamation-triangle" class="w-5 h-5 shrink-0" %}
+                <span>{% translate "Your email address is not verified yet." %}</span>
+                <form method="post"
+                      action="{% url 'web:crowd:email-resend' %}"
+                      class="ms-auto shrink-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm">{% translate "Send verification email" %}</button>
+                </form>
+            </div>
+        {% endif %}
+    {% endif %}
     <form action="{% url 'web:crowd:profile' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
           method="post">
         {% csrf_token %}

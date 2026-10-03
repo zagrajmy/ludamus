@@ -1,0 +1,30 @@
+{% load i18n tessera %}
+{% comment %}
+    Nag shown while the signed-in user's email is unverified. Dismissal is a
+    cookie with a max-age (set in actions.ts), so it quiets down for a while
+    and costs nothing to lose in a new browser.
+{% endcomment %}
+<section id="email-verification-banner"
+         class="fixed z-40 bottom-3 left-3 right-3 sm:bottom-4 sm:right-4 sm:left-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
+         aria-label="{% translate "Email verification" %}">
+    <div class="p-4 flex flex-col gap-3">
+        <div class="flex items-start gap-2.5">
+            {% icon "envelope" class="w-5 h-5 shrink-0 mt-0.5 text-primary" %}
+            <p class="text-sm text-foreground-secondary text-balance">
+                {% if current_user.email or current_user.pending_email %}
+                    {% translate "Verify your email address so waitlist offers and other notifications reach you." %}
+                {% else %}
+                    {% translate "Add an email address so waitlist offers and other notifications reach you." %}
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex flex-row justify-end gap-2">
+            <button type="button"
+                    class="btn btn-sm btn-ghost"
+                    data-action="dismiss-banner"
+                    data-dismiss-target="email-verification-banner"
+                    data-dismiss-cookie="hide_email_verification_banner">{% translate "Later" %}</button>
+            <a href="{% url 'web:crowd:profile' %}" class="btn btn-sm btn-primary">{% translate "Go to profile" %}</a>
+        </div>
+    </div>
+</section>

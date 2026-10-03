@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0166_sphere_visibility")]
+    dependencies = [("db_main", "0166_merge_email_verification_and_programme_order")]
 
     operations = [
         migrations.AlterField(

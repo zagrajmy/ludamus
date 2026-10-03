@@ -9,6 +9,17 @@ from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.utils import assert_response
 
 
+def _expected_context(user):
+    return {
+        "object": UserDTO.model_validate(user),
+        "user": UserDTO.model_validate(user),
+        "form": ANY,
+        "view": ANY,
+        "confirmed_participations_count": 0,
+        "profile_active_tab": "profile",
+    }
+
+
 class TestProfilePageView:
     URL = reverse("web:crowd:profile")
 
@@ -18,18 +29,52 @@ class TestProfilePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_without_email(self, authenticated_client, active_user):
+        active_user.email = ""
+        active_user.email_verified = False
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_with_unverified_email(self, authenticated_client, active_user):
+        active_user.email_verified = False
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
+            template_name=["crowd/user/edit.html"],
+        )
+
+    def test_get_ok_with_pending_email(self, authenticated_client, active_user):
+        active_user.pending_email = "new@example.com"
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 
     def test_post_ok(self, authenticated_client, active_user, faker):
+        old_email = active_user.email
         data = {
             "name": faker.name(),
             "email": faker.email(),
@@ -37,20 +82,26 @@ class TestProfilePageView:
         }
         response = authenticated_client.post(self.URL, data=data)
 
+        expected_message = (
+            f"Profile updated. We sent a confirmation link to {data['email']} — "
+            "the address changes once you confirm it."
+        )
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            messages=[(messages.SUCCESS, expected_message)],
             url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.name == data["name"]
-        assert user.email == data["email"]
+        assert user.email == old_email
+        assert user.pending_email == data["email"]
+        assert user.email_verification_sent_at is not None
 
-    def test_post_honors_safe_next(self, authenticated_client, faker):
+    def test_post_honors_safe_next(self, authenticated_client, active_user, faker):
         data = {
             "name": faker.name(),
-            "email": faker.email(),
+            "email": active_user.email,
             "user_type": UserType.ACTIVE,
         }
         response = authenticated_client.post(f"{self.URL}?next=/", data=data)
@@ -62,10 +113,10 @@ class TestProfilePageView:
             url="/",
         )
 
-    def test_post_ignores_external_next(self, authenticated_client, faker):
+    def test_post_ignores_external_next(self, authenticated_client, active_user, faker):
         data = {
             "name": faker.name(),
-            "email": faker.email(),
+            "email": active_user.email,
             "user_type": UserType.ACTIVE,
         }
         response = authenticated_client.post(
@@ -84,7 +135,7 @@ class TestProfilePageView:
     ):
         data = {
             "name": faker.name(),
-            "email": faker.email(),
+            "email": active_user.email,
             "user_type": UserType.ACTIVE,
             "discord_username": "testuser#1234",
         }
@@ -106,14 +157,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 
@@ -131,14 +175,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data={
-                "object": UserDTO.model_validate(active_user),
-                "user": UserDTO.model_validate(active_user),
-                "form": ANY,
-                "view": ANY,
-                "confirmed_participations_count": 0,
-                "profile_active_tab": "profile",
-            },
+            context_data=_expected_context(active_user),
             template_name=["crowd/user/edit.html"],
         )
 

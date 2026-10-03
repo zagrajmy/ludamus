@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0171_personal_data_field_is_required")]
+    dependencies = [("db_main", "0172_session_schedule_confirmed")]
 
     operations = [
         migrations.AddField(
