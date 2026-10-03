@@ -20,7 +20,7 @@ _BEN = 12
 _RPG_TRACK = 21
 _TALKS_TRACK = 22
 _FOREIGN_TRACK = 23
-_ITEM = 100
+_NAMED_SESSION = 100
 _EXPECTED_TWO = 2
 _NOW = datetime(2026, 8, 1, tzinfo=UTC)
 
@@ -42,10 +42,10 @@ def _session(
     session_pk: int,
     facilitator_pk: int = _ADA,
     title: str = "Dragons",
+    is_scheduled: bool = True,
     is_confirmed: bool = False,
     status: SessionStatus = SessionStatus.ACCEPTED,
     contact_email: str = "ada@example.com",
-    agenda_item_pk: int | None = _ITEM,
 ) -> ConfirmationSessionRow:
     return ConfirmationSessionRow(
         facilitator_pk=facilitator_pk,
@@ -54,7 +54,7 @@ def _session(
         status=status,
         contact_email=contact_email,
         category_name="RPG session",
-        agenda_item_pk=agenda_item_pk,
+        is_scheduled=is_scheduled,
         is_confirmed=is_confirmed,
         start_time=datetime(2026, 8, 1, 10, tzinfo=UTC),
         end_time=datetime(2026, 8, 1, 12, tzinfo=UTC),
@@ -93,27 +93,9 @@ class FakeFacilitators:
 
 
 class FakeAgendaCounts:
-    def __init__(self, *, matched: int = 1) -> None:
-        self._matched = matched
-        self.confirmed: list[tuple[int, bool, str | None, int | None]] = []
-
     @staticmethod
     def count_without_facilitator(_event_pk: int, _track_pk: int | None = None) -> int:
         return 0
-
-    def set_confirmed_for_facilitator(
-        self,
-        *,
-        event_pk: int,
-        facilitator_pk: int,
-        confirmed: bool,
-        contact_email: str | None,
-        agenda_item_pk: int | None,
-    ) -> int:
-        self.confirmed.append(
-            (facilitator_pk, confirmed, contact_email, agenda_item_pk)
-        )
-        return self._matched
 
 
 class FakeTracks:
@@ -138,11 +120,15 @@ class FakeSessions:
         rows: list[ConfirmationSessionRow],
         track_names: dict[int, dict[int, str]] | None = None,
         facilitator_names: dict[int, dict[int, str]] | None = None,
+        *,
+        matched: int = 1,
     ) -> None:
         self._rows = rows
         self._track_names = track_names or {}
         self._facilitator_names = facilitator_names or {}
+        self._matched = matched
         self.queried_pks: list[list[int]] = []
+        self.confirmed: list[tuple[int, bool, str | None, int | None]] = []
 
     def list_confirmation_rows(
         self, _event_pk: int, facilitator_pks: list[int]
@@ -160,6 +146,18 @@ class FakeSessions:
     ) -> dict[int, dict[int, str]]:
         return self._facilitator_names
 
+    def set_schedule_confirmed_for_facilitator(
+        self,
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        session_pk: int | None = None,
+    ) -> int:
+        self.confirmed.append((facilitator_pk, confirmed, contact_email, session_pk))
+        return self._matched
+
 
 def _service(
     *,
@@ -168,16 +166,17 @@ def _service(
     track_names: dict[int, dict[int, str]] | None = None,
     facilitator_names: dict[int, dict[int, str]] | None = None,
     facilitator_event: int = _EVENT,
-    agenda_items: FakeAgendaCounts | None = None,
+    session_repo: FakeSessions | None = None,
 ) -> EventConfirmationsService:
+    repo = session_repo or FakeSessions(sessions or [], track_names, facilitator_names)
     return EventConfirmationsService(
         facilitators=FakeFacilitators(
             facilitators if facilitators is not None else [_facilitator()],
             event_id=facilitator_event,
         ),
-        agenda_items=agenda_items or FakeAgendaCounts(),
+        agenda_items=FakeAgendaCounts(),
         tracks=FakeTracks({_RPG_TRACK: _EVENT, _FOREIGN_TRACK: _OTHER_EVENT}),
-        sessions=FakeSessions(sessions or [], track_names, facilitator_names),
+        sessions=repo,
     )
 
 
@@ -247,15 +246,15 @@ class TestTrackView:
         service = _service(
             sessions=[
                 _session(session_pk=1),
-                _session(session_pk=2, agenda_item_pk=None),
+                _session(session_pk=2, is_scheduled=False),
                 _session(
-                    session_pk=3, agenda_item_pk=None, status=SessionStatus.PENDING
+                    session_pk=3, is_scheduled=False, status=SessionStatus.PENDING
                 ),
                 _session(
-                    session_pk=4, agenda_item_pk=None, status=SessionStatus.ON_HOLD
+                    session_pk=4, is_scheduled=False, status=SessionStatus.ON_HOLD
                 ),
                 _session(
-                    session_pk=5, agenda_item_pk=None, status=SessionStatus.REJECTED
+                    session_pk=5, is_scheduled=False, status=SessionStatus.REJECTED
                 ),
             ]
         )
@@ -340,8 +339,8 @@ class TestFacilitatorCard:
 
 class TestSetConfirmed:
     def test_writes_the_flag_for_the_facilitator_scope(self):
-        agenda_items = FakeAgendaCounts(matched=0)
-        service = _service(agenda_items=agenda_items)
+        sessions = FakeSessions([], matched=0)
+        service = _service(session_repo=sessions)
 
         service.set_confirmed(
             event_pk=_EVENT,
@@ -350,35 +349,38 @@ class TestSetConfirmed:
             contact_email="ada@example.com",
         )
 
-        assert agenda_items.confirmed == [(_ADA, True, "ada@example.com", None)]
+        assert sessions.confirmed == [(_ADA, True, "ada@example.com", None)]
 
-    def test_one_item_that_matches_nothing_is_not_found(self):
-        agenda_items = FakeAgendaCounts(matched=0)
-        service = _service(agenda_items=agenda_items)
+    def test_one_session_that_matches_nothing_is_not_found(self):
+        sessions = FakeSessions([], matched=0)
+        service = _service(session_repo=sessions)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(
                 event_pk=_EVENT,
                 facilitator_pk=_ADA,
                 confirmed=False,
-                agenda_item_pk=_ITEM,
+                session_pk=_NAMED_SESSION,
             )
 
-    def test_one_item_that_matches_is_written(self):
-        agenda_items = FakeAgendaCounts(matched=1)
-        service = _service(agenda_items=agenda_items)
+    def test_one_session_that_matches_is_written(self):
+        sessions = FakeSessions([], matched=1)
+        service = _service(session_repo=sessions)
 
         service.set_confirmed(
-            event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True, agenda_item_pk=_ITEM
+            event_pk=_EVENT,
+            facilitator_pk=_ADA,
+            confirmed=True,
+            session_pk=_NAMED_SESSION,
         )
 
-        assert agenda_items.confirmed == [(_ADA, True, None, _ITEM)]
+        assert sessions.confirmed == [(_ADA, True, None, _NAMED_SESSION)]
 
     def test_a_facilitator_of_another_event_is_never_written(self):
-        agenda_items = FakeAgendaCounts()
-        service = _service(facilitator_event=_OTHER_EVENT, agenda_items=agenda_items)
+        sessions = FakeSessions([])
+        service = _service(facilitator_event=_OTHER_EVENT, session_repo=sessions)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
 
-        assert not agenda_items.confirmed
+        assert not sessions.confirmed
