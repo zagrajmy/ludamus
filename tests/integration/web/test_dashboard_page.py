@@ -29,12 +29,7 @@ from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
 EMPTY_DASHBOARD = DashboardDTO(
-    agenda=[],
-    bookmarks=[],
-    open_encounters=[],
-    sphere_feed=[],
-    discover=[],
-    past_events=[],
+    agenda=[], open_encounters=[], sphere_feed=[], discover=[], past_events=[]
 )
 
 
@@ -146,7 +141,7 @@ class TestDashboardPageView:
         )
         assert session_card.url.startswith(f"https://{non_root_sphere.site.domain}/")
 
-    def test_bookmarks_gather_starred_sessions_across_events(
+    def test_agenda_gathers_starred_sessions_across_events(
         self, authenticated_client, active_user, non_root_sphere, sphere
     ):
         abroad = EventFactory(sphere=non_root_sphere)
@@ -167,11 +162,13 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        # A seat you hold is on the agenda, so it leaves the bookmarks list.
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg", "Mothership"]
-        assert _titles(dashboard.agenda) == ["Held seat"]
-        mothership = dashboard.bookmarks[1]
-        assert mothership.role == DashboardRole.OPEN
+        assert _titles(dashboard.agenda) == ["Held seat", "Mörk Borg", "Mothership"]
+        roles = {card.title: card.role for card in dashboard.agenda}
+        # A starred seat you also hold is one row, and it says you hold it.
+        assert roles["Held seat"] == DashboardRole.SIGNED_UP
+        assert roles["Mörk Borg"] == DashboardRole.BOOKMARKED
+        mothership = dashboard.agenda[2]
+        assert mothership.role == DashboardRole.BOOKMARKED
         assert (mothership.attending_count, mothership.capacity) == (2, 4)
         assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
 
@@ -199,7 +196,7 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
+        assert _titles(dashboard.agenda) == ["Mörk Borg"]
 
     def test_a_bookmark_outlives_its_event_being_unpublished(
         self, authenticated_client, active_user, non_root_sphere
@@ -212,7 +209,7 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
+        assert _titles(dashboard.agenda) == ["Mörk Borg"]
 
     def test_agenda_says_where_this_member_waits_or_has_a_seat_offered(
         self, authenticated_client, active_user, non_root_sphere
@@ -241,8 +238,8 @@ class TestDashboardPageView:
         assert cards["Offered"].claim_url == reverse(
             "web:dashboard-offer-claim", kwargs={"session_id": offered.pk}
         )
-        # Both are on the agenda now, so neither is repeated as a bookmark.
-        assert dashboard.bookmarks == []
+        # Each is one row, and the seat outranks the star.
+        assert len(dashboard.agenda) == len(cards)
 
     def test_a_lapsed_offer_leaves_the_agenda(
         self, authenticated_client, active_user, sphere
@@ -349,6 +346,20 @@ class TestDashboardPastEvents:
         assert card.origin_name == non_root_sphere.name
         assert card.role == DashboardRole.ATTENDED
         assert card.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_a_bookmark_in_an_event_that_is_over_counts_as_being_there(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = _past_event(non_root_sphere)
+        SessionBookmark.objects.create(
+            user=active_user, session=_scheduled_session(event)
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        assert _titles(dashboard.past_events) == ["Kapitularz 2025"]
+        assert dashboard.agenda == []
 
     def test_an_event_still_running_is_not_history_yet(
         self, authenticated_client, active_user, non_root_sphere

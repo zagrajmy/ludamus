@@ -31,6 +31,8 @@ class DashboardRole(StrEnum):
     OFFERED = auto()
     ORGANIZING = auto()
     OPEN = auto()
+    # Starred, with no seat held: the card still says how much room is left.
+    BOOKMARKED = auto()
     ATTENDED = auto()
 
 
@@ -70,10 +72,8 @@ class DashboardSphereDTO(BaseModel):
 
 
 class DashboardDTO(BaseModel):
-    # What this member holds, soonest first.
+    # What this member holds or starred, soonest first.
     agenda: list[DashboardCardDTO]
-    # Programme items this member starred but holds no seat at, soonest first.
-    bookmarks: list[DashboardCardDTO]
     # Open encounters anyone may join, across every sphere.
     open_encounters: list[DashboardCardDTO]
     # What is coming up where this member already plays, minus their own rows.
@@ -111,8 +111,6 @@ class SphereEventPublishedNotification(BaseModel):
 class DashboardRepositoryProtocol(Protocol):
     @staticmethod
     def list_agenda(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
-    @staticmethod
-    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
     @staticmethod
     def list_open_encounters(
         user_id: int, *, now: datetime, limit: int

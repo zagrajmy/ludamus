@@ -21,21 +21,10 @@
                     </div>
                 {% else %}
                     <p class="text-sm text-foreground-secondary">
-                        {% translate "Nothing yet. Sign up for a session or an encounter and it will wait for you here." %}
+                        {% translate "Nothing yet. Sign up for or bookmark a session, or join an encounter, and it will wait for you here." %}
                     </p>
                 {% endif %}
             </section>
-            {% if dashboard.bookmarks %}
-                <section class="mt-12" aria-labelledby="dashboard-bookmarks-heading">
-                    <h2 id="dashboard-bookmarks-heading"
-                        class="mb-4 text-xl font-bold text-foreground">{% translate "Bookmarks" %}</h2>
-                    <div class="grid gap-3">
-                        {% for card in dashboard.bookmarks %}
-                            {% include "dashboard/_card.html" %}
-                        {% endfor %}
-                    </div>
-                </section>
-            {% endif %}
             {% if dashboard.past_events %}
                 <section class="mt-12" aria-labelledby="dashboard-past-events-heading">
                     <h2 id="dashboard-past-events-heading"

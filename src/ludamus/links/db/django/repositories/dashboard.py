@@ -143,6 +143,26 @@ def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]
     )
 
 
+def _bookmarked_sessions(user_id: int, *, now: datetime) -> list[Session]:
+    # Minus any session this member has a participation row at: that row is
+    # already on the agenda, and it says more than the star does. A bookmark
+    # stays theirs even after its sphere goes private or its event is
+    # unpublished: they had access when they saved it.
+    return list(
+        annotate_session_participation_counts(
+            Session.objects.filter(
+                bookmarks__user_id=user_id, agenda_item__start_time__gte=now
+            )
+            .exclude(
+                pk__in=SessionParticipation.objects.filter(user_id=user_id).values(
+                    "session_id"
+                )
+            )
+            .select_related("agenda_item__space", "event__sphere__site")
+        )
+    )
+
+
 def _held_encounters(user_id: int, *, now: datetime) -> list[Encounter]:
     return list(
         Encounter.objects.filter(
@@ -157,17 +177,20 @@ def _held_encounters(user_id: int, *, now: datetime) -> list[Encounter]:
 class DashboardRepository(DashboardRepositoryProtocol):
     @staticmethod
     def list_agenda(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
-        """List everything this member holds a place at, soonest first.
+        """List everything this member holds a place at or starred, soonest first.
 
         Returns:
-            Programme seats they hold, wait for, or have been offered, and
-            encounters they organise or hold an RSVP to. Uncapped on purpose —
-            the ceiling is what one person can actually attend, which no
-            convention pushes far.
+            Programme seats they hold, wait for, or have been offered,
+            programme items they bookmarked, and encounters they organise or
+            hold an RSVP to. Uncapped on purpose — the ceiling is what one
+            person can actually attend, which no convention pushes far.
         """
         sessions = [
             _held_session_card(participation)
             for participation in _held_sessions(user_id, now=now)
+        ] + [
+            _session_card(session, role=DashboardRole.BOOKMARKED)
+            for session in _bookmarked_sessions(user_id, now=now)
         ]
         encounters = [
             _encounter_card(
@@ -181,31 +204,6 @@ class DashboardRepository(DashboardRepositoryProtocol):
             for encounter in _held_encounters(user_id, now=now)
         ]
         return sorted(sessions + encounters, key=_start_time)
-
-    @staticmethod
-    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
-        """List the programme items this member starred, across every event.
-
-        Returns:
-            Upcoming bookmarked sessions, soonest first, minus the ones they
-            already hold, wait for, or were offered a seat at — those are on
-            their agenda. A bookmark stays theirs even after its sphere goes
-            private or its event is unpublished: they had access when they
-            saved it.
-        """
-        sessions = annotate_session_participation_counts(
-            Session.objects.filter(
-                bookmarks__user_id=user_id, agenda_item__start_time__gte=now
-            )
-            .exclude(
-                pk__in=SessionParticipation.objects.filter(user_id=user_id).values(
-                    "session_id"
-                )
-            )
-            .select_related("agenda_item__space", "event__sphere__site")
-            .order_by("agenda_item__start_time")
-        )
-        return [_session_card(session, role=DashboardRole.OPEN) for session in sessions]
 
     @staticmethod
     def list_open_encounters(
@@ -318,8 +316,9 @@ class DashboardRepository(DashboardRepositoryProtocol):
 
         Returns:
             Up to ``limit`` events that have ended, most recent first, where
-            they held a confirmed seat or ran a programme item. A waitlist
-            spot or a proposal that never made the programme is no visit.
+            they held a confirmed seat, bookmarked a programme item, or ran
+            one. A waitlist spot or a proposal that never made the programme
+            is no visit.
             Like a bookmark, this stays theirs after the sphere goes private.
         """
         attended = Session.objects.filter(
@@ -327,6 +326,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
                 session_participations__user_id=user_id,
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
+            | Q(bookmarks__user_id=user_id)
             | Q(presenter_id=user_id)
             | Q(facilitators__user_id=user_id, facilitators__deleted_at__isnull=True),
             agenda_item__isnull=False,
