@@ -285,6 +285,7 @@ class NotificationKind(StrEnum):
     EMAIL_VERIFICATION = auto()
     EMAIL_CHANGE_REQUESTED = auto()
     EMAIL_CHANGE_COMPLETED = auto()
+    ANNOUNCEMENT = auto()
     SPHERE_EVENT_PUBLISHED = auto()
 
 

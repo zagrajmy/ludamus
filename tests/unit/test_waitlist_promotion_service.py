@@ -72,12 +72,12 @@ class FakeRepo:
     def read_offer_by_token(self, _token):
         return self._seed["offer"]
 
-    def read_offer_by_participation(self, _participation_id):
-        return self._seed["offer"]
-
     def read_offer_for_member(self, *, user_id, session_id):
         self.member_lookups.append((user_id, session_id))
         return self._seed["offer"] if session_id == _SESSION_ID else None
+
+    def read_offer_by_participation(self, _participation_id):
+        return self._seed["offer"]
 
     def mark_claimed(self, ids, **_kwargs):
         self.claimed.append(ids)
