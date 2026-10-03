@@ -1640,8 +1640,9 @@ def main() -> None:
         duration_hours=8,
         publication_offset=timedelta(days=1),
     )
-    # A bookmark from another sphere's event, so the dashboard's Bookmarks
-    # section has a cross-sphere row to show. Driven by dashboard.auth.spec.ts.
+    # A bookmark from another sphere's event, so the dashboard's Coming up
+    # section has a cross-sphere starred row to show. Driven by
+    # dashboard.auth.spec.ts.
     foreign_hall = _create_venue(
         foreign_event, name="Foreign Hall", slug="foreign-hall"
     )
