@@ -16,7 +16,6 @@ from ludamus.links.db.django.models import (
     EventPanelSettings,
     EventProposalSettings,
     PersonalDataField,
-    PersonalDataFieldRequirement,
     ProposalCategory,
     SessionField,
     SessionFieldOption,
@@ -73,7 +72,11 @@ def source_fixture(sphere, active_user):
     )
     SessionFieldOption.objects.create(field=system, label="Trophy", value="trophy")
     pronouns = PersonalDataField.objects.create(
-        event=source, name="Pronouns", question="Pronouns?", slug="pronouns"
+        event=source,
+        name="Pronouns",
+        question="Pronouns?",
+        slug="pronouns",
+        is_required=True,
     )
     category = ProposalCategory.objects.create(
         event=source,
@@ -84,7 +87,6 @@ def source_fixture(sphere, active_user):
         asks_availability=True,
     )
     SessionFieldRequirement.objects.create(category=category, field=system)
-    PersonalDataFieldRequirement.objects.create(category=category, field=pronouns)
     EventProposalSettings.objects.create(event=source, description="Bring dice")
     EventPanelSettings.objects.create(
         event=source,
@@ -157,14 +159,11 @@ class TestEventCreatePageView:
         assert system.show_on_cards is False
         assert list(system.options.values_list("value", flat=True)) == ["trophy"]
         pronouns = PersonalDataField.objects.get(event=event)
+        assert pronouns.is_required is True
         category = ProposalCategory.objects.get(event=event)
         assert category.start_time == NEW_START - timedelta(days=30)
         assert category.asks_availability is True
         assert SessionFieldRequirement.objects.get(category=category).field == system
-        assert (
-            PersonalDataFieldRequirement.objects.get(category=category).field
-            == pronouns
-        )
         assert event.proposal_settings.description == "Bring dice"
         assert event.panel_settings.facilitator_columns == [
             "name",

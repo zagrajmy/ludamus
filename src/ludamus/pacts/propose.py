@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.legacy import (
         EventDTO,
@@ -15,7 +16,6 @@ if TYPE_CHECKING:
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         ProposeSessionResult,
@@ -59,9 +59,7 @@ class ProposeSessionServiceProtocol(Protocol):
     ) -> EventProposalSettingsDTO: ...
     def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]: ...
     def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO: ...
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]: ...
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def get_session_requirements(
         self, category_id: int
     ) -> list[SessionFieldRequirementDTO]: ...
@@ -71,7 +69,7 @@ class ProposeSessionServiceProtocol(Protocol):
         self, *, event_id: int, user_id: int | None
     ) -> dict[str, str | list[str] | bool]: ...
     def get_account_answers(
-        self, *, user_id: int | None, requirements: list[PersonalFieldRequirementDTO]
+        self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
     ) -> AccountAnswersDTO: ...
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool: ...
     def submit(

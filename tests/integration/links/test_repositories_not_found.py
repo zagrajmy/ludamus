@@ -7,12 +7,7 @@ that are otherwise hard to reach from view-level integration tests.
 import pytest
 
 from ludamus.links.db.django.crowd import CompanionRepository
-from ludamus.links.db.django.models import (
-    PersonalDataField,
-    ProposalCategory,
-    Session,
-    SessionField,
-)
+from ludamus.links.db.django.models import ProposalCategory, Session, SessionField
 from ludamus.links.db.django.repositories import (
     EventIntegrationsRepository,
     EventMapRepository,
@@ -124,19 +119,6 @@ class TestEventIntegrationsRepositoryNotFound:
 
 
 class TestProposalCategoryRepositoryWriteSideEffects:
-    def test_set_personal_field_categories_creates_requirements(self, event):
-        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        field = PersonalDataField.objects.create(
-            event=event, name="Age", question="How old?", slug="age", order=0
-        )
-
-        ProposalCategoryRepository.set_personal_field_categories(
-            field.pk, {category.pk: True}
-        )
-
-        result = ProposalCategoryRepository.get_personal_field_categories(field.pk)
-        assert result == {category.pk: True}
-
     def test_set_session_field_categories_creates_requirements(self, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(

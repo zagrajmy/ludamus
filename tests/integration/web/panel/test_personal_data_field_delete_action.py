@@ -3,11 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import (
-    PersonalDataField,
-    PersonalDataFieldRequirement,
-    ProposalCategory,
-)
+from ludamus.links.db.django.models import PersonalDataField, PersonalDataFieldValue
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -87,16 +83,11 @@ class TestPersonalDataFieldDeleteActionView:
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )
 
-    def test_post_error_when_field_used_in_category(self, panel_client, event):
+    def test_post_error_when_field_has_answers(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
-        category = ProposalCategory.objects.create(
-            event=event, name="Session", slug="session"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            field=field, category=category, is_required=True
-        )
+        PersonalDataFieldValue.objects.create(event=event, field=field, value="a@b.c")
 
         response = panel_client.post(self.get_url(event, field))
 
@@ -104,37 +95,12 @@ class TestPersonalDataFieldDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete field that is used in categories.")
+                (
+                    messages.ERROR,
+                    "Cannot delete a field that people have already answered.",
+                )
             ],
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )
         assert PersonalDataField.objects.filter(pk=field.pk).exists()
-
-    def test_post_error_when_field_used_in_multiple_categories(
-        self, panel_client, event
-    ):
-        field = PersonalDataField.objects.create(
-            event=event, name="Email", question="What is your email?", slug="email"
-        )
-        category1 = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        category2 = ProposalCategory.objects.create(
-            event=event, name="Workshop", slug="workshop"
-        )
-        PersonalDataFieldRequirement.objects.create(
-            field=field, category=category1, is_required=True
-        )
-        PersonalDataFieldRequirement.objects.create(
-            field=field, category=category2, is_required=False
-        )
-
-        response = panel_client.post(self.get_url(event, field))
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (messages.ERROR, "Cannot delete field that is used in categories.")
-            ],
-            url=f"/panel/event/{event.slug}/cfp/personal-data/",
-        )
-        assert PersonalDataField.objects.filter(pk=field.pk).exists()
+        assert PersonalDataFieldValue.objects.filter(field=field).exists()

@@ -21,6 +21,9 @@ class TestFieldValueList:
 
 
 class TestIsDone:
+    def test_personal_details_are_done_while_the_category_is_current(self):
+        assert is_done("personal", "category")
+
     def test_steps_before_the_days_step_are_done_while_it_is_current(self):
         assert is_done("personal", "days")
 

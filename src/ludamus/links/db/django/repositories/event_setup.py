@@ -13,7 +13,6 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     PersonalDataField,
     PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
     ProposalCategory,
     SessionField,
     SessionFieldOption,
@@ -121,19 +120,13 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
                 "end_time": move.optional(category.end_time),
             },
         )
-        for requirements, targets in (
-            (
-                SessionFieldRequirement.objects.filter(category__event_id=source_id),
-                {"category_id": categories, "field_id": session_fields},
+        _clone_each(
+            SessionFieldRequirement.objects.filter(category__event_id=source_id),
+            partial(
+                _remapped,
+                targets={"category_id": categories, "field_id": session_fields},
             ),
-            (
-                PersonalDataFieldRequirement.objects.filter(
-                    category__event_id=source_id
-                ),
-                {"category_id": categories, "field_id": personal_fields},
-            ),
-        ):
-            _clone_each(requirements, partial(_remapped, targets=targets))
+        )
         _copy_settings(
             source_id=source_id,
             target_id=target_id,

@@ -273,6 +273,8 @@ class ImportEngine:
                     max_length=255,
                     help_text="",
                     is_public=False,
+                    is_required=False,
+                    order=0,
                 ),
             )
             return field.pk, 1
