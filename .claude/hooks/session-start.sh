@@ -77,8 +77,12 @@ fi
 #
 # pipx is in Ubuntu's own archive, so it installs on its own: bundled into one
 # apt-get with python3.14 it went down with it whenever 3.14 was missing.
-if ! command -v pipx > /dev/null 2>&1 \
-  || ! command -v python3.14 > /dev/null 2>&1; then
+# Debian splits venv/ensurepip out of the interpreter, so a bare python3.14
+# from apt can't build .venv below; count that as missing too.
+python314_with_venv() {
+  python3.14 -c 'import ensurepip, venv' > /dev/null 2>&1
+}
+if ! command -v pipx > /dev/null 2>&1 || ! python314_with_venv; then
   export DEBIAN_FRONTEND=noninteractive
   # --allow-releaseinfo-change: image PPAs occasionally change their metadata
   # (e.g. ondrej/php renamed its Label), which otherwise fails the update.
@@ -92,15 +96,16 @@ fi
 # Ubuntu 24.04's own archive stops at 3.12. Images that preconfigure the
 # deadsnakes PPA get 3.14 from apt; images without it (seen 2026-10: 3.10-3.13
 # only) take a python-build-standalone build through uv, the same build mise
-# installs on laptops. A fresh uv from PyPI rather than the image's: the image's uv can
-# predate 3.14.0 and resolve `3.14` to a release candidate, which Poetry
-# rejects against `python = ">=3.14"`. uv links python3.14 into ~/.local/bin.
-if ! command -v python3.14 > /dev/null 2>&1 \
+# installs on laptops. A fresh uv from PyPI rather than the image's: the
+# image's uv can predate 3.14.0 and resolve `3.14` to a release candidate,
+# which Poetry rejects against `python = ">=3.14"`. uv links python3.14 into
+# ~/.local/bin, ahead of /usr/bin on this hook's PATH.
+if ! python314_with_venv \
   && apt-cache show python3.14-venv > /dev/null 2>&1; then
   apt-get install -y -q python3.14 python3.14-venv > /dev/null \
     || echo "WARN: apt-get install python3.14 failed; trying uv"
 fi
-if ! command -v python3.14 > /dev/null 2>&1; then
+if ! python314_with_venv; then
   pipx run uv python install 3.14 \
     || echo "WARN: no python3.14 from apt or uv; the Python toolchain will be unavailable"
 fi
@@ -109,7 +114,7 @@ fi
 # has been seen to build the venv from the image's default 3.11 anyway
 # ("Using python3.14", then a 3.11 .venv and a failed lock solve). A .venv
 # left on another version by such a run is rebuilt.
-if command -v python3.14 > /dev/null 2>&1 \
+if python314_with_venv \
   && ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' \
     > /dev/null 2>&1; then
   rm -rf .venv
