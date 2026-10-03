@@ -47,8 +47,8 @@ export MISE_ENV=sandbox
 # appended, the venv lands after the container's bare /usr/local/bin/python
 # and every `mise run` task fails with "No module named 'django'".
 # `.venv/bin` sits between them because mise cannot shim the interpreter here:
-# mise.sandbox.toml disables the `python` tool (this hook provides 3.14 and
-# builds .venv from it), so no `python` shim is generated and a bare `python` in
+# mise.sandbox.toml disables the `python` tool (this hook builds a 3.14 .venv
+# instead), so no `python` shim is generated and a bare `python` in
 # an agent's shell falls through to the image's /usr/local/bin/python 3.11. That
 # reads as a repo bug the moment it meets 3.14-only syntax — PEP 758's
 # unparenthesized `except A, B:` in scripts/impeccable_lint.py raises SyntaxError
@@ -71,54 +71,31 @@ if ! command -v mise > /dev/null 2>&1; then
     || echo "WARN: mise self-install failed; most tooling below will be unavailable"
 fi
 
-# python3.14 and pipx: mise.sandbox.toml disables the mise-managed python, so
-# the hook provides the interpreter and Poetry builds ./.venv from it
-# (poetry.toml). pipx serves the pipx: backends (poetry, shellcheck, hadolint).
-#
-# pipx is in Ubuntu's own archive, so it installs on its own: bundled into one
-# apt-get with python3.14 it went down with it whenever 3.14 was missing.
-# Debian splits venv/ensurepip out of the interpreter, so a bare python3.14
-# from apt can't build .venv below; count that as missing too.
-python314_with_venv() {
-  python3.14 -c 'import ensurepip, venv' > /dev/null 2>&1
-}
-if ! command -v pipx > /dev/null 2>&1 || ! python314_with_venv; then
+# pipx serves the pipx: backends (poetry, shellcheck, hadolint) and runs uv
+# below. It is in Ubuntu's own archive.
+if ! command -v pipx > /dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   # --allow-releaseinfo-change: image PPAs occasionally change their metadata
   # (e.g. ondrej/php renamed its Label), which otherwise fails the update.
-  apt-get update -q --allow-releaseinfo-change > /dev/null \
-    || echo "WARN: apt-get update failed"
-fi
-if ! command -v pipx > /dev/null 2>&1; then
-  apt-get install -y -q pipx > /dev/null \
+  { apt-get update -q --allow-releaseinfo-change > /dev/null \
+    && apt-get install -y -q pipx > /dev/null; } \
     || echo "WARN: apt-get install pipx failed; pipx: tools will be unavailable"
 fi
-# Ubuntu 24.04's own archive stops at 3.12. Images that preconfigure the
-# deadsnakes PPA get 3.14 from apt; images without it (seen 2026-10: 3.10-3.13
-# only) take a python-build-standalone build through uv, the same build mise
-# installs on laptops. A fresh uv from PyPI rather than the image's: the
-# image's uv can predate 3.14.0 and resolve `3.14` to a release candidate,
-# which Poetry rejects against `python = ">=3.14"`. uv links python3.14 into
-# ~/.local/bin, ahead of /usr/bin on this hook's PATH.
-if ! python314_with_venv \
-  && apt-cache show python3.14-venv > /dev/null 2>&1; then
-  apt-get install -y -q python3.14 python3.14-venv > /dev/null \
-    || echo "WARN: apt-get install python3.14 failed; trying uv"
-fi
-if ! python314_with_venv; then
-  pipx run uv python install 3.14 \
-    || echo "WARN: no python3.14 from apt or uv; the Python toolchain will be unavailable"
-fi
-# Build ./.venv from python3.14 before Poetry gets to it. Poetry finds
-# python3.14 on its own, but hands it to virtualenv by name, and virtualenv
-# has been seen to build the venv from the image's default 3.11 anyway
-# ("Using python3.14", then a 3.11 .venv and a failed lock solve). A .venv
-# left on another version by such a run is rebuilt.
-if python314_with_venv \
-  && ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' \
-    > /dev/null 2>&1; then
+
+# ./.venv on Python 3.14. mise.sandbox.toml disables the mise-managed python,
+# and images ship 3.10-3.13 with no deadsnakes PPA (seen 2026-10), so uv
+# builds the venv: it takes a python3.14 already on PATH, or fetches the
+# python-build-standalone build mise uses on laptops, and needs no ensurepip
+# (Debian packages that apart as python3.14-venv). A fresh uv from PyPI, not
+# the image's, which predates 3.14.0 and resolves `3.14` to an rc Poetry
+# rejects. Poetry can't be left to it: it finds python3.14, then virtualenv
+# builds the venv from the image's 3.11 anyway. A venv on another version,
+# left by such a run, is rebuilt; Poetry then installs into it (poetry.toml).
+if ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' \
+  > /dev/null 2>&1; then
   rm -rf .venv
-  python3.14 -m venv .venv || echo "WARN: could not create .venv from python3.14"
+  pipx run uv venv --python 3.14 --seed .venv > /dev/null \
+    || echo "WARN: could not build a Python 3.14 .venv; the Python toolchain will be unavailable"
 fi
 
 # GNU gettext (msguniq) is what `mise run messages` shells out to; the image

@@ -11,15 +11,14 @@ sets `MISE_ENV=sandbox`, which makes mise load `mise.sandbox.toml` on top of
 reachable backend at the version already pinned in `mise.toml`: hk via cargo,
 shellcheck/hadolint via PyPI binary wheels, actionlint/dockerfmt via the Go
 module proxy (the sandbox image ships the rust and go toolchains these
-backends compile with). The hook installs pipx from apt and python3.14 first:
-from apt when the image preconfigures the deadsnakes PPA, otherwise a
-python-build-standalone build via `pipx run uv python install 3.14` (images
-from 2026-10 on ship no PPA and only 3.10–3.13). It then builds `./.venv` from
-python3.14 itself, since Poetry's virtualenv handoff has fallen back to the
-image's 3.11. aube and ast-grep need no substitute; mise.toml
-installs them from npm everywhere (the unscoped `aube` npm package is
-squatted — only `@endevco/aube` is ours; prod's `docker/mise.toml`
-intentionally keeps the GitHub pin).
+backends compile with). The hook installs pipx from apt, then builds `./.venv`
+with `pipx run uv venv --python 3.14`: images from 2026-10 on ship only
+3.10–3.13 and no deadsnakes PPA, so uv fetches the python-build-standalone
+build mise uses on laptops. Poetry is not left to build it, since its
+virtualenv handoff has fallen back to the image's 3.11. aube and ast-grep need
+no substitute; mise.toml installs them from npm everywhere (the unscoped
+`aube` npm package is squatted — only `@endevco/aube` is ours; prod's
+`docker/mise.toml` intentionally keeps the GitHub pin).
 
 Disabling the mise `python` also disables mise's creation of the virtualenv
 `_.python.venv` names, so without the hook's own `.venv` step Poetry would

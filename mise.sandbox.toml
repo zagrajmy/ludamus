@@ -3,9 +3,9 @@
 # (api.github.com included). Laptops never load this file.
 #
 # [tool_alias] remaps each GitHub-release tool from mise.toml to a reachable
-# registry backend; versions stay pinned in mise.toml alone. The session hook
-# provides python3.14 instead (apt via deadsnakes when the image has the PPA,
-# else uv) and pipx from apt; apt pipx serves the pipx: backends.
+# registry backend; versions stay pinned in mise.toml alone. python is not
+# aliased: the session hook builds a Python 3.14 .venv with uv instead. pipx
+# comes from apt and serves the pipx: backends.
 
 [settings]
 disable_tools = ["python", "pipx", "github:reteps/dockerfmt"]
