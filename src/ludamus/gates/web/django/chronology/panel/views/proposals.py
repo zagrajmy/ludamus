@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     proposal_detail_tab_urls,
     proposal_detail_url,
     proposal_tab_urls,
+    read_field_filters,
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     PROPOSAL_COLUMNS,
@@ -40,7 +41,7 @@ from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from django.http import HttpResponse
+    from django.http import HttpRequest, HttpResponse
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO, SessionListItemDTO
@@ -68,30 +69,37 @@ def _build_column_values(
     )
 
 
+PROPOSAL_STATUS_LABELS: dict[SessionStatus, _StrPromise] = {
+    SessionStatus.PENDING: gettext_lazy("Pending"),
+    SessionStatus.ACCEPTED: gettext_lazy("Accepted"),
+    SessionStatus.ON_HOLD: gettext_lazy("On hold"),
+    SessionStatus.REJECTED: gettext_lazy("Rejected"),
+}
+
+
+def read_proposal_query(
+    request: HttpRequest, *, track_pk: int | None
+) -> ProposalListQuery:
+    # The one reader of the list's filters: the list and its export both go
+    # through here, so a filter cannot apply to one and not the other.
+    return ProposalListQuery(
+        search=request.GET.get("search", "").strip(),
+        category=request.GET.get("category", "").strip(),
+        # Default (no status param) is the pending backlog — the queue an
+        # organizer opens this page to work through. STATUS_ALL (or any
+        # other unknown value) still shows everything.
+        status=request.GET.get("status", SessionStatus.PENDING.value),
+        track_pk=track_pk,
+        multi_tracks=request.GET.get("track") == "multi",
+        sort=request.GET.get("sort", "").strip(),
+        raw_field_filters=read_field_filters(request),
+    )
+
+
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
     """List submitted proposals for an event."""
 
     request: PanelRequest
-
-    def _read_query(
-        self, track_pk: int | None, *, multi_tracks: bool
-    ) -> ProposalListQuery:
-        return ProposalListQuery(
-            search=self.request.GET.get("search", "").strip(),
-            category=self.request.GET.get("category", "").strip(),
-            # Default (no status param) is the pending backlog — the queue an
-            # organizer opens this page to work through. STATUS_ALL (or any
-            # other unknown value) still shows everything.
-            status=self.request.GET.get("status", SessionStatus.PENDING.value),
-            track_pk=track_pk,
-            multi_tracks=multi_tracks,
-            sort=self.request.GET.get("sort", "").strip(),
-            raw_field_filters={
-                int(key.removeprefix("field_")): self.request.GET.get(key, "")
-                for key in self.request.GET
-                if key.startswith("field_") and key.removeprefix("field_").isdigit()
-            },
-        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -101,8 +109,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         sorted_tracks, managed_pks, filter_track_pk = self.get_track_filter_context(
             current_event.pk
         )
-        filter_track_multi = self.request.GET.get("track") == "multi"
-        query = self._read_query(filter_track_pk, multi_tracks=filter_track_multi)
+        query = read_proposal_query(self.request, track_pk=filter_track_pk)
+        filter_track_multi = query.multi_tracks
         list_context = self.request.services.proposal_panel.list_context(
             event_id=current_event.pk, query=query
         )
@@ -144,14 +152,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["categories"] = list_context.categories
         context["filter_category_pk"] = list_context.category_pk
-        status_labels = {
-            SessionStatus.PENDING: _("Pending"),
-            SessionStatus.ACCEPTED: _("Accepted"),
-            SessionStatus.ON_HOLD: _("On hold"),
-            SessionStatus.REJECTED: _("Rejected"),
-        }
         context["statuses"] = [
-            *((str(s), status_labels[s]) for s in SessionStatus),
+            *((str(s), str(PROPOSAL_STATUS_LABELS[s])) for s in SessionStatus),
             (SCHEDULED_FILTER, _("Scheduled")),
         ]
         context["filter_status"] = list_context.status
