@@ -12,6 +12,9 @@ const plusCount = (page: Page) => overflowCard(page).getByText(/^\+\d+$/);
 const opacityOf = (locator: Locator) =>
   locator.evaluate((element) => getComputedStyle(element).opacity);
 
+const horizontalOverflow = (page: Page) =>
+  page.locator("#app-scroll").evaluate((scroller) => scroller.scrollWidth - scroller.clientWidth);
+
 const SCREENSHOT_CLIP_MIN_WIDTH = 440;
 
 const LONG_TAG = "Vampire: The Masquerade 5th Edition";
@@ -118,6 +121,40 @@ test.describe("Session tags cloud", () => {
       caret: "hide",
       clip: await clipAround([card, tip], 16),
       maxDiffPixelRatio: 0.05,
+    });
+  });
+
+  test("on a phone the popover stays on screen and never pans the page sideways", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/design/");
+    const tip = overflowCard(page).getByRole("tooltip");
+
+    // The +N lands somewhere else on every width; the sweep crosses widths
+    // that put it against either screen edge (328 against the right one).
+    for (let width = 320; width <= 432; width += 8) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.mouse.move(0, 0);
+      await expect.poll(() => opacityOf(tip)).toBe("0");
+      expect(await horizontalOverflow(page), `closed at ${width}px`).toBe(0);
+
+      await plusCount(page).hover();
+      await expect.poll(() => opacityOf(tip)).toBe("1");
+      const { left, right } = await tip.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      });
+      expect(left, `open at ${width}px`).toBeGreaterThanOrEqual(0);
+      expect(right, `open at ${width}px`).toBeLessThanOrEqual(width);
+      expect(await horizontalOverflow(page), `open at ${width}px`).toBe(0);
+    }
+
+    await page.setViewportSize({ width: 328, height: 844 });
+    await plusCount(page).hover();
+    await expect.poll(() => opacityOf(tip)).toBe("1");
+    await testInfo.attach("popover-open-at-328px", {
+      body: await page.screenshot(),
+      contentType: "image/png",
     });
   });
 
