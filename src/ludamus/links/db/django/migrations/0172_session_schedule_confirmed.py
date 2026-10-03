@@ -9,7 +9,7 @@ def backfill_schedule_confirmed(apps, _schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0165_sphere_subscriptions")]
+    dependencies = [("db_main", "0171_personal_data_field_is_required")]
 
     operations = [
         migrations.AddField(
