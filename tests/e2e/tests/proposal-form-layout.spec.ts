@@ -1,3 +1,4 @@
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The form used to be a CSS multi-column masonry, and the tall column painted
@@ -17,10 +18,7 @@ const columnCount = async (page: import("@playwright/test").Page) =>
 
 test.describe("Proposal form layout", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("keeps three columns wide, two medium, one narrow", async ({ page }) => {
