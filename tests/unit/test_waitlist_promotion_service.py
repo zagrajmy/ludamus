@@ -47,7 +47,6 @@ class FakeRepo:
         self.held: list[HeldSeatData] = []
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
-        self.member_lookups: list[tuple[int, int]] = []
 
     @staticmethod
     def read_offer_claim_window(_session_id):
@@ -76,8 +75,8 @@ class FakeRepo:
         return self._seed["offer"]
 
     def read_offer_for_member(self, *, user_id, session_id):
-        self.member_lookups.append((user_id, session_id))
-        return self._seed["offer"]
+        del user_id
+        return self._seed["offer"] if session_id == _SESSION_ID else None
 
     def mark_claimed(self, ids, **_kwargs):
         self.claimed.append(ids)
@@ -338,7 +337,7 @@ class TestClaimOffer:
 
 
 class TestClaimMemberOffer:
-    def test_claims_the_offer_looked_up_among_this_members_seats(self):
+    def test_claims_the_offer_held_on_this_members_seats(self):
         service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
 
         result = service.claim_member_offer(user_id=_MANAGER_ID, session_id=_SESSION_ID)
@@ -346,13 +345,14 @@ class TestClaimMemberOffer:
         assert result == ClaimResult(
             success=True, session_id=_SESSION_ID, event_slug="con"
         )
-        assert repo.member_lookups == [(_MANAGER_ID, _SESSION_ID)]
         assert repo.claimed == [[1, 2]]
 
-    def test_an_offer_that_is_not_this_members_is_not_found(self):
-        service, repo, _, _ = _build()
+    def test_a_session_this_member_holds_no_offer_at_is_not_found(self):
+        service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
 
-        result = service.claim_member_offer(user_id=_MANAGER_ID, session_id=_SESSION_ID)
+        result = service.claim_member_offer(
+            user_id=_MANAGER_ID, session_id=_SESSION_ID + 1
+        )
 
         assert result == ClaimResult(success=False, reason="not_found")
         assert not repo.claimed

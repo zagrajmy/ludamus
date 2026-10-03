@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from typing import TYPE_CHECKING
 
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -37,12 +38,30 @@ def read_public_event(request: RootRequest, slug: str) -> EventDTO:
     return event
 
 
+def _parse_ip(value: str) -> str | None:
+    try:
+        return str(ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
 def get_client_ip(request: HttpRequest) -> str:
-    if forwarded := request.META.get("HTTP_X_FORWARDED_FOR", ""):
+    # SAFETY: production sits behind Cloudflare with the origin firewalled to
+    # Cloudflare ranges, so CF-Connecting-IP is set by Cloudflare and cannot
+    # be forged. Without that lockdown the header is client-supplied.
+    sources = (
+        str(request.META.get("HTTP_CF_CONNECTING_IP", "")),
         # The rightmost entry is appended by our own reverse proxy;
         # everything left of it is client-supplied and spoofable.
-        return str(forwarded).rsplit(",", maxsplit=1)[-1].strip()
-    return str(request.META.get("REMOTE_ADDR", ""))
+        str(request.META.get("HTTP_X_FORWARDED_FOR", "")).rsplit(",", maxsplit=1)[-1],
+        str(request.META.get("REMOTE_ADDR", "")),
+    )
+    # The result reaches a non-null inet column, so a source that does not
+    # parse has to fall through to the next rather than reach the database.
+    for source in sources:
+        if parsed := _parse_ip(source):
+            return parsed
+    return ""
 
 
 PLACEHOLDER_COVER_IMAGES = (

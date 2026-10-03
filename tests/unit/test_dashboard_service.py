@@ -15,7 +15,7 @@ from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
 AGENDA_ROWS = 20
-BOOKMARK_ROWS = 7
+BOOKMARK_ROWS = 12
 USER_ID = 5
 
 
