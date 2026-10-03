@@ -41,7 +41,6 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
-    PersonalDataFieldRequirement,
     ProposalCategory,
     Session,
     SessionBookmark,
@@ -1269,7 +1268,7 @@ def _create_discord_proposal_scenario(sphere: Sphere) -> None:
         publication_offset=timedelta(days=2),
         proposals_open=True,
     )
-    category = ProposalCategory.objects.create(
+    ProposalCategory.objects.create(
         event=event,
         name="RPG",
         slug="rpg",
@@ -1277,15 +1276,13 @@ def _create_discord_proposal_scenario(sphere: Sphere) -> None:
         max_participants_limit=6,
         durations=["PT3H"],
     )
-    field = PersonalDataField.objects.create(
+    PersonalDataField.objects.create(
         event=event,
         name="Discord",
         question="Identyfikator discord",
         slug="discord",
         field_type="discord",
-    )
-    PersonalDataFieldRequirement.objects.create(
-        category=category, field=field, is_required=True
+        is_required=True,
     )
 
 
