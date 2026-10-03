@@ -32,6 +32,26 @@
   transform: none;
 }
 
+/* The arrow: a square half under the bubble, pointing at the +N. Each
+   branch below only places it. */
+.session-tags-more::after {
+  content: "";
+  z-index: 49;
+  width: var(--session-tags-arrow);
+  height: var(--session-tags-arrow);
+  translate: -50% 0;
+  rotate: 45deg;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease-spring-a-bit);
+}
+
+.session-tags-more:hover::after {
+  opacity: 1;
+}
+
 /* The screen, not the card, bounds the popover: fixed, so the screen is its
    containing block and anchor-center slides it off the +N only as far as the
    1rem inset needs. Fixed also keeps it out of the page scroller's overflow —
@@ -56,22 +76,18 @@
     anchor-name: --session-tags-popover;
   }
 
-  /* The arrow: a square half under the bubble, on the +N's centre short of
-     the bubble's rounded corners. The +N's ::after, as only a fixed box
-     after the bubble in tree order may anchor to both.
+  /* On the +N's centre, short of the bubble's rounded corners, and on the
+     bubble's near edge. The +N's ::after, as only a fixed box after the
+     bubble in tree order may anchor to both.
 
      NOTE: engines disagree on scrolling an anchor() that names a box other
      than the default anchor (Chromium and Firefox land a scroll offset
-     apart), so every vertical edge here comes from the +N. Centred on the
-     bubble's near edge, with the bubble's height as margin on the far side,
-     the arrow's margin box is the bubble's: flip-block flips both together. */
+     apart), so every vertical edge here comes from the +N. With the
+     bubble's height as margin on the far side, the arrow's margin box is the
+     bubble's: flip-block flips both together. */
   .session-tags-more::after {
-    content: "";
     position: fixed;
     position-anchor: --session-tags-more;
-    z-index: 49;
-    width: var(--session-tags-arrow);
-    height: var(--session-tags-arrow);
     bottom: anchor(top);
     margin-bottom: calc(var(--session-tags-gap) - var(--session-tags-arrow) / 2);
     margin-top: calc(anchor-size(--session-tags-popover height) - var(--session-tags-arrow) / 2);
@@ -81,17 +97,6 @@
       anchor(center),
       anchor(--session-tags-popover right) - 1.25rem
     );
-    translate: -50% 0;
-    rotate: 45deg;
-    border: 1px solid var(--color-border);
-    background: var(--color-bg-secondary);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.35s var(--ease-spring-a-bit);
-  }
-
-  .session-tags-more:hover::after {
-    opacity: 1;
   }
 }
 
@@ -111,15 +116,10 @@
     display: flex;
   }
 
-  .session-tags-popover::after {
-    content: "";
+  .session-tags-more::after {
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
-    translate: -50% 0;
-    width: var(--session-tags-arrow);
-    height: calc(var(--session-tags-arrow) / 2);
-    background: var(--color-bg-secondary);
-    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    margin-bottom: calc(var(--session-tags-gap) - var(--session-tags-arrow) / 2);
   }
 }
