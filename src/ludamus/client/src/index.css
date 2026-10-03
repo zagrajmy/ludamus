@@ -905,15 +905,16 @@ select:not([multiple]):not([size]) {
 .session-tags-more:hover .session-tags-popover {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(-50%) scale(1) translateY(0);
+  transform: none;
 }
 
 .session-tags-popover {
   position: absolute;
   bottom: 100%;
   left: 50%;
+  translate: -50% 0;
   margin-bottom: 8px;
-  transform: translateX(-50%) scale(0.9) translateY(16px);
+  transform: scale(0.9) translateY(16px);
   width: max-content;
   min-width: 12rem;
   max-width: 18rem;
@@ -924,14 +925,30 @@ select:not([multiple]):not([size]) {
     transform 0.35s var(--ease-spring-a-bit);
 }
 
-.session-tags-popover::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -5px;
-  margin-left: -5px;
-  border: 5px solid transparent;
-  border-top-color: var(--color-bg-secondary);
+/* Centred on its +N, the popover hung past the screen edge whenever the +N
+   sat near one — and, open or not, widened the page scroller, so a phone
+   panned sideways. Fixed and anchored, the screen is its containing block:
+   anchor-center keeps it on the +N until that would cross the inset, then
+   the box stops at the inset, and a fixed box adds nothing to the scroller's
+   overflow. anchor-scope because every card names the same anchor. */
+@supports (anchor-name: --a) {
+  .session-tags-cloud {
+    anchor-scope: --session-tags-more;
+  }
+
+  .session-tags-more {
+    anchor-name: --session-tags-more;
+  }
+
+  .session-tags-popover {
+    position: fixed;
+    position-anchor: --session-tags-more;
+    inset-inline: 1rem;
+    bottom: anchor(top);
+    justify-self: anchor-center;
+    translate: none;
+    position-try-fallbacks: flip-block;
+  }
 }
 
 .session-tags-more {
