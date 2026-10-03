@@ -14,8 +14,7 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
 )
 from ludamus.pacts.fields import FieldTypeSwitchError
-from ludamus.pacts.legacy import FacilitatorChangeLogDTO, ProposalCategoryDTO
-from ludamus.pacts.submissions import RequirementSelectionDTO
+from ludamus.pacts.legacy import FacilitatorChangeLogDTO
 from tests.unit.factories import FakeTransaction
 
 
@@ -339,18 +338,19 @@ def test_list_log_and_field_names_read_through():
 
 
 class FakeCFPFields:
-    def __init__(self, *, fields=(), usage=None, required_by=()):
+    def __init__(self, *, fields=(), answers=None, answered=()):
         self._fields = list(fields)
-        self._usage = usage or {}
-        self._required_by = set(required_by)
+        self._answers = answers or {}
+        self._answered = set(answered)
+        self.updated = {}
         self.deleted = []
         self.updates = []
 
     def list_by_event(self, _event_id):
         return self._fields
 
-    def get_usage_counts(self, _event_id):
-        return self._usage
+    def count_values(self, _event_id):
+        return self._answers
 
     def read_by_slug(self, _event_id, slug):
         try:
@@ -358,17 +358,14 @@ class FakeCFPFields:
         except StopIteration:
             raise NotFoundError from None
 
-    def has_requirements(self, pk):
-        return pk in self._required_by
+    def has_values(self, pk):
+        return pk in self._answered
+
+    def update(self, pk, data):
+        self.updated[pk] = data
 
     def delete(self, pk):
         self.deleted.append(pk)
-
-    def create(self, _event_id, _data):
-        return self._fields[0]
-
-    def update(self, pk, data):
-        self.updates.append((pk, data))
 
     def set_field_type(self, pk, field_type):
         field = next(field for field in self._fields if field.pk == pk)
@@ -377,113 +374,48 @@ class FakeCFPFields:
         return switched
 
 
-class FakeCFPCategories:
-    def __init__(self, categories=(), field_categories=None):
-        self._categories = list(categories)
-        self._field_categories = field_categories or {}
-        self.links = {}
-
-    def list_by_event(self, _event_id):
-        return self._categories
-
-    def get_personal_field_categories(self, _field_pk):
-        return self._field_categories
-
-    def set_personal_field_categories(self, field_pk, scoped):
-        self.links[field_pk] = scoped
+def _cfp_service(fields):
+    return CFPPersonalDataFieldService(transaction=FakeTransaction(), fields=fields)
 
 
-def _category(pk):
-    return ProposalCategoryDTO(
-        description="",
-        durations=[],
-        end_time=None,
-        max_participants_limit=0,
-        min_participants_limit=0,
-        name=f"Cat {pk}",
-        pk=pk,
-        slug=f"cat-{pk}",
-        start_time=None,
-    )
-
-
-def _cfp_service(*, fields, categories=None):
-    return CFPPersonalDataFieldService(
-        transaction=FakeTransaction(),
-        fields=fields,
-        categories=categories or FakeCFPCategories(),
-    )
-
-
-def test_summaries_default_unused_fields_to_zero_counts():
+def test_summaries_default_unanswered_fields_to_zero():
     other = OrganizerFieldDTO(
         field_type="text", name="Phone", order=1, pk=6, question="?", slug="phone"
     )
-    service = _cfp_service(
-        fields=FakeCFPFields(
-            fields=[_field(), other], usage={5: {"required": 2, "optional": 1}}
-        )
-    )
+    service = _cfp_service(FakeCFPFields(fields=[_field(), other], answers={5: 3}))
 
     summaries = service.list_summaries(10)
 
-    assert [(s.field.pk, s.required_count, s.optional_count) for s in summaries] == [
-        (5, 2, 1),
-        (6, 0, 0),
-    ]
+    assert [(s.field.pk, s.answer_count) for s in summaries] == [(5, 3), (6, 0)]
 
 
-def test_form_contexts_split_categories_by_requirement():
-    categories = FakeCFPCategories(
-        categories=[_category(1), _category(2), _category(3)],
-        field_categories={1: True, 2: False},
-    )
-    service = _cfp_service(
-        fields=FakeCFPFields(fields=[_field()]), categories=categories
-    )
-
-    create_context = service.get_create_form_context(10)
-    edit_context = service.get_edit_form_context(10, "vegan")
-
-    assert [c.pk for c in create_context.categories] == [1, 2, 3]
-    assert edit_context.field == _field()
-    assert edit_context.required_category_pks == {1}
-    assert edit_context.optional_category_pks == {2}
-
-
-def test_create_links_categories_through_the_personal_field_table():
-    categories = FakeCFPCategories(categories=[_category(1)])
+def test_update_writes_against_the_pk_the_slug_resolved_to():
     fields = FakeCFPFields(fields=[_field()])
-    service = _cfp_service(fields=fields, categories=categories)
 
-    service.create(
-        event_pk=10,
-        data={"name": "Vegan"},
-        category_requirements=RequirementSelectionDTO(
-            requirements={1: True, 9: True}, order=[]
-        ),
+    _cfp_service(fields).update(
+        event_pk=10, field_slug="vegan", data={"name": "Vegan?"}
     )
 
-    assert categories.links == {5: {1: True}}
+    assert fields.updated == {5: {"name": "Vegan?"}}
 
 
-def test_delete_refuses_a_field_some_category_requires():
-    fields = FakeCFPFields(fields=[_field()], required_by=[5])
+def test_delete_refuses_a_field_people_have_answered():
+    fields = FakeCFPFields(fields=[_field()], answered=[5])
 
-    assert _cfp_service(fields=fields).delete(10, "vegan") is False
+    assert _cfp_service(fields).delete(10, "vegan") is False
     assert not fields.deleted
 
 
-def test_delete_removes_an_unused_field():
+def test_delete_removes_an_unanswered_field():
     fields = FakeCFPFields(fields=[_field()])
 
-    assert _cfp_service(fields=fields).delete(10, "vegan") is True
+    assert _cfp_service(fields).delete(10, "vegan") is True
     assert fields.deleted == [5]
 
 
 def test_delete_surfaces_an_unknown_slug():
     with pytest.raises(NotFoundError):
-        _cfp_service(fields=FakeCFPFields()).delete(10, "ghost")
+        _cfp_service(FakeCFPFields()).delete(10, "ghost")
 
 
 def test_deletion_and_restore_log_mirror_each_other():
@@ -521,23 +453,15 @@ def _update_data():
     }
 
 
-def _no_categories():
-    return RequirementSelectionDTO(requirements={}, order=[])
-
-
 def test_update_switches_a_text_field_to_discord_alongside_the_edit():
     fields = FakeCFPFields(fields=[_text_field()])
 
     _cfp_service(fields=fields).update(
-        event_pk=10,
-        field_slug="dc",
-        data=_update_data(),
-        category_requirements=_no_categories(),
-        field_type="discord",
+        event_pk=10, field_slug="dc", data=_update_data(), field_type="discord"
     )
 
     assert fields.read_by_slug(10, "dc").field_type == "discord"
-    assert [pk for pk, _data in fields.updates] == [7]
+    assert list(fields.updated) == [7]
 
 
 def test_update_refuses_to_switch_a_select_field_and_writes_nothing():
@@ -545,15 +469,11 @@ def test_update_refuses_to_switch_a_select_field_and_writes_nothing():
 
     with pytest.raises(FieldTypeSwitchError):
         _cfp_service(fields=fields).update(
-            event_pk=10,
-            field_slug="dc",
-            data=_update_data(),
-            category_requirements=_no_categories(),
-            field_type="discord",
+            event_pk=10, field_slug="dc", data=_update_data(), field_type="discord"
         )
 
     assert fields.read_by_slug(10, "dc").field_type == "select"
-    assert not fields.updates
+    assert not fields.updated
 
 
 def test_set_field_type_keeps_a_field_already_of_that_type():
@@ -581,11 +501,8 @@ def test_update_without_a_type_leaves_the_type_alone():
     fields = FakeCFPFields(fields=[_text_field("select")])
 
     _cfp_service(fields=fields).update(
-        event_pk=10,
-        field_slug="dc",
-        data=_update_data(),
-        category_requirements=_no_categories(),
+        event_pk=10, field_slug="dc", data=_update_data()
     )
 
     assert fields.read_by_slug(10, "dc").field_type == "select"
-    assert [pk for pk, _data in fields.updates] == [7]
+    assert list(fields.updated) == [7]
