@@ -33,16 +33,27 @@ EMPTY_DASHBOARD = DashboardDTO(
 )
 
 
+def _assert_empty_dashboard(response):
+    assert_response(
+        response,
+        HTTPStatus.OK,
+        context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+        template_name="dashboard/index.html",
+    )
+
+
 def _titles(cards):
     return [card.title for card in cards]
 
 
-def _scheduled_session(event, *, title="Mörk Borg", start_time=None, presenter=None):
+def _scheduled_session(
+    event, *, title="Mörk Borg", start_time=None, presenter=None, participants_limit=4
+):
     session = SessionFactory(
         event=event,
         title=title,
         presenter=presenter or UserFactory(),
-        participants_limit=4,
+        participants_limit=participants_limit,
         category=ProposalCategoryFactory(event=event),
     )
     AgendaItemFactory(
@@ -53,9 +64,14 @@ def _scheduled_session(event, *, title="Mörk Borg", start_time=None, presenter=
     return session
 
 
-def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+def _bookmarked_session(
+    event, *, user, title="Mörk Borg", days_ahead=1, participants_limit=4
+):
     session = _scheduled_session(
-        event, title=title, start_time=datetime.now(UTC) + timedelta(days=days_ahead)
+        event,
+        title=title,
+        start_time=datetime.now(UTC) + timedelta(days=days_ahead),
+        participants_limit=participants_limit,
     )
     SessionBookmark.objects.create(user=user, session=session)
     return session
@@ -92,12 +108,7 @@ class TestDashboardPageView:
     def test_an_empty_account_still_gets_a_page(self, authenticated_client):
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_agenda_gathers_seats_and_encounters_across_spheres(
         self, authenticated_client, active_user, non_root_sphere, sphere
@@ -152,11 +163,31 @@ class TestDashboardPageView:
         _bookmarked_session(
             at_home, user=active_user, title="Already over", days_ahead=-3
         )
+        # Starred but out of room, and a talk that takes anyone: both stay.
+        full = _bookmarked_session(
+            abroad, user=active_user, title="Full table", days_ahead=4
+        )
+        SessionParticipationFactory.create_batch(4, session=full, status="confirmed")
+        _bookmarked_session(
+            abroad,
+            user=active_user,
+            title="Open talk",
+            days_ahead=5,
+            participants_limit=0,
+        )
 
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        assert _titles(dashboard.agenda) == ["Held seat", "Mörk Borg", "Mothership"]
+        assert _titles(dashboard.agenda) == [
+            "Held seat",
+            "Mörk Borg",
+            "Mothership",
+            "Full table",
+            "Open talk",
+        ]
+        room = {card.title: card.spots_remaining for card in dashboard.agenda}
+        assert (room["Full table"], room["Open talk"]) == (0, None)
         roles = {card.title: card.role for card in dashboard.agenda}
         # A starred seat you also hold is one row, and it says you hold it.
         assert roles["Held seat"] == DashboardRole.SIGNED_UP
@@ -171,12 +202,7 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_a_bookmark_outlives_its_sphere_going_private(
         self, authenticated_client, active_user, non_root_sphere
@@ -250,12 +276,7 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
@@ -302,12 +323,7 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_a_private_sphere_s_manager_still_gets_its_feed(
         self, authenticated_client, active_user, non_root_sphere
@@ -359,14 +375,18 @@ class TestDashboardPastEvents:
         self, authenticated_client, active_user, non_root_sphere
     ):
         start = datetime.now(UTC) - timedelta(hours=3)
+        # Unpublished, so the sphere feed stays out of the picture.
         event = EventFactory(
-            sphere=non_root_sphere, start_time=start, end_time=start + timedelta(days=1)
+            sphere=non_root_sphere,
+            start_time=start,
+            end_time=start + timedelta(days=1),
+            publication_time=None,
         )
         SessionParticipationFactory(session=_scheduled_session(event), user=active_user)
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].past_events == []
+        _assert_empty_dashboard(response)
 
     def test_a_waitlist_or_a_lapsed_offer_is_not_attendance(
         self, authenticated_client, active_user, non_root_sphere
@@ -385,7 +405,7 @@ class TestDashboardPastEvents:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].past_events == []
+        _assert_empty_dashboard(response)
 
     def test_running_a_scheduled_session_counts_as_being_there(
         self, authenticated_client, active_user, non_root_sphere
@@ -424,7 +444,7 @@ class TestDashboardPastEvents:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].past_events == []
+        _assert_empty_dashboard(response)
 
     def test_another_member_s_history_stays_theirs(
         self, authenticated_client, non_root_sphere
@@ -435,7 +455,7 @@ class TestDashboardPastEvents:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert response.context_data["dashboard"].past_events == []
+        _assert_empty_dashboard(response)
 
     def test_most_recent_first_and_capped(
         self, authenticated_client, active_user, non_root_sphere
