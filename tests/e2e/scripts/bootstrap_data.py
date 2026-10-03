@@ -203,6 +203,7 @@ def _create_session(
         description=description,
         participants_limit=participants_limit,
         min_age=min_age,
+        schedule_confirmed=True,
     )
     AgendaItem.objects.create(
         space=space,
@@ -368,6 +369,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         description="A full session used by the promotion e2e.",
         participants_limit=1,
         min_age=0,
+        schedule_confirmed=True,
     )
     AgendaItem.objects.create(
         space=space,
@@ -1640,8 +1642,9 @@ def main() -> None:
         duration_hours=8,
         publication_offset=timedelta(days=1),
     )
-    # A bookmark from another sphere's event, so the dashboard's Bookmarks
-    # section has a cross-sphere row to show. Driven by dashboard.auth.spec.ts.
+    # A bookmark from another sphere's event, so the dashboard's Coming up
+    # section has a cross-sphere starred row to show. Driven by
+    # dashboard.auth.spec.ts.
     foreign_hall = _create_venue(
         foreign_event, name="Foreign Hall", slug="foreign-hall"
     )
