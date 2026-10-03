@@ -3,6 +3,8 @@
 
 /* Over the card's full-bleed .session-link, so hovering it reaches the +N. */
 .session-tags-more {
+  --session-tags-gap: 8px;
+  --session-tags-arrow: 10px;
   position: relative;
   z-index: 20;
 }
@@ -12,7 +14,7 @@
 }
 
 .session-tags-popover {
-  margin-bottom: 8px;
+  margin-bottom: var(--session-tags-gap);
   transform: scale(0.9) translateY(16px);
   width: max-content;
   min-width: 12rem;
@@ -37,7 +39,7 @@
    anchor-scope because every card names the same anchor. */
 @supports (anchor-name: --a) {
   .session-tags-cloud {
-    anchor-scope: --session-tags-more;
+    anchor-scope: --session-tags-more, --session-tags-popover;
   }
 
   .session-tags-more {
@@ -51,6 +53,45 @@
     bottom: anchor(top);
     justify-self: anchor-center;
     position-try-fallbacks: flip-block;
+    anchor-name: --session-tags-popover;
+  }
+
+  /* The arrow: a square half under the bubble, on the +N's centre short of
+     the bubble's rounded corners. The +N's ::after, as only a fixed box
+     after the bubble in tree order may anchor to both.
+
+     NOTE: engines disagree on scrolling an anchor() that names a box other
+     than the default anchor (Chromium and Firefox land a scroll offset
+     apart), so every vertical edge here comes from the +N. Centred on the
+     bubble's near edge, with the bubble's height as margin on the far side,
+     the arrow's margin box is the bubble's: flip-block flips both together. */
+  .session-tags-more::after {
+    content: "";
+    position: fixed;
+    position-anchor: --session-tags-more;
+    z-index: 49;
+    width: var(--session-tags-arrow);
+    height: var(--session-tags-arrow);
+    bottom: anchor(top);
+    margin-bottom: calc(var(--session-tags-gap) - var(--session-tags-arrow) / 2);
+    margin-top: calc(anchor-size(--session-tags-popover height) - var(--session-tags-arrow) / 2);
+    position-try-fallbacks: flip-block;
+    left: clamp(
+      anchor(--session-tags-popover left) + 1.25rem,
+      anchor(center),
+      anchor(--session-tags-popover right) - 1.25rem
+    );
+    translate: -50% 0;
+    rotate: 45deg;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s var(--ease-spring-a-bit);
+  }
+
+  .session-tags-more:hover::after {
+    opacity: 1;
   }
 }
 
@@ -68,5 +109,17 @@
 
   .session-tags-more:hover .session-tags-popover {
     display: flex;
+  }
+
+  .session-tags-popover::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    translate: -50% 0;
+    width: var(--session-tags-arrow);
+    height: calc(var(--session-tags-arrow) / 2);
+    background: var(--color-bg-secondary);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 }
