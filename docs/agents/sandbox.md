@@ -11,19 +11,22 @@ sets `MISE_ENV=sandbox`, which makes mise load `mise.sandbox.toml` on top of
 reachable backend at the version already pinned in `mise.toml`: hk via cargo,
 shellcheck/hadolint via PyPI binary wheels, actionlint/dockerfmt via the Go
 module proxy (the sandbox image ships the rust and go toolchains these
-backends compile with). The hook apt-installs python3.14 and pipx first (the
-image preconfigures the deadsnakes PPA — on images without it the apt step
-fails and the hook warns). aube and ast-grep need no substitute; mise.toml
+backends compile with). The hook installs pipx from apt and python3.14 first:
+from apt when the image preconfigures the deadsnakes PPA, otherwise a
+python-build-standalone build via `pipx run uv python install 3.14` (images
+from 2026-10 on ship no PPA and only 3.10–3.13). It then builds `./.venv` from
+python3.14 itself, since Poetry's virtualenv handoff has fallen back to the
+image's 3.11. aube and ast-grep need no substitute; mise.toml
 installs them from npm everywhere (the unscoped `aube` npm package is
 squatted — only `@endevco/aube` is ours; prod's `docker/mise.toml`
 intentionally keeps the GitHub pin).
 
 Disabling the mise `python` also disables mise's creation of the virtualenv
-`_.python.venv` names, so nothing here would put `.venv` where the session
-hook's `PATH` and every task expect it, and Poetry would install to a cache
-directory instead (`django-admin: not found` on the first task that shells out
-to it). `poetry.toml` closes that gap: `virtualenvs.in-project` makes Poetry own
-`./.venv` on every machine, which is where mise already looked.
+`_.python.venv` names, so without the hook's own `.venv` step Poetry would
+install to a cache directory no task has on `PATH` (`django-admin: not found`
+on the first task that shells out to it). `poetry.toml` keeps that layout the
+same everywhere: `virtualenvs.in-project` makes Poetry own `./.venv` on every
+machine, which is where mise already looked.
 
 The sandbox image pre-bakes GitHub-layout installs of some of these tools.
 When such an install clashes with the alias backend, mise skips installing it
