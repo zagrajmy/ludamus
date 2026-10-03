@@ -69,6 +69,7 @@ honcho = "^2.0.0"
 import-linter = "^2.15"
 ipython = "^9.17.1"
 lxml-stubs = "^0.5.1"
+mutmut = "^3.8.0"
 mypy = "^2.2.0"
 pip-audit = "^2.10.1"
 pylint = "^4.0.3"
@@ -77,7 +78,6 @@ pytest-cov = "^7.0.0"
 pytest-django = "^4.14.0"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
-pytest-gremlins = "^1.8.1"
 pytest-xdist = "^3.8.0"
 responses = "^0.26.0"
 ruff = "^0.16.0"
@@ -366,12 +366,42 @@ convention = "pep257"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 
-[tool.pytest-gremlins]
-paths = ["src"]
-
-exclude = ["**/migrations/*"]
-
-report = ["console", "json"]
+[tool.mutmut]
+# NOTE: two layers only. `mills` is the one the unit suite owns
+# (docs/TESTING_STRATEGY.md), and `specs` is the pure constants those same
+# tests reach through it. A mutant in any other layer survives whatever only
+# the integration suite could have killed, so mutating `src` wholesale reports
+# noise instead of gaps.
+source_paths = ["src/ludamus/mills", "src/ludamus/specs"]
+# NOTE: mutmut runs the suite twice in one process (stats pass, then clean
+# pass); DBOS refuses to register the same workflow twice, so its smoke test
+# stays out.
+pytest_add_cli_args_test_selection = [
+    "tests/unit",
+    "--ignore=tests/unit/test_dbos_smoke.py",
+]
+# NOTE: mutmut runs the suite from a copy of the tree, so everything the unit
+# suite imports or loads has to be copied beside the mutants. Out: the mutated
+# packages themselves, `client` (a TypeScript app, never imported from Python)
+# and `media` (gitignored upload root, and the tests point MEDIA_ROOT at a tmp
+# dir). A new top-level package under `src/ludamus` belongs in this list.
+also_copy = [
+    "scripts",
+    "src/ludamus/__init__.py",
+    "src/ludamus/adapters",
+    "src/ludamus/content",
+    "src/ludamus/edges",
+    "src/ludamus/gates",
+    "src/ludamus/inits",
+    "src/ludamus/links",
+    "src/ludamus/locale",
+    "src/ludamus/pacts",
+    "src/ludamus/static",
+    "src/ludamus/templates",
+]
+# NOTE: a log line's wording and arguments are for the reader of the logs; a
+# test pinning them breaks on every rewording without guarding behaviour.
+do_not_mutate_patterns = ['logger\.']
 
 # IMPORT LINTER
 

@@ -220,3 +220,11 @@ class TestRestrictsEveryone:
 
     def test_no_windows_restricts_nobody(self) -> None:
         assert restricts_everyone([]) is False
+
+    def test_only_restricted_windows_restrict_everyone(self) -> None:
+        windows = [
+            _Window(restrict_to_configured_users=True),
+            _Window(restrict_to_configured_users=True),
+        ]
+
+        assert restricts_everyone(windows) is True

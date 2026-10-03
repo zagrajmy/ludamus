@@ -61,7 +61,7 @@ class TestSelectPromotableParties:
         party = [_wp(1, sponsor_id=99, order=0), _wp(2, sponsor_id=99, order=1)]
         state = _state(party, seats=1)
 
-        assert not select_promotable_parties(state)
+        assert len(select_promotable_parties(state)) == 0
 
     def test_no_leapfrog_to_smaller_party_behind(self):
         waiting = [
@@ -73,7 +73,7 @@ class TestSelectPromotableParties:
 
         # The 2-person party is first and does not fit; the lone waiter behind
         # must not leapfrog it.
-        assert not select_promotable_parties(state)
+        assert len(select_promotable_parties(state)) == 0
 
     def test_ineligible_member_dropped_rest_promoted(self):
         waiting = [
@@ -142,7 +142,7 @@ class TestSelectPromotableParties:
         ]
         state = _state(waiting, seats=5)
 
-        assert not select_promotable_parties(state)
+        assert len(select_promotable_parties(state)) == 0
 
     def test_fills_multiple_parties_until_seats_exhausted(self):
         waiting = [_wp(1, order=0), _wp(2, order=1), _wp(3, order=2)]

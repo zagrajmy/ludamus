@@ -109,7 +109,10 @@ class TestAccept:
         assert world.invitees.rows == {(1, STRANGER_EMAIL): InviteeStatus.ACCEPTED}
 
     def test_the_creator_and_the_signed_up_are_already_in(self):
-        world = _world(signups=[(1, OTHER_USER_ID)])
+        world = _world(
+            signups=[(1, OTHER_USER_ID)],
+            invitees={(1, OTHER_EMAIL): InviteeStatus.INVITED},
+        )
 
         for email in (CREATOR_EMAIL, OTHER_EMAIL):
             assert (
@@ -155,9 +158,12 @@ class TestAccept:
 
         assert outcomes == [ReplyOutcome.FULL, ReplyOutcome.FULL]
         assert world.rsvps.signups == [(1, CREATOR_ID)]
-        assert world.mailer.sent == [
-            (EncounterInviteReason.FULL, OTHER_EMAIL),
-            (EncounterInviteReason.FULL, STRANGER_EMAIL),
+        assert [
+            (i.reason, i.attendee_email, i.attendee_name, i.partstat)
+            for i in world.mailer.invites
+        ] == [
+            (EncounterInviteReason.FULL, OTHER_EMAIL, "", PartStat.ACCEPTED),
+            (EncounterInviteReason.FULL, STRANGER_EMAIL, "", PartStat.NEEDS_ACTION),
         ]
 
 

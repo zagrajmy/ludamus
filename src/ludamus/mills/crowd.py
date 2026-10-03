@@ -33,6 +33,7 @@ from ludamus.pacts.crowd import (
     RedeemOutcome,
     RedeemResultDTO,
     UserData,
+    UserType,
     VerificationRequestOutcome,
 )
 from ludamus.pacts.services import DatabaseConstraintError
@@ -61,6 +62,18 @@ if TYPE_CHECKING:
 
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def build_anonymous_user(slug: str, name: str = "") -> UserData:
+    # The single recipe for throwaway ANONYMOUS accounts (code-based
+    # self-enrollment, +N headcount guests); only the slug/name vary.
+    return UserData(
+        username=f"anon_{secrets.token_urlsafe(8).lower()}",
+        slug=slug,
+        name=name,
+        user_type=UserType.ANONYMOUS,
+        is_active=False,
+    )
 
 
 class ClaimService(ClaimServiceProtocol):

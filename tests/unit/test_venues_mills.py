@@ -13,15 +13,24 @@ from tests.unit.factories import FakeTransaction
 EVENT_PK = 1
 
 
-def _record(*, pk, name, event_id=EVENT_PK, parent_id=None, location=""):
+def _record(
+    *,
+    pk,
+    name,
+    event_id=EVENT_PK,
+    parent_id=None,
+    capacity=None,
+    description="",
+    location="",
+):
     return SpaceRecordDTO(
         pk=pk,
         event_id=event_id,
         parent_id=parent_id,
         name=name,
         slug=name.lower(),
-        capacity=None,
-        description="",
+        capacity=capacity,
+        description=description,
         location=location,
         order=0,
         programme_order=0,
@@ -42,10 +51,10 @@ def _node(*, pk, name, children=(), no_children_reason=None):
 
 class _Tree:
     def __init__(self, roots):
-        self._roots = list(roots)
+        self._by_event = {EVENT_PK: list(roots)}
 
-    def list_tree(self, _event_pk):
-        return list(self._roots)
+    def list_tree(self, event_pk):
+        return list(self._by_event.get(event_pk, []))
 
 
 def _tree():
@@ -109,14 +118,13 @@ class TestListPrintScopes:
 class FakeSpaces:
     def __init__(self, records=(), *, tree=(), with_sessions=()):
         self.records = {record.pk: record for record in records}
-        self.tree = list(tree)
+        self.tree = {EVENT_PK: list(tree)}
         self.with_sessions = set(with_sessions)
         self.reordered: list[tuple[int | None, list[int], int]] = []
-        self.programme_order: list[int] = []
+        self.programme_orders: list[tuple[int, list[int]]] = []
 
     def list_tree(self, event_pk):
-        del event_pk
-        return list(self.tree)
+        return list(self.tree.get(event_pk, []))
 
     def list_programme_spaces(self, event_id):
         return [
@@ -149,7 +157,7 @@ class FakeSpaces:
 
     def update(self, *, pk, parent_id, data):
         self.records[pk] = self.records[pk].model_copy(
-            update={"parent_id": parent_id, "name": data.name}
+            update={"parent_id": parent_id, **dict(data)}
         )
         return self.records[pk]
 
@@ -163,8 +171,7 @@ class FakeSpaces:
         return pk in self.with_sessions
 
     def reorder_programme(self, event_id, space_pks):
-        del event_id
-        self.programme_order = space_pks
+        self.programme_orders.append((event_id, space_pks))
 
     def duplicate(self, pk, new_name):
         source = self.records[pk]
@@ -262,6 +269,20 @@ class TestSpaceTreeService:
 
         assert targets == [(1, "Budynek A"), (2, "Budynek B")]
 
+    def test_reparent_targets_are_named_by_their_tree_path(self):
+        targets = _tree_service(FakeSpaces(tree=_tree())).list_reparent_targets(
+            pk=200, event_pk=EVENT_PK
+        )
+
+        assert targets == [
+            (1, "Budynek A"),
+            (10, "Budynek A > Parter"),
+            (100, "Budynek A > Parter > Sala 1"),
+            (20, "Budynek A > Piętro"),
+            (2, "Budynek B"),
+            (30, "Budynek B > Hala"),
+        ]
+
     def test_reorder_hands_the_sibling_order_to_the_repository(self):
         repo = FakeSpaces()
 
@@ -274,18 +295,23 @@ class TestSpaceTreeService:
 
         _tree_service(repo).reorder_programme(EVENT_PK, [200, 100])
 
-        assert repo.programme_order == [200, 100]
+        assert repo.programme_orders == [(EVENT_PK, [200, 100])]
 
     def test_move_to_top_level_detaches_a_nested_space(self):
-        repo = FakeSpaces(
-            [_record(pk=1, name="Budynek"), _record(pk=2, name="Sala", parent_id=1)]
+        nested = _record(
+            pk=2,
+            name="Sala",
+            parent_id=1,
+            capacity=12,
+            description="Duża sala",
+            location="Piętro 1",
         )
+        repo = FakeSpaces([_record(pk=1, name="Budynek"), nested])
 
         moved = _tree_service(repo).move_to_top_level(EVENT_PK, 2)
 
-        assert moved.parent_id is None
-        assert moved.name == "Sala"
-        assert repo.records[2].parent_id is None
+        assert moved == nested.model_copy(update={"parent_id": None})
+        assert repo.records[2] == moved
 
     def test_move_to_top_level_of_a_root_changes_nothing(self):
         repo = FakeSpaces([_record(pk=1, name="Budynek")])

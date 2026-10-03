@@ -9,7 +9,7 @@ from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDT
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, user_dto
 
-_TOKEN_MIN_LENGTH = 48
+_TOKEN_LENGTH = 64
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
@@ -25,6 +25,7 @@ class FakeUsers:
         self._existing_emails = set(existing_emails)
         self.created = []
         self.updated = []
+        self.email_checks = []
 
     def create(self, user_data):
         self.created.append(dict(user_data))
@@ -56,6 +57,7 @@ class FakeUsers:
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
         _ = now
+        self.email_checks.append((email, exclude_slug))
         if not email:
             return False
         return (
@@ -130,9 +132,10 @@ class FakeClaimRepo:
 class FakeClaims:
     def __init__(self, result=None):
         self._result = result
+        self.redeemed = []
 
     def redeem(self, *, token, username):
-        _ = (token, username)
+        self.redeemed.append((token, username))
         return self._result
 
 
@@ -168,7 +171,7 @@ class TestClaimServiceIssue:
         token = _claim_service(repo).issue(manager_slug="parent", user_slug="kid")
 
         assert token is not None
-        assert len(token) >= _TOKEN_MIN_LENGTH
+        assert len(token) == _TOKEN_LENGTH
         assert repo.issued == [("parent", "kid", token)]
 
     def test_refused_by_repo_yields_none(self):
@@ -296,6 +299,7 @@ class TestProvisionUser:
 
         assert result.user.slug == "kid"
         assert result.claim_outcome == ClaimOutcome.CONVERTED
+        assert claims.redeemed == [("valid", "auth0|sub")]
         assert not users.created
 
     def test_invalid_claim_still_provisions_and_reports_it(self):
@@ -338,6 +342,17 @@ class TestProvisionUser:
 
         assert result.user.slug != "auth0user"
         assert result.user.slug.startswith("auth0user-")
+
+    def test_create_data_without_email_or_slug_gets_the_defaults(self):
+        users = FakeUsers()
+
+        result = _service(users=users).provision_user(
+            username="auth0|sub", create_data={"username": "auth0|sub"}
+        )
+
+        assert result.user.slug == "user"
+        assert not result.user.email
+        assert users.email_checks == [("", None)]
 
 
 class TestSyncIdentity:

@@ -17,6 +17,9 @@ from ludamus.pacts.fields import FieldTypeSwitchError
 from ludamus.pacts.legacy import FacilitatorChangeLogDTO
 from tests.unit.factories import FakeTransaction
 
+EVENT_ID = 10
+FACILITATOR_ID = 1
+
 
 class FakeFacilitators:
     def __init__(self, facilitator):
@@ -34,25 +37,27 @@ class FakeFacilitators:
 class FakePersonalDataFieldValue:
     def __init__(self, existing=None, existing_field_ids=()):
         self.saved = []
-        self._existing = existing or {}
-        self._existing_field_ids = list(existing_field_ids)
+        self._existing = {(FACILITATOR_ID, EVENT_ID): existing or {}}
+        self._existing_field_ids = {
+            (FACILITATOR_ID, EVENT_ID): list(existing_field_ids)
+        }
 
     def save(self, entries):
         self.saved.append(entries)
 
-    def read_for_facilitator_event(self, _facilitator_id, _event_id):
-        return dict(self._existing)
+    def read_for_facilitator_event(self, facilitator_id, event_id):
+        return dict(self._existing.get((facilitator_id, event_id), {}))
 
-    def list_field_ids_for_facilitator_event(self, _facilitator_id, _event_id):
-        return list(self._existing_field_ids)
+    def list_field_ids_for_facilitator_event(self, facilitator_id, event_id):
+        return list(self._existing_field_ids.get((facilitator_id, event_id), []))
 
 
 class FakePersonalDataFields:
     def __init__(self, fields=()):
-        self._fields = list(fields)
+        self._fields = {EVENT_ID: list(fields)}
 
-    def list_by_event(self, _event_id):
-        return self._fields
+    def list_by_event(self, event_id):
+        return self._fields.get(event_id, [])
 
 
 class FakeChangeLogs:
@@ -63,12 +68,12 @@ class FakeChangeLogs:
         self.created.append(data)
 
 
-def _facilitator(event_id=10):
+def _facilitator(event_id=EVENT_ID):
     return FacilitatorDTO(
         accreditation_type="none",
         display_name="Alice",
         event_id=event_id,
-        pk=1,
+        pk=FACILITATOR_ID,
         slug="alice",
         user_id=None,
     )
@@ -80,9 +85,15 @@ def _field():
     )
 
 
-def _entry(*, value=True):
+def _phone_field():
+    return OrganizerFieldDTO(
+        field_type="text", name="Phone", order=1, pk=6, question="?", slug="phone"
+    )
+
+
+def _entry(*, value=True, field_id=5):
     return PersonalDataFieldValueData(
-        facilitator_id=1, event_id=10, field_id=5, value=value
+        facilitator_id=FACILITATOR_ID, event_id=EVENT_ID, field_id=field_id, value=value
     )
 
 
@@ -160,18 +171,28 @@ def test_blank_answer_for_an_unanswered_field_stores_nothing():
 
 
 def test_blank_answer_clears_a_field_that_has_one():
+    logs = FakeChangeLogs()
     repo = FakePersonalDataFieldValue(existing={"vegan": "yes"}, existing_field_ids=[5])
     service = _service(
         facilitators=FakeFacilitators(_facilitator()),
         personal_data_field_values=repo,
         fields=[_field()],
+        change_logs=logs,
     )
 
     service.update_personal_data(
-        event_id=10, facilitator_id=1, entries=[_entry(value="")]
+        event_id=10, facilitator_id=1, entries=[_entry(value="")], user_id=7
     )
 
     assert repo.saved == [[_entry(value="")]]
+    assert logs.created == [
+        {
+            "event_id": 10,
+            "facilitator_id": 1,
+            "user_id": 7,
+            "changes": [{"field": "", "field_id": 5, "old": "yes", "new": ""}],
+        }
+    ]
 
 
 def test_unchecked_checkbox_is_stored_as_an_answer():
@@ -217,18 +238,21 @@ def test_update_facilitator_logs_personal_data_and_core_changes_in_one_entry():
         fields=[_field()],
         change_logs=logs,
     )
+    data = {
+        "accreditation_type": "honorary",
+        "internal_comment": "VIP",
+        "is_collective": True,
+    }
 
     service.update_facilitator(
         event_id=10,
         facilitator_id=1,
-        data={"accreditation_type": "honorary", "internal_comment": ""},
+        data=data,
         entries=[_entry(value=True)],
         user_id=7,
     )
 
-    assert facilitators.updated == [
-        (1, {"accreditation_type": "honorary", "internal_comment": ""})
-    ]
+    assert facilitators.updated == [(1, data)]
     assert repo.saved == [[_entry(value=True)]]
     assert logs.created == [
         {
@@ -243,9 +267,34 @@ def test_update_facilitator_logs_personal_data_and_core_changes_in_one_entry():
                     "old": "none",
                     "new": "honorary",
                 },
+                {
+                    "field": "internal_comment",
+                    "field_id": None,
+                    "old": "",
+                    "new": "VIP",
+                },
+                {"field": "is_collective", "field_id": None, "old": False, "new": True},
             ],
         }
     ]
+
+
+def test_update_facilitator_blank_answer_clears_a_field_that_has_one():
+    repo = FakePersonalDataFieldValue(existing={"vegan": "yes"}, existing_field_ids=[5])
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=repo,
+        fields=[_field()],
+    )
+
+    service.update_facilitator(
+        event_id=10,
+        facilitator_id=1,
+        data={"accreditation_type": "none"},
+        entries=[_entry(value="")],
+    )
+
+    assert repo.saved == [[_entry(value="")]]
 
 
 def test_update_facilitator_with_nothing_changed_logs_nothing():
@@ -279,15 +328,34 @@ def test_unchanged_answer_and_unknown_field_are_not_logged():
     service.update_personal_data(
         event_id=10,
         facilitator_id=1,
-        entries=[
-            _entry(value="yes"),
-            PersonalDataFieldValueData(
-                facilitator_id=1, event_id=10, field_id=404, value="stray"
-            ),
-        ],
+        entries=[_entry(value="yes"), _entry(field_id=404, value="stray")],
     )
 
     assert not logs.created
+
+
+def test_skipped_entries_do_not_hide_a_later_change():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=FakePersonalDataFieldValue(existing={}),
+        fields=[_field(), _phone_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10,
+        facilitator_id=1,
+        entries=[
+            _entry(field_id=404, value="stray"),
+            _entry(field_id=6, value=""),
+            _entry(value=True),
+        ],
+    )
+
+    assert [entry["changes"] for entry in logs.created] == [
+        [{"field": "", "field_id": 5, "old": None, "new": True}]
+    ]
 
 
 def test_emptying_a_multi_select_answer_is_not_an_edit():
@@ -309,10 +377,10 @@ def test_emptying_a_multi_select_answer_is_not_an_edit():
 class FakeLogReader(FakeChangeLogs):
     def __init__(self, entries):
         super().__init__()
-        self._entries = entries
+        self._entries = {EVENT_ID: entries}
 
-    def list_by_event(self, _event_id):
-        return self._entries
+    def list_by_event(self, event_id):
+        return self._entries.get(event_id, [])
 
 
 def test_list_log_and_field_names_read_through():
@@ -339,22 +407,23 @@ def test_list_log_and_field_names_read_through():
 
 class FakeCFPFields:
     def __init__(self, *, fields=(), answers=None, answered=()):
-        self._fields = list(fields)
-        self._answers = answers or {}
+        self._fields = {EVENT_ID: list(fields)}
+        self._answers = {EVENT_ID: answers or {}}
         self._answered = set(answered)
         self.updated = {}
         self.deleted = []
-        self.updates = []
 
-    def list_by_event(self, _event_id):
-        return self._fields
+    def list_by_event(self, event_id):
+        return self._fields.get(event_id, [])
 
-    def count_values(self, _event_id):
-        return self._answers
+    def count_values(self, event_id):
+        return self._answers.get(event_id, {})
 
-    def read_by_slug(self, _event_id, slug):
+    def read_by_slug(self, event_id, slug):
         try:
-            return next(field for field in self._fields if field.slug == slug)
+            return next(
+                field for field in self.list_by_event(event_id) if field.slug == slug
+            )
         except StopIteration:
             raise NotFoundError from None
 
@@ -368,9 +437,10 @@ class FakeCFPFields:
         self.deleted.append(pk)
 
     def set_field_type(self, pk, field_type):
-        field = next(field for field in self._fields if field.pk == pk)
-        switched = field.model_copy(update={"field_type": field_type})
-        self._fields = [switched if f.pk == pk else f for f in self._fields]
+        fields = self._fields[EVENT_ID]
+        index = next(i for i, field in enumerate(fields) if field.pk == pk)
+        switched = fields[index].model_copy(update={"field_type": field_type})
+        fields[index] = switched
         return switched
 
 
@@ -379,10 +449,9 @@ def _cfp_service(fields):
 
 
 def test_summaries_default_unanswered_fields_to_zero():
-    other = OrganizerFieldDTO(
-        field_type="text", name="Phone", order=1, pk=6, question="?", slug="phone"
+    service = _cfp_service(
+        FakeCFPFields(fields=[_field(), _phone_field()], answers={5: 3})
     )
-    service = _cfp_service(FakeCFPFields(fields=[_field(), other], answers={5: 3}))
 
     summaries = service.list_summaries(10)
 
@@ -422,15 +491,29 @@ def test_deletion_and_restore_log_mirror_each_other():
     logs = FakeChangeLogs()
 
     log_facilitator_deletion(
-        repo=logs, event_id=10, facilitator_id=1, user_id=None, deleted=True
+        repo=logs, event_id=10, facilitator_id=1, user_id=7, deleted=True
     )
     log_facilitator_deletion(
-        repo=logs, event_id=10, facilitator_id=1, user_id=None, deleted=False
+        repo=logs, event_id=10, facilitator_id=1, user_id=7, deleted=False
     )
 
-    assert [entry["changes"][0] for entry in logs.created] == [
-        {"field": "deleted", "field_id": None, "old": "", "new": "yes"},
-        {"field": "deleted", "field_id": None, "old": "yes", "new": ""},
+    assert logs.created == [
+        {
+            "event_id": 10,
+            "facilitator_id": 1,
+            "user_id": 7,
+            "changes": [
+                {"field": "deleted", "field_id": None, "old": "", "new": "yes"}
+            ],
+        },
+        {
+            "event_id": 10,
+            "facilitator_id": 1,
+            "user_id": 7,
+            "changes": [
+                {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
+            ],
+        },
     ]
 
 
