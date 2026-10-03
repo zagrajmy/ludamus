@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0157_alter_user_avatar_url")]
+    dependencies = [("db_main", "0171_personal_data_field_is_required")]
 
     operations = [
         migrations.AddField(

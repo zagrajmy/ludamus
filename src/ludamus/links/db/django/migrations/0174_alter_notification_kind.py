@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0166_sphere_visibility")]
+    dependencies = [("db_main", "0173_stamp_announcements_notified")]
 
     operations = [
         migrations.AlterField(
