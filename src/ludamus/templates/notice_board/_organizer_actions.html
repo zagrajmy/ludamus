@@ -8,15 +8,15 @@
             {% tessera_copy share_url variant="menu-item" %}
                 {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
                 {% translate "Copy link" %}
-            {% endtessera_copy %}
+            {% end_tessera_copy %}
             {% copy_lines encounter.title encounter.game encounter.start_time|date:"DATETIME_FORMAT" encounter.place share_url as share_info %}
             {% tessera_copy share_info variant="menu-item" %}
                 {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
                 {% translate "Copy info" %}
-            {% endtessera_copy %}
+            {% end_tessera_copy %}
             {% translate "Show QR code" as t_show_qr %}
             {% tessera_action_dropdown_item t_show_qr icon="qr-code" data_show_qr="qr-modal" %}
-        {% endtessera_action_dropdown %}
+        {% end_tessera_action_dropdown %}
         <a href="{% url 'web:notice-board:edit' pk=encounter.pk %}"
            class="btn btn-secondary text-sm w-full text-center">
             {% icon "pencil-square" class="h-4 w-4" variant="mini" %}

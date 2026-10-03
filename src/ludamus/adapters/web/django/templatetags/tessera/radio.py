@@ -21,13 +21,13 @@ class RadioNode(SelectNode):
 
 @register.tag("radio")
 def do_radio(parser: Parser, token: Token) -> RadioNode:
-    """Parse ``{% radio ... %}...{% endradio %}``.
+    """Parse ``{% radio ... %}...{% end_radio %}``.
 
     Returns:
         A RadioNode that renders a themed radio input labelled by its body.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endradio",))
+    nodelist = parser.parse(("end_radio",))
     parser.delete_first_token()
 
     return RadioNode(nodelist, attrs)
