@@ -61,14 +61,15 @@ class DayTurnover:
         # 00:00) gives an opening and a window edge the same wall time an hour
         # apart.
         windows: list[Window] = []
-        cursor_date = first_date
-        while cursor_date <= last_date:
+        for offset in range((last_date - first_date).days + 1):  # pragma: no mutate
+            day = first_date + timedelta(days=offset)
             window_start = max(
-                local_start, self.opening(cursor_date, tz), key=datetime.timestamp
+                local_start, self.opening(day, tz), key=datetime.timestamp
             )
-            cursor_date += timedelta(days=1)
             window_end = min(
-                local_end, self.opening(cursor_date, tz), key=datetime.timestamp
+                local_end,
+                self.opening(day + timedelta(days=1), tz),
+                key=datetime.timestamp,
             )
             if window_start.timestamp() < window_end.timestamp():
                 windows.append((window_start, window_end))

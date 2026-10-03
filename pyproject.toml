@@ -399,6 +399,9 @@ also_copy = [
     "src/ludamus/static",
     "src/ludamus/templates",
 ]
+# NOTE: a log line's wording and arguments are for the reader of the logs; a
+# test pinning them breaks on every rewording without guarding behaviour.
+do_not_mutate_patterns = ['logger\.']
 
 # IMPORT LINTER
 

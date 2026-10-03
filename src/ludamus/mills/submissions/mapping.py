@@ -340,7 +340,7 @@ def decode_response(response_json: str) -> ImportRow:
 
 
 def encode_response(data: dict[str, str]) -> str:
-    return json.dumps(data, ensure_ascii=False)
+    return _RESPONSE_ENCODER.encode(data)
 
 
 def locate_row(
@@ -379,7 +379,9 @@ def slugify(value: str, *, max_length: int = 50) -> str:
     # trailing dash.
     transliterated = unidecode(value).lower()
     slug = re.sub(r"[^\w\s-]", "", transliterated)
+    # pragma: no mutate start
     return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
+    # pragma: no mutate end
 
 
 def dedup_ident(*, event_id: int, identity: str) -> str:

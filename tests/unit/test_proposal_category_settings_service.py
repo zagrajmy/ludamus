@@ -219,6 +219,7 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
     repos = _repos(
         categories=categories,
         session_fields=[_session_field(1), _session_field(2), _session_field(3)],
+        time_slots=[_time_slot(7), _time_slot(3)],
         proposal_count=5,
     )
 
@@ -233,7 +234,7 @@ def test_read_context_sorts_by_saved_order_and_appends_unordered() -> None:
         ],
         session_field_requirements={3: True},
         session_field_order=[3, 1],
-        available_time_slots=[_time_slot(3)],
+        available_time_slots=[_time_slot(3), _time_slot(7)],
         time_slot_requirements={3: True},
         time_slot_order=[3],
         proposal_count=5,

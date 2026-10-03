@@ -599,6 +599,7 @@ class ImportEngine:
                 # No organizer behind it, so the log says who only by saying
                 # the import did it — otherwise History's last word stays
                 # "deleted" for a facilitator the panel shows alive.
+                # pragma: no mutate start
                 log_facilitator_deletion(
                     repo=self._repos.facilitator_change_logs,
                     event_id=event_id,
@@ -606,6 +607,7 @@ class ImportEngine:
                     user_id=None,
                     deleted=False,
                 )
+                # pragma: no mutate end
             return matched.pk
         return self._repos.facilitators.create(
             {

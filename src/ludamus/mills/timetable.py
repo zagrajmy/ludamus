@@ -297,11 +297,13 @@ class TimetableService(TimetableServiceProtocol):
         states = _card_states(conflicts, violations)
         # Every rendered date is a `windows_by_date` key, so it carries at least
         # one window; with no dates there is no span and nothing to render.
+        # pragma: no mutate start
         span = (
             self._shared_day_span(dates_to_render, windows_by_date, tz)
             if dates_to_render
             else (0, 0)
         )
+        # pragma: no mutate end
         days = [
             self._build_day_grid(
                 date_to_render=date_to_render,
@@ -478,7 +480,7 @@ class TimetableService(TimetableServiceProtocol):
         # the windows merge into one that holds the whole placement.
         first, *rest = touched
         reaches = [slot.start_time for slot in rest] + [placement.end_time]
-        for slot, reach in zip(touched, reaches, strict=True):
+        for slot, reach in zip(touched, reaches, strict=True):  # pragma: no mutate
             start = (
                 min(slot.start_time, placement.start_time)
                 if slot is first

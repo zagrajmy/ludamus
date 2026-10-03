@@ -425,13 +425,14 @@ class TestLandingService:
 
 def _create_data(
     *,
+    name: str = "New",
     slug: str = "new-conf",
     start: datetime = _START,
     end: datetime = _END,
     publication: datetime | None = _PUBLISHED,
 ) -> EventCreateData:
     return EventCreateData(
-        name="New",
+        name=name,
         slug=slug,
         description="",
         start_time=start,
@@ -527,6 +528,13 @@ class TestEventsService:
 
         assert created.slug.startswith("new-")
         assert created.slug != "new"
+
+    def test_create_from_a_name_without_slug_characters_falls_back_to_event(self):
+        created = _events_service(FakeEvents([])).create(
+            sphere_id=SPHERE, data=_create_data(name="!!!", slug="")
+        )
+
+        assert created.slug == "event"
 
     def test_create_reports_a_slug_conflict_when_no_derived_slug_is_free(
         self, monkeypatch

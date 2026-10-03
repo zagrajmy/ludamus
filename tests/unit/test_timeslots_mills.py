@@ -3,7 +3,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS, slot_windows_by_local_date
+from ludamus.mills.timeslots import (
+    MIDNIGHT,
+    PROGRAMME_DAYS,
+    DayTurnover,
+    slot_windows_by_local_date,
+)
 from ludamus.pacts import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
@@ -11,6 +16,9 @@ _TZ = ZoneInfo("Europe/Warsaw")
 # instants, so a window dated by the server clock lands on the wrong day.
 _WEST = ZoneInfo("America/New_York")
 _EAST = ZoneInfo("Pacific/Auckland")
+# Goes back two hours at 01:00Z on the last Sunday of October, so the wall
+# clock runs 01:00-03:00 twice and a 02:00 turnover sits inside that repeat.
+_TROLL = ZoneInfo("Antarctica/Troll")
 
 
 class TestMidnightWindows:
@@ -73,6 +81,16 @@ class TestProgrammeDays:
         assert PROGRAMME_DAYS.date_of(
             datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ
         ) == date(2026, 10, 24)
+
+    def test_a_turnover_inside_the_repeated_hours_clamps_by_instant(self):
+        # 01:30 and 02:00 here are the second pass of the wall clock, both
+        # after the 02:00 turnover (00:00Z) that opened the day.
+        start = datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
+        end = datetime(2026, 10, 25, 2, tzinfo=UTC)
+
+        assert DayTurnover(2).windows(start=start, end=end, tz=_TROLL) == [
+            (start.astimezone(_TROLL), end.astimezone(_TROLL))
+        ]
 
     def test_an_empty_or_reversed_interval_yields_no_window(self):
         start = datetime(2026, 7, 10, 12, tzinfo=_TZ)

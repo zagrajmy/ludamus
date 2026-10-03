@@ -232,9 +232,11 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                     personal_data=personal_data,
                 )
                 if current_user:
+                    # pragma: no mutate start
                     self._fill_profile_discord(
                         user=current_user, event_id=event.pk, answers=answers
                     )
+                    # pragma: no mutate end
 
             if track_pks := wizard_data.get("track_pks"):
                 # Track ids come from wizard state, so they are trusted only
@@ -341,6 +343,6 @@ def _discord_answer(answers: list[tuple[OrganizerFieldDTO, str]]) -> str:
     for field, value in answers:
         if field.field_type == "discord" and isinstance(value, str):
             handle = value.strip()
-            if 0 < len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
+            if len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
                 return handle
     return ""

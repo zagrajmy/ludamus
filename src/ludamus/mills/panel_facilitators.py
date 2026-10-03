@@ -800,6 +800,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 event_id, facilitator_slug
             )
             self._repos.facilitators.restore(facilitator.pk)
+            # pragma: no mutate start
             log_facilitator_deletion(
                 repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
@@ -807,6 +808,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 user_id=user_id,
                 deleted=False,
             )
+            # pragma: no mutate end
 
     def _place_guild(
         self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int

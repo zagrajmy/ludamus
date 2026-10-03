@@ -17,7 +17,10 @@ from ludamus.pacts.legacy import (
     TrackDTO,
 )
 from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos
-from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
+from ludamus.specs.proposal import (
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    PROPOSAL_RATE_LIMIT_SECONDS,
+)
 from tests.unit.factories import event_dto
 
 EXPECTED_SESSION_ID = 99
@@ -669,9 +672,9 @@ class TestAccountAnswers:
         )
 
     def test_profile_handle_answers_only_discord_fields(self, service, repos):
-        repos.users.read_by_id.return_value = MagicMock(
-            email="ada@x.z", discord_username="ada_gm"
-        )
+        repos.users.read_by_id.side_effect = {
+            USER_PK: MagicMock(email="ada@x.z", discord_username="ada_gm")
+        }.__getitem__
 
         answers = service.get_account_answers(
             user_id=USER_PK, fields=[_discord_field(), _field(4, "phone")]
@@ -704,8 +707,8 @@ class FakeUsers:
     def read(self, _slug):
         return self.user
 
-    def fill_discord_username(self, _slug, handle):
-        if self.handle:
+    def fill_discord_username(self, slug, handle):
+        if slug != self.user.slug or self.handle:
             return False
         self.handle = handle
         return True
@@ -744,6 +747,21 @@ class TestProfileDiscordFill:
 
         assert users.handle == "ada"
 
+    def test_fills_a_one_character_handle(self, submitting_repos):
+        users = FakeUsers()
+
+        self._submit(self._service(submitting_repos, users), submitting_repos, "a")
+
+        assert users.handle == "a"
+
+    def test_fills_a_handle_of_the_profile_max_length(self, submitting_repos):
+        users = FakeUsers()
+        handle = "x" * PROFILE_DISCORD_USERNAME_MAX_LENGTH
+
+        self._submit(self._service(submitting_repos, users), submitting_repos, handle)
+
+        assert users.handle == handle
+
     def test_keeps_a_handle_the_profile_already_has(self, submitting_repos):
         users = FakeUsers(handle="ada_gm")
 
@@ -755,7 +773,9 @@ class TestProfileDiscordFill:
         users = FakeUsers()
 
         self._submit(
-            self._service(submitting_repos, users), submitting_repos, "x" * 151
+            self._service(submitting_repos, users),
+            submitting_repos,
+            "x" * (PROFILE_DISCORD_USERNAME_MAX_LENGTH + 1),
         )
 
         assert not users.handle

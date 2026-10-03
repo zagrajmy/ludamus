@@ -78,6 +78,17 @@ class TestCFPPersonalDataFieldService:
         fields.list_by_event.assert_called_once_with(42)
         fields.count_values.assert_called_once_with(42)
 
+    def test_read_returns_the_field_of_the_named_event(self, service, fields):
+        by_event_and_slug = {
+            (5, "email"): _personal_data_field(pk=1),
+            (6, "email"): _personal_data_field(pk=2),
+        }
+        fields.read_by_slug.side_effect = lambda event_pk, slug: by_event_and_slug[
+            event_pk, slug
+        ]
+
+        assert service.read(6, "email") == _personal_data_field(pk=2)
+
     def test_read_propagates_not_found(self, service, fields):
         fields.read_by_slug.side_effect = NotFoundError
 

@@ -140,14 +140,21 @@ class FakeEncounters:
     def delete(self, pk):
         del self.rows[pk]
 
+    @staticmethod
+    def _visible(rows, sphere_id, user_id):
+        return [
+            row
+            for row in rows.values()
+            if row.sphere_id == sphere_id
+            and (row.is_public or row.creator_id == user_id)
+        ]
+
     def list_visible_upcoming(self, sphere_id, user_id, limit):
-        del user_id
-        rows = [row for row in self.rows.values() if row.sphere_id == sphere_id]
+        rows = self._visible(self.rows, sphere_id, user_id)
         return rows[:limit] if limit is not None else rows
 
     def list_visible_past(self, sphere_id, user_id, limit):
-        del user_id
-        return [row for row in self.past.values() if row.sphere_id == sphere_id][:limit]
+        return self._visible(self.past, sphere_id, user_id)[:limit]
 
 
 class FakeRSVPs:
