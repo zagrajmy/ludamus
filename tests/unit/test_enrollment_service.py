@@ -2,6 +2,7 @@ import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from freezegun import freeze_time
 
 from ludamus.mills.enrollment import (
     EnrollmentService,
@@ -26,10 +27,13 @@ from ludamus.pacts.legacy import (
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
+from ludamus.specs.enrollment import MEMBERSHIP_CHECK_INTERVAL_MINUTES
 from tests.unit.factories import FakeTransaction, event_dto
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
+_SPHERE_ID = 1
+_VIEWER_EMAIL = "viewer@example.com"
 _GUEST_SLUG = re.compile(r"guest-[a-z0-9_-]{11}")
 
 
@@ -96,10 +100,10 @@ def _user_config(allowed_slots, *, last_check=_NOW):
     )
 
 
-def _domain_config(allowed_slots_per_user):
+def _domain_config(allowed_slots_per_user, *, enrollment_config_id=5):
     return DomainEnrollmentConfigDTO(
         pk=23,
-        enrollment_config_id=5,
+        enrollment_config_id=enrollment_config_id,
         domain="example.com",
         allowed_slots_per_user=allowed_slots_per_user,
     )
@@ -111,8 +115,7 @@ class FakeParticipations:
         self.seated: list[GuestSeatData] = []
 
     def occupying_user_ids(self, *, user_ids, event_id):
-        del event_id
-        return self._occupying & set(user_ids)
+        return {_EVENT_ID: self._occupying}[event_id] & set(user_ids)
 
     def create_confirmed(self, seat):
         self.seated.append(seat)
@@ -137,20 +140,23 @@ class FakeUsers:
 
 
 class FakeEnrollmentConfigs:
-    def __init__(self, configs=(), user_config=None, domain_config=None):
+    def __init__(self, configs=(), user_config=None, domain_configs=()):
         self._configs = list(configs)
         self._user_config = user_config
-        self._domain_config = domain_config
+        self._domain_configs = list(domain_configs)
         self.created: list[dict] = []
         self.updated: list[UserEnrollmentConfigDTO] = []
+        self.domain_reads: list[tuple[int, str]] = []
 
-    def read_list(self, _event_id, max_start_time, min_end_time):
+    def read_list(self, event_id, max_start_time, min_end_time):
         # The real repo bounds the period; a fake that ignores it lets a test
         # pass on windows the service would never have been handed.
         return [
             config
             for config in self._configs
-            if config.start_time <= max_start_time and config.end_time >= min_end_time
+            if config.event_id == event_id
+            and config.start_time <= max_start_time
+            and config.end_time >= min_end_time
         ]
 
     def create_user_config(self, user_enrollment_config):
@@ -163,25 +169,33 @@ class FakeEnrollmentConfigs:
     def update_user_config(self, user_enrollment_config):
         self.updated.append(user_enrollment_config)
 
-    def read_user_config(self, _config, _user_email):
+    def read_user_config(self, config, user_email):
+        known = {known_config.pk for known_config in self._configs}
+        if config.pk not in known or user_email != _VIEWER_EMAIL:
+            return None
         return self._user_config
 
     def read_domain_config(self, config, domain):
-        if self._domain_config is None:
-            return None
-        matches = (
-            self._domain_config.enrollment_config_id == config.pk
-            and self._domain_config.domain == domain
+        self.domain_reads.append((config.pk, domain))
+        return next(
+            (
+                domain_config
+                for domain_config in self._domain_configs
+                if domain_config.enrollment_config_id == config.pk
+                and domain_config.domain == domain
+            ),
+            None,
         )
-        return self._domain_config if matches else None
 
 
 class FakeWindows:
     def __init__(self, windows=()):
         self._windows = {window.pk: window for window in windows}
 
-    def list_for_event(self, _event_id):
-        return list(self._windows.values())
+    def list_for_event(self, event_id):
+        return [
+            window for window in self._windows.values() if window.event_id == event_id
+        ]
 
     def read(self, event_id, pk):
         window = self._windows.get(pk)
@@ -229,8 +243,7 @@ class FakeTicketApiResolver:
         self.ticket_api = ticket_api or NoTicketAPI()
 
     def resolve(self, *, event_id, sphere_id):
-        del event_id, sphere_id
-        return self.ticket_api
+        return {(_EVENT_ID, _SPHERE_ID): self.ticket_api}[event_id, sphere_id]
 
 
 def _service(
@@ -368,6 +381,29 @@ class TestEnrollmentAccess:
 
         assert access == EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
 
+    def test_a_window_is_open_from_its_start_until_its_end(self):
+        access = viewer_access(
+            windows=[
+                _enrollment_config(
+                    start_time=_NOW,
+                    end_time=_NOW + timedelta(days=1),
+                    restrict_to_configured_users=False,
+                ),
+                _enrollment_config(
+                    pk=6,
+                    start_time=_NOW - timedelta(days=1),
+                    end_time=_NOW,
+                    restrict_to_configured_users=False,
+                ),
+            ],
+            configured_window_ids=frozenset(),
+            now=_NOW,
+        )
+
+        assert access == EnrollmentAccessDTO(
+            open_window_ids=frozenset({5}), opens_at=None
+        )
+
     def test_an_open_window_is_named_by_id_so_a_session_can_be_asked_about(self):
         access = viewer_access(
             windows=[
@@ -407,7 +443,7 @@ class TestEnrollmentService:
             enrollment_configs=FakeEnrollmentConfigs(
                 configs=[_enrollment_config()],
                 user_config=_user_config(0),
-                domain_config=_domain_config(2),
+                domain_configs=[_domain_config(2)],
             ),
             ticket_api_resolver=FakeTicketApiResolver(),
         )
@@ -421,7 +457,7 @@ class TestEnrollmentService:
         # domain would promise access the slot check then refuses.
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config()], domain_config=_domain_config(0)
+                configs=[_enrollment_config()], domain_configs=[_domain_config(0)]
             ),
             ticket_api_resolver=FakeTicketApiResolver(),
         )
@@ -433,7 +469,7 @@ class TestEnrollmentService:
     def test_virtual_config_ignores_a_domain_row_for_another_domain(self):
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(
-                configs=[_enrollment_config()], domain_config=_domain_config(2)
+                configs=[_enrollment_config()], domain_configs=[_domain_config(2)]
             ),
             ticket_api_resolver=FakeTicketApiResolver(),
         )
@@ -448,19 +484,38 @@ class TestEnrollmentService:
             enrollment_configs=FakeEnrollmentConfigs(
                 configs=[_enrollment_config(), _enrollment_config(pk=6)],
                 user_config=_user_config(slots),
+                domain_configs=[
+                    _domain_config(2),
+                    _domain_config(3, enrollment_config_id=6),
+                ],
             )
         )
 
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
-        assert config == VirtualEnrollmentConfig(user_slots=slots + slots)
+        assert config == VirtualEnrollmentConfig(
+            user_slots=slots + slots, domain_slots=2 + 3, domain="example.com"
+        )
+
+    def test_virtual_config_looks_up_no_domain_for_an_email_without_one(self):
+        configs = FakeEnrollmentConfigs(
+            configs=[_enrollment_config()], domain_configs=[_domain_config(2)]
+        )
+        service = _service(
+            enrollment_configs=configs, ticket_api_resolver=FakeTicketApiResolver()
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer")
+
+        assert config is None
+        assert not configs.domain_reads
 
     def test_virtual_config_combines_user_slots_with_domain_slots(self):
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(
                 configs=[_enrollment_config()],
                 user_config=_user_config(4),
-                domain_config=_domain_config(2),
+                domain_configs=[_domain_config(2)],
             )
         )
 
@@ -473,16 +528,27 @@ class TestEnrollmentService:
     def test_virtual_config_stores_the_membership_the_api_reports(self):
         configs = FakeEnrollmentConfigs(configs=[_enrollment_config()])
         slots = 7
+        ticket_api = FakeTicketAPI(slots)
         service = _service(
             enrollment_configs=configs,
-            ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI(slots)),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
+        before = datetime.now(tz=UTC)
 
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config == VirtualEnrollmentConfig(user_slots=slots)
-        assert [row["allowed_slots"] for row in configs.created] == [slots]
-        assert [row["fetched_from_api"] for row in configs.created] == [True]
+        assert ticket_api.calls == ["viewer@example.com"]
+        assert len(configs.created) == 1
+        row = configs.created[0]
+        assert before <= row["last_check"] <= datetime.now(tz=UTC)
+        assert row == {
+            "enrollment_config_id": 5,
+            "user_email": "viewer@example.com",
+            "allowed_slots": slots,
+            "fetched_from_api": True,
+            "last_check": row["last_check"],
+        }
 
     def test_virtual_config_is_none_when_the_api_reports_no_membership(self):
         configs = FakeEnrollmentConfigs(configs=[_enrollment_config()])
@@ -498,23 +564,27 @@ class TestEnrollmentService:
         # instead of asking the API again.
         assert [row["allowed_slots"] for row in configs.created] == [0]
 
-    def test_virtual_config_refetches_a_stale_row_granting_no_slots(self):
+    @pytest.mark.parametrize("slots", (1, 7))
+    def test_virtual_config_refetches_a_stale_row_granting_no_slots(self, slots):
         configs = FakeEnrollmentConfigs(
             configs=[_enrollment_config()],
             user_config=_user_config(0, last_check=_NOW - timedelta(days=10)),
         )
-        slots = 7
         ticket_api = FakeTicketAPI(slots)
         service = _service(
             enrollment_configs=configs,
             ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
+        before = datetime.now(tz=UTC)
 
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config == VirtualEnrollmentConfig(user_slots=slots)
         assert ticket_api.calls == ["viewer@example.com"]
-        assert [row.allowed_slots for row in configs.updated] == [slots]
+        assert len(configs.updated) == 1
+        row = configs.updated[0]
+        assert row.allowed_slots == slots
+        assert before <= row.last_check <= datetime.now(tz=UTC)
 
     def test_virtual_config_keeps_a_refetched_row_that_still_grants_nothing(self):
         configs = FakeEnrollmentConfigs(
@@ -525,11 +595,32 @@ class TestEnrollmentService:
             enrollment_configs=configs,
             ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI(0)),
         )
+        before = datetime.now(tz=UTC)
 
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config is None
-        assert [row.allowed_slots for row in configs.updated] == [0]
+        assert len(configs.updated) == 1
+        row = configs.updated[0]
+        assert row.allowed_slots == 0
+        assert before <= row.last_check <= datetime.now(tz=UTC)
+
+    def test_virtual_config_trusts_a_stale_row_that_still_grants_a_slot(self):
+        # The throttle exists for rows granting nothing; a row with any slot
+        # at all is the answer, however old its check.
+        ticket_api = FakeTicketAPI(7)
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(1, last_check=_NOW - timedelta(days=10)),
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(user_slots=1)
+        assert not ticket_api.calls
 
     def test_virtual_config_survives_a_membership_api_failure_with_no_row(self):
         # The API is the only source of a first row, so a failure leaves the
@@ -568,6 +659,23 @@ class TestEnrollmentService:
             enrollment_configs=FakeEnrollmentConfigs(
                 configs=[_enrollment_config()],
                 user_config=_user_config(0, last_check=datetime.now(tz=UTC)),
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+        assert not ticket_api.calls
+
+    @freeze_time(_NOW)
+    def test_virtual_config_does_not_refetch_a_row_checked_the_interval_ago(self):
+        ticket_api = FakeTicketAPI(7)
+        last_check = _NOW - timedelta(minutes=MEMBERSHIP_CHECK_INTERVAL_MINUTES)
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(0, last_check=last_check),
             ),
             ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
@@ -633,6 +741,53 @@ class TestEnrollmentService:
         assert access == EnrollmentAccessDTO(
             open_window_ids=frozenset(), opens_at=general_start
         )
+
+    def test_access_names_the_general_window_for_an_anonymous_viewer(self):
+        now = datetime.now(tz=UTC)
+        general_start = now + timedelta(days=2)
+        windows = [
+            _enrollment_config(
+                start_time=now - timedelta(hours=1), end_time=now + timedelta(days=1)
+            ),
+            _enrollment_config(
+                pk=6,
+                start_time=general_start,
+                end_time=now + timedelta(days=3),
+                restrict_to_configured_users=False,
+            ),
+        ]
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(configs=windows),
+            windows=FakeWindows(windows),
+        )
+
+        access = service.access(event=_event(), viewer_slug=None)
+
+        assert access == EnrollmentAccessDTO(
+            open_window_ids=frozenset(), opens_at=general_start
+        )
+
+    def test_access_asks_the_membership_api_for_a_viewer_without_a_stored_row(self):
+        now = datetime.now(tz=UTC)
+        windows = [
+            _enrollment_config(
+                start_time=now - timedelta(hours=1), end_time=now + timedelta(days=1)
+            )
+        ]
+        ticket_api = FakeTicketAPI(7)
+        service = _service(
+            users=FakeUsers([_user(1)]),
+            enrollment_configs=FakeEnrollmentConfigs(configs=windows),
+            windows=FakeWindows(windows),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        access = service.access(event=_event(), viewer_slug="viewer")
+
+        assert access == EnrollmentAccessDTO(
+            open_window_ids=frozenset({5}), opens_at=None
+        )
+        assert ticket_api.calls == ["viewer@example.com"]
 
     def test_access_asks_no_membership_question_without_a_restricted_window(self):
         now = datetime.now(tz=UTC)

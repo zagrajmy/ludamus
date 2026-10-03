@@ -57,14 +57,13 @@ class TestRenderMarkdown:
         assert "<strong>bold</strong>" in html
         assert "<br" in html
 
-    def test_strips_scripts_and_unknown_attributes(self):
+    def test_keeps_only_the_allowed_tags_and_attributes(self):
         html = render_markdown(
-            '<script>alert(1)</script><a href="/x" onclick="y">l</a>'
+            "<script>alert(1)</script>"
+            '<a href="/x" hreflang="en" onclick="y">l</a><u>u</u>'
         )
 
-        assert "<script" not in html
-        assert "onclick" not in html
-        assert '<a href="/x"' in html
+        assert html.strip() == '<p><a href="/x" rel="noopener noreferrer">l</a>u</p>'
 
 
 class TestCalendarExports:
@@ -77,6 +76,7 @@ class TestCalendarExports:
         assert f"URL:{URL}" in lines
         assert not [line for line in lines if line.startswith("DTEND")]
         assert not [line for line in lines if line.startswith("LOCATION")]
+        assert not [line for line in lines if line.startswith("DESCRIPTION")]
 
     def test_ics_prints_end_place_and_description_when_present(self):
         encounter = _encounter(

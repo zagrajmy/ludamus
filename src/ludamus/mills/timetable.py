@@ -101,19 +101,15 @@ def _position_sessions(
         return []
 
     groups: list[list[AgendaItemDTO]] = []
-    current_group: list[AgendaItemDTO] = []
     group_end: datetime | None = None
 
     for item in items:
         if group_end is None or item.start_time >= group_end:
-            if current_group:
-                groups.append(current_group)
-            current_group = [item]
+            groups.append([item])
             group_end = item.end_time
         else:
-            current_group.append(item)
+            groups[-1].append(item)
             group_end = max(group_end, item.end_time)
-    groups.append(current_group)
 
     positions: list[SessionPositionDTO] = []
     for group in groups:
@@ -209,18 +205,17 @@ class TimetableService(TimetableServiceProtocol):
     def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
         self._transaction = transaction
         self._repos = repos
-        self._walked_event_pk: int | None = None
-        self._walked: list[tuple[SpaceDTO, int]] = []
+        self._walked: dict[int, list[tuple[SpaceDTO, int]]] = {}
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
         # The page builds the grid and the space filter's options from the same
-        # tree; the instance lives for one request and sees one event, so read
-        # and walk it once. Nothing this service writes touches spaces, so
-        # there is nothing to invalidate.
-        if self._walked_event_pk != event_pk:
-            self._walked = _walk_tree(self._repos.spaces.list_by_event(event_pk))
-            self._walked_event_pk = event_pk
-        return self._walked
+        # tree, so read and walk it once per event. Nothing this service writes
+        # touches spaces, so there is nothing to invalidate.
+        if event_pk not in self._walked:
+            self._walked[event_pk] = _walk_tree(
+                self._repos.spaces.list_by_event(event_pk)
+            )
+        return self._walked[event_pk]
 
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
         return [
@@ -415,7 +410,7 @@ class TimetableService(TimetableServiceProtocol):
                 groups.append(
                     SpaceGroupDTO(
                         parent_pk=parent_pk,
-                        parent_name=name_by_pk.get(parent_pk, "") if parent_pk else "",
+                        parent_name=name_by_pk[parent_pk] if parent_pk else "",
                         span=0,
                     )
                 )
@@ -448,16 +443,13 @@ class TimetableService(TimetableServiceProtocol):
             ) from error
 
     @staticmethod
-    def _require_placeable(placement: SessionPlacement) -> None:
-        if (
-            placement.start_time.utcoffset() is None
-            or placement.end_time.utcoffset() is None
-        ):
+    def _require_aware(start_time: datetime, end_time: datetime) -> None:
+        if start_time.utcoffset() is None or end_time.utcoffset() is None:
             raise PlacementRejectedError(
                 PlacementRejection.NAIVE_DATETIME,
                 "placement datetimes must include a timezone",
             )
-        if placement.end_time <= placement.start_time:
+        if end_time <= start_time:
             raise PlacementRejectedError(
                 PlacementRejection.END_NOT_AFTER_START,
                 "end_time must be after start_time",
@@ -476,7 +468,7 @@ class TimetableService(TimetableServiceProtocol):
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        self._require_placeable(placement)
+        self._require_aware(placement.start_time, placement.end_time)
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -586,15 +578,10 @@ class TimetableService(TimetableServiceProtocol):
                 ):
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
-                restored = SessionPlacement(
-                    space_pk=log.old_space_id,
-                    start_time=log.old_start_time,
-                    end_time=log.old_end_time,
-                )
                 # Undo restores a placement that was legitimate when it was
                 # made, so the event's own bounds are not re-checked here:
                 # dates edited afterwards must not strand the change log.
-                self._require_placeable(restored)
+                self._require_aware(log.old_start_time, log.old_end_time)
                 self._require_accepted(log.session_id)
                 self._repos.sessions.update(
                     log.session_id, {"schedule_confirmed": False}
@@ -636,8 +623,10 @@ def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
 class _EventConflictContext(NamedTuple):
     # Everything conflict detection needs about an event, loaded once.
     items: list[AgendaItemDTO]
-    items_by_space: dict[int, list[AgendaItemDTO]]
-    items_by_facilitator: dict[int, list[AgendaItemDTO]]
+    # defaultdicts on purpose: a space or facilitator with nothing scheduled is
+    # read as an empty list rather than a KeyError.
+    items_by_space: defaultdict[int, list[AgendaItemDTO]]
+    items_by_facilitator: defaultdict[int, list[AgendaItemDTO]]
     facilitators_by_session: dict[int, list[FacilitatorDTO]]
     spaces: dict[int, SpaceDTO]
 
@@ -748,8 +737,8 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         facilitators_by_session = self._repos.sessions.read_facilitators_by_sessions(
             {item.session_id for item in items}
         )
-        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
-        items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_space: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_facilitator: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
             items_by_space[item.space_id].append(item)
             for facilitator in facilitators_by_session.get(item.session_id, []):
@@ -789,7 +778,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 session_title=other.session_title,
                 session_pk=other.session_id,
             )
-            for other in items_by_space.get(item.space_id, [])
+            for other in items_by_space[item.space_id]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 
@@ -832,7 +821,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             # person, so its parallel program points are not a clash.
             for facilitator in facilitators_by_session.get(item.session_id, [])
             if not facilitator.is_collective
-            for other in items_by_facilitator.get(facilitator.pk, [])
+            for other in items_by_facilitator[facilitator.pk]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 

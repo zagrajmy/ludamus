@@ -3,6 +3,7 @@ from contextlib import nullcontext
 from datetime import UTC, date, datetime
 
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
+from ludamus.mills.submissions.mapping import dedup_ident
 from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
@@ -16,6 +17,7 @@ from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.submissions import (
+    ApplyFieldLayoutResult,
     AvailabilitySpec,
     EntityRef,
     ImportLogEntryDTO,
@@ -23,6 +25,7 @@ from ludamus.pacts.submissions import (
     ImportRepos,
     ImportSettings,
     QuestionTarget,
+    ValueDelta,
 )
 
 EVENT_ID = 4
@@ -44,7 +47,8 @@ _SETTINGS = ImportSettings(
         "Genre": QuestionTarget(to="field.genre"),
         "Phone": QuestionTarget(to="personal.phone"),
         "City": QuestionTarget(to="personal.city"),
-    }
+    },
+    facilitator_key_columns=["Email"],
 )
 _BLANK_ROW = dict.fromkeys(_SETTINGS.questions, "")
 _FULL_ROW = {
@@ -130,16 +134,20 @@ class _Sessions:
 
 class _Fields:
     def __init__(self, *slugs: str) -> None:
-        self.by_slug = {slug: 10 + index for index, slug in enumerate(slugs)}
+        self.by_slug = {
+            (EVENT_ID, slug): 10 + index for index, slug in enumerate(slugs)
+        }
 
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
-        if slug not in self.by_slug:
+        if (event_id, slug) not in self.by_slug:
             raise NotFoundError
-        return OrganizerFieldDTO.model_construct(pk=self.by_slug[slug], slug=slug)
+        return OrganizerFieldDTO.model_construct(
+            pk=self.by_slug[event_id, slug], slug=slug
+        )
 
     def create(self, event_id: int, data) -> OrganizerFieldDTO:
         pk = 10 + len(self.by_slug)
-        self.by_slug[data["slug"]] = pk
+        self.by_slug[event_id, data["slug"]] = pk
         return OrganizerFieldDTO.model_construct(pk=pk, slug=data["slug"])
 
     def delete_orphans_for_event(self, event_id: int) -> int:
@@ -189,6 +197,9 @@ class _ProvisionedByKey:
 class _Facilitators:
     def __init__(self) -> None:
         self.created: list[dict] = []
+
+    def find_by_ident(self, event_id: int, ident: str) -> FacilitatorDTO | None:
+        return None
 
     def read_including_deleted(self, event_id: int, slug: str) -> FacilitatorDTO:
         raise NotFoundError
@@ -260,11 +271,15 @@ def _apply(repos: ImportRepos):
 
 class TestApplyFieldLayout:
     def test_skips_entries_whose_session_was_deleted(self):
-        repos = _repos(log_entries=_LogEntries(_entry(_FULL_ROW, session_id=None)))
+        repos = _repos(
+            log_entries=_LogEntries(
+                _entry(_FULL_ROW, session_id=None), _entry(_BLANK_ROW)
+            )
+        )
 
         result = _apply(repos)
 
-        assert result.sessions_processed == 0
+        assert result.sessions_processed == 1
         assert repos.sessions.updates == {}
         assert repos.sessions.field_values == []
 
@@ -285,10 +300,43 @@ class TestApplyFieldLayout:
 
         assert (result.session_builtins_filled, result.session_links_filled) == (2, 3)
         assert repos.sessions.facilitator_ids == [50]
+        assert repos.facilitators.created == [
+            {
+                "display_name": "Anna",
+                "event_id": EVENT_ID,
+                "slug": "anna",
+                "ident": dedup_ident(event_id=EVENT_ID, identity="a@x"),
+                "user_id": None,
+            }
+        ]
         assert repos.sessions.updates == {"contact_email": "a@x", "category_id": 1}
         assert repos.sessions.availability == [_SAT_OFFERED]
         assert repos.sessions.tracks == [1]
         assert repos.categories.ids == {"rpg": 1}
+
+    def test_a_second_pass_over_the_same_session_adds_nothing(self):
+        repos = _repos(log_entries=_LogEntries(_entry(_FULL_ROW), _entry(_FULL_ROW)))
+
+        result = _apply(repos)
+
+        assert result == ApplyFieldLayoutResult(
+            sessions_processed=2,
+            session_field_values=ValueDelta(added=1, removed=0),
+            personal_entries=ValueDelta(added=2, removed=0),
+            session_fields_pruned=0,
+            personal_fields_pruned=0,
+            session_builtins_filled=2,
+            session_links_filled=3,
+        )
+
+    def test_counts_no_category_when_its_cell_is_unreadable(self):
+        row = {header: "" for header in _BLANK_ROW if header != "Kind"}
+        repos = _repos(log_entries=_LogEntries(_entry(row)))
+
+        result = _apply(repos)
+
+        assert result.session_builtins_filled == 0
+        assert repos.sessions.updates == {}
 
     def test_links_nothing_when_the_row_leaves_availability_and_tracks_blank(self):
         repos = _repos(log_entries=_LogEntries(_entry(_BLANK_ROW)))
@@ -323,12 +371,6 @@ class TestApplyFieldLayout:
                     "field_id": 10,
                     "value": "2",
                 },
-                {
-                    "facilitator_id": 8,
-                    "event_id": EVENT_ID,
-                    "field_id": 11,
-                    "value": "W",
-                },
             ),
             log_entries=_LogEntries(_entry(_FULL_ROW)),
         )
@@ -342,16 +384,18 @@ class TestApplyFieldLayout:
         assert repos.sessions.facilitator_ids == [7, 8]
         assert repos.facilitators.created == []
         assert repos.sessions.updates == {}
-        assert (result.personal_entries.added, result.personal_entries.removed) == (
-            1,
-            1,
-        )
+        assert result.personal_entries == ValueDelta(added=2, removed=1)
         assert repos.personal_data_field_values.saved == [
             {"facilitator_id": 7, "event_id": EVENT_ID, "field_id": 10, "value": "1"},
             {"facilitator_id": 8, "event_id": EVENT_ID, "field_id": 10, "value": "2"},
-            {"facilitator_id": 8, "event_id": EVENT_ID, "field_id": 11, "value": "W"},
             {
                 "facilitator_id": 7,
+                "event_id": EVENT_ID,
+                "field_id": 11,
+                "value": "Gdańsk",
+            },
+            {
+                "facilitator_id": 8,
                 "event_id": EVENT_ID,
                 "field_id": 11,
                 "value": "Gdańsk",

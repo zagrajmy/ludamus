@@ -14,8 +14,8 @@ MAX_DURATION_MINUTES = 59
 
 _CANONICAL_DURATION_RE = re.compile(r"PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?")
 _LOOSE_DURATION_RE = re.compile(
-    r"p?t?\s*(?:(?P<hours>\d+)\s*h(?:ours?|rs?)?)?"
-    r"\s*(?:(?P<minutes>\d+)\s*m(?:inutes?|ins?)?)?"
+    r"p?t?\s*(?:(?P<hours>\d{1,4})\s*h(?:ours?|rs?)?)?"
+    r"\s*(?:(?P<minutes>\d{1,4})\s*m(?:inutes?|ins?)?)?"
 )
 
 
@@ -63,7 +63,7 @@ def build_duration(*, hours: int, minutes: int) -> str:
 
 
 def normalize_duration(text: str) -> str:
-    if not (match := _LOOSE_DURATION_RE.fullmatch((text or "").strip().lower())):
+    if not (match := _LOOSE_DURATION_RE.fullmatch(text.strip().lower())):
         return ""
     return build_duration(
         hours=int(match["hours"] or 0), minutes=int(match["minutes"] or 0)
