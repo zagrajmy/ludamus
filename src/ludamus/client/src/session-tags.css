@@ -54,12 +54,19 @@
   }
 }
 
-/* NOTE: Safari before 26 (iPhones that cannot update) lacks anchoring. */
+/* NOTE: Safari before 26 (iPhones that cannot update) lacks anchoring, so
+   nothing keeps this box on screen; out of layout while closed, it at least
+   cannot pan the page. */
 @supports not (anchor-name: --a) {
   .session-tags-popover {
     position: absolute;
     bottom: 100%;
     left: 50%;
     translate: -50% 0;
+    display: none;
+  }
+
+  .session-tags-more:hover .session-tags-popover {
+    display: flex;
   }
 }
