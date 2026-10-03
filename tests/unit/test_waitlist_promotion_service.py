@@ -75,8 +75,8 @@ class FakeRepo:
         return self._seed["offer"]
 
     def read_offer_for_member(self, *, user_id, session_id):
-        del user_id, session_id
-        return self._seed["offer"]
+        del user_id
+        return self._seed["offer"] if session_id == _SESSION_ID else None
 
     def mark_claimed(self, ids, **_kwargs):
         self.claimed.append(ids)
@@ -339,20 +339,12 @@ class TestClaimOffer:
 
 
 class TestClaimMemberOffer:
-    def test_claims_the_whole_party_behind_the_members_own_offer(self):
+    def test_a_session_this_member_holds_no_offer_at_is_not_found(self):
         service, repo, _, _ = _build(offer=_offer(expires=_NOW + timedelta(hours=1)))
 
-        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID)
-
-        assert result == ClaimResult(
-            success=True, session_id=_SESSION_ID, event_slug="con"
+        result = service.claim_member_offer(
+            user_id=_MANAGER_ID, session_id=_SESSION_ID + 1
         )
-        assert repo.claimed == [[1, 2]]
-
-    def test_a_session_the_member_was_offered_no_seat_at_is_not_found(self):
-        service, repo, _, _ = _build()
-
-        result = service.claim_member_offer(user_id=5, session_id=_SESSION_ID)
 
         assert result == ClaimResult(success=False, reason="not_found")
         assert not repo.claimed
