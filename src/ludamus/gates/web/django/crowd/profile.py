@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
@@ -25,6 +25,7 @@ from ludamus.gates.web.django.crowd.helpers import (
     companion_edit_auto_id,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:
@@ -297,6 +298,39 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
             request.context.current_user_slug, use_gravatar=use_gravatar
         )
         return redirect("web:crowd:profile-avatar")
+
+
+class ProfileNotificationsPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        subscriptions = request.services.notification_subscriptions.list_for_user(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request,
+            "crowd/user/notifications.html",
+            {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
+        )
+
+
+class ProfileNotificationsMuteActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        muted = request.POST.get("muted") == "true"
+        try:
+            request.services.notification_subscriptions.set_muted(
+                user_id=request.context.current_user_id, pk=pk, muted=muted
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        messages.success(
+            request, _("Subscription muted.") if muted else _("Subscription unmuted.")
+        )
+        return redirect("web:crowd:profile-notifications")
 
 
 class ProfileShadowbanPageView(LoginRequiredMixin, View):
