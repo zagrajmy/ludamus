@@ -531,7 +531,6 @@ class ConflictDTO(BaseModel):
     # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
-    facilitator_pk: int | None = None
     facilitator_name: str | None = None
     space_capacity: int | None = None
     session_limit: int | None = None

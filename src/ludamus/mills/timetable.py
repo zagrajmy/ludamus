@@ -771,18 +771,18 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         limits = self._repos.sessions.read_participants_limits(
             {item.session_id for item in subjects}
         )
-        all_conflicts: list[ConflictDTO] = []
-        seen: set[tuple[int, int, ConflictType, int | None]] = set()
-        for item in subjects:
+        # Detection is symmetric, so a clash between two subjects is reported
+        # once, from the side with the lower session pk.
+        subject_pks = {item.session_id for item in subjects}
+        all_conflicts = [
+            conflict
+            for item in subjects
             for conflict in self._detect(
                 item, context, limit=limits.get(item.session_id, 0)
-            ):
-                low, high = sorted((conflict.subject_session_pk, conflict.session_pk))
-                key = (low, high, conflict.type, conflict.facilitator_pk)
-                if key not in seen:
-                    seen.add(key)
-                    all_conflicts.append(conflict)
-
+            )
+            if conflict.session_pk >= item.session_id
+            or conflict.session_pk not in subject_pks
+        ]
         return self._add_track_attribution(all_conflicts, track_pk)
 
     def _load_event_context(self, event_pk: int) -> _EventConflictContext:
@@ -875,7 +875,6 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 subject_session_pk=item.session_id,
                 session_title=other.session_title,
                 session_pk=other.session_id,
-                facilitator_pk=facilitator.pk,
                 facilitator_name=facilitator.display_name,
             )
             # A collective facilitator (guild, organizer crew) is not one

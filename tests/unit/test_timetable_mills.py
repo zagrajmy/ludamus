@@ -1059,10 +1059,7 @@ class TestListAllForTrack:
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
-        assert [(c.facilitator_pk, c.facilitator_name) for c in conflicts] == [
-            (7, "Alice"),
-            (8, "Bob"),
-        ]
+        assert [c.facilitator_name for c in conflicts] == ["Alice", "Bob"]
 
     def test_namesakes_shared_by_a_pair_are_two_clashes(self):
         subject = _make_item(pk=1, session_id=10, space_id=1)
@@ -1076,7 +1073,7 @@ class TestListAllForTrack:
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
-        assert [c.facilitator_pk for c in conflicts] == [7, 8]
+        assert [c.facilitator_name for c in conflicts] == ["Alice", "Alice"]
 
 
 class TestBuildHeatmap:
