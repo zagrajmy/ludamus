@@ -14,7 +14,6 @@ from email.utils import parsedate_to_datetime
 from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING
-from zlib import crc32
 
 from django.conf import settings
 from django.http import Http404
@@ -35,8 +34,6 @@ _URL_TRAILING_PUNCTUATION = ".,;:!?)]}'\""
 # The list is for finding the mail you just triggered; older mail is reached by
 # searching, which scans every captured message.
 LIST_LIMIT = 100
-# Recipient monograms cycle through this many tones in the template.
-_TONES = 5
 
 
 class CapturedPart(BaseModel):
@@ -62,11 +59,6 @@ class CapturedEmail(BaseModel):
     @property
     def preview(self) -> str:
         return " ".join(_URL.sub("", self.body).split())
-
-    @property
-    def tone(self) -> int:
-        # A hint for scanning, not an identity: five tones collide often.
-        return crc32(self.to.casefold().encode()) % _TONES
 
     def matches(self, query: str) -> bool:
         needle = query.casefold()

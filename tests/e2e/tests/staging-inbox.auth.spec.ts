@@ -107,7 +107,7 @@ test("new mail appears on its own and opens when following the newest", async ({
   deliver(token, 1, [{ to: `p-${token}@example.com`, subject: "First", body: "One." }]);
 
   await page.goto(`/dev/emails/?q=${token}`);
-  await expect(page.getByText("Live: new emails show up on their own")).toBeVisible();
+  await expect(page.locator("[data-inbox-live]")).toBeVisible();
   const reader = page.getByRole("article");
   await expect(reader.getByRole("heading", { name: "First" })).toBeVisible();
 

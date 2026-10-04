@@ -576,7 +576,6 @@ ignore_names = [
     "slot_key",
     "span",
     "spots_scarce",
-    "tone",
     "unassigned_count",
     "unread_count",
     "user_bookmarked",

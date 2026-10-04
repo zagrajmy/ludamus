@@ -12113,16 +12113,21 @@ msgid "Captured emails"
 msgstr "Przechwycone e-maile"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid ""
-"Everything the app sends from this server lands here. None of it reaches a "
-"real inbox."
-msgstr ""
-"Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera do "
-"prawdziwych skrzynek."
+#, python-format
+msgid "%(counter)s email"
+msgid_plural "%(counter)s emails"
+msgstr[0] "%(counter)s e-mail"
+msgstr[1] "%(counter)s e-maile"
+msgstr[2] "%(counter)s e-maili"
+msgstr[3] "%(counter)s e-maila"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "Live: new emails show up on their own"
-msgstr "Na żywo: nowe e-maile pojawiają się same"
+msgid "none of it reaches a real inbox"
+msgstr "nic nie trafia do prawdziwych skrzynek"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Live"
+msgstr "Na żywo"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Search emails"
@@ -12219,12 +12224,8 @@ msgid "Sent"
 msgstr "Wysłano"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "Link in this email"
-msgid_plural "Links in this email"
-msgstr[0] "Link w tym e-mailu"
-msgstr[1] "Linki w tym e-mailu"
-msgstr[2] "Linki w tym e-mailu"
-msgstr[3] "Linki w tym e-mailu"
+msgid "Links"
+msgstr "Linki"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Open link"
@@ -12257,6 +12258,23 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid ""
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
+#~ msgstr ""
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
+
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
 
 #~ msgid "Staging inbox"
 #~ msgstr "Skrzynka staging"
