@@ -2,11 +2,11 @@
 {% load tessera %}
 {% load tz %}
 {# Card-grid schedule for regular events: sessions grouped day by day, then #}
-{# into ended / current / future-unavailable time slots within each day. Big #}
-{# events render the compact list (_compact_schedule.html) instead. On a #}
-{# multi-day event each day sits behind a foldable heading (schedule-fold.ts) #}
-{# and the slot pills drop the date the heading already states; a single-day #}
-{# event has nothing to fold, so no heading and no toggle. #}
+{# into one time slot per start time, in time order. Big events render the #}
+{# compact list (_compact_schedule.html) instead. On a multi-day event each #}
+{# day sits behind a foldable heading (schedule-fold.ts) and the slot labels #}
+{# drop the date the heading already states; a single-day event has nothing #}
+{# to fold, so no heading and no toggle. #}
 {% get_current_timezone as event_timezone %}
 <div data-event-time-zone="{{ event_timezone }}"
      data-day-starts-at="{{ programme_day_start_hour }}">
@@ -18,31 +18,29 @@
             <div id="{{ day.panel_id }}" data-day-panel>
                 {% for slot in day.slots %}
                     <div class="mb-8 time-slot-section print:mb-4 print:break-inside-avoid"
-                         data-time-slot="{{ slot.kind }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                         role="group"
+                         aria-labelledby="{{ day.panel_id }}-slot-{{ forloop.counter }}"
+                         {% if slot.is_ended %}data-ended{% endif %}>
                         <!-- Time Slot Header -->
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="inline-flex items-center gap-2 text-sm font-semibold {% if slot.kind == 'ended' %}rounded-xl px-4 py-2 bg-bg-tertiary text-foreground-muted{% elif slot.kind == 'current' %}rounded-xl px-4 py-2 bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800{% else %}text-foreground-muted{% endif %}">
-                                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                        {# No rule here: the day heading above is the one divider between #}
+                        {# the day and its times. #}
+                        <div class="flex min-h-8 items-center gap-4 mb-3 px-2">
+                            <div id="{{ day.panel_id }}-slot-{{ forloop.counter }}"
+                                 class="text-sm font-semibold tabular-nums {% if slot.is_ended %}text-foreground-muted{% else %}text-foreground{% endif %}">
                                 {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
                                 {{ slot.hour|time:"H:i" }}
-                                {% if slot.kind == "ended" %}
-                                    <span class="text-xs font-normal">({% translate "Completed" %})</span>
-                                {% elif slot.kind == "future" %}
-                                    <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
-                                {% endif %}
                             </div>
-                            <div class="h-px grow bg-border"></div>
-                            {% if event.is_live and slot.is_first_current %}
+                            {% if event.is_live and slot.marks_now %}
                                 <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5 print:hidden">
                                     <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
                                     {% translate "Now" %}
                                 </span>
                             {% endif %}
-                            <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
+                            <span class="ml-auto text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
                             {# hour_data is keyed by slot start, so this counts time slots: #}
                             {# with only one, the link would repeat the section's Propose #}
                             {# Session button right above it. #}
-                            {% if slot.kind == "current" and event.is_proposal_active and hour_data|length > 1 %}
+                            {% if not slot.is_ended and event.is_proposal_active and hour_data|length > 1 %}
                                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                                    class="print:hidden text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
                                     {% icon "plus" class="w-4 h-4" variant="mini" %}

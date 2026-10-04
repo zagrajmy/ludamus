@@ -22,6 +22,8 @@
     </p>
 {% elif card.role == "organizing" %}
     <p class="mt-1 text-xs font-semibold text-warning-text">{% translate "You organize this" %}</p>
+{% elif card.role == "running" %}
+    <p class="mt-1 text-xs font-semibold text-warning-text">{% translate "You're running this" %}</p>
 {% elif card.role == "bookmarked" %}
     {% if card.spots_remaining %}
         <p class="mt-1 text-xs font-semibold text-foreground-secondary">

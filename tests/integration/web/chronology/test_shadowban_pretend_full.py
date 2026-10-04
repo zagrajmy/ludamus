@@ -29,18 +29,15 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
     )
 
 
-def _event_page_context(event, card, *, lane, **overrides):
+def _event_page_context(event, card, **overrides):
     # The card-layout event page for a signed-in viewer with no enrollments.
-    # One scheduled session reaches the template three times: as a card in
-    # `sessions`, in `hour_data`, and through the availability lane that
-    # `card_days` groups by.
-    start_time = card.agenda_item.start_time
+    # One scheduled session reaches the template twice: as a card in
+    # `sessions`, and in `hour_data`, which `card_days` groups by start time.
     return event_page_context(
         event,
         url=_event_url(event.slug),
         sessions=[card],
-        hour_data={start_time: [card]},
-        **{lane: {start_time: [card]}},
+        hour_data={card.agenda_item.start_time: [card]},
         **overrides,
     )
 
@@ -71,8 +68,8 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_event_url(event.slug))
 
-        # The masked card claims an open, fully booked session, so it lands in
-        # the current lane and its invented seats count toward the page total.
+        # The masked card claims an open, fully booked session, and its
+        # invented seats count toward the page total.
         card = masked_card(agenda_item, presenter=session.presenter, seats=10)
         assert_response(
             response,
@@ -80,7 +77,6 @@ class TestShadowbanPretendFull:
             context_data=_event_page_context(
                 event,
                 card,
-                lane="current_hour_data",
                 access=ENROLLMENT_OPEN,
                 total_enrolled=10,
                 has_enrollable_sessions=True,
@@ -137,11 +133,7 @@ class TestShadowbanPretendFull:
             response,
             HTTPStatus.OK,
             context_data=_event_page_context(
-                event,
-                card,
-                lane="future_unavailable_hour_data",
-                has_enrollable_sessions=True,
-                scheduled_count=1,
+                event, card, has_enrollable_sessions=True, scheduled_count=1
             ),
             template_name=["chronology/event.html"],
             contains="Visible Game",
