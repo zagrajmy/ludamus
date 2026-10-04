@@ -7,9 +7,11 @@ from tests.unit.factories import FakeTransaction, category
 class FakeFields:
     def __init__(self, field):
         self._field = field
+        self.created = {}
         self.updated = {}
 
-    def create(self, _event_id, _data):
+    def create(self, event_id, data):
+        self.created[event_id] = data
         return self._field
 
     def read_by_slug(self, _event_id, _slug):
@@ -43,10 +45,9 @@ def _field():
 
 def test_create_writes_session_field_links_scoped_to_the_event():
     categories = FakeCategories([_category(1)])
+    fields = FakeFields(_field())
     service = CFPSessionFieldService(
-        transaction=FakeTransaction(),
-        fields=FakeFields(_field()),
-        categories=categories,
+        transaction=FakeTransaction(), fields=fields, categories=categories
     )
 
     service.create(
@@ -57,6 +58,7 @@ def test_create_writes_session_field_links_scoped_to_the_event():
         ),
     )
 
+    assert fields.created == {10: {"name": "Triggers"}}
     assert categories.session_links == {3: {1: False}}
 
 

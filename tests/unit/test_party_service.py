@@ -32,7 +32,7 @@ OWN_PARTY_PK = 7
 FOREIGN_PARTY_PK = 8
 INVITEE_PK = 5
 MEMBERSHIP_PK = 50
-_TOKEN_MIN_LENGTH = 32
+_TOKEN_LENGTH = 43
 
 
 class FakeParties:
@@ -50,8 +50,10 @@ class FakeParties:
             consent={},
         )
 
-    def overview(self, _viewer_pk):
-        return PartiesOverviewDTO(parties=self.parties, invites=[])
+    def overview(self, viewer_pk):
+        return PartiesOverviewDTO(
+            parties={VIEWER_PK: self.parties}[viewer_pk], invites=[]
+        )
 
     def owned_companions(self, *, manager_pk):
         assert manager_pk == VIEWER_PK
@@ -329,7 +331,7 @@ class TestInviteLink:
         token = service.reset_invite_link(leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK)
 
         assert token is not None
-        assert len(token) >= _TOKEN_MIN_LENGTH
+        assert len(token) == _TOKEN_LENGTH
         assert service.read_invite_token(
             leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK
         ) == (token)
@@ -355,6 +357,11 @@ class TestInviteLink:
                 pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=False
             )
         )
+        assert service.read_invitable_party(token="tok", viewer_pk=VIEWER_PK) == (
+            InvitablePartyDTO(
+                pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=True
+            )
+        )
         assert service.read_invitable_party(token="nope", viewer_pk=INVITEE_PK) is None
 
     def test_join_via_link(self):
@@ -369,6 +376,10 @@ class TestInviteLink:
             token="tok", user_pk=INVITEE_PK
         ) == PartyJoinResult(party_pk=OWN_PARTY_PK, joined=False)
         assert service.join_via_link(token="nope", user_pk=INVITEE_PK) is None
+        assert parties.state.members == {
+            (OWN_PARTY_PK, VIEWER_PK),
+            (OWN_PARTY_PK, INVITEE_PK),
+        }
 
 
 class TestMembership:

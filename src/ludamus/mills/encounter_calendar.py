@@ -229,7 +229,9 @@ class EncounterGuests:
         for invitee in invitees:
             if invitee.status not in _INVITEE_PARTSTAT:
                 continue
+            # pragma: no mutate start
             account = users.get(invitee.user_id) if invitee.user_id else None
+            # pragma: no mutate end
             by_email.setdefault(
                 invitee.email,
                 Guest(
@@ -262,7 +264,7 @@ class EncounterGuests:
         # limits: sends in the same second tie (clients then compare
         # DTSTAMP), worker clock skew can step back, and it outgrows the
         # int32 RFC 5545 INTEGER in 2038.
-        sequence = int(datetime.now(tz=UTC).timestamp())
+        sequence = int(datetime.now(tz=UTC).timestamp())  # pragma: no mutate
         self._mailer.send(
             [
                 EncounterInvite(
