@@ -2902,7 +2902,6 @@ msgid "Happening now!"
 msgstr "Trwa teraz!"
 
 #: src/ludamus/gates/web/django/event/status_pills.py
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Completed"
 msgstr "Ukończone"
 
@@ -5022,10 +5021,6 @@ msgstr ""
 msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/_schedule_now_marker.html
@@ -12282,11 +12277,82 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Received"
 #~ msgstr "Otrzymano"
 
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
+
 #~ msgid "Bookmarks"
 #~ msgstr "Zakładki"
 
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                Are you sure you want to delete announcement "
+#~ "\"%(title)s\"?\n"
+#~ "            "
+#~ msgstr ""
+#~ "\n"
+#~ "                Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?\n"
+#~ "            "
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                Are you sure you want to delete connection \"%(name)s\"?\n"
+#~ "            "
+#~ msgstr ""
+#~ "\n"
+#~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
+#~ "            "
+
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
+
+#~ msgid "Program item confirmed"
+#~ msgstr "Punkt programu potwierdzony"
+
+#~ msgid "Program item not confirmed"
+#~ msgstr "Punkt programu niepotwierdzony"
+
+#~ msgid "Confirm program item"
+#~ msgstr "Potwierdź punkt programu"
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all categories for the event "
+#~ "- each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+
+#~ msgid "confirmed program items in this track"
+#~ msgstr "potwierdzonych punktów programu w tym bloku"
+
+#~ msgid "confirmed program items"
+#~ msgstr "potwierdzonych punktów programu"
+
+#~ msgid ""
+#~ "This program item is confirmed. Moving it will clear the confirmation."
+#~ msgstr ""
+#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
@@ -12590,15 +12656,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Select which personal data fields hosts must provide."
-#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
-
-#~ msgid "No personal data fields defined for this event."
-#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Configure host data fields"
-#~ msgstr "Skonfiguruj pola danych twórcy"
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
@@ -13407,3 +13464,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid ""
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
+
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."
