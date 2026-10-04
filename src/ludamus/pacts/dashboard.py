@@ -30,6 +30,8 @@ class DashboardRole(StrEnum):
     # A seat is held for this member until ``offer_expires_at``.
     OFFERED = auto()
     ORGANIZING = auto()
+    # Presenting or facilitating a programme item.
+    RUNNING = auto()
     OPEN = auto()
     # Starred, with no seat held: the card still says how much room is left.
     BOOKMARKED = auto()
