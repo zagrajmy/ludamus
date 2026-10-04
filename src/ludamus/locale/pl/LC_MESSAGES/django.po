@@ -592,6 +592,7 @@ msgstr "Pokaż opcje"
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/staging_email_inbox.html
 msgid "Copied!"
 msgstr "Skopiowano!"
 
@@ -2946,7 +2947,6 @@ msgid "Happening now!"
 msgstr "Trwa teraz!"
 
 #: src/ludamus/gates/web/django/event/status_pills.py
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Completed"
 msgstr "Ukończone"
 
@@ -3824,6 +3824,18 @@ msgstr "Prowadzący usunięty."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
+
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "No date"
+msgstr "Bez daty"
+
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "Today"
+msgstr "Dzisiaj"
+
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "Yesterday"
+msgstr "Wczoraj"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
@@ -5131,10 +5143,6 @@ msgstr ""
 msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/_schedule_now_marker.html
@@ -8841,6 +8849,7 @@ msgid "Share"
 msgstr "Udostępnij"
 
 #: src/ludamus/templates/notice_board/_organizer_actions.html
+#: src/ludamus/templates/staging_email_inbox.html
 msgid "Copy link"
 msgstr "Kopiuj link"
 
@@ -10265,6 +10274,7 @@ msgstr ""
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/staging_email_inbox.html
 msgid "Search"
 msgstr "Szukaj"
 
@@ -12329,34 +12339,243 @@ msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "Staging inbox"
-msgstr "Skrzynka staging"
-
-#: src/ludamus/templates/staging_email_inbox.html
 msgid "Captured emails"
 msgstr "Przechwycone e-maile"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "Received"
-msgstr "Otrzymano"
+#, python-format
+msgid "%(counter)s email"
+msgid_plural "%(counter)s emails"
+msgstr[0] "%(counter)s e-mail"
+msgstr[1] "%(counter)s e-maile"
+msgstr[2] "%(counter)s e-maili"
+msgstr[3] "%(counter)s e-maila"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "none of it reaches a real inbox"
+msgstr "nic nie trafia do prawdziwych skrzynek"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Live"
+msgstr "Na żywo"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Search emails"
+msgstr "Szukaj e-maili"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Address, subject or text"
+msgstr "Adres, temat lub treść"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "A new email arrived."
+msgstr "Przyszedł nowy e-mail."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "New emails arrived."
+msgstr "Przyszły nowe e-maile."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Nothing sent yet"
+msgstr "Jeszcze nic nie wysłano"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid ""
+"Trigger an email in another tab (change an address, join a waiting list) and "
+"it will appear here within seconds."
+msgstr ""
+"Wywołaj e-mail w innej karcie (zmień adres, zapisz się na listę rezerwową), "
+"a pojawi się tu w kilka sekund."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Emails"
+msgstr "E-maile"
+
+#: src/ludamus/templates/staging_email_inbox.html
+#, python-format
+msgid "%(counter)s match for “%(query)s”"
+msgid_plural "%(counter)s matches for “%(query)s”"
+msgstr[0] "%(counter)s wynik dla „%(query)s”"
+msgstr[1] "%(counter)s wyniki dla „%(query)s”"
+msgstr[2] "%(counter)s wyników dla „%(query)s”"
+msgstr[3] "%(counter)s wyniku dla „%(query)s”"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Clear search"
+msgstr "Wyczyść wyszukiwanie"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "(no subject)"
+msgstr "(bez tematu)"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "No email matches"
+msgstr "Żaden e-mail nie pasuje"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Search looks through recipients, senders, subjects and message text."
+msgstr "Wyszukiwanie przegląda odbiorców, nadawców, tematy i treść wiadomości."
+
+#: src/ludamus/templates/staging_email_inbox.html
+#, python-format
+msgid "Showing the newest %(shown)s. Search to reach older emails."
+msgstr "Pokazujemy %(shown)s najnowszych. Starsze znajdziesz wyszukiwaniem."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "All emails"
+msgstr "Wszystkie e-maile"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "To"
 msgstr "Do"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "Subject"
-msgstr "Temat"
+msgid "Only this address"
+msgstr "Tylko ten adres"
 
 #: src/ludamus/templates/staging_email_inbox.html
-msgid "No emails captured yet."
-msgstr "Brak przechwyconych e-maili."
+msgid "From"
+msgstr "Od"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Sent"
+msgstr "Wysłano"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Links"
+msgstr "Linki"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Open link"
+msgstr "Otwórz link"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "This email has no text."
+msgstr "Ten e-mail nie ma treści."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Attachments"
+msgstr "Załączniki"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Calendar invitation"
+msgstr "Zaproszenie do kalendarza"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Message source"
+msgstr "Źródło wiadomości"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "This email is gone"
+msgstr "Tego e-maila już nie ma"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Its capture file was cleared. The emails still here are in the list."
+msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Pick an email to read it."
+msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid ""
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
+#~ msgstr ""
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
+
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
+
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
+
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
 
 #~ msgid "Bookmarks"
 #~ msgstr "Zakładki"
 
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                Are you sure you want to delete announcement "
+#~ "\"%(title)s\"?\n"
+#~ "            "
+#~ msgstr ""
+#~ "\n"
+#~ "                Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?\n"
+#~ "            "
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                Are you sure you want to delete connection \"%(name)s\"?\n"
+#~ "            "
+#~ msgstr ""
+#~ "\n"
+#~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
+#~ "            "
+
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
+
+#~ msgid "Program item confirmed"
+#~ msgstr "Punkt programu potwierdzony"
+
+#~ msgid "Program item not confirmed"
+#~ msgstr "Punkt programu niepotwierdzony"
+
+#~ msgid "Confirm program item"
+#~ msgstr "Potwierdź punkt programu"
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all categories for the event "
+#~ "- each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+
+#~ msgid "confirmed program items in this track"
+#~ msgstr "potwierdzonych punktów programu w tym bloku"
+
+#~ msgid "confirmed program items"
+#~ msgstr "potwierdzonych punktów programu"
+
+#~ msgid ""
+#~ "This program item is confirmed. Moving it will clear the confirmation."
+#~ msgstr ""
+#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
@@ -12660,15 +12879,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Select which personal data fields hosts must provide."
-#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
-
-#~ msgid "No personal data fields defined for this event."
-#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Configure host data fields"
-#~ msgstr "Skonfiguruj pola danych twórcy"
 
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
@@ -13477,3 +13687,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid ""
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
+
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."

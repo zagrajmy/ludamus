@@ -156,11 +156,6 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
-    # Callers keep stating their scenario through the three availability lanes;
-    # the page itself renders from the day-major grouping built from them.
-    ended = overrides.pop("ended_hour_data", {})
-    current = overrides.pop("current_hour_data", {})
-    future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
         # The pills follow from the event's own state and this viewer's
         # windows; which pills those are is unit-tested beside the function.
@@ -199,9 +194,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     context.setdefault("scheduled_count", 0)
     context.setdefault(
         "card_days",
-        build_card_days(
-            ended=ended, current=current, future_unavailable=future_unavailable
-        ),
+        [] if context["compact_schedule"] else build_card_days(context["hour_data"]),
     )
     return context
 
