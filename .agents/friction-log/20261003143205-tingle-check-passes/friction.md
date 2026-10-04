@@ -1,6 +1,7 @@
 ---
 title: 'tingle check passes locally in a clone with no local main branch'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1460'
 ---
 
 ## Expected Behavior
