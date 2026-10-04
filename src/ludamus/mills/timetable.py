@@ -772,13 +772,14 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             {item.session_id for item in subjects}
         )
         all_conflicts: list[ConflictDTO] = []
-        seen: set[tuple[int, int, ConflictType]] = set()
+        seen: set[tuple[int, int, ConflictType, int | None]] = set()
         for item in subjects:
             for conflict in self._detect(
                 item, context, limit=limits.get(item.session_id, 0)
             ):
                 low, high = sorted((conflict.subject_session_pk, conflict.session_pk))
-                if (key := (low, high, conflict.type)) not in seen:
+                key = (low, high, conflict.type, conflict.facilitator_pk)
+                if key not in seen:
                     seen.add(key)
                     all_conflicts.append(conflict)
 
@@ -874,6 +875,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 subject_session_pk=item.session_id,
                 session_title=other.session_title,
                 session_pk=other.session_id,
+                facilitator_pk=facilitator.pk,
                 facilitator_name=facilitator.display_name,
             )
             # A collective facilitator (guild, organizer crew) is not one

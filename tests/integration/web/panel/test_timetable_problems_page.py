@@ -173,6 +173,7 @@ class TestTimetableProblemsPageView:
                             subject_session_pk=session_a.pk,
                             session_title=session_b.title,
                             session_pk=session_b.pk,
+                            facilitator_pk=facilitator.pk,
                             facilitator_name=facilitator.display_name,
                         )
                     ],
