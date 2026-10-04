@@ -102,12 +102,13 @@ class FakeUsers:
     def email_exists(self, email, exclude_slug=None):
         if not email:
             return False
+        # NOTE: the real repository matches emails case-insensitively.
         return (
             any(
-                user.email == email and user.slug != exclude_slug
+                user.email.lower() == email.lower() and user.slug != exclude_slug
                 for user in self._users
             )
-            or email in self._existing_emails
+            or email.lower() in self._existing_emails
         )
 
     def slug_exists(self, slug):
@@ -334,6 +335,25 @@ class TestCompleteLogin:
         ]
         assert result.user.username == USERNAME
 
+    def test_id_without_slug_characters_falls_back_to_user(self):
+        users = FakeUsers()
+        identity = FakeIdentity(_identity(provider_user_id="|||"))
+        service = _service(users=users, identity=identity)
+
+        _login(service)
+
+        assert users.created[0]["slug"] == "user"
+
+    def test_avatar_at_the_column_width_is_kept(self):
+        users = FakeUsers()
+        url = "https://a/" + "x" * (MAX_AVATAR_URL_LENGTH - len("https://a/"))
+        identity = FakeIdentity(_identity(avatar_url=url))
+        service = _service(users=users, identity=identity)
+
+        _login(service)
+
+        assert users.created[0]["avatar_url"] == url
+
     def test_create_strips_duplicate_email(self):
         users = FakeUsers(existing_emails={"taken@example.com"})
         identity = FakeIdentity(_identity(email="taken@example.com"))
@@ -448,6 +468,25 @@ class TestSyncIdentity:
         _login(service)
 
         assert users.updated == [("me", {"email": "mine@example.com"})]
+
+    def test_new_provider_avatar_replaces_the_old_one(self):
+        users = FakeUsers(users=[_user_dto(name="Me", avatar_url="https://old")])
+        identity = FakeIdentity(_identity(avatar_url="https://new"))
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert users.updated == [("me", {"avatar_url": "https://new"})]
+        assert result.user.avatar_url == "https://new"
+
+    def test_recased_own_email_is_synced(self):
+        users = FakeUsers(users=[_user_dto(name="Me", email="Me@Example.com")])
+        identity = FakeIdentity(_identity(email="me@example.com"))
+        service = _service(users=users, identity=identity)
+
+        _login(service)
+
+        assert users.updated == [("me", {"email": "me@example.com"})]
 
     def test_drops_colliding_email_but_applies_rest(self):
         users = FakeUsers(
