@@ -3,6 +3,8 @@
 {% block title %}
     {% translate "Edit profile" %}
 {% endblock title %}
+{% block email_verification_banner %}
+{% endblock email_verification_banner %}
 {% block profile_content %}
     {% if confirmed_participations_count > 0 %}
         <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
@@ -26,7 +28,8 @@
                   action="{% url 'web:crowd:email-resend' %}"
                   class="ms-auto shrink-0">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-sm">{% translate "Resend" %}</button>
+                {% translate "Resend" as t_resend %}
+                {% tessera_button t_resend variant="secondary" size="sm" full_width_mobile=False %}
             </form>
         </div>
     {% elif user.email %}
@@ -43,7 +46,8 @@
                       action="{% url 'web:crowd:email-resend' %}"
                       class="ms-auto shrink-0">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-sm">{% translate "Send verification email" %}</button>
+                    {% translate "Send verification email" as t_send_verification %}
+                    {% tessera_button t_send_verification variant="secondary" size="sm" full_width_mobile=False %}
                 </form>
             </div>
         {% endif %}
