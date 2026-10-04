@@ -9569,6 +9569,17 @@ msgstr "Przyznaj zniżkę"
 
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
+msgid "No facilitators match your filters."
+msgstr "Żaden twórca programu nie pasuje do filtrów."
+
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Clear filters"
+msgstr "Wyczyść filtry"
+
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
@@ -10113,15 +10124,6 @@ msgstr "Oznacz jako gościa: %(name)s"
 msgid ""
 "Delete %(name)s? They disappear from the program; you can restore them later."
 msgstr "Usunąć: %(name)s? Zniknie z programu; możesz go później przywrócić."
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "No facilitators match your filters."
-msgstr "Żaden twórca programu nie pasuje do filtrów."
-
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Clear filters"
-msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-run.html

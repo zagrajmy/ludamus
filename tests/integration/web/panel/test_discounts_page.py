@@ -56,13 +56,19 @@ def _facilitator_list_dto(facilitator):
     )
 
 
-_FILTER_CONTEXT = {
-    "filter_accreditation": "",
-    "filters_active": False,
-    "accreditation_types": [
-        (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
-    ],
-}
+def _discounts_url(event):
+    return reverse("panel:discounts", kwargs={"slug": event.slug})
+
+
+def _filter_context(event):
+    return {
+        "back_url": _discounts_url(event),
+        "filter_accreditation": "",
+        "filters_active": False,
+        "accreditation_types": [
+            (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+        ],
+    }
 
 
 def _facilitator_dto(facilitator):
@@ -109,7 +115,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [],
                 "rows": [],
             },
@@ -129,7 +135,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [],
                 "rows": [
                     {
@@ -154,7 +160,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(guest), "form": ANY}
                 ],
@@ -165,6 +171,7 @@ class TestDiscountsPageView:
                         "discount": None,
                     }
                 ],
+                "back_url": f"{self.get_url(event)}?accreditation=guest",
                 "filter_accreditation": "guest",
                 "filters_active": True,
             },
@@ -183,7 +190,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -218,7 +225,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [],
                 "rows": [
                     {
@@ -243,7 +250,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [],
                 "rows": [
                     {
@@ -328,6 +335,21 @@ class TestDiscountCreatePageView:
         assert discount.value == Decimal("25.50")
         assert discount.note == "VIP"
 
+    def test_post_ignores_an_offsite_next(self, panel_client, event):
+        facilitator = _make_facilitator(event)
+
+        response = panel_client.post(
+            self.get_url(event, facilitator),
+            data={"kind": "percent", "value": "10", "next": "https://evil.example/"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Discount assigned successfully.")],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+
     def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
@@ -341,7 +363,7 @@ class TestDiscountCreatePageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -372,7 +394,7 @@ class TestDiscountCreatePageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -400,7 +422,7 @@ class TestDiscountCreatePageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -428,7 +450,7 @@ class TestDiscountCreatePageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                **_FILTER_CONTEXT,
+                **_filter_context(event),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -487,7 +509,9 @@ class TestDiscountEditPageView:
         facilitator = _make_facilitator(event)
         discount = _make_discount(event, facilitator)
 
-        response = panel_client.get(self.get_url(event, discount))
+        back = f"{_discounts_url(event)}?accreditation=guest"
+
+        response = panel_client.get(self.get_url(event, discount), {"next": back})
 
         assert_response(
             response,
@@ -495,6 +519,7 @@ class TestDiscountEditPageView:
             template_name="panel/discounts/edit.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
+                "back_url": back,
                 "discount": DiscountDTO.model_validate(discount),
                 "form": ANY,
             },
@@ -518,6 +543,23 @@ class TestDiscountEditPageView:
         discount.refresh_from_db()
         assert discount.value == Decimal(30)
         assert discount.note == "updated"
+
+    def test_post_returns_to_the_filtered_list(self, panel_client, event):
+        facilitator = _make_facilitator(event)
+        discount = _make_discount(event, facilitator)
+        back = f"{_discounts_url(event)}?accreditation=guest"
+
+        response = panel_client.post(
+            self.get_url(event, discount),
+            data={"kind": "percent", "value": "30", "next": back},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Discount updated successfully.")],
+            url=back,
+        )
 
     def test_post_404_for_discount_in_other_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere, slug="other-event")
@@ -581,6 +623,7 @@ class TestDiscountEditPageView:
             template_name="panel/discounts/edit.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
+                "back_url": reverse("panel:discounts", kwargs={"slug": event.slug}),
                 "discount": DiscountDTO.model_validate(discount),
                 "form": ANY,
             },
@@ -617,6 +660,20 @@ class TestDiscountDeleteActionView:
         )
         assert not Discount.objects.filter(pk=discount.pk).exists()
         assert Discount.all_objects.filter(pk=discount.pk).exists()
+
+    def test_post_returns_to_the_filtered_list(self, panel_client, event):
+        facilitator = _make_facilitator(event)
+        discount = _make_discount(event, facilitator)
+        back = f"{_discounts_url(event)}?accreditation=guest"
+
+        response = panel_client.post(self.get_url(event, discount), {"next": back})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Discount removed successfully.")],
+            url=back,
+        )
 
     def test_post_404_for_missing_discount(self, panel_client, event):
         missing_pk = 999999

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -20,7 +21,7 @@ from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     DiscountForm,
 )
-from ludamus.gates.web.django.panel import PanelNavContext
+from ludamus.gates.web.django.panel import PanelNavContext, safe_next_url
 from ludamus.pacts import FacilitatorListItemDTO, NotFoundError
 from ludamus.pacts.discounts import DiscountData, DiscountKind
 from ludamus.pacts.panel import FacilitatorListQuery
@@ -48,6 +49,7 @@ class _DiscountRow(TypedDict):
 class _DiscountsContext(PanelNavContext):
     assignments: list[_DiscountAssignment]
     rows: list[_DiscountRow]
+    back_url: str
     filter_accreditation: str
     filters_active: bool
     accreditation_types: list[tuple[str, _StrPromise]]
@@ -61,6 +63,10 @@ def read_discount_query(request: PanelRequest) -> FacilitatorListQuery:
         accreditation=read_accreditation_filter(request),
         current_user_id=request.context.current_user_id,
     )
+
+
+def _back_to_discounts(request: PanelRequest, slug: str) -> str:
+    return safe_next_url(request, reverse("panel:discounts", kwargs={"slug": slug}))
 
 
 def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
@@ -97,6 +103,7 @@ def _scoped_facilitator(
 def _discounts_context(
     *,
     request: PanelRequest,
+    slug: str,
     event_pk: int,
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
@@ -134,10 +141,16 @@ def _discounts_context(
                 else DiscountForm(auto_id=f"discount_{facilitator.pk}_%s")
             )
             assignments.append({"facilitator": facilitator, "form": form})
+    # Built from the query, not the request path: an invalid assign re-renders
+    # this page under the assign action's URL.
+    back_url = reverse("panel:discounts", kwargs={"slug": slug})
+    if query.accreditation:
+        back_url += f"?{urlencode({'accreditation': query.accreditation})}"
     return {
         "active_nav": "discounts",
         "assignments": assignments,
         "rows": rows,
+        "back_url": back_url,
         "filter_accreditation": query.accreditation,
         "filters_active": bool(query.accreditation),
         "accreditation_types": ACCREDITATION_TYPE_CHOICES,
@@ -153,7 +166,9 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         context.update(
-            _discounts_context(request=self.request, event_pk=current_event.pk)
+            _discounts_context(
+                request=self.request, slug=slug, event_pk=current_event.pk
+            )
         )
         return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
@@ -175,7 +190,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         discounts_url = reverse("panel:discounts", kwargs={"slug": slug})
         return redirect(f"{discounts_url}?assign={facilitator_id}")
@@ -194,13 +209,14 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         form = DiscountForm(self.request.POST)
         if not form.is_valid():
             context.update(
                 _discounts_context(
                     request=self.request,
+                    slug=slug,
                     event_pk=current_event.pk,
                     assign_facilitator_id=facilitator_id,
                     assign_form=form,
@@ -212,7 +228,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, _form_data(form, facilitator_id)
         )
         messages.success(self.request, _("Discount assigned successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
@@ -228,9 +244,10 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         context["active_nav"] = "discounts"
+        context["back_url"] = _back_to_discounts(self.request, slug)
         context["discount"] = discount
         context["form"] = DiscountForm(
             initial={
@@ -251,11 +268,12 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         form = DiscountForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "discounts"
+            context["back_url"] = _back_to_discounts(self.request, slug)
             context["discount"] = discount
             context["form"] = form
             return TemplateResponse(self.request, "panel/discounts/edit.html", context)
@@ -264,7 +282,7 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
             pk, _form_data(form, discount.facilitator_id)
         )
         messages.success(self.request, _("Discount updated successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
@@ -280,11 +298,11 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         self.request.services.discounts.soft_delete(pk)
         messages.success(self.request, _("Discount removed successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
@@ -315,4 +333,4 @@ class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
                 "cleared": result.discounts_cleared,
             },
         )
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))

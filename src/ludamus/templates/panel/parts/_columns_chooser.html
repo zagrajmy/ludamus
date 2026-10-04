@@ -2,12 +2,13 @@
 {% load django_vite %}
 {% load cfp_tags %}
 {# Columns chooser card: `action_url` receives the checked keys in DOM order, `help_text` names the list. #}
-{# A "get" `method` re-emits `hidden_params` so the filters survive the submit; "post" carries the CSRF token. #}
+{# A "get" `method` re-emits `hidden_params` so the filters survive the submit; "post", the default, carries the CSRF token. #}
+{% firstof method "post" as form_method %}
 <form id="{{ form_id }}"
-      method="{{ method }}"
+      method="{{ form_method }}"
       action="{{ action_url }}"
       class="max-w-2xl">
-    {% if method == "get" %}
+    {% if form_method == "get" %}
         {# Always-present empty key: unticking everything is a submit with no column, not a fresh visit. #}
         <input type="hidden" name="columns" value="">
         {% for name, value in hidden_params %}
