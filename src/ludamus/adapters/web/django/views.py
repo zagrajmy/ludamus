@@ -3,13 +3,10 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from email import message_from_bytes, policy
 from enum import StrEnum, auto
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -140,47 +137,6 @@ class DesignPageView(TemplateView):
             ("b", "Radio B", False, "design-radio-b"),
         ]
         return context
-
-
-class CapturedEmail(NamedTuple):
-    subject: str
-    to: str
-    date: str
-    body: str
-
-
-def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
-    if not directory.exists():
-        return []
-    emails: list[CapturedEmail] = []
-    for log_file in sorted(directory.glob("*.log"), reverse=True):
-        for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
-            if not (raw := chunk.strip()):
-                continue
-            message = message_from_bytes(raw, policy=policy.default)
-            body = message.get_body(preferencelist=("plain", "html"))
-            emails.append(
-                CapturedEmail(
-                    subject=str(message["Subject"] or ""),
-                    to=str(message["To"] or ""),
-                    date=str(message["Date"] or ""),
-                    body=body.get_content() if body else "",
-                )
-            )
-    return emails
-
-
-class StagingEmailInboxView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        if not settings.EMAIL_FILE_PATH or not self.request.user.is_staff:
-            raise Http404
-        return TemplateResponse(
-            self.request,
-            "staging_email_inbox.html",
-            {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
-        )
 
 
 def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:

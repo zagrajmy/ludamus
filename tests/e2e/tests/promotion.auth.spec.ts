@@ -23,22 +23,19 @@ const mailDir = path.join(e2eDir, ".e2e-mail");
 const superuserState = path.join(e2eDir, ".auth-state-superuser.json");
 const waiterState = path.join(e2eDir, ".auth-state-waiter.json");
 
-const readMail = (): string[] => {
-  if (!fs.existsSync(mailDir)) return [];
-  return fs.readdirSync(mailDir).map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"));
-};
+// Other specs (staging-inbox) write to the same directory concurrently, so
+// this one reads only files that appear after it starts, never clears them.
+const mailFiles = (): string[] => (fs.existsSync(mailDir) ? fs.readdirSync(mailDir) : []);
 
-const clearMail = (): void => {
-  if (!fs.existsSync(mailDir)) return;
-  for (const file of fs.readdirSync(mailDir)) {
-    fs.rmSync(path.join(mailDir, file));
-  }
-};
+const readMailSince = (before: Set<string>): string[] =>
+  mailFiles()
+    .filter((file) => !before.has(file))
+    .map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"));
 
 test("organizer cancel promotes the waitlisted player, who is emailed and notified", async ({
   browser,
 }) => {
-  clearMail();
+  const mailBefore = new Set(mailFiles());
 
   // A (superuser) cancels their confirmed seat via the enrollment form.
   const adminContext = await browser.newContext({
@@ -57,7 +54,7 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   await expect
     .poll(
       () =>
-        readMail().filter(
+        readMailSince(mailBefore).filter(
           (mail) =>
             mail.includes(`To: ${scenario.waiter_email}`) && mail.includes(scenario.session_title),
         ).length,
