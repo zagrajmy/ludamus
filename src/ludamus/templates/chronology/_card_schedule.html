@@ -18,12 +18,15 @@
             <div id="{{ day.panel_id }}" data-day-panel>
                 {% for slot in day.slots %}
                     <div class="mb-8 time-slot-section print:mb-4 print:break-inside-avoid"
+                         role="group"
+                         aria-labelledby="{{ day.panel_id }}-slot-{{ forloop.counter }}"
                          {% if slot.is_ended %}data-ended{% endif %}>
                         <!-- Time Slot Header -->
                         {# No rule here: the day heading above is the one divider between #}
                         {# the day and its times. #}
                         <div class="flex min-h-8 items-center gap-4 mb-3 px-2">
-                            <div class="text-sm font-semibold tabular-nums {% if slot.is_ended %}text-foreground-muted{% else %}text-foreground{% endif %}">
+                            <div id="{{ day.panel_id }}-slot-{{ forloop.counter }}"
+                                 class="text-sm font-semibold tabular-nums {% if slot.is_ended %}text-foreground-muted{% else %}text-foreground{% endif %}">
                                 {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
                                 {{ slot.hour|time:"H:i" }}
                             </div>
