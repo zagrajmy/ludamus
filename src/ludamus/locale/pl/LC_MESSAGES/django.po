@@ -7011,6 +7011,10 @@ msgid "You organize this"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/dashboard/_role.html
+msgid "You're running this"
+msgstr "Prowadzisz"
+
+#: src/ludamus/templates/dashboard/_role.html
 #, python-format
 msgid "Bookmarked · %(counter)s spot left"
 msgid_plural "Bookmarked · %(counter)s spots left"

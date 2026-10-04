@@ -143,6 +143,22 @@ def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]
     )
 
 
+def _run_sessions(user_id: int, *, now: datetime) -> list[Session]:
+    return list(
+        annotate_session_participation_counts(
+            Session.objects.filter(
+                Q(presenter_id=user_id)
+                | Q(
+                    facilitators__user_id=user_id, facilitators__deleted_at__isnull=True
+                ),
+                agenda_item__start_time__gte=now,
+            )
+            .select_related("agenda_item__space", "event__sphere__site")
+            .distinct()
+        )
+    )
+
+
 def _bookmarked_sessions(user_id: int, *, now: datetime) -> list[Session]:
     # Minus any session this member has a participation row at: that row is
     # already on the agenda, and it says more than the star does. A bookmark
@@ -177,21 +193,31 @@ def _held_encounters(user_id: int, *, now: datetime) -> list[Encounter]:
 class DashboardRepository(DashboardRepositoryProtocol):
     @staticmethod
     def list_agenda(user_id: int, *, now: datetime) -> list[DashboardCardDTO]:
-        """List everything this member holds a place at or starred, soonest first.
+        """List what this member runs, holds a place at or starred, soonest first.
 
         Returns:
-            Programme seats they hold, wait for, or have been offered,
-            programme items they bookmarked, and encounters they organise or
-            hold an RSVP to. Uncapped on purpose — the ceiling is what one
-            person can actually attend, which no convention pushes far.
+            Programme items they present or facilitate, programme seats they
+            hold, wait for, or have been offered, programme items they
+            bookmarked, and encounters they organise or hold an RSVP to. A
+            session shows once, in the first of those roles that fits.
+            Uncapped on purpose — the ceiling is what one person can actually
+            attend, which no convention pushes far.
         """
-        sessions = [
-            _held_session_card(participation)
-            for participation in _held_sessions(user_id, now=now)
-        ] + [
-            _session_card(session, role=DashboardRole.BOOKMARKED)
-            for session in _bookmarked_sessions(user_id, now=now)
-        ]
+        run = _run_sessions(user_id, now=now)
+        run_ids = {session.pk for session in run}
+        sessions = (
+            [_session_card(session, role=DashboardRole.RUNNING) for session in run]
+            + [
+                _held_session_card(participation)
+                for participation in _held_sessions(user_id, now=now)
+                if participation.session_id not in run_ids
+            ]
+            + [
+                _session_card(session, role=DashboardRole.BOOKMARKED)
+                for session in _bookmarked_sessions(user_id, now=now)
+                if session.pk not in run_ids
+            ]
+        )
         encounters = [
             _encounter_card(
                 encounter,
