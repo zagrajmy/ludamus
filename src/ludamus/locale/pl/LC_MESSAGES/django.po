@@ -8820,6 +8820,7 @@ msgstr "Scal"
 #: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/_proposal_tabs.html
 #: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
 #: src/ludamus/templates/panel/proposal-columns.html
 msgid "Columns"
 msgstr "Kolumny"
@@ -10667,19 +10668,6 @@ msgstr "Przenieś w górę"
 msgid "Move down"
 msgstr "Przenieś w dół"
 
-#: src/ludamus/templates/panel/parts/_columns_chooser.html
-msgid "Shown columns"
-msgstr "Wyświetlane kolumny"
-
-#: src/ludamus/templates/panel/parts/_columns_chooser.html
-msgctxt "column group"
-msgid "Available"
-msgstr "Dostępne"
-
-#: src/ludamus/templates/panel/parts/_columns_chooser.html
-msgid "Available columns"
-msgstr "Dostępne kolumny"
-
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 #, python-format
 msgid "Attach %(name)s to a guild"
@@ -12089,6 +12077,16 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Shown columns"
+#~ msgstr "Wyświetlane kolumny"
+
+#~ msgctxt "column group"
+#~ msgid "Available"
+#~ msgstr "Dostępne"
+
+#~ msgid "Available columns"
+#~ msgstr "Dostępne kolumny"
 
 #~ msgid "Bookmarks"
 #~ msgstr "Zakładki"
