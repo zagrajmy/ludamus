@@ -159,7 +159,7 @@ class TestBuildCardDays:
 
         # A slot is over only once every session in it is.
         assert [
-            (slot.is_ended, slot.is_first_current) for day in days for slot in day.slots
+            (slot.is_ended, slot.marks_now) for day in days for slot in day.slots
         ] == [(True, False), (False, True), (False, False)]
         # A single-day schedule has no day heading, so every label keeps its date.
         assert all(slot.show_date for slot in days[0].slots)

@@ -20,20 +20,20 @@
                     <div class="mb-8 time-slot-section print:mb-4 print:break-inside-avoid"
                          {% if slot.is_ended %}data-ended{% endif %}>
                         <!-- Time Slot Header -->
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="inline-flex items-center gap-2 text-sm font-semibold {% if slot.is_ended %}text-foreground-muted{% else %}text-foreground{% endif %}">
-                                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                        {# No rule here: the day heading above is the one divider between #}
+                        {# the day and its times. #}
+                        <div class="flex min-h-8 items-center gap-4 mb-3 px-2">
+                            <div class="text-sm font-semibold tabular-nums {% if slot.is_ended %}text-foreground-muted{% else %}text-foreground{% endif %}">
                                 {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
                                 {{ slot.hour|time:"H:i" }}
                             </div>
-                            <div class="h-px grow bg-border"></div>
-                            {% if event.is_live and slot.is_first_current %}
+                            {% if event.is_live and slot.marks_now %}
                                 <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5 print:hidden">
                                     <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
                                     {% translate "Now" %}
                                 </span>
                             {% endif %}
-                            <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
+                            <span class="ml-auto text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
                             {# hour_data is keyed by slot start, so this counts time slots: #}
                             {# with only one, the link would repeat the section's Propose #}
                             {# Session button right above it. #}

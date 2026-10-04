@@ -357,9 +357,9 @@ class CardSlot:
     sessions: list[SessionData]
     # Every session in the slot is over, so its cards grey out.
     is_ended: bool
-    # The first slot still to run page-wide: the one the "Now" pill belongs to
-    # while the event is live.
-    is_first_current: bool = False
+    # The first slot still to run page-wide: the one the "Now" marker belongs
+    # to while the event is live.
+    marks_now: bool = False
     # The pill prints its own date only on a single-day schedule; under a day
     # heading the date would repeat what the heading already states.
     show_date: bool = False
@@ -391,8 +391,8 @@ def build_card_days(hour_data: dict[datetime, list[SessionData]]) -> list[CardDa
             hour_data.items(), key=lambda item: item[0].timestamp()
         )
     ]
-    if first_current := next((slot for slot in slots if not slot.is_ended), None):
-        first_current.is_first_current = True
+    if next_up := next((slot for slot in slots if not slot.is_ended), None):
+        next_up.marks_now = True
     days = [
         CardDay(day_start=PROGRAMME_DAYS.opening(day, tz), slots=list(group))
         for day, group in groupby(
