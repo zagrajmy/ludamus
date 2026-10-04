@@ -15,11 +15,12 @@
         {% endif %}
         {% if data.cloud_overflow %}
             <div class="session-tags-more relative inline-flex items-center justify-center pointer-events-auto">
-                <div class="session-tags-popover rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) pointer-events-none flex flex-wrap gap-1"
-                     role="tooltip">
-                    {% for pill in data.cloud_overflow %}
-                        {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
-                    {% endfor %}
+                <div class="session-tags-popover pointer-events-none" role="tooltip">
+                    <div class="session-tags-bubble rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) flex flex-wrap gap-1">
+                        {% for pill in data.cloud_overflow %}
+                            {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
+                        {% endfor %}
+                    </div>
                 </div>
                 <span class="text-sm font-medium text-foreground-muted hover:text-foreground-secondary cursor-help border-b border-dotted border-foreground-muted hover:border-foreground-secondary">+{{ data.cloud_overflow|length }}</span>
             </div>

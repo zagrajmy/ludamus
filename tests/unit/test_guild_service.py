@@ -99,15 +99,16 @@ class FakeGuilds:
 
     def slug_exists(self, *, sphere_id, slug):
         self.calls.append(("slug_exists", sphere_id, slug))
-        return slug in self._cfg["taken_slugs"]
+        return sphere_id == SPHERE_PK and slug in self._cfg["taken_slugs"]
 
     def find_assignable_users(self, *, identifier):
         self.calls.append(("find_assignable_users", identifier))
-        return self._cfg["matches"]
+        return self._cfg["matches"] if identifier else []
 
     def find_assignable_facilitators(self, *, sphere_id, name):
         self.calls.append(("find_assignable_facilitators", sphere_id, name))
-        return self._cfg["facilitator_matches"]
+        matches = {SPHERE_PK: self._cfg["facilitator_matches"]}[sphere_id]
+        return matches if name else []
 
     def set_facilitator_guild(self, *, sphere_id, facilitator_pk, guild_pk):
         self.calls.append(
@@ -117,7 +118,7 @@ class FakeGuilds:
 
     def read_member_guild(self, *, sphere_id, user_pk):
         self.calls.append(("read_member_guild", sphere_id, user_pk))
-        return self._cfg["current"]
+        return {(SPHERE_PK, MEMBER_PK): self._cfg["current"]}[sphere_id, user_pk]
 
     def assign_member(self, *, sphere_id, guild_pk, user_pk):
         self.calls.append(("assign_member", sphere_id, guild_pk, user_pk))

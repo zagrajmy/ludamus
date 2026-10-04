@@ -75,14 +75,13 @@ class TestRenderMarkdown:
         assert "<strong>bold</strong>" in html
         assert "<br" in html
 
-    def test_strips_scripts_and_unknown_attributes(self):
+    def test_keeps_only_the_allowed_tags_and_attributes(self):
         html = render_markdown(
-            '<script>alert(1)</script><a href="/x" onclick="y">l</a>'
+            "<script>alert(1)</script>"
+            '<a href="/x" hreflang="en" onclick="y">l</a><u>u</u>'
         )
 
-        assert "<script" not in html
-        assert "onclick" not in html
-        assert '<a href="/x"' in html
+        assert html.strip() == '<p><a href="/x" rel="noopener noreferrer">l</a>u</p>'
 
 
 class TestCalendarExports:
@@ -95,6 +94,7 @@ class TestCalendarExports:
         assert f"URL:{URL}" in lines
         assert not [line for line in lines if line.startswith("DTEND")]
         assert not [line for line in lines if line.startswith("LOCATION")]
+        assert not [line for line in lines if line.startswith("DESCRIPTION")]
 
     def test_ics_prints_end_place_and_description_when_present(self):
         encounter = _encounter(
@@ -193,6 +193,32 @@ class TestPanelService:
     def test_the_first_slot_of_an_event_is_valid(self):
         errors = PanelService.validate_time_slot(
             START, START + timedelta(hours=1), _event(), []
+        )
+
+        assert not errors
+
+    def test_a_slot_ending_when_the_event_ends_is_valid(self):
+        event = _event()
+
+        errors = PanelService.validate_time_slot(
+            event.end_time - timedelta(hours=1), event.end_time, event, []
+        )
+
+        assert not errors
+
+    def test_an_empty_slot_must_start_before_it_ends(self):
+        errors = PanelService.validate_time_slot(START, START, _event(), [])
+
+        assert errors == ["Start must be before end."]
+
+    def test_slots_touching_at_their_edges_do_not_overlap(self):
+        neighbours = [
+            _Range(START, START + timedelta(hours=1)),
+            _Range(START + timedelta(hours=2), START + timedelta(hours=3)),
+        ]
+
+        errors = PanelService.validate_time_slot(
+            START + timedelta(hours=1), START + timedelta(hours=2), _event(), neighbours
         )
 
         assert not errors

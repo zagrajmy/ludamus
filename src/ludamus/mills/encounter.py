@@ -136,11 +136,7 @@ class EncounterService(EncounterServiceProtocol):
                 encounter=encounter,
                 rsvp_count=rsvp_counts.get(encounter.pk, 0),
                 is_mine=encounter.creator_id == user_id,
-                organizer_name=(
-                    ""
-                    if encounter.creator_id == user_id
-                    else names.get(encounter.creator_id, "")
-                ),
+                organizer_name=names.get(encounter.creator_id, ""),
             )
             for encounter in encounters
         ]
@@ -346,5 +342,5 @@ def _without_public_flag(data: EncounterData) -> EncounterData:
     # A copy, not a `del`: the caller built this dict and keeps using it, so a
     # mill reaching back into it would be an argument side effect.
     filtered = data.copy()
-    filtered.pop("is_public", None)
+    filtered.pop("is_public")
     return filtered

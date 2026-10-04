@@ -9,8 +9,9 @@ const overflowCard = (page: Page) =>
 
 const plusCount = (page: Page) => overflowCard(page).getByText(/^\+\d+$/);
 
-const opacityOf = (locator: Locator) =>
-  locator.evaluate((element) => getComputedStyle(element).opacity);
+// The tooltip only places the bubble; the bubble is what fades in and out.
+const opacityOf = (tip: Locator) =>
+  tip.locator(".session-tags-bubble").evaluate((element) => getComputedStyle(element).opacity);
 
 const horizontalOverflow = (page: Page) =>
   page.locator("#app-scroll").evaluate((scroller) => scroller.scrollWidth - scroller.clientWidth);

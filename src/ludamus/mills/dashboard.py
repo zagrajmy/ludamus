@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
+    DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardDTO,
@@ -38,7 +39,6 @@ class DashboardService(DashboardServiceProtocol):
     def read(self, *, user_id: int, now: datetime) -> DashboardDTO:
         return DashboardDTO(
             agenda=self._dashboard.list_agenda(user_id, now=now),
-            bookmarks=self._dashboard.list_bookmarks(user_id, now=now),
             open_encounters=self._dashboard.list_open_encounters(
                 user_id, now=now, limit=DASHBOARD_OPEN_ENCOUNTERS
             ),
@@ -47,6 +47,9 @@ class DashboardService(DashboardServiceProtocol):
             ),
             discover=self._dashboard.list_spheres_to_discover(
                 user_id, now=now, limit=DASHBOARD_SPHERES_TO_DISCOVER
+            ),
+            past_events=self._dashboard.list_past_events(
+                user_id, now=now, limit=DASHBOARD_PAST_EVENTS
             ),
         )
 

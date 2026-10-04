@@ -29,6 +29,10 @@ description — run it rather than trusting a hardcoded list here. Most used:
 - Don't ignore lint rules globally.
 - No redundant migrations: if something can be done with a settings toggle or a
   single MCP call, it does not require a migration.
+- Migration conflict with `main`: renumber the branch's own migrations on top
+  of main's leaf, in order, and re-point the first one's `dependencies` to
+  that leaf. Drop the branch's merge migrations. Never rename, renumber, or
+  edit a migration already on `main`.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;

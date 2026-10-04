@@ -3,6 +3,8 @@
 
 /* Over the card's full-bleed .session-link, so hovering it reaches the +N. */
 .session-tags-more {
+  --session-tags-gap: 8px;
+  --session-tags-arrow: 10px;
   position: relative;
   z-index: 20;
 }
@@ -11,23 +13,85 @@
   z-index: 30;
 }
 
+/* The popover places and opens; the bubble inside it is the look and the
+   motion. NOTE: nothing that flips may carry a transition. Firefox restarts
+   every transition on a box styled from a position-try fallback, so the
+   flipped popover sat at its first frame, invisible. Its child is not
+   restyled by the flip, so the bubble animates in either place. */
 .session-tags-popover {
-  margin-bottom: 8px;
-  transform: scale(0.9) translateY(16px);
+  margin-bottom: var(--session-tags-gap);
   width: max-content;
   min-width: 12rem;
   max-width: 18rem;
   z-index: 50;
+}
+
+.session-tags-bubble {
   opacity: 0;
+  scale: 0.96;
   transition:
     opacity 0.35s var(--ease-spring-a-bit),
-    transform 0.35s var(--ease-spring-a-bit);
+    scale 0.35s var(--ease-spring-a-bit);
 }
 
 .session-tags-more:hover .session-tags-popover {
-  opacity: 1;
   pointer-events: auto;
-  transform: none;
+}
+
+.session-tags-more:hover .session-tags-bubble {
+  opacity: 1;
+  scale: 1;
+}
+
+/* The arrow, drawn over the bubble so its fill breaks the bubble's border
+   and its own shadow carries the bubble's on. A diamond with the bubble's
+   1px border (the gradients), centred on the inner line of the bubble's
+   border so its sides run on through that border and meet it mitred, and
+   clipped to the half that points at the +N. It flips, so it shows with the
+   popover rather than fading in with the bubble.
+
+   Which half that is turns on the flip, and the clip finds out from the
+   margin box: the margin facing the +N is --near, the far one is the
+   bubble's height, so the box sits at one end of its margin box or the
+   other. The clip holds the +N-facing half at both ends, and only the end
+   the box sits in has anything to paint; --reach leaves the shadow room.
+   Each branch below places it. */
+.session-tags-more::after {
+  --box: calc(var(--session-tags-arrow) + 2px);
+  --near: calc(var(--session-tags-gap) - var(--session-tags-arrow) / 2);
+  --cut: calc(var(--near) + var(--box) / 2);
+  --reach: 12px;
+  --edge:
+    transparent calc(50% - 0.5px), var(--color-border) 0 calc(50% + 0.5px),
+    var(--color-bg-secondary) 0;
+  content: "";
+  z-index: 51;
+  width: var(--box);
+  height: var(--box);
+  translate: -50% 0;
+  background:
+    linear-gradient(to bottom right, var(--edge)) top left / 50% 50% no-repeat,
+    linear-gradient(to bottom left, var(--edge)) top right / 50% 50% no-repeat,
+    linear-gradient(to top right, var(--edge)) bottom left / 50% 50% no-repeat,
+    linear-gradient(to top left, var(--edge)) bottom right / 50% 50% no-repeat;
+  filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.1));
+  clip-path: polygon(
+      calc(0px - var(--reach)) calc(var(--near) - var(--reach)),
+      calc(100% + var(--reach)) calc(var(--near) - var(--reach)),
+      calc(100% + var(--reach)) var(--cut),
+      calc(0px - var(--reach)) var(--cut),
+      calc(0px - var(--reach)) calc(100% - var(--cut)),
+      calc(100% + var(--reach)) calc(100% - var(--cut)),
+      calc(100% + var(--reach)) calc(100% - var(--near) + var(--reach)),
+      calc(0px - var(--reach)) calc(100% - var(--near) + var(--reach))
+    )
+    margin-box;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.session-tags-more:hover::after {
+  opacity: 1;
 }
 
 /* The screen, not the card, bounds the popover: fixed, so the screen is its
@@ -37,7 +101,7 @@
    anchor-scope because every card names the same anchor. */
 @supports (anchor-name: --a) {
   .session-tags-cloud {
-    anchor-scope: --session-tags-more;
+    anchor-scope: --session-tags-more, --session-tags-popover;
   }
 
   .session-tags-more {
@@ -51,6 +115,33 @@
     bottom: anchor(top);
     justify-self: anchor-center;
     position-try-fallbacks: flip-block;
+    anchor-name: --session-tags-popover;
+  }
+
+  /* On the +N's centre, short of the bubble's rounded corners, and on the
+     bubble's near edge. The +N's ::after, as only a fixed box after the
+     bubble in tree order may anchor to both.
+
+     NOTE: engines disagree on scrolling an anchor() that names a box other
+     than the default anchor (Chromium and Firefox land a scroll offset
+     apart), so every vertical edge here comes from the +N. With the
+     bubble's height as margin on the far side, the arrow's margin box is the
+     bubble's: flip-block flips both together. */
+  .session-tags-more::after {
+    position: fixed;
+    position-anchor: --session-tags-more;
+    bottom: anchor(top);
+    margin-bottom: var(--near);
+    margin-top: calc(
+      anchor-size(--session-tags-popover height) + var(--session-tags-gap) - var(--near) -
+        var(--box)
+    );
+    position-try-fallbacks: flip-block;
+    left: clamp(
+      anchor(--session-tags-popover left) + 1.25rem,
+      anchor(center),
+      anchor(--session-tags-popover right) - 1.25rem
+    );
   }
 }
 
@@ -67,6 +158,15 @@
   }
 
   .session-tags-more:hover .session-tags-popover {
-    display: flex;
+    display: block;
+  }
+
+  /* Never flips, so the bubble is always above: the bottom half. */
+  .session-tags-more::after {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    margin-bottom: var(--near);
+    clip-path: inset(50% calc(0px - var(--reach)) calc(0px - var(--reach)));
   }
 }

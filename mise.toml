@@ -265,9 +265,19 @@ run = "pytest -m postgres tests/integration"
 env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
 
 [tasks."test:mutation"]
-description = "Run mutation tests"
-run = "pytest --gremlins tests"
-env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
+description = "Run mutation tests; fails on any surviving or untested mutant"
+# NOTE: mutmut reuses mutants/ between runs: its stats only re-collect for new
+# tests, so a function added since the last run maps to no test, and the
+# "no tests" verdict that writes into the .meta files is never reset by a later
+# run. Starting from an empty mutants/ makes every run a full one, as in CI;
+# "no tests" is gated like a survivor so a stale verdict cannot pass either.
+run = [
+    "rm -rf mutants",
+    "mutmut run",
+    "mutmut results",
+    "! mutmut results | grep -E ': (survived|no tests)$'",
+]
+env = { _.file = '.env.test' }
 
 ## Complex
 

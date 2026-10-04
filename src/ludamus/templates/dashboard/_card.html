@@ -4,7 +4,8 @@
     One dated thing on the dashboard. `card` is a DashboardCardDTO, which
     carries an absolute URL — these rows come from every sphere at once, so a
     relative link would point at whichever domain is rendering. An offered
-    seat also carries a claim button.
+    seat also carries a claim button. `date_format` swaps the clock time for
+    the year where the row is history rather than a plan.
 {% endcomment %}
 <article class="card flex flex-col overflow-hidden">
     <a href="{{ card.url }}"
@@ -15,7 +16,8 @@
         <div class="flex flex-col gap-1 p-4">
             <h3 {% if card.claim_url %}id="{{ card.claim_url|slugify }}"{% endif %}
                 class="font-semibold leading-tight text-foreground">{{ card.title }}</h3>
-            <p class="text-sm text-foreground-secondary tabular-nums">{{ card.start_time|date:"j E, H:i" }}</p>
+            {% firstof date_format "j E, H:i" as card_date_format %}
+            <p class="text-sm text-foreground-secondary tabular-nums">{{ card.start_time|date:card_date_format }}</p>
             <p class="text-xs text-foreground-muted">
                 {{ card.origin_name }}
                 {% if card.place %}· {{ card.place }}{% endif %}

@@ -18,7 +18,7 @@ from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
 
 SLUG_MAX_LENGTH = 50
-_TOKEN_MIN_LENGTH = 48
+_TOKEN_LENGTH = 64
 USERNAME = "workos|user_01ME"
 
 
@@ -210,7 +210,7 @@ class TestClaimServiceIssue:
         token = _claim_service(repo).issue(manager_slug="parent", user_slug="kid")
 
         assert token is not None
-        assert len(token) >= _TOKEN_MIN_LENGTH
+        assert len(token) == _TOKEN_LENGTH
         assert repo.issued == [("parent", "kid", token)]
 
     def test_refused_by_repo_yields_none(self):

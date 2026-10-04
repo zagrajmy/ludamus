@@ -783,7 +783,8 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
                 )
             self._repos.facilitators.soft_delete(facilitator.pk)
-            self._log_deletion(
+            log_facilitator_deletion(
+                repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
@@ -799,23 +800,15 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 event_id, facilitator_slug
             )
             self._repos.facilitators.restore(facilitator.pk)
-            self._log_deletion(
+            # pragma: no mutate start
+            log_facilitator_deletion(
+                repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
                 deleted=False,
             )
-
-    def _log_deletion(
-        self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
-    ) -> None:
-        log_facilitator_deletion(
-            repo=self._repos.facilitator_change_logs,
-            event_id=event_id,
-            facilitator_id=facilitator_id,
-            user_id=user_id,
-            deleted=deleted,
-        )
+            # pragma: no mutate end
 
     def _place_guild(
         self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int

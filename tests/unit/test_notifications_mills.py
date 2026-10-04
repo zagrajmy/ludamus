@@ -70,6 +70,7 @@ class TestNotificationsService:
         service = _service(repo)
 
         assert service.total_count(USER_ID) == len(repo.rows)
+        assert [n.pk for n in service.list_for_user(USER_ID, limit=2)] == [1, 2]
         assert [n.pk for n in service.list_for_user(USER_ID, limit=2, offset=2)] == [
             3,
             4,

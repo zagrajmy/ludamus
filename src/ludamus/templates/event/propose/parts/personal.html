@@ -38,7 +38,6 @@
                 {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
             {% endfor %}
         </div>
-        {% url 'web:event:session-propose-category' event_slug=event.slug as back_url %}
         {% include "event/propose/parts/_nav.html" %}
     </form>
 </div>

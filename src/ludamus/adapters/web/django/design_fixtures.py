@@ -138,7 +138,7 @@ def mock_session_data() -> SessionData:
     ]
     return SessionData(
         agenda_item=AgendaItemDTO(
-            end_time=end, pk=1, session_confirmed=True, start_time=start
+            end_time=end, pk=1, schedule_confirmed=True, start_time=start
         ),
         is_enrollment_available=True,
         presenter=presenter,
@@ -277,7 +277,7 @@ def mock_session_data_ended() -> SessionData:
     ]
     return SessionData(
         agenda_item=AgendaItemDTO(
-            end_time=end, pk=2, session_confirmed=True, start_time=start
+            end_time=end, pk=2, schedule_confirmed=True, start_time=start
         ),
         is_enrollment_available=False,
         presenter=data.presenter,

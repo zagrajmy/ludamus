@@ -2,7 +2,7 @@
 {% comment %}
     Why `card` is on this dashboard, in the reader's terms. One line, never
     two: a row you hold says so, a row that is open says how much room is
-    left.
+    left, and a starred row says both.
 
     The states share one treatment and differ only by the semantic
     colour token, so they read as one set. Those tokens rather than the raw
@@ -22,6 +22,20 @@
     </p>
 {% elif card.role == "organizing" %}
     <p class="mt-1 text-xs font-semibold text-warning-text">{% translate "You organize this" %}</p>
+{% elif card.role == "bookmarked" %}
+    {% if card.spots_remaining %}
+        <p class="mt-1 text-xs font-semibold text-foreground-secondary">
+            {% blocktranslate trimmed count counter=card.spots_remaining %}
+                Bookmarked · {{ counter }} spot left
+            {% plural %}
+                Bookmarked · {{ counter }} spots left
+            {% endblocktranslate %}
+        </p>
+    {% elif card.capacity %}
+        <p class="mt-1 text-xs font-semibold text-danger-text">{% translate "Bookmarked · no spots left" %}</p>
+    {% else %}
+        <p class="mt-1 text-xs font-semibold text-foreground-secondary">{% translate "Bookmarked" %}</p>
+    {% endif %}
 {% elif card.spots_remaining %}
     <p class="mt-1 text-xs font-semibold text-foreground-secondary">
         {% blocktranslate count counter=card.spots_remaining %}
