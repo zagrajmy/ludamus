@@ -228,6 +228,69 @@ class TestStagingEmailInboxView:
             template_name="staging_email_inbox.html",
         )
 
+    @freeze_time("2026-07-02 09:00")
+    def test_days_are_labelled_relative_to_today(self, staff_client, inbox):
+        def _dated(subject, date_header):
+            return _msg(subject).replace("\n\n", f"\nDate: {date_header}\n\n", 1)
+
+        _write_email(
+            inbox,
+            raw=f"{SEPARATOR}\n".join(
+                [
+                    _msg("Undated"),
+                    _dated("Older", "Mon, 29 Jun 2026 10:00:00 +0000"),
+                    _dated("Yesterday's", "Wed, 01 Jul 2026 10:00:00 +0000"),
+                    _dated("Today's", "Thu, 02 Jul 2026 08:00:00 +0000"),
+                ]
+            ),
+        )
+
+        response = staff_client.get(URL)
+
+        days = response.context_data["days"]
+        assert [(day.label, [e.subject for e in day.emails]) for day in days] == [
+            ("Today", ["Today's"]),
+            ("Yesterday", ["Yesterday's"]),
+            ("Monday, 29 June", ["Older"]),
+            ("No date", ["Undated"]),
+        ]
+
+    @freeze_time("2026-07-02 09:00")
+    def test_unparseable_date_header_reads_as_undated(self, staff_client, inbox):
+        raw = _msg("Odd").replace("\n\n", "\nDate: sometime soon\n\n", 1)
+        _write_email(inbox, raw=raw)
+        odd = _captured(raw, email_id="20260701-000000-1-0", subject="Odd", body="body")
+
+        response = staff_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                total=1,
+                newest_id=odd.id,
+                match_count=1,
+                days=[InboxDay(label="No date", emails=[odd])],
+                selected=odd,
+            ),
+            template_name="staging_email_inbox.html",
+        )
+
+    @freeze_time("2026-07-02 09:00")
+    def test_missing_mail_directory_reads_as_empty(
+        self, staff_client, settings, tmp_path
+    ):
+        settings.EMAIL_FILE_PATH = str(tmp_path / "not-created-yet")
+
+        response = staff_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(),
+            template_name="staging_email_inbox.html",
+        )
+
     def test_list_stops_at_limit(self, staff_client, inbox):
         messages = [_msg(f"Mail {n}") for n in range(LIST_LIMIT + 1)]
         _write_email(inbox, raw=f"{SEPARATOR}\n".join(messages))

@@ -128,9 +128,8 @@ def _read_log(log_file: Path) -> list[CapturedEmail]:
 
 
 def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
-    # Newest first: file names start with a timestamp.
-    if not directory.exists():
-        return []
+    # Newest first: file names start with a timestamp. A directory the backend
+    # has not created yet globs to nothing.
     return [
         email
         for log_file in sorted(directory.glob("*.log"), reverse=True)
