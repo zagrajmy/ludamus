@@ -1162,6 +1162,43 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# A live event whose slots are in every state a card schedule can show: one
+# over yesterday, and tomorrow a 10:00 holding a talk that takes no sign-up
+# beside a workshop whose window has not opened, then a sign-up-free 14:00.
+# The two 10:00 sessions differ only in enrollment, so the schedule has to
+# list them under one heading and still read in time order. Driven by
+# event-slot-headers.spec.ts.
+def _create_slot_states_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Tide Table Weekend",
+        slug="slot-states",
+        description="Yesterday's games are over; tomorrow's are still to come.",
+        start_offset=timedelta(days=-1),
+        duration_hours=72,
+        publication_offset=timedelta(days=3),
+    )
+    venue = _create_venue(event, name="Tide Venue", slug="tide-venue")
+    area = _create_area(venue, name="Tide Area", slug="tide-area")
+    space = _create_space(area, name="Tide Room", slug="tide-room", capacity=8)
+    for title, slug, seats, hour in (
+        ("Low Tide Skirmish", "low-tide-skirmish", 6, 8),
+        ("Welcome Talk", "tide-welcome-talk", 0, 48),
+        ("Dice Workshop", "tide-dice-workshop", 6, 48),
+        ("Closing Circle", "tide-closing-circle", 0, 52),
+    ):
+        _scheduled_session(
+            event,
+            space,
+            title=title,
+            slug=slug,
+            presenter="Tide Crew",
+            description="A session on the tide table.",
+            seats=seats,
+            hour=hour,
+        )
+
+
 # Enrollment and proposals both open around one scheduled session: a single
 # enrollable slot, whose header must not repeat the section's propose button.
 # Driven by event-propose-entry.spec.ts.
@@ -1584,6 +1621,7 @@ def main() -> None:
     _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
     _create_single_slot_event(sphere)
+    _create_slot_states_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

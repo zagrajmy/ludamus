@@ -3,6 +3,7 @@ from django.views.generic.base import RedirectView, TemplateView
 
 from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
+from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
@@ -127,7 +128,11 @@ urlpatterns = [
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
-    path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
+    path(
+        "dev/emails/",
+        staging_inbox.StagingEmailInboxView.as_view(),
+        name="staging-emails",
+    ),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
     path("", include((event_gate_urls, "event"), namespace="event")),
     # Permanent redirects for links shared before the `chronology/` path segment
