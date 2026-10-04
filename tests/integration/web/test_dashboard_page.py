@@ -208,14 +208,18 @@ class TestDashboardPageView:
             presenter=active_user,
             start_time=now + timedelta(hours=8),
         )
-        # Starring your own session must not split it into two rows.
+        # A star or a seat at your own session must not split it into two rows.
         SessionBookmark.objects.create(user=active_user, session=presented)
         me = Facilitator.objects.create(
             event=event, user=active_user, display_name="Me", slug="me"
         )
-        _scheduled_session(
+        facilitated = _scheduled_session(
             event, title="Facilitated", start_time=now + timedelta(days=1)
-        ).facilitators.add(me)
+        )
+        facilitated.facilitators.add(me)
+        SessionParticipationFactory(
+            session=facilitated, user=active_user, status="confirmed"
+        )
         dropped = Facilitator.objects.create(
             event=event, user=active_user, display_name="Old me", slug="old-me"
         )
@@ -247,6 +251,26 @@ class TestDashboardPageView:
         assert dashboard.agenda[0].url.startswith(
             f"https://{non_root_sphere.site.domain}/"
         )
+
+    def test_a_session_you_run_counts_each_seat_once(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        session = _scheduled_session(
+            event,
+            presenter=active_user,
+            start_time=datetime.now(UTC) + timedelta(days=1),
+        )
+        for slug in ("ala", "ola"):
+            session.facilitators.add(
+                Facilitator.objects.create(event=event, display_name=slug, slug=slug)
+            )
+        SessionParticipationFactory(session=session, status="confirmed")
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        (card,) = response.context_data["dashboard"].agenda
+        assert (card.attending_count, card.capacity) == (1, 4)
 
     def test_another_member_s_bookmarks_stay_theirs(self, authenticated_client, sphere):
         _bookmarked_session(EventFactory(sphere=sphere), user=UserFactory())
