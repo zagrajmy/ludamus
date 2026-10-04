@@ -106,7 +106,7 @@ class TestBuildScheduleDays:
                 start_time=datetime(2026, 7, 10, 12, tzinfo=UTC),
                 end_time=datetime(2026, 7, 10, 14, tzinfo=UTC),
                 pk=1,
-                session_confirmed=True,
+                schedule_confirmed=True,
             )
         )
 

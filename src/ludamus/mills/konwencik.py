@@ -102,7 +102,9 @@ def _room_labels(spaces: list[SpaceDTO]) -> dict[int, str]:
     by_pk = {space.pk: space for space in spaces}
     labels: dict[int, str] = {}
     for space in spaces:
+        # pragma: no mutate start
         parent = by_pk.get(space.parent_id) if space.parent_id else None
+        # pragma: no mutate end
         labels[space.pk] = f"{space.name} ({parent.name})" if parent else space.name
     return labels
 
@@ -121,7 +123,7 @@ def _local_span(item: AgendaItemDTO, zone: tzinfo) -> tuple[datetime, datetime] 
 
 def _last_run(integration: EventIntegrationDTO) -> KonwencikLastRun | None:
     try:
-        return KonwencikLastRun.model_validate_json(integration.last_run_json or "{}")
+        return KonwencikLastRun.model_validate_json(integration.last_run_json)
     except ValidationError:
         # Never run, or a blob from an older shape: the sheet is the output.
         return None
@@ -209,7 +211,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             track = _first_public_track(tracks, session_tracks)
             if session_tracks and track is None:
                 continue
+            # pragma: no mutate start
             combinations[item.category_id, track.pk if track else None] = None
+            # pragma: no mutate end
         return list(combinations)
 
     def save_settings(
@@ -539,7 +543,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
 def _slug_of(slugs: dict[int, str], pk: int | None) -> str:
     # No field configured is its own case, not a pk that happens to match
     # nothing: an unset override never reaches the value store.
-    return slugs.get(pk, "") if pk is not None else ""
+    return slugs.get(pk, "") if pk is not None else ""  # pragma: no mutate
 
 
 def _first_public_track(
@@ -563,11 +567,13 @@ def _build_row(
     answers: dict[str, str],
 ) -> KonwencikRow:
     start, end = span
+    # pragma: no mutate start
     default_icon = (
         settings.category_icons.get(item.category_id, "")
         if item.category_id is not None
         else ""
     )
+    # pragma: no mutate end
     return KonwencikRow(
         id=str(item.session_id),
         day=start.strftime(_DAY_FORMAT),

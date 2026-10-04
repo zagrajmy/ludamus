@@ -99,6 +99,71 @@ pre-configured for production with:
 - `USE_X_FORWARDED_HOST = True`
 - `USE_X_FORWARDED_PORT = True`
 
+**Cloudflare in front (production):** DNS for the production domain is on
+Cloudflare with the web records proxied (orange cloud). Cloudflare absorbs
+volumetric DDoS, runs the managed WAF ruleset, and rate-limits abusive
+paths; the Coolify box behind it only sees Cloudflare traffic. Settings that
+must hold:
+
+- SSL/TLS mode **Full (strict)** — anything else loops with
+  `SECURE_SSL_REDIRECT`.
+- Origin locked to [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+  so nobody can bypass the proxy by hitting the VPS address. Done in Traefik,
+  not the host firewall, because the same Coolify box serves other domains
+  that are not on Cloudflare (see below).
+- Mail records (MX, SPF, DKIM) stay DNS-only; Cloudflare does not proxy mail.
+
+The origin lock is a Traefik `ipAllowList` middleware scoped to this app's
+routers. Coolify: Servers → the server → Proxy → Dynamic Configurations →
+add `cloudflare.yaml`:
+
+```yaml
+http:
+  middlewares:
+    cloudflare-only:
+      ipAllowList:
+        sourceRange:
+          - <every range from https://www.cloudflare.com/ips-v4>
+          - <every range from https://www.cloudflare.com/ips-v6>
+```
+
+Both lists in full, one CIDR per line. A partial list is the same as a wrong
+one: every visitor routed through an edge you left out gets a 403.
+
+Then in the ludamus application → Advanced → Container Labels, prepend the
+middleware on every `https-N` router whose `Host` rule is a Cloudflare-proxied
+domain (Coolify emits one `http-N`/`https-N` pair per FQDN):
+
+```text
+traefik.http.routers.https-0-<uuid>.middlewares=cloudflare-only@file,gzip
+```
+
+Leave `http-N` routers alone (they only redirect to HTTPS) and leave any
+router for a non-proxied domain alone, or it 403s for everyone. Redeploy.
+Verify from outside the box:
+
+```bash
+curl -sI https://<domain>/healthz/                                     # 200
+curl -sk -o /dev/null -w '%{http_code}\n' \
+  --resolve <domain>:443:<vps-ip> https://<domain>/                    # 403
+```
+
+A stale range list fails closed (visitors from a new Cloudflare edge get
+403), so refresh the YAML when Cloudflare announces a change. Let's Encrypt
+HTTP-01 renewals still work: the challenge arrives through Cloudflare.
+Uptime monitors must use the domain, not the VPS address.
+
+Because of this, every request at the app arrives from a Cloudflare address:
+`REMOTE_ADDR` and the rightmost `X-Forwarded-For` entry name Cloudflare, not
+the visitor. The real client IP is the `CF-Connecting-IP` header, which
+Cloudflare sets and, given the origin lockdown, nobody else can. All
+IP-keyed logic (throttles, RSVP dedupe) goes through `get_client_ip` in
+`gates/web/django/helpers.py`, which prefers that header and falls back to
+rightmost `X-Forwarded-For` then `REMOTE_ADDR` for local and non-Cloudflare
+setups. Never read those two directly. If the origin lockdown is ever
+removed, `CF-Connecting-IP` becomes client-supplied and this helper must
+change first.
+
 **Bind mount paths:** `POSTGRES_DATA_PATH`, `STATIC_DATA_PATH`, and
 `MEDIA_DATA_PATH` in `.env` control where Docker volumes are stored on the
 host. They default to `/var/lib/ludamus/` in `docker/compose/prod.yaml` but

@@ -191,9 +191,10 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
-        raw = integration.questions_snapshot_json or "[]"
         try:
-            return _SOURCE_QUESTIONS_ADAPTER.validate_json(raw)
+            return _SOURCE_QUESTIONS_ADAPTER.validate_json(
+                integration.questions_snapshot_json
+            )
         except ValidationError:
             return []
 

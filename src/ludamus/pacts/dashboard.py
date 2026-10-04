@@ -19,6 +19,7 @@ from pydantic import BaseModel
 DASHBOARD_SPHERE_FEED = 12
 DASHBOARD_OPEN_ENCOUNTERS = 8
 DASHBOARD_SPHERES_TO_DISCOVER = 6
+DASHBOARD_PAST_EVENTS = 12
 
 
 class DashboardRole(StrEnum):
@@ -29,7 +30,12 @@ class DashboardRole(StrEnum):
     # A seat is held for this member until ``offer_expires_at``.
     OFFERED = auto()
     ORGANIZING = auto()
+    # Presenting or facilitating a programme item.
+    RUNNING = auto()
     OPEN = auto()
+    # Starred, with no seat held: the card still says how much room is left.
+    BOOKMARKED = auto()
+    ATTENDED = auto()
 
 
 class DashboardCardDTO(BaseModel):
@@ -68,15 +74,15 @@ class DashboardSphereDTO(BaseModel):
 
 
 class DashboardDTO(BaseModel):
-    # What this member holds, soonest first.
+    # What this member holds or starred, soonest first.
     agenda: list[DashboardCardDTO]
-    # Programme items this member starred but holds no seat at, soonest first.
-    bookmarks: list[DashboardCardDTO]
     # Open encounters anyone may join, across every sphere.
     open_encounters: list[DashboardCardDTO]
     # What is coming up where this member already plays, minus their own rows.
     sphere_feed: list[DashboardCardDTO]
     discover: list[DashboardSphereDTO]
+    # Events this member was at, most recent first.
+    past_events: list[DashboardCardDTO]
 
 
 class SubscriptionRecipientDTO(BaseModel):
@@ -108,8 +114,6 @@ class DashboardRepositoryProtocol(Protocol):
     @staticmethod
     def list_agenda(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
     @staticmethod
-    def list_bookmarks(user_id: int, *, now: datetime) -> list[DashboardCardDTO]: ...
-    @staticmethod
     def list_open_encounters(
         user_id: int, *, now: datetime, limit: int
     ) -> list[DashboardCardDTO]: ...
@@ -121,6 +125,10 @@ class DashboardRepositoryProtocol(Protocol):
     def list_spheres_to_discover(
         user_id: int, *, now: datetime, limit: int
     ) -> list[DashboardSphereDTO]: ...
+    @staticmethod
+    def list_past_events(
+        user_id: int, *, now: datetime, limit: int
+    ) -> list[DashboardCardDTO]: ...
 
 
 class SphereSubscriptionRepositoryProtocol(Protocol):
