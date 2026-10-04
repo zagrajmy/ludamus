@@ -23,25 +23,15 @@
             {% if error %}<div class="card p-4 mb-6 text-sm text-danger" role="alert">{{ error }}</div>{% endif %}
             <ul data-column-list
                 class="space-y-2"
-                aria-label="{% translate "Shown columns" %}"
+                aria-label="{% translate "Columns" %}"
                 aria-describedby="columns-help">
                 {% for column in chosen_columns %}
                     {% include "panel/parts/_column_row.html" with column=column shown=True label=column.label only %}
                 {% endfor %}
+                {% for column in available_columns %}
+                    {% include "panel/parts/_column_row.html" with column=column shown=False label=column.label only %}
+                {% endfor %}
             </ul>
-            {% if available_columns %}
-                <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mt-4 mb-2">
-                    {% translate "Available" context "column group" %}
-                </p>
-                <ul data-column-list
-                    class="space-y-2"
-                    aria-label="{% translate "Available columns" %}"
-                    aria-describedby="columns-help">
-                    {% for column in available_columns %}
-                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column.label only %}
-                    {% endfor %}
-                </ul>
-            {% endif %}
         </div>
     </div>
 </form>
