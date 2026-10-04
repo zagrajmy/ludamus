@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 import pytest
@@ -32,6 +32,7 @@ SPOT_OPENED = CapturedEmail(
     to="player@example.com",
     sent_at=datetime(2026, 7, 1, 12, tzinfo=UTC),
     body="Claim it before it goes to the next person.",
+    preview="Claim it before it goes to the next person.",
     links=(),
     parts=(),
     source=RAW_EMAIL.strip(),
@@ -62,6 +63,7 @@ def _captured(raw, *, email_id, subject, body):
         to="player@example.com",
         sent_at=None,
         body=body,
+        preview=body,
         links=(),
         parts=(),
         source=raw.strip(),
@@ -70,7 +72,8 @@ def _captured(raw, *, email_id, subject, body):
 
 def _context(**overrides):
     return {
-        "emails": [],
+        "total": 0,
+        "newest_id": "",
         "query": "",
         "match_count": 0,
         "days": [],
@@ -78,8 +81,6 @@ def _context(**overrides):
         "list_limit": LIST_LIMIT,
         "selected": None,
         "requested": "",
-        "today": date(2026, 7, 2),
-        "yesterday": date(2026, 7, 1),
     } | overrides
 
 
@@ -128,9 +129,10 @@ class TestStagingEmailInboxView:
             response,
             HTTPStatus.OK,
             context_data=_context(
-                emails=[SPOT_OPENED],
+                total=1,
+                newest_id=SPOT_OPENED.id,
                 match_count=1,
-                days=[InboxDay(day=date(2026, 7, 1), emails=[SPOT_OPENED])],
+                days=[InboxDay(label="Yesterday", emails=[SPOT_OPENED])],
                 selected=SPOT_OPENED,
             ),
             template_name="staging_email_inbox.html",
@@ -141,8 +143,8 @@ class TestStagingEmailInboxView:
 
         response = staff_client.get(URL)
 
-        emails = response.context_data["emails"]
-        assert [(e.id, e.subject) for e in emails] == [
+        days = response.context_data["days"]
+        assert [(e.id, e.subject) for day in days for e in day.emails] == [
             ("20260701-000000-1-1", "Newer"),
             ("20260701-000000-1-0", "Older"),
         ]
@@ -163,9 +165,10 @@ class TestStagingEmailInboxView:
             response,
             HTTPStatus.OK,
             context_data=_context(
-                emails=[newer, older],
+                total=2,
+                newest_id=newer.id,
                 match_count=2,
-                days=[InboxDay(day=None, emails=[newer, older])],
+                days=[InboxDay(label="No date", emails=[newer, older])],
                 selected=older,
                 requested=older.id,
             ),
@@ -182,9 +185,10 @@ class TestStagingEmailInboxView:
             response,
             HTTPStatus.OK,
             context_data=_context(
-                emails=[SPOT_OPENED],
+                total=1,
+                newest_id=SPOT_OPENED.id,
                 match_count=1,
-                days=[InboxDay(day=date(2026, 7, 1), emails=[SPOT_OPENED])],
+                days=[InboxDay(label="Yesterday", emails=[SPOT_OPENED])],
                 requested="19990101-000000-1-0",
             ),
             template_name="staging_email_inbox.html",
@@ -208,10 +212,8 @@ class TestStagingEmailInboxView:
             "Confirm your address"
         ]
         assert context["selected"].subject == "Confirm your address"
-        assert [e.to for e in context["emails"]] == [
-            "old@example.com",
-            "new@example.com",
-        ]
+        # The header still counts and polls the whole inbox.
+        assert (context["total"], context["newest_id"]) == (2, "20260701-000000-1-1")
 
     @freeze_time("2026-07-02 09:00")
     def test_search_without_matches_selects_nothing(self, staff_client, inbox):
@@ -222,7 +224,7 @@ class TestStagingEmailInboxView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_context(emails=[SPOT_OPENED], query="nobody"),
+            context_data=_context(total=1, newest_id=SPOT_OPENED.id, query="nobody"),
             template_name="staging_email_inbox.html",
         )
 

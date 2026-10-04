@@ -12,9 +12,9 @@
         <div class="min-w-0">
             <h1 class="text-xl sm:text-2xl font-semibold text-foreground">{% translate "Captured emails" %}</h1>
             <p class="mt-1 text-sm text-foreground-muted text-pretty {% if requested %}max-lg:hidden{% endif %}">
-                {% if emails %}
+                {% if total %}
                     <span data-inbox-count class="tabular-nums">
-                        {% blocktranslate trimmed count counter=emails|length %}
+                        {% blocktranslate trimmed count counter=total %}
                             {{ counter }} email
                         {% plural %}
                             {{ counter }} emails
@@ -31,7 +31,7 @@
                 </span>
             </p>
         </div>
-        {% if emails %}
+        {% if total %}
             <form method="get"
                   role="search"
                   class="flex w-full gap-2 sm:w-80 {% if requested %}max-lg:hidden{% endif %}">
@@ -48,7 +48,7 @@
          data-inbox-announce
          data-one="{% translate "A new email arrived." %}"
          data-many="{% translate "New emails arrived." %}"></div>
-    {% if not emails %}
+    {% if not total %}
         <section data-inbox
                  data-inbox-newest=""
                  class="card mx-auto w-full max-w-xl px-6 py-14 text-center">
@@ -60,7 +60,7 @@
         </section>
     {% else %}
         <div data-inbox
-             data-inbox-newest="{{ emails.0.id }}"
+             data-inbox-newest="{{ newest_id }}"
              class="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
             <nav aria-label="{% translate "Emails" %}"
                  class="card overflow-hidden {% if requested %}max-lg:hidden{% endif %}">
@@ -82,15 +82,7 @@
                         <section aria-labelledby="inbox-day-{{ forloop.counter }}">
                             <h2 id="inbox-day-{{ forloop.counter }}"
                                 class="px-4 pt-4 pb-1.5 text-xs font-medium text-foreground-muted first-letter:uppercase">
-                                {% if day.day == today %}
-                                    {% translate "Today" %}
-                                {% elif day.day == yesterday %}
-                                    {% translate "Yesterday" %}
-                                {% elif day.day %}
-                                    {{ day.day|date:"l, j E" }}
-                                {% else %}
-                                    {% translate "No date" %}
-                                {% endif %}
+                                {{ day.label }}
                             </h2>
                             <ul class="divide-y divide-border">
                                 {% for email in day.emails %}
@@ -179,11 +171,7 @@
                                 <ul class="mt-5 space-y-2" aria-label="{% translate "Links" %}">
                                     {% for link in selected.links %}
                                         <li class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                                            {% if forloop.first %}
-                                                {% tessera_button _("Open link") href=link variant="primary" icon="arrow-top-right-on-square" extra_class="shrink-0" target="_blank" rel="noopener" %}
-                                            {% else %}
-                                                {% tessera_button _("Open link") href=link variant="secondary" icon="arrow-top-right-on-square" extra_class="shrink-0" target="_blank" rel="noopener" %}
-                                            {% endif %}
+                                            {% tessera_button _("Open link") href=link variant=forloop.first|yesno:"primary,secondary" icon="arrow-top-right-on-square" extra_class="shrink-0" target="_blank" rel="noopener" %}
                                             <code class="min-w-0 flex-1 truncate text-xs text-foreground-muted max-sm:order-last max-sm:basis-full"
                                                   title="{{ link }}">{{ link|cut:"https://"|cut:"http://" }}</code>
                                             <button type="button"

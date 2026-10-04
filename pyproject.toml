@@ -567,7 +567,6 @@ ignore_names = [
     "opens_slot",
     "overflow_count",
     "panel_id",
-    "preview",
     "public_tag_categories",
     "public_tags",
     "seats_label",

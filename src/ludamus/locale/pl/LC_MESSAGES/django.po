@@ -3781,6 +3781,18 @@ msgstr "Prowadzący usunięty."
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
 
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "No date"
+msgstr "Bez daty"
+
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "Today"
+msgstr "Dzisiaj"
+
+#: src/ludamus/gates/web/django/staging_inbox.py
+msgid "Yesterday"
+msgstr "Wczoraj"
+
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
 msgstr "Nie ustawiono"
@@ -12173,18 +12185,6 @@ msgstr[3] "%(counter)s wyniku dla „%(query)s”"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Clear search"
 msgstr "Wyczyść wyszukiwanie"
-
-#: src/ludamus/templates/staging_email_inbox.html
-msgid "Today"
-msgstr "Dzisiaj"
-
-#: src/ludamus/templates/staging_email_inbox.html
-msgid "Yesterday"
-msgstr "Wczoraj"
-
-#: src/ludamus/templates/staging_email_inbox.html
-msgid "No date"
-msgstr "Bez daty"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "(no subject)"

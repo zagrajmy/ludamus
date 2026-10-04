@@ -12,8 +12,7 @@ const FRESH_MS = 2500;
 
 const announce = (count: number): void => {
   const region = document.querySelector<HTMLElement>("[data-inbox-announce]");
-  if (!region) return;
-  if (count === 0) return;
+  if (!region || count === 0) return;
   region.textContent = (count === 1 ? region.dataset.one : region.dataset.many) ?? "";
 };
 

@@ -19,6 +19,8 @@ from django.conf import settings
 from django.http import Http404
 from django.template.response import TemplateResponse
 from django.utils import timezone
+from django.utils.formats import date_format
+from django.utils.translation import gettext as _
 from django.views.generic.base import View
 from pydantic import BaseModel, ConfigDict
 
@@ -52,13 +54,10 @@ class CapturedEmail(BaseModel):
     to: str
     sent_at: datetime | None
     body: str
+    preview: str
     links: tuple[str, ...]
     parts: tuple[CapturedPart, ...]
     source: str
-
-    @property
-    def preview(self) -> str:
-        return " ".join(_URL.sub("", self.body).split())
 
     def matches(self, query: str) -> bool:
         needle = query.casefold()
@@ -71,7 +70,7 @@ class CapturedEmail(BaseModel):
 class InboxDay(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    day: date | None
+    label: str
     emails: list[CapturedEmail]
 
 
@@ -110,6 +109,7 @@ def _parse(raw: bytes, *, email_id: str) -> CapturedEmail:
         to=str(message["To"] or ""),
         sent_at=_sent_at(str(message["Date"] or "")),
         body=body,
+        preview=" ".join(_URL.sub("", body).split()),
         links=_links(body),
         parts=parts,
         source=raw.decode(errors="replace"),
@@ -127,12 +127,8 @@ def _read_log(log_file: Path) -> list[CapturedEmail]:
     ]
 
 
-def read_captured_emails(directory: Path) -> list[CapturedEmail]:
-    """Return every captured message, newest first.
-
-    Returns:
-        Parsed messages; empty when nothing has been sent yet.
-    """
+def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
+    # Newest first: file names start with a timestamp.
     if not directory.exists():
         return []
     return [
@@ -142,9 +138,20 @@ def read_captured_emails(directory: Path) -> list[CapturedEmail]:
     ]
 
 
+def _day_label(day: date | None, *, today: date) -> str:
+    if day is None:
+        return _("No date")
+    if day == today:
+        return _("Today")
+    if day == today - timedelta(days=1):
+        return _("Yesterday")
+    return date_format(day, "l, j E")
+
+
 def _by_day(emails: list[CapturedEmail]) -> list[InboxDay]:
+    today = timezone.localdate()
     return [
-        InboxDay(day=day, emails=list(group))
+        InboxDay(label=_day_label(day, today=today), emails=list(group))
         for day, group in groupby(
             emails,
             key=lambda email: (
@@ -169,18 +176,18 @@ class StagingEmailInboxView(View):
     def get(request: RootRequest) -> HttpResponse:
         if not settings.EMAIL_FILE_PATH or not request.user.is_staff:
             raise Http404
-        emails = read_captured_emails(Path(settings.EMAIL_FILE_PATH))
+        emails = _read_captured_emails(Path(settings.EMAIL_FILE_PATH))
         query = request.GET.get("q", "").strip()
         matches = [email for email in emails if not query or email.matches(query)]
         listed = matches[:LIST_LIMIT]
         requested = request.GET.get("m", "")
         selected = _selected(emails, listed=listed, requested=requested)
-        today = timezone.localdate()
         return TemplateResponse(
             request,
             "staging_email_inbox.html",
             {
-                "emails": emails,
+                "total": len(emails),
+                "newest_id": emails[0].id if emails else "",
                 "query": query,
                 "match_count": len(matches),
                 "days": _by_day(listed),
@@ -188,7 +195,5 @@ class StagingEmailInboxView(View):
                 "list_limit": LIST_LIMIT,
                 "selected": selected,
                 "requested": requested,
-                "today": today,
-                "yesterday": today - timedelta(days=1),
             },
         )
