@@ -80,8 +80,7 @@ jobs:
           DB_PORT: ${{ vars.DB_PORT }}
           DB_NAME: ${{ vars.DB_NAME }}
           DB_USER: ${{ vars.DB_USER }}
-          AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
-          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          WORKOS_CLIENT_ID: ${{ vars.WORKOS_CLIENT_ID }}
           SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
@@ -96,7 +95,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
-          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          WORKOS_API_KEY: ${{ secrets.WORKOS_API_KEY }}
           GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
         run: |

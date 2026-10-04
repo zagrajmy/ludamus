@@ -124,7 +124,7 @@ class TestProfileService:
 
         assert page.user.slug == "auth0user"
         assert page.gravatar_url == "https://gravatar/me@example.com"
-        assert page.has_auth0_avatar is True
+        assert page.has_provider_avatar is True
 
     def test_read_avatar_without_provider_picture_or_gravatar(self):
         users = FakeUsers(users=[_user_dto()])
@@ -134,7 +134,7 @@ class TestProfileService:
         )
 
         assert page.gravatar_url is None
-        assert page.has_auth0_avatar is False
+        assert page.has_provider_avatar is False
 
     def test_set_avatar_preference(self):
         users = FakeUsers(users=[_user_dto()])
