@@ -184,14 +184,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                     user = self._users.read(result.user_slug)
             if user is None:
                 user = self._create_user(
-                    username=username,
-                    create_data=UserData(
-                        slug=slug_base(identity.provider_user_id),
-                        username=username,
-                        email=identity.email,
-                        avatar_url=avatar_url,
-                        name=identity.name,
-                    ),
+                    username=username, identity=identity, avatar_url=avatar_url
                 )
             user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
         return LoginDTO(
@@ -203,15 +196,26 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             return self._users.read_by_username(username)
         return None
 
-    def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
-        data = create_data.copy()
-        if self._users.email_exists(data.get("email", "")):
-            data["email"] = ""
+    def _create_user(
+        self, *, username: str, identity: IdentityDTO, avatar_url: str
+    ) -> UserDTO:
+        email = identity.email
+        if self._users.email_exists(email):
+            email = ""
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
         # row can own the one the provider id slugifies to; uniquifying also
         # caps it to the SlugField width, which an over-long id would blow.
-        data["slug"] = unique_slug(
-            base=data.get("slug", ""), default="user", exists=self._users.slug_exists
+        slug = unique_slug(
+            base=slug_base(identity.provider_user_id),
+            default="user",
+            exists=self._users.slug_exists,
+        )
+        data = UserData(
+            slug=slug,
+            username=username,
+            email=email,
+            avatar_url=avatar_url,
+            name=identity.name,
         )
         try:
             with self._transaction.savepoint():
