@@ -18,13 +18,17 @@ def _link_url(token):
     return reverse("web:crowd:email-link", kwargs={"token": token})
 
 
-def _token(*, act, uid, addr):
-    return DjangoEmailTokenCodec.dumps(EmailTokenPayload(act=act, uid=uid, addr=addr))
+def _token(*, action, user_id, address):
+    return DjangoEmailTokenCodec.dumps(
+        EmailTokenPayload(action=action, user_id=user_id, address=address)
+    )
 
 
 def _confirm_token(user, addr=None):
     return _token(
-        act=EmailVerificationAction.CONFIRM, uid=user.pk, addr=addr or user.email
+        action=EmailVerificationAction.CONFIRM,
+        user_id=user.pk,
+        address=addr or user.email,
     )
 
 
@@ -148,9 +152,9 @@ class TestCancelLink:
         active_user.pending_email = "new@example.com"
         active_user.save()
         token = _token(
-            act=EmailVerificationAction.CANCEL,
-            uid=active_user.pk,
-            addr="new@example.com",
+            action=EmailVerificationAction.CANCEL,
+            user_id=active_user.pk,
+            address="new@example.com",
         )
 
         response = client.get(_link_url(token))
@@ -166,9 +170,9 @@ class TestCancelLink:
         active_user.pending_email = "new@example.com"
         active_user.save()
         token = _token(
-            act=EmailVerificationAction.CANCEL,
-            uid=active_user.pk,
-            addr="new@example.com",
+            action=EmailVerificationAction.CANCEL,
+            user_id=active_user.pk,
+            address="new@example.com",
         )
 
         response = client.post(_link_url(token))
@@ -184,9 +188,9 @@ class TestCancelLink:
 
     def test_post_after_cancel_renders_invalid_page(self, client, active_user):
         token = _token(
-            act=EmailVerificationAction.CANCEL,
-            uid=active_user.pk,
-            addr="new@example.com",
+            action=EmailVerificationAction.CANCEL,
+            user_id=active_user.pk,
+            address="new@example.com",
         )
 
         response = client.post(_link_url(token))

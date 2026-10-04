@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, TypedDict
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ludamus.pacts.ids import UserId
 
@@ -205,11 +205,14 @@ class EmailVerificationAction(StrEnum):
 
 
 class EmailTokenPayload(BaseModel):
-    # `act` and `addr` are signed in, so a link only performs the action it
-    # was minted for and only against the address it was mailed to.
-    act: EmailVerificationAction
-    uid: int
-    addr: str
+    # `action` and `address` are signed in, so a link only performs the action
+    # it was minted for and only against the address it was mailed to. The
+    # aliases are the wire keys and keep the link short.
+    model_config = ConfigDict(populate_by_name=True)
+
+    action: EmailVerificationAction = Field(alias="act")
+    user_id: int = Field(alias="uid")
+    address: str = Field(alias="addr")
 
 
 class EmailTokenCodecProtocol(Protocol):
@@ -244,13 +247,6 @@ class ChangeRequestOutcome(StrEnum):
 class EmailLinkDTO(BaseModel):
     action: EmailVerificationAction
     address: str
-
-
-class RedeemResultDTO(BaseModel):
-    outcome: RedeemOutcome
-    # None only when the token did not resolve at all, so there is no signed
-    # action to name.
-    action: EmailVerificationAction | None = None
 
 
 class EmailVerificationNotification(BaseModel):
@@ -292,7 +288,7 @@ class EmailVerificationServiceProtocol(Protocol):
         self, *, user_slug: str, new_address: str
     ) -> ChangeRequestOutcome: ...
     def describe(self, token: str) -> EmailLinkDTO | None: ...
-    def redeem(self, token: str) -> RedeemResultDTO: ...
+    def redeem(self, token: str) -> RedeemOutcome: ...
 
 
 class EmailVerificationReminderRepositoryProtocol(Protocol):

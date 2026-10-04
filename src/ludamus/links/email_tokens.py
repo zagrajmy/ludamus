@@ -23,11 +23,7 @@ SIGNING_SALT = "ludamus.email-verification"
 class DjangoEmailTokenCodec(EmailTokenCodecProtocol):
     @staticmethod
     def dumps(payload: EmailTokenPayload) -> str:
-        data: dict[str, str | int] = {
-            "act": payload.act.value,
-            "uid": payload.uid,
-            "addr": payload.addr,
-        }
+        data: dict[str, str | int] = payload.model_dump(mode="json", by_alias=True)
         return signing.dumps(data, salt=SIGNING_SALT)
 
     @staticmethod

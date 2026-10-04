@@ -58,14 +58,11 @@ class EmailLinkPageView(View):
 
     @staticmethod
     def post(request: RootRequest, token: str) -> HttpResponse:
-        # `redeem` reports the signed action, so POST resolves the token once.
-        result = request.services.email_verification.redeem(token)
-        logger.info(
-            "Email link redeemed: action=%s outcome=%s", result.action, result.outcome
-        )
+        outcome = request.services.email_verification.redeem(token)
+        logger.info("Email link redeemed: outcome=%s", outcome)
         # match + assert_never (not an enum-keyed dict) so a new RedeemOutcome
         # fails type-checking instead of a user's request.
-        match result.outcome:
+        match outcome:
             case RedeemOutcome.ADDRESS_TAKEN:
                 return _invalid_link_page(request, address_taken=True)
             case RedeemOutcome.EXPIRED | RedeemOutcome.ALREADY_USED:
@@ -77,7 +74,7 @@ class EmailLinkPageView(View):
             case RedeemOutcome.CANCELLED:
                 messages.success(request, _("The email change has been cancelled."))
             case _:
-                assert_never(result.outcome)
+                assert_never(outcome)
         return redirect("web:index")
 
 

@@ -5,9 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ("db_main", "0177_user_email_verification_sent_at_user_pending_email")
-    ]
+    dependencies = [("db_main", "0176_user_email_verified")]
 
     operations = [
         migrations.AlterField(

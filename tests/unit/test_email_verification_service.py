@@ -79,14 +79,14 @@ class FakeCodec:
 
     def dumps(self, payload):
         self.minted.append(payload)
-        return f"{payload.act.value}|{payload.uid}|{payload.addr}"
+        return f"{payload.action.value}|{payload.user_id}|{payload.address}"
 
     @staticmethod
     def loads(token):
         try:
             act, uid, addr = token.split("|")
             return EmailTokenPayload(
-                act=EmailVerificationAction(act), uid=int(uid), addr=addr
+                action=EmailVerificationAction(act), user_id=int(uid), address=addr
             )
         except ValueError:
             return None
@@ -302,10 +302,10 @@ class TestRequestChange:
         cancel = [
             payload
             for payload in codec.minted
-            if payload.act is EmailVerificationAction.CANCEL
+            if payload.action is EmailVerificationAction.CANCEL
         ]
         assert len(cancel) == 1
-        assert cancel[0].addr == "new@example.com"
+        assert cancel[0].address == "new@example.com"
 
     def test_first_address_sends_no_cancel_notice(self):
         users = FakeUsers(users=[_user(email="")])
@@ -450,7 +450,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.VERIFIED
+        assert result == RedeemOutcome.VERIFIED
         assert users.updated == [("auth0user", {"email_verified": True})]
 
     def test_confirm_promotes_pending_change(self):
@@ -470,7 +470,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.CHANGE_APPLIED
+        assert result == RedeemOutcome.CHANGE_APPLIED
         assert users.updated == [
             (
                 "auth0user",
@@ -501,7 +501,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.CHANGE_APPLIED
+        assert result == RedeemOutcome.CHANGE_APPLIED
         assert not notifier.change_completions
 
     def test_confirm_first_address_reports_verified(self):
@@ -513,7 +513,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.VERIFIED
+        assert result == RedeemOutcome.VERIFIED
         assert not notifier.change_completions
 
     def test_cancel_drops_pending_change(self):
@@ -526,13 +526,13 @@ class TestRedeem:
             _token(EmailVerificationAction.CANCEL, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.CANCELLED
+        assert result == RedeemOutcome.CANCELLED
         assert users.updated == [("auth0user", {"pending_email": ""})]
 
     def test_expired_token(self):
         service = _service(FakeUsers(users=[_user()]))
 
-        assert service.redeem("garbage").outcome == RedeemOutcome.EXPIRED
+        assert service.redeem("garbage") == RedeemOutcome.EXPIRED
 
     def test_unknown_user(self):
         service = _service(FakeUsers())
@@ -541,7 +541,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.EXPIRED
+        assert result == RedeemOutcome.EXPIRED
 
     def test_replayed_link_is_spent(self):
         users = FakeUsers(users=[_user(email="mine@example.com", email_verified=True)])
@@ -551,7 +551,16 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.ALREADY_USED
+        assert result == RedeemOutcome.ALREADY_USED
+
+    def test_blank_address_link_never_matches_blank_fields(self):
+        users = FakeUsers(users=[_user(email="", pending_email="")])
+        service = _service(users)
+
+        result = service.redeem(_token(EmailVerificationAction.CONFIRM, ""))
+
+        assert result == RedeemOutcome.ALREADY_USED
+        assert not users.updated
 
     def test_cancel_after_cancel_is_spent(self):
         users = FakeUsers(users=[_user(email="old@example.com", pending_email="")])
@@ -561,7 +570,7 @@ class TestRedeem:
             _token(EmailVerificationAction.CANCEL, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.ALREADY_USED
+        assert result == RedeemOutcome.ALREADY_USED
 
     def test_lost_promote_race_reports_taken_and_drops_pending(self):
         users = FakeUsers(
@@ -574,5 +583,5 @@ class TestRedeem:
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert result.outcome == RedeemOutcome.ADDRESS_TAKEN
+        assert result == RedeemOutcome.ADDRESS_TAKEN
         assert users.updated == [("auth0user", {"pending_email": ""})]

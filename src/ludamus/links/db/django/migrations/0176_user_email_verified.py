@@ -26,6 +26,21 @@ class Migration(migrations.Migration):
                 verbose_name="email verified",
             ),
         ),
+        migrations.AddField(
+            model_name="user",
+            name="email_verification_sent_at",
+            field=models.DateTimeField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="pending_email",
+            field=models.EmailField(
+                blank=True,
+                default="",
+                max_length=254,
+                verbose_name="pending email address",
+            ),
+        ),
         migrations.RunPython(
             _grandfather_existing_addresses, migrations.RunPython.noop
         ),

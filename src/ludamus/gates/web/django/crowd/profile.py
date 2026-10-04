@@ -99,9 +99,12 @@ class ProfilePageView(
         return str(self.success_url)
 
     def get_initial(self) -> dict[str, Any]:
-        return self.request.services.profile.read(
+        user = self.request.services.profile.read(
             self.request.context.current_user_slug
-        ).model_dump()
+        )
+        # A blank field would save as "clear my address" and drop the pending
+        # one, so the field shows the address the user last asked for.
+        return user.model_dump() | {"email": user.pending_email or user.email}
 
 
 class ProfileCompanionsPageView(

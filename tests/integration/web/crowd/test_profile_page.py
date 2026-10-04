@@ -185,6 +185,32 @@ class TestProfilePageView:
             in response.context["form"].errors["email"][0]
         )
 
+    def test_post_unrelated_change_keeps_pending_first_address(
+        self, authenticated_client, active_user, faker
+    ):
+        active_user.email = ""
+        active_user.email_verified = False
+        active_user.pending_email = "new@example.com"
+        active_user.save()
+        shown_email = authenticated_client.get(self.URL).context["form"]["email"]
+        data = {
+            "name": faker.name(),
+            "email": shown_email.value(),
+            "user_type": UserType.ACTIVE,
+        }
+
+        response = authenticated_client.post(self.URL, data=data)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            url=self.URL,
+        )
+        user = User.objects.get(id=active_user.id)
+        assert user.name == data["name"]
+        assert user.pending_email == "new@example.com"
+
     def test_post_ok_same_email(self, authenticated_client, active_user, faker):
         existing_email = faker.email()
         active_user.email = existing_email

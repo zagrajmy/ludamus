@@ -88,13 +88,8 @@ def distinct_recipients(candidates: Iterable[int]) -> list[int]:
     # One message per person, first mention wins: a party of real co-members
     # hears about its seats individually, while a leader sponsoring several
     # login-less companions still gets a single message.
-    seen: set[int] = set()
-    recipients: list[int] = []
-    for user_id in candidates:
-        if user_id not in seen:
-            seen.add(user_id)
-            recipients.append(user_id)
-    return recipients
+    unique: dict[int, None] = dict.fromkeys(candidates)
+    return list(unique)
 
 
 class OfferDTO(BaseModel):

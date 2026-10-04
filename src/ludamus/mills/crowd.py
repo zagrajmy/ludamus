@@ -9,7 +9,7 @@ from __future__ import annotations
 import secrets
 from contextlib import suppress
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
@@ -31,7 +31,6 @@ from ludamus.pacts.crowd import (
     EmailVerificationServiceProtocol,
     ProfileServiceProtocol,
     RedeemOutcome,
-    RedeemResultDTO,
     UserData,
     UserType,
     VerificationRequestOutcome,
@@ -58,6 +57,8 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+type _Effect = Literal["cancel", "promote", "verify"]
 
 
 def _token() -> str:
@@ -137,28 +138,24 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                 return AuthProvisionDTO(
                     user=self._users.read(result.user_slug), claim_outcome=claim_outcome
                 )
-        email_conflict = False
-        try:
-            user = self._users.read_by_username(username)
-        except NotFoundError:
-            user, email_conflict = self._create_user(
-                username=username, create_data=create_data
+        with suppress(NotFoundError):
+            return AuthProvisionDTO(
+                user=self._users.read_by_username(username), claim_outcome=claim_outcome
             )
+        email_conflict = self._users.email_unavailable(
+            email=create_data.get("email", ""), now=datetime.now(UTC)
+        )
+        data = create_data
+        if email_conflict:
+            data = create_data | UserData(email="", email_verified=False)
         return AuthProvisionDTO(
-            user=user, claim_outcome=claim_outcome, email_conflict=email_conflict
+            user=self._create_user(username=username, create_data=data),
+            claim_outcome=claim_outcome,
+            email_conflict=email_conflict,
         )
 
-    def _create_user(
-        self, *, username: str, create_data: UserData
-    ) -> tuple[UserDTO, bool]:
+    def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()
-        email_conflict = False
-        if self._users.email_unavailable(
-            email=data.get("email", ""), now=datetime.now(UTC)
-        ):
-            data["email"] = ""
-            data["email_verified"] = False
-            email_conflict = True
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
         # row can own the one the provider sub slugifies to; uniquifying also
         # caps it to the SlugField width, which an over-long sub would blow.
@@ -174,9 +171,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             # insert; adopt it. With no such row the insert failed for a real
             # reason, so let the database error surface, not a NotFoundError.
             with suppress(NotFoundError):
-                return self._users.read_by_username(username), email_conflict
+                return self._users.read_by_username(username)
             raise
-        return self._users.read_by_username(username), email_conflict
+        return self._users.read_by_username(username)
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
         user = self._users.read(user_slug)
@@ -330,7 +327,9 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
             if user.deliverable_email:
                 cancel_token = self._tokens.dumps(
                     EmailTokenPayload(
-                        act=EmailVerificationAction.CANCEL, uid=user.pk, addr=address
+                        action=EmailVerificationAction.CANCEL,
+                        user_id=user.pk,
+                        address=address,
                     )
                 )
                 self._notifier.notify_email_change_requested(
@@ -347,46 +346,54 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         if (resolved := self._resolve(token)) is None:
             return None
         user, payload = resolved
-        if not self._redeemable(user, payload):
+        if self._effect(user, payload) is None:
             return None
-        return EmailLinkDTO(action=payload.act, address=payload.addr)
+        return EmailLinkDTO(action=payload.action, address=payload.address)
 
-    def redeem(self, token: str) -> RedeemResultDTO:
+    def redeem(self, token: str) -> RedeemOutcome:
         if (resolved := self._resolve(token)) is None:
-            return RedeemResultDTO(outcome=RedeemOutcome.EXPIRED)
+            return RedeemOutcome.EXPIRED
         user, payload = resolved
-        return RedeemResultDTO(outcome=self._redeem(user, payload), action=payload.act)
-
-    def _redeem(self, user: UserDTO, payload: EmailTokenPayload) -> RedeemOutcome:
-        if not self._redeemable(user, payload):
-            return RedeemOutcome.ALREADY_USED
-        if payload.act is EmailVerificationAction.CANCEL:
-            with self._transaction.atomic():
-                self._users.update(user.slug, UserData(pending_email=""))
-            return RedeemOutcome.CANCELLED
-        if payload.addr == user.pending_email:
-            return self._promote_pending(user)
-        with self._transaction.atomic():
-            self._users.update(user.slug, UserData(email_verified=True))
-        return RedeemOutcome.VERIFIED
+        match effect := self._effect(user, payload):
+            case None:
+                return RedeemOutcome.ALREADY_USED
+            case "cancel":
+                with self._transaction.atomic():
+                    self._users.update(user.slug, UserData(pending_email=""))
+                return RedeemOutcome.CANCELLED
+            case "promote":
+                return self._promote_pending(user)
+            case "verify":
+                with self._transaction.atomic():
+                    self._users.update(user.slug, UserData(email_verified=True))
+                return RedeemOutcome.VERIFIED
+            case _:
+                assert_never(effect)
 
     def _resolve(self, token: str) -> tuple[UserDTO, EmailTokenPayload] | None:
         if (payload := self._tokens.loads(token)) is None:
             return None
         try:
-            user = self._users.read_by_id(payload.uid)
+            user = self._users.read_by_id(payload.user_id)
         except NotFoundError:
             return None
         return user, payload
 
     @staticmethod
-    def _redeemable(user: UserDTO, payload: EmailTokenPayload) -> bool:
-        if payload.act is EmailVerificationAction.CANCEL:
-            return bool(payload.addr) and payload.addr == user.pending_email
-        return bool(payload.addr) and (
-            payload.addr == user.pending_email
-            or (payload.addr == user.email and not user.email_verified)
-        )
+    def _effect(user: UserDTO, payload: EmailTokenPayload) -> _Effect | None:
+        if not payload.address:
+            return None
+        if payload.address == user.pending_email:
+            if payload.action is EmailVerificationAction.CANCEL:
+                return "cancel"
+            return "promote"
+        if (
+            payload.action is EmailVerificationAction.CONFIRM
+            and payload.address == user.email
+            and not user.email_verified
+        ):
+            return "verify"
+        return None
 
     def _promote_pending(self, user: UserDTO) -> RedeemOutcome:
         address = user.pending_email
@@ -417,7 +424,7 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         # a change writes it alongside the pending address.
         token = self._tokens.dumps(
             EmailTokenPayload(
-                act=EmailVerificationAction.CONFIRM, uid=user.pk, addr=address
+                action=EmailVerificationAction.CONFIRM, user_id=user.pk, address=address
             )
         )
         self._notifier.notify_email_verification(
