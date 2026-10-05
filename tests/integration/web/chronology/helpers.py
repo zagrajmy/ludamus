@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 from datetime import UTC
-from unittest.mock import ANY
+from unittest.mock import ANY, MagicMock
 from urllib.parse import urlencode
 
 from django.utils.timezone import get_current_timezone, localtime
@@ -16,6 +16,8 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    RoomLanes,
+    RoomLaneTile,
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
@@ -31,6 +33,7 @@ from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import (
     NO_LOCATION,
     AgendaItemDTO,
+    LocationData,
     SessionDTO,
     SessionParticipationStatus,
     TimeSlotDTO,
@@ -153,11 +156,6 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
-    # Callers keep stating their scenario through the three availability lanes;
-    # the page itself renders from the day-major grouping built from them.
-    ended = overrides.pop("ended_hour_data", {})
-    current = overrides.pop("current_hour_data", {})
-    future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
         # The pills follow from the event's own state and this viewer's
         # windows; which pills those are is unit-tested beside the function.
@@ -196,9 +194,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     context.setdefault("scheduled_count", 0)
     context.setdefault(
         "card_days",
-        build_card_days(
-            ended=ended, current=current, future_unavailable=future_unavailable
-        ),
+        [] if context["compact_schedule"] else build_card_days(context["hour_data"]),
     )
     return context
 
@@ -387,3 +383,39 @@ def masked_card(agenda_item, *, presenter, seats, **overrides):
         session_participations=simulacra(),
         **overrides,
     )
+
+
+def positioned_room_tiles(lanes: RoomLanes) -> list[tuple[int, RoomLaneTile]]:
+    return [
+        (row_index, tile)
+        for row_index, row in enumerate(lanes.rows, start=1)
+        for tile in row.starting_tiles
+    ]
+
+
+def room_tiles(lanes: RoomLanes) -> list[RoomLaneTile]:
+    return [tile for _, tile in positioned_room_tiles(lanes)]
+
+
+def make_session_data(
+    effective_participants_limit: int = 10, enrolled_count: int = 0, **overrides
+) -> SessionData:
+    defaults = {
+        "agenda_item": MagicMock(),
+        "is_enrollment_available": True,
+        "presenter": MagicMock(),
+        "session": MagicMock(),
+        "is_full": enrolled_count >= effective_participants_limit,
+        "effective_participants_limit": effective_participants_limit,
+        "enrolled_count": enrolled_count,
+        "session_participations": [],
+        "loc": MagicMock(),
+    }
+    return SessionData(**(defaults | overrides))
+
+
+def loc_dict(**overrides: object) -> LocationData:
+    # NOTE: **overrides cannot be typed against a total TypedDict, so a
+    # misspelled key still slips through; the return type is what documents
+    # the shape these tests hand to the template.
+    return {**NO_LOCATION, **overrides}

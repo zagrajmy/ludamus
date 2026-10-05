@@ -78,11 +78,11 @@ class _SessionRow(BaseModel):
     title: str
     cover_image: str
     cover_image_original_name: str
+    schedule_confirmed: bool
     category__name: str | None
     agenda_item__pk: int
     agenda_item__start_time: datetime
     agenda_item__end_time: datetime
-    agenda_item__session_confirmed: bool
     agenda_item__space_id: int
     enrolled_count_cached: int
     waiting_count_cached: int
@@ -100,6 +100,7 @@ class _FieldValueRow(BaseModel):
     field__slug: str
     field__field_type: str
     field__is_public: bool
+    field__show_on_cards: bool
 
 
 class _SpaceRow(BaseModel):
@@ -142,7 +143,7 @@ def _agenda_item_dto(row: _SessionRow) -> AgendaItemDTO:
         pk=row.agenda_item__pk,
         start_time=row.agenda_item__start_time,
         end_time=row.agenda_item__end_time,
-        session_confirmed=row.agenda_item__session_confirmed,
+        schedule_confirmed=row.schedule_confirmed,
         space_id=row.agenda_item__space_id,
         session_id=row.pk,
     )
@@ -159,6 +160,7 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
         field_slug=row.field__slug,
         field_type=row.field__field_type,
         is_public=row.field__is_public,
+        show_on_cards=row.field__show_on_cards,
         value=row.value,
     )
 
@@ -234,6 +236,7 @@ def _field_values_by_session(
                 "field__slug",
                 "field__field_type",
                 "field__is_public",
+                "field__show_on_cards",
             )
         )
     )

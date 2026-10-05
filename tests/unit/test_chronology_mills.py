@@ -1,27 +1,45 @@
-from contextlib import nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
 from ludamus.mills.chronology import (
     ProposalAcceptanceService,
+    ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
+    SessionDeletionService,
 )
 from ludamus.pacts import (
     AgendaItemDTO,
-    EventDTO,
+    ContentChangeLogDTO,
+    FacilitatorDTO,
     NotFoundError,
+    ScheduleChangeAction,
     SessionContentEditData,
-    SessionDTO,
     SessionFieldValueData,
+    SessionFieldValueDTO,
     SessionStatus,
+    SpaceOptionDTO,
+    TimeSlotDTO,
 )
-from ludamus.pacts.chronology import ProposalAcceptDeniedError, SpaceTimeConflictError
+from ludamus.pacts.chronology import (
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
+    ProposalScheduledError,
+    SpaceTimeConflictError,
+)
 from ludamus.pacts.multiverse import SphereRole
-from tests.unit.factories import user_dto
+from tests.unit.factories import (
+    FakeTransaction,
+    event_dto,
+    session_dto,
+    track_dto,
+    user_dto,
+)
 
 
 def _make_item(**overrides):
@@ -32,7 +50,7 @@ def _make_item(**overrides):
         "space_id": 1,
         "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
         "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "session_confirmed": False,
+        "schedule_confirmed": False,
     }
     defaults.update(overrides)
     return AgendaItemDTO(**defaults)
@@ -42,7 +60,7 @@ class TestContentEditRevert:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
@@ -166,13 +184,12 @@ class TestContentEditStoresAnswers:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
             agenda_items=MagicMock(),
         )
-        repos.transaction.atomic.side_effect = nullcontext
         repos.sessions.read_field_values.return_value = []
         repos.session_fields.list_by_event.return_value = []
         return repos
@@ -209,6 +226,103 @@ class TestContentEditStoresAnswers:
             5, [SessionFieldValueData(session_id=5, field_id=7, value="")]
         )
 
+    def test_every_kind_of_change_is_written_and_logged_once(self, service, repos):
+        repos.sessions.read.return_value = _session_dto(pk=5, title="Old")
+        repos.sessions.read_field_values.return_value = [
+            SimpleNamespace(field_id=7, value="Pathfinder"),
+            SimpleNamespace(field_id=8, value="gone"),
+        ]
+        repos.sessions.read_facilitators.side_effect = [
+            [SimpleNamespace(display_name="Bob")],
+            [SimpleNamespace(display_name="Ann")],
+        ]
+        repos.sessions.read_tracks.side_effect = [
+            [SimpleNamespace(name="RPG")],
+            [SimpleNamespace(name="LARP")],
+        ]
+        slot = SimpleNamespace(
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        repos.sessions.read_preferred_time_slots.side_effect = [[], [slot]]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "New"},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="D&D")
+                ],
+                facilitator_ids=[1],
+                track_ids=[2],
+                time_slot_ids=[3],
+                remove_field_ids=[8, 99],
+            ),
+        )
+
+        repos.sessions.read.assert_called_once_with(5)
+        repos.sessions.read_field_values.assert_called_once_with(5)
+        repos.sessions.update.assert_called_once_with(5, {"title": "New"})
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value="D&D")]
+        )
+        repos.sessions.delete_field_values_for_fields.assert_called_once_with(5, [8])
+        assert repos.sessions.read_facilitators.call_args_list == [call(5), call(5)]
+        repos.sessions.set_facilitators.assert_called_once_with(5, [1])
+        assert repos.sessions.read_tracks.call_args_list == [call(5), call(5)]
+        repos.sessions.set_session_tracks.assert_called_once_with(5, [2])
+        assert repos.sessions.read_preferred_time_slots.call_args_list == [
+            call(5),
+            call(5),
+        ]
+        repos.sessions.set_time_slots.assert_called_once_with(5, [3])
+        repos.content_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 5,
+                "user_id": 9,
+                "changes": [
+                    {"field": "title", "field_id": None, "old": "Old", "new": "New"},
+                    {"field": "", "field_id": 7, "old": "Pathfinder", "new": "D&D"},
+                    {"field": "", "field_id": 8, "old": "gone", "new": None},
+                    {
+                        "field": "facilitators",
+                        "field_id": None,
+                        "old": "Bob",
+                        "new": "Ann",
+                    },
+                    {"field": "tracks", "field_id": None, "old": "RPG", "new": "LARP"},
+                    {
+                        "field": "time_slots",
+                        "field_id": None,
+                        "old": "",
+                        "new": "2026-01-01T10:00:00+00:00 - 2026-01-01T12:00:00+00:00",
+                    },
+                ],
+            }
+        )
+
+    def test_an_edit_that_changes_nothing_writes_no_log(self, service, repos):
+        repos.sessions.read.return_value = _session_dto(pk=5, title="Same")
+        repos.sessions.read_facilitators.return_value = [
+            SimpleNamespace(display_name="Bob")
+        ]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Same"}, facilitator_ids=[1], remove_field_ids=[8]
+            ),
+        )
+
+        repos.sessions.set_facilitators.assert_called_once_with(5, [1])
+        repos.sessions.delete_field_values_for_fields.assert_not_called()
+        repos.content_change_logs.create.assert_not_called()
+
     def test_an_unchecked_checkbox_is_stored_as_an_answer(self, service, repos):
         service.apply(
             session_id=5,
@@ -231,16 +345,14 @@ class TestContentEditResizesAgendaItem:
     @pytest.fixture
     def repos(self):
         repos = SimpleNamespace(
-            transaction=MagicMock(),
+            transaction=FakeTransaction(),
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
-            agenda_items=MagicMock(),
+            agenda_items=_FakeAgendaItems(_make_item()),
         )
-        repos.transaction.atomic.side_effect = nullcontext
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
         repos.sessions.read_field_values.return_value = []
-        repos.agenda_items.read_by_session.return_value = _make_item()
         return repos
 
     @pytest.fixture
@@ -265,9 +377,14 @@ class TestContentEditResizesAgendaItem:
     def test_a_longer_duration_moves_the_end_time(self, service, repos):
         self._apply(service, "PT2H30M")
 
-        repos.agenda_items.update.assert_called_once_with(
-            1, {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
-        )
+        assert repos.agenda_items.updates == {
+            1: {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
+        }
+
+    def test_an_unchanged_duration_leaves_the_block_alone(self, service, repos):
+        self._apply(service, "PT1H")
+
+        assert not repos.agenda_items.updates
 
     # "PT2Hjunk" and "P1DT2H" are the ones a lenient parser gets wrong: the
     # first would resize a real block to two hours, the second to zero.
@@ -277,7 +394,7 @@ class TestContentEditResizesAgendaItem:
     ):
         self._apply(service, duration)
 
-        repos.agenda_items.update.assert_not_called()
+        assert not repos.agenda_items.updates
 
 
 class TestSessionConfirmation:
@@ -305,15 +422,25 @@ class TestSessionConfirmation:
         event.pk = pk
         return event
 
-    def test_rejects_agenda_item_from_another_event(
-        self, service, agenda_items, sessions
-    ):
-        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+    def test_rejects_session_from_another_event(self, service, agenda_items, sessions):
         sessions.read_event.return_value = self._event(2)
 
         with pytest.raises(NotFoundError):
-            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
+        sessions.update.assert_not_called()
+        agenda_items.update.assert_not_called()
+
+    def test_rejects_a_session_not_on_the_timetable(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read_by_session.return_value = None
+        sessions.read_event.return_value = self._event(1)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
+
+        sessions.update.assert_not_called()
         agenda_items.update.assert_not_called()
 
 
@@ -322,38 +449,31 @@ _SESSION_PK = 5
 
 
 def _session_dto(**overrides):
-    defaults = {
-        "category_id": None,
-        "contact_email": "",
-        "creation_time": _NOW,
-        "description": "",
-        "min_age": 0,
-        "modification_time": _NOW,
-        "participants_limit": 0,
-        "pk": _SESSION_PK,
-        "presenter_id": None,
-        "facilitator_name": "Alice",
-        "slug": "s",
-        "status": SessionStatus.PENDING,
-        "title": "My Session",
-    }
-    return SessionDTO(**(defaults | overrides))
+    return session_dto(
+        **{
+            "creation_time": _NOW,
+            "facilitator_name": "Alice",
+            "modification_time": _NOW,
+            "pk": _SESSION_PK,
+            "status": SessionStatus.PENDING,
+            "title": "My Session",
+            **overrides,
+        }
+    )
 
 
 def _event_dto(**overrides):
-    defaults = {
-        "description": "",
-        "end_time": _NOW,
-        "name": "Con",
-        "pk": 9,
-        "proposal_end_time": None,
-        "proposal_start_time": None,
-        "publication_time": None,
-        "slug": "con",
-        "sphere_id": 3,
-        "start_time": _NOW,
-    }
-    return EventDTO(**(defaults | overrides))
+    return event_dto(
+        **{
+            "end_time": _NOW,
+            "name": "Con",
+            "pk": 9,
+            "slug": "con",
+            "sphere_id": 3,
+            "start_time": _NOW,
+            **overrides,
+        }
+    )
 
 
 def _user_dto(**overrides):
@@ -479,6 +599,7 @@ class TestProposalAcceptanceService:
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
+        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
 
@@ -487,7 +608,12 @@ class TestProposalAcceptanceService:
         )
 
         sessions.update.assert_called_once_with(
-            5, {"status": SessionStatus.ACCEPTED, "facilitator_name": "Alice"}
+            5,
+            {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            },
         )
         spheres.manager_role.assert_not_called()
 
@@ -522,3 +648,684 @@ class TestProposalAcceptanceService:
 
         sessions.update.assert_not_called()
         agenda_items.create.assert_not_called()
+
+    def test_missing_session_has_no_accept_context(self, service, sessions):
+        sessions.read.side_effect = NotFoundError
+
+        assert (
+            service.get_accept_context(session_id=5, user_slug="root", sphere_id=3)
+            is None
+        )
+
+
+class _FakeSessions:
+    def __init__(self, *sessions, event=None):
+        self.rows = {session.pk: session for session in sessions}
+        self.event = event or _event_dto()
+        self.form: dict = {"presenter": None, "space_options": [], "field_values": []}
+        self.updates: dict[int, dict] = {}
+        self.related: dict[str, dict] = {
+            "facilitators": {},
+            "tracks": {},
+            "time_slots": {},
+        }
+        self.related_ids: dict[str, list[int]] = {
+            "facilitators": [],
+            "tracks": [],
+            "time_slots": [],
+        }
+        self.calls: dict[str, list] = {
+            "locked": [],
+            "deleted": [],
+            "restored": [],
+            "deleted_field_ids": [],
+        }
+
+    def read(self, pk):
+        try:
+            return self.rows[pk]
+        except KeyError:
+            raise NotFoundError from None
+
+    def read_event(self, session_id):
+        self.read(session_id)
+        return self.event
+
+    def lock(self, pk):
+        self.read(pk)
+        self.calls["locked"].append(pk)
+
+    def update(self, pk, data):
+        self.updates.setdefault(pk, {}).update(data)
+
+    def soft_delete(self, pk):
+        self.calls["deleted"].append(pk)
+
+    def restore(self, pk, event_pk):
+        self.calls["restored"].append((pk, event_pk))
+
+    def read_field_values(self, session_id):
+        self.read(session_id)
+        return list(self.form["field_values"])
+
+    def read_presenter(self, session_id):
+        self.read(session_id)
+        return self.form["presenter"]
+
+    def read_space_options(self, session_id):
+        self.read(session_id)
+        return list(self.form["space_options"])
+
+    def read_time_slots(self, session_id):
+        self.read(session_id)
+        return list(self.related["time_slots"].values())
+
+    def read_time_slot(self, session_id, time_slot_id):
+        self.read(session_id)
+        return self.related["time_slots"][time_slot_id]
+
+    def read_preferred_time_slot_ids(self, session_id):
+        self.read(session_id)
+        return list(self.related_ids["time_slots"])
+
+    def delete_field_values_for_fields(self, session_id, field_ids):
+        self.calls["deleted_field_ids"].append((session_id, field_ids))
+
+    def read_facilitators(self, session_id):
+        return self._related("facilitators")
+
+    def set_facilitators(self, session_id, facilitator_ids):
+        self.related_ids["facilitators"] = facilitator_ids
+
+    def read_tracks(self, session_id):
+        return self._related("tracks")
+
+    def set_session_tracks(self, session_pk, track_pks):
+        self.related_ids["tracks"] = track_pks
+
+    def read_preferred_time_slots(self, session_id):
+        return self._related("time_slots")
+
+    def set_time_slots(self, session_id, time_slot_ids):
+        self.related_ids["time_slots"] = time_slot_ids
+
+    def _related(self, kind):
+        return [self.related[kind][pk] for pk in self.related_ids[kind]]
+
+
+class _FakeAgendaItems:
+    def __init__(self, *items):
+        self.rows = {item.pk: item for item in items}
+        self.updates: dict[int, dict] = {}
+        self.created: list = []
+        self.overlap_queries: list = []
+
+    def create(self, data):
+        self.created.append(data)
+
+    def list_overlapping_in_space(
+        self, space_pk, start_time, end_time, exclude_session_pk=None
+    ):
+        self.overlap_queries.append(
+            (space_pk, start_time, end_time, exclude_session_pk)
+        )
+        return [
+            item
+            for item in self.rows.values()
+            if item.space_id == space_pk
+            and item.session_id != exclude_session_pk
+            and item.start_time < end_time
+            and item.end_time > start_time
+        ]
+
+    def read_by_session(self, session_pk):
+        return next(
+            (item for item in self.rows.values() if item.session_id == session_pk), None
+        )
+
+    def update(self, pk, data):
+        self.updates.setdefault(pk, {}).update(data)
+
+    def delete(self, pk):
+        del self.rows[pk]
+
+
+class _FakeScheduleChangeLogs:
+    def __init__(self):
+        self.rows: list = []
+
+    def create(self, data):
+        self.rows.append(data)
+        return len(self.rows)
+
+
+class _FakeSessionFields:
+    def __init__(self, *fields):
+        self.rows = list(fields)
+
+    def list_by_event(self, event_id):
+        return [field for field in self.rows if field.event_id == event_id]
+
+
+class _FakeUsers:
+    def __init__(self, *users):
+        self.rows = {user.slug: user for user in users}
+
+    def read(self, slug):
+        return self.rows[slug]
+
+
+class _FakeSpheres:
+    def __init__(self, *, managers=()):
+        self.managers = set(managers)
+
+    def manager_role(self, sphere_id, user_slug):
+        return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
+
+
+class _FakeContentChangeLogs:
+    def __init__(self, *logs):
+        self.rows = list(logs)
+        self.created: list = []
+
+    def create(self, data):
+        self.created.append(data)
+
+    def read(self, pk):
+        return next(log for log in self.rows if log.pk == pk)
+
+    def list_by_event(self, event_pk):
+        return [log for log in self.rows if log.event_id == event_pk]
+
+    def latest_pks_by_session(self, event_pk):
+        latest: dict[int, int] = {}
+        for log in self.list_by_event(event_pk):
+            latest[log.session_id] = max(latest.get(log.session_id, 0), log.pk)
+        return latest
+
+    def latest_pk_for_session(self, event_pk, session_id):
+        return self.latest_pks_by_session(event_pk).get(session_id)
+
+
+_EVENT_PK = 9
+
+
+class TestSessionConfirmationOfOwnEvent:
+    def test_confirms_an_item_whose_session_belongs_to_the_event(self):
+        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+        sessions = _FakeSessions(_session_dto())
+        service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
+
+        service.set_session_confirmed(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK, confirmed=True
+        )
+
+        assert agenda_items.updates == {7: {"session_confirmed": True}}
+        assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": True}}
+
+
+class TestSessionDeletion:
+    @staticmethod
+    def _service(sessions, agenda_items, logs):
+        return SessionDeletionService(FakeTransaction(), sessions, agenda_items, logs)
+
+    def test_soft_delete_frees_the_slot_and_logs_the_unassignment(self):
+        item = _make_item(pk=7, session_id=_SESSION_PK, space_id=4)
+        sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
+        agenda_items = _FakeAgendaItems(item)
+        logs = _FakeScheduleChangeLogs()
+
+        self._service(sessions, agenda_items, logs).soft_delete(
+            _EVENT_PK, _SESSION_PK, user_pk=3
+        )
+
+        assert agenda_items.rows == {}
+        assert sessions.updates == {
+            _SESSION_PK: {"status": SessionStatus.PENDING, "schedule_confirmed": False}
+        }
+        assert sessions.calls["deleted"] == [_SESSION_PK]
+        assert logs.rows == [
+            {
+                "event_id": _EVENT_PK,
+                "session_id": _SESSION_PK,
+                "user_id": 3,
+                "action": ScheduleChangeAction.UNASSIGN,
+                "old_space_id": 4,
+                "old_start_time": item.start_time,
+                "old_end_time": item.end_time,
+            }
+        ]
+
+    def test_soft_delete_of_an_unscheduled_session_writes_no_log(self):
+        sessions = _FakeSessions(_session_dto())
+        logs = _FakeScheduleChangeLogs()
+
+        self._service(sessions, _FakeAgendaItems(), logs).soft_delete(
+            _EVENT_PK, _SESSION_PK
+        )
+
+        assert sessions.calls["deleted"] == [_SESSION_PK]
+        assert not sessions.updates
+        assert not logs.rows
+
+    def test_soft_delete_rejects_a_session_from_another_event(self):
+        sessions = _FakeSessions(_session_dto())
+        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+
+        with pytest.raises(NotFoundError):
+            self._service(
+                sessions, agenda_items, _FakeScheduleChangeLogs()
+            ).soft_delete(_EVENT_PK + 1, _SESSION_PK)
+
+        assert not sessions.calls["deleted"]
+        assert agenda_items.read_by_session(_SESSION_PK) is not None
+
+    def test_soft_delete_of_a_missing_session_is_not_found(self):
+        sessions = _FakeSessions()
+
+        with pytest.raises(NotFoundError):
+            self._service(
+                sessions, _FakeAgendaItems(), _FakeScheduleChangeLogs()
+            ).soft_delete(_EVENT_PK, _SESSION_PK)
+
+    def test_restore_scopes_the_session_to_the_event(self):
+        sessions = _FakeSessions()
+
+        self._service(sessions, _FakeAgendaItems(), _FakeScheduleChangeLogs()).restore(
+            _EVENT_PK, _SESSION_PK
+        )
+
+        assert sessions.calls["restored"] == [(_SESSION_PK, _EVENT_PK)]
+
+
+class TestProposalStatus:
+    @staticmethod
+    def _service(sessions, agenda_items):
+        return ProposalStatusService(
+            transaction=FakeTransaction(), sessions=sessions, agenda_items=agenda_items
+        )
+
+    @pytest.mark.parametrize(
+        ("method", "status"),
+        (
+            ("mark_pending", SessionStatus.PENDING),
+            ("mark_accepted", SessionStatus.ACCEPTED),
+            ("mark_on_hold", SessionStatus.ON_HOLD),
+            ("mark_rejected", SessionStatus.REJECTED),
+        ),
+    )
+    def test_marks_an_unscheduled_session(self, method, status):
+        sessions = _FakeSessions(_session_dto())
+
+        getattr(self._service(sessions, _FakeAgendaItems()), method)(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert sessions.updates == {_SESSION_PK: {"status": status}}
+        assert sessions.calls["locked"] == [_SESSION_PK]
+
+    def test_a_scheduled_session_cannot_leave_accepted(self):
+        sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
+        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+
+        with pytest.raises(ProposalScheduledError):
+            self._service(sessions, agenda_items).mark_rejected(
+                event_pk=_EVENT_PK, session_pk=_SESSION_PK
+            )
+
+        assert not sessions.updates
+
+    def test_a_scheduled_session_can_be_re_accepted(self):
+        sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
+        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+
+        self._service(sessions, agenda_items).mark_accepted(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert sessions.updates == {_SESSION_PK: {"status": SessionStatus.ACCEPTED}}
+
+    def test_rejects_a_session_from_another_event(self):
+        sessions = _FakeSessions(_session_dto())
+
+        with pytest.raises(NotFoundError):
+            self._service(sessions, _FakeAgendaItems()).mark_on_hold(
+                event_pk=_EVENT_PK + 1, session_pk=_SESSION_PK
+            )
+
+        assert not sessions.updates
+
+
+def _content_log(*, changes, pk=1, event_id=_EVENT_PK, session_id=_SESSION_PK):
+    return ContentChangeLogDTO(
+        pk=pk,
+        event_id=event_id,
+        session_id=session_id,
+        session_title="My Session",
+        user_id=None,
+        user_name="",
+        changes=changes,
+        creation_time=_NOW,
+    )
+
+
+def _facilitator_dto(pk, display_name):
+    return FacilitatorDTO(
+        accreditation_type="",
+        display_name=display_name,
+        event_id=_EVENT_PK,
+        pk=pk,
+        slug=f"f-{pk}",
+        user_id=None,
+    )
+
+
+def _track_dto(pk, name):
+    return track_dto(
+        creation_time=_NOW,
+        event_id=_EVENT_PK,
+        modification_time=_NOW,
+        name=name,
+        pk=pk,
+        slug=f"t-{pk}",
+    )
+
+
+class TestContentEditWithFakes:
+    @staticmethod
+    def _service(sessions, logs, *, agenda_items=None, session_fields=None):
+        return SessionContentEditService(
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            session_fields=session_fields or MagicMock(),
+            content_change_logs=logs,
+            agenda_items=agenda_items or _FakeAgendaItems(),
+        )
+
+    @staticmethod
+    def _field_value(field_id, value):
+        return SessionFieldValueDTO(
+            field_id=field_id, field_name="", field_question="", value=value
+        )
+
+    def test_dropping_answers_of_removed_fields_logs_them_for_revert(self):
+        sessions = _FakeSessions(_session_dto())
+        sessions.form["field_values"] = [self._field_value(7, "Pathfinder")]
+        logs = _FakeContentChangeLogs()
+
+        self._service(sessions, logs).apply(
+            session_id=_SESSION_PK,
+            event_id=_EVENT_PK,
+            user_id=3,
+            data=SessionContentEditData(update={}, remove_field_ids=[7, 99]),
+        )
+
+        assert sessions.calls["deleted_field_ids"] == [(_SESSION_PK, [7])]
+        assert logs.created == [
+            {
+                "event_id": _EVENT_PK,
+                "session_id": _SESSION_PK,
+                "user_id": 3,
+                "changes": [
+                    {"field": "", "field_id": 7, "old": "Pathfinder", "new": None}
+                ],
+            }
+        ]
+
+    def test_removing_only_unanswered_fields_changes_nothing(self):
+        sessions = _FakeSessions(_session_dto())
+        logs = _FakeContentChangeLogs()
+
+        self._service(sessions, logs).apply(
+            session_id=_SESSION_PK,
+            event_id=_EVENT_PK,
+            user_id=3,
+            data=SessionContentEditData(update={}, remove_field_ids=[99]),
+        )
+
+        assert not sessions.calls["deleted_field_ids"]
+        assert not logs.created
+
+    def test_replacing_assignments_logs_names_not_ids(self):
+        sessions = _FakeSessions(_session_dto())
+        sessions.related["facilitators"] = {
+            1: _facilitator_dto(1, "Bob"),
+            2: _facilitator_dto(2, "Alice"),
+        }
+        sessions.related_ids["facilitators"] = [1]
+        sessions.related["tracks"] = {4: _track_dto(4, "RPG"), 5: _track_dto(5, "LARP")}
+        sessions.related_ids["tracks"] = [5, 4]
+        sessions.related["time_slots"] = {
+            8: TimeSlotDTO(pk=8, start_time=_NOW, end_time=_NOW + timedelta(hours=2))
+        }
+        logs = _FakeContentChangeLogs()
+
+        self._service(sessions, logs).apply(
+            session_id=_SESSION_PK,
+            event_id=_EVENT_PK,
+            user_id=3,
+            data=SessionContentEditData(
+                update={}, facilitator_ids=[2, 1], track_ids=[4], time_slot_ids=[8]
+            ),
+        )
+
+        assert sessions.related_ids == {
+            "facilitators": [2, 1],
+            "tracks": [4],
+            "time_slots": [8],
+        }
+        assert logs.created[0]["changes"] == [
+            {
+                "field": "facilitators",
+                "field_id": None,
+                "old": "Bob",
+                "new": "Alice, Bob",
+            },
+            {"field": "tracks", "field_id": None, "old": "LARP, RPG", "new": "RPG"},
+            {
+                "field": "time_slots",
+                "field_id": None,
+                "old": "",
+                "new": "2024-06-01T12:00:00+00:00 - 2024-06-01T14:00:00+00:00",
+            },
+        ]
+
+    def test_a_duration_change_on_an_unscheduled_session_touches_no_block(self):
+        sessions = _FakeSessions(_session_dto(duration="PT1H"))
+        agenda_items = _FakeAgendaItems()
+
+        self._service(
+            sessions, _FakeContentChangeLogs(), agenda_items=agenda_items
+        ).apply(
+            session_id=_SESSION_PK,
+            event_id=_EVENT_PK,
+            user_id=3,
+            data=SessionContentEditData(update={"duration": "PT2H"}),
+        )
+
+        assert sessions.updates == {_SESSION_PK: {"duration": "PT2H"}}
+        assert not agenda_items.updates
+
+    def test_revert_refuses_a_change_that_is_no_longer_the_latest(self):
+        stale = _content_log(
+            pk=1, changes=[{"field": "title", "field_id": None, "old": "A", "new": "B"}]
+        )
+        newest = _content_log(
+            pk=2, changes=[{"field": "title", "field_id": None, "old": "B", "new": "C"}]
+        )
+        sessions = _FakeSessions(_session_dto())
+        logs = _FakeContentChangeLogs(stale, newest)
+
+        with pytest.raises(ContentChangeNotLatestError):
+            self._service(sessions, logs).revert(
+                event_pk=_EVENT_PK, log_pk=1, user_pk=None
+            )
+
+        assert not sessions.updates
+        assert not logs.created
+
+    def test_revert_refuses_a_change_with_nothing_restorable(self):
+        # A cover upload's old binary is gone and m2m entries are logged as
+        # names, so neither can be written back.
+        log = _content_log(
+            changes=[
+                {
+                    "field": "cover_image",
+                    "field_id": None,
+                    "old": "http://img/old.png",
+                    "new": "(updated)",
+                },
+                {"field": "facilitators", "field_id": None, "old": "Bob", "new": "Al"},
+                {"field": "category", "field_id": None, "old": "RPG", "new": "Talk"},
+            ]
+        )
+        sessions = _FakeSessions(_session_dto())
+
+        with pytest.raises(ContentChangeNotRevertibleError):
+            self._service(sessions, _FakeContentChangeLogs(log)).revert(
+                event_pk=_EVENT_PK, log_pk=1, user_pk=None
+            )
+
+        assert not sessions.updates
+
+    def test_revert_writes_the_inverse_edit_as_the_newest_change(self):
+        log = _content_log(
+            changes=[{"field": "title", "field_id": None, "old": "Old", "new": "New"}]
+        )
+        sessions = _FakeSessions(_session_dto(title="New"))
+        logs = _FakeContentChangeLogs(log)
+
+        self._service(sessions, logs).revert(event_pk=_EVENT_PK, log_pk=1, user_pk=3)
+
+        assert sessions.updates == {_SESSION_PK: {"title": "Old"}}
+        assert [change["changes"] for change in logs.created] == [
+            [{"field": "title", "field_id": None, "old": "New", "new": "Old"}]
+        ]
+
+    def test_session_history_lists_only_that_sessions_changes(self):
+        mine = _content_log(pk=1, changes=[])
+        other = _content_log(pk=2, session_id=_SESSION_PK + 1, changes=[])
+        sessions = _FakeSessions(_session_dto())
+        service = self._service(sessions, _FakeContentChangeLogs(mine, other))
+
+        title, logs = service.session_history(
+            event_id=_EVENT_PK, session_id=_SESSION_PK
+        )
+
+        assert title == "My Session"
+        assert logs == [mine]
+
+    def test_list_log_returns_the_events_changes(self):
+        mine = _content_log(pk=1, changes=[])
+        foreign = _content_log(pk=2, event_id=_EVENT_PK + 1, changes=[])
+        service = self._service(_FakeSessions(), _FakeContentChangeLogs(mine, foreign))
+
+        assert service.list_log(_EVENT_PK) == [mine]
+
+    def test_list_field_names_maps_pk_to_current_name(self):
+        session_fields = _FakeSessionFields(
+            SimpleNamespace(pk=7, name="System", event_id=_EVENT_PK),
+            SimpleNamespace(pk=8, name="Diet", event_id=_EVENT_PK),
+            SimpleNamespace(pk=9, name="Other", event_id=_EVENT_PK + 1),
+        )
+        service = self._service(
+            _FakeSessions(), _FakeContentChangeLogs(), session_fields=session_fields
+        )
+
+        assert service.list_field_names(_EVENT_PK) == {7: "System", 8: "Diet"}
+
+    def test_revertible_pks_are_the_latest_restorable_change_per_session(self):
+        title_change = [{"field": "title", "field_id": None, "old": "A", "new": "B"}]
+        cover_change = [
+            {"field": "cover_image", "field_id": None, "old": "", "new": "(updated)"}
+        ]
+        superseded = _content_log(pk=1, changes=title_change)
+        latest = _content_log(pk=2, changes=title_change)
+        latest_but_stuck = _content_log(
+            pk=3, session_id=_SESSION_PK + 1, changes=cover_change
+        )
+        logs = [superseded, latest, latest_but_stuck]
+        service = self._service(_FakeSessions(), _FakeContentChangeLogs(*logs))
+
+        assert service.revertible_log_pks(_EVENT_PK, logs) == {2}
+
+
+class TestProposalAcceptanceWithFakes:
+    _SLOT = TimeSlotDTO(pk=2, start_time=_NOW, end_time=_NOW + timedelta(hours=1))
+
+    @classmethod
+    def _sessions(cls):
+        sessions = _FakeSessions(
+            _session_dto(facilitator_name="Alice"),
+            event=_event_dto(auto_confirm_sessions=True),
+        )
+        sessions.related["time_slots"] = {cls._SLOT.pk: cls._SLOT}
+        return sessions
+
+    @staticmethod
+    def _service(sessions, agenda_items):
+        return ProposalAcceptanceService(
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            agenda_items=agenda_items,
+            active_users=_FakeUsers(_user_dto(slug="manager")),
+            spheres=_FakeSpheres(managers=[(3, "manager")]),
+        )
+
+    def test_accept_context_reads_everything_about_the_session(self):
+        sessions = self._sessions()
+        sessions.form["presenter"] = _user_dto(pk=2, slug="speaker")
+        sessions.form["space_options"] = [SpaceOptionDTO(pk=7, name="Hall", group="")]
+        sessions.related_ids["time_slots"] = [2]
+        sessions.form["field_values"] = [
+            SessionFieldValueDTO(
+                field_id=4, field_name="System", field_question="", value="D&D"
+            )
+        ]
+
+        context = self._service(sessions, _FakeAgendaItems()).get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+
+        assert context == ProposalAcceptContextDTO(
+            session=sessions.rows[_SESSION_PK],
+            event=sessions.event,
+            presenter=sessions.form["presenter"],
+            space_options=sessions.form["space_options"],
+            time_slots=[self._SLOT],
+            preferred_time_slot_ids=[2],
+            field_values=sessions.form["field_values"],
+            can_accept=True,
+        )
+
+    def test_accept_session_places_the_session_in_the_chosen_slot(self):
+        sessions = self._sessions()
+        agenda_items = _FakeAgendaItems()
+
+        self._service(sessions, agenda_items).accept_session(
+            session_id=_SESSION_PK,
+            space_id=7,
+            time_slot_id=2,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        assert agenda_items.overlap_queries == [
+            (7, self._SLOT.start_time, self._SLOT.end_time, _SESSION_PK)
+        ]
+        assert sessions.updates == {
+            _SESSION_PK: {
+                "status": SessionStatus.ACCEPTED,
+                "facilitator_name": "Alice",
+                "schedule_confirmed": True,
+            }
+        }
+        assert agenda_items.created == [
+            {
+                "space_id": 7,
+                "session_id": _SESSION_PK,
+                "session_confirmed": True,
+                "start_time": self._SLOT.start_time,
+                "end_time": self._SLOT.end_time,
+            }
+        ]
