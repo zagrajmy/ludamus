@@ -13,7 +13,7 @@
         </p>
         {% comment %}
             min-w-0: a fieldset defaults to min-width:min-content, so the
-            40rem stage inside would stop the section shrinking on a phone.
+            stage's min-width would stop the section shrinking on a phone.
         {% endcomment %}
         <fieldset class="group/krok min-w-0">
             <legend class="sr-only">{% translate "Pick an act." %}</legend>
@@ -39,12 +39,12 @@
                     <div class="stage">
                         <!-- context strip -->
                         <div class="ctx ctx1">
-                            <span class="font-bold text-[0.95em] max-[42rem]:text-[0.76em] tracking-[-0.01em] min-w-0 truncate">{% translate "Proposal inbox" %}</span>
+                            <span class="font-bold text-[0.95em] tracking-[-0.01em] min-w-0 truncate max-[42rem]:hidden">{% translate "Proposal inbox" %}</span>
                             <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "a form with your own questions" %}</span>
                             <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "7 proposals" %}</span>
                         </div>
                         <div class="ctx ctx2">
-                            <span class="font-bold text-[0.95em] max-[42rem]:text-[0.76em] tracking-[-0.01em] min-w-0 truncate">{% translate "Proposal review" %}</span>
+                            <span class="font-bold text-[0.95em] tracking-[-0.01em] min-w-0 truncate max-[42rem]:hidden">{% translate "Proposal review" %}</span>
                             <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "5 accepted" %}</span>
                             <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-warning-bg border-warning-light text-warning-text">{% translate "1 on hold" %}</span>
                             <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-info-bg border-info-light text-info-text">{% translate "1 new" %}</span>
@@ -98,7 +98,7 @@
                             <span class="ca text-[0.66em] font-medium text-foreground-muted">Radowit</span>
                             <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] py-[0.13em] rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                             <span class="hidden group-has-[#k5:checked]/krok:inline-flex text-[0.62em] font-bold px-[0.8em] py-[0.13em] rounded-full border whitespace-nowrap bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
-                            <span class="cw hidden group-has-[#k5:checked]/krok:inline text-[0.6em] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
+                            <span class="cw hidden group-has-[#k5:checked]/krok:inline max-w-full truncate text-[0.6em] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
                         </article>
                         <article class="chip cE">
                             <span class="ct">{% translate "Painting miniatures for beginners" %}</span>

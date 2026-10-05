@@ -75,8 +75,8 @@ test.describe("Landing", () => {
     test(`fits every act of the six-acts stage on a ${width}px phone`, async ({
       page,
     }, testInfo) => {
-      // iOS Safari 26.0 ignores zoom on rem lengths, so a zoomed stage
-      // overflowed there; phones get plain breakpoints instead.
+      // NOTE: no CI browser has iOS 26.0's zoom-on-rem bug; this guards the
+      // breakpoint layout's fit.
       await page.setViewportSize({ width, height: 812 });
       await page.goto("/");
       const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
@@ -108,6 +108,10 @@ test.describe("Landing", () => {
                 offenders.push(`${box.className} > ${child.textContent?.trim()}`);
               }
             }
+          }
+          // Room names and times are nowrap in fixed-width columns.
+          for (const label of stageEl.querySelectorAll(".rh, .tl")) {
+            if (label.scrollWidth > label.clientWidth + 1) offenders.push(label.textContent ?? "");
           }
           return offenders;
         });

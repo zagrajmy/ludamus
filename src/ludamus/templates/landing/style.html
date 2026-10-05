@@ -825,8 +825,9 @@ themes — newsprint rather than white once the page around them is dark.
     /* NOTE: scena.html repeats 42rem and 22.5rem as `max-[…]:` variants on
        the act tabs, context-strip titles, conflict label and door card;
        move them together.
-       Phones: six named tabs wrap to ragged rows, so they drop to numbers
-       (the caption under the grid names the act). The stage drops its 40rem
+       Phones: six named tabs wrap to ragged rows, so they drop to numbers,
+       and acts 1-2 drop their strip title (the caption under the grid names
+       the act). The stage drops its 40rem
        floor but keeps its 40:34 shape, so every percentage coordinate holds,
        and its em-sized interior follows the stage's font-size down. */
     @media (max-width: 42rem) {
@@ -843,8 +844,10 @@ themes — newsprint rather than white once the page around them is dark.
             border-color: var(--color-border);
         }
 
+        /* Below 17rem the em interior stops fitting, so the wrapper scrolls
+           rather than clipping; enlarged text raises the floor with it. */
         .landing .stage {
-            min-width: 0;
+            min-width: 17rem;
             height: auto;
             aspect-ratio: 40 / 34;
             font-size: 0.88rem;
@@ -855,13 +858,6 @@ themes — newsprint rather than white once the page around them is dark.
             height: auto;
         }
 
-        /* The caption under the grid already names these two acts, and the
-           strip needs the room for its counts. */
-        .landing .ctx1>span:first-child,
-        .landing .ctx2>span:first-child {
-            display: none;
-        }
-
         /* A phone-sized chip has room for its text, not its desktop
            padding. */
         .landing .chip {
@@ -870,7 +866,8 @@ themes — newsprint rather than white once the page around them is dark.
             border-radius: 0.6em;
         }
 
-        /* Room names and times sit in fixed-width columns. */
+        /* Room names and times sit in fixed-width columns; the time column
+           takes the stage's left gutter too, up to the chips at 10%. */
         .landing .rh {
             font-size: 0.66em;
             letter-spacing: 0.03em;
@@ -878,6 +875,8 @@ themes — newsprint rather than white once the page around them is dark.
         }
 
         .landing .tl {
+            left: 0;
+            width: 9.5%;
             font-size: 0.72em;
             padding-right: 0.4em;
         }
@@ -896,14 +895,6 @@ themes — newsprint rather than white once the page around them is dark.
 
         #k5:checked~.sc .cD .ct {
             -webkit-line-clamp: 1;
-        }
-
-        #k5:checked~.sc .cD .cw {
-            display: block;
-            max-width: 100%;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
         }
 
         /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
