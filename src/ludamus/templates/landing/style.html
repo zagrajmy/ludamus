@@ -848,7 +848,7 @@ themes — newsprint rather than white once the page around them is dark.
             min-width: 17rem;
             height: auto;
             aspect-ratio: 10 / 13;
-            font-size: 0.88rem;
+            font-size: 0.94rem;
         }
 
         /* Pills outgrow the strip's 8% band at phone size; let it hug them,
@@ -865,8 +865,58 @@ themes — newsprint rather than white once the page around them is dark.
         /* NOTE: see the badge-translate note on the base .chip padding. */
         .landing .chip {
             gap: 0.2em;
-            padding: 0.35em 0.45em;
-            border-radius: 0.6em;
+            padding: 0.5em 0.55em;
+            border-radius: 0.7em;
+        }
+
+        #k1:checked~.sc .chip {
+            height: 17%;
+        }
+
+        /* The conflict cards are narrow: a long word must not run under the
+           "!" dot. */
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 0.62em;
+        }
+
+        /* Review cards: one ~7px gutter across and down, the cards take the
+           rest. */
+        #k2:checked~.sc .chip {
+            width: 46.5%;
+            height: 20.4%;
+        }
+
+        #k2:checked~.sc .cA,
+        #k2:checked~.sc .cB,
+        #k2:checked~.sc .cC,
+        #k2:checked~.sc .cD {
+            left: 2.5%;
+        }
+
+        #k2:checked~.sc .cE,
+        #k2:checked~.sc .cF,
+        #k2:checked~.sc .cG {
+            left: 51%;
+        }
+
+        #k2:checked~.sc .cA,
+        #k2:checked~.sc .cE {
+            top: 11%;
+        }
+
+        #k2:checked~.sc .cB,
+        #k2:checked~.sc .cF {
+            top: 32.9%;
+        }
+
+        #k2:checked~.sc .cC,
+        #k2:checked~.sc .cG {
+            top: 54.8%;
+        }
+
+        #k2:checked~.sc .cD {
+            top: 76.7%;
         }
 
         /* Room names and times sit in fixed-width columns: names wrap above
