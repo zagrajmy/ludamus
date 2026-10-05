@@ -909,6 +909,17 @@ themes — newsprint rather than white once the page around them is dark.
             font-size: 0.62em;
         }
 
+        /* A half-height conflict card has room for its title only. */
+        #k3:checked~.sc .cF .ca {
+            display: none;
+        }
+
+        /* The full workshop keeps its host and badge: it takes most of the
+           gap above the 15:00 row. */
+        #k5:checked~.sc .cD {
+            height: 23.5%;
+        }
+
         /* Fixed-width columns: room names wrap above the first row; the time
            column takes the left gutter up to the chips at 10%. */
         .landing .rh {
@@ -926,8 +937,7 @@ themes — newsprint rather than white once the page around them is dark.
 
         /* Authors give their row to the full title and its status badge. */
         #k1:checked~.sc .chip .ca,
-        #k2:checked~.sc .chip .ca,
-        #k5:checked~.sc .cD .ca {
+        #k2:checked~.sc .chip .ca {
             display: none;
         }
 
