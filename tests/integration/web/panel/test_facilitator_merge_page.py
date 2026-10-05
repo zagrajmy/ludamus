@@ -51,6 +51,9 @@ def _wait_for_a_blocked_query():
     deadline = time.monotonic() + BLOCKED_QUERY_TIMEOUT_SECONDS
     with connection.cursor() as cursor:
         while time.monotonic() < deadline:
+            # NOTE: Postgres caches pg_stat_activity for the rest of the
+            # transaction, and the caller polls inside the one holding the lock.
+            cursor.execute("SELECT pg_stat_clear_snapshot()")
             cursor.execute(
                 "SELECT 1 FROM pg_stat_activity"
                 " WHERE datname = current_database() AND wait_event_type = 'Lock'"
