@@ -5,7 +5,7 @@
     and say so by declaring their kind rather than by being named here.
 {% endcomment %}
 {% if column.kind == "status" %}
-    {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
+    {% include "panel/_proposal_status_badge.html" with session=proposal %}
 {% elif column.kind == "created" %}
     {{ proposal.creation_time|date:"d M Y H:i" }}
 {% else %}

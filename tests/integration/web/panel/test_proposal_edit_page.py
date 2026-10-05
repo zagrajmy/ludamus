@@ -42,7 +42,6 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
     ProposalCategoryDTO,
-    SessionDTO,
     TimeSlotDTO,
     TrackDTO,
 )
@@ -66,6 +65,7 @@ from tests.integration.web.panel.helpers import (
     assert_proposal_not_found,
     facilitator_list_item_dto,
     panel_context,
+    proposal_dto,
 )
 
 CUSTOM_DURATION_MINUTES = 45
@@ -131,7 +131,7 @@ def _edit_page_response(event, session):
                 "total_proposals": 1,
                 "total_sessions": 1,
             },
-            "proposal": SessionDTO.model_validate(session),
+            "proposal": proposal_dto(session),
             "form": ANY,
             "all_facilitators": [],
             "assigned_facilitator_pks": set(),
@@ -262,7 +262,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -299,7 +299,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -503,7 +503,7 @@ class TestProposalEditPageView:
                     "total_sessions": 1,
                 },
                 "cancel_url": _cancel_url(event, session.pk),
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -587,7 +587,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -678,7 +678,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": FormErrorsMatcher(
                     participants_limit=["Enter a smaller number."]
                 ),
@@ -1089,7 +1089,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -1161,7 +1161,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [
                     FacilitatorListItemDTO(
@@ -1405,7 +1405,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [
                     facilitator_list_item_dto(facilitator, session_count=1)
@@ -1506,7 +1506,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": FormErrorsMatcher(
                     __all__=["Fix the facilitator personal data below before saving."]
                 ),
@@ -1656,7 +1656,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [
                     facilitator_list_item_dto(facilitator, session_count=1)
@@ -1730,7 +1730,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -1984,7 +1984,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -2096,7 +2096,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
@@ -2155,7 +2155,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [
                     facilitator_list_item_dto(assigned, session_count=1),
@@ -2210,7 +2210,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "form": ANY,
                 "all_facilitators": [
                     FacilitatorListItemDTO(

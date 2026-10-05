@@ -345,7 +345,12 @@ def _email_group(
         contact_email=contact_email,
         status_groups=[
             ConfirmationStatusGroupDTO(
-                status=status,
+                status=(
+                    SessionStatus.ACCEPTED
+                    if status == SCHEDULED_STATUS
+                    else SessionStatus(status)
+                ),
+                is_scheduled=status == SCHEDULED_STATUS,
                 sessions=[
                     _session_dto(
                         row=row,

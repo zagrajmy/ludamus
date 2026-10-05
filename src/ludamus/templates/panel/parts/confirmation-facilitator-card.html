@@ -92,7 +92,7 @@ set once here and inherited by the forms below.
                 {% for status_group in group.status_groups %}
                     <div class="flex flex-col gap-1">
                         <div class="mt-1 flex items-center gap-2">
-                            {% include "panel/parts/confirmation-status-badge.html" with status=status_group.status %}
+                            {% include "panel/_proposal_status_badge.html" with session=status_group %}
                         </div>
                         {% for session in status_group.sessions %}
                             <div class="flex items-start gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-tertiary">

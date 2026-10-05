@@ -12,7 +12,6 @@ from ludamus.pacts.legacy import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.specs.confirmations import SCHEDULED_STATUS
 
 _EVENT = 1
 _OTHER_EVENT = 2
@@ -299,10 +298,10 @@ class TestTrackView:
         assert card.unplaced_count == _EXPECTED_TWO
         assert card.pending_count == 1
         groups = card.email_groups[0].status_groups
-        assert [group.status for group in groups] == [
-            SCHEDULED_STATUS,
-            str(SessionStatus.ON_HOLD),
-            str(SessionStatus.REJECTED),
+        assert [(group.status, group.is_scheduled) for group in groups] == [
+            (SessionStatus.ACCEPTED, True),
+            (SessionStatus.ON_HOLD, False),
+            (SessionStatus.REJECTED, False),
         ]
         assert [[s.session_pk for s in g.sessions] for g in groups] == [[1], [4], [5]]
         assert card.email_groups[0].confirmable_count == 1

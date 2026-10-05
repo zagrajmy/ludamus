@@ -17,7 +17,6 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
     ProposalCategoryDTO,
-    SessionDTO,
     SessionFieldValueDTO,
     SessionListItemDTO,
     SessionStatus,
@@ -39,6 +38,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     panel_context,
     proposal_detail_context,
+    proposal_dto,
 )
 
 _PAGE_SIZES = PROPOSAL_PAGE_SIZES
@@ -1732,7 +1732,7 @@ class TestProposalDetailPageView:
                         kwargs={"slug": event.slug, "proposal_id": session.pk},
                     ),
                 },
-                "proposal": SessionDTO.model_validate(session),
+                "proposal": proposal_dto(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
                 "agenda_item": None,

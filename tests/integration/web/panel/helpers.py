@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     TimetableGridDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import PanelProposalDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -450,6 +451,12 @@ def assert_facilitator_not_found(response: HttpResponse, event) -> None:
     )
 
 
+def proposal_dto(session, *, is_scheduled=False) -> PanelProposalDTO:
+    return PanelProposalDTO(
+        **SessionDTO.model_validate(session).model_dump(), is_scheduled=is_scheduled
+    )
+
+
 def proposal_detail_context(*, event, session, presenter) -> dict:
     # One proposal by one host: the counts the sidebar derives from it are
     # fixed, so they belong with the rest of the detail-page context.
@@ -462,7 +469,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
             total_proposals=1,
             total_sessions=1,
         ),
-        "proposal": SessionDTO.model_validate(session),
+        "proposal": proposal_dto(session),
         "category_name": "RPG",
         "proposal_tracks": [],
         "agenda_item": None,

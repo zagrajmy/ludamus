@@ -4,7 +4,7 @@
 {% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk as hold_url %}
 {% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk as reject_url %}
 <div class="flex flex-wrap items-center gap-2">
-    {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
+    {% include "panel/_proposal_status_badge.html" with session=proposal %}
     {% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk as edit_url %}
     {% translate "Edit" as edit_label %}
     {% with next_query=back_url|urlencode %}

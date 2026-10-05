@@ -10,6 +10,7 @@ from ludamus.pacts.legacy import (
     EventListItemDTO,
     EventRepositoryProtocol,
     PanelStatsDTO,
+    SessionStatus,
     TimeSlotDTO,
 )
 
@@ -164,7 +165,8 @@ class ConfirmationSessionDTO(BaseModel):
 class ConfirmationStatusGroupDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    status: str
+    status: SessionStatus
+    is_scheduled: bool
     sessions: list[ConfirmationSessionDTO]
 
 
