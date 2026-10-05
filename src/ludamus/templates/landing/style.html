@@ -292,9 +292,12 @@ themes — newsprint rather than white once the page around them is dark.
         transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
 
-    .landing .ktabs label:hover {
-        background: var(--color-bg-tertiary);
-        color: var(--color-foreground);
+    /* A tap leaves :hover stuck on the last tab on touch screens. */
+    @media (hover: hover) and (pointer: fine) {
+        .landing .ktabs label:hover {
+            background: var(--color-bg-tertiary);
+            color: var(--color-foreground);
+        }
     }
 
     .landing .ktabs label b {
@@ -334,20 +337,14 @@ themes — newsprint rather than white once the page around them is dark.
         outline-offset: 2px;
     }
 
-    /* Narrower than the stage, the whole scene shrinks to fit instead of
-       scrolling sideways. tan(atan2()) turns the width ratio into the
-       unitless number zoom takes. It divides by px, not rem, so a larger
-       text size still enlarges the stage; the 0.45 floor keeps page zoom
-       from being cancelled out, and the wrapper scrolls past it. */
     .landing .stage {
-        zoom: clamp(0.45, tan(atan2(100cqw, 640px)), 1);
         position: relative;
         min-width: 40rem;
         height: 34rem;
         border: 1px solid var(--color-border);
-        border-radius: 1.25rem;
+        border-radius: 1.25em;
         background: var(--color-bg-tertiary);
-        transition: background-color 0.5s, border-color 0.5s;
+        transition: background-color 0.25s, border-color 0.25s;
         overflow: hidden;
     }
 
@@ -360,7 +357,7 @@ themes — newsprint rather than white once the page around them is dark.
         height: 8%;
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        gap: 0.4em;
         opacity: 0;
         visibility: hidden;
         filter: blur(1px);
@@ -369,9 +366,9 @@ themes — newsprint rather than white once the page around them is dark.
            properties, not `all`: `visibility` needs its own zero-length
            delayed step. */
         transition:
-            opacity 0.28s var(--ease-out),
-            filter 0.28s var(--ease-out),
-            visibility 0s linear 0.28s;
+            opacity 0.2s var(--ease-out),
+            filter 0.2s var(--ease-out),
+            visibility 0s linear 0.2s;
         pointer-events: none;
     }
 
@@ -392,7 +389,7 @@ themes — newsprint rather than white once the page around them is dark.
         position: absolute;
         inset: 0;
         opacity: 0;
-        transition: opacity 0.55s 0.15s;
+        transition: opacity 0.25s 0.1s;
         pointer-events: none;
     }
 
@@ -407,7 +404,7 @@ themes — newsprint rather than white once the page around them is dark.
         position: absolute;
         top: 14.5%;
         width: 28.5%;
-        font-size: 0.78rem;
+        font-size: 0.78em;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -430,12 +427,12 @@ themes — newsprint rather than white once the page around them is dark.
         position: absolute;
         left: 1.5%;
         width: 7.5%;
-        font-size: 0.8rem;
+        font-size: 0.8em;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         color: var(--color-foreground-muted);
         text-align: right;
-        padding-right: 0.5rem;
+        padding-right: 0.6em;
     }
 
     .landing .tl1 {
@@ -482,9 +479,9 @@ themes — newsprint rather than white once the page around them is dark.
         height: 22.4%;
         z-index: 2;
         border: 2px dashed var(--color-danger);
-        border-radius: 1rem;
+        border-radius: 1em;
         opacity: 0;
-        transition: opacity 0.5s 0.3s;
+        transition: opacity 0.2s 0.3s;
         pointer-events: none;
     }
 
@@ -498,18 +495,20 @@ themes — newsprint rather than white once the page around them is dark.
         position: absolute;
         display: flex;
         flex-direction: column;
-        gap: 0.22rem;
+        gap: 0.22em;
         align-items: flex-start;
-        padding: 0.55rem 0.65rem;
-        border-radius: 0.8rem;
+        /* NOTE: badges shift into the corner with a fixed translate in
+           scena.html; padding below ~0.36em on a side clips them. */
+        padding: 0.55em 0.65em;
+        border-radius: 0.8em;
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         overflow: hidden;
-        transition: left 0.65s var(--ease-out), top 0.65s var(--ease-out),
-            width 0.65s var(--ease-out), height 0.65s var(--ease-out),
-            transform 0.65s var(--ease-out), background-color 0.45s, border-color 0.45s,
-            filter 0.45s, box-shadow 0.45s;
+        transition: left 0.35s var(--ease-out), top 0.35s var(--ease-out),
+            width 0.35s var(--ease-out), height 0.35s var(--ease-out),
+            transform 0.35s var(--ease-out), background-color 0.2s, border-color 0.2s,
+            filter 0.2s, box-shadow 0.2s;
     }
 
     .landing .cA {
@@ -542,14 +541,10 @@ themes — newsprint rather than white once the page around them is dark.
 
     .landing .ct {
         font-weight: 600;
-        font-size: 0.74rem;
+        font-size: 0.74em;
         line-height: 1.18;
         letter-spacing: -0.01em;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        transition: font-size 0.3s;
+        transition: font-size 0.2s;
     }
 
     .landing .warnDot {
@@ -613,7 +608,7 @@ themes — newsprint rather than white once the page around them is dark.
     }
 
     #k1:checked~.sc .chip .ct {
-        font-size: 0.85rem;
+        font-size: 0.85em;
     }
 
     #k1:checked~.sc .cA {
@@ -658,49 +653,55 @@ themes — newsprint rather than white once the page around them is dark.
         transform: rotate(-2.2deg);
     }
 
-    /* step 2 — review list with statuses */
+    /* step 2 — review list with statuses, on a 2-column, 4-row grid */
+    .landing .stage {
+        --k2-x1: 3.5%;
+        --k2-x2: 52.5%;
+        --k2-w: 44%;
+        --k2-h: 17%;
+        --k2-y: 13%;
+        --k2-step: 21%;
+    }
+
     #k2:checked~.sc .chip {
-        width: 44%;
-        height: 17%;
+        width: var(--k2-w);
+        height: var(--k2-h);
     }
 
     #k2:checked~.sc .chip .ct {
-        font-size: 0.84rem;
+        font-size: 0.84em;
     }
 
-    #k2:checked~.sc .cA {
-        left: 3.5%;
-        top: 13%;
+    #k2:checked~.sc .cA,
+    #k2:checked~.sc .cB,
+    #k2:checked~.sc .cC,
+    #k2:checked~.sc .cD {
+        left: var(--k2-x1);
     }
 
-    #k2:checked~.sc .cB {
-        left: 3.5%;
-        top: 34%;
+    #k2:checked~.sc .cE,
+    #k2:checked~.sc .cF,
+    #k2:checked~.sc .cG {
+        left: var(--k2-x2);
     }
 
-    #k2:checked~.sc .cC {
-        left: 3.5%;
-        top: 55%;
+    #k2:checked~.sc .cA,
+    #k2:checked~.sc .cE {
+        top: var(--k2-y);
+    }
+
+    #k2:checked~.sc .cB,
+    #k2:checked~.sc .cF {
+        top: calc(var(--k2-y) + var(--k2-step));
+    }
+
+    #k2:checked~.sc .cC,
+    #k2:checked~.sc .cG {
+        top: calc(var(--k2-y) + 2 * var(--k2-step));
     }
 
     #k2:checked~.sc .cD {
-        left: 3.5%;
-        top: 76%;
-    }
-
-    #k2:checked~.sc .cE {
-        left: 52.5%;
-        top: 13%;
-    }
-
-    #k2:checked~.sc .cF {
-        left: 52.5%;
-        top: 34%;
-    }
-
-    #k2:checked~.sc .cG {
-        left: 52.5%;
-        top: 55%;
+        top: calc(var(--k2-y) + 3 * var(--k2-step));
     }
 
     /* step 3 — the grid, with a live conflict in Room B / 15:00 */
@@ -721,10 +722,11 @@ themes — newsprint rather than white once the page around them is dark.
         border-color: var(--color-danger);
     }
 
+    /* Reserves the width of the "!" dot pinned top-right, plus a gap. */
     #k3:checked~.sc .cF .ct,
     #k3:checked~.sc .cG .ct {
-        -webkit-line-clamp: 1;
-        font-size: 0.68rem;
+        padding-right: 1.8em;
+        font-size: 0.68em;
         color: var(--color-danger-text);
     }
 
@@ -775,6 +777,14 @@ themes — newsprint rather than white once the page around them is dark.
         background: var(--paper);
     }
 
+    /* Light mode prints cards on the sheet's own paper: no box to pad or
+       round. Dark mode keeps them as white cards on the dark page. */
+    html:not(.dark) #k6:checked~.sc .chip {
+        padding: 0;
+        border-color: transparent;
+        border-radius: 0;
+    }
+
     #k6:checked~.sc .chip .ct {
         color: var(--color-warm-900);
     }
@@ -797,13 +807,13 @@ themes — newsprint rather than white once the page around them is dark.
         right: 3%;
         bottom: 5%;
         width: 31%;
-        padding: 0.9rem 1rem;
+        padding: 0.9em 1em;
         background: var(--paper);
         border: 1.5px solid var(--color-warm-800);
-        border-radius: 0.55rem;
+        border-radius: 0.55em;
         opacity: 0;
         transform: rotate(3deg) translateY(16px);
-        transition: opacity 0.5s 0.35s, transform 0.6s 0.35s var(--ease-out);
+        transition: opacity 0.2s 0.25s, transform 0.3s 0.25s var(--ease-out);
         pointer-events: none;
         box-shadow: 0 10px 24px rgba(37, 34, 32, 0.14);
     }
@@ -811,9 +821,9 @@ themes — newsprint rather than white once the page around them is dark.
     .landing .doorcard::before {
         content: "";
         position: absolute;
-        inset: 0.35rem;
+        inset: 0.35em;
         border: 1px dashed var(--color-warm-500);
-        border-radius: 0.35rem;
+        border-radius: 0.35em;
         pointer-events: none;
     }
 
@@ -822,8 +832,16 @@ themes — newsprint rather than white once the page around them is dark.
         transform: rotate(-1.5deg) translateY(0);
     }
 
-    /* Six named tabs wrap to ragged rows on a phone, so they drop to
-       numbers; the caption under the grid names the act. */
+    /* NOTE: scena.html repeats 42rem and 22.5rem as `max-[…]:` variants on
+       the act tabs, context-strip titles, conflict label and door card;
+       move them together. */
+
+    /* Phones: six named tabs wrap to ragged rows, so they drop to numbers,
+       and acts 1-2 drop their strip title (the caption under the grid names
+       the act). The stage goes portrait, since full titles wrap and need
+       height; percentage coordinates now land on a taller box, which is why
+       the strip and room names wrap. Its em interior follows the stage's
+       font-size down. */
     @media (max-width: 42rem) {
         .landing .ktabs {
             display: grid;
@@ -837,90 +855,162 @@ themes — newsprint rather than white once the page around them is dark.
             border-radius: 0.7rem;
             border-color: var(--color-border);
         }
-    }
 
-    /* Keyed to the same container width as the zoom: at 480px the scene
-       sits at 0.75 and desktop type starts to fall under 9px, so it is set
-       larger to land near 10-11px at phone zoom (about 0.55). */
-    @container (max-width: 480px) {
+        /* Below 17rem the em interior stops fitting, so the wrapper scrolls
+           rather than clipping; enlarged text raises the floor with it. */
+        .landing .stage {
+            min-width: 17rem;
+            height: auto;
+            aspect-ratio: 10 / 13;
+            font-size: 0.94rem;
+            /* Review cards: one equal gutter across and down. */
+            --k2-x1: 2.5%;
+            --k2-x2: 51%;
+            --k2-w: 46.5%;
+            --k2-h: 20.4%;
+            --k2-y: 11%;
+            --k2-step: 21.9%;
+        }
+
+        /* Pills outgrow the strip's 8% band at phone size; let it hug them,
+           wrapping to a second row rather than cutting a title. */
         .landing .ctx {
-            gap: 0.6rem;
+            height: auto;
+            flex-wrap: wrap;
+            row-gap: 0.2em;
+            line-height: 1.3;
         }
 
-        .landing .ctx>span {
-            font-size: 1.2rem;
+        /* NOTE: see the badge-translate note on the base .chip padding. */
+        .landing .chip {
+            gap: 0.2em;
+            padding: 0.5em 0.55em;
+            border-radius: 0.7em;
         }
 
-        .landing .chip .ct {
-            flex-shrink: 0;
-            font-size: 1.15rem;
+        /* Narrow timetable cards: the longest title word must clear the
+           padding. Acts 1 and 2 have wide cards and keep their own size. */
+        .landing .ct {
+            font-size: 0.68em;
         }
 
-        #k5:checked~.sc .cD .ca {
+        /* The act-1 pile goes two cards wide so titles keep their size; the
+           cards stay rotated as on desktop. Tall cards let each one overlap
+           the blank lower part of the cards before it, never their titles. */
+        #k1:checked~.sc .chip {
+            width: 44%;
+            height: 21%;
+        }
+
+        #k1:checked~.sc .cA {
+            left: 3%;
+            top: 9.5%;
+        }
+
+        #k1:checked~.sc .cB {
+            left: 50%;
+            top: 10%;
+        }
+
+        #k1:checked~.sc .cC {
+            left: 25%;
+            top: 25%;
+        }
+
+        #k1:checked~.sc .cD {
+            left: 4%;
+            top: 39.5%;
+        }
+
+        #k1:checked~.sc .cE {
+            left: 52%;
+            top: 42%;
+        }
+
+        #k1:checked~.sc .cF {
+            left: 18%;
+            top: 55%;
+        }
+
+        #k1:checked~.sc .cG {
+            left: 47%;
+            top: 69%;
+        }
+
+        /* Narrow conflict cards: long words stay clear of the "!" dot. */
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 0.62em;
+        }
+
+        /* A half-height conflict card has room for its title only. */
+        #k3:checked~.sc .cF .ca {
             display: none;
         }
 
-        #k5:checked~.sc .cD .ct {
-            -webkit-line-clamp: 1;
+        /* The full workshop keeps its host and badge: it takes most of the
+           gap above the 15:00 row. */
+        #k5:checked~.sc .cD {
+            height: 23.5%;
         }
 
-        #k1:checked~.sc .chip .ct,
-        #k2:checked~.sc .chip .ct {
-            font-size: 1.3rem;
-        }
-
-        #k3:checked~.sc .cF .ct,
-        #k3:checked~.sc .cG .ct {
-            font-size: 1rem;
-        }
-
-        .landing .chip>span:not(.ct, .warnDot) {
-            font-size: 0.95rem;
-        }
-
-        .landing .warnDot {
-            width: 1.5rem;
-            height: 1.5rem;
-            font-size: 1rem;
-            line-height: 1.5rem;
-        }
-
+        /* Fixed-width columns: room names wrap above the first row; the time
+           column takes the left gutter up to the chips at 10%. */
         .landing .rh {
-            font-size: 1rem;
+            font-size: 0.66em;
+            line-height: 1.1;
             letter-spacing: 0.03em;
-            white-space: nowrap;
         }
 
         .landing .tl {
-            font-size: 1.15rem;
+            left: 0;
+            width: 9.5%;
+            font-size: 0.72em;
+            padding-right: 0.4em;
+        }
+
+        /* Authors give their row to the full title and its status badge. */
+        #k1:checked~.sc .chip .ca,
+        #k2:checked~.sc .chip .ca {
+            display: none;
+        }
+
+        /* The "full" badge stands in for the waiting-list link on a phone. */
+        #k5:checked~.sc .cD .cw {
+            display: none;
         }
 
         /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
            even gap on every side; the percentage fit leaves the sides
-           visibly tighter than the top and bottom at phone zoom. */
+           visibly tighter than the top and bottom on a phone. */
         .landing .cellwarn {
-            left: calc(39.66% - 6px);
-            top: calc(72% - 6px);
-            width: calc(28.5% + 12px);
-            height: calc(20% + 12px);
-        }
-
-        .landing .cellwarn>span {
-            top: -1rem;
-            height: 1.7rem;
-            font-size: 0.9rem;
+            left: calc(39.66% - 3px);
+            top: calc(72% - 3px);
+            width: calc(28.5% + 6px);
+            height: calc(20% + 6px);
         }
 
         .landing .doorcard {
-            width: 40%;
-        }
-
-        .landing .doorcard>* {
-            font-size: 1.1rem;
+            width: 46%;
         }
     }
 
-    /* step descriptions */
+    @media (max-width: 22.5rem) {
+        .landing .stage {
+            aspect-ratio: 5 / 7;
+            font-size: 0.8rem;
+        }
+
+        .landing .rh {
+            font-size: 0.6em;
+            letter-spacing: 0;
+        }
+
+        .landing .tl {
+            padding-right: 0;
+        }
+    }
+
     /* Once the load choreography has played, switching the audience view must
        not replay it: display:none -> block restarts CSS animations, so
        landing.ts latches .ld-done after the last delay+duration. */

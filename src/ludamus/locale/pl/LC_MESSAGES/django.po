@@ -6129,6 +6129,11 @@ msgid "Run your event with Zagrajmy"
 msgstr "Zorganizuj wydarzenie z Zagrajmy"
 
 #: src/ludamus/templates/components/contact_cta.html
+#: src/ludamus/templates/landing/org_hero.html
+msgid "Run your event"
+msgstr "Zorganizuj wydarzenie"
+
+#: src/ludamus/templates/components/contact_cta.html
 msgid ""
 "We reply with a concrete plan for your event, and asking commits you to "
 "nothing."
@@ -7761,10 +7766,6 @@ msgstr "Organizacja wydarzeń"
 #: src/ludamus/templates/landing/org_hero.html
 msgid "without spreadsheet chaos"
 msgstr "bez chaosu w arkuszach"
-
-#: src/ludamus/templates/landing/org_hero.html
-msgid "Run your event"
-msgstr "Zorganizuj wydarzenie"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "See a real event's page"
@@ -12298,6 +12299,10 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
+
 #~ msgid "No events available for this sphere."
 #~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
@@ -12423,10 +12428,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "No emails captured yet."
 #~ msgstr "Brak przechwyconych e-maili."
-
-#, python-format
-#~ msgid "Include %(name)s"
-#~ msgstr "Uwzględnij: %(name)s"
 
 #~ msgid "Bookmarks"
 #~ msgstr "Zakładki"
@@ -13574,3 +13575,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr[1] "Linki w tym e-mailu"
 #~ msgstr[2] "Linki w tym e-mailu"
 #~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid "Copy email"
+#~ msgstr "Skopiuj e-mail"
