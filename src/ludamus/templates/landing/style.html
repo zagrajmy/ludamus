@@ -888,19 +888,52 @@ themes — newsprint rather than white once the page around them is dark.
             border-radius: 0.7em;
         }
 
-        /* The act-1 pile gets room for its wrapping titles. */
-        #k1:checked~.sc .chip {
-            height: 17%;
-        }
-
-        /* Narrow cards: the longest title word must clear the padding. Act
-           2's wide cards keep their own size (#k2 rule above). */
+        /* Narrow timetable cards: the longest title word must clear the
+           padding. Acts 1 and 2 have wide cards and keep their own size. */
         .landing .ct {
             font-size: 0.68em;
         }
 
-        #k1:checked~.sc .chip .ct {
-            font-size: 0.75em;
+        /* The act-1 pile goes two cards wide so titles keep their size; the
+           cards stay rotated as on desktop. */
+        #k1:checked~.sc .chip {
+            width: 44%;
+            height: 15.5%;
+        }
+
+        #k1:checked~.sc .cA {
+            left: 3%;
+            top: 12%;
+        }
+
+        #k1:checked~.sc .cB {
+            left: 52%;
+            top: 14%;
+        }
+
+        #k1:checked~.sc .cC {
+            left: 27%;
+            top: 30%;
+        }
+
+        #k1:checked~.sc .cD {
+            left: 4%;
+            top: 47%;
+        }
+
+        #k1:checked~.sc .cE {
+            left: 51%;
+            top: 49%;
+        }
+
+        #k1:checked~.sc .cF {
+            left: 6%;
+            top: 66%;
+        }
+
+        #k1:checked~.sc .cG {
+            left: 49%;
+            top: 68%;
         }
 
         /* Narrow conflict cards: long words stay clear of the "!" dot. */
