@@ -572,19 +572,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise FacilitatorMergeError(MergeErrorReason.BAD_ACCREDITATION)
 
         with self._transaction.atomic():
-            # SAFETY: lock, then read again. A claim or a session assignment
-            # onto a source committing between an unlocked read and the writes
-            # would be overwritten, or left naming a deleted facilitator. A
-            # concurrent merge/delete surfaces as NotFound.
-            pks = [
-                self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
-                for slug in slugs
-            ]
-            self._repos.facilitators.lock(pks)
-            facilitators = [
-                self._repos.facilitators.read_by_event_and_slug(event_id, slug)
-                for slug in slugs
-            ]
+            # SAFETY: read through the lock, or a claim or session assignment
+            # committing before the writes is overwritten or left naming a
+            # deleted facilitator.
+            facilitators = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, slugs
+            )
             linked = [f for f in facilitators if f.user_id is not None]
             if len(linked) > 1:
                 raise FacilitatorMergeError(MergeErrorReason.MULTIPLE_LINKED)
@@ -777,13 +770,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         # vanish from the program with nothing on the session saying why. The
         # sessions go first, or the facilitator stays.
         with self._transaction.atomic():
-            facilitator = self._repos.facilitators.read_by_event_and_slug(
-                event_id, facilitator_slug
-            )
             # Before the check, not after: a session assignment committing
             # between the two would otherwise leave this facilitator deleted
             # and still named on the program.
-            self._repos.facilitators.lock([facilitator.pk])
+            [facilitator] = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, [facilitator_slug]
+            )
             counts = self._repos.facilitators.count_sessions(facilitator.pk)
             if counts.live or counts.deleted:
                 raise FacilitatorActionError(
