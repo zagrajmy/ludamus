@@ -1,7 +1,8 @@
 {% comment %}
 Landing CSS island. Static looks live as Tailwind utilities on the landing
 templates whenever the site-wide bundle already ships them; this file keeps
-what would add to that bundle or lose the cascade:
+what would add to that bundle or lose the cascade, and the base value of any
+property whose override lives here, so each toggle reads in one place:
 - the load/scroll choreography classes shared across sections (.ld/.reveal),
 - the proofreader strike geometry and animations,
 - the spreadsheet-caricature artwork: its one-off values, and the cell styles,
