@@ -56,7 +56,7 @@ class TestTimetableSessionDetailPartView:
             pk=pk,
             start_time=session.event.start_time,
             end_time=session.event.start_time + timedelta(hours=1),
-            session_confirmed=confirmed,
+            schedule_confirmed=confirmed,
             space_id=space.pk,
             space_name=space.name,
             session_id=session.pk,

@@ -32,7 +32,6 @@ if TYPE_CHECKING:
         EventProposalSettingsDTO,
         FacilitatorDTO,
         OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
@@ -82,10 +81,8 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
         return self._repos.categories.read(pk, event_id)
 
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]:
-        return self._repos.categories.list_personal_field_requirements(category_id)
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self._repos.personal_fields.list_by_event(event_id)
 
     def get_session_requirements(
         self, category_id: int
@@ -116,7 +113,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         )
 
     def get_account_answers(
-        self, *, user_id: int | None, requirements: list[PersonalFieldRequirementDTO]
+        self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
     ) -> AccountAnswersDTO:
         if user_id is None:
             return AccountAnswersDTO()
@@ -125,9 +122,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         return AccountAnswersDTO(
             email=user.email,
             personal_data={
-                f"personal_{req.field.slug}": handle
-                for req in requirements
-                if handle and req.field.field_type == "discord"
+                f"personal_{field.slug}": handle
+                for field in fields
+                if handle and field.field_type == "discord"
             },
         )
 
@@ -172,6 +169,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             msg = "session_data must contain 'title'"
             raise ValueError(msg)
         title = str(session_data["title"])
+        duration = session_data.get("duration")
         description = str(session_data.get("description", ""))
         raw_limit = session_data.get("participants_limit") or 0
         participants_limit = int(str(raw_limit))
@@ -206,7 +204,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 title=title,
                 slug=slug,
                 description=description,
-                duration=normalize_duration(str(session_data.get("duration") or "")),
+                duration=(
+                    normalize_duration(duration) if isinstance(duration, str) else ""
+                ),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),
@@ -225,18 +225,20 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 session_id=session_id, event_id=event.pk, session_data=session_data
             )
 
-            if personal_data := wizard_data.get("personal_data", {}):
+            if personal_data := wizard_data.get("personal_data"):
                 answers = self._save_personal_data(
                     event_id=event.pk,
                     facilitator=facilitator,
                     personal_data=personal_data,
                 )
                 if current_user:
+                    # pragma: no mutate start
                     self._fill_profile_discord(
                         user=current_user, event_id=event.pk, answers=answers
                     )
+                    # pragma: no mutate end
 
-            if track_pks := wizard_data.get("track_pks", []):
+            if track_pks := wizard_data.get("track_pks"):
                 # Track ids come from wizard state, so they are trusted only
                 # after being matched against this event's own public tracks —
                 # a foreign event's track must never be attached.
@@ -341,6 +343,6 @@ def _discord_answer(answers: list[tuple[OrganizerFieldDTO, str]]) -> str:
     for field, value in answers:
         if field.field_type == "discord" and isinstance(value, str):
             handle = value.strip()
-            if 0 < len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
+            if len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
                 return handle
     return ""

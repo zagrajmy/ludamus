@@ -96,22 +96,20 @@ set once here and inherited by the forms below.
                         </div>
                         {% for session in status_group.sessions %}
                             <div class="flex items-start gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-tertiary">
-                                {% if session.agenda_item_pk %}
+                                {% if session.is_scheduled %}
                                     <form class="flex" hx-post="{{ confirm_url }}" hx-trigger="change">
                                         {% csrf_token %}
                                         <input type="hidden" name="scope" value="session">
                                         <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
                                         <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
-                                        <input type="hidden"
-                                               name="agenda_item_pk"
-                                               value="{{ session.agenda_item_pk }}">
+                                        <input type="hidden" name="session_pk" value="{{ session.session_pk }}">
                                         <input type="hidden" name="next" value="{{ next_url }}">
                                         {# Unchecking sends no `confirmed` at all — that absence is the undo. #}
                                         <input type="checkbox"
                                                name="confirmed"
                                                value="true"
                                                class="mt-0.5 size-4 accent-primary"
-                                               aria-label="{% translate "Confirmed" %}"
+                                               aria-label="{% translate "Schedule confirmed" %}"
                                                {% if session.is_confirmed %}checked{% endif %}>
                                     </form>
                                 {% endif %}
@@ -119,7 +117,7 @@ set once here and inherited by the forms below.
                                     <div class="font-medium">{{ session.title }}</div>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-foreground-muted">
                                         {% if session.category_name %}<span>{{ session.category_name }}</span>{% endif %}
-                                        {% if session.agenda_item_pk %}
+                                        {% if session.is_scheduled %}
                                             <span class="opacity-50">·</span>
                                             <span>{{ session.room_name }}</span>
                                             <span class="opacity-50">·</span>

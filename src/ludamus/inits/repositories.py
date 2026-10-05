@@ -20,7 +20,11 @@ from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.notifications import (
+    AnnouncementFanoutRepository,
+    NotificationReadRepository,
+    NotificationSubscriptionRepository,
+)
 from ludamus.links.db.django.parley import ParleyRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
@@ -150,6 +154,14 @@ class Repositories:
         return NotificationReadRepository()
 
     @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionRepository:
+        return NotificationSubscriptionRepository()
+
+    @cached_property
+    def announcement_fanout(self) -> AnnouncementFanoutRepository:
+        return AnnouncementFanoutRepository()
+
+    @cached_property
     def printables_reminders(self) -> PrintablesReminderRepository:
         return PrintablesReminderRepository()
 
@@ -180,6 +192,10 @@ class Repositories:
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
         return repositories.SpaceRepository()
+
+    @cached_property
+    def event_setup(self) -> repositories.EventSetupRepository:
+        return repositories.EventSetupRepository()
 
     @cached_property
     def space_tree(self) -> repositories.SpaceTreeRepository:

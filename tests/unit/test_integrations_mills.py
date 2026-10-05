@@ -39,6 +39,8 @@ _MEMBERSHIP_COUNT = 5
 _EMAIL = "player@example.com"
 _HEADER_ROW = 3
 _QUESTIONS = (SourceQuestion(title="Tytuł"), SourceQuestion(title="Opis"))
+_SECRET = b"plain:blob"
+_SHOP_URL = "https://shop.example.com"
 
 
 class _StrictConfig(BaseModel):
@@ -53,6 +55,7 @@ class _ImportImpl:
         self._questions = list(questions)
         self._headers = list(headers)
         self._responses = list(responses)
+        self.calls = []
 
     @staticmethod
     def check(secret, config):
@@ -61,15 +64,18 @@ class _ImportImpl:
         )
 
     def fetch_questions(self, *, secret, config, header_row):
+        self.calls.append(("questions", secret, config, header_row))
         return [
             q.model_copy(update={"title": f"{q.title}@{header_row}"})
             for q in self._questions
         ]
 
     def fetch_headers(self, *, secret, config, header_row):
+        self.calls.append(("headers", secret, config, header_row))
         return self._headers
 
     def fetch_responses(self, *, secret, config, header_row):
+        self.calls.append(("responses", secret, config, header_row))
         return self._responses
 
 
@@ -83,8 +89,10 @@ class _TicketingImpl:
 
     def __init__(self, membership_count=_MEMBERSHIP_COUNT):
         self._membership_count = membership_count
+        self.calls = []
 
     def fetch_membership_count(self, *, secret, config, user_email):
+        self.calls.append((secret, config, user_email))
         return self._membership_count
 
 
@@ -109,12 +117,15 @@ def _row(**overrides) -> EventIntegrationDTO:
 
 
 def _ticketing_row(
-    pk=1, config_json='{"base_url": "https://shop.example.com"}', **over
+    pk=1,
+    config_json=f'{{"base_url": "{_SHOP_URL}"}}',
+    implementation=_TICKET_IMPL,
+    **over,
 ):
     return _row(
         pk=pk,
         kind=IntegrationKind.TICKETING,
-        implementation=_TICKET_IMPL,
+        implementation=implementation,
         config_json=config_json,
         **over,
     )
@@ -274,7 +285,7 @@ class TestCrud:
     ):
         service, integrations = _service()
 
-        with pytest.raises(IntegrationImplementationNotFoundError):
+        with pytest.raises(IntegrationImplementationNotFoundError) as caught:
             service.create(
                 SPHERE,
                 EVENT,
@@ -287,6 +298,7 @@ class TestCrud:
                 ),
             )
 
+        assert caught.value.args == (implementation,)
         assert integrations.rows == {}
 
     def test_create_rejects_a_connection_of_another_sphere(self):
@@ -357,9 +369,9 @@ class TestCrud:
 class TestFetch:
     def test_questions_headers_and_responses_come_from_the_bound_import(self):
         response = ImportRow({"Tytuł": "Dracula"})
+        impl = _ImportImpl(headers=["A"], responses=[response])
         service, _ = _service(
-            rows=[_row(settings_json='{"header_row": 3}')],
-            imports={_IMPL: _ImportImpl(headers=["A"], responses=[response])},
+            rows=[_row(settings_json='{"header_row": 3}')], imports={_IMPL: impl}
         )
 
         questions = service.fetch_questions(sphere_id=SPHERE, event_id=EVENT, pk=PK)
@@ -368,6 +380,12 @@ class TestFetch:
         assert service.fetch_headers(sphere_id=SPHERE, event_id=EVENT, pk=PK) == ["A"]
         assert service.fetch_responses(sphere_id=SPHERE, event_id=EVENT, pk=PK) == [
             response
+        ]
+        bound = (_SECRET, _StrictConfig(endpoint="x"), _HEADER_ROW)
+        assert impl.calls == [
+            ("questions", *bound),
+            ("headers", *bound),
+            ("responses", *bound),
         ]
 
     def test_a_row_that_is_not_an_import_fetches_nothing(self):
@@ -378,11 +396,14 @@ class TestFetch:
         assert service.fetch_responses(sphere_id=SPHERE, event_id=EVENT, pk=PK) == []
 
     def test_a_connection_without_a_secret_binds_with_an_empty_one(self):
-        service, _ = _service(rows=[_row(connection_id=EMPTY_CONNECTION)])
+        impl = _ImportImpl()
+        service, _ = _service(
+            rows=[_row(connection_id=EMPTY_CONNECTION)], imports={_IMPL: impl}
+        )
 
-        questions = service.fetch_questions(sphere_id=SPHERE, event_id=EVENT, pk=PK)
+        service.fetch_questions(sphere_id=SPHERE, event_id=EVENT, pk=PK)
 
-        assert len(questions) == len(_QUESTIONS)
+        assert impl.calls == [("questions", b"", _StrictConfig(endpoint="x"), 1)]
 
 
 class TestSnapshot:
@@ -463,6 +484,23 @@ class TestSnapshot:
         assert missing == 1
         assert _settings(integrations).questions["Tytuł@1"].confirmed is True
 
+    def test_import_missing_with_empty_settings_counts_every_question(self):
+        service, _ = _service(rows=[_row(settings_json="")])
+
+        questions, missing = service.import_missing_questions(
+            sphere_id=SPHERE, event_id=EVENT, pk=PK
+        )
+
+        assert [q.title for q in questions] == ["Tytuł@1", "Opis@1"]
+        assert missing == len(_QUESTIONS)
+
+    def test_refetch_with_empty_settings_stores_the_defaults(self):
+        service, integrations = _service(rows=[_row(settings_json="")])
+
+        service.refetch_questions(sphere_id=SPHERE, event_id=EVENT, pk=PK)
+
+        assert _settings(integrations) == ImportSettings()
+
 
 def _check_request(**overrides) -> IntegrationCheckRequest:
     defaults = {
@@ -515,23 +553,48 @@ class TestCheck:
         )
 
 
-def _ticketing_service(rows, **kwargs):
+def _ticketing_service(rows, *, impl=None, **kwargs):
     service, integrations = _service(
-        rows=rows, ticketing={_TICKET_IMPL: _TicketingImpl()}, **kwargs
+        rows=rows, ticketing={_TICKET_IMPL: impl or _TicketingImpl()}, **kwargs
     )
     return service, integrations
 
 
 class TestTicketApi:
-    def test_resolve_falls_back_to_the_next_usable_integration(self):
+    @pytest.mark.parametrize(
+        "broken",
+        (
+            _ticketing_row(config_json='{"base_url": 42}'),
+            _ticketing_row(implementation=_IMPL),
+            _ticketing_row(connection_id=99),
+            _ticketing_row(connection_id=EMPTY_CONNECTION),
+        ),
+    )
+    def test_resolve_falls_back_to_the_next_usable_integration(self, broken):
         # First usable row wins; a broken one must not take the event down.
-        service, _ = _ticketing_service(
-            [_ticketing_row(pk=1, config_json='{"base_url": 42}'), _ticketing_row(pk=2)]
-        )
+        impl = _TicketingImpl()
+        service, _ = _ticketing_service([broken, _ticketing_row(pk=2)], impl=impl)
 
         client = service.resolve(event_id=EVENT, sphere_id=SPHERE)
 
         assert client.fetch_membership_count(_EMAIL) == _MEMBERSHIP_COUNT
+        assert impl.calls == [(_SECRET, _MembershipConfig(base_url=_SHOP_URL), _EMAIL)]
+
+    def test_a_row_of_another_kind_is_not_a_ticket_api(self):
+        service, _ = _ticketing_service(
+            [
+                _row(
+                    kind=IntegrationKind.EXPORT,
+                    implementation=_TICKET_IMPL,
+                    config_json=f'{{"base_url": "{_SHOP_URL}"}}',
+                )
+            ]
+        )
+
+        client = service.resolve(event_id=EVENT, sphere_id=SPHERE)
+
+        with pytest.raises(MembershipAPIError):
+            client.fetch_membership_count(_EMAIL)
 
     def test_resolve_is_answered_once_per_event(self):
         service, integrations = _ticketing_service([_ticketing_row()])
@@ -560,9 +623,18 @@ class TestTicketApi:
     @pytest.mark.parametrize(
         ("row", "broken", "message"),
         (
-            (_ticketing_row(connection_id=99), False, "missing connection"),
-            (_ticketing_row(connection_id=EMPTY_CONNECTION), False, "no secret"),
-            (_ticketing_row(), True, "does not decrypt"),
+            (
+                _ticketing_row(config_json='{"base_url": 42}'),
+                False,
+                "has an invalid config",
+            ),
+            (_ticketing_row(connection_id=99), False, "points at a missing connection"),
+            (
+                _ticketing_row(connection_id=EMPTY_CONNECTION),
+                False,
+                "uses a connection with no secret",
+            ),
+            (_ticketing_row(), True, "has a secret that does not decrypt"),
         ),
     )
     def test_an_unusable_secret_is_logged_and_the_row_skipped(
@@ -575,6 +647,8 @@ class TestTicketApi:
         with caplog.at_level(logging.WARNING):
             client = service.resolve(event_id=EVENT, sphere_id=SPHERE)
 
-        assert message in caplog.text
+        assert [r.getMessage() for r in caplog.records] == [
+            f"Ticketing integration 1 {message}"
+        ]
         with pytest.raises(MembershipAPIError):
             client.fetch_membership_count(_EMAIL)

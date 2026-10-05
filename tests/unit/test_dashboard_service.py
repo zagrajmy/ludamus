@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
+    DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardCardDTO,
@@ -14,7 +15,7 @@ from ludamus.pacts.dashboard import (
 from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
-UNCAPPED_ROWS = 20
+AGENDA_ROWS = 20
 USER_ID = 5
 
 
@@ -23,6 +24,7 @@ class FakeSubscriptionsRepo:
         self.pending = list(pending)
         self.announced: list[tuple[int, datetime]] = []
         self.subscribed: set[tuple[int, int]] = set()
+        self.swept_at: list[datetime] = []
 
     def subscribe(self, *, sphere_id, user_id):
         self.subscribed.add((sphere_id, user_id))
@@ -31,7 +33,7 @@ class FakeSubscriptionsRepo:
         self.subscribed.discard((sphere_id, user_id))
 
     def list_pending_announcements(self, *, now):
-        del now
+        self.swept_at.append(now)
         return self.pending
 
     def mark_announced(self, event_pk, *, at):
@@ -49,30 +51,33 @@ def _card(n, *, role):
 
 
 class FakeDashboardRepo:
-    # Every section has more rows than its limit, so the read shows which
-    # limit it hands each one.
-    def list_agenda(self, user_id, *, now):
-        del user_id, now
-        return [_card(n, role=DashboardRole.SIGNED_UP) for n in range(UNCAPPED_ROWS)]
+    # Every capped section returns exactly the limit it was handed, so the read
+    # shows which limit goes where; the agenda takes none.
+    def __init__(self):
+        self.asked: list[tuple[str, int, datetime]] = []
 
-    def list_bookmarks(self, user_id, *, now):
-        del user_id, now
-        return [_card(n, role=DashboardRole.OPEN) for n in range(UNCAPPED_ROWS)]
+    def list_agenda(self, user_id, *, now):
+        self.asked.append(("agenda", user_id, now))
+        return [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
 
     def list_open_encounters(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("open_encounters", user_id, now))
         return [_card(n, role=DashboardRole.OPEN) for n in range(limit)]
 
     def list_sphere_feed(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("sphere_feed", user_id, now))
         return [_card(n, role=DashboardRole.ORGANIZING) for n in range(limit)]
 
     def list_spheres_to_discover(self, user_id, *, now, limit):
-        del user_id, now
+        self.asked.append(("discover", user_id, now))
         return [
             DashboardSphereDTO(pk=n, name=f"Sphere {n}", url=f"/s/{n}")
             for n in range(limit)
         ]
+
+    def list_past_events(self, user_id, *, now, limit):
+        self.asked.append(("past_events", user_id, now))
+        return [_card(-n, role=DashboardRole.ATTENDED) for n in range(limit)]
 
 
 class FakeNotifier:
@@ -110,6 +115,7 @@ class TestSphereSubscriptionService:
         announced = _service(repo, notifier).announce_published_events(now=NOW)
 
         assert announced == 1
+        assert repo.swept_at == [NOW]
         assert repo.announced == [(7, NOW)]
         assert not notifier.sent
 
@@ -145,12 +151,24 @@ class TestSphereSubscriptionService:
 
 
 class TestDashboardService:
-    def test_read_caps_every_section_but_the_agenda_and_bookmarks(self):
-        dashboard = DashboardService(FakeDashboardRepo()).read(user_id=USER_ID, now=NOW)
+    def test_read_caps_every_section_but_the_agenda(self):
+        repo = FakeDashboardRepo()
 
-        assert len(dashboard.agenda) == UNCAPPED_ROWS
-        assert len(dashboard.bookmarks) == UNCAPPED_ROWS
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert repo.asked == [
+            (section, USER_ID, NOW)
+            for section in (
+                "agenda",
+                "open_encounters",
+                "sphere_feed",
+                "discover",
+                "past_events",
+            )
+        ]
+        assert len(dashboard.agenda) == AGENDA_ROWS
         assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
         assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED
         assert len(dashboard.discover) == DASHBOARD_SPHERES_TO_DISCOVER
+        assert len(dashboard.past_events) == DASHBOARD_PAST_EVENTS
         assert {c.role for c in dashboard.open_encounters} == {DashboardRole.OPEN}

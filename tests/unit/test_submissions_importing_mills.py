@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
@@ -46,10 +47,12 @@ class _Integrations:
         self.rows = [ImportRow({"Title": title}) for title in titles]
 
     def get(self, event_id: int, pk: int) -> EventIntegrationDTO:
-        return self.integration
+        return {(EVENT_ID, INTEGRATION_PK): self.integration}[event_id, pk]
 
     def fetch_responses(self, *, sphere_id: int, event_id: int, pk: int):
-        return self.rows
+        return {(SPHERE_ID, EVENT_ID, INTEGRATION_PK): self.rows}[
+            sphere_id, event_id, pk
+        ]
 
 
 class _Sessions:
@@ -146,6 +149,16 @@ class TestRunSample:
         )
 
         assert result == ProposalImportResult(created=1, fields_created=0)
-        assert [data["title"] for data in sessions.created] == ["Dogs"]
+        assert sessions.created == [
+            {
+                "event_id": EVENT_ID,
+                "status": SessionStatus.PENDING,
+                "title": "Dogs",
+                "description": "",
+                "facilitator_name": "",
+                "participants_limit": 0,
+                "slug": "dogs",
+            }
+        ]
         [entry] = log_entries.entries
         assert (entry.row_index, entry.title, entry.session_id) == (1, "Dogs", 101)

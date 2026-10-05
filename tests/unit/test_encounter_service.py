@@ -6,6 +6,7 @@ from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
     EncounterData,
     EncounterInviteReason,
     EncountersPolicy,
@@ -91,15 +92,18 @@ class TestEncounterPolicy:
     def test_a_manager_may_create_under_the_managers_policy(self):
         service = _service(
             policy=EncountersPolicy.MANAGERS,
-            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.MANAGER}),
+            spheres=FakeSpheres(
+                {(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.MANAGER}
+            ),
         )
 
         assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+        assert not service.can_create(sphere_id=SPHERE_ID, user_id=OTHER_USER_ID)
 
     def test_comms_role_cannot_create_under_a_managers_only_policy(self):
         service = _service(
             policy=EncountersPolicy.MANAGERS,
-            spheres=FakeSpheres({f"user-{CREATOR_ID}": SphereRole.COMMS}),
+            spheres=FakeSpheres({(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.COMMS}),
         )
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
@@ -121,9 +125,10 @@ class TestEncounterFeed:
         by_named = make_encounter(2).model_copy(update={"creator_id": 30})
         by_username_only = make_encounter(3).model_copy(update={"creator_id": 40})
         by_deleted = make_encounter(4).model_copy(update={"creator_id": 50})
+        my_past = make_encounter(5)
         service = _service(
             encounters=FakeEncounters(
-                [mine, by_named, by_username_only], past=[by_deleted]
+                [mine, by_named, by_username_only], past=[by_deleted, my_past]
             ),
             rsvps=FakeRSVPs([(1, OTHER_USER_ID), (1, 30), (2, CREATOR_ID)]),
             users=FakeUsers(
@@ -141,7 +146,18 @@ class TestEncounterFeed:
             (i.encounter.pk, i.rsvp_count, i.is_mine, i.organizer_name)
             for i in feed.upcoming
         ] == [(1, 2, True, ""), (2, 1, False, "Ola Nowak"), (3, 0, False, "gm40")]
-        assert [(i.encounter.pk, i.organizer_name) for i in feed.past] == [(4, "")]
+        assert [
+            (i.encounter.pk, i.rsvp_count, i.is_mine, i.organizer_name)
+            for i in feed.past
+        ] == [(4, 0, False, ""), (5, 0, True, "")]
+
+    def test_past_feed_is_capped(self):
+        past = [make_encounter(pk) for pk in range(100, 100 + PAST_FEED_LIMIT + 1)]
+        service = _service(encounters=FakeEncounters(past=past))
+
+        feed = service.list_feed(sphere_id=SPHERE_ID, user_id=None)
+
+        assert len(feed.past) == PAST_FEED_LIMIT
 
     def test_upcoming_is_capped_at_the_limit(self):
         service = _service(
@@ -154,6 +170,24 @@ class TestEncounterFeed:
 
         assert [i.encounter.pk for i in upcoming] == [1, 2]
         assert {i.is_mine for i in upcoming} == {False}
+
+    def test_a_private_encounter_is_listed_only_for_its_creator(self):
+        world = EncounterWorld()
+        world.encounters = FakeEncounters(
+            [make_encounter(1, is_public=False)],
+            past=[make_encounter(2, is_public=False)],
+        )
+        service = world.service()
+
+        mine = service.list_feed(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+        theirs = service.list_feed(sphere_id=SPHERE_ID, user_id=OTHER_USER_ID)
+        soonest = service.list_upcoming(
+            sphere_id=SPHERE_ID, user_id=CREATOR_ID, limit=3
+        )
+
+        assert [i.encounter.pk for i in mine.upcoming + mine.past] == [1, 2]
+        assert (theirs.upcoming, theirs.past) == ([], [])
+        assert [i.encounter.pk for i in soonest] == [1]
 
 
 class TestEncounterDetail:
@@ -192,6 +226,28 @@ class TestEncounterDetail:
         )
 
         assert detail.is_creator
+        assert not detail.user_has_rsvpd
+
+    def test_only_the_creator_sees_the_invitees_and_everyone_the_guest_count(self):
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            invitees={
+                (1, "ola@example.com"): InviteeStatus.ACCEPTED,
+                (1, "ala@example.com"): InviteeStatus.INVITED,
+            },
+            invited_today=["orphan@example.com"],
+        )
+
+        details = [
+            world.service().build_detail(
+                share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=user_id
+            )
+            for user_id in (CREATOR_ID, OTHER_USER_ID)
+        ]
+
+        assert [
+            ([i.email for i in d.invitees], d.accepted_guest_count) for d in details
+        ] == [(["ola@example.com", "ala@example.com"], 1), ([], 1)]
 
     def test_read_by_share_code_is_sphere_scoped(self):
         encounter = make_encounter(1)
@@ -223,6 +279,20 @@ class TestEncounterOwnership:
         assert created.title == "New night"
         assert encounters.rows == {created.pk: created}
 
+    def test_a_manager_creates_under_the_managers_policy(self):
+        encounters = FakeEncounters()
+        service = _service(
+            policy=EncountersPolicy.MANAGERS,
+            encounters=encounters,
+            spheres=FakeSpheres(
+                {(SPHERE_ID, f"user-{CREATOR_ID}"): SphereRole.MANAGER}
+            ),
+        )
+
+        created = service.create(_data(), invitee_emails=[])
+
+        assert encounters.rows == {created.pk: created}
+
     def test_read_owned_hides_another_users_encounter(self):
         service = _service(encounters=FakeEncounters([make_encounter(1)]))
 
@@ -232,7 +302,7 @@ class TestEncounterOwnership:
         assert service.read_owned(pk=1, sphere_id=SPHERE_ID, user_id=CREATOR_ID).pk == 1
 
     def test_update_drops_the_public_flag_when_the_owner_may_not_publish(self):
-        encounters = FakeEncounters([make_encounter(1)])
+        encounters = FakeEncounters([make_encounter(1, is_public=False)])
         service = _service(policy=EncountersPolicy.MANAGERS, encounters=encounters)
         data = EncounterData(title="Renamed", is_public=True)
 
@@ -317,16 +387,23 @@ class TestEncounterRSVP:
 
         assert self._rsvp(service) == RSVPOutcome.CREATED
         assert rsvps.signups == [(1, 30), (1, OTHER_USER_ID)]
+        assert "10.0.0.1" in rsvps.recent_ips
 
-    def test_cancel_removes_the_users_signup(self):
-        rsvps = FakeRSVPs([(1, OTHER_USER_ID), (1, 30)])
-        service = _service(encounters=FakeEncounters([make_encounter(1)]), rsvps=rsvps)
+    def test_cancel_removes_the_signup_declines_the_invite_and_says_so(self):
+        email = make_user(OTHER_USER_ID).email
+        world = EncounterWorld(
+            encounters=[make_encounter(1)],
+            signups=[(1, OTHER_USER_ID), (1, 30)],
+            invitees={(1, email): InviteeStatus.ACCEPTED},
+        )
 
-        service.cancel_rsvp(
+        world.service().cancel_rsvp(
             share_code="CODE1", sphere_id=SPHERE_ID, user_id=OTHER_USER_ID
         )
 
-        assert rsvps.signups == [(1, 30)]
+        assert world.rsvps.signups == [(1, 30)]
+        assert world.invitees.rows == {(1, email): InviteeStatus.DECLINED}
+        assert world.mailer.sent == [(EncounterInviteReason.LEFT, email)]
 
     def test_cancel_without_a_signup_changes_nothing_and_mails_nobody(self):
         world = EncounterWorld(encounters=[make_encounter(1)], signups=[(1, 30)])
@@ -349,7 +426,9 @@ class TestEncounterRSVP:
 
         assert outcome == RSVPOutcome.CREATED
         assert world.rsvps.signups == [(1, OTHER_USER_ID)]
-        assert world.mailer.sent == [(EncounterInviteReason.JOINED, guest.email)]
+        assert [
+            (i.reason, i.attendee_email, i.asks_reply) for i in world.mailer.invites
+        ] == [(EncounterInviteReason.JOINED, guest.email, True)]
 
 
 class TestEncounterInvites:
@@ -358,9 +437,11 @@ class TestEncounterInvites:
 
         world.service().create(_data(), invitee_emails=[" Ola@Example.com ", ""])
 
-        assert world.mailer.sent == [
-            (EncounterInviteReason.CREATED, f"user{CREATOR_ID}@example.com"),
-            (EncounterInviteReason.INVITED, "ola@example.com"),
+        assert [
+            (i.reason, i.attendee_email, i.asks_reply) for i in world.mailer.invites
+        ] == [
+            (EncounterInviteReason.CREATED, f"user{CREATOR_ID}@example.com", False),
+            (EncounterInviteReason.INVITED, "ola@example.com", True),
         ]
 
     def test_only_the_owner_lists_the_invitees(self):
@@ -493,6 +574,23 @@ class TestEncounterInvites:
 
         assert purged == len({"removed@example.com", "orphan@example.com"})
         assert world.invitees.rows == {(1, "kept@example.com"): InviteeStatus.DECLINED}
+
+    def test_purge_keeps_fresh_removals_and_encounters_recently_over(self):
+        now = datetime.now(UTC)
+        recent = make_encounter(1).model_copy(
+            update={"start_time": now - INVITEE_RETENTION_AFTER_END / 2}
+        )
+        world = EncounterWorld(
+            encounters=[recent],
+            invitees={(1, "removed@example.com"): InviteeStatus.REMOVED},
+        )
+
+        purged = world.service().purge_stale_invitees(now=now)
+
+        assert purged == 0
+        assert world.invitees.rows == {
+            (1, "removed@example.com"): InviteeStatus.REMOVED
+        }
 
     def test_moving_it_updates_every_guest_and_invites_only_the_new(self):
         world = EncounterWorld(

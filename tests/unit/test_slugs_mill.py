@@ -3,6 +3,7 @@
 from ludamus.mills.slugs import unique_slug
 
 _SLUG_MAX_LENGTH = 50
+_COLLISION_ATTEMPTS = 4
 
 
 class TestUniqueSlug:
@@ -37,7 +38,14 @@ class TestUniqueSlug:
     def test_gives_up_after_four_collisions_with_a_suffixed_slug(self) -> None:
         # Every candidate collides: the loop must terminate and still hand back
         # a suffixed slug rather than the bare base.
-        slug = unique_slug(base="taken", default="session", exists=lambda _s: True)
+        seen: list[str] = []
+
+        def exists(candidate: str) -> bool:
+            seen.append(candidate)
+            return True
+
+        slug = unique_slug(base="taken", default="session", exists=exists)
 
         assert slug.startswith("taken-")
         assert len(slug) <= _SLUG_MAX_LENGTH
+        assert len(seen) == _COLLISION_ATTEMPTS

@@ -5,8 +5,12 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import SessionBookmark, SphereSubscription
-from ludamus.pacts.dashboard import DashboardDTO, DashboardRole
+from ludamus.links.db.django.models import (
+    Facilitator,
+    SessionBookmark,
+    SphereSubscription,
+)
+from ludamus.pacts.dashboard import DASHBOARD_PAST_EVENTS, DashboardDTO, DashboardRole
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import SessionParticipationStatus
 from ludamus.pacts.multiverse import SphereVisibility
@@ -25,28 +29,59 @@ from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
 EMPTY_DASHBOARD = DashboardDTO(
-    agenda=[], bookmarks=[], open_encounters=[], sphere_feed=[], discover=[]
+    agenda=[], open_encounters=[], sphere_feed=[], discover=[], past_events=[]
 )
+
+
+def _assert_empty_dashboard(response):
+    assert_response(
+        response,
+        HTTPStatus.OK,
+        context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+        template_name="dashboard/index.html",
+    )
 
 
 def _titles(cards):
     return [card.title for card in cards]
 
 
-def _bookmarked_session(event, *, user, title="Mörk Borg", days_ahead=1):
+def _scheduled_session(
+    event, *, title="Mörk Borg", start_time=None, presenter=None, participants_limit=4
+):
     session = SessionFactory(
         event=event,
         title=title,
-        participants_limit=4,
+        presenter=presenter or UserFactory(),
+        participants_limit=participants_limit,
         category=ProposalCategoryFactory(event=event),
     )
     AgendaItemFactory(
         session=session,
         space=SpaceFactory(event=event),
+        start_time=start_time or event.start_time + timedelta(hours=2),
+    )
+    return session
+
+
+def _bookmarked_session(
+    event, *, user, title="Mörk Borg", days_ahead=1, participants_limit=4
+):
+    session = _scheduled_session(
+        event,
+        title=title,
         start_time=datetime.now(UTC) + timedelta(days=days_ahead),
+        participants_limit=participants_limit,
     )
     SessionBookmark.objects.create(user=user, session=session)
     return session
+
+
+def _past_event(sphere, *, name="Kapitularz 2025", days_ago=30):
+    start = datetime.now(UTC) - timedelta(days=days_ago)
+    return EventFactory(
+        sphere=sphere, name=name, start_time=start, end_time=start + timedelta(days=2)
+    )
 
 
 class TestDashboardPageView:
@@ -73,12 +108,7 @@ class TestDashboardPageView:
     def test_an_empty_account_still_gets_a_page(self, authenticated_client):
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_agenda_gathers_seats_and_encounters_across_spheres(
         self, authenticated_client, active_user, non_root_sphere, sphere
@@ -116,7 +146,7 @@ class TestDashboardPageView:
         )
         assert session_card.url.startswith(f"https://{non_root_sphere.site.domain}/")
 
-    def test_bookmarks_gather_starred_sessions_across_events(
+    def test_agenda_gathers_starred_sessions_across_events(
         self, authenticated_client, active_user, non_root_sphere, sphere
     ):
         abroad = EventFactory(sphere=non_root_sphere)
@@ -133,29 +163,121 @@ class TestDashboardPageView:
         _bookmarked_session(
             at_home, user=active_user, title="Already over", days_ahead=-3
         )
+        # Starred but out of room, and a talk that takes anyone: both stay.
+        full = _bookmarked_session(
+            abroad, user=active_user, title="Full table", days_ahead=4
+        )
+        SessionParticipationFactory.create_batch(4, session=full, status="confirmed")
+        _bookmarked_session(
+            abroad,
+            user=active_user,
+            title="Open talk",
+            days_ahead=5,
+            participants_limit=0,
+        )
 
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        # A seat you hold is on the agenda, so it leaves the bookmarks list.
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg", "Mothership"]
-        assert _titles(dashboard.agenda) == ["Held seat"]
-        mothership = dashboard.bookmarks[1]
-        assert mothership.role == DashboardRole.OPEN
+        assert _titles(dashboard.agenda) == [
+            "Held seat",
+            "Mörk Borg",
+            "Mothership",
+            "Full table",
+            "Open talk",
+        ]
+        room = {card.title: card.spots_remaining for card in dashboard.agenda}
+        assert (room["Full table"], room["Open talk"]) == (0, None)
+        roles = {card.title: card.role for card in dashboard.agenda}
+        # A starred seat you also hold is one row, and it says you hold it.
+        assert roles["Held seat"] == DashboardRole.SIGNED_UP
+        assert roles["Mörk Borg"] == DashboardRole.BOOKMARKED
+        mothership = dashboard.agenda[2]
+        assert mothership.role == DashboardRole.BOOKMARKED
         assert (mothership.attending_count, mothership.capacity) == (2, 4)
         assert mothership.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_agenda_gathers_sessions_this_member_runs(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        now = datetime.now(UTC)
+        presented = _scheduled_session(
+            event,
+            title="Presented",
+            presenter=active_user,
+            start_time=now + timedelta(hours=8),
+        )
+        # A star or a seat at your own session must not split it into two rows.
+        SessionBookmark.objects.create(user=active_user, session=presented)
+        me = Facilitator.objects.create(
+            event=event, user=active_user, display_name="Me", slug="me"
+        )
+        facilitated = _scheduled_session(
+            event, title="Facilitated", start_time=now + timedelta(days=1)
+        )
+        facilitated.facilitators.add(me)
+        SessionParticipationFactory(
+            session=facilitated, user=active_user, status="confirmed"
+        )
+        dropped = Facilitator.objects.create(
+            event=event, user=active_user, display_name="Old me", slug="old-me"
+        )
+        _scheduled_session(
+            event, title="Handed over", start_time=now + timedelta(days=2)
+        ).facilitators.add(dropped)
+        dropped.soft_delete()
+        _scheduled_session(
+            event,
+            title="Already over",
+            presenter=active_user,
+            start_time=now - timedelta(hours=3),
+        )
+        # A proposal not on the programme yet has no date to wait for.
+        SessionFactory(
+            event=event,
+            title="Unscheduled",
+            presenter=active_user,
+            category=ProposalCategoryFactory(event=event),
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        assert [(card.title, card.role) for card in dashboard.agenda] == [
+            ("Presented", DashboardRole.RUNNING),
+            ("Facilitated", DashboardRole.RUNNING),
+        ]
+        assert dashboard.agenda[0].url.startswith(
+            f"https://{non_root_sphere.site.domain}/"
+        )
+
+    def test_a_session_you_run_counts_each_seat_once(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = EventFactory(sphere=non_root_sphere)
+        session = _scheduled_session(
+            event,
+            presenter=active_user,
+            start_time=datetime.now(UTC) + timedelta(days=1),
+        )
+        for slug in ("ala", "ola"):
+            session.facilitators.add(
+                Facilitator.objects.create(event=event, display_name=slug, slug=slug)
+            )
+        SessionParticipationFactory(session=session, status="confirmed")
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        (card,) = response.context_data["dashboard"].agenda
+        assert (card.attending_count, card.capacity) == (1, 4)
 
     def test_another_member_s_bookmarks_stay_theirs(self, authenticated_client, sphere):
         _bookmarked_session(EventFactory(sphere=sphere), user=UserFactory())
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_a_bookmark_outlives_its_sphere_going_private(
         self, authenticated_client, active_user, non_root_sphere
@@ -169,7 +291,7 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
+        assert _titles(dashboard.agenda) == ["Mörk Borg"]
 
     def test_a_bookmark_outlives_its_event_being_unpublished(
         self, authenticated_client, active_user, non_root_sphere
@@ -182,7 +304,7 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         dashboard = response.context_data["dashboard"]
-        assert _titles(dashboard.bookmarks) == ["Mörk Borg"]
+        assert _titles(dashboard.agenda) == ["Mörk Borg"]
 
     def test_agenda_says_where_this_member_waits_or_has_a_seat_offered(
         self, authenticated_client, active_user, non_root_sphere
@@ -211,8 +333,8 @@ class TestDashboardPageView:
         assert cards["Offered"].claim_url == reverse(
             "web:dashboard-offer-claim", kwargs={"session_id": offered.pk}
         )
-        # Both are on the agenda now, so neither is repeated as a bookmark.
-        assert dashboard.bookmarks == []
+        # Each is one row, and the seat outranks the star.
+        assert len(dashboard.agenda) == len(cards)
 
     def test_a_lapsed_offer_leaves_the_agenda(
         self, authenticated_client, active_user, sphere
@@ -229,12 +351,7 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_for_you_skips_what_this_member_already_holds(
         self, authenticated_client, active_user, sphere
@@ -281,12 +398,7 @@ class TestDashboardPageView:
 
         response = authenticated_client.get(DASHBOARD_URL)
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
-            template_name="dashboard/index.html",
-        )
+        _assert_empty_dashboard(response)
 
     def test_a_private_sphere_s_manager_still_gets_its_feed(
         self, authenticated_client, active_user, non_root_sphere
@@ -299,6 +411,142 @@ class TestDashboardPageView:
         response = authenticated_client.get(DASHBOARD_URL)
 
         assert _titles(response.context_data["dashboard"].sphere_feed) == [event.name]
+
+
+class TestDashboardPastEvents:
+    def test_an_event_you_had_a_seat_at_shows_once_it_is_over(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = _past_event(non_root_sphere)
+        # Two seats at one event are still one event you were at.
+        for _ in range(2):
+            SessionParticipationFactory(
+                session=_scheduled_session(event), user=active_user
+            )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        [card] = response.context_data["dashboard"].past_events
+        assert card.title == "Kapitularz 2025"
+        assert card.origin_name == non_root_sphere.name
+        assert card.role == DashboardRole.ATTENDED
+        assert card.url.startswith(f"https://{non_root_sphere.site.domain}/")
+
+    def test_a_bookmark_in_an_event_that_is_over_counts_as_being_there(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = _past_event(non_root_sphere)
+        SessionBookmark.objects.create(
+            user=active_user, session=_scheduled_session(event)
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        dashboard = response.context_data["dashboard"]
+        assert _titles(dashboard.past_events) == ["Kapitularz 2025"]
+        assert dashboard.agenda == []
+
+    def test_an_event_still_running_is_not_history_yet(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        start = datetime.now(UTC) - timedelta(hours=3)
+        # Unpublished, so the sphere feed stays out of the picture.
+        event = EventFactory(
+            sphere=non_root_sphere,
+            start_time=start,
+            end_time=start + timedelta(days=1),
+            publication_time=None,
+        )
+        SessionParticipationFactory(session=_scheduled_session(event), user=active_user)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
+    def test_a_waitlist_or_a_lapsed_offer_is_not_attendance(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        event = _past_event(non_root_sphere)
+        SessionParticipationFactory(
+            session=_scheduled_session(event), user=active_user, status="waiting"
+        )
+        SessionParticipationFactory(
+            session=_scheduled_session(event),
+            user=active_user,
+            status="offered",
+            claim_token="lapsed-token",
+            offer_expires_at=event.start_time,
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
+    def test_running_a_scheduled_session_counts_as_being_there(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        presented = _past_event(non_root_sphere, name="Presented", days_ago=10)
+        _scheduled_session(presented, presenter=active_user)
+        facilitated = _past_event(non_root_sphere, name="Facilitated", days_ago=20)
+        session = _scheduled_session(facilitated)
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=facilitated, user=active_user, display_name="Me", slug="me"
+            )
+        )
+        # A proposal that never made the programme is not a visit.
+        rejected = _past_event(non_root_sphere, name="Rejected", days_ago=5)
+        SessionFactory(
+            event=rejected,
+            presenter=active_user,
+            category=ProposalCategoryFactory(event=rejected),
+            status="rejected",
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        assert _titles(response.context_data["dashboard"].past_events) == [
+            "Presented",
+            "Facilitated",
+        ]
+
+    def test_a_removed_session_leaves_no_trace(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        session = _scheduled_session(_past_event(non_root_sphere))
+        SessionParticipationFactory(session=session, user=active_user)
+        session.soft_delete()
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
+    def test_another_member_s_history_stays_theirs(
+        self, authenticated_client, non_root_sphere
+    ):
+        event = _past_event(non_root_sphere)
+        SessionParticipationFactory(session=_scheduled_session(event))
+        _scheduled_session(event)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
+    def test_most_recent_first_and_capped(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        for weeks_ago in range(DASHBOARD_PAST_EVENTS + 1, 0, -1):
+            event = _past_event(
+                non_root_sphere, name=f"{weeks_ago} weeks ago", days_ago=weeks_ago * 7
+            )
+            SessionParticipationFactory(
+                session=_scheduled_session(event), user=active_user
+            )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        past = _titles(response.context_data["dashboard"].past_events)
+        assert past == [f"{n} weeks ago" for n in range(1, DASHBOARD_PAST_EVENTS + 1)]
 
 
 class TestSphereSubscriptionActions:

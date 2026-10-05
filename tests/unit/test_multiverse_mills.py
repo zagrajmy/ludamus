@@ -46,6 +46,7 @@ class FakeAnnouncements:
         self.rows[pk] = AnnouncementDTO(
             pk=pk,
             sphere_id=sphere_id,
+            notified_at=None,
             creation_time=_NOW,
             modification_time=_NOW,
             **data.model_dump(),
@@ -62,6 +63,14 @@ class FakeAnnouncements:
         del self.rows[pk]
 
 
+class FakeFanout:
+    def __init__(self):
+        self.scheduled: list[int] = []
+
+    def schedule_fanout(self, *, announcement_id):
+        self.scheduled.append(announcement_id)
+
+
 def _announcement(**overrides):
     return AnnouncementData(
         **({"title": "Hi", "content": "Body", "is_published": True} | overrides)
@@ -72,7 +81,7 @@ class TestAnnouncementsService:
     @staticmethod
     def _service():
         repo = FakeAnnouncements()
-        return AnnouncementsService(FakeTransaction(), repo), repo
+        return AnnouncementsService(FakeTransaction(), repo, FakeFanout()), repo
 
     def test_create_then_lists_scoped_to_sphere(self):
         service, _ = self._service()

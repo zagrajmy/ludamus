@@ -1,8 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from freezegun import freeze_time
 
 from ludamus.mills.encounter_calendar import (
+    Guest,
     encounter_calendar_uid,
     encounter_share_code,
 )
@@ -13,12 +15,16 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
 )
 from ludamus.specs.encounter import (
+    CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY,
+    ENCOUNTER_DEFAULT_DURATION,
     INVITEES_PER_CREATOR_PER_DAY,
     INVITEES_PER_NEW_CREATOR_PER_DAY,
+    NEW_CREATOR_AGE,
 )
 from tests.unit.encounter_fakes import (
     CREATOR_ID,
     OTHER_USER_ID,
+    START_TIME,
     EncounterWorld,
     make_encounter,
     make_user,
@@ -87,6 +93,20 @@ class TestReplaceInvitees:
 
         assert len(world.invitees.list_by_encounter(1)) == len(emails)
         assert not world.invitees.list_by_encounter(2)
+
+    @freeze_time(START_TIME)
+    def test_an_account_exactly_a_week_old_has_the_full_allowance(self):
+        world = EncounterWorld()
+        week_old = make_user(date_joined=START_TIME - NEW_CREATOR_AGE)
+        emails = [
+            f"g{n}@example.com" for n in range(INVITEES_PER_NEW_CREATOR_PER_DAY + 1)
+        ]
+
+        added = world.guests.replace_invitees(
+            make_encounter(1), emails, creator=week_old
+        )
+
+        assert added == set(emails)
 
     def test_a_removed_address_put_back_is_invited_again(self):
         world = EncounterWorld(invitees={(1, "ola@example.com"): InviteeStatus.REMOVED})
@@ -195,3 +215,66 @@ class TestSend:
         assert [(i.organizer_name, i.attendee_email) for i in world.mailer.invites] == [
             ("Sphere", OTHER_EMAIL)
         ]
+
+    def test_each_invite_carries_the_encounters_uid_and_default_end(self):
+        world = EncounterWorld(users=[make_user(CREATOR_ID, name="Ola")])
+
+        world.guests.send(
+            make_encounter(1),
+            reason=EncounterInviteReason.CHANGED,
+            guests=world.guests.guests(make_encounter(1)),
+        )
+
+        assert [
+            (i.uid, i.end_time, i.organizer_name) for i in world.mailer.invites
+        ] == [("CODE1@ludamus", START_TIME + ENCOUNTER_DEFAULT_DURATION, "Ola")]
+
+    def test_an_invitee_without_an_account_is_mailed_unnamed(self):
+        world = EncounterWorld(invitees={(1, "ola@example.com"): InviteeStatus.INVITED})
+
+        world.guests.send(
+            make_encounter(1),
+            reason=EncounterInviteReason.CHANGED,
+            guests=world.guests.guests(make_encounter(1)),
+        )
+
+        assert [(i.attendee_email, i.attendee_name) for i in world.mailer.invites] == [
+            (CREATOR_EMAIL, ""),
+            ("ola@example.com", ""),
+        ]
+
+    def test_a_deleted_creators_invitees_are_mailed_without_a_budget(self):
+        world = EncounterWorld(users=[])
+        invitee = Guest(
+            email="ola@example.com",
+            name="",
+            partstat=PartStat.NEEDS_ACTION,
+            invited_only=True,
+        )
+
+        world.guests.send(
+            make_encounter(1), reason=EncounterInviteReason.INVITED, guests=[invitee]
+        )
+
+        assert world.mailer.sent == [(EncounterInviteReason.INVITED, "ola@example.com")]
+        assert not world.invitees.mailings
+
+    def test_a_week_old_account_has_the_smaller_mail_budget(self):
+        fresh = make_user(date_joined=datetime.now(UTC) - timedelta(days=1))
+        world = EncounterWorld(users=[fresh])
+        invitees = [
+            Guest(
+                email=f"g{n}@example.com",
+                name="",
+                partstat=PartStat.NEEDS_ACTION,
+                invited_only=True,
+            )
+            for n in range(CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY + 1)
+        ]
+
+        with pytest.raises(InviteLimitError):
+            world.guests.send(
+                make_encounter(1), reason=EncounterInviteReason.INVITED, guests=invitees
+            )
+
+        assert not world.mailer.sent

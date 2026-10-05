@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -26,6 +26,7 @@ from ludamus.pacts.legacy import (
     EventStatsData,
     EventUpdateData,
     NotFoundError,
+    PanelStatsDTO,
     TrackDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
@@ -43,6 +44,13 @@ _EXPECTED_SESSIONS = 7
 _EXPECTED_PROPOSALS = 8
 _EXPECTED_STATS = LandingStatsDTO(events=3, sessions=40)
 _FRESH_STATS = LandingStatsDTO(events=4, sessions=41)
+_STATS_DATA = EventStatsData(
+    pending_proposals=3,
+    scheduled_sessions=4,
+    total_proposals=9,
+    hosts_count=5,
+    rooms_count=2,
+)
 
 
 def _event(
@@ -79,6 +87,7 @@ def _track(*, pk: int, event_id: int) -> TrackDTO:
 class FakeEvents:
     def __init__(self, events: list[EventDTO], *, conflict: bool = False) -> None:
         self.rows = {event.pk: event for event in events}
+        self.stats = {event.pk: _STATS_DATA for event in events}
         self.locked: list[int] = []
         self._conflict = conflict
 
@@ -110,15 +119,8 @@ class FakeEvents:
             if include_unpublished or e.publication_time is not None
         ]
 
-    @staticmethod
-    def get_stats_data(_pk: int) -> EventStatsData:
-        return EventStatsData(
-            pending_proposals=3,
-            scheduled_sessions=4,
-            total_proposals=9,
-            hosts_count=5,
-            rooms_count=2,
-        )
+    def get_stats_data(self, pk: int) -> EventStatsData:
+        return self.stats[pk]
 
     def slug_exists(self, sphere_id: int, slug: str) -> bool:
         return any(
@@ -175,9 +177,23 @@ class FakeSpheres:
 class FakeSpaces:
     def __init__(self) -> None:
         self.default_for: list[int] = []
+        self.filled: set[int] = set()
 
     def create_default(self, event_pk: int) -> None:
         self.default_for.append(event_pk)
+
+    def list_tree(self, event_pk: int) -> list[object]:
+        return [object()] if event_pk in self.filled else []
+
+
+class FakeSetup:
+    def __init__(self, spaces: FakeSpaces) -> None:
+        self._spaces = spaces
+        self.copies: list[tuple[int, int, datetime]] = []
+
+    def copy(self, *, source_id: int, target_id: int, start_time: datetime) -> None:
+        self.copies.append((source_id, target_id, start_time))
+        self._spaces.filled.add(target_id)
 
 
 class FakeCache:
@@ -259,6 +275,14 @@ class TestWidenEventDates:
         assert events.rows[EVENT].end_time == _END
         assert events.locked == [EVENT]
 
+    def test_the_exact_event_range_changes_nothing(self):
+        events = FakeEvents([_event()])
+
+        grew = widen_event_dates(events=events, event_pk=EVENT, start=_START, end=_END)
+
+        assert grew is False
+        assert events.rows[EVENT] == _event()
+
     def test_an_earlier_start_moves_the_start_only(self):
         events = FakeEvents([_event()])
         earlier = datetime(2026, 7, 31, 20, tzinfo=UTC)
@@ -292,6 +316,16 @@ class TestWidenEventDates:
 
         assert events.rows[EVENT].start_time == _START
 
+    def test_a_start_at_publication_is_allowed(self):
+        events = FakeEvents([_event()])
+
+        grew = widen_event_dates(
+            events=events, event_pk=EVENT, start=_PUBLISHED, end=_END
+        )
+
+        assert grew is True
+        assert events.rows[EVENT].start_time == _PUBLISHED
+
     def test_an_unpublished_event_can_start_any_time_earlier(self):
         events = FakeEvents([_event(publication=None)])
         earlier = datetime(2026, 1, 1, tzinfo=UTC)
@@ -312,8 +346,7 @@ class TestEventPanelService:
         assert context.current_event.pk == EVENT
         assert [e.pk for e in context.events] == [EVENT, OTHER_EVENT]
         assert context.is_proposal_active is False
-        assert context.stats.total_sessions == _EXPECTED_SESSIONS
-        assert context.stats.hosts_count == FakeEvents.get_stats_data(EVENT).hosts_count
+        assert context.stats == build_panel_stats(_STATS_DATA)
 
     def test_panel_stats_total_is_pending_plus_scheduled(self):
         stats = build_panel_stats(
@@ -326,8 +359,14 @@ class TestEventPanelService:
             )
         )
 
-        assert stats.total_sessions == _EXPECTED_SESSIONS
-        assert stats.total_proposals == _EXPECTED_PROPOSALS
+        assert stats == PanelStatsDTO(
+            total_sessions=_EXPECTED_SESSIONS,
+            scheduled_sessions=5,
+            pending_proposals=2,
+            hosts_count=1,
+            rooms_count=1,
+            total_proposals=_EXPECTED_PROPOSALS,
+        )
 
 
 def _landing(cache: FakeCache, stats: LandingStatsDTO = _FRESH_STATS) -> LandingService:
@@ -362,7 +401,9 @@ class TestLandingService:
             stats = _landing(cache).stats()
 
         assert stats == _FRESH_STATS
-        assert "landing:stats" in caplog.text
+        assert caplog.messages == [
+            "Discarding malformed landing cache entry landing:stats"
+        ]
         assert LandingStatsDTO.model_validate_json(cache.entries["landing:stats"]) == (
             _FRESH_STATS
         )
@@ -384,13 +425,14 @@ class TestLandingService:
 
 def _create_data(
     *,
+    name: str = "New",
     slug: str = "new-conf",
     start: datetime = _START,
     end: datetime = _END,
     publication: datetime | None = _PUBLISHED,
 ) -> EventCreateData:
     return EventCreateData(
-        name="New",
+        name=name,
         slug=slug,
         description="",
         start_time=start,
@@ -401,13 +443,18 @@ def _create_data(
 
 
 def _events_service(
-    events: FakeEvents, *, spaces: FakeSpaces | None = None
+    events: FakeEvents,
+    *,
+    spaces: FakeSpaces | None = None,
+    setup: FakeSetup | None = None,
 ) -> EventsService:
+    spaces = spaces or FakeSpaces()
     return EventsService(
         transaction=FakeTransaction(),
         events=events,
         spheres=FakeSpheres({SPHERE}),
-        spaces=spaces or FakeSpaces(),
+        spaces=spaces,
+        setup=setup or FakeSetup(spaces),
     )
 
 
@@ -446,6 +493,60 @@ class TestEventsService:
         assert events.rows[created.pk].slug == "new-conf"
         assert spaces.default_for == [created.pk]
 
+    def test_create_based_on_an_event_copies_its_setup_to_the_new_start(self):
+        year = timedelta(days=365)
+        events = FakeEvents([_event(start=_START - year, end=_END - year)])
+        spaces = FakeSpaces()
+        setup = FakeSetup(spaces)
+
+        created = _events_service(events, spaces=spaces, setup=setup).create(
+            sphere_id=SPHERE, data=_create_data(), based_on_id=EVENT
+        )
+
+        assert setup.copies == [(EVENT, created.pk, _START)]
+        assert not spaces.default_for
+
+    def test_create_based_on_another_spheres_event_creates_nothing(self):
+        events = FakeEvents([_event(sphere_id=OTHER_SPHERE)])
+        spaces = FakeSpaces()
+        setup = FakeSetup(spaces)
+
+        with pytest.raises(NotFoundError):
+            _events_service(events, spaces=spaces, setup=setup).create(
+                sphere_id=SPHERE, data=_create_data(), based_on_id=EVENT
+            )
+
+        assert list(events.rows) == [EVENT]
+        assert not setup.copies
+
+    def test_create_without_a_slug_derives_a_free_one_from_the_name(self):
+        events = FakeEvents([_event(slug="new")])
+
+        created = _events_service(events).create(
+            sphere_id=SPHERE, data=_create_data(slug="")
+        )
+
+        assert created.slug.startswith("new-")
+        assert created.slug != "new"
+
+    def test_create_from_a_name_without_slug_characters_falls_back_to_event(self):
+        created = _events_service(FakeEvents([])).create(
+            sphere_id=SPHERE, data=_create_data(name="!!!", slug="")
+        )
+
+        assert created.slug == "event"
+
+    def test_create_reports_a_slug_conflict_when_no_derived_slug_is_free(
+        self, monkeypatch
+    ):
+        events = FakeEvents([])
+        monkeypatch.setattr(events, "slug_exists", lambda _sphere_id, _slug: True)
+
+        with pytest.raises(EventSlugConflictError):
+            _events_service(events).create(sphere_id=SPHERE, data=_create_data(slug=""))
+
+        assert events.rows == {}
+
     def test_create_refuses_an_end_not_after_the_start(self):
         events = FakeEvents([])
 
@@ -455,6 +556,15 @@ class TestEventsService:
             )
 
         assert events.rows == {}
+
+    def test_create_allows_publication_at_the_start(self):
+        events = FakeEvents([])
+
+        created = _events_service(events).create(
+            sphere_id=SPHERE, data=_create_data(publication=_START)
+        )
+
+        assert events.rows[created.pk].publication_time == _START
 
     def test_create_refuses_publication_after_the_start(self):
         events = FakeEvents([])

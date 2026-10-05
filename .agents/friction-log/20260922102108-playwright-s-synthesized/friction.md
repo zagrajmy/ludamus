@@ -1,6 +1,7 @@
 ---
 title: 'Playwright''s synthesized Chromium touch scroll never scrolls a combobox list'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1393'
 ---
 
 ## Expected Behavior

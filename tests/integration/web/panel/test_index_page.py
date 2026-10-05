@@ -1,7 +1,6 @@
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from tests.integration.conftest import EventFactory
@@ -32,15 +31,10 @@ class TestPanelIndexRedirectView:
 
         assert_response(response, HTTPStatus.FOUND, url=f"/panel/event/{event.slug}/")
 
-    def test_redirects_to_home_when_no_events(self, panel_client):
+    def test_redirects_to_event_creation_when_no_events(self, panel_client):
         response = panel_client.get(self.URL)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.INFO, "No events available for this sphere.")],
-            url="/",
-        )
+        assert_response(response, HTTPStatus.FOUND, url="/panel/events/new/")
 
 
 class TestEventIndexPageView:
