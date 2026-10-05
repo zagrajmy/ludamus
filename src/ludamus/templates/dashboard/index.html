@@ -9,21 +9,34 @@
 {% block body %}
     <h1 class="mb-8 text-3xl font-bold tracking-tight text-foreground">{% translate "Your dashboard" %}</h1>
     <div class="grid items-start gap-8 lg:grid-cols-[19rem_minmax(0,1fr)]">
-        <aside aria-labelledby="dashboard-agenda-heading">
-            <h2 id="dashboard-agenda-heading"
-                class="mb-4 text-xl font-bold text-foreground">{% translate "Coming up" %}</h2>
-            {% if dashboard.agenda %}
-                <div class="grid gap-3">
-                    {% for card in dashboard.agenda %}
-                        {% include "dashboard/_card.html" %}
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-sm text-foreground-secondary">
-                    {% translate "Nothing yet. Sign up for a session or an encounter and it will wait for you here." %}
-                </p>
+        <div>
+            <section aria-labelledby="dashboard-agenda-heading">
+                <h2 id="dashboard-agenda-heading"
+                    class="mb-4 text-xl font-bold text-foreground">{% translate "Coming up" %}</h2>
+                {% if dashboard.agenda %}
+                    <div class="grid gap-3">
+                        {% for card in dashboard.agenda %}
+                            {% include "dashboard/_card.html" %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm text-foreground-secondary">
+                        {% translate "Nothing yet. Sign up for or bookmark a session, or join an encounter, and it will wait for you here." %}
+                    </p>
+                {% endif %}
+            </section>
+            {% if dashboard.past_events %}
+                <section class="mt-12" aria-labelledby="dashboard-past-events-heading">
+                    <h2 id="dashboard-past-events-heading"
+                        class="mb-4 text-xl font-bold text-foreground">{% translate "Past events" %}</h2>
+                    <div class="grid gap-3">
+                        {% for card in dashboard.past_events %}
+                            {% include "dashboard/_card.html" with date_format="j E Y" %}
+                        {% endfor %}
+                    </div>
+                </section>
             {% endif %}
-        </aside>
+        </div>
         <div>
             <section aria-labelledby="dashboard-for-you-heading">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">

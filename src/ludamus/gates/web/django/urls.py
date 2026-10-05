@@ -17,6 +17,7 @@ from ludamus.gates.web.django.mcp.oauth import (
     authorization_server_metadata,
     protected_resource_metadata,
 )
+from ludamus.gates.web.django.mcp.views import McpEndpointView, McpOrganizerEndpointView
 from ludamus.gates.web.django.pages import PAGES, content_page
 from ludamus.pacts.mcp import ToolScope
 
@@ -66,18 +67,23 @@ urlpatterns: list[URLResolver | URLPattern] = [
         include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
+    # Connector URLs get typed without the slash, and MCP clients won't
+    # follow APPEND_SLASH's redirect on a POST, so the endpoints answer both.
+    path("mcp", McpEndpointView.as_view()),
+    path("mcp/organizer", McpOrganizerEndpointView.as_view()),
     # RFC 9728 and RFC 8414 fix these paths; MCP clients probe them verbatim.
-    path(
-        ".well-known/oauth-protected-resource/mcp/",
-        protected_resource_metadata,
-        {"scope": ToolScope.MAINTAINER},
-        name="oauth-protected-resource-maintainer",
-    ),
-    path(
-        ".well-known/oauth-protected-resource/mcp/organizer/",
-        protected_resource_metadata,
-        {"scope": ToolScope.ORGANIZER},
-        name="oauth-protected-resource-organizer",
+    *(
+        path(
+            f".well-known/oauth-protected-resource/{resource}",
+            protected_resource_metadata,
+            {"scope": scope},
+        )
+        for resource, scope in (
+            ("mcp/", ToolScope.MAINTAINER),
+            ("mcp", ToolScope.MAINTAINER),
+            ("mcp/organizer/", ToolScope.ORGANIZER),
+            ("mcp/organizer", ToolScope.ORGANIZER),
+        )
     ),
     path(
         ".well-known/oauth-authorization-server",

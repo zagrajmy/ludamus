@@ -3,11 +3,13 @@ from django.views.generic.base import RedirectView, TemplateView
 
 from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
+from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
@@ -100,6 +102,11 @@ urlpatterns = [
         name="sphere-unsubscribe",
     ),
     path(
+        "dashboard/sessions/<int:session_id>/do/claim-offer",
+        dashboard_gate.OfferClaimActionView.as_view(),
+        name="dashboard-offer-claim",
+    ),
+    path(
         "notifications/",
         notifications_gate.NotificationsPageView.as_view(),
         name="notifications",
@@ -121,7 +128,11 @@ urlpatterns = [
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
-    path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
+    path(
+        "dev/emails/",
+        staging_inbox.StagingEmailInboxView.as_view(),
+        name="staging-emails",
+    ),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
     path("", include((event_gate_urls, "event"), namespace="event")),
     # Permanent redirects for links shared before the `chronology/` path segment
@@ -136,6 +147,11 @@ urlpatterns = [
     # The Auth0 tenant's error page setting points here; the path must stay
     # /auth-error to match it.
     path("auth-error/", auth_error_page, name="auth-error"),
+    path(
+        "hooks/calendar-replies",
+        EncounterCalendarReplyView.as_view(),
+        name="calendar-replies",
+    ),
     path(
         "",
         include(

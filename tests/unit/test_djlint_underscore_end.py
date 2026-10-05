@@ -19,7 +19,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 # two files, port anything new, and update the hash. Deleting the copy outright
 # is better still — see the tracking issue in its module docstring.
 UPSTREAM_T038_SHA256 = (
-    "ef724e870d6623d045e17a30372ab5d36e48f9c10f191ee7e32c66b5cba25ed6"
+    "2968446868b755c87a44a73573baf8cdf8011891ed77e71068e70fbc2da1b448"
 )
 
 

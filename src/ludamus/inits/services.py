@@ -6,15 +6,22 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_encounter_guests,
+    build_encounters,
     build_konwencik_export,
     build_printables_reminder,
+    build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
-from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
+from ludamus.inits.dbos_scheduler import (
+    DBOSAnnouncementFanoutScheduler,
+    DBOSOfferExpiryScheduler,
+)
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
+from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -22,7 +29,7 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
-from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
@@ -41,13 +48,13 @@ from ludamus.mills.crowd import (
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
-from ludamus.mills.encounter import EncounterService
+from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
-    AnonymousEnrollmentService,
     EnrollmentService,
     EnrollmentSettingsService,
     WaitlistPromotionService,
 )
+from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
     EventConfirmationsService,
@@ -69,7 +76,10 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
-from ludamus.mills.notifications import NotificationsService
+from ludamus.mills.notifications import (
+    NotificationsService,
+    NotificationSubscriptionsService,
+)
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
@@ -107,6 +117,7 @@ from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
+    from ludamus.mills.encounter import EncounterService
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.pacts.chronology import (
         ImportIntegrationImplementation,
@@ -114,6 +125,7 @@ if TYPE_CHECKING:
         TicketingIntegrationImplementation,
     )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
+    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
 
 
 class Services:
@@ -129,9 +141,7 @@ class Services:
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
-            transaction=self._transaction,
-            fields=self._repos.personal_data_fields,
-            categories=self._repos.proposal_categories,
+            transaction=self._transaction, fields=self._repos.personal_data_fields
         )
 
     @cached_property
@@ -228,7 +238,20 @@ class Services:
 
     @cached_property
     def announcements(self) -> AnnouncementsService:
-        return AnnouncementsService(self._transaction, self._repos.announcements)
+        return AnnouncementsService(
+            self._transaction,
+            self._repos.announcements,
+            self._announcement_fanout_scheduler(),
+        )
+
+    @staticmethod
+    def _announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
+        scheduler_mode: str = settings.SCHEDULER_MODE
+        return (
+            DBOSAnnouncementFanoutScheduler()
+            if scheduler_mode == "dbos"
+            else CronSweepAnnouncementFanout()
+        )
 
     @cached_property
     def events(self) -> EventsService:
@@ -237,6 +260,7 @@ class Services:
             events=self._repos.events,
             spheres=self._repos.spheres,
             spaces=self._repos.space_tree,
+            setup=self._repos.event_setup,
         )
 
     @cached_property
@@ -265,7 +289,6 @@ class Services:
             transaction=self._transaction,
             repos=EventSettingsRepos(
                 events=self._repos.events,
-                event_settings=self._repos.event_settings,
                 event_proposal_settings=self._repos.event_proposal_settings,
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
@@ -328,7 +351,7 @@ class Services:
 
     @cached_property
     def sites(self) -> SitesService:
-        return SitesService(self._repos.spheres, self._repos.spheres)
+        return build_sites()
 
     @cached_property
     def landing(self) -> LandingService:
@@ -439,6 +462,12 @@ class Services:
         return NotificationsService(self._transaction, self._repos.notifications)
 
     @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionsService:
+        return NotificationSubscriptionsService(
+            self._transaction, self._repos.notification_subscriptions
+        )
+
+    @cached_property
     def enrollment_settings(self) -> EnrollmentSettingsService:
         return EnrollmentSettingsService(
             self._transaction, self._repos.enrollment_windows
@@ -450,7 +479,6 @@ class Services:
             self._transaction,
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
-                personal_fields=self._repos.personal_data_fields,
                 session_fields=self._repos.session_fields,
                 time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,
@@ -523,12 +551,17 @@ class Services:
 
     @cached_property
     def encounters(self) -> EncounterService:
-        return EncounterService(
+        return build_encounters(self.sites)
+
+    @cached_property
+    def encounter_replies(self) -> EncounterReplyService:
+        return EncounterReplyService(
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
-            spheres=self._repos.spheres,
+            guests=build_encounter_guests(self.sites),
+            reply_addresses=SignedReplyAddress(),
             sites=self.sites,
         )
 

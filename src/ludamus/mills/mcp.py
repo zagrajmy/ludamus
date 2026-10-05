@@ -32,6 +32,8 @@ from ludamus.pacts.mcp import (
 )
 
 if TYPE_CHECKING:
+    from urllib.parse import SplitResult
+
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.mcp import (
@@ -46,6 +48,10 @@ if TYPE_CHECKING:
 AUTHORIZATION_CODE_TTL_SECONDS = 60
 CLIENT_NAME_MAX_LENGTH = 100
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+# A web redirect's host ends up in the consent page's CSP form-action, so it
+# may hold only what a CSP host-source can: no `;` to smuggle in a directive,
+# and no IPv6 literal, which browsers drop from the source list.
+WEB_HOST_PATTERN = re.compile(r"[a-z0-9.-]+")
 # RFC 7636 §4.1: 43-128 characters from the unreserved set.
 CODE_VERIFIER_PATTERN = re.compile(r"[A-Za-z0-9\-._~]{43,128}")
 # Schemes a browser would run or read locally instead of handing to a client.
@@ -127,7 +133,7 @@ class McpAuthorizationService:
             grant = OrganizerGrant(
                 user_id=user_id, sphere_id=sphere_id, event_id=event_id
             )
-        code = secrets.token_urlsafe(32)
+        code = secrets.token_urlsafe()
         self._codes.put(
             code,
             McpIssuedCode(
@@ -201,14 +207,26 @@ def _check_client_id(client_id: str) -> None:
 
 def _check_redirect_uri(redirect_uri: str) -> None:
     parts = urlsplit(redirect_uri)
+    if not parts.scheme or parts.scheme in FORBIDDEN_REDIRECT_SCHEMES or parts.fragment:
+        raise McpClientRejectedError(ClientRejection.BAD_REDIRECT_URI)
+    if parts.scheme not in {"http", "https"}:
+        return
     # OAuth 2.1 §7.5.1: plain http only on the user's own machine.
-    if (
-        not parts.scheme
-        or parts.scheme in FORBIDDEN_REDIRECT_SCHEMES
-        or parts.fragment
-        or (parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS)
+    if not _is_web_host(parts) or (
+        parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS
     ):
         raise McpClientRejectedError(ClientRejection.BAD_REDIRECT_URI)
+
+
+def _is_web_host(parts: SplitResult) -> bool:
+    try:
+        _ = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.hostname is not None
+        and WEB_HOST_PATTERN.fullmatch(parts.hostname) is not None
+    )
 
 
 def _check_document(
@@ -216,12 +234,23 @@ def _check_document(
 ) -> None:
     if document.get("client_id") != client_id:
         raise McpClientRejectedError(ClientRejection.CLIENT_ID_MISMATCH)
-    if document.get("token_endpoint_auth_method", "none") != "none":
+    if not _exchanges_publicly(document):
         raise McpClientRejectedError(ClientRejection.CONFIDENTIAL_CLIENT)
     if not (registered := document.get("redirect_uris")):
         raise McpClientRejectedError(ClientRejection.NO_REDIRECT_URIS)
     if not any(_redirect_matches(uri, redirect_uri) for uri in registered):
         raise McpClientRejectedError(ClientRejection.REDIRECT_NOT_LISTED)
+
+
+def _exchanges_publicly(document: ClientMetadataDocument) -> bool:
+    # NOTE: ChatGPT keeps a private_key_jwt preference in the legacy singular
+    # field while listing "none" among the methods it supports; any shared
+    # method will do, and "none" is the only one this server offers.
+    supported = document.get(
+        "token_endpoint_auth_methods_supported",
+        [document.get("token_endpoint_auth_method", "none")],
+    )
+    return "none" in supported
 
 
 def _redirect_matches(registered: str, requested: str) -> bool:
@@ -256,6 +285,8 @@ def _soonest_first(event: EventDTO) -> tuple[bool, float]:
 def _pkce_matches(*, verifier: str, challenge: str) -> bool:
     if not CODE_VERIFIER_PATTERN.fullmatch(verifier):
         return False
-    digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    digest = hashlib.sha256(verifier.encode()).digest()
+    # pragma: no mutate start
+    expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    # pragma: no mutate end
     return hmac.compare_digest(expected, challenge)

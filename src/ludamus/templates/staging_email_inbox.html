@@ -1,45 +1,241 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 {% block title %}
-    {% translate "Staging inbox" %}
+    {% translate "Captured emails" %}
 {% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
 {% block body %}
-    <div class="mx-auto max-w-4xl p-4">
-        <h1 class="mb-4 text-xl font-semibold text-foreground">{% translate "Captured emails" %} ({{ emails|length }})</h1>
-        {% if emails %}
-            {% tessera_table %}
-                <thead class="bg-bg-tertiary">
-                    <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Received" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "To" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Subject" %}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-bg-secondary divide-y divide-border">
-                    {% for email in emails %}
-                        <tr class="align-top">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ email.date|default:"—" }}</td>
-                            <td class="px-6 py-4 text-sm text-foreground">{{ email.to|default:"—" }}</td>
-                            <td class="px-6 py-4 text-sm text-foreground">
-                                <div class="font-medium">{{ email.subject|default:"—" }}</div>
-                                <pre class="mt-2 whitespace-pre-wrap font-sans text-foreground-secondary">{{ email.body }}</pre>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            {% end_tessera_table %}
-        {% else %}
-            <div class="text-sm text-foreground-muted">{% translate "No emails captured yet." %}</div>
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="text-xl sm:text-2xl font-semibold text-foreground">{% translate "Captured emails" %}</h1>
+            <p class="mt-1 text-sm text-foreground-muted text-pretty {% if requested %}max-lg:hidden{% endif %}">
+                {% if total %}
+                    <span data-inbox-count class="tabular-nums">
+                        {% blocktranslate trimmed count counter=total %}
+                            {{ counter }} email
+                        {% plural %}
+                            {{ counter }} emails
+                        {% endblocktranslate %}
+                    </span>
+                    ·
+                {% endif %}
+                {% translate "none of it reaches a real inbox" %}
+                <span data-inbox-live hidden>
+                    ·
+                    <span class="mx-0.5 inline-block size-1.5 rounded-full bg-success align-middle"
+                          aria-hidden="true"></span>
+                    {% translate "Live" %}
+                </span>
+            </p>
+        </div>
+        {% if total %}
+            <form method="get"
+                  role="search"
+                  class="flex w-full gap-2 sm:w-80 {% if requested %}max-lg:hidden{% endif %}">
+                <label for="inbox-search" class="sr-only">{% translate "Search emails" %}</label>
+                {% translate "Address, subject or text" as search_placeholder %}
+                {% include "components/text-field.html" with name="q" id="inbox-search" input_type="search" value=query placeholder=search_placeholder spellcheck="false" only %}
+                {% tessera_button _("Search") variant="secondary" icon="magnifying-glass" full_width_mobile=False extra_class="shrink-0" %}
+            </form>
         {% endif %}
     </div>
+    <div class="sr-only"
+         role="status"
+         aria-live="polite"
+         data-inbox-announce
+         data-one="{% translate "A new email arrived." %}"
+         data-many="{% translate "New emails arrived." %}"></div>
+    {% if not total %}
+        <section data-inbox
+                 data-inbox-newest=""
+                 class="card mx-auto w-full max-w-xl px-6 py-14 text-center">
+            {% icon "inbox" class="mx-auto size-7 text-foreground-muted" %}
+            <h2 class="mt-3 font-semibold text-foreground">{% translate "Nothing sent yet" %}</h2>
+            <p class="mx-auto mt-1.5 max-w-sm text-sm text-foreground-secondary text-pretty">
+                {% translate "Trigger an email in another tab (change an address, join a waiting list) and it will appear here within seconds." %}
+            </p>
+        </section>
+    {% else %}
+        <div data-inbox
+             data-inbox-newest="{{ newest_id }}"
+             class="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
+            <nav aria-label="{% translate "Emails" %}"
+                 class="card overflow-hidden {% if requested %}max-lg:hidden{% endif %}">
+                {% if query %}
+                    <p class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-sm text-foreground-secondary">
+                        <span>
+                            {% blocktranslate trimmed count counter=match_count %}
+                                {{ counter }} match for “{{ query }}”
+                            {% plural %}
+                                {{ counter }} matches for “{{ query }}”
+                            {% endblocktranslate %}
+                        </span>
+                        <a href="{% url 'web:staging-emails' %}"
+                           class="text-foreground-secondary underline decoration-border underline-offset-2 hover:text-foreground">{% translate "Clear search" %}</a>
+                    </p>
+                {% endif %}
+                <div data-inbox-list>
+                    {% for day in days %}
+                        <section aria-labelledby="inbox-day-{{ forloop.counter }}">
+                            <h2 id="inbox-day-{{ forloop.counter }}"
+                                class="px-4 pt-4 pb-1.5 text-xs font-medium text-foreground-muted first-letter:uppercase">
+                                {{ day.label }}
+                            </h2>
+                            <ul class="divide-y divide-border">
+                                {% for email in day.emails %}
+                                    <li>
+                                        <a href="{% querystring m=email.id %}"
+                                           data-inbox-item="{{ email.id }}"
+                                           {% if email.id == selected.id %}aria-current="true"{% endif %}
+                                           class="group relative block px-4 py-3 transition-colors duration-700 hover:bg-bg-tertiary/60 hover:duration-0 aria-[current=true]:bg-bg-tertiary data-[fresh]:bg-bg-tertiary data-[fresh]:duration-0">
+                                            <span aria-hidden="true"
+                                                  class="absolute inset-y-0 left-0 w-0.5 bg-foreground opacity-0 group-aria-[current=true]:opacity-100"></span>
+                                            <span class="flex items-baseline gap-2">
+                                                <span class="truncate text-sm text-foreground-secondary">{{ email.to|default:"—" }}</span>
+                                                {% if email.sent_at %}
+                                                    <time datetime="{{ email.sent_at|date:"c" }}"
+                                                          class="ms-auto shrink-0 text-xs tabular-nums text-foreground-muted">
+                                                        {{ email.sent_at|date:"H:i" }}
+                                                    </time>
+                                                {% endif %}
+                                            </span>
+                                            <span class="mt-0.5 block truncate text-sm font-medium text-foreground">{{ email.subject|default:_("(no subject)") }}</span>
+                                            {% if email.preview %}
+                                                <span class="mt-0.5 block truncate text-sm text-foreground-muted">{{ email.preview }}</span>
+                                            {% endif %}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </section>
+                    {% empty %}
+                        <div class="px-6 py-10 text-center">
+                            <p class="text-sm font-medium text-foreground">{% translate "No email matches" %}</p>
+                            <p class="mt-1 text-sm text-foreground-secondary">
+                                {% translate "Search looks through recipients, senders, subjects and message text." %}
+                            </p>
+                        </div>
+                    {% endfor %}
+                    {% if truncated %}
+                        <p class="border-t border-border px-4 py-3 text-xs text-foreground-muted text-pretty">
+                            {% blocktranslate trimmed with shown=list_limit %}
+                                Showing the newest {{ shown }}. Search to reach older emails.
+                            {% endblocktranslate %}
+                        </p>
+                    {% endif %}
+                </div>
+            </nav>
+            <div class="lg:sticky lg:top-20 {% if not requested %}max-lg:hidden{% endif %}">
+                {% if requested %}
+                    <a href="{% querystring m=None %}"
+                       class="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-foreground-secondary hover:text-foreground lg:hidden">
+                        {% icon "arrow-left" class="size-4" %}
+                        {% translate "All emails" %}
+                    </a>
+                {% endif %}
+                {% if selected %}
+                    <article aria-labelledby="inbox-subject"
+                             data-inbox-reader="{{ selected.id }}"
+                             class="card overflow-hidden lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto">
+                        <header class="px-5 pt-5 pb-4 sm:px-7 sm:pt-6">
+                            <h2 id="inbox-subject"
+                                class="text-lg sm:text-xl font-semibold text-foreground text-balance [overflow-wrap:anywhere]">
+                                {{ selected.subject|default:_("(no subject)") }}
+                            </h2>
+                            <dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5 text-sm">
+                                <dt class="text-foreground-muted">{% translate "To" %}</dt>
+                                <dd class="flex min-w-0 flex-wrap items-baseline gap-x-3">
+                                    <span class="font-medium text-foreground [overflow-wrap:anywhere]">{{ selected.to|default:"—" }}</span>
+                                    {% if selected.to and query != selected.to %}
+                                        <a href="{% querystring q=selected.to m=selected.id %}"
+                                           class="text-xs text-foreground-muted underline decoration-border underline-offset-2 hover:text-foreground">{% translate "Only this address" %}</a>
+                                    {% endif %}
+                                </dd>
+                                <dt class="text-foreground-muted">{% translate "From" %}</dt>
+                                <dd class="text-foreground-secondary [overflow-wrap:anywhere]">
+                                    {{ selected.sender|default:"—" }}
+                                </dd>
+                                <dt class="text-foreground-muted">{% translate "Sent" %}</dt>
+                                <dd class="text-foreground-secondary tabular-nums">
+                                    {% if selected.sent_at %}
+                                        <time datetime="{{ selected.sent_at|date:"c" }}">{{ selected.sent_at|date:"l, j E Y, H:i:s" }}</time>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                            {% if selected.links %}
+                                <ul class="mt-5 space-y-2" aria-label="{% translate "Links" %}">
+                                    {% for link in selected.links %}
+                                        <li class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                                            {% tessera_button _("Open link") href=link variant=forloop.first|yesno:"primary,secondary" icon="arrow-top-right-on-square" extra_class="shrink-0" target="_blank" rel="noopener" %}
+                                            <code class="min-w-0 flex-1 truncate text-xs text-foreground-muted max-sm:order-last max-sm:basis-full"
+                                                  title="{{ link }}">{{ link|cut:"https://"|cut:"http://" }}</code>
+                                            <button type="button"
+                                                    class="icon-btn shrink-0 max-sm:ms-auto"
+                                                    data-copy="{{ link }}"
+                                                    data-copied-label="{% translate "Copied!" %}">
+                                                {% icon "clipboard" class="size-4" %}
+                                                <span class="sr-only">{% translate "Copy link" %}</span>
+                                                {% tessera_copy_popover %}
+                                            </button>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </header>
+                        <div class="border-t border-border px-5 py-5 sm:px-7 sm:py-6">
+                            {% if selected.body %}
+                                <div class="max-w-prose whitespace-pre-wrap text-[0.9375rem] leading-relaxed text-foreground [overflow-wrap:anywhere] [&_a]:underline [&_a]:decoration-border [&_a]:underline-offset-2 [&_a:hover]:decoration-foreground">{{ selected.body|urlize }}</div>
+                            {% else %}
+                                <p class="text-sm italic text-foreground-muted">{% translate "This email has no text." %}</p>
+                            {% endif %}
+                            {% if selected.parts %}
+                                <ul class="mt-5 flex flex-wrap gap-2"
+                                    aria-label="{% translate "Attachments" %}">
+                                    {% for part in selected.parts %}
+                                        <li class="inline-flex items-center gap-1.5 text-xs text-foreground-muted">
+                                            {% if part.content_type == "text/calendar" %}
+                                                {% icon "calendar-days" class="size-4" %}
+                                                {% translate "Calendar invitation" %}
+                                            {% else %}
+                                                {% icon "paper-clip" class="size-4" %}
+                                                {{ part.filename|default:part.content_type }}
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                        <details class="group border-t border-border">
+                            <summary class="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-foreground-secondary hover:text-foreground sm:px-7 [&::-webkit-details-marker]:hidden">
+                                {% icon "chevron-right" class="size-4 transition-transform duration-150 group-open:rotate-90" %}
+                                {% translate "Message source" %}
+                            </summary>
+                            <pre class="max-h-96 overflow-auto border-t border-border px-5 py-4 text-xs leading-relaxed text-foreground-secondary sm:px-7">{{ selected.source }}</pre>
+                        </details>
+                    </article>
+                {% elif requested %}
+                    <div class="card px-6 py-12 text-center">
+                        {% icon "envelope" class="mx-auto size-7 text-foreground-muted" %}
+                        <h2 class="mt-3 font-semibold text-foreground">{% translate "This email is gone" %}</h2>
+                        <p class="mx-auto mt-1 max-w-sm text-sm text-foreground-secondary text-pretty">
+                            {% translate "Its capture file was cleared. The emails still here are in the list." %}
+                        </p>
+                    </div>
+                {% else %}
+                    <div class="card px-6 py-12 text-center">
+                        {% icon "envelope-open" class="mx-auto size-7 text-foreground-muted" %}
+                        <p class="mt-3 text-sm text-foreground-secondary">{% translate "Pick an email to read it." %}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
 {% endblock body %}
+{% block extra_scripts %}
+    {% vite_asset 'src/staging-inbox.ts' %}
+{% endblock extra_scripts %}
