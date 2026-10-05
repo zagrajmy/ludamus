@@ -9,6 +9,11 @@
     {% tab "columns" href=tab_urls.columns %}
         {% translate "Columns" %}
     {% endtab %}
+    {# The export is the way out of the list, so it leaves with the filters #}
+    {# the current page is showing. #}
+    {% tab "export" href=tab_urls.export|add:"?"|add:request.GET.urlencode %}
+        {% translate "Export" %}
+    {% endtab %}
     {% tab "bin" href=tab_urls.bin %}
         {% translate "Bin" %}
     {% endtab %}

@@ -28,7 +28,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
-from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
+from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
@@ -49,7 +49,7 @@ from ludamus.mills.crowd import (
     ProfileService,
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
-from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
     EnrollmentService,
@@ -540,16 +540,6 @@ class Services:
     def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return FernetDecryptor(key)
-
-    @cached_property
-    def discounts_export(self) -> DiscountsExportService:
-        return DiscountsExportService(
-            discounts=self._repos.discounts,
-            facilitators=self._repos.facilitators,
-            connections=self._repos.connections,
-            decryptor=self._decryptor,
-            sheet_writer=GoogleSheetsWriter(),
-        )
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:
