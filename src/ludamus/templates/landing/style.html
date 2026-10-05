@@ -1,9 +1,12 @@
 {% comment %}
-Landing CSS island. Everything static is inlined as Tailwind utilities in the
-landing templates; this file keeps only what utilities cannot express:
+Landing CSS island. Static looks live as Tailwind utilities on the landing
+templates whenever the site-wide bundle already ships them; this file keeps
+what would add to that bundle or lose the cascade:
 - the load/scroll choreography classes shared across sections (.ld/.reveal),
-- the proofreader strike animations,
-- the spreadsheet-caricature artwork,
+- the proofreader strike geometry and animations,
+- the spreadsheet-caricature artwork: its one-off values, and the cell styles,
+  which a per-cell utility could not set over the base `.sheet td` rule
+  (utilities sit in a cascade layer, so any rule here beats them),
 - the Scena step machine (radio-driven positional states for the chip cast).
 Colors reference the theme-aware tessera variables so dark mode keeps working;
 the print artifacts (printouts, door card, step-6 stage) stay paper in both
@@ -98,6 +101,10 @@ themes — newsprint rather than white once the page around them is dark.
     }
 
     /* ---------- the proofreader's strike (headline + spreadsheet) ---------- */
+    .landing .strike-phrase {
+        white-space: nowrap;
+    }
+
     .landing .strike-phrase svg {
         position: absolute;
         left: -2%;
@@ -143,17 +150,14 @@ themes — newsprint rather than white once the page around them is dark.
     @media (max-width: 30rem) {
         .landing .strike-phrase {
             white-space: normal;
-        }
-
-        .landing .strike-phrase svg {
-            display: none;
-        }
-
-        .landing .strike-phrase {
             text-decoration: underline;
             text-decoration-color: var(--color-primary);
             text-decoration-thickness: 0.09em;
             text-underline-offset: 0.12em;
+        }
+
+        .landing .strike-phrase svg {
+            display: none;
         }
     }
 
@@ -692,11 +696,6 @@ themes — newsprint rather than white once the page around them is dark.
         padding-right: 1.8em;
         font-size: 0.68em;
         color: var(--color-danger-text);
-    }
-
-    #k3:checked~.sc .cF .warnDot,
-    #k3:checked~.sc .cG .warnDot {
-        display: block;
     }
 
     /* steps 4–5 — published page frame */
