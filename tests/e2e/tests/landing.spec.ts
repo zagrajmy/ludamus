@@ -109,9 +109,17 @@ test.describe("Landing", () => {
               }
             }
           }
-          // Room names and times are nowrap in fixed-width columns.
+          // Room names and times sit in fixed-width columns.
           for (const label of stageEl.querySelectorAll(".rh, .tl")) {
             if (label.scrollWidth > label.clientWidth + 1) offenders.push(label.textContent ?? "");
+          }
+          // The context strip wraps on a phone; its rows must end above the grid.
+          const strip = [...stageEl.querySelectorAll(".ctx")].find(shown);
+          const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
+          for (const below of stageEl.querySelectorAll(".rh, .chip")) {
+            if (shown(below) && stripBottom > below.getBoundingClientRect().top + 1) {
+              offenders.push(`${strip?.className} over ${below.className}`);
+            }
           }
           return offenders;
         });

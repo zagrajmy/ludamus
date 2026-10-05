@@ -537,18 +537,11 @@ themes — newsprint rather than white once the page around them is dark.
         transition-delay: 0.24s;
     }
 
-    /* A chip whose content outgrows it clips the bottom (status, author);
-       without this the clamped title is what shrinks. */
     .landing .ct {
-        flex-shrink: 0;
         font-weight: 600;
         font-size: 0.74em;
         line-height: 1.18;
         letter-spacing: -0.01em;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
         transition: font-size 0.2s;
     }
 
@@ -723,7 +716,6 @@ themes — newsprint rather than white once the page around them is dark.
 
     #k3:checked~.sc .cF .ct,
     #k3:checked~.sc .cG .ct {
-        -webkit-line-clamp: 1;
         font-size: 0.68em;
         color: var(--color-danger-text);
     }
@@ -849,29 +841,34 @@ themes — newsprint rather than white once the page around them is dark.
         .landing .stage {
             min-width: 17rem;
             height: auto;
-            aspect-ratio: 40 / 34;
+            aspect-ratio: 10 / 13;
             font-size: 0.88rem;
         }
 
-        /* Pills outgrow the strip's 8% band at phone size; let it hug them. */
+        /* Pills outgrow the strip's 8% band at phone size; let it hug them,
+           wrapping to a second row rather than cutting a title. */
         .landing .ctx {
             height: auto;
+            flex-wrap: wrap;
+            row-gap: 0.2em;
+            line-height: 1.3;
         }
 
         /* A phone-sized chip has room for its text, not its desktop
            padding. */
         .landing .chip {
-            gap: 0.12em;
+            gap: 0.2em;
             padding: 0.35em 0.45em;
             border-radius: 0.6em;
         }
 
-        /* Room names and times sit in fixed-width columns; the time column
-           takes the stage's left gutter too, up to the chips at 10%. */
+        /* Room names and times sit in fixed-width columns: names wrap above
+           the first row, and the time column takes the stage's left gutter
+           up to the chips at 10%. */
         .landing .rh {
             font-size: 0.66em;
+            line-height: 1.1;
             letter-spacing: 0.03em;
-            white-space: nowrap;
         }
 
         .landing .tl {
@@ -881,20 +878,13 @@ themes — newsprint rather than white once the page around them is dark.
             padding-right: 0.4em;
         }
 
-        /* Review cards hold a two-line title and its status; the author
-           goes, and they take the 2% gap below them. */
-        #k2:checked~.sc .chip {
-            height: 19%;
-        }
-
+        /* A full workshop's badge says it is full; the caption under the
+           grid tells the waiting-list half, which has no room on a phone. */
         #k1:checked~.sc .chip .ca,
         #k2:checked~.sc .chip .ca,
-        #k5:checked~.sc .cD .ca {
+        #k5:checked~.sc .cD .ca,
+        #k5:checked~.sc .cD .cw {
             display: none;
-        }
-
-        #k5:checked~.sc .cD .ct {
-            -webkit-line-clamp: 1;
         }
 
         /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
@@ -914,16 +904,8 @@ themes — newsprint rather than white once the page around them is dark.
 
     @media (max-width: 22.5rem) {
         .landing .stage {
+            aspect-ratio: 5 / 7;
             font-size: 0.8rem;
-        }
-
-        /* At this size a two-line title leaves no room for the status. */
-        #k2:checked~.sc .chip .ct {
-            -webkit-line-clamp: 1;
-        }
-
-        #k5:checked~.sc .cD .cw {
-            display: none;
         }
 
         .landing .rh {
