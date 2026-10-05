@@ -777,6 +777,14 @@ themes — newsprint rather than white once the page around them is dark.
         background: var(--paper);
     }
 
+    /* Light mode prints cards on the sheet's own paper: no box to pad or
+       round. Dark mode keeps them as white cards on the dark page. */
+    html:not(.dark) #k6:checked~.sc .chip {
+        padding: 0;
+        border-color: transparent;
+        border-radius: 0;
+    }
+
     #k6:checked~.sc .chip .ct {
         color: var(--color-warm-900);
     }
@@ -880,12 +888,14 @@ themes — newsprint rather than white once the page around them is dark.
             border-radius: 0.7em;
         }
 
+        /* The act-1 pile gets room for its wrapping titles. */
         #k1:checked~.sc .chip {
             height: 17%;
         }
 
-        /* Narrow cards: the longest title word must clear the padding. */
-        .landing .chip .ct {
+        /* Narrow cards: the longest title word must clear the padding. Act
+           2's wide cards keep their own size (#k2 rule above). */
+        .landing .ct {
             font-size: 0.68em;
         }
 
