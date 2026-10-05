@@ -14,13 +14,14 @@ SPHERE_ID = 3
 START_TIME = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
 
 
-def make_encounter(pk=1, *, max_participants=0):
+def make_encounter(pk=1, *, max_participants=0, is_public=True):
     return EncounterDTO(
         creation_time=START_TIME - timedelta(days=7),
         creator_id=CREATOR_ID,
         description="",
         end_time=None,
         game="Gloomhaven",
+        is_public=is_public,
         max_participants=max_participants,
         pk=pk,
         place="",
@@ -54,15 +55,16 @@ def make_user(pk=CREATOR_ID, **overrides):
 
 class FakeSites:
     def __init__(self, policy):
-        self.policy = policy
+        self.rows = {
+            SPHERE_ID: SimpleNamespace(
+                encounters_policy=policy,
+                name="Sphere",
+                site=SimpleNamespace(domain="sphere.example.com"),
+            )
+        }
 
     def read(self, sphere_id):
-        del sphere_id
-        return SimpleNamespace(
-            encounters_policy=self.policy,
-            name="Sphere",
-            site=SimpleNamespace(domain="sphere.example.com"),
-        )
+        return self.rows[sphere_id]
 
 
 class FakeUsers:
@@ -87,11 +89,12 @@ class FakeUsers:
 
 class FakeSpheres:
     def __init__(self, roles=None):
+        # Keyed on (sphere_pk, user_slug), so a test can give someone a role in
+        # another sphere and see it refused here.
         self.roles = roles or {}
 
     def manager_role(self, sphere_id, user_slug):
-        del sphere_id
-        return self.roles.get(user_slug)
+        return self.roles.get((sphere_id, user_slug))
 
 
 class FakeEncounters:
@@ -137,14 +140,21 @@ class FakeEncounters:
     def delete(self, pk):
         del self.rows[pk]
 
+    @staticmethod
+    def _visible(rows, sphere_id, user_id):
+        return [
+            row
+            for row in rows.values()
+            if row.sphere_id == sphere_id
+            and (row.is_public or row.creator_id == user_id)
+        ]
+
     def list_visible_upcoming(self, sphere_id, user_id, limit):
-        del user_id
-        rows = [row for row in self.rows.values() if row.sphere_id == sphere_id]
+        rows = self._visible(self.rows, sphere_id, user_id)
         return rows[:limit] if limit is not None else rows
 
     def list_visible_past(self, sphere_id, user_id, limit):
-        del user_id
-        return [row for row in self.past.values() if row.sphere_id == sphere_id][:limit]
+        return self._visible(self.past, sphere_id, user_id)[:limit]
 
 
 class FakeRSVPs:
@@ -168,7 +178,8 @@ class FakeRSVPs:
         return len(self.list_by_encounter(encounter_id))
 
     def count_by_encounters(self, encounter_ids):
-        return {pk: self.count_by_encounter(pk) for pk in encounter_ids}
+        counts = {pk: self.count_by_encounter(pk) for pk in encounter_ids}
+        return {pk: count for pk, count in counts.items() if count}
 
     def recent_rsvp_exists(self, ip_address, seconds=60):
         del seconds

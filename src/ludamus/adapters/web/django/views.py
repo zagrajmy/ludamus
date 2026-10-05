@@ -3,13 +3,10 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from email import message_from_bytes, policy
 from enum import StrEnum, auto
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -48,7 +45,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
     build_room_lanes,
     build_schedule_days,
-    group_sessions_by_state,
 )
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
@@ -140,47 +136,6 @@ class DesignPageView(TemplateView):
             ("b", "Radio B", False, "design-radio-b"),
         ]
         return context
-
-
-class CapturedEmail(NamedTuple):
-    subject: str
-    to: str
-    date: str
-    body: str
-
-
-def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
-    if not directory.exists():
-        return []
-    emails: list[CapturedEmail] = []
-    for log_file in sorted(directory.glob("*.log"), reverse=True):
-        for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
-            if not (raw := chunk.strip()):
-                continue
-            message = message_from_bytes(raw, policy=policy.default)
-            body = message.get_body(preferencelist=("plain", "html"))
-            emails.append(
-                CapturedEmail(
-                    subject=str(message["Subject"] or ""),
-                    to=str(message["To"] or ""),
-                    date=str(message["Date"] or ""),
-                    body=body.get_content() if body else "",
-                )
-            )
-    return emails
-
-
-class StagingEmailInboxView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        if not settings.EMAIL_FILE_PATH or not self.request.user.is_staff:
-            raise Http404
-        return TemplateResponse(
-            self.request,
-            "staging_email_inbox.html",
-            {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
-        )
 
 
 def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:
@@ -289,12 +244,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # The day-major grouping only feeds the card-grid layout; the compact
         # schedule renders from schedule_days instead, so skip the pass there.
-        card_days: list[CardDay] = []
-        if not compact_schedule:
-            ended, current, future_unavailable = group_sessions_by_state(sessions_data)
-            card_days = build_card_days(
-                ended=ended, current=current, future_unavailable=future_unavailable
-            )
+        card_days: list[CardDay] = (
+            [] if compact_schedule else build_card_days(hour_data)
+        )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
         # The compact schedule offers two layouts: the chronological ledger

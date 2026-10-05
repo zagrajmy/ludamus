@@ -24,73 +24,75 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        <form id="track-edit-form" method="post" class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Track Details" %}</h3>
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_name">{% translate "Name" context "place" %}</label>
-                            <input type="text"
-                                   name="name"
-                                   id="id_name"
-                                   value="{{ form.name.value|default:'' }}"
-                                   class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox"
-                                       name="is_public"
-                                       id="id_is_public"
-                                       {% if form.is_public.value %}checked{% endif %}
-                                       class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
-                                <span class="text-sm font-medium text-foreground">{% translate "Public track" %}</span>
-                            </label>
-                            <p class="mt-1 text-xs text-foreground-muted">
-                                {% translate "Public tracks are shown to proposers in the submission wizard, and their sessions appear on the event schedule." %}
-                            </p>
-                        </div>
-                        {% if spaces %}
+    <div class="panel-bleed">
+        {% if current_event %}
+            <form id="track-edit-form" method="post" class="max-w-2xl">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Track Details" %}</h3>
+                        <div class="space-y-6">
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Spaces" %}</label>
-                                <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
-                                    {% for space in spaces %}
-                                        <label class="flex items-center gap-2 py-1 cursor-pointer">
-                                            <input type="checkbox"
-                                                   name="space_pks"
-                                                   value="{{ space.pk }}"
-                                                   {% if space.pk in selected_space_pks %}checked{% endif %}
-                                                   class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
-                                            <span class="text-sm text-foreground">{{ space.name }}</span>
-                                        </label>
-                                    {% endfor %}
-                                </div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_name">{% translate "Name" context "place" %}</label>
+                                <input type="text"
+                                       name="name"
+                                       id="id_name"
+                                       value="{{ form.name.value|default:'' }}"
+                                       class="w-full border {% if form.name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
                             </div>
-                        {% endif %}
-                        {% if managers %}
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Managers" %}</label>
-                                <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
-                                    {% for manager in managers %}
-                                        <label class="flex items-center gap-2 py-1 cursor-pointer">
-                                            <input type="checkbox"
-                                                   name="manager_pks"
-                                                   value="{{ manager.pk }}"
-                                                   {% if manager.pk in selected_manager_pks %}checked{% endif %}
-                                                   class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
-                                            <span class="text-sm text-foreground">{{ manager.name|default:manager.username }}</span>
-                                        </label>
-                                    {% endfor %}
-                                </div>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox"
+                                           name="is_public"
+                                           id="id_is_public"
+                                           {% if form.is_public.value %}checked{% endif %}
+                                           class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
+                                    <span class="text-sm font-medium text-foreground">{% translate "Public track" %}</span>
+                                </label>
+                                <p class="mt-1 text-xs text-foreground-muted">
+                                    {% translate "Public tracks are shown to proposers in the submission wizard, and their sessions appear on the event schedule." %}
+                                </p>
                             </div>
-                        {% endif %}
+                            {% if spaces %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Spaces" %}</label>
+                                    <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
+                                        {% for space in spaces %}
+                                            <label class="flex items-center gap-2 py-1 cursor-pointer">
+                                                <input type="checkbox"
+                                                       name="space_pks"
+                                                       value="{{ space.pk }}"
+                                                       {% if space.pk in selected_space_pks %}checked{% endif %}
+                                                       class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
+                                                <span class="text-sm text-foreground">{{ space.name }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if managers %}
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Managers" %}</label>
+                                    <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
+                                        {% for manager in managers %}
+                                            <label class="flex items-center gap-2 py-1 cursor-pointer">
+                                                <input type="checkbox"
+                                                       name="manager_pks"
+                                                       value="{{ manager.pk }}"
+                                                       {% if manager.pk in selected_manager_pks %}checked{% endif %}
+                                                       class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
+                                                <span class="text-sm text-foreground">{{ manager.name|default:manager.username }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
-            </div>
-        </form>
-    {% endif %}
+            </form>
+        {% endif %}
+    </div>
 {% endblock content %}

@@ -29,6 +29,10 @@ description — run it rather than trusting a hardcoded list here. Most used:
 - Don't ignore lint rules globally.
 - No redundant migrations: if something can be done with a settings toggle or a
   single MCP call, it does not require a migration.
+- Migration conflict with `main`: renumber the branch's own migrations on top
+  of main's leaf, in order, and re-point the first one's `dependencies` to
+  that leaf. Drop the branch's merge migrations. Never rename, renumber, or
+  edit a migration already on `main`.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
@@ -136,6 +140,10 @@ has the per-file recipe. New code must use `request.services`; never extend the
   the view, and test that a foreign id 404/422s without side effects.
 - Keep `__init__.py` empty and import each symbol from the module that defines
   it. The allowed facade exceptions are listed in the `glimpse` skill.
+- Client IP comes only from `get_client_ip` in `gates/web/django/helpers.py`.
+  Production sits behind Cloudflare, so `REMOTE_ADDR` and `X-Forwarded-For`
+  name the proxy; the helper reads `CF-Connecting-IP`. Never read those
+  headers directly. Topology in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Translation conventions (Polish)
 

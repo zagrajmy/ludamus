@@ -23,13 +23,18 @@ def _category(pk, name):
 
 
 class FakeCategories:
+    # Every row belongs to EVENT_PK; any other event sees nothing.
     def __init__(self, rows=(), *, proposals=None):
         self.rows = {row.pk: row for row in rows}
         # pk -> proposal count
         self.proposals = proposals or {}
+        self.created = []
+
+    def _in_event(self, event_id):
+        return self.rows if event_id == EVENT_PK else {}
 
     def create(self, event_id, name):
-        del event_id
+        self.created.append((event_id, name))
         pk = max(self.rows, default=0) + 1
         self.rows[pk] = _category(pk, name)
         return self.rows[pk]
@@ -38,26 +43,25 @@ class FakeCategories:
         del self.rows[pk]
 
     def get_category_stats(self, event_id):
-        del event_id
         return {
             pk: {"proposals_count": count, "accepted_count": 0}
             for pk, count in self.proposals.items()
+            if pk in self._in_event(event_id)
         }
 
     def has_proposals(self, pk):
         return self.proposals.get(pk, 0) > 0
 
     def pks_with_proposals(self, event_id):
-        del event_id
-        return frozenset(pk for pk in self.rows if self.has_proposals(pk))
+        return frozenset(
+            pk for pk in self._in_event(event_id) if self.has_proposals(pk)
+        )
 
     def list_by_event(self, event_id):
-        del event_id
-        return list(self.rows.values())
+        return list(self._in_event(event_id).values())
 
     def read_by_slug(self, event_id, slug):
-        del event_id
-        for row in self.rows.values():
+        for row in self._in_event(event_id).values():
             if row.slug == slug:
                 return row
         raise NotFoundError
@@ -86,6 +90,7 @@ class TestProposalCategoriesService:
 
         assert created.name == "Turniej"
         assert list(repo.rows) == [created.pk]
+        assert repo.created == [(EVENT_PK, "Turniej")]
 
     def test_delete_removes_an_empty_category(self):
         repo = FakeCategories([_category(1, "Prelekcja")])

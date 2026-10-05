@@ -135,6 +135,19 @@ class TestListing:
 
         assert [entry.pk for entry in entries] == [1]
 
+    def test_lists_every_integration_entry_without_filters(self):
+        service = _service(
+            _LogEntries(
+                _entry(1, title="Dragons"),
+                _entry(2, title="Cats", status=ImportLogStatus.SKIPPED),
+                _entry(3, title="Dragons", integration_id=8),
+            )
+        )
+
+        entries = service.list_log_entries(event_id=EVENT_ID, pk=INTEGRATION_PK)
+
+        assert [entry.pk for entry in entries] == [1, 2]
+
     def test_listing_an_integration_outside_the_event_raises(self):
         service = _service(_LogEntries(_entry(1)))
 

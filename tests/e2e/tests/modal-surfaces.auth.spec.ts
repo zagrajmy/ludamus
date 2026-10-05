@@ -57,10 +57,14 @@ test.describe("Modal surfaces using page scroll lock", () => {
     // second line.
     const edit = dialog.getByRole("button", { name: "Edit session" });
     await expect(edit).toBeVisible();
-    const editBox = await edit.boundingBox();
-    expect(editBox).not.toBeNull();
-    expect(Math.round(editBox!.width)).toBe(44);
-    expect(Math.round(editBox!.height)).toBe(44);
+    // The footer's own view-transition group still interpolates its scale for
+    // a frame or two after settleViewTransitions resolves (its ::view-transition
+    // animation can clear one frame before the box's final size actually
+    // paints), so the box briefly reads a pixel or two off 44. Poll instead of
+    // reading once, so the assertion waits out that last frame rather than
+    // racing it.
+    await expect.poll(async () => Math.round((await edit.boundingBox())!.width)).toBe(44);
+    await expect.poll(async () => Math.round((await edit.boundingBox())!.height)).toBe(44);
 
     await context.close();
   });

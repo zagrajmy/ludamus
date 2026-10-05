@@ -52,14 +52,15 @@ class VenuesService(VenuesServiceProtocol):
         # the chosen node to the leaf rooms beneath it (a leaf maps to itself).
         scopes: list[PrintScopeOptionDTO] = []
 
-        def walk(node: SpaceTreeNodeDTO, prefix: str) -> None:
-            path = f"{prefix} > {node.space.name}" if prefix else node.space.name
+        def walk(node: SpaceTreeNodeDTO, ancestors: list[SpaceTreeNodeDTO]) -> None:
+            lineage = [*ancestors, node]
+            path = " > ".join(step.space.name for step in lineage)
             scopes.append(PrintScopeOptionDTO(pk=node.space.pk, name=path))
             for child in node.children:
-                walk(child, path)
+                walk(child, lineage)
 
         for root in self._spaces.list_tree(event_pk):
-            walk(root, "")
+            walk(root, [])
         return scopes
 
     def resolve_scope(self, event_pk: int, scope_pk: int | None) -> PrintScopeDTO:
@@ -115,16 +116,17 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         # offered separately by the caller as the "Top level" option.
         targets: list[tuple[int, str]] = []
 
-        def walk(node: SpaceTreeNodeDTO, prefix: str, *, under_self: bool) -> None:
-            path = f"{prefix} > {node.space.name}" if prefix else node.space.name
-            skip = under_self or node.space.pk == pk
+        def walk(node: SpaceTreeNodeDTO, ancestors: list[SpaceTreeNodeDTO]) -> None:
+            lineage = [*ancestors, node]
+            path = " > ".join(step.space.name for step in lineage)
+            skip = any(step.space.pk == pk for step in lineage)
             if not skip and node.accepts_children:
                 targets.append((node.space.pk, path))
             for child in node.children:
-                walk(child, path, under_self=skip)
+                walk(child, lineage)
 
         for root in self._spaces.list_tree(event_pk):
-            walk(root, "", under_self=False)
+            walk(root, [])
         return targets
 
     def reorder(
