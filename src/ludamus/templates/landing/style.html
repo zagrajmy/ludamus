@@ -507,8 +507,8 @@ themes — newsprint rather than white once the page around them is dark.
         overflow: hidden;
         transition: left 0.35s var(--ease-out), top 0.35s var(--ease-out),
             width 0.35s var(--ease-out), height 0.35s var(--ease-out),
-            transform 0.35s var(--ease-out), background-color 0.2s, filter 0.2s,
-            box-shadow 0.2s, border-color 0.2s;
+            transform 0.35s var(--ease-out), background-color 0.2s, border-color 0.2s,
+            filter 0.2s, box-shadow 0.2s;
     }
 
     .landing .cA {
@@ -779,13 +779,14 @@ themes — newsprint rather than white once the page around them is dark.
 
     /* Light mode prints cards on the sheet's own paper: no box to pad or
        round. Dark mode keeps them as white cards on the dark page. The
-       borders go at once, with the padding: the list drops border-color,
-       last in the chip's transition, so it skips the stagger. */
+       border goes by width, which is not transitioned, so it vanishes at
+       once rather than on the card's stagger; 1px of padding takes its
+       place so the titles stay put. */
     html:not(.dark) #k6:checked~.sc .chip {
-        padding: 0;
+        padding: 1px;
+        border-width: 0;
         border-color: transparent;
         border-radius: 0;
-        transition-property: left, top, width, height, transform, background-color, filter, box-shadow;
     }
 
     #k6:checked~.sc .chip .ct {
