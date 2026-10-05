@@ -45,13 +45,20 @@ class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
     def slug_exists(sphere_id: int, slug: str) -> bool: ...
 
 
+class EventSetupRepositoryProtocol(Protocol):
+    @staticmethod
+    def copy(*, source_id: int, target_id: int, start_time: datetime) -> None: ...
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]: ...
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO: ...
+    def create(
+        self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
+    ) -> EventDTO: ...
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -146,9 +153,9 @@ class ConfirmationSessionDTO(BaseModel):
     room_name: str
     start_time: datetime | None
     end_time: datetime | None
-    # Only a scheduled item can be confirmed, so only a scheduled item carries
-    # an agenda item pk — the template hangs the checkbox off it.
-    agenda_item_pk: int | None
+    # Only a placed session has a schedule to confirm, so the template hangs
+    # the checkbox off this.
+    is_scheduled: bool
     is_confirmed: bool
     co_facilitator_names: list[str]
     other_track_names: list[str]
@@ -218,7 +225,7 @@ class EventConfirmationsServiceProtocol(Protocol):
         facilitator_pk: int,
         confirmed: bool,
         contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
+        session_pk: int | None = None,
     ) -> None: ...
 
 

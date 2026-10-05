@@ -178,6 +178,7 @@ class TestTimetableAssignView:
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
+        assert session.schedule_confirmed is True
         assert session.agenda_item.session_confirmed is True
 
     def test_assign_away_from_the_time_slot_opens_one_and_widens_the_event(
@@ -267,6 +268,7 @@ class TestTimetableAssignView:
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
+        assert session.schedule_confirmed is False
         assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")

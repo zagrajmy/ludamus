@@ -1,12 +1,16 @@
 from ludamus.mills.event import EventConfirmationsService
+from ludamus.pacts.event import ConfirmationOrganizerRowDTO
 from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
+_EVENT = 1
 _ADA = 11
 _BEN = 12
 
 _EVENT_SCHEDULED = 11
 _EVENT_CONFIRMED = 7
 _EVENT_PCT = 64
+_ADA_PCT = 75
+_BEN_PCT = 25
 _UNCLAIMED_FACILITATORS = 5
 _CLAIMED_FACILITATORS = 3
 _RPG_TRACK = 21
@@ -28,12 +32,12 @@ def _row(
 
 class FakeFacilitators:
     def __init__(self, rows: list[ConfirmationCountsRow]) -> None:
-        self._rows = rows
+        self._rows = {_EVENT: rows}
 
     def count_confirmations_by_organizer(
         self, event_pk: int
     ) -> list[ConfirmationCountsRow]:
-        return self._rows
+        return self._rows[event_pk]
 
 
 class FakeAgendaItems:
@@ -44,30 +48,32 @@ class FakeAgendaItems:
         without_facilitator: int = 0,
         totals: ConfirmationTotalsRow | None = None,
     ) -> None:
-        self._rows = rows
-        self._without_facilitator = without_facilitator
-        self._totals = totals or ConfirmationTotalsRow(
-            scheduled_count=0, confirmed_count=0
-        )
+        self._rows = {_EVENT: rows}
+        self._without_facilitator = {_EVENT: without_facilitator}
+        self._totals = {
+            _EVENT: (
+                totals or ConfirmationTotalsRow(scheduled_count=0, confirmed_count=0)
+            )
+        }
 
     def count_confirmations_by_track(
         self, event_pk: int
     ) -> list[ConfirmationCountsRow]:
-        return self._rows
+        return self._rows[event_pk]
 
     def count_without_facilitator(self, event_pk: int) -> int:
-        return self._without_facilitator
+        return self._without_facilitator[event_pk]
 
     def count_event_totals(self, event_pk: int) -> ConfirmationTotalsRow:
-        return self._totals
+        return self._totals[event_pk]
 
 
 class FakeTracks:
     def __init__(self, names: dict[int, list[str]]) -> None:
-        self._names = names
+        self._names = {_EVENT: names}
 
     def list_manager_names_by_event(self, event_pk: int) -> dict[int, list[str]]:
-        return self._names
+        return self._names[event_pk]
 
 
 def _service(
@@ -97,11 +103,29 @@ class TestDashboard:
             ),
         )
 
-        dashboard = service.dashboard(1)
+        dashboard = service.dashboard(_EVENT)
 
         assert dashboard.scheduled_count == _EVENT_SCHEDULED
         assert dashboard.confirmed_count == _EVENT_CONFIRMED
         assert dashboard.progress_pct == _EVENT_PCT
+        assert dashboard.organizers == [
+            ConfirmationOrganizerRowDTO(
+                organizer_id=_ADA,
+                organizer_name="Ada",
+                facilitator_count=3,
+                scheduled_count=8,
+                confirmed_count=6,
+                progress_pct=_ADA_PCT,
+            ),
+            ConfirmationOrganizerRowDTO(
+                organizer_id=_BEN,
+                organizer_name="Ben",
+                facilitator_count=2,
+                scheduled_count=4,
+                confirmed_count=1,
+                progress_pct=_BEN_PCT,
+            ),
+        ]
 
     def test_unclaimed_row_counts_apart_from_claimed(self):
         service = _service(
@@ -111,7 +135,7 @@ class TestDashboard:
             ]
         )
 
-        dashboard = service.dashboard(1)
+        dashboard = service.dashboard(_EVENT)
 
         assert dashboard.unclaimed_facilitator_count == _UNCLAIMED_FACILITATORS
         assert dashboard.claimed_facilitator_count == _CLAIMED_FACILITATORS
@@ -126,7 +150,7 @@ class TestDashboard:
             totals=ConfirmationTotalsRow(scheduled_count=0, confirmed_count=0),
         )
 
-        dashboard = service.dashboard(1)
+        dashboard = service.dashboard(_EVENT)
 
         assert dashboard.progress_pct == 0
         assert dashboard.organizers[0].progress_pct == 0
@@ -151,10 +175,24 @@ class TestDashboard:
             sessions=None,
         )
 
-        dashboard = service.dashboard(1)
+        dashboard = service.dashboard(_EVENT)
 
         assert dashboard.tracks[0].manager_names == ["Ada", "Ben"]
         assert dashboard.tracks[0].progress_pct == _HALF
         assert dashboard.tracks[1].track_pk == 0
         assert dashboard.tracks[1].manager_names == []
         assert dashboard.without_facilitator_count == _ORPHANS
+
+    def test_a_no_track_row_borrows_no_managers(self):
+        service = EventConfirmationsService(
+            facilitators=FakeFacilitators([]),
+            agenda_items=FakeAgendaItems(
+                rows=[_row(key=None, name="", facilitators=1, scheduled=1, confirmed=0)]
+            ),
+            tracks=FakeTracks({1: ["Zed"]}),
+            sessions=None,
+        )
+
+        dashboard = service.dashboard(_EVENT)
+
+        assert dashboard.tracks[0].manager_names == []
