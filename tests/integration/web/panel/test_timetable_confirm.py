@@ -42,25 +42,25 @@ class TestTimetableConfirmView:
     def test_redirects_anonymous_user_to_login(self, client, event):
         url = self.get_url(event)
 
-        response = client.post(url, data={"agenda_item_pk": 1, "confirmed": "true"})
+        response = client.post(url, data={"session_pk": 1, "confirmed": "true"})
 
         assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
-            self.get_url(event), data={"agenda_item_pk": 1, "confirmed": "true"}
+            self.get_url(event), data={"session_pk": 1, "confirmed": "true"}
         )
 
         assert_not_a_manager(response)
 
-    def test_missing_agenda_item_pk_returns_422(self, panel_client, event):
+    def test_missing_session_pk_returns_422(self, panel_client, event):
         response = panel_client.post(self.get_url(event), data={})
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
-    def test_unknown_agenda_item_returns_422(self, panel_client, event):
+    def test_unknown_session_returns_422(self, panel_client, event):
         response = panel_client.post(
-            self.get_url(event), data={"agenda_item_pk": 99999, "confirmed": "true"}
+            self.get_url(event), data={"session_pk": 99999, "confirmed": "true"}
         )
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
@@ -70,30 +70,49 @@ class TestTimetableConfirmView:
 
         response = panel_client.post(
             self.get_url(event),
-            data={"agenda_item_pk": agenda_item.pk, "confirmed": "true"},
+            data={"session_pk": agenda_item.session.pk, "confirmed": "true"},
         )
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
         agenda_item.refresh_from_db()
+        agenda_item.session.refresh_from_db()
+        assert agenda_item.session.schedule_confirmed is True
         assert agenda_item.session_confirmed is True
 
     def test_unconfirm_persists(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
+        agenda_item.session.schedule_confirmed = True
+        agenda_item.session.save()
         agenda_item.session_confirmed = True
         agenda_item.save()
 
         response = panel_client.post(
             self.get_url(event),
-            data={"agenda_item_pk": agenda_item.pk, "confirmed": "false"},
+            data={"session_pk": agenda_item.session.pk, "confirmed": "false"},
         )
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
         agenda_item.refresh_from_db()
+        agenda_item.session.refresh_from_db()
+        assert agenda_item.session.schedule_confirmed is False
         assert agenda_item.session_confirmed is False
 
-    def test_returns_422_for_agenda_item_from_another_event(
+    def test_returns_422_for_a_session_not_on_the_timetable(self, panel_client, event):
+        session = SessionFactory(
+            category=ProposalCategoryFactory(event=event), status="accepted"
+        )
+
+        response = panel_client.post(
+            self.get_url(event), data={"session_pk": session.pk, "confirmed": "true"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        session.refresh_from_db()
+        assert session.schedule_confirmed is False
+
+    def test_returns_422_for_session_from_another_event(
         self, panel_client, sphere, event
     ):
         other_event = EventFactory(sphere=sphere)
@@ -101,30 +120,28 @@ class TestTimetableConfirmView:
 
         response = panel_client.post(
             self.get_url(event),
-            data={"agenda_item_pk": other_item.pk, "confirmed": "true"},
+            data={"session_pk": other_item.session.pk, "confirmed": "true"},
         )
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
-        other_item.refresh_from_db()
-        assert other_item.session_confirmed is False
+        other_item.session.refresh_from_db()
+        assert other_item.session.schedule_confirmed is False
 
     def test_invalid_confirmed_value_returns_422(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
 
         response = panel_client.post(
             self.get_url(event),
-            data={"agenda_item_pk": agenda_item.pk, "confirmed": "maybe"},
+            data={"session_pk": agenda_item.session.pk, "confirmed": "maybe"},
         )
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
-        agenda_item.refresh_from_db()
-        assert agenda_item.session_confirmed is False
+        agenda_item.session.refresh_from_db()
+        assert agenda_item.session.schedule_confirmed is False
 
     def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-confirm", kwargs={"slug": "nonexistent"})
 
-        response = panel_client.post(
-            url, data={"agenda_item_pk": 1, "confirmed": "true"}
-        )
+        response = panel_client.post(url, data={"session_pk": 1, "confirmed": "true"})
 
         assert_event_not_found(response)

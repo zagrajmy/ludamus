@@ -45,6 +45,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 coverage-client/
+mutants/
 *.cover
 *.py,cover
 .hypothesis/

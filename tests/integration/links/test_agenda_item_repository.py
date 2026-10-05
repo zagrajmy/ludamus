@@ -41,7 +41,7 @@ class TestAgendaItemRepositoryRead:
         assert dto.pk == agenda_item.pk
         assert dto.session_id == session.pk
         assert dto.space_id == space.pk
-        assert dto.session_confirmed == agenda_item.session_confirmed
+        assert dto.schedule_confirmed == session.schedule_confirmed
         assert dto.start_time == agenda_item.start_time
         assert dto.end_time == agenda_item.end_time
         assert dto.session_title == session.title

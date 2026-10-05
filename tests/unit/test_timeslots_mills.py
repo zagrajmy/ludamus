@@ -1,9 +1,24 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.timeslots import MIDNIGHT, PROGRAMME_DAYS
+import pytest
+
+from ludamus.mills.timeslots import (
+    MIDNIGHT,
+    PROGRAMME_DAYS,
+    DayTurnover,
+    slot_windows_by_local_date,
+)
+from ludamus.pacts import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
+# Zones on either side of UTC whose date differs from the server's at these
+# instants, so a window dated by the server clock lands on the wrong day.
+_WEST = ZoneInfo("America/New_York")
+_EAST = ZoneInfo("Pacific/Auckland")
+# Goes back two hours at 01:00Z on the last Sunday of October, so the wall
+# clock runs 01:00-03:00 twice and a 02:00 turnover sits inside that repeat.
+_TROLL = ZoneInfo("Antarctica/Troll")
 
 
 class TestMidnightWindows:
@@ -66,3 +81,71 @@ class TestProgrammeDays:
         assert PROGRAMME_DAYS.date_of(
             datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ
         ) == date(2026, 10, 24)
+
+    def test_a_turnover_inside_the_repeated_hours_clamps_by_instant(self):
+        # 01:30 and 02:00 here are the second pass of the wall clock, both
+        # after the 02:00 turnover (00:00Z) that opened the day.
+        start = datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
+        end = datetime(2026, 10, 25, 2, tzinfo=UTC)
+
+        assert DayTurnover(2).windows(start=start, end=end, tz=_TROLL) == [
+            (start.astimezone(_TROLL), end.astimezone(_TROLL))
+        ]
+
+    def test_an_empty_or_reversed_interval_yields_no_window(self):
+        start = datetime(2026, 7, 10, 12, tzinfo=_TZ)
+
+        assert not MIDNIGHT.windows(start=start, end=start, tz=_TZ)
+
+    def test_an_interval_ending_exactly_at_midnight_gives_the_next_day_nothing(self):
+        start = datetime(2026, 7, 10, 22, tzinfo=_TZ)
+        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+
+        assert MIDNIGHT.windows(start=start, end=midnight, tz=_TZ) == [
+            (start, midnight)
+        ]
+
+    @pytest.mark.parametrize(
+        ("tz", "start", "expected_date"),
+        (
+            (_WEST, datetime(2026, 7, 11, 2, tzinfo=UTC), date(2026, 7, 10)),
+            (_EAST, datetime(2026, 7, 10, 14, tzinfo=UTC), date(2026, 7, 11)),
+        ),
+    )
+    def test_a_day_is_dated_by_the_event_zone_not_the_server_clock(
+        self, tz, start, expected_date
+    ):
+        end = start + timedelta(hours=1)
+
+        assert MIDNIGHT.date_of(start, tz) == expected_date
+        assert MIDNIGHT.windows(start=start, end=end, tz=tz) == [
+            (start.astimezone(tz), end.astimezone(tz))
+        ]
+
+
+class TestSlotWindows:
+    def test_groups_split_windows_under_their_local_date(self):
+        slot = TimeSlotDTO(
+            pk=1,
+            start_time=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            end_time=datetime(2026, 7, 11, 2, tzinfo=_TZ),
+        )
+        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+
+        assert slot_windows_by_local_date([slot], _TZ) == {
+            date(2026, 7, 10): [(slot.start_time, midnight)],
+            date(2026, 7, 11): [(midnight, slot.end_time)],
+        }
+
+    def test_groups_under_the_event_zone_date_not_the_server_clock(self):
+        slot = TimeSlotDTO(
+            pk=1,
+            start_time=datetime(2026, 7, 10, 14, tzinfo=UTC),
+            end_time=datetime(2026, 7, 10, 15, tzinfo=UTC),
+        )
+
+        assert slot_windows_by_local_date([slot], _EAST) == {
+            date(2026, 7, 11): [
+                (slot.start_time.astimezone(_EAST), slot.end_time.astimezone(_EAST))
+            ]
+        }

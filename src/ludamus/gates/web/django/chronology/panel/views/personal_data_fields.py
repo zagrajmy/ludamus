@@ -18,14 +18,30 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
-    undeletable_field_reasons,
+    parse_personal_field_form_data,
 )
-from ludamus.gates.web.django.forms import PersonalDataFieldForm
-from ludamus.gates.web.django.panel import parse_requirement_selection
+from ludamus.gates.web.django.forms import (
+    PersonalDataFieldEditForm,
+    PersonalDataFieldForm,
+)
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
+from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from django.http import HttpResponse
+
+    from ludamus.pacts.submissions import PersonalFieldSummary
+
+
+def answered_field_reasons(summaries: Iterable[PersonalFieldSummary]) -> dict[int, str]:
+    # The same question `delete` refuses on, rendered beside the row instead
+    # of taking the click.
+    return dict.fromkeys(
+        (summary.field.pk for summary in summaries if summary.answer_count),
+        _("Already answered"),
+    )
 
 
 class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -49,7 +65,7 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = cfp_tab_urls(slug)
         summaries = service.list_summaries(current_event.pk)
         context["fields"] = summaries
-        context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
+        context["undeletable_field_reasons"] = answered_field_reasons(summaries)
         return TemplateResponse(
             self.request, "panel/personal-data-fields.html", context
         )
@@ -70,15 +86,10 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.personal_data_fields
-        form_ctx = service.get_create_form_context(current_event.pk)
         context["active_nav"] = "cfp"
         context["form"] = PersonalDataFieldForm(
-            initial={"max_length": DEFAULT_FIELD_MAX_LENGTH}
+            initial={"max_length": DEFAULT_FIELD_MAX_LENGTH, "order": 0}
         )
-        context["categories"] = form_ctx.categories
-        context["required_category_pks"] = set()
-        context["optional_category_pks"] = set()
         return TemplateResponse(
             self.request, "panel/personal-data-field-create.html", context
         )
@@ -93,32 +104,16 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.personal_data_fields
         form = PersonalDataFieldForm(self.request.POST)
-        selection = parse_requirement_selection(
-            self.request.POST, prefix="category_", order_key="category_order"
-        )
-        cat_reqs = selection.requirements
-
         if not form.is_valid():
-            form_ctx = service.get_create_form_context(current_event.pk)
             context["active_nav"] = "cfp"
             context["form"] = form
-            context["categories"] = form_ctx.categories
-            context["required_category_pks"] = {
-                pk for pk, is_req in cat_reqs.items() if is_req
-            }
-            context["optional_category_pks"] = {
-                pk for pk, is_req in cat_reqs.items() if not is_req
-            }
             return TemplateResponse(
                 self.request, "panel/personal-data-field-create.html", context
             )
 
-        service.create(
-            event_pk=current_event.pk,
-            data=parse_field_form_data(form),
-            category_requirements=selection,
+        self.request.services.personal_data_fields.create(
+            current_event.pk, parse_personal_field_form_data(form)
         )
 
         messages.success(self.request, _("Personal data field created successfully."))
@@ -142,18 +137,20 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         service = self.request.services.personal_data_fields
         try:
-            edit_ctx = service.get_edit_form_context(current_event.pk, field_slug)
+            field = service.read(current_event.pk, field_slug)
         except NotFoundError:
             messages.error(self.request, _("Personal data field not found."))
             return redirect("panel:personal-data-fields", slug=slug)
 
-        field = edit_ctx.field
         initial = {
             "name": field.name,
             "question": field.question,
             "max_length": field.max_length,
             "help_text": field.help_text,
             "is_public": field.is_public,
+            "is_required": field.is_required,
+            "order": field.order,
+            "field_type": field.field_type,
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
@@ -162,10 +159,9 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "cfp"
         context["field"] = field
-        context["form"] = PersonalDataFieldForm(initial=initial)
-        context["categories"] = edit_ctx.categories
-        context["required_category_pks"] = edit_ctx.required_category_pks
-        context["optional_category_pks"] = edit_ctx.optional_category_pks
+        context["form"] = PersonalDataFieldEditForm(initial=initial)
+        context["can_switch_type"] = is_text_field_kind(field.field_type)
+        context["text_kind_choices"] = PersonalDataFieldEditForm.FIELD_TYPE_CHOICES
         return TemplateResponse(
             self.request, "panel/personal-data-field-edit.html", context
         )
@@ -182,53 +178,51 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         service = self.request.services.personal_data_fields
         try:
-            edit_ctx = service.get_edit_form_context(current_event.pk, field_slug)
+            field = service.read(current_event.pk, field_slug)
         except NotFoundError:
             messages.error(self.request, _("Personal data field not found."))
             return redirect("panel:personal-data-fields", slug=slug)
 
-        field = edit_ctx.field
-        form = PersonalDataFieldForm(self.request.POST)
-        selection = parse_requirement_selection(
-            self.request.POST, prefix="category_", order_key="category_order"
-        )
-        cat_reqs = selection.requirements
+        # A field that cannot switch renders no type control, so the form
+        # learns the type from the field; the checkbox guard needs one. The
+        # switch itself is the service's call, which is why this validates
+        # against every type rather than the switchable ones the page offers.
+        data = self.request.POST.copy()
+        if not data.get("field_type"):
+            data["field_type"] = field.field_type
+        form = PersonalDataFieldForm(data)
 
-        if not form.is_valid():
+        def rerender() -> HttpResponse:
             context["active_nav"] = "cfp"
             context["field"] = field
             context["form"] = form
-            context["categories"] = edit_ctx.categories
-            context["required_category_pks"] = {
-                pk for pk, is_req in cat_reqs.items() if is_req
-            }
-            context["optional_category_pks"] = {
-                pk for pk, is_req in cat_reqs.items() if not is_req
-            }
+            context["can_switch_type"] = is_text_field_kind(field.field_type)
+            context["text_kind_choices"] = PersonalDataFieldEditForm.FIELD_TYPE_CHOICES
             return TemplateResponse(
                 self.request, "panel/personal-data-field-edit.html", context
             )
 
-        options_text = form.cleaned_data.get("options") or ""
-        options: list[str] | None = None
-        if field.field_type == "select":
-            options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
+        if not form.is_valid():
+            return rerender()
 
-        service.update(
-            event_pk=current_event.pk,
-            field_slug=field_slug,
-            data={
-                "name": form.cleaned_data["name"],
-                "question": form.cleaned_data["question"],
-                "max_length": form.cleaned_data.get("max_length") or 0,
-                "help_text": form.cleaned_data.get("help_text") or "",
-                "is_public": form.cleaned_data.get("is_public", False),
-                "options": options,
-                "is_multiple": form.cleaned_data.get("is_multiple") or False,
-                "allow_custom": form.cleaned_data.get("allow_custom") or False,
-            },
-            category_requirements=selection,
-        )
+        new_type = form.cleaned_data.get("field_type") or ""
+        try:
+            service.update(
+                event_pk=current_event.pk,
+                field_slug=field_slug,
+                data={
+                    **parse_field_form_data(form),
+                    "is_required": form.cleaned_data.get("is_required") or False,
+                    "order": form.cleaned_data.get("order") or 0,
+                },
+                field_type=new_type if is_text_field_kind(new_type) else None,
+            )
+        except FieldTypeSwitchError:
+            form.add_error(
+                "field_type",
+                _("Only text and Discord username fields can switch type."),
+            )
+            return rerender()
 
         messages.success(self.request, _("Personal data field updated successfully."))
         return redirect("panel:personal-data-fields", slug=slug)
@@ -259,7 +253,8 @@ class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, Vie
 
         if not deleted:
             messages.error(
-                self.request, _("Cannot delete field that is used in categories.")
+                self.request,
+                _("Cannot delete a field that people have already answered."),
             )
             return redirect("panel:personal-data-fields", slug=slug)
 

@@ -1,7 +1,4 @@
 from ludamus.links.db.django.models import (
-    PersonalDataField,
-    PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
     ProposalCategory,
     SessionField,
     SessionFieldOption,
@@ -9,9 +6,6 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories import ProposalCategoryRepository
 from tests.integration.conftest import EventFactory, ProposalCategoryFactory
-
-# Anything but the DTO's own default of 50, so a fallback would show.
-CONFIGURED_MAX_LENGTH = 300
 
 
 class TestProposalCategoryRepositoryGetOrCreateBySlug:
@@ -35,66 +29,6 @@ class TestProposalCategoryRepositoryGetOrCreateBySlug:
 
         assert second == first
         assert ProposalCategory.objects.filter(event=event).count() == 1
-
-
-class TestListPersonalFieldRequirements:
-    @staticmethod
-    def _create_field_with_options(category, *, name, slug):
-        field = PersonalDataField.objects.create(
-            event=category.event,
-            name=name,
-            question=f"{name}?",
-            slug=slug,
-            field_type="select",
-        )
-        PersonalDataFieldOption.objects.create(
-            field=field, label="Zeta", value="z", order=0
-        )
-        PersonalDataFieldOption.objects.create(
-            field=field, label="Beta", value="b", order=1
-        )
-        PersonalDataFieldOption.objects.create(
-            field=field, label="Alpha", value="a", order=1
-        )
-        PersonalDataFieldRequirement.objects.create(category=category, field=field)
-
-    def test_orders_options_by_order_then_label(self):
-        category = ProposalCategoryFactory()
-        self._create_field_with_options(category, name="Diet", slug="diet")
-
-        result = ProposalCategoryRepository.list_personal_field_requirements(
-            category.pk
-        )
-
-        assert [o.label for o in result[0].field.options] == ["Zeta", "Alpha", "Beta"]
-
-    def test_keeps_the_organizers_max_length(self):
-        category = ProposalCategoryFactory()
-        PersonalDataFieldRequirement.objects.create(
-            category=category,
-            field=PersonalDataField.objects.create(
-                event=category.event,
-                name="Bio",
-                question="Bio?",
-                slug="bio",
-                field_type="text",
-                max_length=CONFIGURED_MAX_LENGTH,
-            ),
-        )
-
-        result = ProposalCategoryRepository.list_personal_field_requirements(
-            category.pk
-        )
-
-        assert result[0].field.max_length == CONFIGURED_MAX_LENGTH
-
-    def test_query_count_is_constant_across_fields(self, django_assert_num_queries):
-        category = ProposalCategoryFactory()
-        self._create_field_with_options(category, name="Diet", slug="diet")
-        self._create_field_with_options(category, name="Shirt", slug="shirt")
-
-        with django_assert_num_queries(2):
-            ProposalCategoryRepository.list_personal_field_requirements(category.pk)
 
 
 class TestListSessionFieldRequirements:

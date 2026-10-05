@@ -1,16 +1,13 @@
 import zipfile
 from dataclasses import replace
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from io import BytesIO
 
 import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.mark.parametrize(
@@ -375,7 +372,8 @@ _SHEET_XML = (
 ).encode()
 
 
-def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
+def _workbook(names: tuple[str, ...]) -> BytesIO:
+    buffer = BytesIO()
     sheets = "".join(
         f'<sheet name="{name}" sheetId="{index}" r:id="rId{index}"/>'
         for index, name in enumerate(names, start=1)
@@ -384,7 +382,7 @@ def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
         f'<Relationship Id="rId{index}" Target="worksheets/sheet{index}.xml"/>'
         for index in range(1, len(names) + 1)
     )
-    with zipfile.ZipFile(path, "w") as archive:
+    with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr(
             "xl/workbook.xml",
             f'<workbook xmlns="{_MAIN_NS}" xmlns:r="{_DOC_NS}">'
@@ -400,13 +398,13 @@ def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
         )
         for index in range(1, len(names) + 1):
             archive.writestr(f"xl/worksheets/sheet{index}.xml", _SHEET_XML)
+    return buffer
 
 
-def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> None:
-    path = tmp_path / "programme.xlsx"
-    _write_workbook(path, wb.SHEETS)
+def test_load_workbook_reads_cells_merges_and_shared_strings() -> None:
+    workbook = _workbook(wb.SHEETS)
 
-    sheets = wb.load_workbook(path)
+    sheets = wb.load_workbook(workbook)
 
     assert sorted(sheets) == sorted(wb.SHEETS)
     assert sheets["Sobota"].cells == {"C3": "0.5", "C4": "Wprowadzenie"}
@@ -414,9 +412,8 @@ def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> 
     assert sheets["Sobota"].hidden_columns == frozenset({4, 5})
 
 
-def test_load_workbook_rejects_a_workbook_missing_a_day(tmp_path: Path) -> None:
-    path = tmp_path / "programme.xlsx"
-    _write_workbook(path, ("Piątek",))
+def test_load_workbook_rejects_a_workbook_missing_a_day() -> None:
+    workbook = _workbook(("Piątek",))
 
     with pytest.raises(ValueError, match="missing sheets: Niedziela, Sobota"):
-        wb.load_workbook(path)
+        wb.load_workbook(workbook)

@@ -89,6 +89,7 @@ export default defineConfig({
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
         sound: resolve(rootDir, "src/sound.ts"),
         "space-tree": resolve(rootDir, "src/space-tree.ts"),
+        "staging-inbox": resolve(rootDir, "src/staging-inbox.ts"),
         stepper: resolve(rootDir, "src/stepper.ts"),
         "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),

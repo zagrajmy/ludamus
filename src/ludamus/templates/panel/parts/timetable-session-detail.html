@@ -55,7 +55,7 @@
                         data-assign-session-pk="{{ session.pk }}"
                         data-assign-duration="{{ duration_minutes }}"
                         data-assign-back-url="{{ back_url }}"
-                        data-assign-confirmed="{{ agenda_item.session_confirmed|yesno:'true,false' }}"
+                        data-assign-confirmed="{{ agenda_item.schedule_confirmed|yesno:'true,false' }}"
                         data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Reassign" %}</button>
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
@@ -79,16 +79,16 @@
                   data-refresh-url="{{ detail_url }}"
                   data-refresh-target="#left-pane">
                 {% csrf_token %}
-                <input type="hidden" name="agenda_item_pk" value="{{ agenda_item.pk }}">
-                {% if agenda_item.session_confirmed %}
-                    <div class="text-xs text-success mb-2">{% icon "check-circle" class="w-3.5 h-3.5 inline" %} {% translate "Program item confirmed" %}</div>
+                <input type="hidden" name="session_pk" value="{{ session.pk }}">
+                {% if agenda_item.schedule_confirmed %}
+                    <div class="text-xs text-success mb-2">{% icon "check-circle" class="w-3.5 h-3.5 inline" %} {% translate "Schedule confirmed" %}</div>
                     <input type="hidden" name="confirmed" value="false">
                     {% translate "Undo confirmation" as t_unconfirm %}
                     {% tessera_button t_unconfirm variant="secondary" button_type="submit" size="sm" %}
                 {% else %}
-                    <div class="text-xs text-foreground-muted mb-2">{% translate "Program item not confirmed" %}</div>
+                    <div class="text-xs text-foreground-muted mb-2">{% translate "Schedule not confirmed" %}</div>
                     <input type="hidden" name="confirmed" value="true">
-                    {% translate "Confirm program item" as t_confirm %}
+                    {% translate "Confirm schedule" as t_confirm %}
                     {% tessera_button t_confirm variant="primary" button_type="submit" size="sm" %}
                 {% endif %}
             </form>
