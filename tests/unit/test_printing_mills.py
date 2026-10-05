@@ -8,12 +8,7 @@ from ludamus.mills.printing import (
     PrintMaterialsService,
 )
 from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
-from ludamus.pacts.printing import (
-    PrintablesReminderDTO,
-    PrintablesReminderRecipientDTO,
-    PrintOptionDTO,
-    PrintQueryDTO,
-)
+from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
 from tests.unit.factories import event_dto
 
 
@@ -561,10 +556,7 @@ class TestPrintablesReminderService:
                 event_name="Konwent",
                 event_slug="konwent",
                 sphere_domain="k.example",
-                recipients=[
-                    PrintablesReminderRecipientDTO(user_id=1, email="a@k.example"),
-                    PrintablesReminderRecipientDTO(user_id=2, email="b@k.example"),
-                ],
+                recipients=[1, 2],
             ),
             PrintablesReminderDTO(
                 event_pk=2,
@@ -585,10 +577,9 @@ class TestPrintablesReminderService:
         assert sent == len(due)
         assert reminders.queries == [(now, PRINTABLES_REMINDER_LEAD_TIME)]
         assert reminders.sent == [(1, now), (2, now)]
-        assert [(n.recipient_email, n.event_slug) for n in notifier.notifications] == [
-            ("a@k.example", "konwent"),
-            ("b@k.example", "konwent"),
-        ]
+        assert [
+            (n.recipient_user_id, n.event_slug) for n in notifier.notifications
+        ] == [(1, "konwent"), (2, "konwent")]
 
     def test_mark_printed_records_the_event(self):
         reminders = _Reminders([])

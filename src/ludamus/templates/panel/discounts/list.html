@@ -13,28 +13,46 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if rows %}
+    {% if rows or filters_active %}
         <div class="panel-bleed">
-            <div class="flex flex-wrap justify-end gap-2 max-sm:p-3">
-                <form method="post"
-                      action="{% url 'panel:discount-sync' slug=current_event.slug %}"
-                      class="contents"
-                      data-confirm="{% translate 'Apply the agenda? Creators with scheduled program get their rule discount, creators left without it lose the creator mark and the discount the rules gave them, and discounts assigned by hand stay untouched.' %}"
-                      data-confirm-action="{% translate 'Apply agenda' %}">
-                    {% csrf_token %}
-                    {% translate "Apply agenda" as t_sync %}
-                    {% tessera_button t_sync size="sm" icon="arrow-path" full_width_mobile=True %}
+            <div class="flex flex-wrap items-end justify-between gap-2 max-sm:p-3">
+                <form method="get" data-autosubmit class="w-full sm:w-48 min-w-0">
+                    {% translate "Accreditation" as t_accreditation %}
+                    {% include "components/label.html" with for_id="filter-accreditation" text=t_accreditation only %}
+                    {% select id="filter-accreditation" name="accreditation" class="truncate" %}
+                        <option value="">{% translate "All accreditations" %}</option>
+                        {% for value, label in accreditation_types %}
+                            <option value="{{ value }}"
+                                    {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    {% endselect %}
                 </form>
-                {% url 'panel:event-discount-settings' slug=current_event.slug as rules_url %}
-                {% translate "Discount rules" as t_rules %}
-                {% tessera_button t_rules href=rules_url variant="secondary" size="sm" icon="adjustments-horizontal" full_width_mobile=True %}
-                {% url 'panel:discount-export' slug=current_event.slug as export_url %}
-                {% translate "Export accreditation sheet" as t_export %}
-                {% comment %}The label is longer than a phone viewport, so the
-                button stretches rather than overflowing its right edge.{% endcomment %}
-                {% tessera_button t_export href=export_url variant="secondary" size="sm" icon="arrow-up-tray" full_width_mobile=True %}
+                <div class="flex flex-wrap justify-end gap-2">
+                    <form method="post"
+                          action="{% url 'panel:discount-sync' slug=current_event.slug %}"
+                          class="contents"
+                          data-confirm="{% translate 'Apply the agenda? Creators with scheduled program get their rule discount, creators left without it lose the creator mark and the discount the rules gave them, and discounts assigned by hand stay untouched.' %}"
+                          data-confirm-action="{% translate 'Apply agenda' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ back_url }}">
+                        {% translate "Apply agenda" as t_sync %}
+                        {% tessera_button t_sync size="sm" icon="arrow-path" full_width_mobile=True %}
+                    </form>
+                    {% url 'panel:event-discount-settings' slug=current_event.slug as rules_url %}
+                    {% translate "Discount rules" as t_rules %}
+                    {% tessera_button t_rules href=rules_url variant="secondary" size="sm" icon="adjustments-horizontal" full_width_mobile=True %}
+                    {% url 'panel:discount-export' slug=current_event.slug as export_url %}
+                    {% translate "Export accreditation sheet" as t_export %}
+                    {% comment %}The label is longer than a phone viewport, so the
+                    button stretches rather than overflowing its right edge.{% endcomment %}
+                    {% with export_href=export_url|add:"?"|add:request.GET.urlencode %}
+                        {% tessera_button t_export href=export_href variant="secondary" size="sm" icon="arrow-down-tray" full_width_mobile=True %}
+                    {% endwith %}
+                </div>
             </div>
         </div>
+    {% endif %}
+    {% if rows %}
         {% tessera_table flush=True %}
             <thead class="bg-bg-tertiary">
                 <tr>
@@ -86,12 +104,15 @@
                             {% if row.discount %}
                                 {% url 'panel:discount-edit' slug=current_event.slug pk=row.discount.pk as edit_url %}
                                 {% translate "Edit" as t_edit %}
-                                {% tessera_button t_edit href=edit_url variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False data_row_action=True %}
+                                {% with next_query=back_url|urlencode %}
+                                    {% tessera_button t_edit href=edit_url|add:"?next="|add:next_query variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False data_row_action=True %}
+                                {% endwith %}
                                 <form method="post"
                                       action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
                                       class="inline"
                                       data-confirm="{% translate "Are you sure you want to remove this discount?" %}">
                                     {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ back_url }}">
                                     {% translate "Remove" as t_remove %}
                                     {% tessera_button t_remove variant="danger" size="sm" icon="trash" full_width_mobile=False %}
                                 </form>
@@ -113,8 +134,9 @@
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"
                     aria-labelledby="discount-assign-modal-{{ assignment.facilitator.pk }}-title">
                 <form method="post"
-                      action="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=assignment.facilitator.pk %}?assign={{ assignment.facilitator.pk }}">
+                      action="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=assignment.facilitator.pk %}?assign={{ assignment.facilitator.pk }}{% if filter_accreditation %}&amp;accreditation={{ filter_accreditation|urlencode }}{% endif %}">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ back_url }}">
                     <div class="px-6 pt-5 pb-4">
                         <h3 id="discount-assign-modal-{{ assignment.facilitator.pk }}-title"
                             class="font-semibold text-foreground">{% translate "Assign discount" %}</h3>
@@ -134,6 +156,15 @@
                 </form>
             </dialog>
         {% endfor %}
+    {% elif filters_active %}
+        <div class="panel-bleed">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
+                {% url 'panel:discounts' slug=current_event.slug as clear_url %}
+                {% translate "Clear filters" as t_clear %}
+                {% tessera_button t_clear href=clear_url variant="secondary" %}
+            </div>
+        </div>
     {% else %}
         <div class="panel-bleed">
             <div class="card p-8 text-center">
