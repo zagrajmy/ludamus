@@ -81,6 +81,8 @@ test.describe("Landing", () => {
       await page.goto("/");
       const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
       const stage = grid.locator(".stage");
+      // elementFromPoint only sees what is in the viewport.
+      await grid.scrollIntoViewIfNeeded();
       // The stage and its chips clip with overflow: hidden, so content that
       // does not fit is cut off rather than spilling: compare boxes instead.
       const overflowing = () =>
@@ -108,9 +110,18 @@ test.describe("Landing", () => {
                 offenders.push(`${box.className} > ${child.textContent?.trim()}`);
               }
             }
-            // Badges and the warning dot keep 2px clear of the title's text.
             const title = box.querySelector(".ct");
             if (!title) continue;
+            // A flex item never shrinks below its longest word, so a word wider
+            // than the chip widens the title into the chip's padding. Offsets
+            // ignore act 1's rotation.
+            const chip = box as HTMLElement;
+            const titleEl = title as HTMLElement;
+            const contentRight = chip.clientWidth - parseFloat(getComputedStyle(chip).paddingRight);
+            if (titleEl.offsetLeft + titleEl.offsetWidth > contentRight + 1) {
+              offenders.push(`${box.className} > ${title.textContent?.trim()} into padding`);
+            }
+            // Badges and the warning dot keep 2px clear of the title's text.
             const range = document.createRange();
             range.selectNodeContents(title);
             const lines = [...range.getClientRects()];
@@ -125,6 +136,19 @@ test.describe("Landing", () => {
                   r.bottom > line.top - 2,
               );
               if (hit) offenders.push(`${box.className} > ${child.textContent?.trim()} on title`);
+            }
+            // Cards may overlap, as in act 1's pile, but never over a title.
+            for (const line of lines) {
+              for (const fraction of [0.02, 0.5, 0.98]) {
+                const top = document.elementFromPoint(
+                  line.left + line.width * fraction,
+                  line.top + line.height / 2,
+                );
+                if (!box.contains(top)) {
+                  offenders.push(`${box.className} > ${title.textContent?.trim()} under a card`);
+                  break;
+                }
+              }
             }
           }
           // Room names and times sit in fixed-width columns.

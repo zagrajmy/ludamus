@@ -653,49 +653,55 @@ themes — newsprint rather than white once the page around them is dark.
         transform: rotate(-2.2deg);
     }
 
-    /* step 2 — review list with statuses */
+    /* step 2 — review list with statuses, on a 2-column, 4-row grid */
+    .landing .stage {
+        --k2-x1: 3.5%;
+        --k2-x2: 52.5%;
+        --k2-w: 44%;
+        --k2-h: 17%;
+        --k2-y: 13%;
+        --k2-step: 21%;
+    }
+
     #k2:checked~.sc .chip {
-        width: 44%;
-        height: 17%;
+        width: var(--k2-w);
+        height: var(--k2-h);
     }
 
     #k2:checked~.sc .chip .ct {
         font-size: 0.84em;
     }
 
-    #k2:checked~.sc .cA {
-        left: 3.5%;
-        top: 13%;
+    #k2:checked~.sc .cA,
+    #k2:checked~.sc .cB,
+    #k2:checked~.sc .cC,
+    #k2:checked~.sc .cD {
+        left: var(--k2-x1);
     }
 
-    #k2:checked~.sc .cB {
-        left: 3.5%;
-        top: 34%;
+    #k2:checked~.sc .cE,
+    #k2:checked~.sc .cF,
+    #k2:checked~.sc .cG {
+        left: var(--k2-x2);
     }
 
-    #k2:checked~.sc .cC {
-        left: 3.5%;
-        top: 55%;
+    #k2:checked~.sc .cA,
+    #k2:checked~.sc .cE {
+        top: var(--k2-y);
+    }
+
+    #k2:checked~.sc .cB,
+    #k2:checked~.sc .cF {
+        top: calc(var(--k2-y) + var(--k2-step));
+    }
+
+    #k2:checked~.sc .cC,
+    #k2:checked~.sc .cG {
+        top: calc(var(--k2-y) + 2 * var(--k2-step));
     }
 
     #k2:checked~.sc .cD {
-        left: 3.5%;
-        top: 76%;
-    }
-
-    #k2:checked~.sc .cE {
-        left: 52.5%;
-        top: 13%;
-    }
-
-    #k2:checked~.sc .cF {
-        left: 52.5%;
-        top: 34%;
-    }
-
-    #k2:checked~.sc .cG {
-        left: 52.5%;
-        top: 55%;
+        top: calc(var(--k2-y) + 3 * var(--k2-step));
     }
 
     /* step 3 — the grid, with a live conflict in Room B / 15:00 */
@@ -716,7 +722,7 @@ themes — newsprint rather than white once the page around them is dark.
         border-color: var(--color-danger);
     }
 
-    /* Room for the "!" dot pinned top-right: 1.5em wide in this same em. */
+    /* Reserves the width of the "!" dot pinned top-right, plus a gap. */
     #k3:checked~.sc .cF .ct,
     #k3:checked~.sc .cG .ct {
         padding-right: 1.8em;
@@ -769,6 +775,14 @@ themes — newsprint rather than white once the page around them is dark.
         box-shadow: none;
         border-color: var(--color-warm-500);
         background: var(--paper);
+    }
+
+    /* Light mode prints cards on the sheet's own paper: no box to pad or
+       round. Dark mode keeps them as white cards on the dark page. */
+    html:not(.dark) #k6:checked~.sc .chip {
+        padding: 0;
+        border-color: transparent;
+        border-radius: 0;
     }
 
     #k6:checked~.sc .chip .ct {
@@ -848,7 +862,14 @@ themes — newsprint rather than white once the page around them is dark.
             min-width: 17rem;
             height: auto;
             aspect-ratio: 10 / 13;
-            font-size: 0.88rem;
+            font-size: 0.94rem;
+            /* Review cards: one equal gutter across and down. */
+            --k2-x1: 2.5%;
+            --k2-x2: 51%;
+            --k2-w: 46.5%;
+            --k2-h: 20.4%;
+            --k2-y: 11%;
+            --k2-step: 21.9%;
         }
 
         /* Pills outgrow the strip's 8% band at phone size; let it hug them,
@@ -860,18 +881,81 @@ themes — newsprint rather than white once the page around them is dark.
             line-height: 1.3;
         }
 
-        /* A phone-sized chip has room for its text, not its desktop
-           padding. */
         /* NOTE: see the badge-translate note on the base .chip padding. */
         .landing .chip {
             gap: 0.2em;
-            padding: 0.35em 0.45em;
-            border-radius: 0.6em;
+            padding: 0.5em 0.55em;
+            border-radius: 0.7em;
         }
 
-        /* Room names and times sit in fixed-width columns: names wrap above
-           the first row, and the time column takes the stage's left gutter
-           up to the chips at 10%. */
+        /* Narrow timetable cards: the longest title word must clear the
+           padding. Acts 1 and 2 have wide cards and keep their own size. */
+        .landing .ct {
+            font-size: 0.68em;
+        }
+
+        /* The act-1 pile goes two cards wide so titles keep their size; the
+           cards stay rotated as on desktop. Tall cards let each one overlap
+           the blank lower part of the cards before it, never their titles. */
+        #k1:checked~.sc .chip {
+            width: 44%;
+            height: 21%;
+        }
+
+        #k1:checked~.sc .cA {
+            left: 3%;
+            top: 9.5%;
+        }
+
+        #k1:checked~.sc .cB {
+            left: 50%;
+            top: 10%;
+        }
+
+        #k1:checked~.sc .cC {
+            left: 25%;
+            top: 25%;
+        }
+
+        #k1:checked~.sc .cD {
+            left: 4%;
+            top: 39.5%;
+        }
+
+        #k1:checked~.sc .cE {
+            left: 52%;
+            top: 42%;
+        }
+
+        #k1:checked~.sc .cF {
+            left: 18%;
+            top: 55%;
+        }
+
+        #k1:checked~.sc .cG {
+            left: 47%;
+            top: 69%;
+        }
+
+        /* Narrow conflict cards: long words stay clear of the "!" dot. */
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 0.62em;
+        }
+
+        /* A half-height conflict card has room for its title only. */
+        #k3:checked~.sc .cF .ca {
+            display: none;
+        }
+
+        /* The full workshop keeps its host and badge: it takes most of the
+           gap above the 15:00 row. */
+        #k5:checked~.sc .cD {
+            height: 23.5%;
+        }
+
+        /* Fixed-width columns: room names wrap above the first row; the time
+           column takes the left gutter up to the chips at 10%. */
         .landing .rh {
             font-size: 0.66em;
             line-height: 1.1;
@@ -887,13 +971,11 @@ themes — newsprint rather than white once the page around them is dark.
 
         /* Authors give their row to the full title and its status badge. */
         #k1:checked~.sc .chip .ca,
-        #k2:checked~.sc .chip .ca,
-        #k5:checked~.sc .cD .ca {
+        #k2:checked~.sc .chip .ca {
             display: none;
         }
 
-        /* A full workshop's badge says it is full; the caption under the
-           grid tells the waiting-list half, which has no room on a phone. */
+        /* The "full" badge stands in for the waiting-list link on a phone. */
         #k5:checked~.sc .cD .cw {
             display: none;
         }
@@ -929,7 +1011,6 @@ themes — newsprint rather than white once the page around them is dark.
         }
     }
 
-    /* step descriptions */
     /* Once the load choreography has played, switching the audience view must
        not replay it: display:none -> block restarts CSS animations, so
        landing.ts latches .ld-done after the last delay+duration. */
