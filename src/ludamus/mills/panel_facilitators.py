@@ -572,18 +572,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise FacilitatorMergeError(MergeErrorReason.BAD_ACCREDITATION)
 
         with self._transaction.atomic():
-            # Lock every merged row, then re-read what the merge decides on: a
-            # claim cannot land between the organizer decision and its write, a
-            # session assignment naming a source cannot slip in before the
-            # delete, and a concurrent merge/delete surfaces as NotFound.
-            self._repos.facilitators.lock(
-                self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
-                for slug in slugs
+            facilitators = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, slugs
             )
-            facilitators = [
-                self._repos.facilitators.read_by_event_and_slug(event_id, slug)
-                for slug in slugs
-            ]
             linked = [f for f in facilitators if f.user_id is not None]
             if len(linked) > 1:
                 raise FacilitatorMergeError(MergeErrorReason.MULTIPLE_LINKED)
@@ -776,13 +767,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         # vanish from the program with nothing on the session saying why. The
         # sessions go first, or the facilitator stays.
         with self._transaction.atomic():
-            facilitator = self._repos.facilitators.read_by_event_and_slug(
-                event_id, facilitator_slug
-            )
             # Before the check, not after: a session assignment committing
             # between the two would otherwise leave this facilitator deleted
             # and still named on the program.
-            self._repos.facilitators.lock([facilitator.pk])
+            [facilitator] = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, [facilitator_slug]
+            )
             counts = self._repos.facilitators.count_sessions(facilitator.pk)
             if counts.live or counts.deleted:
                 raise FacilitatorActionError(

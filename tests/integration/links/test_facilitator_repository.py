@@ -262,6 +262,39 @@ class TestFacilitatorRepositoryLock:
             FacilitatorRepository.lock([0])
 
 
+class TestFacilitatorRepositoryLockByEventAndSlugs:
+    def test_rows_come_back_in_the_order_asked(self):
+        event = EventFactory.create()
+        organizer = UserFactory(name="Olga")
+        alice = _facilitator(event, organizer=organizer)
+        bob = Facilitator.objects.create(event=event, display_name="Bob", slug="bob")
+
+        locked = FacilitatorRepository.lock_by_event_and_slugs(
+            event.pk, ["bob", "alice"]
+        )
+
+        assert locked == [
+            FacilitatorRepository.read(bob.pk),
+            FacilitatorRepository.read(alice.pk),
+        ]
+        assert locked[1].organizer_name == "Olga"
+
+    def test_a_slug_from_another_event_is_not_found(self):
+        _facilitator(EventFactory.create())
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock_by_event_and_slugs(
+                EventFactory.create().pk, ["alice"]
+            )
+
+    def test_a_dead_row_is_not_found(self):
+        event = EventFactory.create()
+        _facilitator(event).soft_delete()
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock_by_event_and_slugs(event.pk, ["alice"])
+
+
 class TestSessionFacilitatorLinkRejectsDeleted:
     # The other ordering of the deletion race: the delete wins the lock, so the
     # assignment must find the row gone rather than write a link onto it.

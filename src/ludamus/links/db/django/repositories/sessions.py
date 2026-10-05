@@ -922,7 +922,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     @transaction.atomic
     def replace_facilitators_in_sessions(source_ids: list[int], target_id: int) -> None:
-        FacilitatorRepository.lock([target_id])
         for session in Session.objects.filter(facilitators__in=source_ids).distinct():
             session.facilitators.add(target_id)
             session.facilitators.remove(*source_ids)

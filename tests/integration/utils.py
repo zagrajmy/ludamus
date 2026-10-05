@@ -1,14 +1,19 @@
+import queue
 import re
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
 from django.contrib.messages import get_messages
+from django.db import connection, transaction
 from django.utils.timezone import now
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from django.http import HttpResponse
 
@@ -296,3 +301,60 @@ def input_tag(content: str, pk: int) -> str:
     match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
     assert match, f"no checkbox for user_{pk}"
     return match.group(0)
+
+
+LOCK_WAIT_TIMEOUT = 10
+
+
+def _wait_until_blocked(pid: int) -> None:
+    deadline = time.monotonic() + LOCK_WAIT_TIMEOUT
+    with connection.cursor() as cursor:
+        while time.monotonic() < deadline:
+            cursor.execute("SELECT cardinality(pg_blocking_pids(%s)) > 0", [pid])
+            if cursor.fetchone()[0]:
+                return
+            time.sleep(0.01)
+    raise AssertionError("the action never waited on a lock")
+
+
+def run_while_holding[T](rival: Callable[[], object], action: Callable[[], T]) -> T:
+    """Run `action` while `rival` sits in an open transaction.
+
+    The rival commits only once the action's own backend waits on a lock, so
+    its write lands in the middle of the action rather than before or after it.
+
+    Returns:
+        What `action` returns.
+    """
+    rival_done = threading.Event()
+    commit = threading.Event()
+    pids: queue.Queue[int] = queue.Queue()
+
+    def hold() -> None:
+        try:
+            with transaction.atomic():
+                rival()
+                rival_done.set()
+                commit.wait(LOCK_WAIT_TIMEOUT)
+        finally:
+            connection.close()
+
+    def act() -> T:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_backend_pid()")
+                pids.put(cursor.fetchone()[0])
+            return action()
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        holding = pool.submit(hold)
+        assert rival_done.wait(LOCK_WAIT_TIMEOUT)
+        acting = pool.submit(act)
+        try:
+            _wait_until_blocked(pids.get(timeout=LOCK_WAIT_TIMEOUT))
+        finally:
+            commit.set()
+        holding.result()
+        return acting.result()

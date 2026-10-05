@@ -323,18 +323,38 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return bool(qs.update(organizer=None))
 
     @staticmethod
+    def lock_by_event_and_slugs(
+        event_id: int, slugs: list[str]
+    ) -> list[FacilitatorDTO]:
+        # Held across a delete's `count_sessions` check, or a merge's decision
+        # and its writes, while every path that puts a facilitator on a session
+        # takes `lock`, so the two serialize: either the check sees the
+        # assignment, or the assignment waits and then finds the row gone.
+        # Postgres hands back each row as it stands once the lock is granted, so
+        # the caller decides on current data. `of=("self",)` because the
+        # organizer join is outer, and its nullable side cannot be locked.
+        rows = {
+            facilitator.slug: facilitator
+            for facilitator in (
+                _readable_facilitators()
+                .select_for_update(of=("self",))
+                .filter(event_id=event_id, slug__in=slugs)
+                .order_by("pk")
+            )
+        }
+        if missing := [slug for slug in slugs if slug not in rows]:
+            msg = f"Facilitators not found or deleted: {missing}"
+            raise NotFoundError(msg)
+        return [FacilitatorDTO.model_validate(rows[slug]) for slug in slugs]
+
+    @staticmethod
     def lock(pks: Iterable[int]) -> None:
-        # Held across the `count_sessions` check and the soft delete, and taken
-        # again by every path that puts a facilitator on a session, so the two
-        # serialize: either the check sees the assignment, or the assignment
-        # waits and then finds the row gone. Without it `atomic()` alone lets an
-        # assignment commit into the gap and leave a deleted facilitator on a
-        # live session. Locking through the alive manager is what makes the
-        # second ordering true: Postgres re-applies the filter once the lock is
-        # granted, so a row soft-deleted in the meantime drops out of the result
-        # and the missing pk becomes NotFound instead of a link onto a deleted
-        # facilitator. `order_by("pk")` keeps two concurrent multi-facilitator
-        # writes from deadlocking on each other.
+        # The session-assignment side of `lock_by_event_and_slugs`. Locking
+        # through the alive manager lets the assignment lose cleanly: Postgres
+        # re-applies the filter once the lock is granted, so a row soft-deleted
+        # in the meantime drops out of the result and the missing pk becomes
+        # NotFound instead of a link onto a deleted facilitator. `order_by("pk")`
+        # keeps two concurrent multi-facilitator writes from deadlocking.
         wanted = list(pks)
         locked = set(
             Facilitator.objects.select_for_update()

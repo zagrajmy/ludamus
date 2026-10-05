@@ -182,9 +182,10 @@ def _facilitator(pk, slug, user_id=None, guild_id=None, organizer_id=None):
 
 def _merge_service(facilitators, *, fields=(), membership=None):
     facilitators_repo = MagicMock()
-    facilitators_repo.read_by_event_and_slug.side_effect = _lookup(
-        {(1, f.slug): f for f in facilitators}
-    )
+    by_slug = {(1, f.slug): f for f in facilitators}
+    facilitators_repo.lock_by_event_and_slugs.side_effect = lambda event_id, slugs: [
+        by_slug[event_id, slug] for slug in slugs
+    ]
     values_repo = MagicMock()
     values_repo.read_for_facilitator_event.return_value = {}
     service, repos = _service_and_repos(
@@ -655,12 +656,9 @@ class FakeDeletionRepo:
         self._counts = FacilitatorSessionCountsDTO(live=live, deleted=0)
         self.calls = []
 
-    def lock(self, pks):
-        self.calls.append(("lock", list(pks)))
-
-    def read_by_event_and_slug(self, event_id, slug):
-        self.calls.append(("read", event_id, slug))
-        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+    def lock_by_event_and_slugs(self, event_id, slugs):
+        self.calls.append(("lock", event_id, slugs))
+        return [FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)]
 
     def count_sessions(self, pk):
         self.calls.append(("count_sessions", pk))
@@ -682,8 +680,7 @@ class TestFacilitatorDeletion:
         service.delete(event_id=1, facilitator_slug="alice", user_id=_ACTOR)
 
         assert facilitators.calls == [
-            ("read", 1, "alice"),
-            ("lock", [_FACILITATOR_PK]),
+            ("lock", 1, ["alice"]),
             ("count_sessions", _FACILITATOR_PK),
             ("soft_delete", _FACILITATOR_PK),
         ]
