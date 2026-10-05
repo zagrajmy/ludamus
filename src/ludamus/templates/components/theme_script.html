@@ -20,6 +20,8 @@
             theme;
         document.documentElement.classList.add(resolved);
         document.documentElement.style.colorScheme = resolved;
+        document.querySelector('meta[name="theme-color"]').content =
+            getComputedStyle(document.documentElement).getPropertyValue('--color-background').trim();
 
         // Force repaint then remove
         window.getComputedStyle(css).opacity;

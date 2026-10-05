@@ -11,6 +11,7 @@
         <meta name="description"
               content="Server error - Something went wrong on our server">
         <title>Server Error • 500</title>
+        <meta name="theme-color" content="#f0f1f3">
         <!-- This page does not extend base.html (it must stay self-contained
              so it renders even if something upstream is broken), so it is its
              own root: this is where its CSP nonce gets generated, and the
@@ -26,6 +27,9 @@
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
                 }
+                // NOTE: CSS isn't loaded yet, so these mirror --color-background in client/src/index.css.
+                document.querySelector('meta[name="theme-color"]').content =
+                    document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f0f1f3';
             })();
 
             document.addEventListener('DOMContentLoaded', function() {

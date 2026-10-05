@@ -67,6 +67,7 @@
         <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
+        <meta name="theme-color" content="#f0f1f3">
         {% comment %}Theme + favicon initialization (before CSS to prevent
         flash). Also the first nonce tag on every page that extends base.html,
         which is what generates the request's CSP nonce — every later script
@@ -81,6 +82,9 @@
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
                 }
+                // NOTE: CSS isn't loaded yet, so these mirror --color-background in client/src/index.css.
+                document.querySelector('meta[name="theme-color"]').content =
+                    document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f0f1f3';
             })();
         </script>
         {% vite_hmr_client %}
