@@ -777,11 +777,12 @@ themes — newsprint rather than white once the page around them is dark.
         background: var(--paper);
     }
 
-    /* Light mode prints cards on the sheet's own paper: no box to pad or
-       round. Dark mode keeps them as white cards on the dark page. The
-       border goes by width, which is not transitioned, so it vanishes at
-       once rather than on the card's stagger; 1px of padding takes its
-       place so the titles stay put. */
+    /* Light mode prints cards on the sheet's own paper, with no visible
+       box; dark mode keeps them as white cards on the dark page. The border
+       is removed by width, which .chip does not transition, so it goes at
+       once instead of on the card's stagger; 1px of padding stands in for it
+       so the titles stay put. The colour stays transparent so the border
+       fades back in, rather than flashing warm-500, when the act is left. */
     html:not(.dark) #k6:checked~.sc .chip {
         padding: 1px;
         border-width: 0;
