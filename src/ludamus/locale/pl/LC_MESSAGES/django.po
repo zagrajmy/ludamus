@@ -6130,6 +6130,15 @@ msgid "Run your event with Zagrajmy"
 msgstr "Zorganizuj wydarzenie z Zagrajmy"
 
 #: src/ludamus/templates/components/contact_cta.html
+#: src/ludamus/templates/landing/org_hero.html
+msgid "Run your event"
+msgstr "Zorganizuj wydarzenie"
+
+#: src/ludamus/templates/components/contact_cta.html
+msgid "Copy email"
+msgstr "Skopiuj e-mail"
+
+#: src/ludamus/templates/components/contact_cta.html
 msgid ""
 "We reply with a concrete plan for your event, and asking commits you to "
 "nothing."
@@ -7717,10 +7726,6 @@ msgstr "Organizacja wydarzeń"
 #: src/ludamus/templates/landing/org_hero.html
 msgid "without spreadsheet chaos"
 msgstr "bez chaosu w arkuszach"
-
-#: src/ludamus/templates/landing/org_hero.html
-msgid "Run your event"
-msgstr "Zorganizuj wydarzenie"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "See a real event's page"
