@@ -292,9 +292,12 @@ themes — newsprint rather than white once the page around them is dark.
         transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
 
-    .landing .ktabs label:hover {
-        background: var(--color-bg-tertiary);
-        color: var(--color-foreground);
+    /* A tap leaves :hover stuck on the last tab on touch screens. */
+    @media (hover: hover) and (pointer: fine) {
+        .landing .ktabs label:hover {
+            background: var(--color-bg-tertiary);
+            color: var(--color-foreground);
+        }
     }
 
     .landing .ktabs label b {
@@ -334,20 +337,14 @@ themes — newsprint rather than white once the page around them is dark.
         outline-offset: 2px;
     }
 
-    /* Narrower than the stage, the whole scene shrinks to fit instead of
-       scrolling sideways. tan(atan2()) turns the width ratio into the
-       unitless number zoom takes. It divides by px, not rem, so a larger
-       text size still enlarges the stage; the 0.45 floor keeps page zoom
-       from being cancelled out, and the wrapper scrolls past it. */
     .landing .stage {
-        zoom: clamp(0.45, tan(atan2(100cqw, 640px)), 1);
         position: relative;
         min-width: 40rem;
         height: 34rem;
         border: 1px solid var(--color-border);
         border-radius: 1.25rem;
         background: var(--color-bg-tertiary);
-        transition: background-color 0.5s, border-color 0.5s;
+        transition: background-color 0.25s, border-color 0.25s;
         overflow: hidden;
     }
 
@@ -369,9 +366,9 @@ themes — newsprint rather than white once the page around them is dark.
            properties, not `all`: `visibility` needs its own zero-length
            delayed step. */
         transition:
-            opacity 0.28s var(--ease-out),
-            filter 0.28s var(--ease-out),
-            visibility 0s linear 0.28s;
+            opacity 0.2s var(--ease-out),
+            filter 0.2s var(--ease-out),
+            visibility 0s linear 0.2s;
         pointer-events: none;
     }
 
@@ -392,7 +389,7 @@ themes — newsprint rather than white once the page around them is dark.
         position: absolute;
         inset: 0;
         opacity: 0;
-        transition: opacity 0.55s 0.15s;
+        transition: opacity 0.25s 0.1s;
         pointer-events: none;
     }
 
@@ -484,7 +481,7 @@ themes — newsprint rather than white once the page around them is dark.
         border: 2px dashed var(--color-danger);
         border-radius: 1rem;
         opacity: 0;
-        transition: opacity 0.5s 0.3s;
+        transition: opacity 0.2s 0.3s;
         pointer-events: none;
     }
 
@@ -506,10 +503,10 @@ themes — newsprint rather than white once the page around them is dark.
         border: 1px solid var(--color-border);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         overflow: hidden;
-        transition: left 0.65s var(--ease-out), top 0.65s var(--ease-out),
-            width 0.65s var(--ease-out), height 0.65s var(--ease-out),
-            transform 0.65s var(--ease-out), background-color 0.45s, border-color 0.45s,
-            filter 0.45s, box-shadow 0.45s;
+        transition: left 0.35s var(--ease-out), top 0.35s var(--ease-out),
+            width 0.35s var(--ease-out), height 0.35s var(--ease-out),
+            transform 0.35s var(--ease-out), background-color 0.2s, border-color 0.2s,
+            filter 0.2s, box-shadow 0.2s;
     }
 
     .landing .cA {
@@ -549,7 +546,7 @@ themes — newsprint rather than white once the page around them is dark.
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        transition: font-size 0.3s;
+        transition: font-size 0.2s;
     }
 
     .landing .warnDot {
@@ -803,7 +800,7 @@ themes — newsprint rather than white once the page around them is dark.
         border-radius: 0.55rem;
         opacity: 0;
         transform: rotate(3deg) translateY(16px);
-        transition: opacity 0.5s 0.35s, transform 0.6s 0.35s var(--ease-out);
+        transition: opacity 0.2s 0.25s, transform 0.3s 0.25s var(--ease-out);
         pointer-events: none;
         box-shadow: 0 10px 24px rgba(37, 34, 32, 0.14);
     }
@@ -839,23 +836,50 @@ themes — newsprint rather than white once the page around them is dark.
         }
     }
 
-    /* Keyed to the same container width as the zoom: at 480px the scene
-       sits at 0.75 and desktop type starts to fall under 9px, so it is set
-       larger to land near 10-11px at phone zoom (about 0.55). */
-    @container (max-width: 480px) {
+    /* Phones: the stage drops its 40rem floor but keeps the 40:34 shape
+       of the 40rem stage, so every percentage coordinate holds; type,
+       padding and radii shrink to fit a ~370px scene. */
+    @media (max-width: 42rem) {
+        .landing .stage {
+            min-width: 0;
+            height: auto;
+            aspect-ratio: 40 / 34;
+            border-radius: 0.9rem;
+        }
+
         .landing .ctx {
-            gap: 0.6rem;
+            gap: 0.3rem;
         }
 
         .landing .ctx>span {
-            font-size: 1.2rem;
+            font-size: 0.68rem;
+            white-space: nowrap;
+        }
+
+        .landing .ctx .cp {
+            gap: 0.2rem;
+            padding: 0.06rem 0.4rem;
+        }
+
+        /* The caption under the grid already names these two acts, and the
+           strip needs the room for its counts. */
+        .landing .ctx1>span:first-child,
+        .landing .ctx2>span:first-child {
+            display: none;
+        }
+
+        .landing .chip {
+            gap: 0.12rem;
+            padding: 0.3rem 0.4rem;
+            border-radius: 0.5rem;
         }
 
         .landing .chip .ct {
             flex-shrink: 0;
-            font-size: 1.15rem;
+            font-size: 0.66rem;
         }
 
+        #k1:checked~.sc .chip .ca,
         #k5:checked~.sc .cD .ca {
             display: none;
         }
@@ -864,59 +888,143 @@ themes — newsprint rather than white once the page around them is dark.
             -webkit-line-clamp: 1;
         }
 
+        #k5:checked~.sc .cD .cw {
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
         #k1:checked~.sc .chip .ct,
         #k2:checked~.sc .chip .ct {
-            font-size: 1.3rem;
+            font-size: 0.74rem;
         }
 
         #k3:checked~.sc .cF .ct,
         #k3:checked~.sc .cG .ct {
-            font-size: 1rem;
+            font-size: 0.58rem;
         }
 
         .landing .chip>span:not(.ct, .warnDot) {
-            font-size: 0.95rem;
+            font-size: 0.56rem;
+        }
+
+        .landing .chip .cb {
+            padding: 0 0.3rem;
         }
 
         .landing .warnDot {
-            width: 1.5rem;
-            height: 1.5rem;
-            font-size: 1rem;
-            line-height: 1.5rem;
+            top: 0.25rem;
+            right: 0.3rem;
+            width: 0.85rem;
+            height: 0.85rem;
+            font-size: 0.58rem;
+            line-height: 0.85rem;
         }
 
         .landing .rh {
-            font-size: 1rem;
+            font-size: 0.58rem;
             letter-spacing: 0.03em;
             white-space: nowrap;
         }
 
         .landing .tl {
-            font-size: 1.15rem;
+            font-size: 0.64rem;
+            padding-right: 0.3rem;
         }
 
         /* Frames Room B's 15:00 cell (39.66%/72%, 28.5% x 20%) with an
            even gap on every side; the percentage fit leaves the sides
-           visibly tighter than the top and bottom at phone zoom. */
+           visibly tighter than the top and bottom on a phone. */
         .landing .cellwarn {
-            left: calc(39.66% - 6px);
-            top: calc(72% - 6px);
-            width: calc(28.5% + 12px);
-            height: calc(20% + 12px);
-        }
-
-        .landing .cellwarn>span {
-            top: -1rem;
-            height: 1.7rem;
-            font-size: 0.9rem;
+            left: calc(39.66% - 3px);
+            top: calc(72% - 3px);
+            width: calc(28.5% + 6px);
+            height: calc(20% + 6px);
+            border-radius: 0.65rem;
         }
 
         .landing .doorcard {
-            width: 40%;
+            width: 46%;
+            padding: 0.5rem 0.6rem;
+        }
+
+        .landing .doorcard::before {
+            inset: 0.2rem;
         }
 
         .landing .doorcard>* {
-            font-size: 1.1rem;
+            font-size: 0.64rem;
+        }
+
+        .landing .doorcard>span {
+            font-size: 0.55rem;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+    }
+
+    /* 360px phones and narrower: one more step down, and the time column
+       gives up its padding so 10:00 clears the first room. */
+    @media (max-width: 22.5rem) {
+        .landing .stage {
+            min-width: 17rem;
+        }
+
+        .landing .ctx>span {
+            font-size: 0.58rem;
+        }
+
+        .landing .ctx .cp {
+            padding: 0.04rem 0.3rem;
+        }
+
+        .landing .chip {
+            padding: 0.25rem 0.3rem;
+        }
+
+        .landing .chip .ct,
+        #k1:checked~.sc .chip .ct,
+        #k2:checked~.sc .chip .ct {
+            font-size: 0.6rem;
+        }
+
+        #k3:checked~.sc .cF .ct,
+        #k3:checked~.sc .cG .ct {
+            font-size: 0.52rem;
+        }
+
+        /* A two-line title plus author leaves no room for the status. */
+        #k2:checked~.sc .chip .ct {
+            -webkit-line-clamp: 1;
+        }
+
+        #k2:checked~.sc .chip .ca,
+        #k5:checked~.sc .cD .cw {
+            display: none;
+        }
+
+        .landing .chip>span:not(.ct, .warnDot),
+        .landing .rh {
+            font-size: 0.5rem;
+        }
+
+        .landing .rh {
+            letter-spacing: 0;
+        }
+
+        .landing .tl {
+            font-size: 0.56rem;
+            padding-right: 0;
+        }
+
+        .landing .doorcard>* {
+            font-size: 0.56rem;
+        }
+
+        .landing .doorcard>span {
+            font-size: 0.5rem;
         }
     }
 

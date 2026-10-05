@@ -1,3 +1,4 @@
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
 test.describe("Landing", () => {
@@ -68,6 +69,50 @@ test.describe("Landing", () => {
 
     await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
     await expect(mamert).toBeHidden();
+  });
+
+  test("fits every act of the six-acts stage on a phone", async ({ page }, testInfo) => {
+    // iOS Safari 26.0 ignores zoom on rem lengths, so a zoomed stage
+    // overflowed there; the phone layout is plain breakpoints instead.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
+    const stage = grid.locator(".stage");
+
+    for (const act of ["01", "02", "03", "04", "05", "06"]) {
+      // The tab's number comes before the caption's under the grid.
+      await page
+        .getByRole("group", { name: "Pick an act." })
+        .getByText(act, { exact: true })
+        .first()
+        .click();
+      await expect(page.getByRole("radio", { name: new RegExp(`^${act}\\b`) })).toBeChecked();
+      await expect.poll(() => grid.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
+      const box = await stage.boundingBox();
+      if (!box) throw new Error("stage is not rendered");
+      // Chips glide into place; poll until the last one has landed inside.
+      await expect
+        .poll(() =>
+          stage.locator(".chip").evaluateAll(
+            (chips, frame) =>
+              chips.filter((chip) => {
+                const rect = chip.getBoundingClientRect();
+                return (
+                  rect.left < frame.x - 1 ||
+                  rect.right > frame.x + frame.width + 1 ||
+                  rect.bottom > frame.y + frame.height + 1
+                );
+              }).length,
+            box,
+          ),
+        )
+        .toBe(0);
+      await attachArtifacts(testInfo, {
+        name: `six-acts-phone-${act}`,
+        region: grid,
+        facts: { act, stage: { width: box.width, height: box.height } },
+      });
+    }
   });
 
   test("#gracze deep link opens the player view directly", async ({ page }) => {
