@@ -19,9 +19,21 @@ jobs:
       - run: mise exec -- poetry install
       - run: mise run test:mutation
 
+      - run: mise exec -- mutmut export-cicd-stats
+        if: ${{ !cancelled() }}
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: mutation-report
-          path: ./coverage/gremlins/gremlins.json
+          path: ./mutants/mutmut-cicd-stats.json
           retention-days: 30
+      - name: Notify Discord on failure
+        if: ${{ failure() }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MESSAGE: >-
+            Mutation tests failed on ${{ github.repository }}@${{ github.ref_name }}:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg content "$MESSAGE" '{content: $content}' \
+            | curl --fail-with-body -sS -H 'Content-Type: application/json' -d @- "$DISCORD_WEBHOOK_URL"

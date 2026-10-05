@@ -539,7 +539,6 @@ class TestEventPageMapLinks:
                 event,
                 url=url,
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,

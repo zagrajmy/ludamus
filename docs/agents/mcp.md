@@ -15,8 +15,12 @@ claude mcp add --transport http zagrajmy https://<domain>/mcp/
 claude mcp add --transport http zagrajmy-org https://<sphere-domain>/mcp/organizer/
 ```
 
+`/mcp` and `/mcp/organizer` answer without the trailing slash too; MCP
+clients don't follow a redirect on a POST.
+
 The client gets a 401 whose `WWW-Authenticate` header points at
-`/.well-known/oauth-protected-resource/mcp/` (or `.../mcp/organizer/`), which
+`/.well-known/oauth-protected-resource/mcp/` (or `.../mcp/organizer/`, each
+without the slash when the client used it that way), which
 names this site as the authorization server
 (`/.well-known/oauth-authorization-server`). The client then opens
 `/mcp/oauth/authorize/` in the browser. The user logs in and approves the
@@ -67,15 +71,17 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 ### Organizer tier
 
 Sphere managers mint a token from the **MCP access** tab on an event's
-settings (`/panel/event/<slug>/settings/mcp/`). Create the event in the
-panel first — `create_event` is maintainer-only.
+settings (`/panel/event/<slug>/settings/mcp/`), so a sphere needs one event
+before its managers can connect.
 
 Tokens embed `(user_id, sphere_id, event_id)`:
 
 - **Read** can see the whole sphere (sibling events, announcements, programme
   of another event in the sphere).
 - **Write** always targets the token's event. Write tools do not take
-  `event_id` from the client.
+  `event_id` from the client. The one exception is `create_event`, which adds
+  a new event to the token's sphere. The token stays bound to its old event;
+  to write the new event's programme, connect again and pick the new event.
 
 Every request re-checks `is_manager` and that the event still belongs to the
 sphere. The endpoint loads only organizer-scoped tools, so maintainer tools

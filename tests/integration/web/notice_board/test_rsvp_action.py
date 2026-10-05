@@ -101,6 +101,34 @@ class TestEncounterRSVPActionView:
         rsvp = EncounterRSVP.objects.get(user=user)
         assert not hasattr(rsvp, "ip_address")
 
+    def test_the_throttle_follows_the_cloudflare_connecting_ip(
+        self, authenticated_client, encounter, sphere
+    ):
+        authenticated_client.post(
+            self._url(EncounterFactory(sphere=sphere).share_code),
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1",
+            follow=True,
+        )
+
+        response = authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 10.0.0.2",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=(
+                (constants.ERROR, "Please wait a moment before signing up again."),
+            ),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+
     def test_ip_throttle(self, authenticated_client, encounter, sphere):
         authenticated_client.post(
             self._url(EncounterFactory(sphere=sphere).share_code),

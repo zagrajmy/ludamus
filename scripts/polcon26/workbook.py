@@ -9,6 +9,7 @@ from lxml import etree
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import IO
 
 # libxml2 caps entity amplification (no billion laughs); unresolved entities
 # also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
@@ -62,7 +63,7 @@ def parse_range(reference: str) -> tuple[int, int, int, int]:
     return (column_index(start), row_number(start), column_index(end), row_number(end))
 
 
-def load_workbook(path: Path) -> dict[str, SheetData]:
+def load_workbook(path: Path | IO[bytes]) -> dict[str, SheetData]:
     with zipfile.ZipFile(path) as archive:
         shared_strings = _shared_strings(archive)
         workbook = etree.fromstring(archive.read("xl/workbook.xml"), _PARSER)

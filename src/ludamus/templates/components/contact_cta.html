@@ -6,13 +6,12 @@
     `note_class` the line under it; on a dark surface, put the `dark` class
     on that surface instead of recolouring the pieces.
 
-    items-stretch, and a transparent border on the primary to match
-    btn-secondary's 1px: the button and the chip then share one box by
-    construction rather than by hand-tuned padding.
+    items-stretch: the button takes the bordered chip's height, so the two
+    share one box by construction rather than by hand-tuned padding.
 {% endcomment %}
 {% translate "Copy the address" as copy_address_label %}
 <div class="flex flex-wrap items-stretch gap-3 {{ extra_class|default:"" }}">
-    <a class="btn btn-primary border border-transparent"
+    <a class="btn btn-primary"
        href="mailto:{{ contact_email }}?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
     {% tessera_copy contact_email class="w-auto!" %}
         <code class="text-[0.9375rem] text-box-trim-both">{{ contact_email }}</code>

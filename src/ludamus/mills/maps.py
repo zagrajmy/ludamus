@@ -26,7 +26,7 @@ class _SpaceTree:
         # The schedule filters a session by its room or by the room's direct
         # parent (`venue:<pk>`), the same two facts its cards carry. A venue
         # whose rooms sit deeper has no filter, so its node stays plain text.
-        if not (children := self.children.get(pk, [])):
+        if not (children := self.children.get(pk)):
             return str(pk)
         if all(not self.children.get(child) for child in children):
             return f"venue:{pk}"
@@ -57,11 +57,13 @@ class _SpaceTree:
         return [build(pk) for pk in self.children[None] if pk in visible]
 
     def nearest(self, pk: int, direct: dict[int, int]) -> int | None:
-        current: int | None = pk
-        while current is not None and current not in direct:
+        current = pk
+        while current not in direct:
             space = self.by_pk.get(current)
-            current = space.parent_id if space else None
-        return direct.get(current) if current is not None else None
+            if space is None or space.parent_id is None:
+                return None
+            current = space.parent_id
+        return direct[current]
 
 
 def _present_map(event_map: EventMapRecordDTO, tree: _SpaceTree) -> EventMapDTO:

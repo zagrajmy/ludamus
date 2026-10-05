@@ -17,5 +17,7 @@ def qr_svg(
 ) -> str:
     qr = segno.make(url)
     buffer = io.BytesIO()
+    # pragma: no mutate start
     qr.save(buffer, kind="svg", scale=scale, dark=dark, xmldecl=xmldecl)
-    return buffer.getvalue().decode("utf-8")
+    # pragma: no mutate end
+    return buffer.getvalue().decode()

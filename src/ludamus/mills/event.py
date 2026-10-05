@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -21,6 +22,7 @@ from ludamus.pacts.event import (
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
@@ -183,7 +185,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         in_track = [
             row
             for row in session_rows
-            if row["agenda_item_pk"] is not None
+            if row["is_scheduled"]
             and track_pk in track_names.get(row["session_pk"], {})
         ]
         scheduled = len({row["session_pk"] for row in in_track})
@@ -230,7 +232,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         facilitator_pk: int,
         confirmed: bool,
         contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
+        session_pk: int | None = None,
     ) -> None:
         # Panel access proves this organizer manages the event, not that the
         # ids in the request belong to it — resolve the facilitator inside the
@@ -238,18 +240,17 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         self._read_facilitator_in_event(
             event_pk=event_pk, facilitator_pk=facilitator_pk
         )
-        # One UPDATE, so no transaction to open around it.
-        matched = self._agenda_items.set_confirmed_for_facilitator(
+        matched = self._sessions.set_schedule_confirmed_for_facilitator(
             event_pk=event_pk,
             facilitator_pk=facilitator_pk,
             confirmed=confirmed,
             contact_email=contact_email,
-            agenda_item_pk=agenda_item_pk,
+            session_pk=session_pk,
         )
-        # Naming one item and hitting nothing means the item is not this
+        # Naming one session and hitting nothing means it is not this
         # facilitator's (or not placed at all) — say so instead of reporting a
         # write that never happened. A scope-wide call legitimately matches none.
-        if agenda_item_pk is not None and not matched:
+        if session_pk is not None and not matched:
             raise NotFoundError
 
     def _read_facilitator_in_event(
@@ -312,7 +313,7 @@ def _session_dto(
         room_name=row["room_name"],
         start_time=row["start_time"],
         end_time=row["end_time"],
-        agenda_item_pk=row["agenda_item_pk"],
+        is_scheduled=row["is_scheduled"],
         is_confirmed=row["is_confirmed"],
         co_facilitator_names=[
             name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
@@ -324,7 +325,7 @@ def _session_dto(
 def _status_key(row: ConfirmationSessionRow) -> str:
     # Grouping runs on status alone. Confirmation is a checkbox on the row, so
     # ticking one never moves it into another group.
-    if row["agenda_item_pk"] is not None:
+    if row["is_scheduled"]:
         return SCHEDULED_STATUS
     return str(row["status"])
 
@@ -381,12 +382,12 @@ def _facilitator(
     listed: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
     counted: Counter[SessionStatus] = Counter()
     for session in sessions:
-        if session["agenda_item_pk"] is None and session["status"] in COUNTED_UNPLACED:
+        if not session["is_scheduled"] and session["status"] in COUNTED_UNPLACED:
             counted[session["status"]] += 1
         else:
             listed[session["contact_email"]].append(session)
 
-    scheduled_count = sum(1 for s in sessions if s["agenda_item_pk"] is not None)
+    scheduled_count = sum(1 for s in sessions if s["is_scheduled"])
     confirmed_count = sum(1 for s in sessions if s["is_confirmed"])
     return ConfirmationFacilitatorDTO(
         pk=row["pk"],
@@ -516,11 +517,13 @@ class EventsService(EventsServiceProtocol):
         events: EventsRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         spaces: SpaceTreeRepositoryProtocol,
+        setup: EventSetupRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._events = events
         self._spheres = spheres
         self._spaces = spaces
+        self._setup = setup
 
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -535,7 +538,9 @@ class EventsService(EventsServiceProtocol):
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
         return self._events.read_in_sphere(event_id, sphere_id)
 
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
+    def create(
+        self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
+    ) -> EventDTO:
         if data["end_time"] <= data["start_time"]:
             raise EventDatesInvalidError
         publication_time = data["publication_time"]
@@ -543,16 +548,42 @@ class EventsService(EventsServiceProtocol):
             raise EventPublicationInvalidError
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
+            source = (
+                None
+                if based_on_id is None
+                else self._events.read_in_sphere(based_on_id, sphere_id)
+            )
+            try:
+                slug = data["slug"] or generate_unique_slug(
+                    data["name"],
+                    lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                    fallback="event",
+                )
+            except SlugCollisionError as error:
+                raise EventSlugConflictError from error
             try:
                 with self._transaction.savepoint():
-                    event = self._events.create(sphere_id, data)
+                    event = self._events.create(sphere_id, {**data, "slug": slug})
             except DatabaseConstraintError as error:
-                if self._events.slug_exists(sphere_id, data["slug"]):
+                if self._events.slug_exists(sphere_id, slug):
                     raise EventSlugConflictError from error
                 raise
+            if source is not None:
+                self._setup.copy(
+                    source_id=source.pk,
+                    target_id=event.pk,
+                    start_time=data["start_time"],
+                )
             # Every event created through this service owns a space: accepting
             # a proposal, drawing the timetable and printing all need somewhere
             # to put a session, and a brand-new event would otherwise dead-end
             # those flows. Direct ORM writes (admin, fixtures) bypass this.
-            self._spaces.create_default(event.pk)
-            return event
+            if not self._spaces.list_tree(event.pk):
+                self._spaces.create_default(event.pk)
+            logger.info(
+                "Created event %s in sphere %s based on %s",
+                event.pk,
+                sphere_id,
+                based_on_id,
+            )
+            return self._events.read_in_sphere(event.pk, sphere_id)

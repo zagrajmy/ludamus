@@ -30,10 +30,6 @@ class UnitOfWork(DjangoTransaction, UnitOfWorkProtocol):
         return repositories.EventProposalSettingsRepository()
 
     @cached_property
-    def event_settings(self) -> repositories.EventSettingsRepository:
-        return repositories.EventSettingsRepository()
-
-    @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
 

@@ -22,6 +22,4 @@ def strip_trailing_junk(path: str) -> str | None:
     kept = segments[:-1]
     if cleaned:
         kept.append(cleaned)
-    result = "/" + "/".join(kept) + "/" if kept else "/"
-
-    return result if result != path else None
+    return "/" + "/".join(kept) + "/" if kept else "/"
