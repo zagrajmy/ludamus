@@ -1,9 +1,14 @@
 """Integration tests for the facilitator merge flow."""
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from itertools import starmap
 
+import pytest
 from django.contrib import messages
+from django.db import connection, transaction
 from django.urls import reverse
 
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
@@ -18,6 +23,8 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
 )
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -37,6 +44,59 @@ def _make_facilitator(event, *, display_name, slug, **kwargs):
     return Facilitator.objects.create(
         event=event, display_name=display_name, slug=slug, user=None, **kwargs
     )
+
+
+LOCK_WAIT_TIMEOUT = 10
+
+
+def _wait_for_a_blocked_lock():
+    deadline = time.monotonic() + LOCK_WAIT_TIMEOUT
+    with connection.cursor() as cursor:
+        while time.monotonic() < deadline:
+            cursor.execute("SELECT count(*) FROM pg_locks WHERE NOT granted")
+            if cursor.fetchone()[0]:
+                return
+            time.sleep(0.01)
+    raise AssertionError("the merge never waited on a row lock")
+
+
+def _merge_during(rival, merge):
+    """Run `merge` while `rival` sits in an open transaction.
+
+    The rival commits only once the merge waits on a row lock, so its write
+    lands in the middle of the merge rather than before or after it.
+
+    Returns:
+        The merge's response.
+    """
+    rival_done = threading.Event()
+    commit = threading.Event()
+
+    def hold():
+        try:
+            with transaction.atomic():
+                rival()
+                rival_done.set()
+                commit.wait(LOCK_WAIT_TIMEOUT)
+        finally:
+            connection.close()
+
+    def run_merge():
+        try:
+            return merge()
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        holding = pool.submit(hold)
+        assert rival_done.wait(LOCK_WAIT_TIMEOUT)
+        merging = pool.submit(run_merge)
+        try:
+            _wait_for_a_blocked_lock()
+        finally:
+            commit.set()
+        holding.result()
+        return merging.result()
 
 
 def _event_context(event):
@@ -917,6 +977,65 @@ class TestFacilitatorMergeConfirm:
             sphere=event.sphere, guild=kept, member=user
         ).exists()
         assert not GuildMembership.objects.filter(guild=other, member=user).exists()
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_post_keeps_a_claim_made_during_the_merge(self, panel_client, event):
+        organizer = UserFactory(username="organizer", email="organizer@example.com")
+        claimer = UserFactory(username="claimer", email="claimer@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
+
+        response = _merge_during(
+            lambda: FacilitatorRepository.claim(target.pk, claimer.pk),
+            lambda: self._merge_alice(panel_client, event),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == claimer.pk
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_post_moves_a_session_assigned_to_a_source_during_the_merge(
+        self, panel_client, event
+    ):
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            facilitator_name="Alice",
+            title="Dragon Heist",
+            slug="dragon-heist",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = _merge_during(
+            lambda: SessionRepository.set_facilitators(session.pk, [source.pk]),
+            lambda: self._merge_alice(panel_client, event),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        assert list(session.facilitators.values_list("pk", flat=True)) == [target.pk]
+        assert not Facilitator.all_objects.filter(pk=source.pk).exists()
 
 
 class TestBulkMergeHandoff:

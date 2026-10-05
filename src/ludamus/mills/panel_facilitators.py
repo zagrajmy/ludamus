@@ -572,8 +572,14 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise FacilitatorMergeError(MergeErrorReason.BAD_ACCREDITATION)
 
         with self._transaction.atomic():
-            # Read inside the transaction so validation and mutation see the
-            # same snapshot — a concurrent merge/delete surfaces as NotFound.
+            # Lock every merged row, then re-read what the merge decides on: a
+            # claim cannot land between the organizer decision and its write, a
+            # session assignment naming a source cannot slip in before the
+            # delete, and a concurrent merge/delete surfaces as NotFound.
+            self._repos.facilitators.lock(
+                self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
+                for slug in slugs
+            )
             facilitators = [
                 self._repos.facilitators.read_by_event_and_slug(event_id, slug)
                 for slug in slugs
