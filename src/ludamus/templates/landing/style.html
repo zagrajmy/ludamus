@@ -497,7 +497,7 @@ themes — newsprint rather than white once the page around them is dark.
         flex-direction: column;
         gap: 0.22em;
         align-items: flex-start;
-        /* NOTE: badges pull into the corner with fixed negative margins in
+        /* NOTE: badges shift into the corner with a fixed translate in
            scena.html; padding below ~0.36em on a side clips them. */
         padding: 0.55em 0.65em;
         border-radius: 0.8em;
@@ -862,7 +862,7 @@ themes — newsprint rather than white once the page around them is dark.
 
         /* A phone-sized chip has room for its text, not its desktop
            padding. */
-        /* NOTE: see the badge-margin note on the base .chip padding. */
+        /* NOTE: see the badge-translate note on the base .chip padding. */
         .landing .chip {
             gap: 0.2em;
             padding: 0.35em 0.45em;
