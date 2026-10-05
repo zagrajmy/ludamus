@@ -1,3 +1,4 @@
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
 test.describe("Landing", () => {
@@ -69,6 +70,95 @@ test.describe("Landing", () => {
     await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
     await expect(mamert).toBeHidden();
   });
+
+  for (const width of [375, 320]) {
+    test(`fits every act of the six-acts stage on a ${width}px phone`, async ({
+      page,
+    }, testInfo) => {
+      // NOTE: no CI browser has iOS 26.0's zoom-on-rem bug; this guards the
+      // breakpoint layout's fit.
+      await page.setViewportSize({ width, height: 812 });
+      await page.goto("/");
+      const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
+      const stage = grid.locator(".stage");
+      // The stage and its chips clip with overflow: hidden, so content that
+      // does not fit is cut off rather than spilling: compare boxes instead.
+      const overflowing = () =>
+        stage.evaluate((stageEl) => {
+          const inside = (inner: DOMRect, outer: DOMRect) =>
+            inner.left >= outer.left - 1 &&
+            inner.right <= outer.right + 1 &&
+            inner.top >= outer.top - 1 &&
+            inner.bottom <= outer.bottom + 1;
+          const shown = (el: Element) => {
+            const style = getComputedStyle(el);
+            return (
+              el.getClientRects().length > 0 &&
+              style.visibility === "visible" &&
+              style.opacity !== "0"
+            );
+          };
+          const offenders: string[] = [];
+          for (const box of stageEl.querySelectorAll(".ctx, .chip, .doorcard")) {
+            if (!shown(box)) continue;
+            const frame = box.getBoundingClientRect();
+            if (!inside(frame, stageEl.getBoundingClientRect())) offenders.push(box.className);
+            for (const child of box.children) {
+              if (shown(child) && !inside(child.getBoundingClientRect(), frame)) {
+                offenders.push(`${box.className} > ${child.textContent?.trim()}`);
+              }
+            }
+            // Badges and the warning dot keep 2px clear of the title's text.
+            const title = box.querySelector(".ct");
+            if (!title) continue;
+            const range = document.createRange();
+            range.selectNodeContents(title);
+            const lines = [...range.getClientRects()];
+            for (const child of box.children) {
+              if (child === title || !shown(child)) continue;
+              const r = child.getBoundingClientRect();
+              const hit = lines.some(
+                (line) =>
+                  r.left < line.right + 2 &&
+                  r.right > line.left - 2 &&
+                  r.top < line.bottom + 2 &&
+                  r.bottom > line.top - 2,
+              );
+              if (hit) offenders.push(`${box.className} > ${child.textContent?.trim()} on title`);
+            }
+          }
+          // Room names and times sit in fixed-width columns.
+          for (const label of stageEl.querySelectorAll(".rh, .tl")) {
+            if (label.scrollWidth > label.clientWidth + 1) offenders.push(label.textContent ?? "");
+          }
+          // The context strip wraps on a phone; its rows must end above the grid.
+          const strips = [...stageEl.querySelectorAll(".ctx")].filter(shown);
+          if (strips.length !== 1) offenders.push(`${strips.length} strips shown`);
+          const strip = strips[0];
+          const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
+          for (const below of stageEl.querySelectorAll(".rh, .chip")) {
+            if (shown(below) && stripBottom > below.getBoundingClientRect().top + 1) {
+              offenders.push(`${strip?.className} over ${below.className}`);
+            }
+          }
+          return offenders;
+        });
+
+      for (const [index, act] of ["01", "02", "03", "04", "05", "06"].entries()) {
+        await page.locator(`label[for="k${index + 1}"]`).click();
+        await expect(page.getByRole("radio", { name: new RegExp(`^${act}\\b`) })).toBeChecked();
+        await expect.poll(() => grid.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
+        // Chips glide into place; poll until the last one has landed.
+        await expect.poll(overflowing).toEqual([]);
+        const box = await stage.boundingBox();
+        await attachArtifacts(testInfo, {
+          name: `six-acts-${width}px-${act}`,
+          region: grid,
+          facts: { act, width, stage: box },
+        });
+      }
+    });
+  }
 
   test("#gracze deep link opens the player view directly", async ({ page }) => {
     await page.goto("/#gracze");
