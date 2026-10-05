@@ -1,9 +1,13 @@
 """Integration tests for the facilitator merge flow."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from itertools import starmap
 
+import pytest
 from django.contrib import messages
+from django.db import connection, transaction
 from django.urls import reverse
 
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
@@ -18,6 +22,7 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
 )
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -37,6 +42,27 @@ def _make_facilitator(event, *, display_name, slug, **kwargs):
     return Facilitator.objects.create(
         event=event, display_name=display_name, slug=slug, user=None, **kwargs
     )
+
+
+BLOCKED_QUERY_TIMEOUT_SECONDS = 10
+
+
+def _wait_for_a_blocked_query():
+    deadline = time.monotonic() + BLOCKED_QUERY_TIMEOUT_SECONDS
+    with connection.cursor() as cursor:
+        while time.monotonic() < deadline:
+            # NOTE: Postgres caches pg_stat_activity for the rest of the
+            # transaction, and the caller polls inside the one holding the lock.
+            cursor.execute("SELECT pg_stat_clear_snapshot()")
+            cursor.execute(
+                "SELECT 1 FROM pg_stat_activity"
+                " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+            )
+            if cursor.fetchone():
+                return
+            time.sleep(0.01)
+    msg = "No query blocked on a lock in time"
+    raise TimeoutError(msg)
 
 
 def _event_context(event):
@@ -549,6 +575,45 @@ class TestFacilitatorMergeConfirm:
         )
         target.refresh_from_db()
         assert target.organizer_id == one.pk
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_post_keeps_a_claim_committed_while_the_merge_waits(
+        self, panel_client, event
+    ):
+        # The claim holds the target's row lock while the merge starts, so the
+        # merge must block, and only decide what to write once the claim has
+        # committed. Deciding from a pre-lock read would overwrite the claimer
+        # with the source's organizer.
+        claimer = UserFactory(username="claimer", email="claimer@example.com")
+        inherited = UserFactory(username="inherited", email="inherited@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk=source.pk).update(organizer=inherited)
+
+        def merge():
+            try:
+                return self._merge_alice(panel_client, event)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with transaction.atomic():
+                assert FacilitatorRepository.claim(target.pk, claimer.pk)
+                future = pool.submit(merge)
+                _wait_for_a_blocked_query()
+            response = future.result()
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == claimer.pk
 
     def test_post_clears_disagreeing_organizers_of_an_unheld_target(
         self, panel_client, event
