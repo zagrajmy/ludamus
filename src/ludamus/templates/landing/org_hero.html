@@ -12,7 +12,7 @@
         <h1 id="landing-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
             {% translate "Event organization" %}
-            <span class="strike-phrase">{% translate "without spreadsheet chaos" %}
+            <span class="strike-phrase relative inline-block whitespace-nowrap">{% translate "without spreadsheet chaos" %}
                 <svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true">
                     <path d="M6 14 C 80 18, 150 10, 224 14 S 288 12, 295 13" stroke-width="5" vector-effect="non-scaling-stroke" />
                 </svg>
@@ -46,7 +46,7 @@
                 </p>
                 {% translate "A caricature of a spreadsheet full of errors, crossed out in red like an editor's proof" as t_sheet %}
                 <div class="relative" role="img" aria-label="{{ t_sheet }}">
-                    <div class="sheet">
+                    <div class="sheet overflow-hidden rounded-md border border-border bg-bg-secondary text-[0.8125rem] tabular-nums">
                         <div class="overflow-x-auto">
                             <table aria-hidden="true">
                                 <colgroup>
@@ -127,8 +127,9 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="sheet-tabs" aria-hidden="true">
-                            <span>program_v7</span><span>program_FINAL</span><span class="cur">ver_FINAL_2(1)</span>
+                        <div class="flex gap-px border-t border-border bg-border text-[0.6875rem] text-foreground-secondary"
+                             aria-hidden="true">
+                            <span class="px-2.5 py-1 whitespace-nowrap bg-bg-tertiary">program_v7</span><span class="px-2.5 py-1 whitespace-nowrap bg-bg-tertiary">program_FINAL</span><span class="px-2.5 py-1 whitespace-nowrap bg-bg-secondary font-semibold">ver_FINAL_2(1)</span>
                         </div>
                     </div>
                     <svg class="strike-big"
