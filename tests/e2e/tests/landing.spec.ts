@@ -108,9 +108,18 @@ test.describe("Landing", () => {
                 offenders.push(`${box.className} > ${child.textContent?.trim()}`);
               }
             }
-            // Badges and the warning dot keep 2px clear of the title's text.
             const title = box.querySelector(".ct");
             if (!title) continue;
+            // A flex item never shrinks below its longest word, so a word wider
+            // than the chip widens the title into the chip's padding. Offsets
+            // ignore act 1's rotation.
+            const chip = box as HTMLElement;
+            const titleEl = title as HTMLElement;
+            const contentRight = chip.clientWidth - parseFloat(getComputedStyle(chip).paddingRight);
+            if (titleEl.offsetLeft + titleEl.offsetWidth > contentRight + 1) {
+              offenders.push(`${box.className} > ${title.textContent?.trim()} into padding`);
+            }
+            // Badges and the warning dot keep 2px clear of the title's text.
             const range = document.createRange();
             range.selectNodeContents(title);
             const lines = [...range.getClientRects()];
