@@ -108,13 +108,33 @@ test.describe("Landing", () => {
                 offenders.push(`${box.className} > ${child.textContent?.trim()}`);
               }
             }
+            // Badges and the warning dot keep 2px clear of the title's text.
+            const title = box.querySelector(".ct");
+            if (!title) continue;
+            const range = document.createRange();
+            range.selectNodeContents(title);
+            const lines = [...range.getClientRects()];
+            for (const child of box.children) {
+              if (child === title || !shown(child)) continue;
+              const r = child.getBoundingClientRect();
+              const hit = lines.some(
+                (line) =>
+                  r.left < line.right + 2 &&
+                  r.right > line.left - 2 &&
+                  r.top < line.bottom + 2 &&
+                  r.bottom > line.top - 2,
+              );
+              if (hit) offenders.push(`${box.className} > ${child.textContent?.trim()} on title`);
+            }
           }
           // Room names and times sit in fixed-width columns.
           for (const label of stageEl.querySelectorAll(".rh, .tl")) {
             if (label.scrollWidth > label.clientWidth + 1) offenders.push(label.textContent ?? "");
           }
           // The context strip wraps on a phone; its rows must end above the grid.
-          const strip = [...stageEl.querySelectorAll(".ctx")].find(shown);
+          const strips = [...stageEl.querySelectorAll(".ctx")].filter(shown);
+          if (strips.length !== 1) offenders.push(`${strips.length} strips shown`);
+          const strip = strips[0];
           const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
           for (const below of stageEl.querySelectorAll(".rh, .chip")) {
             if (shown(below) && stripBottom > below.getBoundingClientRect().top + 1) {

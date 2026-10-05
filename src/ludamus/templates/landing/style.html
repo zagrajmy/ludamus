@@ -497,6 +497,8 @@ themes — newsprint rather than white once the page around them is dark.
         flex-direction: column;
         gap: 0.22em;
         align-items: flex-start;
+        /* NOTE: badges pull into the corner with fixed negative margins in
+           scena.html; padding below ~0.36em on a side clips them. */
         padding: 0.55em 0.65em;
         border-radius: 0.8em;
         background: var(--color-bg-secondary);
@@ -714,8 +716,10 @@ themes — newsprint rather than white once the page around them is dark.
         border-color: var(--color-danger);
     }
 
+    /* Room for the "!" dot pinned top-right: 1.5em wide in this same em. */
     #k3:checked~.sc .cF .ct,
     #k3:checked~.sc .cG .ct {
+        padding-right: 1.8em;
         font-size: 0.68em;
         color: var(--color-danger-text);
     }
@@ -816,12 +820,14 @@ themes — newsprint rather than white once the page around them is dark.
 
     /* NOTE: scena.html repeats 42rem and 22.5rem as `max-[…]:` variants on
        the act tabs, context-strip titles, conflict label and door card;
-       move them together.
-       Phones: six named tabs wrap to ragged rows, so they drop to numbers,
+       move them together. */
+
+    /* Phones: six named tabs wrap to ragged rows, so they drop to numbers,
        and acts 1-2 drop their strip title (the caption under the grid names
-       the act). The stage drops its 40rem
-       floor but keeps its 40:34 shape, so every percentage coordinate holds,
-       and its em-sized interior follows the stage's font-size down. */
+       the act). The stage goes portrait, since full titles wrap and need
+       height; percentage coordinates now land on a taller box, which is why
+       the strip and room names wrap. Its em interior follows the stage's
+       font-size down. */
     @media (max-width: 42rem) {
         .landing .ktabs {
             display: grid;
@@ -856,6 +862,7 @@ themes — newsprint rather than white once the page around them is dark.
 
         /* A phone-sized chip has room for its text, not its desktop
            padding. */
+        /* NOTE: see the badge-margin note on the base .chip padding. */
         .landing .chip {
             gap: 0.2em;
             padding: 0.35em 0.45em;
@@ -878,11 +885,15 @@ themes — newsprint rather than white once the page around them is dark.
             padding-right: 0.4em;
         }
 
-        /* A full workshop's badge says it is full; the caption under the
-           grid tells the waiting-list half, which has no room on a phone. */
+        /* Authors give their row to the full title and its status badge. */
         #k1:checked~.sc .chip .ca,
         #k2:checked~.sc .chip .ca,
-        #k5:checked~.sc .cD .ca,
+        #k5:checked~.sc .cD .ca {
+            display: none;
+        }
+
+        /* A full workshop's badge says it is full; the caption under the
+           grid tells the waiting-list half, which has no room on a phone. */
         #k5:checked~.sc .cD .cw {
             display: none;
         }
