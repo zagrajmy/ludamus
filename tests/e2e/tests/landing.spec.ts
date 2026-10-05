@@ -71,49 +71,62 @@ test.describe("Landing", () => {
     await expect(mamert).toBeHidden();
   });
 
-  test("fits every act of the six-acts stage on a phone", async ({ page }, testInfo) => {
-    // iOS Safari 26.0 ignores zoom on rem lengths, so a zoomed stage
-    // overflowed there; the phone layout is plain breakpoints instead.
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/");
-    const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
-    const stage = grid.locator(".stage");
+  for (const width of [375, 320]) {
+    test(`fits every act of the six-acts stage on a ${width}px phone`, async ({
+      page,
+    }, testInfo) => {
+      // iOS Safari 26.0 ignores zoom on rem lengths, so a zoomed stage
+      // overflowed there; phones get plain breakpoints instead.
+      await page.setViewportSize({ width, height: 812 });
+      await page.goto("/");
+      const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
+      const stage = grid.locator(".stage");
+      // The stage and its chips clip with overflow: hidden, so content that
+      // does not fit is cut off rather than spilling: compare boxes instead.
+      const overflowing = () =>
+        stage.evaluate((stageEl) => {
+          const inside = (inner: DOMRect, outer: DOMRect) =>
+            inner.left >= outer.left - 1 &&
+            inner.right <= outer.right + 1 &&
+            inner.top >= outer.top - 1 &&
+            inner.bottom <= outer.bottom + 1;
+          const shown = (el: Element) => {
+            const style = getComputedStyle(el);
+            return (
+              el.getClientRects().length > 0 &&
+              style.visibility === "visible" &&
+              style.opacity !== "0"
+            );
+          };
+          const offenders: string[] = [];
+          for (const box of stageEl.querySelectorAll(".ctx, .chip, .doorcard")) {
+            if (!shown(box)) continue;
+            const frame = box.getBoundingClientRect();
+            if (!inside(frame, stageEl.getBoundingClientRect())) offenders.push(box.className);
+            for (const child of box.children) {
+              if (shown(child) && !inside(child.getBoundingClientRect(), frame)) {
+                offenders.push(`${box.className} > ${child.textContent?.trim()}`);
+              }
+            }
+          }
+          return offenders;
+        });
 
-    for (const act of ["01", "02", "03", "04", "05", "06"]) {
-      // The tab's number comes before the caption's under the grid.
-      await page
-        .getByRole("group", { name: "Pick an act." })
-        .getByText(act, { exact: true })
-        .first()
-        .click();
-      await expect(page.getByRole("radio", { name: new RegExp(`^${act}\\b`) })).toBeChecked();
-      await expect.poll(() => grid.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
-      const box = await stage.boundingBox();
-      if (!box) throw new Error("stage is not rendered");
-      // Chips glide into place; poll until the last one has landed inside.
-      await expect
-        .poll(() =>
-          stage.locator(".chip").evaluateAll(
-            (chips, frame) =>
-              chips.filter((chip) => {
-                const rect = chip.getBoundingClientRect();
-                return (
-                  rect.left < frame.x - 1 ||
-                  rect.right > frame.x + frame.width + 1 ||
-                  rect.bottom > frame.y + frame.height + 1
-                );
-              }).length,
-            box,
-          ),
-        )
-        .toBe(0);
-      await attachArtifacts(testInfo, {
-        name: `six-acts-phone-${act}`,
-        region: grid,
-        facts: { act, stage: { width: box.width, height: box.height } },
-      });
-    }
-  });
+      for (const [index, act] of ["01", "02", "03", "04", "05", "06"].entries()) {
+        await page.locator(`label[for="k${index + 1}"]`).click();
+        await expect(page.getByRole("radio", { name: new RegExp(`^${act}\\b`) })).toBeChecked();
+        await expect.poll(() => grid.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
+        // Chips glide into place; poll until the last one has landed.
+        await expect.poll(overflowing).toEqual([]);
+        const box = await stage.boundingBox();
+        await attachArtifacts(testInfo, {
+          name: `six-acts-${width}px-${act}`,
+          region: grid,
+          facts: { act, width, stage: box },
+        });
+      }
+    });
+  }
 
   test("#gracze deep link opens the player view directly", async ({ page }) => {
     await page.goto("/#gracze");
