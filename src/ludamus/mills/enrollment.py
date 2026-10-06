@@ -61,7 +61,6 @@ if TYPE_CHECKING:
         EnrollmentWindowRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
-        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         SeatHoldRequest,
@@ -81,8 +80,8 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
-def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
-    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[int]:
+    return distinct_recipients(p.recipient_user_id for p in party)
 
 
 class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
@@ -196,13 +195,12 @@ class WaitlistPromotionService:
             result.promoted.extend(ids)
             promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
-                for recipient in _party_recipients(party)
+                for recipient_id in _party_recipients(party)
             )
 
     def _offer(
@@ -224,15 +222,14 @@ class WaitlistPromotionService:
             result.offered.extend(ids)
             offers.extend(
                 OfferNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
-                for recipient in _party_recipients(party)
+                for recipient_id in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
 
@@ -261,7 +258,6 @@ class WaitlistPromotionService:
             self._notifier.notify_seat_held(
                 HeldSeatNotification(
                     recipient_user_id=hold.user_id,
-                    recipient_email=hold.user_email,
                     actor_name=hold.actor_name,
                     session_id=hold.session_id,
                     session_title=hold.session_title,
@@ -343,13 +339,12 @@ class WaitlistPromotionService:
             self._participations.drop(offer.participant_ids)
             notifications = [
                 PromotionNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=offer.session_id,
                     session_title=offer.session_title,
                     event_slug=offer.event_slug,
                 )
-                for recipient in offer.recipients
+                for recipient_id in offer.recipients
             ]
             session_id = offer.session_id
 

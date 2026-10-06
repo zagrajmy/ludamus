@@ -1,0 +1,26 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Export" %}
+{% endblock title %}
+{% block page_title %}
+    {{ page_title }}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_event.name }} · {{ list_name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% translate "Download .ods" as download_label %}
+    {% tessera_button download_label form="export-form" icon="arrow-down-tray" %}
+{% endblock header_actions %}
+{% block content %}
+    {% tab_shell tabs_partial %}
+        {% tab_shell_body %}
+            {% translate "Export" as heading %}
+            {# The chooser submits back to this page: the download is the same #}
+            {# URL with the ticked columns on it. #}
+            {% include "panel/parts/_columns_chooser.html" with form_id="export-form" method="get" heading=heading action_url=request.path help_text=help_text hidden_params=hidden_params chosen_columns=chosen_columns available_columns=available_columns error=error only %}
+        {% endtab_shell_body %}
+    {% endtab_shell %}
+{% endblock content %}

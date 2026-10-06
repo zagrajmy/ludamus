@@ -119,12 +119,9 @@ def _warning():
     )
 
 
-def _hit(recipient_id, email, banned_user_id):
+def _hit(recipient_id, banned_user_id):
     return ShadowbanHitDTO(
-        recipient_id=recipient_id,
-        recipient_email=email,
-        banned_user_id=banned_user_id,
-        in_session=False,
+        recipient_id=recipient_id, banned_user_id=banned_user_id, in_session=False
     )
 
 
@@ -140,10 +137,7 @@ def _signup(*hits):
 
 def test_notify_signups_notifies_every_banner_in_the_event():
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_OTHER_PRESENTER_ID, "other@example.com", 3),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 3))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -159,9 +153,7 @@ def test_notify_signups_notifies_every_banner_in_the_event():
 def test_notify_signups_dedupes_repeated_user_id():
     repo = FakeRepo(
         signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
+            _hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 3)
         )
     )
     notifier = FakeNotifier()
@@ -175,10 +167,7 @@ def test_notify_signups_dedupes_repeated_user_id():
 
 def test_notify_signups_dedupes_per_recipient():
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_OTHER_PRESENTER_ID, "other@example.com", 2),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 2))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -192,12 +181,7 @@ def test_notify_signups_dedupes_per_recipient():
 
 
 def test_notify_signups_reports_distinct_users_sharing_a_name():
-    repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
-        )
-    )
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 3)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -210,10 +194,7 @@ def test_notify_signups_skips_a_hit_for_a_player_not_in_the_signup():
     # The repo may return hits for a banned id the caller did not name; with
     # no display name to report, the recipient gets nothing.
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_OTHER_PRESENTER_ID, "other@example.com", 9),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 9))
     )
     repo.ignore_filter = True
     notifier = FakeNotifier()
@@ -230,12 +211,9 @@ def test_notify_signups_skips_a_hit_for_a_player_not_in_the_signup():
 def test_notify_signups_splits_event_and_session_players():
     repo = FakeRepo(
         signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
+            _hit(_PRESENTER_ID, 2),
             ShadowbanHitDTO(
-                recipient_id=_PRESENTER_ID,
-                recipient_email="gm@example.com",
-                banned_user_id=3,
-                in_session=True,
+                recipient_id=_PRESENTER_ID, banned_user_id=3, in_session=True
             ),
         )
     )
@@ -248,7 +226,6 @@ def test_notify_signups_splits_event_and_session_players():
     assert notifier.signups == [
         ShadowbanSignupNotification(
             recipient_user_id=_PRESENTER_ID,
-            recipient_email="gm@example.com",
             event_slug="con-2026",
             event_name="Con 2026",
             session_title="Deniable Game",
@@ -260,7 +237,7 @@ def test_notify_signups_splits_event_and_session_players():
 
 
 def test_notify_signups_with_nobody_signed_up_is_a_noop():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2)))
     notifier = FakeNotifier()
 
     _service(repo, notifier).notify_signups(session_id=_SESSION_ID, signed_up=[])

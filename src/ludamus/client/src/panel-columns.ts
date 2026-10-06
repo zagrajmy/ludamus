@@ -2,8 +2,7 @@
 // whether that column shows; the row's position decides where. The form posts
 // the checked keys in DOM order, so reordering is just moving the <li> — there
 // is no order state to keep in sync, and the page still works (minus
-// reordering) without this file. Shown and available columns live in separate
-// `[data-column-list]` groups; rows move within their own group only.
+// reordering) without this file.
 
 for (const list of document.querySelectorAll<HTMLElement>("[data-column-list]")) {
   const rows = (): HTMLElement[] =>

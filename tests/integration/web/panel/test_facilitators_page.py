@@ -17,9 +17,14 @@ from ludamus.links.db.django.models import (
     Guild,
     GuildMembership,
     PersonalDataField,
+    PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
+from ludamus.pacts import (
+    FacilitatorListItemDTO,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+)
 from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import (
     EventFactory,
@@ -72,6 +77,7 @@ def _tab_urls(event):
         "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": event.slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
     }
 
@@ -84,12 +90,12 @@ def _event_context(event, active_tab="list"):
     }
 
 
-def _field_dto(field):
+def _field_dto(field, *, options=()):
     return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,
-        options=[],
+        options=list(options),
         order=field.order,
         pk=field.pk,
         question=field.question,
@@ -959,6 +965,12 @@ class TestFacilitatorsPageView:
             field_type="select",
             order=0,
         )
+        reds_option = PersonalDataFieldOption.objects.create(
+            field=field, label="Reds", value="Reds", order=0
+        )
+        blues_option = PersonalDataFieldOption.objects.create(
+            field=field, label="Blues", value="Blues", order=1
+        )
         reds = Facilitator.objects.create(
             event=event, display_name="Reds member", slug="reds", user=None
         )
@@ -995,7 +1007,22 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
-                "filterable_fields": [_field_dto(field)],
+                "filterable_fields": [
+                    _field_dto(
+                        field,
+                        options=[
+                            OrganizerFieldOptionDTO(
+                                label="Reds", order=0, pk=reds_option.pk, value="Reds"
+                            ),
+                            OrganizerFieldOptionDTO(
+                                label="Blues",
+                                order=1,
+                                pk=blues_option.pk,
+                                value="Blues",
+                            ),
+                        ],
+                    )
+                ],
                 "filter_fields": {field.pk: "Reds"},
             },
         )

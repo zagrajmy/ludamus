@@ -22,6 +22,13 @@ from tests.integration.web.crowd.workos_responses import (
 PROFILE_URL = "http://testserver/crowd/profile/?next=%2F"
 COMPLETE_PROFILE = [(messages.SUCCESS, "Please complete your profile.")]
 EXPIRED = [(messages.ERROR, "Authentication session expired. Please try again.")]
+EMAIL_CONFLICT = (
+    messages.WARNING,
+    (
+        "That email address already belongs to another account, so it was not "
+        "set. Set a different one in your profile."
+    ),
+)
 
 
 def _valid_state(redirect_to=None):
@@ -279,6 +286,7 @@ class TestLoginCallbackActionView:
             slug="me",
             name="",
             email="old@example.com",
+            email_verified=False,
             avatar_url="https://example.com/old.png",
         )
         authenticate.return_value = authenticate_response(
@@ -356,7 +364,11 @@ class TestLoginCallbackActionView:
     ):
         username = f"workos|{workos_id}"
         complete_user_factory(
-            username=username, slug="me", name="Existing Name", email="old@example.com"
+            username=username,
+            slug="me",
+            name="Existing Name",
+            email="old@example.com",
+            email_verified=False,
         )
         authenticate.return_value = authenticate_response(
             workos_id, email="new@example.com", first_name="Other"
@@ -382,7 +394,10 @@ class TestLoginCallbackActionView:
         response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
 
         assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
+            response,
+            HTTPStatus.FOUND,
+            url=PROFILE_URL,
+            messages=[EMAIL_CONFLICT, *COMPLETE_PROFILE],
         )
         assert not User.objects.get(username=f"workos|{workos_id}").email
 
@@ -391,7 +406,9 @@ class TestLoginCallbackActionView:
     ):
         complete_user_factory(username="workos|someone", email="taken@example.com")
         username = f"workos|{workos_id}"
-        complete_user_factory(username=username, slug="me", email="old@example.com")
+        complete_user_factory(
+            username=username, slug="me", email="old@example.com", email_verified=False
+        )
         authenticate.return_value = authenticate_response(
             workos_id, email="taken@example.com"
         )
@@ -402,6 +419,61 @@ class TestLoginCallbackActionView:
             response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
         assert User.objects.get(username=username).email == "old@example.com"
+
+    def test_ok_verified_claim_proves_stored_email(
+        self, authenticate, client, complete_user_factory, workos_id
+    ):
+        username = f"workos|{workos_id}"
+        complete_user_factory(
+            username=username, slug="me", email="mine@example.com", email_verified=False
+        )
+        authenticate.return_value = authenticate_response(
+            workos_id, email="mine@example.com", email_verified=True
+        )
+
+        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
+        )
+        assert User.objects.get(username=username).email_verified is True
+
+    def test_ok_verified_address_is_not_reverted(
+        self, authenticate, client, complete_user_factory, workos_id
+    ):
+        username = f"workos|{workos_id}"
+        complete_user_factory(
+            username=username,
+            slug="me",
+            email="chosen@example.com",
+            email_verified=True,
+        )
+        authenticate.return_value = authenticate_response(
+            workos_id, email="idp@example.com", email_verified=True
+        )
+
+        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
+        )
+        user = User.objects.get(username=username)
+        assert (user.email, user.email_verified) == ("chosen@example.com", True)
+
+    def test_ok_new_account_keeps_provider_verification(
+        self, authenticate, client, workos_id
+    ):
+        authenticate.return_value = authenticate_response(
+            workos_id, email="new@example.com", email_verified=False
+        )
+
+        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
+        )
+        user = User.objects.get(username=f"workos|{workos_id}")
+        assert (user.email, user.email_verified) == ("new@example.com", False)
 
 
 class TestLegacyAuth0Accounts:
@@ -459,7 +531,10 @@ class TestLegacyAuth0Accounts:
         response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
 
         assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
+            response,
+            HTTPStatus.FOUND,
+            url=PROFILE_URL,
+            messages=[EMAIL_CONFLICT, *COMPLETE_PROFILE],
         )
         assert User.objects.get(slug="other").username == username
         assert not User.objects.get(username=f"workos|{workos_id}").email
