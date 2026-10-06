@@ -214,6 +214,14 @@ class LoginCallbackActionView(RedirectView):
                     "into it. Ask the person who invited you to enroll you directly."
                 ),
             )
+        if login.email_conflict:
+            messages.warning(
+                self.request,
+                _(
+                    "That email address already belongs to another account, "
+                    "so it was not set. Set a different one in your profile."
+                ),
+            )
         logger.info("Login completed: user=%s", login.user.slug)
         return login
 

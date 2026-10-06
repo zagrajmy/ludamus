@@ -1,11 +1,13 @@
 import math
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from ludamus.mills.crowd import ClaimService, CrowdAuthService, LegacyAccountLinker
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    EMAIL_LINK_MAX_AGE,
     MAX_AVATAR_URL_LENGTH,
     AuthenticationDTO,
     ClaimableProfileDTO,
@@ -55,6 +57,15 @@ class FakeTransaction:
         return _atomic()
 
 
+def _reserving(address, *, sent) -> UserDTO:
+    return user_dto(
+        slug="holder",
+        username="workos|holder",
+        pending_email=address,
+        email_verification_sent_at=sent,
+    )
+
+
 def _user_dto(**overrides) -> UserDTO:
     return user_dto(**{"slug": "me", "username": USERNAME, **overrides})
 
@@ -73,6 +84,7 @@ class FakeUsers:
                 slug=user_data.get("slug", ""),
                 username=user_data.get("username", ""),
                 email=user_data.get("email", ""),
+                email_verified=user_data.get("email_verified", False),
                 name=user_data.get("name", ""),
             )
         )
@@ -99,14 +111,20 @@ class FakeUsers:
             for user in self._users
         ]
 
-    def email_exists(self, email, exclude_slug=None):
+    def email_unavailable(self, *, email, now, exclude_slug=None):
         if not email:
             return False
-        # NOTE: the real repository matches emails case-insensitively.
+        # NOTE: like the repository, matches case-insensitively and counts a
+        # pending address as reserved only while its confirm link is provable.
+        still_provable = now - EMAIL_LINK_MAX_AGE
+        others = [user for user in self._users if user.slug != exclude_slug]
         return (
-            any(
-                user.email.lower() == email.lower() and user.slug != exclude_slug
-                for user in self._users
+            any(user.email.lower() == email.lower() for user in others)
+            or any(
+                user.pending_email.lower() == email.lower()
+                and user.email_verification_sent_at >= still_provable
+                for user in others
+                if user.email_verification_sent_at
             )
             or email.lower() in self._existing_emails
         )
@@ -132,8 +150,8 @@ class _RacingUsers:
         return _user_dto(username=username)
 
     @staticmethod
-    def email_exists(email, exclude_slug=None):
-        _ = (email, exclude_slug)
+    def email_unavailable(*, email, now, exclude_slug=None):
+        _ = (email, now, exclude_slug)
         return False
 
     @staticmethod
@@ -311,6 +329,7 @@ class TestCompleteLogin:
         assert result.user.username == USERNAME
         assert result.claim_outcome is None
         assert result.session_id == "session_01"
+        assert result.email_conflict is False
         assert not users.created
 
     def test_creates_missing_user_in_transaction(self):
@@ -329,11 +348,13 @@ class TestCompleteLogin:
                 "slug": "user_01me",
                 "username": USERNAME,
                 "email": "new@example.com",
+                "email_verified": True,
                 "avatar_url": "https://a/b",
                 "name": "New",
             }
         ]
         assert result.user.username == USERNAME
+        assert result.email_conflict is False
 
     def test_id_without_slug_characters_falls_back_to_user(self):
         users = FakeUsers()
@@ -354,13 +375,28 @@ class TestCompleteLogin:
 
         assert users.created[0]["avatar_url"] == url
 
-    def test_create_strips_duplicate_email(self):
+    def test_create_strips_duplicate_email_and_reports_conflict(self):
         users = FakeUsers(existing_emails={"taken@example.com"})
         identity = FakeIdentity(_identity(email="taken@example.com"))
         service = _service(users=users, identity=identity)
 
-        _login(service)
+        result = _login(service)
 
+        assert (users.created[0]["email"], users.created[0]["email_verified"]) == (
+            "",
+            False,
+        )
+        assert result.email_conflict is True
+
+    def test_fresh_reservation_by_another_account_is_a_conflict(self):
+        holder = _reserving("held@example.com", sent=datetime.now(UTC))
+        users = FakeUsers(users=[holder])
+        identity = FakeIdentity(_identity(email="held@example.com"))
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert result.email_conflict is True
         assert not users.created[0]["email"]
 
     def test_converted_claim_returns_claimed_user(self):
@@ -460,14 +496,61 @@ class TestSyncIdentity:
         assert users.updated == [("me", {"name": "New Name"})]
         assert result.user.name == "New Name"
 
-    def test_own_email_is_not_a_collision(self):
-        users = FakeUsers(users=[_user_dto(email="old@example.com")])
-        identity = FakeIdentity(_identity(email="mine@example.com"))
+    @pytest.mark.parametrize("verified", (True, False))
+    def test_unverified_stored_address_takes_the_claim(self, verified):
+        users = FakeUsers(users=[_user_dto(name="Me", email="old@example.com")])
+        identity = FakeIdentity(
+            _identity(email="mine@example.com", email_verified=verified)
+        )
         service = _service(users=users, identity=identity)
 
         _login(service)
 
-        assert users.updated == [("me", {"email": "mine@example.com"})]
+        assert users.updated == [
+            (
+                "me",
+                {
+                    "email": "mine@example.com",
+                    "email_verified": verified,
+                    "pending_email": "",
+                },
+            )
+        ]
+
+    def test_verified_claim_proves_the_stored_address(self):
+        users = FakeUsers(users=[_user_dto(name="Me", email="mine@example.com")])
+        identity = FakeIdentity(_identity(email="mine@example.com"))
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert users.updated == [("me", {"email_verified": True})]
+        assert result.user.email_verified is True
+
+    def test_unverified_claim_of_the_stored_address_changes_nothing(self):
+        users = FakeUsers(users=[_user_dto(name="Me", email="mine@example.com")])
+        identity = FakeIdentity(
+            _identity(email="mine@example.com", email_verified=False)
+        )
+        service = _service(users=users, identity=identity)
+
+        _login(service)
+
+        assert not users.updated
+
+    def test_verified_stored_address_is_not_reverted(self):
+        users = FakeUsers(
+            users=[
+                _user_dto(name="Me", email="chosen@example.com", email_verified=True)
+            ]
+        )
+        identity = FakeIdentity(_identity(email="idp@example.com"))
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert not users.updated
+        assert result.user.email == "chosen@example.com"
 
     def test_new_provider_avatar_replaces_the_old_one(self):
         users = FakeUsers(users=[_user_dto(name="Me", avatar_url="https://old")])
@@ -486,7 +569,32 @@ class TestSyncIdentity:
 
         _login(service)
 
-        assert users.updated == [("me", {"email": "me@example.com"})]
+        assert users.updated == [
+            (
+                "me",
+                {
+                    "email": "me@example.com",
+                    "email_verified": True,
+                    "pending_email": "",
+                },
+            )
+        ]
+
+    @pytest.mark.parametrize(
+        ("sent_ago", "blocked"),
+        ((timedelta(hours=1), True), (EMAIL_LINK_MAX_AGE + timedelta(hours=1), False)),
+    )
+    def test_only_a_live_reservation_blocks_the_claim(self, sent_ago, blocked):
+        holder = _reserving("held@example.com", sent=datetime.now(UTC) - sent_ago)
+        users = FakeUsers(users=[_user_dto(name="Me", email="old@example.com"), holder])
+        identity = FakeIdentity(_identity(email="held@example.com"))
+        service = _service(users=users, identity=identity)
+
+        result = _login(service)
+
+        assert result.user.email == (
+            "old@example.com" if blocked else "held@example.com"
+        )
 
     def test_drops_colliding_email_but_applies_rest(self):
         users = FakeUsers(
@@ -500,7 +608,9 @@ class TestSyncIdentity:
         assert users.updated == [("me", {"name": "New Name"})]
 
     def test_nothing_new_skips_update(self):
-        users = FakeUsers(users=[_user_dto(name="Me", email="me@example.com")])
+        users = FakeUsers(
+            users=[_user_dto(name="Me", email="me@example.com", email_verified=True)]
+        )
         identity = FakeIdentity(_identity(email="me@example.com", name="Other"))
         service = _service(users=users, identity=identity)
 
