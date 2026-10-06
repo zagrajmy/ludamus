@@ -29,6 +29,7 @@ from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
+from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -93,6 +94,19 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
     email = models.EmailField(_("email address"), blank=True)
+    email_verified = models.BooleanField(
+        _("email verified"),
+        default=False,
+        help_text=_("The user proved control of this address."),
+    )
+    # The address being proven during a change; promoted to `email` when the
+    # signed confirm link is redeemed, cleared on cancel.
+    pending_email = models.EmailField(
+        _("pending email address"), blank=True, default=""
+    )
+    # When the last verification link was mailed: resend throttle and re-nag
+    # interval, one clock. Link expiry is carried by the signed token itself.
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(
         _("active"),
         default=True,
@@ -1149,6 +1163,9 @@ class Session(SoftDeleteModel):
         choices=[(item.value, item.name) for item in SessionStatus],
         default=SessionStatus.PENDING,
     )
+    # The facilitator agreed to the placed time and room. Mirrors
+    # AgendaItem.session_confirmed until that column is dropped.
+    schedule_confirmed = models.BooleanField(default=False)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
@@ -1276,6 +1293,11 @@ class AgendaItem(models.Model):
             f"{self.session.title} by {self.session.facilitator_name} "
             f"({self.session_confirmed})"
         )
+
+    @property
+    def schedule_confirmed(self) -> bool:
+        # What AgendaItemDTO reads; the session owns the flag.
+        return self.session.schedule_confirmed
 
     def overlaps_with(self, other_item: AgendaItem) -> bool:
         return bool(
@@ -1429,6 +1451,42 @@ class Notification(models.Model):
         return self.read_at is not None
 
 
+class NotificationSubscription(models.Model):
+    """A user following one sphere for announcement delivery.
+
+    Rows are created automatically on a sphere visit and only ever muted, never
+    deleted — the muted flag is the user's choice and auto-subscribe must never
+    overwrite it.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notification_subscriptions"
+    )
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="notification_subscriptions"
+    )
+    muted = models.BooleanField(default=False)
+    source = models.CharField(
+        max_length=16, choices=[(item.value, item.name) for item in SubscriptionSource]
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notification_subscription"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "sphere"), name="notifsub_unique_user_sphere"
+            ),
+        )
+        indexes: ClassVar = [
+            # Fanout audience query: unmuted subscribers of one sphere.
+            models.Index(fields=["sphere", "muted"], name="notifsub_sphere_muted_idx")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} follows {self.sphere}"
+
+
 class PersonalDataFieldType(models.TextChoices):
     TEXT = "text", "Text"
     SELECT = "select", "Select"
@@ -1456,6 +1514,7 @@ class PersonalDataField(models.Model):
     order = models.PositiveIntegerField(default=0)
     help_text = models.TextField(blank=True, default="")
     is_public = models.BooleanField(default=False)
+    is_required = models.BooleanField(default=False)
 
     class Meta:
         db_table = "personal_data_field"
@@ -1464,6 +1523,14 @@ class PersonalDataField(models.Model):
             models.UniqueConstraint(
                 fields=("event", "slug"),
                 name="personal_data_field_unique_slug_per_event",
+            ),
+            # A required checkbox forces "yes", so the database refuses the
+            # pair however the row gets written.
+            models.CheckConstraint(
+                condition=~Q(
+                    field_type=PersonalDataFieldType.CHECKBOX, is_required=True
+                ),
+                name="personal_data_field_checkbox_not_required",
             ),
         )
 
@@ -1487,35 +1554,6 @@ class PersonalDataFieldOption(models.Model):
 
     def __str__(self) -> str:
         return self.label
-
-
-class PersonalDataFieldRequirement(models.Model):
-    """Specifies which personal data fields are required for a proposal category."""
-
-    category = models.ForeignKey(
-        ProposalCategory,
-        on_delete=models.CASCADE,
-        related_name="personal_data_requirements",
-    )
-    field = models.ForeignKey(
-        PersonalDataField,
-        on_delete=models.CASCADE,
-        related_name="category_requirements",
-    )
-    is_required = models.BooleanField(default=True)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        db_table = "personal_data_field_requirement"
-        constraints = (
-            models.UniqueConstraint(
-                fields=("category", "field"), name="unique_field_per_category"
-            ),
-        )
-
-    def __str__(self) -> str:
-        req = "required" if self.is_required else "optional"
-        return f"{self.field.name} ({req}) for {self.category.name}"
 
 
 class PersonalDataFieldValue(models.Model):
@@ -1578,6 +1616,7 @@ class SessionField(models.Model):
     help_text = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=50, blank=True)
     is_public = models.BooleanField(default=False)
+    show_on_cards = models.BooleanField(default=True)
 
     class Meta:
         db_table = "session_field"
@@ -1737,7 +1776,8 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    ip_address = models.GenericIPAddressField()
+    # NOTE: null for a signup that arrived as a calendar reply, not a request.
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1752,17 +1792,62 @@ class EncounterRSVP(models.Model):
         return str(self.user)
 
 
-class EventSettings(models.Model):
-    event = models.OneToOneField(
-        Event, on_delete=models.CASCADE, related_name="settings"
+class EncounterInvitee(models.Model):
+    class Status(models.TextChoices):
+        INVITED = "invited", _("Invited")
+        ACCEPTED = "accepted", _("Accepted")
+        DECLINED = "declined", _("Declined")
+        REMOVED = "removed", _("Removed")
+
+    # NOTE: kept when the encounter is deleted, keyed to who sent it, so the
+    # creator's daily invite limit survives deleting and recreating.
+    encounter = models.ForeignKey(
+        Encounter, on_delete=models.SET_NULL, null=True, related_name="invitees"
     )
-    displayed_session_fields = models.ManyToManyField(SessionField, blank=True)
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_encounter_invites"
+    )
+    email = models.EmailField()
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.INVITED
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "event_settings"
+        db_table = "encounter_invitee"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("encounter", "email"), name="encounter_invitee_unique_email"
+            ),
+        )
 
     def __str__(self) -> str:
-        return f"Settings for {self.event}"
+        return self.email
+
+
+class EncounterInviteMailing(models.Model):
+    """How many calendar messages a creator sent invitees in one save.
+
+    The daily mail budget sums these; the purge drops them once the budget
+    window has passed.
+    """
+
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="encounter_invite_mailings"
+    )
+    count = models.PositiveIntegerField()
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "encounter_invite_mailing"
+        indexes = (
+            models.Index(
+                fields=("creator", "creation_time"), name="encounter_mailing_by_creator"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.count} by {self.creator_id}"
 
 
 class EventPanelSettings(models.Model):
@@ -2022,6 +2107,9 @@ class Announcement(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
     is_published = models.BooleanField(default=True)
+    # Set exactly once, when the bell fanout claims this announcement; a set
+    # value blocks any further fanout, so republishing never re-notifies.
+    notified_at = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

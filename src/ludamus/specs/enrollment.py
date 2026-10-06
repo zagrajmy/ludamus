@@ -63,16 +63,17 @@ def _initial_slots_by_owner(waiting: list[WaitingParticipantDTO]) -> dict[int, i
 
 def _membership_slot_action(
     eligible: list[WaitingParticipantDTO], slots_by_owner: dict[int, int]
-) -> Literal["fit", "skip", "stop"]:
+) -> Literal["skip", "stop"] | None:
+    # None when every member fits their owner's remaining membership slots.
     slots_needed = Counter(p.recipient_user_id for p in eligible)
     shortfall = [
         owner
         for owner, needed in slots_needed.items()
-        if needed > slots_by_owner.get(owner, 0)
+        if needed > slots_by_owner[owner]
     ]
     if not shortfall:
-        return "fit"
-    if all(slots_by_owner.get(owner, 0) <= 0 for owner in shortfall):
+        return None
+    if all(slots_by_owner[owner] <= 0 for owner in shortfall):
         return "skip"
     return "stop"
 
@@ -88,9 +89,6 @@ def select_promotable_parties(
     # first eligible party that does not fit stops the walk (no leapfrogging).
     seats_remaining = state.available_seats
     selected: list[list[WaitingParticipantDTO]] = []
-    if seats_remaining <= 0:
-        return selected
-
     slots_by_owner = _initial_slots_by_owner(state.waiting)
 
     for party in _group_into_parties(state.waiting):
@@ -116,8 +114,6 @@ def select_promotable_parties(
         seats_remaining -= len(eligible)
         for owner, count in Counter(p.recipient_user_id for p in eligible).items():
             slots_by_owner[owner] -= count
-        if seats_remaining <= 0:
-            break
 
     return selected
 

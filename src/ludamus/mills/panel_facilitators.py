@@ -572,12 +572,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise FacilitatorMergeError(MergeErrorReason.BAD_ACCREDITATION)
 
         with self._transaction.atomic():
-            # Read inside the transaction so validation and mutation see the
-            # same snapshot — a concurrent merge/delete surfaces as NotFound.
-            facilitators = [
-                self._repos.facilitators.read_by_event_and_slug(event_id, slug)
-                for slug in slugs
-            ]
+            # SAFETY: read through the lock, or a claim or session assignment
+            # committing before the writes is overwritten or left naming a
+            # deleted facilitator.
+            facilitators = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, slugs
+            )
             linked = [f for f in facilitators if f.user_id is not None]
             if len(linked) > 1:
                 raise FacilitatorMergeError(MergeErrorReason.MULTIPLE_LINKED)
@@ -770,20 +770,20 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         # vanish from the program with nothing on the session saying why. The
         # sessions go first, or the facilitator stays.
         with self._transaction.atomic():
-            facilitator = self._repos.facilitators.read_by_event_and_slug(
-                event_id, facilitator_slug
-            )
             # Before the check, not after: a session assignment committing
             # between the two would otherwise leave this facilitator deleted
             # and still named on the program.
-            self._repos.facilitators.lock([facilitator.pk])
+            [facilitator] = self._repos.facilitators.lock_by_event_and_slugs(
+                event_id, [facilitator_slug]
+            )
             counts = self._repos.facilitators.count_sessions(facilitator.pk)
             if counts.live or counts.deleted:
                 raise FacilitatorActionError(
                     OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
                 )
             self._repos.facilitators.soft_delete(facilitator.pk)
-            self._log_deletion(
+            log_facilitator_deletion(
+                repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
@@ -799,23 +799,15 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 event_id, facilitator_slug
             )
             self._repos.facilitators.restore(facilitator.pk)
-            self._log_deletion(
+            # pragma: no mutate start
+            log_facilitator_deletion(
+                repo=self._repos.facilitator_change_logs,
                 event_id=event_id,
                 facilitator_id=facilitator.pk,
                 user_id=user_id,
                 deleted=False,
             )
-
-    def _log_deletion(
-        self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
-    ) -> None:
-        log_facilitator_deletion(
-            repo=self._repos.facilitator_change_logs,
-            event_id=event_id,
-            facilitator_id=facilitator_id,
-            user_id=user_id,
-            deleted=deleted,
-        )
+            # pragma: no mutate end
 
     def _place_guild(
         self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int

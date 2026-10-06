@@ -9,7 +9,8 @@ from ludamus.adapters.web.django.middlewares import (
     RequestContextMiddleware,
 )
 from ludamus.inits import DependencyInjector, RepositoryInjectionMiddleware
-from ludamus.links.db.django.models import Sphere
+from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
+from ludamus.links.db.django.models import NotificationSubscription, Sphere
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts import RedirectError, RequestContext
 
@@ -255,3 +256,46 @@ class TestRedirectErrorMiddleware:
         response = middleware.process_exception(request, exception)
 
         assert response is None
+
+
+class TestSphereVisitSubscriptionMiddleware:
+    URL = reverse("web:crowd:profile")
+
+    @pytest.mark.django_db
+    def test_anonymous_request_subscribes_nothing(self, client):
+        client.get(self.URL)
+
+        assert not NotificationSubscription.objects.exists()
+
+    def test_authenticated_request_subscribes_to_visited_sphere(
+        self, authenticated_client, active_user, sphere
+    ):
+        authenticated_client.get(self.URL)
+
+        subscription = NotificationSubscription.objects.get()
+        assert subscription.user_id == active_user.pk
+        assert subscription.sphere_id == sphere.pk
+        assert subscription.source == "visit"
+
+    def test_flagged_session_skips_the_write(self, authenticated_client):
+        authenticated_client.get(self.URL)
+        NotificationSubscription.objects.all().delete()
+
+        authenticated_client.get(self.URL)
+
+        assert not NotificationSubscription.objects.exists()
+
+    def test_fresh_session_revisit_keeps_mute(
+        self, authenticated_client, active_user, sphere
+    ):
+        authenticated_client.get(self.URL)
+        NotificationSubscription.objects.update(muted=True)
+        session = authenticated_client.session
+        del session[SUBSCRIBED_SPHERES_SESSION_KEY]
+        session.save()
+
+        authenticated_client.get(self.URL)
+
+        subscription = NotificationSubscription.objects.get()
+        assert subscription.user_id == active_user.pk
+        assert subscription.muted is True

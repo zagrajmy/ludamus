@@ -26,17 +26,18 @@ if TYPE_CHECKING:
         ClaimServiceProtocol,
         CompanionsServiceProtocol,
         CrowdAuthServiceProtocol,
+        EmailVerificationServiceProtocol,
         ProfileServiceProtocol,
     )
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
         SphereSubscriptionServiceProtocol,
     )
-    from ludamus.pacts.discounts import (
-        DiscountsExportServiceProtocol,
-        DiscountsServiceProtocol,
+    from ludamus.pacts.discounts import DiscountsServiceProtocol
+    from ludamus.pacts.encounter import (
+        EncounterReplyServiceProtocol,
+        EncounterServiceProtocol,
     )
-    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -62,7 +63,10 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
-    from ludamus.pacts.notifications import NotificationsServiceProtocol
+    from ludamus.pacts.notifications import (
+        NotificationsServiceProtocol,
+        NotificationSubscriptionsServiceProtocol,
+    )
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         ProposalPanelServiceProtocol,
@@ -127,6 +131,8 @@ class ServicesProtocol(Protocol):
     @property
     def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
     @property
+    def email_verification(self) -> EmailVerificationServiceProtocol: ...
+    @property
     def profile(self) -> ProfileServiceProtocol: ...
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
@@ -185,6 +191,10 @@ class ServicesProtocol(Protocol):
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
+    def notification_subscriptions(
+        self,
+    ) -> NotificationSubscriptionsServiceProtocol: ...
+    @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
     def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
@@ -215,8 +225,6 @@ class ServicesProtocol(Protocol):
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
-    def discounts_export(self) -> DiscountsExportServiceProtocol: ...
-    @property
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
     @property
     def propose_session(self) -> ProposeSessionServiceProtocol: ...
@@ -230,5 +238,7 @@ class ServicesProtocol(Protocol):
     def timetable_overview(self) -> TimetableOverviewServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

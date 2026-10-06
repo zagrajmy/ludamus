@@ -90,7 +90,6 @@ class PartyService(PartyServiceProtocol):
             self._notifier.notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=user.pk,
-                    recipient_email=user.email,
                     party_name=lead.name,
                     actor_name=lead.actor_name,
                 )
@@ -132,7 +131,7 @@ class PartyService(PartyServiceProtocol):
 
     def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None:
         with self._transaction.atomic():
-            token = token_urlsafe(32)
+            token = token_urlsafe()
             if not self._parties.set_invite_token(
                 leader_pk=leader_pk, party_pk=party_pk, token=token
             ):

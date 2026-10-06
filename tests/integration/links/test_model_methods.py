@@ -15,11 +15,9 @@ from ludamus.links.db.django.models import (
     EventBan,
     EventIntegration,
     EventProposalSettings,
-    EventSettings,
     Facilitator,
     PersonalDataField,
     PersonalDataFieldOption,
-    PersonalDataFieldRequirement,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
@@ -69,13 +67,6 @@ class TestEnrollmentConfig:
             str(EnrollmentConfig(event=Event(name=name)))
             == f"Enrollment config for {name}"
         )
-
-
-class TestEventSettings:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(EventSettings(event=Event(name=name))) == f"Settings for {name}"
 
 
 class TestEventProposalSettings:
@@ -261,32 +252,6 @@ class TestPersonalDataFieldOption:
         label = faker.word()
 
         assert str(PersonalDataFieldOption(label=label)) == label
-
-
-class TestPersonalDataFieldRequirement:
-    def test_str_required(self, faker):
-        field_name = faker.word()
-        category_name = faker.word()
-
-        requirement = PersonalDataFieldRequirement(
-            field=PersonalDataField(name=field_name),
-            category=ProposalCategory(name=category_name),
-            is_required=True,
-        )
-
-        assert str(requirement) == f"{field_name} (required) for {category_name}"
-
-    def test_str_optional(self, faker):
-        field_name = faker.word()
-        category_name = faker.word()
-
-        requirement = PersonalDataFieldRequirement(
-            field=PersonalDataField(name=field_name),
-            category=ProposalCategory(name=category_name),
-            is_required=False,
-        )
-
-        assert str(requirement) == f"{field_name} (optional) for {category_name}"
 
 
 class TestPersonalDataFieldValue:

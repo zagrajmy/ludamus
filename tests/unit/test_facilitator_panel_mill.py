@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -42,12 +42,16 @@ def _field(pk, field_type="select"):
     )
 
 
-class FakeFieldsRepo:
-    def __init__(self, fields):
-        self._fields = fields
+def _lookup(rows):
+    return lambda *args, **kwargs: rows[*args, *kwargs.values()]
 
-    def list_by_event(self, _event_id):
-        return self._fields
+
+class FakeFieldsRepo:
+    def __init__(self, fields, event_id=1):
+        self._by_event = {event_id: fields}
+
+    def list_by_event(self, event_id):
+        return self._by_event[event_id]
 
 
 class FakeFacilitatorsRepo:
@@ -57,9 +61,15 @@ class FakeFacilitatorsRepo:
 
 
 class FakeSettingsRepo:
-    @staticmethod
-    def read_or_create(_event_id):
-        return EventPanelSettingsDTO.model_construct(facilitator_columns=[], pk=1)
+    def __init__(self, columns=(), event_id=1):
+        self._by_event = {
+            event_id: EventPanelSettingsDTO.model_construct(
+                facilitator_columns=list(columns), pk=1
+            )
+        }
+
+    def read_or_create(self, event_id):
+        return self._by_event[event_id]
 
 
 def _repos(**overrides) -> FacilitatorPanelRepos:
@@ -105,7 +115,56 @@ class TestListContextFieldFilters:
         assert not context.field_filters
 
 
+class TestFilterOptions:
+    @staticmethod
+    def _search_service(rows_per_call):
+        facilitators_repo = MagicMock()
+        facilitators_repo.list_by_event.side_effect = rows_per_call
+        return _service_and_repos(facilitators=facilitators_repo)
+
+    def test_pinned_rows_come_first_and_one_extra_match_means_more(self):
+        pinned, fresh = _facilitator(1, "alice"), [
+            _facilitator(2, "alan"),
+            _facilitator(3, "alba"),
+            _facilitator(4, "alma"),
+        ]
+        service, repos = self._search_service([[pinned], [pinned, *fresh]])
+
+        found = service.filter_options(event_id=1, search="al", pinned={1}, limit=2)
+
+        assert repos.facilitators.list_by_event.call_args_list == [
+            call(1, {"pks": {1}}),
+            call(1, {"search": "al", "limit": 4}),
+        ]
+        assert found.facilitators == [pinned, *fresh[:2]]
+        assert found.has_more is True
+
+    def test_exactly_the_limit_of_matches_means_no_more(self):
+        fresh = [_facilitator(2, "alan"), _facilitator(3, "alba")]
+        service, repos = self._search_service([fresh])
+
+        found = service.filter_options(event_id=1, search="al", pinned=set(), limit=2)
+
+        repos.facilitators.list_by_event.assert_called_once_with(
+            1, {"search": "al", "limit": 3}
+        )
+        assert found.facilitators == fresh
+        assert found.has_more is False
+
+    def test_nothing_typed_still_lists_the_pinned_rows(self):
+        pinned = _facilitator(1, "alice")
+        service, repos = self._search_service([[pinned]])
+
+        found = service.filter_options(event_id=1, search="", pinned={1}, limit=2)
+
+        repos.facilitators.list_by_event.assert_called_once_with(1, {"pks": {1}})
+        assert found.facilitators == [pinned]
+        assert found.has_more is False
+
+
+_BOB_PK = 2
 _CREATED_PK = 99
+_USER_ID = 7
 _ACTOR = 3
 
 
@@ -121,12 +180,11 @@ def _facilitator(pk, slug, user_id=None, guild_id=None, organizer_id=None):
     )
 
 
-def _merge_service(facilitators, fields=()):
-    by_slug = {f.slug: f for f in facilitators}
+def _merge_service(facilitators, *, fields=(), membership=None):
     facilitators_repo = MagicMock()
-    facilitators_repo.read_by_event_and_slug.side_effect = lambda _event_id, slug: (
-        by_slug[slug]
-    )
+    facilitators_repo.lock_by_event_and_slugs.side_effect = lambda _event_id, slugs: [
+        f for f in facilitators if f.slug in slugs
+    ]
     values_repo = MagicMock()
     values_repo.read_for_facilitator_event.return_value = {}
     service, repos = _service_and_repos(
@@ -136,7 +194,7 @@ def _merge_service(facilitators, fields=()):
         personal_data_field_values=values_repo,
         sessions=MagicMock(),
     )
-    repos.guilds.read_member_guild.return_value = None
+    repos.guilds.read_member_guild.side_effect = _lookup({(3, 10): membership})
     return service, repos
 
 
@@ -151,6 +209,62 @@ def _merge_data(**overrides):
 
 
 class TestFacilitatorMerge:
+    def test_merges_sources_into_target_with_reconciled_values(self):
+        field = _field(5)
+        service, repos = _merge_service(
+            [_facilitator(1, "alice"), _facilitator(2, "bob")], fields=[field]
+        )
+        repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
+            _lookup({(1, 1): {}, (_BOB_PK, 1): {field.slug: "chosen"}})
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=1,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(
+                display_name="Alice Prime",
+                accreditation_type="guest",
+                keep_values_from={5: 2, 99: 2},
+            ),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice Prime", "accreditation_type": "guest"}
+        )
+        repos.personal_data_field_values.save.assert_called_once_with(
+            [{"facilitator_id": 1, "event_id": 1, "field_id": 5, "value": "chosen"}]
+        )
+        repos.sessions.replace_facilitators_in_sessions.assert_called_once_with([2], 1)
+        repos.personal_data_field_values.delete_by_facilitators.assert_called_once_with(
+            [2]
+        )
+        repos.facilitators.delete.assert_called_once_with(2)
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "facilitator_id": 1,
+                "user_id": None,
+                "changes": [
+                    {"field": "merged_from", "field_id": None, "old": "Bob", "new": ""},
+                    {
+                        "field": "display_name",
+                        "field_id": None,
+                        "old": "Alice",
+                        "new": "Alice Prime",
+                    },
+                    {
+                        "field": "accreditation_type",
+                        "field_id": None,
+                        "old": "none",
+                        "new": "guest",
+                    },
+                    {"field": "", "field_id": 5, "old": None, "new": "chosen"},
+                ],
+            }
+        )
+
     def test_kept_value_choices_naming_foreign_holder_or_gone_answer_are_dropped(self):
         fields = [_field(5), _field(6)]
         service, repos = _merge_service(
@@ -166,6 +280,27 @@ class TestFacilitatorMerge:
         )
 
         repos.personal_data_field_values.save.assert_not_called()
+
+    def test_disputed_answer_without_a_choice_keeps_the_targets_own(self):
+        field = _field(5)
+        service, repos = _merge_service(
+            [_facilitator(1, "alice"), _facilitator(2, "bob")], fields=[field]
+        )
+        repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
+            _lookup({(1, 1): {field.slug: "A"}, (2, 1): {field.slug: "B"}})
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=1,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.personal_data_field_values.save.assert_called_once_with(
+            [{"facilitator_id": 1, "event_id": 1, "field_id": 5, "value": "A"}]
+        )
 
     def test_empty_target_inherits_an_agreed_source_guild(self):
         service, repos = _merge_service(
@@ -210,12 +345,27 @@ class TestFacilitatorMerge:
         repos.facilitators.update.assert_called_once_with(
             1, {"display_name": "Alice", "accreditation_type": "none"}
         )
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "facilitator_id": 1,
+                "user_id": None,
+                "changes": [
+                    {
+                        "field": "merged_from",
+                        "field_id": None,
+                        "old": "Bob, Carol",
+                        "new": "",
+                    }
+                ],
+            }
+        )
 
     def test_linked_target_keeps_its_membership_when_a_source_has_another_guild(self):
         service, repos = _merge_service(
-            [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", guild_id=7)]
+            [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", guild_id=7)],
+            membership=SimpleNamespace(pk=8),
         )
-        repos.guilds.read_member_guild.return_value = SimpleNamespace(pk=8)
 
         service.merge(
             event_id=1,
@@ -231,7 +381,7 @@ class TestFacilitatorMerge:
 
 class TestCreateFacilitator:
     @staticmethod
-    def _create_service(*, taken_slugs=()):
+    def _create_service(*, taken_slugs=(), fields=()):
         facilitators_repo = MagicMock()
         facilitators_repo.slug_exists.side_effect = lambda _event_id, slug: (
             slug in taken_slugs
@@ -241,6 +391,7 @@ class TestCreateFacilitator:
         )
         service, repos = _service_and_repos(
             facilitators=facilitators_repo,
+            personal_data_fields=FakeFieldsRepo(list(fields), event_id=10),
             facilitator_change_logs=MagicMock(),
             personal_data_field_values=MagicMock(),
         )
@@ -263,6 +414,34 @@ class TestCreateFacilitator:
         repos.events.lock.assert_called_once_with(10)
         repos.facilitators.create.assert_not_called()
 
+    def test_find_or_create_creates_missing_facilitator_under_event_lock(self):
+        service, repos = self._create_service()
+
+        result = service.find_or_create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result.pk == _CREATED_PK
+        repos.events.lock.assert_called_once_with(10)
+        repos.facilitators.find_by_event_and_display_name.assert_called_once_with(
+            10, "Alice"
+        )
+        repos.facilitators.slug_exists.assert_called_once_with(10, "alice")
+        repos.facilitators.create.assert_called_once_with(
+            {
+                "accreditation_type": "none",
+                "display_name": "Alice",
+                "event_id": 10,
+                "is_collective": False,
+                "organizer_id": None,
+                "slug": "alice",
+                "user_id": None,
+            }
+        )
+
     def test_uniquifies_a_colliding_slug(self):
         service, repos = self._create_service(taken_slugs=("alice",))
 
@@ -276,6 +455,66 @@ class TestCreateFacilitator:
         assert result.slug != "alice"
         assert result.slug.startswith("alice-")
         assert repos.facilitators.create.call_args[0][0]["slug"] == result.slug
+
+    def test_blank_base_slug_falls_back_and_the_organizer_is_kept(self):
+        service, repos = self._create_service()
+
+        service.create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice",
+                base_slug="",
+                accreditation_type="guest",
+                is_collective=True,
+                organizer_id=_MINE,
+            ),
+        )
+
+        repos.facilitators.create.assert_called_once_with(
+            {
+                "accreditation_type": "guest",
+                "display_name": "Alice",
+                "event_id": 10,
+                "is_collective": True,
+                "organizer_id": _MINE,
+                "slug": "facilitator",
+                "user_id": None,
+            }
+        )
+
+    def test_saves_values_and_logs_creation(self):
+        field = _field(5)
+        service, repos = self._create_service(fields=(field,))
+
+        service.create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice",
+                base_slug="alice",
+                accreditation_type="none",
+                values={5: "yes"},
+            ),
+            user_id=_USER_ID,
+        )
+
+        repos.personal_data_field_values.save.assert_called_once_with(
+            [
+                {
+                    "facilitator_id": _CREATED_PK,
+                    "event_id": 10,
+                    "field_id": 5,
+                    "value": "yes",
+                }
+            ]
+        )
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 10,
+                "facilitator_id": _CREATED_PK,
+                "user_id": _USER_ID,
+                "changes": [{"field": "", "field_id": 5, "old": None, "new": "yes"}],
+            }
+        )
 
 
 def _merge_facilitator(*, pk, display_name):
@@ -310,6 +549,29 @@ class TestFieldReconcile:
         ]
         assert not unanimous
 
+    def test_the_target_checks_the_group_it_shares_with_another_holder(self):
+        field = _field(1, field_type="text")
+        merge_context = FacilitatorMergeContextDTO(
+            facilitators=[
+                _merge_facilitator(pk=1, display_name="Adam"),
+                _merge_facilitator(pk=2, display_name="Jan"),
+                _merge_facilitator(pk=3, display_name="Ewa"),
+            ],
+            fields=[field],
+            values={
+                1: {field.slug: "Vegan"},
+                2: {field.slug: "Vegetarian"},
+                3: {field.slug: "Vegetarian"},
+            },
+        )
+
+        conflicts, unanimous = field_reconcile(merge_context, target_pk=3)
+
+        assert conflicts == [
+            (field, [(1, "Vegan", "Adam", False), (2, "Vegetarian", "Jan, Ewa", True)])
+        ]
+        assert not unanimous
+
 
 class TestKeptFieldValues:
     FIELD = _field(1, field_type="text")
@@ -336,6 +598,21 @@ class TestKeptFieldValues:
 
         assert not self._kept(values)
 
+    def test_agreed_answer_the_target_lacks_comes_from_its_first_holder(self):
+        values = {1: {}, 2: {self.FIELD.slug: "Vegan"}, 3: {self.FIELD.slug: "Vegan"}}
+
+        assert self._kept(values) == [(self.FIELD.pk, 2)]
+
+    def test_an_unanswered_field_does_not_end_the_scan(self):
+        kept = kept_field_values(
+            fields=[_field(9, field_type="text"), self.FIELD],
+            values_by_holder={1: {self.FIELD.slug: "Vegan"}},
+            target_pk=1,
+            choices={},
+        )
+
+        assert kept == [(self.FIELD.pk, 1)]
+
 
 _MINE = 42
 _NOT_CALLED = object()
@@ -346,14 +623,15 @@ class FakeOrganizerRepo:
     # conditional updates themselves are the repo's job, covered by
     # tests/integration/links/test_facilitator_repository.py.
     def __init__(self):
-        self.released_with = _NOT_CALLED
+        self.released = _NOT_CALLED
 
     @staticmethod
-    def read_by_event_and_slug(_event_id, _slug):
-        return FacilitatorDTO.model_construct(pk=7, organizer_id=_MINE)
+    def read_by_event_and_slug(event_id, slug):
+        rows = {(1, "alice"): FacilitatorDTO.model_construct(pk=7, organizer_id=_MINE)}
+        return rows[event_id, slug]
 
-    def release(self, _pk, *, organizer_id):
-        self.released_with = organizer_id
+    def release(self, pk, *, organizer_id):
+        self.released = (pk, organizer_id)
         return True
 
 
@@ -366,7 +644,7 @@ class TestOrganizerStepDown:
             event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
         )
 
-        assert facilitators.released_with == _MINE
+        assert facilitators.released == (7, _MINE)
 
 
 _FACILITATOR_PK = 7
@@ -377,11 +655,9 @@ class FakeDeletionRepo:
         self._counts = FacilitatorSessionCountsDTO(live=live, deleted=0)
         self.calls = []
 
-    def lock(self, pks):
-        self.calls.append(("lock", list(pks)))
-
-    def read_by_event_and_slug(self, _event_id, _slug):
-        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+    def lock_by_event_and_slugs(self, event_id, slugs):
+        self.calls.append(("lock", event_id, slugs))
+        return [FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)]
 
     def count_sessions(self, pk):
         self.calls.append(("count_sessions", pk))
@@ -396,17 +672,27 @@ class TestFacilitatorDeletion:
         # A session assignment landing between the two would leave a deleted
         # facilitator named on the program.
         facilitators = FakeDeletionRepo()
-        service = _service(
+        service, repos = _service_and_repos(
             facilitators=facilitators, facilitator_change_logs=MagicMock()
         )
 
-        service.delete(event_id=1, facilitator_slug="alice")
+        service.delete(event_id=1, facilitator_slug="alice", user_id=_ACTOR)
 
         assert facilitators.calls == [
-            ("lock", [_FACILITATOR_PK]),
+            ("lock", 1, ["alice"]),
             ("count_sessions", _FACILITATOR_PK),
             ("soft_delete", _FACILITATOR_PK),
         ]
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "facilitator_id": _FACILITATOR_PK,
+                "user_id": _ACTOR,
+                "changes": [
+                    {"field": "deleted", "field_id": None, "old": "", "new": "yes"}
+                ],
+            }
+        )
 
     def test_sessions_still_named_block_the_deletion(self):
         facilitators = FakeDeletionRepo(live=2)
@@ -424,11 +710,12 @@ class TestFacilitatorDeletion:
         assert ("soft_delete", _FACILITATOR_PK) not in facilitators.calls
 
 
-def _mock_service(fields=()):
+def _mock_service(fields=(), *, event_id=1, columns=()):
     return _service_and_repos(
         facilitators=MagicMock(),
         facilitator_change_logs=MagicMock(),
-        personal_data_fields=FakeFieldsRepo(list(fields)),
+        panel_settings=FakeSettingsRepo(columns, event_id=event_id),
+        personal_data_fields=FakeFieldsRepo(list(fields), event_id=event_id),
         personal_data_field_values=MagicMock(),
         sessions=MagicMock(),
         users=MagicMock(),
@@ -443,27 +730,36 @@ class TestListContext:
     def test_resolves_filters_against_the_events_own_fields(self):
         multi = _field(4).model_copy(update={"is_multiple": True})
         service, repos = _mock_service(
-            [_field(1), _field(2, "checkbox"), _field(3, "text"), multi]
+            [_field(1), _field(2, "checkbox"), _field(3, "text"), multi],
+            columns=["organizer"],
         )
 
         context = service.list_context(
             event_id=1,
             query=FacilitatorListQuery(
                 search="ala",
+                accreditation="guest",
                 organizer="mine",
                 current_user_id=_MINE,
-                raw_field_filters={1: " x ", 2: "true", 3: "free", 4: "a", 9: "b"},
+                sort="name",
+                raw_field_filters={9: "b", 1: " x ", 2: "true", 3: "free", 4: "a"},
             ),
         )
 
         assert context.field_filters == {1: "x", 2: True}
         assert [f.pk for f in context.filterable_fields] == [1, 2]
-        filters = repos.facilitators.list_by_event.call_args[0][1]
-        assert (filters["organizer_id"], filters["organizer_unassigned"]) == (
-            _MINE,
-            None,
+        assert [c.key for c in context.columns] == ["organizer"]
+        repos.facilitators.list_by_event.assert_called_once_with(
+            1,
+            {
+                "search": "ala",
+                "accreditation": "guest",
+                "field_filters": {1: "x", 2: True},
+                "organizer_id": _MINE,
+                "organizer_unassigned": None,
+                "sort": "name",
+            },
         )
-        assert filters["search"] == "ala"
 
     def test_unchecked_checkbox_and_unassigned_organizer(self):
         service, repos = _mock_service([_field(2, "checkbox")])
@@ -471,23 +767,32 @@ class TestListContext:
         context = service.list_context(
             event_id=1,
             query=FacilitatorListQuery(
-                organizer="unassigned", raw_field_filters={2: "false"}
+                organizer="unassigned",
+                current_user_id=_MINE,
+                raw_field_filters={2: "false"},
             ),
         )
 
         assert not context.field_filters
-        filters = repos.facilitators.list_by_event.call_args[0][1]
-        assert (filters["organizer_id"], filters["organizer_unassigned"]) == (
-            None,
-            True,
+        repos.facilitators.list_by_event.assert_called_once_with(
+            1,
+            {
+                "search": None,
+                "accreditation": None,
+                "field_filters": None,
+                "organizer_id": None,
+                "organizer_unassigned": True,
+                "sort": None,
+            },
         )
-        assert filters["field_filters"] is None
 
 
 class TestReadPaths:
     def test_pass_throughs_scope_to_the_event(self):
         service, repos = _mock_service([_field(1)])
-        repos.facilitators.list_deleted_by_event.return_value = [_row(1)]
+        repos.facilitators.list_deleted_by_event.side_effect = _lookup(
+            {(1,): [_row(1)]}
+        )
         repos.facilitators.list_by_slugs.return_value = [_row(2)]
         repos.facilitators.list_by_event.return_value = [_row(3)]
 
@@ -497,6 +802,7 @@ class TestReadPaths:
         assert service.search_candidates(event_id=1, search="x") == [_row(3)]
         assert service.list_fields(1) == [_field(1)]
         repos.facilitators.list_by_slugs.assert_called_once_with(1, ["a", "b"])
+        repos.facilitators.list_by_event.assert_called_once_with(1, {"search": "x"})
 
     def test_filter_options_plain_page_load_renders_nothing(self):
         service, repos = _mock_service()
@@ -511,7 +817,7 @@ class TestReadPaths:
         repos.facilitators.list_by_event.assert_not_called()
 
     def test_filter_options_keep_pinned_rows_and_report_more_matches(self):
-        service, repos = _mock_service()
+        service, repos = _mock_service(columns=["guild"])
         repos.facilitators.list_by_event.side_effect = lambda _event_id, filters: (
             [_row(1)] if "pks" in filters else [_row(1), _row(2), _row(3)]
         )
@@ -520,14 +826,7 @@ class TestReadPaths:
 
         assert [f.pk for f in options.facilitators] == [1, 2]
         assert options.has_more is True
-        assert [c.key for c in options.columns] == [
-            "name",
-            "linked",
-            "guild",
-            "sessions",
-            "accreditation",
-            "organizer",
-        ]
+        assert [c.key for c in options.columns] == ["guild"]
 
     def test_filter_options_without_search_return_only_pinned(self):
         service, repos = _mock_service()
@@ -551,13 +850,17 @@ class TestReadPaths:
         field = _field(1)
         service, repos = _mock_service([field])
         facilitator = _facilitator(7, "alice", user_id=user_id)
-        repos.facilitators.read_including_deleted.return_value = facilitator
-        repos.facilitators.read_by_event_and_slug.return_value = facilitator
-        repos.personal_data_field_values.read_for_facilitator_event.return_value = {
-            field.slug: "Vegan"
-        }
+        repos.facilitators.read_including_deleted.side_effect = _lookup(
+            {(1, "alice"): facilitator}
+        )
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): facilitator}
+        )
+        repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
+            _lookup({(7, 1): {field.slug: "Vegan"}})
+        )
         repos.users.read_by_id.side_effect = user_lookup
-        repos.sessions.list_by_facilitator.return_value = [_row(3)]
+        repos.sessions.list_by_facilitator.side_effect = _lookup({(7,): [_row(3)]})
 
         context = service.detail_context(
             event_id=1, facilitator_slug="alice", include_deleted=include_deleted
@@ -571,13 +874,15 @@ class TestReadPaths:
 
     def test_history_keeps_only_this_facilitators_log(self):
         service, repos = _mock_service()
-        repos.facilitators.read_including_deleted.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_including_deleted.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
         mine, other = SimpleNamespace(facilitator_id=7), SimpleNamespace(
             facilitator_id=8
         )
-        repos.facilitator_change_logs.list_by_event.return_value = [mine, other]
+        repos.facilitator_change_logs.list_by_event.side_effect = _lookup(
+            {(1,): [mine, other]}
+        )
 
         assert service.facilitator_history(event_id=1, facilitator_slug="alice") == (
             "Alice",
@@ -586,12 +891,11 @@ class TestReadPaths:
 
     def test_merge_context_reads_every_unique_slugs_answers(self):
         service, repos = _mock_service([_field(1)])
-        by_slug = {"alice": _facilitator(1, "alice"), "bob": _facilitator(2, "bob")}
-        repos.facilitators.read_by_event_and_slug.side_effect = (
-            lambda _event_id, slug: by_slug[slug]
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(1, "alice"), (1, "bob"): _facilitator(2, "bob")}
         )
         repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
-            lambda pk, _event_id: {"field-1": f"v{pk}"}
+            _lookup({(1, 1): {"field-1": "v1"}, (2, 1): {"field-1": "v2"}})
         )
 
         context = service.merge_context(
@@ -615,6 +919,9 @@ class TestColumns:
         assert service.column_values(facilitator_ids=[1], field_ids=[1]) == {
             1: {"f": "v"}
         }
+        repos.personal_data_field_values.list_values_for_facilitators.assert_called_once_with(
+            [1], [1]
+        )
 
     def test_columns_context_offers_every_column_when_none_chosen_yet(self):
         service, _ = _mock_service([_field(1)])
@@ -630,6 +937,20 @@ class TestColumns:
             "organizer",
         ]
         assert [c.key for c in context.available] == ["field_1"]
+
+    def test_columns_context_splits_the_chosen_from_the_rest(self):
+        service, _ = _mock_service([_field(1)], columns=["field_1", "name"])
+
+        context = service.columns_context(1)
+
+        assert [c.key for c in context.chosen] == ["field_1", "name"]
+        assert [c.key for c in context.available] == [
+            "linked",
+            "guild",
+            "sessions",
+            "accreditation",
+            "organizer",
+        ]
 
     def test_set_columns_refuses_an_empty_selection(self):
         service, _ = _mock_service()
@@ -651,7 +972,7 @@ class TestColumns:
 class TestCreateWithAnswers:
     def test_saves_answers_and_logs_them(self):
         field = _field(5)
-        service, repos = _mock_service([field])
+        service, repos = _mock_service([field], event_id=10)
         repos.facilitators.slug_exists.return_value = False
         repos.facilitators.create.return_value = _facilitator(_CREATED_PK, "alice")
 
@@ -683,7 +1004,8 @@ class TestCreateWithAnswers:
         ]
 
     def test_find_or_create_creates_when_the_name_is_new(self):
-        service, repos = _mock_service()
+        field = _field(5)
+        service, repos = _mock_service([field], event_id=10)
         repos.facilitators.find_by_event_and_display_name.return_value = None
         repos.facilitators.slug_exists.return_value = False
         repos.facilitators.create.return_value = _facilitator(_CREATED_PK, "alice")
@@ -691,12 +1013,23 @@ class TestCreateWithAnswers:
         result = service.find_or_create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
+                display_name="Alice",
+                base_slug="alice",
+                accreditation_type="none",
+                values={5: "Vegan"},
             ),
+            user_id=_ACTOR,
         )
 
         assert result.pk == _CREATED_PK
-        repos.personal_data_field_values.save.assert_not_called()
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 10,
+                "facilitator_id": _CREATED_PK,
+                "user_id": _ACTOR,
+                "changes": [{"field": "", "field_id": 5, "old": None, "new": "Vegan"}],
+            }
+        )
 
 
 class TestMergeValidation:
@@ -750,12 +1083,13 @@ class TestMergeWrites:
         alice = _facilitator(1, "alice")
         bob = _facilitator(2, "bob", user_id=10, guild_id=7, organizer_id=_MINE)
         service, repos = _merge_service([alice, bob], fields=fields)
-        answers = {
-            1: {"field-5": "Vegan", "field-6": "A"},
-            2: {"field-5": "Vegan", "field-6": "B"},
-        }
         repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
-            lambda pk, _event_id: answers[pk]
+            _lookup(
+                {
+                    (1, 1): {"field-5": "Vegan", "field-6": "A"},
+                    (2, 1): {"field-5": "Vegan", "field-6": "B"},
+                }
+            )
         )
 
         service.merge(
@@ -910,26 +1244,41 @@ class TestReconcileHelpers:
 class TestRestoreAndGuild:
     def test_restore_revives_the_row_and_logs_it(self):
         service, repos = _mock_service()
-        repos.facilitators.read_including_deleted.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_including_deleted.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
 
         service.restore(event_id=1, facilitator_slug="alice", user_id=_ACTOR)
 
         repos.facilitators.restore.assert_called_once_with(7)
-        log = repos.facilitator_change_logs.create.call_args[0][0]
-        assert log["changes"] == [
-            {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
-        ]
+        repos.facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "facilitator_id": 7,
+                "user_id": _ACTOR,
+                "changes": [
+                    {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
+                ],
+            }
+        )
 
     @pytest.mark.parametrize(
-        ("user_id", "placed_via"),
-        ((10, "assign_member"), (None, "set_facilitator_guild")),
+        ("user_id", "placed_via", "placed_with"),
+        (
+            (10, "assign_member", {"sphere_id": 3, "guild_pk": 8, "user_pk": 10}),
+            (
+                None,
+                "set_facilitator_guild",
+                {"sphere_id": 3, "facilitator_pk": 7, "guild_pk": 8},
+            ),
+        ),
     )
-    def test_assign_guild_places_the_account_or_the_row(self, user_id, placed_via):
+    def test_assign_guild_places_the_account_or_the_row(
+        self, user_id, placed_via, placed_with
+    ):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice", user_id=user_id
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice", user_id=user_id)}
         )
         getattr(repos.guilds, placed_via).return_value = True
 
@@ -938,16 +1287,16 @@ class TestRestoreAndGuild:
         )
 
         assert placed is True
-        assert getattr(repos.guilds, placed_via).call_count == 1
+        getattr(repos.guilds, placed_via).assert_called_once_with(**placed_with)
 
 
 class TestOrganizerClaims:
     def test_claim_succeeds(self):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
-        repos.facilitators.claim.return_value = True
+        repos.facilitators.claim.side_effect = _lookup({(7, _MINE): True})
 
         assert (
             service.assign_organizer(
@@ -965,10 +1314,10 @@ class TestOrganizerClaims:
     )
     def test_refused_claim_names_the_real_reason(self, holder, refusal):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice", organizer_id=holder
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice", organizer_id=holder)}
         )
-        repos.facilitators.claim.return_value = False
+        repos.facilitators.claim.side_effect = _lookup({(7, _MINE): False})
 
         with pytest.raises(FacilitatorActionError) as excinfo:
             service.assign_organizer(
@@ -985,12 +1334,12 @@ class TestOrganizerClaims:
             event_id=1, facilitator_slug="alice", organizer_id=5, force=True
         )
 
-        assert facilitators.released_with is None
+        assert facilitators.released == (7, None)
 
     def test_free_facilitator_cannot_be_released(self):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
 
         with pytest.raises(FacilitatorActionError) as excinfo:
@@ -1003,10 +1352,10 @@ class TestOrganizerClaims:
 
     def test_someone_elses_facilitator_cannot_be_released(self):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice", organizer_id=5
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice", organizer_id=5)}
         )
-        repos.facilitators.release.return_value = False
+        repos.facilitators.release.side_effect = _lookup({(7, _MINE): False})
 
         with pytest.raises(FacilitatorActionError) as excinfo:
             service.unassign_organizer(
@@ -1019,8 +1368,8 @@ class TestOrganizerClaims:
 class TestSetAccreditation:
     def test_same_type_writes_nothing(self):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
 
         service.set_accreditation(
@@ -1032,8 +1381,8 @@ class TestSetAccreditation:
 
     def test_new_type_is_written_and_logged(self):
         service, repos = _mock_service()
-        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
-            7, "alice"
+        repos.facilitators.read_by_event_and_slug.side_effect = _lookup(
+            {(1, "alice"): _facilitator(7, "alice")}
         )
 
         service.set_accreditation(

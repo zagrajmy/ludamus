@@ -1,100 +1,113 @@
-from datetime import UTC, datetime, timedelta, timezone
-from urllib.parse import parse_qs, urlsplit
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
-from ludamus.mills.calendar import (
-    PRODID,
-    CalendarEntry,
-    google_calendar_url,
-    ics_document,
-    ics_escape,
-    ics_utc,
-    outlook_calendar_url,
-)
+from ludamus.mills.calendar import google_calendar_url, outlook_calendar_url
+from ludamus.pacts.calendar import CalendarEntry, ics_document, ics_escape, ics_utc
 
-START = datetime(2026, 8, 1, 18, 0, tzinfo=UTC)
-STAMP = datetime(2026, 7, 1, 9, 30, tzinfo=UTC)
-URL = "https://example.test/e/CODE1"
+_WARSAW = ZoneInfo("Europe/Warsaw")
+_START = datetime(2026, 8, 15, 12, 30, tzinfo=_WARSAW)
 
 
 def _entry(**overrides):
-    fields = {"uid": "CODE1@ludamus", "title": "Gloomhaven", "start": START, "url": URL}
-    return CalendarEntry(**{**fields, **overrides})
+    values = {
+        "uid": "session-7@zagrajmy",
+        "title": "Dracula; part 2, act \\1",
+        "start": _START,
+        "url": "https://zagrajmy.net/s/7",
+        "end": _START + timedelta(hours=1, minutes=30),
+        "location": "Klub, sala 42",
+        "description": "Bring dice\nand snacks",
+    }
+    values.update(overrides)
+    return CalendarEntry(**values)
 
 
-def _query(url):
-    return {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+def test_ics_escape_backslashes_separators_and_newlines():
+    assert ics_escape("a\\b;c,d\ne") == "a\\\\b\\;c\\,d\\ne"
 
 
-class TestIcsPrimitives:
-    def test_escape_protects_every_ics_delimiter(self):
-        assert ics_escape("a\\b;c,d\ne") == "a\\\\b\\;c\\,d\\ne"
-
-    def test_utc_converts_a_local_time_before_formatting(self):
-        warsaw = datetime(2026, 8, 1, 20, 0, tzinfo=timezone(timedelta(hours=2)))
-
-        assert ics_utc(warsaw) == "20260801T180000Z"
+def test_ics_utc_prints_the_instant_in_utc():
+    assert ics_utc(_START) == "20260815T103000Z"
 
 
-class TestIcsDocument:
-    def test_minimal_entry_prints_only_the_required_lines(self):
-        document = ics_document(_entry(), stamped_at=STAMP)
+def test_ics_document_lists_every_line_in_order():
+    stamped_at = datetime(2026, 8, 1, 9, 0, tzinfo=UTC)
 
-        assert document == (
-            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
-            f"PRODID:{PRODID}\r\nBEGIN:VEVENT\r\n"
-            "UID:CODE1@ludamus\r\nDTSTAMP:20260701T093000Z\r\n"
-            "DTSTART:20260801T180000Z\r\nSUMMARY:Gloomhaven\r\n"
-            f"URL:{URL}\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
-        )
-
-    def test_optional_fields_print_escaped(self):
-        entry = _entry(
-            end=START + timedelta(hours=2),
-            location="Klub, sala 2",
-            description="Line 1\nLine 2",
-        )
-
-        lines = ics_document(entry, stamped_at=STAMP).split("\r\n")
-
-        assert "DTEND:20260801T200000Z" in lines
-        assert "LOCATION:Klub\\, sala 2" in lines
-        assert "DESCRIPTION:Line 1\\nLine 2" in lines
+    assert ics_document(_entry(), stamped_at=stamped_at) == (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//Zagrajmy//Ludamus//PL\r\n"
+        "BEGIN:VEVENT\r\n"
+        "UID:session-7@zagrajmy\r\n"
+        "DTSTAMP:20260801T090000Z\r\n"
+        "DTSTART:20260815T103000Z\r\n"
+        "DTEND:20260815T120000Z\r\n"
+        "SUMMARY:Dracula\\; part 2\\, act \\\\1\r\n"
+        "LOCATION:Klub\\, sala 42\r\n"
+        "DESCRIPTION:Bring dice\\nand snacks\r\n"
+        "URL:https://zagrajmy.net/s/7\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
 
 
-class TestWebCalendarLinks:
-    def test_google_open_ended_entry_is_zero_length_with_url_as_details(self):
-        query = _query(google_calendar_url(_entry()))
+def test_ics_document_skips_the_optional_lines():
+    stamped_at = datetime(2026, 8, 1, 9, 0, tzinfo=UTC)
 
-        assert query["action"] == "TEMPLATE"
-        assert query["text"] == "Gloomhaven"
-        assert query["dates"] == "20260801T180000Z/20260801T180000Z"
-        assert query["details"] == URL
-        assert "location" not in query
+    document = ics_document(
+        _entry(end=None, location="", description=""), stamped_at=stamped_at
+    )
 
-    def test_google_full_entry_carries_end_location_and_description(self):
-        entry = _entry(
-            end=START + timedelta(hours=1), location="Klub", description="Bring dice"
-        )
+    assert document == (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//Zagrajmy//Ludamus//PL\r\n"
+        "BEGIN:VEVENT\r\n"
+        "UID:session-7@zagrajmy\r\n"
+        "DTSTAMP:20260801T090000Z\r\n"
+        "DTSTART:20260815T103000Z\r\n"
+        "SUMMARY:Dracula\\; part 2\\, act \\\\1\r\n"
+        "URL:https://zagrajmy.net/s/7\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
 
-        query = _query(google_calendar_url(entry))
 
-        assert query["dates"] == "20260801T180000Z/20260801T190000Z"
-        assert query["location"] == "Klub"
-        assert query["details"] == f"Bring dice\n\n{URL}"
+def test_google_calendar_url_carries_every_field():
+    assert google_calendar_url(_entry()) == (
+        "https://calendar.google.com/calendar/render?action=TEMPLATE"
+        "&text=Dracula%3B+part+2%2C+act+%5C1"
+        "&dates=20260815T103000Z%2F20260815T120000Z"
+        "&details=Bring+dice%0Aand+snacks%0A%0Ahttps%3A%2F%2Fzagrajmy.net%2Fs%2F7"
+        "&location=Klub%2C+sala+42"
+    )
 
-    def test_outlook_open_ended_entry_is_zero_length(self):
-        query = _query(outlook_calendar_url(_entry()))
 
-        assert query["rru"] == "addevent"
-        assert query["subject"] == "Gloomhaven"
-        assert query["startdt"] == query["enddt"] == "2026-08-01T18:00:00+00:00"
-        assert query["body"] == URL
-        assert "location" not in query
+def test_google_calendar_url_without_end_or_extras_is_a_point_in_time():
+    assert google_calendar_url(_entry(end=None, location="", description="")) == (
+        "https://calendar.google.com/calendar/render?action=TEMPLATE"
+        "&text=Dracula%3B+part+2%2C+act+%5C1"
+        "&dates=20260815T103000Z%2F20260815T103000Z"
+        "&details=https%3A%2F%2Fzagrajmy.net%2Fs%2F7"
+    )
 
-    def test_outlook_full_entry_carries_end_and_location(self):
-        entry = _entry(end=START + timedelta(hours=1), location="Klub")
 
-        query = _query(outlook_calendar_url(entry))
+def test_outlook_calendar_url_carries_every_field():
+    assert outlook_calendar_url(_entry()) == (
+        "https://outlook.live.com/calendar/0/action/compose?rru=addevent"
+        "&subject=Dracula%3B+part+2%2C+act+%5C1"
+        "&startdt=2026-08-15T10%3A30%3A00%2B00%3A00"
+        "&enddt=2026-08-15T12%3A00%3A00%2B00%3A00"
+        "&body=Bring+dice%0Aand+snacks%0A%0Ahttps%3A%2F%2Fzagrajmy.net%2Fs%2F7"
+        "&location=Klub%2C+sala+42"
+    )
 
-        assert query["enddt"] == "2026-08-01T19:00:00+00:00"
-        assert query["location"] == "Klub"
+
+def test_outlook_calendar_url_without_end_or_extras_is_a_point_in_time():
+    assert outlook_calendar_url(_entry(end=None, location="", description="")) == (
+        "https://outlook.live.com/calendar/0/action/compose?rru=addevent"
+        "&subject=Dracula%3B+part+2%2C+act+%5C1"
+        "&startdt=2026-08-15T10%3A30%3A00%2B00%3A00"
+        "&enddt=2026-08-15T10%3A30%3A00%2B00%3A00"
+        "&body=https%3A%2F%2Fzagrajmy.net%2Fs%2F7"
+    )

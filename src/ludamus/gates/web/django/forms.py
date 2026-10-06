@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -16,6 +15,7 @@ from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_log
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
+    requirement_fields,
 )
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
@@ -30,13 +30,12 @@ from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import SessionFieldRequirementDTO
-    from ludamus.pacts.multiverse import ConnectionDTO
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -400,6 +399,19 @@ class PersonalDataFieldForm(forms.Form):
         ),
     )
     is_public = forms.BooleanField(required=False, initial=False)
+    is_required = forms.BooleanField(required=False, initial=False)
+    order = forms.IntegerField(required=False, min_value=0, initial=0)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or self.cleaned_data
+        # The database refuses the pair too; this is the message the organiser
+        # reads instead of a constraint error.
+        if cleaned.get("field_type") == "checkbox" and cleaned.get("is_required"):
+            # Also a non-field error: the edit page hides the Required control
+            # for a checkbox, so its own error paragraph never renders.
+            self.add_error("is_required", _("A checkbox cannot be required."))
+            self.add_error(None, _("A checkbox cannot be required."))
+        return cleaned
 
 
 class PersonalDataFieldEditForm(PersonalDataFieldForm):
@@ -793,7 +805,7 @@ def create_proposal_form(
     }
 
     custom_required = build_dynamic_fields(
-        fields=attrs, requirements=requirements, prefix="session"
+        fields=attrs, pairs=requirement_fields(requirements), prefix="session"
     )
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
@@ -904,56 +916,3 @@ class DiscountForm(forms.Form):
         label=_("Note"),
         widget=forms.Textarea(attrs={"rows": 3}),
     )
-
-
-_SPREADSHEET_URL_ID_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
-_SPREADSHEET_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-
-
-class DiscountExportForm(forms.Form):
-    connection = forms.ChoiceField(label=_("Connection"))
-    spreadsheet = forms.CharField(
-        label=_("Google Sheets link"),
-        max_length=500,
-        strip=True,
-        help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
-    )
-    tab = forms.CharField(
-        label=_("Tab name"),
-        max_length=100,
-        strip=True,
-        help_text=_("The tab has to exist already; the export replaces its content."),
-    )
-    columns = forms.MultipleChoiceField(
-        label=_("Columns"),
-        widget=forms.CheckboxSelectMultiple,
-        help_text=_(
-            "Facilitator and personal data written before the discount columns."
-            " Pick what this sheet needs; nothing is exported by default."
-        ),
-    )
-
-    def __init__(
-        self,
-        *args: Any,
-        connections: Iterable[ConnectionDTO],
-        columns: Iterable[tuple[str, str]] = (),
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        connection_field = cast("forms.ChoiceField", self.fields["connection"])
-        connection_field.choices = [
-            (str(connection.pk), connection.display_name) for connection in connections
-        ]
-        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
-        columns_field.choices = list(columns)
-
-    def clean_spreadsheet(self) -> str:
-        raw = str(self.cleaned_data["spreadsheet"])
-        if match := _SPREADSHEET_URL_ID_RE.search(raw):
-            return match.group(1)
-        if _SPREADSHEET_ID_RE.fullmatch(raw):
-            return raw
-        raise forms.ValidationError(
-            _("Enter a Google Sheets link or a spreadsheet ID.")
-        )

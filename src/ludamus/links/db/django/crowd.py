@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
+from django.db.models import Q
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import (
@@ -10,10 +11,12 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    EMAIL_LINK_MAX_AGE,
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
     CompanionDTO,
     CompanionRepositoryProtocol,
+    EmailVerificationReminderRepositoryProtocol,
     ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
@@ -23,6 +26,9 @@ from ludamus.pacts.crowd import (
 from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
+    from datetime import datetime, timedelta
+
+    from django.db.models import QuerySet
 
     from ludamus.links.db.django.models import User
 else:
@@ -69,6 +75,16 @@ class UserRepository(UserRepositoryProtocol):
             raise NotFoundError from exception
         return UserDTO.model_validate(user)
 
+    def read_by_email(self, email: str) -> UserDTO:
+        user = (
+            User.objects.filter(email__iexact=email, user_type=self._user_type)
+            .order_by("pk")
+            .first()
+        )
+        if user is None:
+            raise NotFoundError
+        return UserDTO.model_validate(user)
+
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None:
         User.objects.filter(slug=user_slug).update(**user_data)
@@ -83,11 +99,44 @@ class UserRepository(UserRepositoryProtocol):
         )
 
     @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool:
+    def claim_verification_send(
+        *, user_slug: str, now: datetime, throttle: timedelta
+    ) -> bool:
+        """Stamp the send column, reporting whether this caller won the slot.
+
+        The check and the stamp are one conditional UPDATE, so a double-clicked
+        resend racing the reminder sweep mails the link once.
+        """
+        cutoff = now - throttle
+        return (
+            User.objects.filter(slug=user_slug)
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lte=cutoff)
+            )
+            .update(email_verification_sent_at=now)
+            == 1
+        )
+
+    @staticmethod
+    def email_unavailable(
+        *, email: str, now: datetime, exclude_slug: str | None = None
+    ) -> bool:
+        """Report an address as taken by, or reserved for, another account."""
         if not email:
             return False
 
-        query = User.objects.filter(email__iexact=email)
+        # A pending address reserves the email only while its confirm link is
+        # still provable; the reservation expires with the link, so a typo'd
+        # change never blocks the address's real owner for good.
+        still_provable = now - EMAIL_LINK_MAX_AGE
+        query = User.objects.filter(
+            Q(email__iexact=email)
+            | Q(
+                pending_email__iexact=email,
+                email_verification_sent_at__gte=still_provable,
+            )
+        )
         if exclude_slug:
             query = query.exclude(slug=exclude_slug)
 
@@ -98,6 +147,42 @@ class UserRepository(UserRepositoryProtocol):
         # NOTE: the slug is unique table-wide, so this ignores user_type; a
         # CONNECTED or ANONYMOUS row can own a slug an ACTIVE insert wants.
         return User.objects.filter(slug=slug).exists()
+
+
+class EmailVerificationReminderRepository(EmailVerificationReminderRepositoryProtocol):
+    @staticmethod
+    def _due(*, now: datetime, interval: timedelta) -> QuerySet[User]:
+        # An unproven address is an unverified `email` or a `pending_email`;
+        # a row with neither is skipped rather than left to the notifier's
+        # empty check, because stamping it would lose the nag for good once
+        # the user finally adds an address.
+        cutoff = now - interval
+        unproven = (Q(email_verified=False) & ~Q(email="")) | ~Q(pending_email="")
+        return (
+            User.objects.filter(user_type=UserType.ACTIVE)
+            .filter(unproven)
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lt=cutoff)
+            )
+        )
+
+    @staticmethod
+    def count_due(*, now: datetime, interval: timedelta) -> int:
+        return EmailVerificationReminderRepository._due(
+            now=now, interval=interval
+        ).count()
+
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[UserDTO]:
+        # Whole rows, not slugs: the sweep needs the address and the last-sent
+        # stamp anyway, and a slug list would make it re-read every user.
+        return [
+            UserDTO.model_validate(user)
+            for user in EmailVerificationReminderRepository._due(
+                now=now, interval=interval
+            ).order_by("pk")
+        ]
 
 
 class CompanionRepository(CompanionRepositoryProtocol):

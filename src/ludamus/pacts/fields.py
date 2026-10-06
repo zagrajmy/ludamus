@@ -72,12 +72,17 @@ class OrganizerFieldDTO(BaseModel):
     icon: str = ""
     is_multiple: bool = False
     is_public: bool = False
+    # Personal-data fields carry the organiser's flag; session fields are
+    # required per kind and leave it False.
+    is_required: bool = False
     max_length: int = 50
     name: str
     options: list[OrganizerFieldOptionDTO] = []
     order: int
     pk: int
     question: str
+    # Session fields only; personal-data fields never reach a session card.
+    show_on_cards: bool = True
     slug: str
 
     # What the field looks like once configured. The form builds its widgets

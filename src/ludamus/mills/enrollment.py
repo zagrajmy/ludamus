@@ -1,4 +1,4 @@
-"""Enrollment services: waitlist promotion and anonymous enrollment.
+"""Enrollment services: waitlist promotion and enrollment settings.
 
 Each service owns its decisions and transactional boundary, delegating IO to
 injected ports (repositories, notifier, scheduler) so the logic stays
@@ -15,24 +15,14 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.enrollment_windows import EnrollmentPolicy, viewer_access
+from ludamus.mills.crowd import build_anonymous_user
+from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts import (
     MembershipAPIError,
     UserEnrollmentConfigData,
     VirtualEnrollmentConfig,
 )
-from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
-    AnonymousActivationDTO,
-    AnonymousCancelResultDTO,
-    AnonymousEnrollmentError,
-    AnonymousEnrollmentErrorCode,
-    AnonymousEnrollmentServiceProtocol,
-    AnonymousEnrollOutcome,
-    AnonymousEnrollPageDTO,
-    AnonymousEnrollResultDTO,
-    AnonymousLoadDTO,
-    AnonymousSessionContextDTO,
     ClaimResult,
     EnrollmentAccessDTO,
     EnrollmentServiceProtocol,
@@ -45,11 +35,7 @@ from ludamus.pacts.enrollment import (
     PromotionResult,
     distinct_recipients,
 )
-from ludamus.pacts.legacy import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    NotFoundError,
-    PromotionMode,
-)
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import (
     MEMBERSHIP_CHECK_INTERVAL_MINUTES,
@@ -66,10 +52,8 @@ if TYPE_CHECKING:
         TicketAPIProtocol,
         UserEnrollmentConfigDTO,
     )
-    from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
-        AnonymousEnrollmentRepositoryProtocol,
-        AnonymousEnrollmentRequestDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
@@ -77,14 +61,12 @@ if TYPE_CHECKING:
         EnrollmentWindowRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
-        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         SeatHoldRequest,
         TicketApiResolverProtocol,
         UserNotifierProtocol,
         WaitingParticipantDTO,
-        WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.ids import HasPk
     from ludamus.pacts.services import TransactionProtocol
@@ -98,8 +80,8 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
-def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
-    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[int]:
+    return distinct_recipients(p.recipient_user_id for p in party)
 
 
 class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
@@ -213,13 +195,12 @@ class WaitlistPromotionService:
             result.promoted.extend(ids)
             promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
-                for recipient in _party_recipients(party)
+                for recipient_id in _party_recipients(party)
             )
 
     def _offer(
@@ -241,15 +222,14 @@ class WaitlistPromotionService:
             result.offered.extend(ids)
             offers.extend(
                 OfferNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
-                for recipient in _party_recipients(party)
+                for recipient_id in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
 
@@ -278,7 +258,6 @@ class WaitlistPromotionService:
             self._notifier.notify_seat_held(
                 HeldSeatNotification(
                     recipient_user_id=hold.user_id,
-                    recipient_email=hold.user_email,
                     actor_name=hold.actor_name,
                     session_id=hold.session_id,
                     session_title=hold.session_title,
@@ -360,13 +339,12 @@ class WaitlistPromotionService:
             self._participations.drop(offer.participant_ids)
             notifications = [
                 PromotionNotification(
-                    recipient_user_id=recipient.user_id,
-                    recipient_email=recipient.email,
+                    recipient_user_id=recipient_id,
                     session_id=offer.session_id,
                     session_title=offer.session_title,
                     event_slug=offer.event_slug,
                 )
-                for recipient in offer.recipients
+                for recipient_id in offer.recipients
             ]
             session_id = offer.session_id
 
@@ -382,244 +360,6 @@ class WaitlistPromotionService:
         for participation_id in lapsed:
             self.expire_offer(participation_id=participation_id)
         return len(lapsed)
-
-
-def build_anonymous_user(slug: str, name: str = "") -> UserData:
-    # The single recipe for throwaway ANONYMOUS accounts (code-based
-    # self-enrollment, +N headcount guests); only the slug/name vary.
-    return UserData(
-        username=f"anon_{token_urlsafe(8).lower()}",
-        slug=slug,
-        name=name,
-        user_type=UserType.ANONYMOUS,
-        is_active=False,
-    )
-
-
-class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
-    SLUG_TEMPLATE = "code_{code}"
-
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        user_repository: UserRepositoryProtocol,
-        enrollment_repository: AnonymousEnrollmentRepositoryProtocol,
-        waitlist_promotion: WaitlistPromotionServiceProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._user_repository = user_repository
-        self._enrollment_repository = enrollment_repository
-        self._waitlist_promotion = waitlist_promotion
-
-    def get_user_by_code(self, code: str) -> UserDTO:
-        slug = self.SLUG_TEMPLATE.format(code=code)
-        user = self._user_repository.read(slug)
-        return UserDTO.model_validate(user)
-
-    def build_user(self, code: str) -> UserData:
-        return build_anonymous_user(self.SLUG_TEMPLATE.format(code=code))
-
-    def activate(self, *, event_slug: str) -> AnonymousActivationDTO:
-        try:
-            event = self._enrollment_repository.read_event(event_slug)
-        except NotFoundError:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
-            ) from None
-        policy = EnrollmentPolicy.for_anonymous(event.active_windows)
-        if not policy.can_enroll:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
-                event_slug=event.slug,
-            )
-        code = token_urlsafe(4).lower()
-        self._user_repository.create(self.build_user(code))
-        return AnonymousActivationDTO(
-            code=code, event_id=event.event_id, event_slug=event.slug
-        )
-
-    def get_enroll_page(
-        self, enrollment_request: AnonymousEnrollmentRequestDTO
-    ) -> AnonymousEnrollPageDTO:
-        session, user = self._validate(
-            enrollment_request, require_active_enrollment=False
-        )
-        status = self._enrollment_repository.read_participation_status(
-            session_id=session.session_id, user_id=user.pk
-        )
-        if status is None and not session.allows_anonymous_enrollment:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
-                event_slug=session.event_slug,
-            )
-        return AnonymousEnrollPageDTO(
-            session=session,
-            user_name=user.full_name,
-            anonymous_code=user.slug.removeprefix("code_"),
-            needs_user_data=not user.name,
-            enrollment_status=status,
-        )
-
-    def enroll(
-        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
-    ) -> AnonymousEnrollResultDTO:
-        session, user = self._validate(
-            enrollment_request, require_active_enrollment=True
-        )
-        self._update_name(user, name)
-        if self._enrollment_repository.has_conflicts(
-            session_id=session.session_id, user=user
-        ):
-            return AnonymousEnrollResultDTO(
-                outcome=AnonymousEnrollOutcome.CONFLICT,
-                session_title=session.title,
-                event_slug=session.event_slug,
-            )
-        with self._transaction.atomic():
-            seating = self._enrollment_repository.lock_seating(session.session_id)
-            policy = EnrollmentPolicy.for_anonymous(seating.eligible_windows)
-            if not policy.can_enroll:
-                raise AnonymousEnrollmentError(
-                    AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
-                    event_slug=session.event_slug,
-                )
-            if policy.is_full(
-                participants_limit=seating.participants_limit,
-                enrolled_count=seating.enrolled_count,
-            ):
-                self._enrollment_repository.create_waiting(
-                    session_id=session.session_id, user_id=user.pk
-                )
-                outcome = AnonymousEnrollOutcome.WAITLISTED
-            else:
-                self._enrollment_repository.create_or_confirm(
-                    session_id=session.session_id, user_id=user.pk
-                )
-                outcome = AnonymousEnrollOutcome.ENROLLED
-        return AnonymousEnrollResultDTO(
-            outcome=outcome, session_title=seating.title, event_slug=session.event_slug
-        )
-
-    def cancel(
-        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
-    ) -> AnonymousCancelResultDTO:
-        session, user = self._validate(
-            enrollment_request, require_active_enrollment=False
-        )
-        self._update_name(user, name)
-        with self._transaction.atomic():
-            seating = self._enrollment_repository.lock_seating(session.session_id)
-            status = self._enrollment_repository.delete_participation(
-                session_id=session.session_id, user_id=user.pk
-            )
-        # A freed confirmed (or held offered) seat promotes/offers the next
-        # waiter, who is notified by the promotion service after the mutation
-        # commits.
-        if status in OCCUPYING_PARTICIPATION_STATUSES:
-            self._waitlist_promotion.fill_freed_seats(session_id=session.session_id)
-        return AnonymousCancelResultDTO(
-            cancelled=status is not None,
-            session_title=seating.title,
-            event_slug=session.event_slug,
-        )
-
-    def load_by_code(self, *, code: str) -> AnonymousLoadDTO:
-        try:
-            user = self.get_user_by_code(code)
-        except NotFoundError:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.USER_NOT_FOUND
-            ) from None
-        load = self._enrollment_repository.first_enrollment_event(user.pk)
-        if load is None:
-            raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NO_ENROLLMENTS)
-        return load
-
-    def event_slug_by_id(self, event_id: int) -> str | None:
-        return self._enrollment_repository.event_slug_by_id(event_id)
-
-    def _validate(
-        self,
-        enrollment_request: AnonymousEnrollmentRequestDTO,
-        *,
-        require_active_enrollment: bool,
-    ) -> tuple[AnonymousSessionContextDTO, UserDTO]:
-        request = enrollment_request
-        try:
-            raw_session = self._enrollment_repository.read_session(
-                session_id=request.session_id,
-                event_slug=request.event_slug,
-                site_id=request.site_id,
-            )
-        except NotFoundError:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
-            ) from None
-        policy = EnrollmentPolicy.for_anonymous(raw_session.eligible_windows)
-        session = AnonymousSessionContextDTO.from_session(
-            session=raw_session,
-            allows_anonymous_enrollment=(
-                raw_session.has_agenda_item and policy.can_enroll
-            ),
-            effective_participants_limit=policy.effective_participants_limit(
-                participants_limit=raw_session.participants_limit
-            ),
-        )
-        if (
-            request.anonymous_event_id is None
-            or session.event_id != request.anonymous_event_id
-        ):
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
-                event_slug=self._anonymous_event_slug(request),
-            )
-        if not session.has_agenda_item and require_active_enrollment:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
-                event_slug=self._anonymous_event_slug(request),
-            )
-        if require_active_enrollment and not session.allows_anonymous_enrollment:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
-                event_slug=session.event_slug,
-            )
-        if not request.code:
-            raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.SESSION_EXPIRED)
-        try:
-            user = self.get_user_by_code(request.code)
-        except NotFoundError:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.USER_NOT_FOUND
-            ) from None
-        if (
-            not session.has_agenda_item
-            and self._enrollment_repository.read_participation_status(
-                session_id=session.session_id, user_id=user.pk
-            )
-            is None
-        ):
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
-                event_slug=self._anonymous_event_slug(request),
-            )
-        return session, user
-
-    def _anonymous_event_slug(
-        self, enrollment_request: AnonymousEnrollmentRequestDTO
-    ) -> str | None:
-        if enrollment_request.anonymous_event_id is None:
-            return None
-        return self._enrollment_repository.event_slug_by_id(
-            enrollment_request.anonymous_event_id
-        )
-
-    def _update_name(self, user: UserDTO, name: str) -> None:
-        if name:
-            user.name = name
-            self._user_repository.update(user.slug, UserData(name=name))
-        if not user.name:
-            raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NAME_REQUIRED)
 
 
 def _refresh_user_config_from_api(
@@ -719,27 +459,27 @@ def window_slots(
     Returns:
         The slots this window grants, user and domain counted apart.
     """
-    slots = VirtualEnrollmentConfig()
     existing_user_config = enrollment_config_repo.read_user_config(window, user_email)
-    if api_user_config := get_or_create_user_enrollment_config(
+    api_user_config = get_or_create_user_enrollment_config(
         enrollment_config=window,
         user_email=user_email,
         ticket_api=ticket_api,
         existing_user_config=existing_user_config,
         enrollment_config_repo=enrollment_config_repo,
-    ):
-        slots.user_slots += api_user_config.allowed_slots
-    elif existing_user_config:
-        slots.user_slots += existing_user_config.allowed_slots
-
+    )
+    user_config = api_user_config or existing_user_config
     email_domain = user_email.split("@")[1] if "@" in user_email else ""
-    if email_domain and (
-        domain_config := enrollment_config_repo.read_domain_config(window, email_domain)
-    ):
-        slots.domain_slots += domain_config.allowed_slots_per_user
-        if domain_config.allowed_slots_per_user:
-            slots.domain = email_domain
-    return slots
+    domain_config = (
+        enrollment_config_repo.read_domain_config(window, email_domain)
+        if email_domain
+        else None
+    )
+    domain_slots = domain_config.allowed_slots_per_user if domain_config else 0
+    return VirtualEnrollmentConfig(
+        user_slots=user_config.allowed_slots if user_config else 0,
+        domain_slots=domain_slots,
+        domain=email_domain if domain_slots else "",
+    )
 
 
 def sum_window_slots(

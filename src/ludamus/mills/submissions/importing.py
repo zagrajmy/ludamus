@@ -23,7 +23,7 @@ class ProposalImportService:
     ) -> None:
         self._transaction = transaction
         self._event_integrations = event_integrations
-        self._engine = ImportEngine(event_integrations, repos, transaction)
+        self._engine = ImportEngine(event_integrations, repos)
 
     def run(
         self, *, sphere_id: int, event_id: int, integration_pk: int
@@ -39,6 +39,7 @@ class ProposalImportService:
                 integration_pk=integration_pk,
                 settings=settings,
                 indexed_rows=indexed,
+                transaction=self._transaction,
             )
 
     def run_sample(
@@ -59,4 +60,5 @@ class ProposalImportService:
                 integration_pk=integration_pk,
                 settings=settings,
                 indexed_rows=[(idx, rows[idx])],
+                transaction=self._transaction,
             )

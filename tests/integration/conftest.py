@@ -10,7 +10,7 @@ from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
 from django.utils.timezone import localtime
-from factory import Faker, LazyAttribute, Sequence, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 from zeal import zeal_context
@@ -19,6 +19,7 @@ from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
+    EncounterInvitee,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
@@ -140,6 +141,9 @@ class UserFactory(DjangoModelFactory):
 
     username = Faker("user_name")
     email = Sequence(lambda n: f"user{n}@example.com")
+    # Verified by default, mirroring production after the grandfathering
+    # migration; suppression tests flip it off explicitly.
+    email_verified = True
     name = Faker("name")
     slug = LazyAttribute(lambda o: o.username)
     user_type = "active"  # Use the actual choice value
@@ -288,6 +292,15 @@ class EncounterRSVPFactory(DjangoModelFactory):
     ip_address = Faker("ipv4")
 
 
+class EncounterInviteeFactory(DjangoModelFactory):
+    class Meta:
+        model = EncounterInvitee
+
+    encounter = SubFactory(EncounterFactory)
+    creator = LazyAttribute(lambda o: o.encounter.creator)
+    email = Sequence(lambda n: f"invitee{n}@example.com")
+
+
 class AgendaItemFactory(DjangoModelFactory):
     class Meta:
         model = AgendaItem
@@ -307,6 +320,15 @@ class AgendaItemFactory(DjangoModelFactory):
         + timedelta(microseconds=n)
     )
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
+    # The session's flag is the one read; the item's column mirrors it until it
+    # is dropped, the way production writes both.
+    session_confirmed = LazyAttribute(lambda o: o.session.schedule_confirmed)
+
+    @post_generation
+    def mirror_confirmation(self, _create, _extracted, **_kwargs):
+        if self.session.schedule_confirmed != self.session_confirmed:
+            self.session.schedule_confirmed = self.session_confirmed
+            self.session.save(update_fields=["schedule_confirmed"])
 
 
 @pytest.fixture

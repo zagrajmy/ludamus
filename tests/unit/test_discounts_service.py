@@ -18,6 +18,8 @@ from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
 from tests.unit.factories import FakeTransaction
 
+EVENT_PK = 1
+
 
 def _dto(pk, *, event_id=1, facilitator_id=1, from_rules=False):
     return DiscountDTO(
@@ -88,15 +90,15 @@ class FakeRepo:
 
 class FakeFacilitators:
     def __init__(self, *, list_items=(), facilitator=None):
-        self._list_items = list(list_items)
-        self._facilitator = facilitator
+        self._by_event = {EVENT_PK: list(list_items)}
+        self._facilitators = {facilitator.pk: facilitator} if facilitator else {}
         self.accreditations = []
 
-    def list_by_event(self, _event_id):
-        return list(self._list_items)
+    def list_by_event(self, event_id):
+        return list(self._by_event.get(event_id, []))
 
-    def read(self, _pk):
-        return self._facilitator
+    def read(self, pk):
+        return self._facilitators[pk]
 
     def set_accreditation(self, *, event_id, pks, accreditation_type):
         self.accreditations.append((event_id, sorted(pks), accreditation_type))
@@ -133,10 +135,10 @@ class FakeRules:
 
 class FakeSchedule:
     def __init__(self, *, rows=()):
-        self._rows = list(rows)
+        self._by_event = {EVENT_PK: list(rows)}
 
-    def list_facilitator_schedule(self, _event_pk):
-        return list(self._rows)
+    def list_facilitator_schedule(self, event_pk):
+        return list(self._by_event.get(event_pk, []))
 
 
 class FakeChangeLogs:
@@ -173,7 +175,7 @@ class TestApplyFromAgenda:
             schedule=FakeSchedule(rows=rows),
             change_logs=change_logs,
         )
-        result = service.apply_from_agenda(event_pk=1, user_id=7)
+        result = service.apply_from_agenda(event_pk=EVENT_PK, user_id=7)
         return result, repo, facilitators, change_logs
 
     def test_started_hours_round_the_total_up(self):
@@ -185,7 +187,9 @@ class TestApplyFromAgenda:
         )
 
         assert [data.value for _event_pk, data in repo.created] == [Decimal(50)]
-        assert result.discounts_set == 1
+        assert result == DiscountSyncResultDTO(
+            marked=1, unmarked=0, discounts_set=1, discounts_cleared=0
+        )
 
     def test_first_rule_in_order_wins(self):
         low, high = Decimal(25), Decimal(75)
@@ -296,18 +300,27 @@ class TestApplyFromAgenda:
             rules=[_rule(1)],
         )
 
-        assert facilitators.accreditations == [(1, [1], "none")]
-        assert [log["changes"] for log in change_logs.batches[0]] == [
+        assert facilitators.accreditations == [(EVENT_PK, [1], "none")]
+        assert change_logs.batches == [
             [
                 {
-                    "field": "accreditation_type",
-                    "field_id": None,
-                    "old": "creator",
-                    "new": "none",
+                    "event_id": EVENT_PK,
+                    "facilitator_id": 1,
+                    "user_id": 7,
+                    "changes": [
+                        {
+                            "field": "accreditation_type",
+                            "field_id": None,
+                            "old": "creator",
+                            "new": "none",
+                        }
+                    ],
                 }
             ]
         ]
-        assert result.unmarked == 1
+        assert result == DiscountSyncResultDTO(
+            marked=0, unmarked=1, discounts_set=0, discounts_cleared=0
+        )
 
 
 class TestRules:
@@ -384,16 +397,15 @@ class TestHandWrites:
         assert updated.pk == created.pk
 
 
-class TestRoster:
-    def test_pairs_each_facilitator_with_their_discount_or_none(self):
+class TestPanelReads:
+    def test_reads_this_events_discounts_and_the_load_behind_them(self):
+        # The roster page pairs these two reads with the facilitators list; a
+        # discount of another event must not reach it.
+        row = _load(2)
         service = _service(
-            repo=FakeRepo(items=[_dto(4, facilitator_id=2)]),
-            facilitators=FakeFacilitators(list_items=[_list_item(1), _list_item(2)]),
+            repo=FakeRepo(items=[_dto(4, facilitator_id=2), _dto(5, event_id=2)]),
+            schedule=FakeSchedule(rows=[row]),
         )
 
-        roster = service.list_roster(1)
-
-        assert [(entry.facilitator.pk, entry.discount) for entry in roster] == [
-            (1, None),
-            (2, _dto(4, facilitator_id=2)),
-        ]
+        assert service.list_discounts(1) == [_dto(4, facilitator_id=2)]
+        assert service.list_facilitator_schedule(1) == [row]

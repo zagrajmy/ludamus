@@ -58,7 +58,11 @@ def _add_confirmation_facilitators(*, event, category, tracks, count, offset=0):
             slug=f"facilitator-{index}",
         )
         for session_index in range(3):
-            session = SessionFactory(category=category, status="accepted")
+            session = SessionFactory(
+                category=category,
+                status="accepted",
+                schedule_confirmed=session_index == 0,
+            )
             session.facilitators.add(facilitator)
             session.tracks.add(tracks[index % len(tracks)])
             AgendaItem.objects.create(

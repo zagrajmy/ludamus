@@ -6,44 +6,33 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
-from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-)
-from ludamus.gates.web.django.chronology.panel.views.columns import (
-    FACILITATOR_COLUMNS,
-    column_views,
-    facilitator_column_values,
+    read_accreditation_filter,
 )
 from ludamus.gates.web.django.forms import (
+    ACCREDITATION_TYPE_CHOICES,
     ACCREDITATION_TYPE_LABELS,
-    DISCOUNT_KIND_LABELS,
-    DiscountExportForm,
     DiscountForm,
 )
-from ludamus.gates.web.django.panel import PanelNavContext
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.discounts import (
-    DiscountData,
-    DiscountExportColumns,
-    DiscountExportLabels,
-    DiscountKind,
-)
-from ludamus.pacts.sheets import SheetExportError
+from ludamus.gates.web.django.panel import PanelNavContext, safe_next_url
+from ludamus.pacts import FacilitatorListItemDTO, NotFoundError
+from ludamus.pacts.discounts import DiscountData, DiscountKind
+from ludamus.pacts.panel import FacilitatorListQuery
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
-    from django.utils.functional import Promise
+    from django.utils.functional import Promise, _StrPromise
 
-    from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO
+    from ludamus.pacts import FacilitatorDTO
     from ludamus.pacts.discounts import DiscountDTO
-    from ludamus.pacts.panel import PanelColumnDTO
 
 
 class _DiscountAssignment(TypedDict):
@@ -60,6 +49,24 @@ class _DiscountRow(TypedDict):
 class _DiscountsContext(PanelNavContext):
     assignments: list[_DiscountAssignment]
     rows: list[_DiscountRow]
+    back_url: str
+    filter_accreditation: str
+    filters_active: bool
+    accreditation_types: list[tuple[str, _StrPromise]]
+
+
+def read_discount_query(request: PanelRequest) -> FacilitatorListQuery:
+    # The roster page renders one filter, so it reads one: a facilitator-list
+    # filter the page cannot show would narrow both the roster and its
+    # accreditation sheet with nothing on screen to clear it by.
+    return FacilitatorListQuery(
+        accreditation=read_accreditation_filter(request),
+        current_user_id=request.context.current_user_id,
+    )
+
+
+def _back_to_discounts(request: PanelRequest, slug: str) -> str:
+    return safe_next_url(request, reverse("panel:discounts", kwargs={"slug": slug}))
 
 
 def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
@@ -96,31 +103,58 @@ def _scoped_facilitator(
 def _discounts_context(
     *,
     request: PanelRequest,
+    slug: str,
     event_pk: int,
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
 ) -> _DiscountsContext:
+    # The roster is a facilitator list, so it is the facilitators list: the same
+    # query DTO the mill applies, the same rows and order, and the accreditation
+    # sheet reads it through the same reader. Everyone the event knows has a
+    # line — accreditation NONE included — because the desk sheet listing only
+    # the discounted was a hidden rule no filter could express (plans/020).
+    query = read_discount_query(request)
+    facilitators = request.services.facilitator_panel.list_context(
+        event_id=event_pk, query=query
+    ).facilitators
+    discounts = {
+        discount.facilitator_id: discount
+        for discount in request.services.discounts.list_discounts(event_pk)
+    }
     rows: list[_DiscountRow] = []
     assignments: list[_DiscountAssignment] = []
-    for entry in request.services.discounts.list_roster(event_pk):
-        facilitator = entry.facilitator
+    for facilitator in facilitators:
+        discount = discounts.get(facilitator.pk)
         rows.append(
             {
                 "facilitator": facilitator,
                 "accreditation_type_display": ACCREDITATION_TYPE_LABELS[
                     AccreditationType(facilitator.accreditation_type)
                 ],
-                "discount": entry.discount,
+                "discount": discount,
             }
         )
-        if entry.discount is None:
+        if discount is None:
             form = (
                 assign_form
                 if facilitator.pk == assign_facilitator_id and assign_form is not None
                 else DiscountForm(auto_id=f"discount_{facilitator.pk}_%s")
             )
             assignments.append({"facilitator": facilitator, "form": form})
-    return {"active_nav": "discounts", "assignments": assignments, "rows": rows}
+    # Built from the query, not the request path: an invalid assign re-renders
+    # this page under the assign action's URL.
+    back_url = reverse("panel:discounts", kwargs={"slug": slug})
+    if query.accreditation:
+        back_url += f"?{urlencode({'accreditation': query.accreditation})}"
+    return {
+        "active_nav": "discounts",
+        "assignments": assignments,
+        "rows": rows,
+        "back_url": back_url,
+        "filter_accreditation": query.accreditation,
+        "filters_active": bool(query.accreditation),
+        "accreditation_types": ACCREDITATION_TYPE_CHOICES,
+    }
 
 
 class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -132,7 +166,9 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         context.update(
-            _discounts_context(request=self.request, event_pk=current_event.pk)
+            _discounts_context(
+                request=self.request, slug=slug, event_pk=current_event.pk
+            )
         )
         return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
@@ -154,7 +190,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         discounts_url = reverse("panel:discounts", kwargs={"slug": slug})
         return redirect(f"{discounts_url}?assign={facilitator_id}")
@@ -173,13 +209,14 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         form = DiscountForm(self.request.POST)
         if not form.is_valid():
             context.update(
                 _discounts_context(
                     request=self.request,
+                    slug=slug,
                     event_pk=current_event.pk,
                     assign_facilitator_id=facilitator_id,
                     assign_form=form,
@@ -191,7 +228,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, _form_data(form, facilitator_id)
         )
         messages.success(self.request, _("Discount assigned successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
@@ -207,9 +244,10 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         context["active_nav"] = "discounts"
+        context["back_url"] = _back_to_discounts(self.request, slug)
         context["discount"] = discount
         context["form"] = DiscountForm(
             initial={
@@ -230,11 +268,12 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         form = DiscountForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "discounts"
+            context["back_url"] = _back_to_discounts(self.request, slug)
             context["discount"] = discount
             context["form"] = form
             return TemplateResponse(self.request, "panel/discounts/edit.html", context)
@@ -243,7 +282,7 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
             pk, _form_data(form, discount.facilitator_id)
         )
         messages.success(self.request, _("Discount updated successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
@@ -259,11 +298,11 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
-            return redirect("panel:discounts", slug=slug)
+            return redirect(_back_to_discounts(self.request, slug))
 
         self.request.services.discounts.soft_delete(pk)
         messages.success(self.request, _("Discount removed successfully."))
-        return redirect("panel:discounts", slug=slug)
+        return redirect(_back_to_discounts(self.request, slug))
 
 
 class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
@@ -294,145 +333,4 @@ class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
                 "cleared": result.discounts_cleared,
             },
         )
-        return redirect("panel:discounts", slug=slug)
-
-
-def _export_labels() -> DiscountExportLabels:
-    return DiscountExportLabels(
-        headers=[_("Discount kind"), _("Discount value"), _("Note")],
-        kinds={kind.value: str(label) for kind, label in DISCOUNT_KIND_LABELS.items()},
-    )
-
-
-# The guild column has no cell of its own — the list renders it as a badge —
-# so it has nothing to write into a sheet.
-_UNEXPORTABLE_KEYS = frozenset({"guild"})
-
-
-def _exportable_columns(request: PanelRequest, event_pk: int) -> list[PanelColumnDTO]:
-    # Every facilitator and personal-data column the list can show. Which of
-    # them the sheet gets is the organizer's call, per export: a display name
-    # can be a group's name, so even that one is nobody's default.
-    context = request.services.facilitator_panel.columns_context(event_pk)
-    return [
-        column
-        for column in (*context.chosen, *context.available)
-        if column.key not in _UNEXPORTABLE_KEYS
-    ]
-
-
-def _column_choices(request: PanelRequest, event_pk: int) -> list[tuple[str, str]]:
-    views = column_views(_exportable_columns(request, event_pk), FACILITATOR_COLUMNS)
-    return [(view.key, view.label) for view in views]
-
-
-def _chosen_columns(
-    *, request: PanelRequest, event_pk: int, keys: list[str]
-) -> DiscountExportColumns:
-    by_key = {column.key: column for column in _exportable_columns(request, event_pk)}
-    chosen = [column for key in keys if (column := by_key.get(key))]
-    # The roster is read again here rather than threaded through the export
-    # service: only the gate knows what a facilitator column reads as.
-    facilitators = [
-        entry.facilitator for entry in request.services.discounts.list_roster(event_pk)
-    ]
-    values = facilitator_column_values(
-        panel=request.services.facilitator_panel,
-        facilitators=facilitators,
-        columns=chosen,
-    )
-    return DiscountExportColumns(
-        headers=[view.label for view in column_views(chosen, FACILITATOR_COLUMNS)],
-        cells={
-            facilitator.pk: [
-                values.get(facilitator.pk, {}).get(column.key, "") for column in chosen
-            ]
-            for facilitator in facilitators
-        },
-    )
-
-
-class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
-
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        connections = self.request.services.connections.list_for_sphere(
-            self.request.context.current_sphere_id
-        )
-        return self._render(
-            context=context,
-            form=DiscountExportForm(
-                connections=connections,
-                columns=_column_choices(self.request, current_event.pk),
-            ),
-            has_connections=bool(connections),
-        )
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        sphere_id = self.request.context.current_sphere_id
-        connections = self.request.services.connections.list_for_sphere(sphere_id)
-        form = DiscountExportForm(
-            self.request.POST,
-            connections=connections,
-            columns=_column_choices(self.request, current_event.pk),
-        )
-        if not form.is_valid():
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
-
-        try:
-            count = self.request.services.discounts_export.export_to_sheet(
-                sphere_id=sphere_id,
-                event_pk=current_event.pk,
-                connection_id=int(form.cleaned_data["connection"]),
-                spreadsheet_id=form.cleaned_data["spreadsheet"],
-                tab_title=form.cleaned_data["tab"],
-                labels=_export_labels(),
-                columns=_chosen_columns(
-                    request=self.request,
-                    event_pk=current_event.pk,
-                    keys=form.cleaned_data["columns"],
-                ),
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Connection not found."))
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
-        except SheetExportError as error:
-            messages.error(self.request, _("Export failed: %(hint)s") % {"hint": error})
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
-
-        messages.success(
-            self.request,
-            ngettext(
-                "Accreditation sheet exported (%(count)d creator).",
-                "Accreditation sheet exported (%(count)d creators).",
-                count,
-            )
-            % {"count": count},
-        )
-        return redirect("panel:discounts", slug=slug)
-
-    def _render(
-        self,
-        *,
-        context: dict[str, object],
-        form: DiscountExportForm,
-        has_connections: bool,
-    ) -> HttpResponse:
-        context["active_nav"] = "discounts"
-        context["form"] = form
-        context["has_connections"] = has_connections
-        return TemplateResponse(self.request, "panel/discounts/export.html", context)
+        return redirect(_back_to_discounts(self.request, slug))

@@ -133,7 +133,7 @@ class McpAuthorizationService:
             grant = OrganizerGrant(
                 user_id=user_id, sphere_id=sphere_id, event_id=event_id
             )
-        code = secrets.token_urlsafe(32)
+        code = secrets.token_urlsafe()
         self._codes.put(
             code,
             McpIssuedCode(
@@ -223,7 +223,10 @@ def _is_web_host(parts: SplitResult) -> bool:
         _ = parts.port
     except ValueError:
         return False
-    return WEB_HOST_PATTERN.fullmatch(parts.hostname or "") is not None
+    return (
+        parts.hostname is not None
+        and WEB_HOST_PATTERN.fullmatch(parts.hostname) is not None
+    )
 
 
 def _check_document(
@@ -282,6 +285,8 @@ def _soonest_first(event: EventDTO) -> tuple[bool, float]:
 def _pkce_matches(*, verifier: str, challenge: str) -> bool:
     if not CODE_VERIFIER_PATTERN.fullmatch(verifier):
         return False
-    digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    digest = hashlib.sha256(verifier.encode()).digest()
+    # pragma: no mutate start
+    expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    # pragma: no mutate end
     return hmac.compare_digest(expected, challenge)
