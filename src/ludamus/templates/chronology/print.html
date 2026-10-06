@@ -25,9 +25,6 @@
 {% endblock extra_head %}
 {% block main_region %}
     {% translate "Scope" as aria_scope %}
-    {# Sessions arrive in time order, so grouping by the day label the nav and #}
-    {# the sheets both print splits them into days. #}
-    {% regroup session_list.sessions by start_time|date:"l, j E Y" as session_days %}
     <main class="grow w-full print:m-0 print:p-0">
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
@@ -117,6 +114,9 @@
                                        href="#timetable-day-{{ forloop.counter }}">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-xs">{{ page.space_range_name }}</span>{% endif %}
+                                        {% if page.sheet_count > 1 %}
+                                            <span class="block text-xs">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
@@ -134,14 +134,22 @@
                                        href="#door-card-{{ forloop.counter }}">
                                         {{ card.space_name }}
                                         <span class="block text-xs">{{ card.day|date:"l, j E" }}</span>
+                                        {% if card.sheet_count > 1 %}
+                                            <span class="block text-xs">{% blocktranslate with sheet=card.sheet_index total=card.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
                             {% elif session_list %}
-                                {% for day in session_days %}
+                                {% for page in session_list.pages %}
                                     <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
-                                       href="#session-list-day-{{ forloop.counter }}">{{ day.grouper }}</a>
+                                       href="#session-list-day-{{ forloop.counter }}">
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.sheet_count > 1 %}
+                                            <span class="block text-xs">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
+                                    </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
@@ -178,6 +186,9 @@
                                         class="m-0 mb-[2mm] text-[12pt]">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
+                                        {% if page.sheet_count > 1 %}
+                                            <span class="block text-[9pt] font-normal">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
                                     </h2>
                                     {# The rooms grid, black on white: rooms across, time down, a #}
                                     {# session as one tile spanning the rows it covers. Placement #}
@@ -249,7 +260,7 @@
                             {% endfor %}
                         {% elif door_cards %}
                             {% for card in door_cards.cards %}
-                                {# One A4 page per card: a card hangs on the door for one day. #}
+                                {# One A4 page per card: a card hangs on the door for one day, or a numbered run of cards for a busy one. #}
                                 <section class="{{ sheet_class }}"
                                          id="door-card-{{ forloop.counter }}"
                                          role="group"
@@ -263,6 +274,9 @@
                                     <h3 id="door-card-{{ forloop.counter }}-day"
                                         class="m-0 mt-[5mm] mb-[2mm] border-b-[0.5pt] border-neutral-300 text-[12pt]">
                                         {{ card.day|date:"l, j E" }}
+                                        {% if card.sheet_count > 1 %}
+                                            <span class="float-right text-[9pt] font-normal">{% blocktranslate with sheet=card.sheet_index total=card.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
                                     </h3>
                                     <table class="w-full border-collapse">
                                         <thead class="sr-only">
@@ -328,14 +342,19 @@
                             {% endfor %}
                         {% elif session_list %}
                             {# One sheet per day: a participant folds today's page into a pocket. #}
-                            {% for day in session_days %}
+                            {% for page in session_list.pages %}
                                 <section class="{{ sheet_class }}"
                                          id="session-list-day-{{ forloop.counter }}"
                                          role="group"
                                          aria-labelledby="session-list-day-{{ forloop.counter }}-heading">
                                     {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
                                     <h2 id="session-list-day-{{ forloop.counter }}-heading"
-                                        class="m-0 mb-[3mm] text-[14pt]">{{ day.grouper }}</h2>
+                                        class="m-0 mb-[3mm] text-[14pt]">
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.sheet_count > 1 %}
+                                            <span class="block text-[9pt] font-normal">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+                                        {% endif %}
+                                    </h2>
                                     <table class="w-full border-collapse">
                                         <thead class="sr-only">
                                             <tr>
@@ -345,7 +364,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for session in day.list %}
+                                            {% for session in page.sessions %}
                                                 <tr class="break-inside-avoid border-b-[0.5pt] border-neutral-200">
                                                     <td class="w-[24mm] whitespace-nowrap py-[1.5mm] pr-[3mm] align-top tabular-nums">
                                                         {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}

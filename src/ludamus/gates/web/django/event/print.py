@@ -242,6 +242,7 @@ class PublicEventPrintView(View):
                 track_pk=print_scope.track_pk,
                 scope_name=print_scope.name,
                 time_range=resolved_range.window,
+                descriptions=descriptions,
             ),
         )
 

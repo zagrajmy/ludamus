@@ -6099,6 +6099,11 @@ msgid "Table of contents"
 msgstr "Spis treści"
 
 #: src/ludamus/templates/chronology/print.html
+#, python-format
+msgid "Sheet %(sheet)s of %(total)s"
+msgstr "Arkusz %(sheet)s z %(total)s"
+
+#: src/ludamus/templates/chronology/print.html
 msgid "No pages"
 msgstr "Brak stron"
 
