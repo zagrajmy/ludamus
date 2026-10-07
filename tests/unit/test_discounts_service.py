@@ -397,16 +397,15 @@ class TestHandWrites:
         assert updated.pk == created.pk
 
 
-class TestRoster:
-    def test_pairs_each_facilitator_with_their_discount_or_none(self):
+class TestPanelReads:
+    def test_reads_this_events_discounts_and_the_load_behind_them(self):
+        # The roster page pairs these two reads with the facilitators list; a
+        # discount of another event must not reach it.
+        row = _load(2)
         service = _service(
-            repo=FakeRepo(items=[_dto(4, facilitator_id=2)]),
-            facilitators=FakeFacilitators(list_items=[_list_item(1), _list_item(2)]),
+            repo=FakeRepo(items=[_dto(4, facilitator_id=2), _dto(5, event_id=2)]),
+            schedule=FakeSchedule(rows=[row]),
         )
 
-        roster = service.list_roster(1)
-
-        assert [(entry.facilitator.pk, entry.discount) for entry in roster] == [
-            (1, None),
-            (2, _dto(4, facilitator_id=2)),
-        ]
+        assert service.list_discounts(1) == [_dto(4, facilitator_id=2)]
+        assert service.list_facilitator_schedule(1) == [row]

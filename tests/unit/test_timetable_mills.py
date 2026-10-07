@@ -1047,6 +1047,34 @@ class TestListAllForTrack:
 
         assert [c.type for c in conflicts] == [ConflictType.SPACE_OVERLAP]
 
+    def test_every_shared_facilitator_is_named_once(self):
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        alice = _facilitator(7, display_name="Alice")
+        bob = _facilitator(8, display_name="Bob")
+        uow = self._uow(
+            all_items=[subject, other],
+            facilitators={10: [alice, bob], 20: [alice, bob]},
+        )
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert [c.facilitator_name for c in conflicts] == ["Alice", "Bob"]
+
+    def test_namesakes_shared_by_a_pair_are_two_clashes(self):
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        first = _facilitator(7, display_name="Alice")
+        second = _facilitator(8, display_name="Alice")
+        uow = self._uow(
+            all_items=[subject, other],
+            facilitators={10: [first, second], 20: [first, second]},
+        )
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert [c.facilitator_name for c in conflicts] == ["Alice", "Alice"]
+
 
 class TestBuildHeatmap:
     @pytest.fixture

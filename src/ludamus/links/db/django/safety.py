@@ -238,7 +238,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 presented_sessions__agenda_item__isnull=False,
                 shadowbanned__id__in=signed_up_ids,
             )
-            .values_list("pk", "email", "shadowbanned__id")
+            .values_list("pk", "shadowbanned__id")
             .distinct()
         )
         occupying = (
@@ -252,20 +252,19 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 session_participations__status__in=occupying,
                 shadowbanned__id__in=signed_up_ids,
             )
-            .values_list("pk", "email", "shadowbanned__id")
+            .values_list("pk", "shadowbanned__id")
             .distinct()
         )
         in_session_pairs = {
             (UserId(recipient_pk), UserId(banned_pk))
-            for recipient_pk, _email, banned_pk in player_rows
+            for recipient_pk, banned_pk in player_rows
         }
         hits: dict[tuple[UserId, UserId], ShadowbanHitDTO] = {}
-        for recipient_pk, email, banned_pk in (*presenter_rows, *player_rows):
+        for recipient_pk, banned_pk in (*presenter_rows, *player_rows):
             recipient_id = UserId(recipient_pk)
             banned_user_id = UserId(banned_pk)
             hits[recipient_id, banned_user_id] = ShadowbanHitDTO(
                 recipient_id=recipient_id,
-                recipient_email=email,
                 banned_user_id=banned_user_id,
                 in_session=(recipient_id, banned_user_id) in in_session_pairs,
             )

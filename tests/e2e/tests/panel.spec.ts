@@ -1508,12 +1508,41 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Columns updated.")).toBeVisible();
   });
 
+  test("columns chooser moves an available column to the top", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/facilitators/columns/");
+
+    const rows = page.getByRole("list", { name: "Columns" }).getByRole("listitem");
+    const label = (await rows.last().innerText()).trim();
+    // `rows.last()` re-resolves after every move; pin the row by its label.
+    const row = rows.filter({ hasText: label });
+    const box = row.getByRole("checkbox");
+    await expect(box).not.toBeChecked();
+
+    await box.check();
+    const up = row.getByRole("button", { name: "Move up" });
+    while (await up.isEnabled()) {
+      await up.click();
+    }
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Columns updated.")).toBeVisible();
+
+    await page.goto("/panel/event/frostfire-con/facilitators/columns/");
+    const first = rows.first();
+    await expect(first).toHaveText(label);
+    await expect(first.getByRole("checkbox")).toBeChecked();
+
+    // Restore the default: unticked columns drop back below the shown ones.
+    await first.getByRole("checkbox").uncheck();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Columns updated.")).toBeVisible();
+  });
+
   test("columns chooser refuses an empty selection", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/columns/");
 
     // Whatever is shown right now — a hardcoded label list goes stale the next
     // time a built-in column is added.
-    const shown = page.getByRole("list", { name: "Shown columns" });
+    const shown = page.getByRole("list", { name: "Columns" });
     for (const box of await shown.getByRole("checkbox").all()) {
       await box.uncheck();
     }
