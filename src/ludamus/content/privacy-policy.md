@@ -153,7 +153,7 @@ Konto zostanie usunięte w ciągu 30 dni od otrzymania żądania.
 
 ### 9.2 Zarządzanie cookies:
 
-Można zarządzać cookies poprzez ustawienia przeglądarki. Wyłączenie cookies może wpłynąć na funkcjonalność serwisu. Zgodę na cookies analityczne można w każdej chwili wycofać, korzystając z odnośnika "Ustawienia analityki" w stopce serwisu.
+Można zarządzać cookies poprzez ustawienia przeglądarki. Wyłączenie cookies może wpłynąć na funkcjonalność serwisu. Zgodę na cookies analityczne można w każdej chwili wycofać, korzystając z odnośnika "Ustawienia ciasteczek" w stopce serwisu.
 
 ## 10. BEZPIECZEŃSTWO DANYCH
 

@@ -20,6 +20,7 @@ from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
+from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.mills.crowd import EmailVerificationService
 from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.encounter import EncounterService
@@ -77,6 +78,7 @@ def build_sphere_subscriptions() -> SphereSubscriptionService:
         transaction=DjangoTransaction(),
         subscriptions=Repositories().sphere_subscriptions,
         notifier=DjangoUserNotifier(),
+        tokens=DjangoSphereUnsubscribeTokenCodec(),
     )
 
 

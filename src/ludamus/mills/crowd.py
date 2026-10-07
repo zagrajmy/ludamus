@@ -154,6 +154,13 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             email_conflict=email_conflict,
         )
 
+    def has_account(self, username: str) -> bool:
+        try:
+            self._users.read_by_username(username)
+        except NotFoundError:
+            return False
+        return True
+
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS

@@ -94,6 +94,7 @@ class SphereEventAnnouncementDTO(BaseModel):
     event_pk: int
     event_name: str
     event_slug: str
+    sphere_id: int
     sphere_name: str
     # Site domain of the owning sphere — the notifier composes the absolute
     # event link from it, the same as the printables reminder does.
@@ -108,6 +109,26 @@ class SphereEventPublishedNotification(BaseModel):
     event_slug: str
     sphere_name: str
     sphere_domain: str
+    unsubscribe_token: str
+
+
+class SphereUnsubscribeTokenPayload(BaseModel):
+    """What an emailed unsubscribe link proves, without a login.
+
+    The sphere name rides along so the confirmation page can say what stops
+    without a lookup; the signature keeps it honest.
+    """
+
+    user_id: int
+    sphere_id: int
+    sphere_name: str
+
+
+class SphereUnsubscribeTokenCodecProtocol(Protocol):
+    @staticmethod
+    def dumps(payload: SphereUnsubscribeTokenPayload) -> str: ...
+    @staticmethod
+    def loads(token: str) -> SphereUnsubscribeTokenPayload | None: ...
 
 
 class DashboardRepositoryProtocol(Protocol):
@@ -157,4 +178,10 @@ class DashboardServiceProtocol(Protocol):
 class SphereSubscriptionServiceProtocol(Protocol):
     def subscribe(self, *, sphere_id: int, user_id: int) -> None: ...
     def unsubscribe(self, *, sphere_id: int, user_id: int) -> None: ...
+    def read_unsubscribe_token(
+        self, token: str
+    ) -> SphereUnsubscribeTokenPayload | None: ...
+    def unsubscribe_by_token(
+        self, token: str
+    ) -> SphereUnsubscribeTokenPayload | None: ...
     def announce_published_events(self, *, now: datetime) -> int: ...

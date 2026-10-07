@@ -1981,22 +1981,6 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Please complete your profile."
-msgstr "Proszę uzupełnić profil."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication request: missing state parameter"
-msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication session expired. Please try again."
-msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication state"
-msgstr "Nieprawidłowy stan uwierzytelnienia"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -2017,8 +2001,36 @@ msgstr ""
 "inny w swoim profilu."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Please complete your profile."
+msgstr "Proszę uzupełnić profil."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication request: missing state parameter"
+msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication session expired. Please try again."
+msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication state"
+msgstr "Nieprawidłowy stan uwierzytelnienia"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid ""
+"No account was created. A parent or guardian can sign up and add you as a "
+"companion to sign you up for sessions."
+msgstr ""
+"Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
+"Cię jako towarzysza i zapisywać Cię na punkty programu."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Choose one of the two answers."
+msgstr "Wybierz jedną z dwóch odpowiedzi."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
@@ -4118,6 +4130,16 @@ msgstr "Usunięto"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "You get this email because you subscribe to %(sphere)s."
+msgstr "Dostajesz tę wiadomość, bo subskrybujesz %(sphere)s."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Unsubscribe: %(url)s"
+msgstr "Wypisz się: %(url)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "You're in: a spot opened in %(session)s"
 msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
 
@@ -6211,8 +6233,8 @@ msgid "Cookie consent"
 msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Cookies help us see what to fix."
-msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+msgid "Cookies and session recordings help us see what to fix."
+msgstr "Ciasteczka i nagrania sesji pomagają nam zobaczyć, co poprawić."
 
 #: src/ludamus/templates/components/consent-banner.html
 #, python-format
@@ -6653,6 +6675,42 @@ msgstr "Wymagane logowanie"
 #: src/ludamus/templates/crowd/login_required.html
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
+
+#: src/ludamus/templates/crowd/signup_age.html
+msgid "Create account"
+msgstr "Załóż konto"
+
+#: src/ludamus/templates/crowd/signup_age.html
+msgid "How old are you?"
+msgstr "Ile masz lat?"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#, python-format
+msgid ""
+"You need to be %(min_age)s or older to have your own account. Younger "
+"players join as a parent's or guardian's companions."
+msgstr ""
+"Własne konto może mieć osoba, która ma co najmniej %(min_age)s lat. Młodsi "
+"gracze dołączają jako towarzysze rodzica lub opiekuna."
+
+#: src/ludamus/templates/crowd/signup_age.html
+#, python-format
+msgid "I'm %(min_age)s or older"
+msgstr "Mam %(min_age)s lat lub więcej"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#, python-format
+msgid "I'm under %(min_age)s"
+msgstr "Mam mniej niż %(min_age)s lat"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#, python-format
+msgid ""
+"By creating an account you accept the <a href=\"%(terms_url)s\">Terms of "
+"Service</a> and the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr ""
+"Zakładając konto, akceptujesz <a href=\"%(terms_url)s\">Regulamin</a> i <a "
+"href=\"%(privacy_url)s\">Politykę prywatności</a>."
 
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
@@ -7376,6 +7434,56 @@ msgstr "W Twoich sferach"
 #: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Email subscription"
+msgstr "Subskrypcja e-mail"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "This link doesn't work"
+msgstr "Ten link nie działa"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid ""
+"It may have been cut off when the email was copied. You can manage what you "
+"follow on your dashboard."
+msgstr ""
+"Mógł zostać ucięty przy kopiowaniu z wiadomości. Subskrypcjami możesz "
+"zarządzać na swoim pulpicie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Go to dashboard"
+msgstr "Przejdź do pulpitu"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "You're unsubscribed"
+msgstr "Wypisano Cię"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+#, python-format
+msgid ""
+"We won't email you when <strong>%(sphere_name)s</strong> announces an event. "
+"You can subscribe again from your dashboard."
+msgstr ""
+"Nie wyślemy Ci już wiadomości, gdy <strong>%(sphere_name)s</strong> ogłosi "
+"wydarzenie. Subskrypcję możesz wznowić na swoim pulpicie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Stop these emails?"
+msgstr "Wypisać się z tych wiadomości?"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+#, python-format
+msgid ""
+"You'll no longer get an email when <strong>%(sphere_name)s</strong> "
+"announces an event."
+msgstr ""
+"Nie dostaniesz już wiadomości, gdy <strong>%(sphere_name)s</strong> ogłosi "
+"wydarzenie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Unsubscribe"
+msgstr "Wypisz się"
 
 #: src/ludamus/templates/design.html
 msgid ""
@@ -13118,14 +13226,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "All venues"
 #~ msgstr "Wszystkie lokalizacje"
-
-#, python-format
-#~ msgid ""
-#~ "Cookies help us see what to fix. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #, python-format
 #~ msgid "Changed by %(who)s on %(when)s"

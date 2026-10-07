@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Email subscription" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                {% if not sphere_name %}
+                    {% icon "exclamation-circle" class="w-10 h-10 mx-auto text-foreground-muted" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "This link doesn't work" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% translate "It may have been cut off when the email was copied. You can manage what you follow on your dashboard." %}
+                    </p>
+                    {% url 'web:dashboard' as dashboard_url %}
+                    {% translate "Go to dashboard" as dashboard_label %}
+                    {% tessera_button dashboard_label href=dashboard_url extra_class="w-full mt-6" %}
+                {% elif done %}
+                    {% icon "bell-slash" class="w-10 h-10 mx-auto text-primary" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "You're unsubscribed" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% blocktranslate trimmed %}
+                            We won't email you when <strong>{{ sphere_name }}</strong> announces an event. You can subscribe again from your dashboard.
+                        {% endblocktranslate %}
+                    </p>
+                {% else %}
+                    {% icon "envelope" class="w-10 h-10 mx-auto text-primary" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "Stop these emails?" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% blocktranslate trimmed %}
+                            You'll no longer get an email when <strong>{{ sphere_name }}</strong> announces an event.
+                        {% endblocktranslate %}
+                    </p>
+                    <form method="post"
+                          action="{% url 'web:email-unsubscribe-confirm' token=token %}"
+                          class="mt-6">
+                        {% csrf_token %}
+                        {% translate "Unsubscribe" as unsubscribe_label %}
+                        {% tessera_button unsubscribe_label extra_class="w-full" %}
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock body %}
