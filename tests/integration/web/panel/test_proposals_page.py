@@ -9,11 +9,13 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     SessionField,
+    SessionFieldOption,
     SessionFieldValue,
     Track,
 )
 from ludamus.pacts import (
     OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     ProposalCategoryDTO,
     SessionDTO,
     SessionFieldValueDTO,
@@ -90,6 +92,7 @@ def _list_chrome(event, proposals=()):
         "tab_urls": {
             "list": reverse("panel:proposals", kwargs={"slug": event.slug}),
             "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
+            "export": reverse("panel:proposal-export", kwargs={"slug": event.slug}),
         },
         "columns": _DEFAULT_COLUMNS,
         "proposals": list(proposals),
@@ -711,6 +714,12 @@ class TestProposalsPageView:
             slug="system",
             field_type="select",
         )
+        dnd_option = SessionFieldOption.objects.create(
+            field=field, label="D&D 5e", value="D&D 5e", order=0
+        )
+        fate_option = SessionFieldOption.objects.create(
+            field=field, label="Fate Core", value="Fate Core", order=1
+        )
         session1 = Session.objects.create(
             event=event,
             category=category,
@@ -765,6 +774,20 @@ class TestProposalsPageView:
                         question="What system?",
                         slug="system",
                         field_type="select",
+                        options=[
+                            OrganizerFieldOptionDTO(
+                                label="D&D 5e",
+                                order=0,
+                                pk=dnd_option.pk,
+                                value="D&D 5e",
+                            ),
+                            OrganizerFieldOptionDTO(
+                                label="Fate Core",
+                                order=1,
+                                pk=fate_option.pk,
+                                value="Fate Core",
+                            ),
+                        ],
                         order=0,
                     )
                 ],

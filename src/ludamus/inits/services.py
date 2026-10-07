@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_email_verification,
     build_encounter_guests,
     build_encounters,
     build_konwencik_export,
@@ -27,7 +28,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
-from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
+from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
@@ -44,10 +45,11 @@ from ludamus.mills.crowd import (
     ClaimService,
     CompanionsService,
     CrowdAuthService,
+    EmailVerificationService,
     ProfileService,
 )
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
-from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
     EnrollmentService,
@@ -201,6 +203,10 @@ class Services:
     @cached_property
     def companions(self) -> CompanionsService:
         return CompanionsService(self._transaction, self._repos.companions)
+
+    @cached_property
+    def email_verification(self) -> EmailVerificationService:
+        return build_email_verification()
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
@@ -524,16 +530,6 @@ class Services:
     def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return FernetDecryptor(key)
-
-    @cached_property
-    def discounts_export(self) -> DiscountsExportService:
-        return DiscountsExportService(
-            discounts=self._repos.discounts,
-            facilitators=self._repos.facilitators,
-            connections=self._repos.connections,
-            decryptor=self._decryptor,
-            sheet_writer=GoogleSheetsWriter(),
-        )
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:

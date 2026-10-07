@@ -70,7 +70,7 @@ def carry_preferences_to_availability(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0175_merge_schedule_confirmed_notification_kind")]
+    dependencies = [("db_main", "0178_alter_notification_kind")]
 
     operations = [
         migrations.CreateModel(
