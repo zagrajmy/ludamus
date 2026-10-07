@@ -20,11 +20,25 @@ def _user_dto(**overrides) -> UserDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=()):
+    def __init__(self, *, users=(), existing_emails=()):
         self._users = list(users)
-        self.updated = []
+        self._existing_emails = set(existing_emails)
         self.created = []
+        self.updated = []
         self.email_checks = []
+
+    def create(self, user_data):
+        self.created.append(dict(user_data))
+        self._users.append(
+            _user_dto(
+                pk=len(self._users) + 1,
+                slug=user_data.get("slug", ""),
+                username=user_data.get("username", ""),
+                email=user_data.get("email", ""),
+                email_verified=user_data.get("email_verified", False),
+                name=user_data.get("name", ""),
+            )
+        )
 
     def read(self, slug):
         return next(user for user in self._users if user.slug == slug)
@@ -35,29 +49,23 @@ class FakeUsers:
                 return user
         raise NotFoundError
 
-    def create(self, user_data):
-        self.created.append(dict(user_data))
-        self._users.append(
-            _user_dto(
-                pk=len(self._users) + 1,
-                slug=user_data["slug"],
-                username=user_data.get("username", ""),
-                email=user_data.get("email", ""),
-            )
-        )
-
     def update(self, user_slug, user_data):
         self.updated.append((user_slug, user_data))
         for index, user in enumerate(self._users):
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
 
-    def email_exists(self, email, exclude_slug=None):
+    def email_unavailable(self, *, email, now, exclude_slug=None):
+        _ = now
         self.email_checks.append((email, exclude_slug))
         if not email:
             return False
-        return any(
-            user.email == email and user.slug != exclude_slug for user in self._users
+        return (
+            any(
+                user.email == email and user.slug != exclude_slug
+                for user in self._users
+            )
+            or email in self._existing_emails
         )
 
     def slug_exists(self, slug):
@@ -81,8 +89,8 @@ class _RacingUsers:
         return _user_dto(username=username)
 
     @staticmethod
-    def email_exists(email, exclude_slug=None):
-        _ = (email, exclude_slug)
+    def email_unavailable(*, email, now, exclude_slug=None):
+        _ = (email, now, exclude_slug)
         return False
 
     @staticmethod
@@ -204,6 +212,44 @@ class TestClaimServiceRedeem:
 
 
 class TestProvisionUser:
+    def test_create_strips_duplicate_email_and_reports_conflict(self):
+        users = FakeUsers(existing_emails={"taken@example.com"})
+        service = _service(users=users)
+
+        result = service.provision_user(
+            username="auth0|sub",
+            create_data={
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "email": "taken@example.com",
+            },
+        )
+
+        assert users.created == [
+            {
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "email": "",
+                "email_verified": False,
+            }
+        ]
+        assert result.email_conflict is True
+
+    def test_create_without_conflict_reports_none(self):
+        users = FakeUsers()
+        service = _service(users=users)
+
+        result = service.provision_user(
+            username="auth0|sub",
+            create_data={
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "email": "new@example.com",
+            },
+        )
+
+        assert result.email_conflict is False
+
     def test_concurrent_insert_is_adopted(self):
         # read_by_username misses, then create raises the unique-constraint
         # error because a concurrent callback already inserted the row; the
@@ -310,13 +356,99 @@ class TestProvisionUser:
 
 
 class TestSyncIdentity:
-    def test_own_email_is_not_a_collision(self):
+    def test_same_address_unverified_claim_is_a_noop(self):
         users = FakeUsers(users=[_user_dto(email="mine@example.com")])
         service = _service(users=users)
 
         service.sync_identity(user_slug="auth0user", data={"email": "mine@example.com"})
 
-        assert users.updated == [("auth0user", {"email": "mine@example.com"})]
+        assert not users.updated
+
+    def test_verified_claim_on_same_address_sets_flag(self):
+        users = FakeUsers(users=[_user_dto(email="mine@example.com")])
+        service = _service(users=users)
+
+        user = service.sync_identity(
+            user_slug="auth0user",
+            data={"email": "mine@example.com", "email_verified": True},
+        )
+
+        assert users.updated == [("auth0user", {"email_verified": True})]
+        assert user.email_verified is True
+
+    def test_verified_stored_address_is_not_reverted(self):
+        users = FakeUsers(
+            users=[_user_dto(email="chosen@example.com", email_verified=True)]
+        )
+        service = _service(users=users)
+
+        user = service.sync_identity(
+            user_slug="auth0user",
+            data={"email": "idp@example.com", "email_verified": True},
+        )
+
+        assert not users.updated
+        assert user.email == "chosen@example.com"
+
+    def test_new_address_carries_claim_verified_flag(self):
+        users = FakeUsers(users=[_user_dto(email="")])
+        service = _service(users=users)
+
+        service.sync_identity(
+            user_slug="auth0user",
+            data={"email": "new@example.com", "email_verified": True},
+        )
+
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": True,
+                    "pending_email": "",
+                },
+            )
+        ]
+
+    def test_unverified_stored_address_is_replaced(self):
+        users = FakeUsers(
+            users=[_user_dto(email="typo@example.com", email_verified=False)]
+        )
+        service = _service(users=users)
+
+        service.sync_identity(
+            user_slug="auth0user",
+            data={"email": "idp@example.com", "email_verified": False},
+        )
+
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "idp@example.com",
+                    "email_verified": False,
+                    "pending_email": "",
+                },
+            )
+        ]
+
+    def test_existing_name_is_not_overwritten(self):
+        users = FakeUsers(users=[_user_dto(name="Have Name")])
+        service = _service(users=users)
+
+        service.sync_identity(user_slug="auth0user", data={"name": "Claim Name"})
+
+        assert not users.updated
+
+    def test_unchanged_avatar_is_skipped(self):
+        users = FakeUsers(users=[_user_dto(avatar_url="https://a/x.png")])
+        service = _service(users=users)
+
+        service.sync_identity(
+            user_slug="auth0user", data={"avatar_url": "https://a/x.png"}
+        )
+
+        assert not users.updated
 
     def test_someone_elses_email_is_not_synced(self):
         users = FakeUsers(
