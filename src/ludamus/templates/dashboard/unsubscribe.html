@@ -33,6 +33,7 @@
                         {% endblocktranslate %}
                     </p>
                     <form method="post"
+                          data-ph-no-capture
                           action="{% url 'web:email-unsubscribe-confirm' token=token %}"
                           class="mt-6">
                         {% csrf_token %}
