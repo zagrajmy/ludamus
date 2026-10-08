@@ -179,6 +179,11 @@
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {% block email_verification_banner %}
+            {% if current_user and not current_user.email_verified and not request.COOKIES.hide_email_verification_banner %}
+                {% include "components/email-verification-banner.html" %}
+            {% endif %}
+        {% endblock email_verification_banner %}
         {% if current_sphere.parley_enabled and current_user and current_user.is_active %}
             <div data-parley-root data-bootstrap-url="{% url 'parley_bootstrap' %}">
                 <button type="button"

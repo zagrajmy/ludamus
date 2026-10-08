@@ -26,16 +26,14 @@ if TYPE_CHECKING:
         ClaimServiceProtocol,
         CompanionsServiceProtocol,
         CrowdAuthServiceProtocol,
+        EmailVerificationServiceProtocol,
         ProfileServiceProtocol,
     )
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
         SphereSubscriptionServiceProtocol,
     )
-    from ludamus.pacts.discounts import (
-        DiscountsExportServiceProtocol,
-        DiscountsServiceProtocol,
-    )
+    from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.encounter import (
         EncounterReplyServiceProtocol,
         EncounterServiceProtocol,
@@ -136,6 +134,8 @@ class ServicesProtocol(Protocol):
     @property
     def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
     @property
+    def email_verification(self) -> EmailVerificationServiceProtocol: ...
+    @property
     def profile(self) -> ProfileServiceProtocol: ...
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
@@ -227,8 +227,6 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
-    @property
-    def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
     @property
