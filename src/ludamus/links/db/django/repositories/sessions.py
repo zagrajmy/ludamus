@@ -59,7 +59,7 @@ from ludamus.pacts.chronology import (
     SessionSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import ConfirmationSessionRow, PanelProposalDTO
+from ludamus.pacts.legacy import ConfirmationSessionRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -315,23 +315,17 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         return SessionDTO.model_validate(session)
 
     @staticmethod
-    def read_by_event(pk: int, event_id: int) -> PanelProposalDTO:
+    def read_by_event(pk: int, event_id: int) -> SessionDTO:
         # Scoped read: a session belonging to another event — or to no event,
         # because its category was cleared — is NotFound, not somebody else's
         # proposal to read or edit.
         try:
-            session = (
-                Session.objects.select_related("category")
-                .annotate(
-                    is_scheduled=Exists(
-                        AgendaItem.objects.filter(session_id=OuterRef("pk"))
-                    )
-                )
-                .get(id=pk, category__event_id=event_id)
+            session = Session.objects.select_related("category").get(
+                id=pk, category__event_id=event_id
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        return PanelProposalDTO.model_validate(session)
+        return SessionDTO.model_validate(session)
 
     @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None:

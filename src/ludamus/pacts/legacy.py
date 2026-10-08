@@ -218,10 +218,6 @@ class SessionDTO(BaseModel):
     cover_image_original_name: str = ""
 
 
-class PanelProposalDTO(SessionDTO):
-    is_scheduled: bool
-
-
 class LocationData(TypedDict):
     space_id: int
     parent_id: int
@@ -736,7 +732,7 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
-    def read_by_event(pk: int, event_id: int) -> PanelProposalDTO: ...
+    def read_by_event(pk: int, event_id: int) -> SessionDTO: ...
     @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None: ...
     @staticmethod

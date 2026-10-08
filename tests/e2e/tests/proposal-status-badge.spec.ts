@@ -1,5 +1,6 @@
-import { type Locator, type Page } from "@playwright/test";
+import { type Locator } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // Read-only over the `harbour-days` seed (bootstrap_confirmations.py): an
@@ -8,20 +9,13 @@ const EVENT_URL = "/panel/event/harbour-days";
 const PLACED = "Dragons of the Harbour";
 const ON_HOLD = "Maybe: Harbour Larp";
 
-async function login(page: Page) {
-  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-}
-
 function badge(scope: Locator, label: string) {
   return scope.getByText(label, { exact: true });
 }
 
 test.describe("Proposal status badge", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await signInAsManager(page);
   });
 
   test("a placed session reads Scheduled on every panel page", async ({ page }) => {

@@ -27,8 +27,12 @@ from ludamus.pacts.submissions import is_empty_answer
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import OrganizerFieldDTO, SessionData, SessionListItemDTO
-    from ludamus.pacts.legacy import PanelProposalDTO
+    from ludamus.pacts import (
+        OrganizerFieldDTO,
+        SessionData,
+        SessionDTO,
+        SessionListItemDTO,
+    )
     from ludamus.pacts.panel import PanelColumnsContextDTO, ProposalListQuery
     from ludamus.pacts.services import TransactionProtocol
 
@@ -143,7 +147,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             session_ids, field_ids
         )
 
-    def read_proposal(self, *, event_id: int, proposal_id: int) -> PanelProposalDTO:
+    def read_proposal(self, *, event_id: int, proposal_id: int) -> SessionDTO:
         # Every panel page that names a proposal in its URL goes through here,
         # so a foreign id is NotFound before anything reads or writes it.
         return self._repos.sessions.read_by_event(proposal_id, event_id)
