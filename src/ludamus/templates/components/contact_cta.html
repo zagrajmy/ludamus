@@ -8,12 +8,14 @@
 
     items-stretch: the button takes the bordered chip's height, so the two
     share one box by construction rather than by hand-tuned padding.
+    Below sm the address is too wide to share a row with the button, so
+    the two stack, each filling the row at one shared height.
 {% endcomment %}
 {% translate "Copy the address" as copy_address_label %}
 <div class="flex flex-wrap items-stretch gap-3 {{ extra_class|default:"" }}">
-    <a class="btn btn-primary"
-       href="mailto:{{ contact_email }}?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-    {% tessera_copy contact_email class="w-auto!" %}
+    <a class="btn btn-primary max-sm:grow max-sm:min-h-12"
+       href="mailto:{{ contact_email }}?subject={% translate 'My event in Zagrajmy' %}"><span class="max-sm:hidden">{% translate "Run your event with Zagrajmy" %}</span><span class="sm:hidden">{% translate "Run your event" %}</span></a>
+    {% tessera_copy contact_email class="w-auto! max-sm:grow max-sm:min-h-12" %}
         <code class="text-[0.9375rem] text-box-trim-both">{{ contact_email }}</code>
         {% icon "clipboard" variant="outline" class="size-4 opacity-60" %}
         <span class="sr-only">{{ copy_address_label }}</span>

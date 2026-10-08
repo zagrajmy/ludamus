@@ -347,6 +347,25 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             raise NotFoundError(msg)
 
     @staticmethod
+    def lock_by_event_and_slugs(
+        event_id: int, slugs: list[str]
+    ) -> list[FacilitatorDTO]:
+        # `lock` by slug, returning the rows as locked. `of=("self",)`: the
+        # organizer-name join is outer, and Postgres refuses to lock its
+        # nullable side.
+        facilitators = list(
+            _readable_facilitators()
+            .select_for_update(of=("self",))
+            .filter(event_id=event_id, slug__in=slugs)
+            .order_by("pk")
+        )
+        found = {f.slug for f in facilitators}
+        if missing := [slug for slug in slugs if slug not in found]:
+            msg = f"Facilitators not found or deleted: {missing}"
+            raise NotFoundError(msg)
+        return [FacilitatorDTO.model_validate(f) for f in facilitators]
+
+    @staticmethod
     def count_sessions(pk: int) -> FacilitatorSessionCountsDTO:
         # Both numbers off one row, so the delete guard and the Sessions column
         # cannot disagree about what a facilitator's sessions are. Deleted ones
