@@ -114,9 +114,7 @@
                                        href="#timetable-day-{{ forloop.counter }}">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-xs">{{ page.space_range_name }}</span>{% endif %}
-                                        {% if page.sheet_count > 1 %}
-                                            <span class="block text-xs">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=page variant="nav" %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
@@ -134,9 +132,7 @@
                                        href="#door-card-{{ forloop.counter }}">
                                         {{ card.space_name }}
                                         <span class="block text-xs">{{ card.day|date:"l, j E" }}</span>
-                                        {% if card.sheet_count > 1 %}
-                                            <span class="block text-xs">{% blocktranslate with sheet=card.sheet_index total=card.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=card variant="nav" %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
@@ -146,9 +142,7 @@
                                     <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
                                        href="#session-list-day-{{ forloop.counter }}">
                                         {{ page.day|date:"l, j E Y" }}
-                                        {% if page.sheet_count > 1 %}
-                                            <span class="block text-xs">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=page variant="nav" %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
@@ -186,9 +180,7 @@
                                         class="m-0 mb-[2mm] text-[12pt]">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
-                                        {% if page.sheet_count > 1 %}
-                                            <span class="block text-[9pt] font-normal">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=page %}
                                     </h2>
                                     {# The rooms grid, black on white: rooms across, time down, a #}
                                     {# session as one tile spanning the rows it covers. Placement #}
@@ -274,9 +266,7 @@
                                     <h3 id="door-card-{{ forloop.counter }}-day"
                                         class="m-0 mt-[5mm] mb-[2mm] border-b-[0.5pt] border-neutral-300 text-[12pt]">
                                         {{ card.day|date:"l, j E" }}
-                                        {% if card.sheet_count > 1 %}
-                                            <span class="float-right text-[9pt] font-normal">{% blocktranslate with sheet=card.sheet_index total=card.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=card variant="aside" %}
                                     </h3>
                                     <table class="w-full border-collapse">
                                         <thead class="sr-only">
@@ -341,7 +331,7 @@
                                 {% endif %}
                             {% endfor %}
                         {% elif session_list %}
-                            {# One sheet per day: a participant folds today's page into a pocket. #}
+                            {# One sheet per day, or a numbered run of sheets for a busy one: a participant folds today's pages into a pocket. #}
                             {% for page in session_list.pages %}
                                 <section class="{{ sheet_class }}"
                                          id="session-list-day-{{ forloop.counter }}"
@@ -351,9 +341,7 @@
                                     <h2 id="session-list-day-{{ forloop.counter }}-heading"
                                         class="m-0 mb-[3mm] text-[14pt]">
                                         {{ page.day|date:"l, j E Y" }}
-                                        {% if page.sheet_count > 1 %}
-                                            <span class="block text-[9pt] font-normal">{% blocktranslate with sheet=page.sheet_index total=page.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
-                                        {% endif %}
+                                        {% include "chronology/parts/print_sheet_number.html" with sheet=page %}
                                     </h2>
                                     <table class="w-full border-collapse">
                                         <thead class="sr-only">

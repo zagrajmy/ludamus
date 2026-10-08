@@ -81,7 +81,14 @@ def _session_list_document(*, event, sessions):
         event_start=event.start_time,
         event_end=event.end_time,
         pages=(
-            [PrintSessionListPageDTO(day=event.start_time.date(), sessions=sessions)]
+            [
+                PrintSessionListPageDTO(
+                    day=event.start_time.date(),
+                    sessions=sessions,
+                    sheet_index=1,
+                    sheet_count=1,
+                )
+            ]
             if sessions
             else []
         ),
@@ -118,6 +125,8 @@ def _one_hour_page(*, event, session, space):
             )
         ],
         space_range_name=None,
+        sheet_index=1,
+        sheet_count=1,
     )
 
 

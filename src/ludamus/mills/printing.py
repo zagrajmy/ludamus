@@ -15,7 +15,6 @@ from datetime import timedelta
 from functools import partial
 from itertools import pairwise
 from math import ceil
-from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import (
@@ -79,6 +78,10 @@ def _entry_start(entry: DoorCardEntryDTO) -> datetime:
     return entry.start_time
 
 
+def _tile_position(tile: PrintTimetableTileDTO) -> tuple[int, int]:
+    return (tile.row, tile.col)
+
+
 def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
     return (space.programme_order, space.name, space.pk)
 
@@ -94,10 +97,10 @@ def _chunks[T](values: list[T], size: int) -> list[list[T]]:
     return [values[index : index + size] for index in range(0, len(values), size)]
 
 
-def _even_sheet_size(count: int, cap: int) -> int:
+def _even_chunks[T](values: list[T], cap: int) -> list[list[T]]:
     # As few sheets as the cap allows, filled evenly: thirteen rows under a cap
     # of twelve print as 7 + 6, not as a full sheet and a near-empty one.
-    return ceil(count / ceil(count / cap)) if count else cap
+    return _chunks(values, ceil(len(values) / ceil(len(values) / cap)))
 
 
 def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
@@ -126,54 +129,47 @@ def _timetable_pages(
         for item in items
         for instant in (item.start_time, item.end_time)
     }
-    keys = sorted(instants)
-    step = _even_sheet_size(len(keys) - 1, MAX_TIMETABLE_ROWS_PER_PAGE)
-    windows = [
-        keys[index : index + step + 1] for index in range(0, len(keys) - 1, step)
-    ]
+    sheets = _even_chunks(list(pairwise(sorted(instants))), MAX_TIMETABLE_ROWS_PER_PAGE)
 
-    def sheet(window: list[float], index: int) -> PrintTimetablePageDTO:
-        first, last = window[0], window[-1]
-        line = {key: number + 1 for number, key in enumerate(window)}
-        cuts = sorted(
-            (
-                (
-                    line[max(item.start_time.timestamp(), first)],
-                    col[item.space_id],
-                    line[min(item.end_time.timestamp(), last)],
-                    item,
-                )
-                for item in items
-                if item.start_time.timestamp() < last
-                and item.end_time.timestamp() > first
-            ),
-            # Down the rows, then across the columns: the visual order.
-            key=itemgetter(0, 1),
-        )
+    def sheet(rows: list[tuple[float, float]], index: int) -> PrintTimetablePageDTO:
+        first, last = rows[0][0], rows[-1][1]
+        edges = [start for start, _ in rows] + [last]
+        line = {key: number for number, key in enumerate(edges, start=1)}
+
+        def tile(item: AgendaItemDTO) -> PrintTimetableTileDTO:
+            row = line[max(item.start_time.timestamp(), first)]
+            return PrintTimetableTileDTO(
+                session=_to_session(item),
+                start_time=item.start_time,
+                end_time=item.end_time,
+                col=col[item.space_id],
+                row=row,
+                span=line[min(item.end_time.timestamp(), last)] - row,
+            )
+
         return PrintTimetablePageDTO(
             day=day,
             space_names=[space.name for space in spaces],
             rows=[
                 PrintTimetableRowDTO(start_time=instants[start], end_time=instants[end])
-                for start, end in pairwise(window)
+                for start, end in rows
             ],
-            tiles=[
-                PrintTimetableTileDTO(
-                    session=_to_session(item),
-                    start_time=item.start_time,
-                    end_time=item.end_time,
-                    col=column,
-                    row=row,
-                    span=end - row,
-                )
-                for row, column, end, item in cuts
-            ],
+            tiles=sorted(
+                (
+                    tile(item)
+                    for item in items
+                    if item.start_time.timestamp() < last
+                    and item.end_time.timestamp() > first
+                ),
+                # Down the rows, then across the columns: the visual order.
+                key=_tile_position,
+            ),
             space_range_name=_space_range_name(spaces),
             sheet_index=index,
-            sheet_count=len(windows),
+            sheet_count=len(sheets),
         )
 
-    return [sheet(window, index) for index, window in enumerate(windows, start=1)]
+    return [sheet(rows, index) for index, rows in enumerate(sheets, start=1)]
 
 
 class PrintMaterialsService:
@@ -223,10 +219,7 @@ class PrintMaterialsService:
 
             for day in sorted(entries_by_day):
                 entries = sorted(entries_by_day[day], key=_entry_start)
-                sheets = _chunks(
-                    entries,
-                    _even_sheet_size(len(entries), MAX_DOOR_CARD_ENTRIES_PER_SHEET),
-                )
+                sheets = _even_chunks(entries, MAX_DOOR_CARD_ENTRIES_PER_SHEET)
                 cards += [
                     DoorCardDTO(
                         space_name=space.name,
@@ -366,7 +359,7 @@ class PrintMaterialsService:
         )
         pages: list[PrintSessionListPageDTO] = []
         for day, sessions in by_day.items():
-            sheets = _chunks(sessions, _even_sheet_size(len(sessions), cap))
+            sheets = _even_chunks(sessions, cap)
             pages += [
                 PrintSessionListPageDTO(
                     day=day, sessions=sheet, sheet_index=index, sheet_count=len(sheets)

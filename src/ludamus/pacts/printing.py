@@ -55,8 +55,8 @@ class DoorCardDTO(BaseModel):
     capacity: int | None
     day: date
     entries: list[DoorCardEntryDTO]
-    sheet_index: int = 1
-    sheet_count: int = 1
+    sheet_index: int
+    sheet_count: int
 
 
 class DoorCardsDocumentDTO(BaseModel):
@@ -101,8 +101,8 @@ class PrintTimetablePageDTO(BaseModel):
     rows: list[PrintTimetableRowDTO]
     tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None
-    sheet_index: int = 1
-    sheet_count: int = 1
+    sheet_index: int
+    sheet_count: int
 
     @property
     def spans(self) -> list[int]:
@@ -164,8 +164,8 @@ class PrintSessionListItemDTO(BaseModel):
 class PrintSessionListPageDTO(BaseModel):
     day: date
     sessions: list[PrintSessionListItemDTO]
-    sheet_index: int = 1
-    sheet_count: int = 1
+    sheet_index: int
+    sheet_count: int
 
 
 # The participants' program: every session of the event in time order, with
