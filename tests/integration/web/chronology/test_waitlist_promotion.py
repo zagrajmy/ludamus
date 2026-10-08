@@ -18,7 +18,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.enrollment import OfferDTO, OfferRecipientDTO
+from ludamus.pacts.enrollment import OfferDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -291,9 +291,7 @@ class TestOfferClaimAndExpiry:
                     session_title=session.title,
                     event_slug=event.slug,
                     participant_ids=[participation.pk],
-                    recipients=[
-                        OfferRecipientDTO(user_id=waiter.pk, email=waiter.email)
-                    ],
+                    recipients=[waiter.pk],
                     offer_expires_at=participation.offer_expires_at,
                 ),
                 "token": participation.claim_token,

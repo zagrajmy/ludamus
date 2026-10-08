@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0175_merge_schedule_confirmed_notification_kind")]
+    dependencies = [("db_main", "0178_alter_notification_kind")]
 
     operations = [
         migrations.AddField(

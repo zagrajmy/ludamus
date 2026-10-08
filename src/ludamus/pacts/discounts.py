@@ -114,7 +114,10 @@ class DiscountRosterEntryDTO(BaseModel):
 
 
 class DiscountsServiceProtocol(Protocol):
-    def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]: ...
+    def list_discounts(self, event_pk: int) -> list[DiscountDTO]: ...
+    def list_facilitator_schedule(
+        self, event_pk: int
+    ) -> list[FacilitatorScheduleRow]: ...
     def list_rules(self, event_pk: int) -> list[DiscountRuleDTO]: ...
     def read_rule(self, event_pk: int, pk: int) -> DiscountRuleDTO | None: ...
     def create_rule(self, event_pk: int, data: DiscountRuleData) -> DiscountRuleDTO: ...
@@ -132,35 +135,3 @@ class DiscountsServiceProtocol(Protocol):
     def create(self, event_pk: int, data: DiscountData) -> DiscountDTO: ...
     def update(self, pk: int, data: DiscountData) -> DiscountDTO: ...
     def soft_delete(self, pk: int) -> None: ...
-
-
-class DiscountExportLabels(BaseModel):
-    # Localized strings for the discount columns the sheet always writes.
-    # Built at the gate (where gettext lives) so the mill stays framework-free;
-    # `kinds` is keyed by the raw enum values stored on the DTOs.
-    headers: list[str]
-    kinds: dict[str, str]
-
-
-class DiscountExportColumns(BaseModel):
-    # The facilitator and personal-data columns the organizer picked for this
-    # export, written before the discount ones. Headers and cells are rendered
-    # at the gate (that is where a facilitator column knows what it is called
-    # and how it reads); `cells` is keyed by facilitator pk and each list is
-    # aligned with `headers`.
-    headers: list[str] = []
-    cells: dict[int, list[str]] = {}
-
-
-class DiscountsExportServiceProtocol(Protocol):
-    def export_to_sheet(
-        self,
-        *,
-        sphere_id: int,
-        event_pk: int,
-        connection_id: int,
-        spreadsheet_id: str,
-        tab_title: str,
-        labels: DiscountExportLabels,
-        columns: DiscountExportColumns,
-    ) -> int: ...
