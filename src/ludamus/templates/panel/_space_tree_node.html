@@ -24,10 +24,10 @@
                 </button>
             {% endif %}
             {% if node.is_leaf %}
-                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-foreground-muted" %}
                 <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
-                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-foreground-muted" %}
                 <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
             {# The name keeps the first line; seats, location and tracks wrap #}
@@ -42,12 +42,12 @@
                     </span>
                 {% endif %}
                 {% if node.is_leaf and node.space.capacity %}
-                    <span class="whitespace-nowrap rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-foreground-muted">
+                    <span class="whitespace-nowrap rounded-full bg-bg-tertiary px-2 py-0.5 text-xs tabular-nums text-foreground-muted">
                         {% blocktranslate count counter=node.space.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
                     </span>
                 {% endif %}
                 {% if node.track_names %}
-                    {% include "components/pill_list.html" with items=node.track_names icon="rectangle-group" %}
+                    {% include "components/pill_list.html" with items=node.track_names icon="tag" %}
                 {% endif %}
             </div>
         </div>

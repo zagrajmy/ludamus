@@ -33,12 +33,14 @@
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted" variant="mini" %}
                     {% endif %}
                     <div class="min-w-0 flex-1">
-                        <p class="truncate font-medium text-foreground"
-                           title="{{ row.space.path }}">{{ row.space.path }}</p>
+                        <p class="flex min-w-0 font-medium text-foreground">
+                            {% include "chronology/_session_location.html" with data=row.location show_map_link=False session_link_base="#" %}
+                        </p>
                         {% if row.tracks %}
                             <div class="mt-1 flex flex-wrap gap-1">
                                 {% for track in row.tracks %}
-                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ track.classes }}">{{ track.name }}</span>
+                                    <span class="max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium {{ track.classes }}"
+                                          title="{{ track.name }}">{{ track.name }}</span>
                                 {% endfor %}
                             </div>
                         {% endif %}
