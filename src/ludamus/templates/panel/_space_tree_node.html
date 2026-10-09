@@ -1,14 +1,16 @@
 {% load i18n %}
 {% load tessera %}
 <li data-space-node data-space-id="{{ node.space.pk }}">
-    <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-bg-tertiary">
+    {# px-1.5 centres the handle on x=20px, where the children's guide line #}
+    {# (ml-5 below) runs, so every level's line drops out of its own handle. #}
+    <div class="group flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-bg-tertiary">
         <div class="flex min-w-0 flex-1 items-center gap-2">
             {% if node.children %}
                 <button type="button"
                         draggable="true"
                         data-space-disclosure
                         data-drag-handle
-                        class="icon-btn cursor-move text-foreground-muted"
+                        class="icon-btn icon-btn-clear cursor-grab text-foreground-muted active:cursor-grabbing"
                         aria-expanded="true"
                         aria-controls="space-children-{{ node.space.pk }}"
                         aria-label="{% blocktranslate with name=node.space.name %}Reorder or toggle {{ name }} — arrow keys reorder; Enter or Space toggles children{% endblocktranslate %}">
@@ -18,16 +20,16 @@
                 <button type="button"
                         draggable="true"
                         data-drag-handle
-                        class="icon-btn cursor-move text-foreground-muted"
+                        class="icon-btn icon-btn-clear cursor-grab text-foreground-muted active:cursor-grabbing"
                         aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
                     {% icon "bars-3" class="w-4 h-4" %}
                 </button>
             {% endif %}
             {% if node.is_leaf %}
-                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-foreground-muted" %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
-                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-foreground-muted" %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
                 <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
             {# The name keeps the first line; seats, location and tracks wrap #}
@@ -42,7 +44,7 @@
                     </span>
                 {% endif %}
                 {% if node.is_leaf and node.space.capacity %}
-                    <span class="whitespace-nowrap rounded-full bg-bg-tertiary px-2 py-0.5 text-xs tabular-nums text-foreground-muted">
+                    <span class="whitespace-nowrap text-xs tabular-nums text-foreground-muted">
                         {% blocktranslate count counter=node.space.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
                     </span>
                 {% endif %}
@@ -51,16 +53,18 @@
                 {% endif %}
             </div>
         </div>
-        <div class="flex shrink-0 items-center gap-1">
+        {# Three boxed buttons on every row out-weighed the names they act on. #}
+        {# Bare glyphs stay muted until their row is pointed at or focused. #}
+        <div class="flex shrink-0 items-center">
             {% if node.accepts_children %}
                 <a href="{% url 'panel:space-create-child' slug=current_event.slug parent_pk=node.space.pk %}"
-                   class="icon-btn"
+                   class="icon-btn icon-btn-clear text-foreground-muted group-hover:text-foreground-secondary group-focus-within:text-foreground-secondary hover:text-foreground"
                    aria-label="{% blocktranslate with name=node.space.name %}Add a space inside {{ name }}{% endblocktranslate %}">
                     {% icon "plus" class="w-4 h-4" %}
                 </a>
             {% else %}
                 <button type="button"
-                        class="icon-btn"
+                        class="icon-btn icon-btn-clear text-foreground-muted group-hover:text-foreground-secondary group-focus-within:text-foreground-secondary hover:text-foreground"
                         aria-disabled="true"
                         title="{{ node.no_children_reason }}"
                         aria-describedby="no-children-{{ node.space.pk }}"
@@ -68,14 +72,14 @@
                 <span id="no-children-{{ node.space.pk }}" class="sr-only">{{ node.no_children_reason }}</span>
             {% endif %}
             <a href="{% url 'panel:space-edit' slug=current_event.slug pk=node.space.pk %}"
-               class="icon-btn"
+               class="icon-btn icon-btn-clear text-foreground-muted group-hover:text-foreground-secondary group-focus-within:text-foreground-secondary hover:text-foreground"
                aria-label="{% blocktranslate with name=node.space.name %}Edit {{ name }}{% endblocktranslate %}">
                 {% icon "pencil-square" class="w-4 h-4" %}
             </a>
             <div class="relative inline-block" data-menu>
                 <button type="button"
                         data-menu-button
-                        class="icon-btn"
+                        class="icon-btn icon-btn-clear text-foreground-muted group-hover:text-foreground-secondary group-focus-within:text-foreground-secondary hover:text-foreground"
                         aria-haspopup="true"
                         aria-expanded="false"
                         aria-label="{% blocktranslate with name=node.space.name %}More actions for {{ name }}{% endblocktranslate %}">
