@@ -19,9 +19,9 @@ urlpatterns: list[URLPattern] = [
         name="session-propose-personal",
     ),
     path(
-        "event/<str:event_slug>/session/propose/parts/timeslots",
-        propose.ProposeSessionTimeslotsComponentView.as_view(),
-        name="session-propose-timeslots",
+        "event/<str:event_slug>/session/propose/parts/days",
+        propose.ProposeSessionDaysComponentView.as_view(),
+        name="session-propose-days",
     ),
     path(
         "event/<str:event_slug>/session/propose/parts/details",

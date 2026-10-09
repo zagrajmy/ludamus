@@ -13,7 +13,9 @@ from django.urls import reverse
 from tests.integration.web.panel.conftest import SCALE_SCHEDULED
 
 _PAGE_QUERY_LIMIT = 45
-_GRID_QUERY_LIMIT = 30
+# NOTE: every panel request also upserts the visitor's sphere subscription
+# (savepoint, insert, release), a fixed cost on top of the grid's own reads.
+_GRID_QUERY_LIMIT = 32
 _CONFLICT_QUERY_LIMIT = 30
 _OVERVIEW_QUERY_LIMIT = 40
 

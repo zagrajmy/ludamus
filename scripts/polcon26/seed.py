@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from operator import itemgetter
 from typing import cast
 
 from scripts.polcon26.mcp_client import McpClient, McpError
@@ -47,7 +45,6 @@ def ensure_supporting_data(
         event_id=event_id,
         names={item.category for item in items},
     )
-    ensure_time_slots(client=client, event_id=event_id, items=items)
     facilitator_ids = {}
     for name in sorted(
         {name for item in items for name in item.presenters}, key=str.casefold
@@ -168,34 +165,6 @@ def ensure_named_rows(
             created = client.call_object(create_tool, {"name": name})
             by_name[name] = int(created["pk"])
     return {name: by_name[name] for name in names}
-
-
-def ensure_time_slots(
-    *, client: McpClient, event_id: int, items: list[ProgrammeItem]
-) -> None:
-    windows: dict[str, list[datetime]] = {}
-    for item in items:
-        bounds = windows.setdefault(item.sheet, [item.start, item.end])
-        bounds[0] = min(bounds[0], item.start)
-        bounds[1] = max(bounds[1], item.end)
-    expected = tuple(
-        (start, end) for start, end in sorted(windows.values(), key=itemgetter(0))
-    )
-    rows = client.call_list("list_time_slots", {"event_id": event_id})
-    existing = {
-        (_parse_datetime(str(row["start_time"])), _parse_datetime(str(row["end_time"])))
-        for row in rows
-    }
-    for start, end in expected:
-        if (start.astimezone(UTC), end.astimezone(UTC)) not in existing:
-            client.call(
-                "create_time_slot",
-                {"start_time": start.isoformat(), "end_time": end.isoformat()},
-            )
-
-
-def _parse_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value).astimezone(UTC)
 
 
 def ensure_tracks(

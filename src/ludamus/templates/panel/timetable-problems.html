@@ -1,5 +1,5 @@
 {% extends "panel/base.html" %}
-{% load i18n %}
+{% load date_tags i18n %}
 {% load tessera %}
 {% block title %}
     {% translate "Problems" %}
@@ -55,14 +55,14 @@
                     <p class="text-sm text-success">{% translate "No conflicts." %}</p>
                 {% endif %}
             </section>
-            <!-- Sessions outside preferred slots section -->
-            <section aria-labelledby="problems-outside-slots">
-                <h2 id="problems-outside-slots" class="text-base font-semibold mb-3">
-                    {% translate "Sessions outside preferred slots" %}
+            <!-- Sessions placed outside the times their facilitator offered -->
+            <section aria-labelledby="problems-outside-offered">
+                <h2 id="problems-outside-offered" class="text-base font-semibold mb-3">
+                    {% translate "Sessions outside the times they offered" %}
                 </h2>
-                {% if slot_violations %}
+                {% if time_violations %}
                     <div class="space-y-2">
-                        {% for violation in slot_violations %}
+                        {% for violation in time_violations %}
                             <div class="border border-warning bg-warning-bg rounded-lg p-3">
                                 <div class="flex items-start gap-2">
                                     <span class="text-warning mt-0.5">⏰</span>
@@ -71,11 +71,9 @@
                                         <div class="text-xs text-warning mt-0.5">
                                             {% blocktranslate with start=violation.scheduled_start|date:"D, M j H:i" end=violation.scheduled_end|time:"H:i" %}Scheduled: {{ start }} – {{ end }}{% endblocktranslate %}
                                         </div>
-                                        <div class="text-xs text-foreground-muted mt-1">{% translate "Preferred slots:" %}</div>
+                                        <div class="text-xs text-foreground-muted mt-1">{% translate "Offered times:" %}</div>
                                         <ul class="text-xs text-foreground-muted ml-3 list-disc">
-                                            {% for slot in violation.preferred_slots %}
-                                                <li>{{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}</li>
-                                            {% endfor %}
+                                            {% for entry in violation.availability %}<li>{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</li>{% endfor %}
                                         </ul>
                                         {% if violation.track_name %}
                                             <div class="text-xs text-foreground-muted mt-1">
@@ -93,7 +91,7 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-sm text-success">{% translate "All scheduled sessions are inside their preferred slots." %}</p>
+                    <p class="text-sm text-success">{% translate "Every scheduled session sits inside a time its facilitator offered." %}</p>
                 {% endif %}
             </section>
         {% endtab_shell_body %}

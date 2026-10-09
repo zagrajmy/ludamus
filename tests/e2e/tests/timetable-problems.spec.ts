@@ -8,7 +8,7 @@ import { expect, test } from "./helpers/fixtures";
 // alone, with one of every scheduling problem:
 //   Amber Room   (6)  Story Games  Clockwork Heist 10:00-11:00, Ghost Ship Salvage 10:30-11:30
 //   Cobalt Room  (8)  Story Games  Tidepool Tales 10:00-11:00 (Rowan Hale),
-//                                  Moonlit Duel 14:00-15:00, asked for the 10:00-12:00 slot
+//                                  Moonlit Duel 14:00-15:00, offered only the morning
 //   Basalt Room (10)  Miniatures   Lantern Market 10:00-11:00 (Rowan Hale),
 //                                  Giant Mech Brawl 14:00-15:00 for 20 people
 // Story Games is managed by Local Manager. The second test unschedules Ghost
@@ -138,14 +138,16 @@ test.describe("Timetable problems", () => {
       await expect(group).toContainText(wording);
     }
 
-    const outsideSlots = page.getByRole("region", { name: "Sessions outside preferred slots" });
-    await expect(outsideSlots).toContainText("Moonlit Duel");
-    await expect(outsideSlots).toContainText(/Scheduled: .* 14:00 – 15:00/);
-    await expect(outsideSlots.getByRole("listitem")).toHaveText([/10:00 – 12:00/]);
-    await expect(outsideSlots).toContainText("Track: Story Games (managed by: Local Manager)");
-    await expect(outsideSlots).not.toContainText("Giant Mech Brawl");
+    const outsideOffered = page.getByRole("region", {
+      name: "Sessions outside the times they offered",
+    });
+    await expect(outsideOffered).toContainText("Moonlit Duel");
+    await expect(outsideOffered).toContainText(/Scheduled: .* 14:00 – 15:00/);
+    await expect(outsideOffered.getByRole("listitem")).toHaveText([/\bmorning$/]);
+    await expect(outsideOffered).toContainText("Track: Story Games (managed by: Local Manager)");
+    await expect(outsideOffered).not.toContainText("Giant Mech Brawl");
 
-    await outsideSlots.getByRole("link", { name: "Open in Schedule" }).click();
+    await outsideOffered.getByRole("link", { name: "Open in Schedule" }).click();
     await expect(page).toHaveURL(/\/timetable\/$/);
     await expect(schedule(page).getByRole("button", { name: /Moonlit Duel/ })).toContainText("⏰");
 
@@ -159,8 +161,8 @@ test.describe("Timetable problems", () => {
           "Facilitator overlaps": await groupFacts(page, "Facilitator overlaps"),
           "Capacity exceeded": await groupFacts(page, "Capacity exceeded"),
         },
-        outsidePreferredSlots: (
-          await outsideSlots.getByRole("heading", { level: 3 }).allInnerTexts()
+        outsideOfferedTimes: (
+          await outsideOffered.getByRole("heading", { level: 3 }).allInnerTexts()
         ).map(squash),
       },
     });
