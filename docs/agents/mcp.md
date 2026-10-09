@@ -175,8 +175,6 @@ the styles on its next run. No integration creation or sync-toggle tool.
    `call.services` / `call.data` / `call.actor` and returns DTO JSON
    (`model_dump_json` / `TypeAdapter.dump_json`).
 2. Add it to `_all_tools()`.
-3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
-   a tools/call case).
 
 Domain errors need no new plumbing: `NotFoundError` and invalid arguments
 already map to MCP `isError` results, and unknown tools to JSON-RPC errors.

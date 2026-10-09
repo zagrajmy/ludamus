@@ -48,8 +48,7 @@ description — run it rather than trusting a hardcoded list here. Most used:
 
 Strings wrapped + i18n updated; schema change has a reversible migration;
 failure paths return useful errors, no silent swallows; keyboard-reachable
-semantic HTML; new path logs meaningful events; authz checked, no new secrets;
-happy path + one edge case tested.
+semantic HTML; new path logs meaningful events; authz checked, no new secrets.
 
 ## Debt metrics (tingle)
 
@@ -93,20 +92,6 @@ migration. [docs/agents/services-migration.md](docs/agents/services-migration.md
 has the per-file recipe. New code must use `request.services`; never extend the
 `request.di.uow` surface.
 
-## Testing
-
-- Never write unit tests after you write code.
-- Highly prefer E2E tests as the sole testing mechanism. Use them to verify
-  complex features work. At the end of E2E tests, produce a verifiable and
-  repeatable artifact.
-- If you must test a system in isolation, first write down all the ways it
-  could fail, then write the code.
-- Tautological tests considered harmful: a test that restates the code it
-  checks always passes and catches nothing.
-- Change-detector tests considered harmful: a test that breaks on every
-  refactor without a behavior change (asserting call sequences, mock
-  arguments, field-by-field mapping) costs more than it guards.
-
 ## Rules
 
 - Functions/methods with 3+ parameters (excluding `self`) take them as
@@ -120,16 +105,6 @@ has the per-file recipe. New code must use `request.services`; never extend the
   split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
   deliberate deviation, `TODO:` known gap, issue link. No narration, no
   summaries, no work history microblogging.
-- `gates`, `links`, `adapters.web`, and templates get integration tests when
-  they need a Python test at all. Never raise coverage with a mock-everything
-  unit test. Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
-- View tests use `assert_response`, never manual assertions, and use ANY only
-  for forms/views, never for simple values ([], {}, booleans, strings, ints).
-  Patterns: [docs/agents/testing-assertions.md](docs/agents/testing-assertions.md).
-- Migrating: UI belongs to Playwright. Assert status, redirect, context, and
-  state in Python; assert rendered HTML in `tests/e2e`. Don't add
-  `assert_response(contains=...)` on markup, and drop such assertions from
-  tests you touch — the e2e run covers them, and the coverage reports combine.
 - NEVER add noqa/type ignore/pylint comments or directives without explicit
   per-case approval.
 - `test` / `tested` is reserved for pytest; production names use `check` /
@@ -137,7 +112,7 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - Panel access proves you manage the current sphere/event, not the objects the
   request names. Scope every request-supplied id (URL pk/slug and body ids)
   to `current_event`/sphere before read or write. Do it in the service, not
-  the view, and test that a foreign id 404/422s without side effects.
+  the view; a foreign id 404/422s without side effects.
 - Keep `__init__.py` empty and import each symbol from the module that defines
   it. The allowed facade exceptions are listed in the `glimpse` skill.
 - Client IP comes only from `get_client_ip` in `gates/web/django/helpers.py`.
@@ -168,8 +143,6 @@ has the per-file recipe. New code must use `request.services`; never extend the
   layout, and slicing rules (plugin `glimpse@glimpse`)
 - [Services migration](docs/agents/services-migration.md) — per-file recipe for
   moving views from `request.di.uow` to `request.services`
-- [Testing assertions](docs/agents/testing-assertions.md) — patterns for
-  integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
 - [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
@@ -180,4 +153,3 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
-- [Testing strategy](docs/TESTING_STRATEGY.md)
