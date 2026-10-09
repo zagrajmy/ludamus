@@ -24,6 +24,7 @@
         draggable="true"
         data-session-pk="{{ pos.agenda_item.session_id }}"
         data-duration="{{ pos.agenda_item.session_duration_minutes }}"
+        data-participants-limit="{{ pos.agenda_item.session_participants_limit }}"
         data-confirmed="{{ pos.agenda_item.schedule_confirmed|yesno:'true,false' }}"
         title="{{ pos.agenda_item.session_title }}"
         hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}{% querystring %}"

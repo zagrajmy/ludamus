@@ -12212,6 +12212,18 @@ msgstr ""
 msgid "Move"
 msgstr "Przenieś"
 
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room taken"
+msgstr "Sala zajęta"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room too small"
+msgstr "Sala za mała"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Extends the day"
+msgstr "Wydłuża dzień"
+
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "New Track"

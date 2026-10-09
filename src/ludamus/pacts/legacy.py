@@ -191,6 +191,7 @@ class AgendaItemDTO(BaseModel):
     session_description: str = ""
     presenter_name: str = ""
     session_duration_minutes: int = 0
+    session_participants_limit: int = 0
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
     category_id: int | None = None

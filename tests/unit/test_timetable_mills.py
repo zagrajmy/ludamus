@@ -30,6 +30,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ClosedRangeDTO,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -204,6 +205,36 @@ class TestBuildGridOverlappingSessions:
         grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert grid.days[0].columns[0].sessions == []
+
+    def test_hours_no_slot_covers_are_closed_on_the_shared_axis(self):
+        uow = _spec_uow(agenda_items=_FakeAgendaItems())
+        uow.spaces.list_by_event.side_effect = _lookup({1: [_space(1)]})
+        day_one = datetime(2026, 1, 1, tzinfo=UTC)
+        day_two = datetime(2026, 1, 2, tzinfo=UTC)
+        uow.time_slots.list_by_event.side_effect = _lookup(
+            {
+                1: [
+                    _slot(day_one + timedelta(hours=11), day_one + timedelta(hours=13)),
+                    _slot(day_one + timedelta(hours=10), day_one + timedelta(hours=12)),
+                    _slot(day_one + timedelta(hours=15), day_one + timedelta(hours=16)),
+                    _slot(day_two + timedelta(hours=8), day_two + timedelta(hours=18)),
+                ]
+            }
+        )
+        _stub_warning_reads(uow)
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        # Both days run 08:00-18:00; the first opens late, has a gap, and
+        # closes early. Its overlapping slots leave no gap between them.
+        assert [day.closed_ranges for day in grid.days] == [
+            [
+                ClosedRangeDTO(start_minutes=0, duration_minutes=120),
+                ClosedRangeDTO(start_minutes=300, duration_minutes=120),
+                ClosedRangeDTO(start_minutes=480, duration_minutes=120),
+            ],
+            [],
+        ]
 
     def test_all_days_share_rooms_and_one_time_axis(self):
         uow = MagicMock()

@@ -9,6 +9,7 @@ interface Placement {
   backUrl: string | null;
   confirmed: boolean;
   duration: number;
+  participantsLimit: number;
   preferredSlots: PreferredSlot[];
   sessionPk: string;
 }
@@ -104,7 +105,13 @@ function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): v
   const guide = dropGuide();
   guide.style.top = `calc(${topPx}px + 20px)`;
   guide.style.height = `${Math.max(20, placement.duration * minutePx)}px`;
-  guide.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  const verdict = dropVerdict(col, startDt, placement);
+  guide.classList.toggle("is-closed", verdict === "closed");
+  guide.classList.toggle("is-unsupported", verdict === "occupied" || verdict === "tooSmall");
+  guide.textContent = dropLabel(
+    `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`,
+    verdict,
+  );
   if (guide.parentElement !== col) col.append(guide);
 }
 
@@ -168,8 +175,65 @@ function renderPreferredSlotOverlays(): void {
   }
 }
 
-function markColumnsActive(active: boolean): void {
-  for (const col of columns()) col.classList.toggle("assign-mode-active", active);
+// The same rule as the server's capacity conflict: a room with no capacity
+// set holds anything.
+function roomTooSmall(col: HTMLElement, placement: Placement): boolean {
+  const { capacity } = col.dataset;
+  return capacity !== undefined && Number(capacity) < placement.participantsLimit;
+}
+
+function markColumnsActive(placement: Placement | null): void {
+  for (const col of columns()) {
+    col.classList.toggle("assign-mode-active", placement !== null);
+    col.classList.toggle("drop-unsupported", placement !== null && roomTooSmall(col, placement));
+  }
+}
+
+type DropVerdict = "closed" | "occupied" | "tooSmall";
+
+// Blocks on the grid state their place as --offset/--duration minutes, the
+// same axis a drop is measured on.
+function blocksOverlap(
+  col: HTMLElement,
+  selector: string,
+  [start, end]: [number, number],
+  skipSessionPk?: string,
+): boolean {
+  return [...col.querySelectorAll<HTMLElement>(selector)].some((el) => {
+    if (skipSessionPk !== undefined && el.dataset.sessionPk === skipSessionPk) return false;
+    const blockStart = Number(el.style.getPropertyValue("--offset"));
+    const blockEnd = blockStart + Number(el.style.getPropertyValue("--duration"));
+    return blockStart < end && start < blockEnd;
+  });
+}
+
+// Every verdict is a warning: the server accepts the drop and reports the
+// clash, or widens the day for a closed hour.
+function dropVerdict(col: HTMLElement, startDt: Date, placement: Placement): DropVerdict | null {
+  const cal = dayGridForColumn(col);
+  if (!cal?.dataset.eventStart) return null;
+  const start = (startDt.getTime() - new Date(cal.dataset.eventStart).getTime()) / 60_000;
+  const range: [number, number] = [start, start + placement.duration];
+  if (blocksOverlap(col, ".timetable-session", range, placement.sessionPk)) return "occupied";
+  if (roomTooSmall(col, placement)) return "tooSmall";
+  if (
+    range[1] > Number(cal.dataset.totalMinutes) ||
+    blocksOverlap(col, ".timetable-closed", range)
+  ) {
+    return "closed";
+  }
+  return null;
+}
+
+const VERDICT_LABEL_KEYS: Record<DropVerdict, string> = {
+  closed: "dropClosed",
+  occupied: "dropOccupied",
+  tooSmall: "dropTooSmall",
+};
+
+function dropLabel(times: string, verdict: DropVerdict | null): string {
+  const reason = verdict ? grid().dataset[VERDICT_LABEL_KEYS[verdict]] : "";
+  return reason ? `${times} · ${reason}` : times;
 }
 
 // Every filter control submits the page, which would drop the armed session
@@ -185,7 +249,7 @@ function markFiltersInert(inert: boolean): void {
 function enterAssignMode(placement: Placement): void {
   armed = placement;
   banner().classList.remove("hidden");
-  markColumnsActive(true);
+  markColumnsActive(placement);
   markFiltersInert(true);
   renderPreferredSlotOverlays();
 }
@@ -193,7 +257,7 @@ function enterAssignMode(placement: Placement): void {
 function exitAssignMode(): void {
   armed = null;
   banner().classList.add("hidden");
-  markColumnsActive(false);
+  markColumnsActive(null);
   markFiltersInert(false);
   clearPreferredSlotOverlays();
   hideHoverPreview();
@@ -204,6 +268,7 @@ function placementFromAssignButton(btn: HTMLElement): Placement {
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
+    participantsLimit: Number(btn.dataset.assignParticipantsLimit) || 0,
     preferredSlots: parsePreferredSlots(btn.dataset.assignPreferredSlots),
     sessionPk: btn.dataset.assignSessionPk!,
   };
@@ -215,6 +280,7 @@ function placementFromDraggable(el: HTMLElement): Placement {
     backUrl: armed?.sessionPk === sessionPk ? armed.backUrl : null,
     confirmed: el.dataset.confirmed === "true",
     duration: Number(el.dataset.duration) || 60,
+    participantsLimit: Number(el.dataset.participantsLimit) || 0,
     preferredSlots: armed?.sessionPk === sessionPk ? armed.preferredSlots : [],
     sessionPk,
   };
@@ -328,7 +394,7 @@ document.addEventListener("dragstart", (e) => {
   dragging = placementFromDraggable(el);
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", dragging.sessionPk);
-  markColumnsActive(true);
+  markColumnsActive(dragging);
   renderPreferredSlotOverlays();
 });
 
@@ -358,10 +424,10 @@ document.addEventListener("drop", (e) => {
 document.addEventListener("dragend", () => {
   dragging = null;
   hideDropGuide();
+  markColumnsActive(armed);
   if (armed) {
     renderPreferredSlotOverlays();
   } else {
-    markColumnsActive(false);
     clearPreferredSlotOverlays();
   }
 });
@@ -392,7 +458,10 @@ document.addEventListener("mousemove", (e) => {
 
   const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
   const preview = hoverPreview();
-  preview.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  preview.textContent = dropLabel(
+    `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`,
+    dropVerdict(col, startDt, armed),
+  );
   preview.style.left = `${e.clientX + 12}px`;
   preview.style.top = `${e.clientY + 12}px`;
   preview.classList.remove("hidden");
@@ -405,7 +474,7 @@ document.addEventListener("mouseleave", hideHoverPreview);
 document.body.addEventListener("htmx:afterSwap", () => {
   if (armed) {
     banner().classList.remove("hidden");
-    markColumnsActive(true);
+    markColumnsActive(armed);
     markFiltersInert(true);
     renderPreferredSlotOverlays();
   }

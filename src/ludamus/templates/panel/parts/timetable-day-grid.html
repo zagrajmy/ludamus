@@ -5,10 +5,16 @@
     <div class="timetable-column relative border-l border-border"
          role="group"
          aria-label="{{ col.space.name }}"
-         data-space-pk="{{ col.space.pk }}">
+         data-space-pk="{{ col.space.pk }}"
+         {% if col.space.capacity is not None %}data-capacity="{{ col.space.capacity }}"{% endif %}>
         {% for label in day.time_labels %}
             <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
                  style="--offset: {{ label.offset_minutes }}"></div>
+        {% endfor %}
+        {% for closed in day.closed_ranges %}
+            <div class="timetable-closed"
+                 style="--offset: {{ closed.start_minutes }};
+                        --duration: {{ closed.duration_minutes }}"></div>
         {% endfor %}
         {% for pos in col.sessions %}
             {% include "panel/parts/timetable-session-card.html" %}

@@ -22,6 +22,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ClosedRangeDTO,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -187,6 +188,28 @@ def _within_selected_spaces(
     return kept
 
 
+def _closed_ranges(
+    windows: list[Window], day_range: tuple[datetime, datetime]
+) -> list[ClosedRangeDTO]:
+    grid_start, grid_end = day_range
+    gaps: list[tuple[datetime, datetime]] = []
+    cursor = grid_start
+    # Slots may overlap, so the sweep carries the furthest end seen so far.
+    for start, end in sorted(windows):
+        if start > cursor:
+            gaps.append((cursor, start))
+        cursor = max(cursor, end)
+    if cursor < grid_end:
+        gaps.append((cursor, grid_end))
+    return [
+        ClosedRangeDTO(
+            start_minutes=round((start - grid_start).total_seconds() / 60),
+            duration_minutes=round((end - start).total_seconds() / 60),
+        )
+        for start, end in gaps
+    ]
+
+
 def _day_range(
     day: date, span: tuple[int, int], tz: tzinfo
 ) -> tuple[datetime, datetime]:
@@ -308,6 +331,7 @@ class TimetableService(TimetableServiceProtocol):
             self._build_day_grid(
                 date_to_render=date_to_render,
                 day_range=_day_range(date_to_render, span, tz),
+                windows=windows_by_date[date_to_render],
                 spaces=spaces,
                 all_items=shown_items,
                 states=states,
@@ -340,6 +364,7 @@ class TimetableService(TimetableServiceProtocol):
         *,
         date_to_render: date,
         day_range: tuple[datetime, datetime],
+        windows: list[Window],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
         states: dict[int, SessionPositionState],
@@ -386,6 +411,7 @@ class TimetableService(TimetableServiceProtocol):
                 )
                 for index in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
             ],
+            closed_ranges=_closed_ranges(windows, day_range),
         )
 
     @staticmethod

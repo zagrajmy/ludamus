@@ -162,6 +162,22 @@
     width: calc(var(--lane-width) - 4px);
   }
 
+  /* Hours no time slot covers. Drawn before the sessions, so a booking left
+     there by an edited slot stays visible on top of it. */
+  .timetable-closed {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--offset) * var(--minute-px) + 20px);
+    height: calc(var(--duration) * var(--minute-px));
+    background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in oklch, var(--color-foreground-muted) 18%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+    pointer-events: none;
+  }
+
   .timetable-column.assign-mode-active {
     cursor: crosshair;
   }
@@ -170,9 +186,20 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+    background: color-mix(in oklch, var(--color-success) 8%, transparent);
     pointer-events: none;
     z-index: 5;
+  }
+
+  .timetable-column.assign-mode-active.drop-unsupported::after {
+    background: color-mix(in oklch, var(--color-danger) 10%, transparent);
+  }
+
+  /* Lifted over the green while assigning, on an opaque base so closed hours
+     stay grey instead of reading as droppable. */
+  .timetable-column.assign-mode-active .timetable-closed {
+    background-color: var(--color-bg-secondary);
+    z-index: 6;
   }
 
   .timetable-hover-preview {
@@ -195,10 +222,11 @@
     left: 2px;
     right: 2px;
     z-index: 6;
-    border: 2px dashed var(--color-primary);
+    --guide-tone: var(--color-success);
+    border: 2px dashed var(--guide-tone);
     border-radius: 6px;
-    background: color-mix(in oklch, var(--color-primary) 15%, transparent);
-    color: var(--color-primary);
+    background: color-mix(in oklch, var(--guide-tone) 15%, transparent);
+    color: var(--guide-tone);
     font-size: 0.75rem;
     font-weight: 600;
     padding: 2px 6px;
@@ -206,13 +234,22 @@
     pointer-events: none;
   }
 
+  .timetable-drop-guide.is-closed {
+    --guide-tone: var(--color-foreground-muted);
+  }
+
+  .timetable-drop-guide.is-unsupported {
+    --guide-tone: var(--color-danger);
+  }
+
+  /* A preference, not a problem: an outline only, so it never reads as the
+     warning a filled amber band would. */
   .timetable-preferred-slot {
     position: absolute;
-    left: 0;
-    right: 0;
-    background: rgba(250, 204, 21, 0.28);
-    border-top: 1px dashed rgba(202, 138, 4, 0.7);
-    border-bottom: 1px dashed rgba(202, 138, 4, 0.7);
+    left: 2px;
+    right: 2px;
+    border: 2px dashed rgba(202, 138, 4, 0.8);
+    border-radius: 4px;
     pointer-events: none;
     z-index: 6;
   }
