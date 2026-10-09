@@ -38,6 +38,8 @@ class PrintQueryDTO:
     scope_name: str | None = None
     # None means the whole event; the mills default to the event bounds.
     time_range: tuple[datetime, datetime] | None = None
+    # The session list prints descriptions in its rows, so fewer fit a sheet.
+    descriptions: bool = False
 
 
 class DoorCardEntryDTO(BaseModel):
@@ -46,12 +48,15 @@ class DoorCardEntryDTO(BaseModel):
     session: PrintSessionDTO
 
 
-# One card is one sheet of paper: it hangs on a door for a single day.
+# One card is one sheet of paper on a door for a single day; a day busier than
+# a sheet runs over several, numbered sheet_index of sheet_count.
 class DoorCardDTO(BaseModel):
     space_name: str
     capacity: int | None
     day: date
     entries: list[DoorCardEntryDTO]
+    sheet_index: int
+    sheet_count: int
 
 
 class DoorCardsDocumentDTO(BaseModel):
@@ -96,6 +101,8 @@ class PrintTimetablePageDTO(BaseModel):
     rows: list[PrintTimetableRowDTO]
     tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None
+    sheet_index: int
+    sheet_count: int
 
     @property
     def spans(self) -> list[int]:
@@ -154,14 +161,22 @@ class PrintSessionListItemDTO(BaseModel):
     space_name: str
 
 
+class PrintSessionListPageDTO(BaseModel):
+    day: date
+    sessions: list[PrintSessionListItemDTO]
+    sheet_index: int
+    sheet_count: int
+
+
 # The participants' program: every session of the event in time order, with
-# the room — what one carries around the venue.
+# the room — what one carries around the venue. A sheet per day, or a numbered
+# run of sheets for a day busier than one.
 class PrintSessionListDocumentDTO(BaseModel):
     event_name: str
     event_description: str
     event_start: datetime
     event_end: datetime
-    sessions: list[PrintSessionListItemDTO]
+    pages: list[PrintSessionListPageDTO]
 
 
 class PrintablesReminderDTO(BaseModel):

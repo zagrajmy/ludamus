@@ -17,6 +17,7 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
+    PrintSessionListPageDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
@@ -73,12 +74,24 @@ def _timetable_document(*, event, pages, scope_name=None, is_unscoped=False):
 
 
 def _session_list_document(*, event, sessions):
+    # Every caller's sessions fall on the event's first day.
     return PrintSessionListDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
-        sessions=sessions,
+        pages=(
+            [
+                PrintSessionListPageDTO(
+                    day=event.start_time.date(),
+                    sessions=sessions,
+                    sheet_index=1,
+                    sheet_count=1,
+                )
+            ]
+            if sessions
+            else []
+        ),
     )
 
 
@@ -112,6 +125,8 @@ def _one_hour_page(*, event, session, space):
             )
         ],
         space_range_name=None,
+        sheet_index=1,
+        sheet_count=1,
     )
 
 

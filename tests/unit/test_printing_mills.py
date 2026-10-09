@@ -3,6 +3,10 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 from ludamus.mills.printing import (
+    MAX_DOOR_CARD_ENTRIES_PER_SHEET,
+    MAX_SESSION_LIST_DESCRIBED_ROWS_PER_SHEET,
+    MAX_SESSION_LIST_ROWS_PER_SHEET,
+    MAX_TIMETABLE_ROWS_PER_PAGE,
     PRINTABLES_REMINDER_LEAD_TIME,
     PrintablesReminderService,
     PrintMaterialsService,
@@ -233,6 +237,87 @@ class TestBuildTimetable:
         assert [(r.start_time.hour, r.end_time.hour) for r in first.rows] == [(9, 10)]
         assert [(r.start_time.hour, r.end_time.hour) for r in second.rows] == [(10, 12)]
 
+    def test_a_day_at_the_row_cap_fits_one_sheet(self):
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(MAX_TIMETABLE_ROWS_PER_PAGE)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = _timetable(service)
+
+        assert [
+            (len(page.rows), page.sheet_index, page.sheet_count)
+            for page in document.pages
+        ] == [(MAX_TIMETABLE_ROWS_PER_PAGE, 1, 1)]
+
+    def test_a_day_past_the_row_cap_continues_on_a_numbered_sheet(self):
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(MAX_TIMETABLE_ROWS_PER_PAGE + 1)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        first, second = _timetable(service).pages
+
+        assert [(p.sheet_index, p.sheet_count) for p in (first, second)] == [
+            (1, 2),
+            (2, 2),
+        ]
+        assert (second.day, second.space_names) == (first.day, first.space_names)
+        # Filled evenly, so neither sheet is a near-empty tail.
+        assert abs(len(first.rows) - len(second.rows)) <= 1
+        assert [t.session.title for t in first.tiles + second.tiles] == [
+            f"S{hour}" for hour in range(MAX_TIMETABLE_ROWS_PER_PAGE + 1)
+        ]
+        assert (second.tiles[0].row, second.tiles[0].span) == (1, 1)
+
+    def test_a_session_across_the_split_shows_on_both_sheets(self):
+        cap = MAX_TIMETABLE_ROWS_PER_PAGE
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [
+            _item(100, 1, 0, cap + 1, title="Marathon", confirmed=True),
+            *(
+                _item(hour, 2, hour, hour + 1, title=f"S{hour}", confirmed=True)
+                for hour in range(cap + 1)
+            ),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        first, second = _timetable(service).pages
+
+        marathon = [
+            next(t for t in page.tiles if t.session.title == "Marathon")
+            for page in (first, second)
+        ]
+        assert [(t.row, t.span) for t in marathon] == [
+            (1, len(first.rows)),
+            (1, len(second.rows)),
+        ]
+        # The tile is cut, its label is not: the reader sees the real hours.
+        assert {(t.start_time.hour, t.end_time.hour) for t in marathon} == {
+            (0, cap + 1)
+        }
+
+    def test_sheets_number_per_day_and_room_chunk(self):
+        cap = MAX_TIMETABLE_ROWS_PER_PAGE
+        spaces = [_space(pk, f"Space {pk}", pk) for pk in range(1, 6)]
+        items = [
+            *(
+                _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+                for hour in range(cap + 1)
+            ),
+            _item(100, 5, 9, 10, title="Lone", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        document = _timetable(service)
+
+        assert [
+            (page.space_range_name, page.sheet_index, page.sheet_count)
+            for page in document.pages
+        ] == [("Space 1 - Space 4", 1, 2), ("Space 1 - Space 4", 2, 2), (None, 1, 1)]
+
     def test_time_range_clips_sessions_and_completeness(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
@@ -333,14 +418,67 @@ class TestBuildSessionList:
 
         document = _session_list(service)
 
-        assert [s.title for s in document.sessions] == [
-            "First",
-            "Early room",
-            "Late room",
-            "Second day",
+        assert [(p.day.day, [s.title for s in p.sessions]) for p in document.pages] == [
+            (1, ["First", "Early room", "Late room"]),
+            (2, ["Second day"]),
         ]
-        assert document.sessions[0].description == "Tale"
-        assert document.sessions[0].space_name == "Alfa"
+        first = document.pages[0].sessions[0]
+        assert (first.description, first.space_name) == ("Tale", "Alfa")
+
+    def test_days_follow_the_query_time_zone(self):
+        items = [_item(1, 1, 12, 13, title="Noon", confirmed=True)]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = service.build_session_list(
+            PrintQueryDTO(event_pk=1, tz=ZoneInfo("Pacific/Kiritimati"))
+        )
+
+        assert [page.day for page in document.pages] == [date(2026, 6, 2)]
+
+    def test_a_day_at_the_row_cap_fits_one_sheet(self):
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(MAX_SESSION_LIST_ROWS_PER_SHEET)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = _session_list(service)
+
+        assert [
+            (len(page.sessions), page.sheet_index, page.sheet_count)
+            for page in document.pages
+        ] == [(MAX_SESSION_LIST_ROWS_PER_SHEET, 1, 1)]
+
+    def test_a_busy_day_continues_on_a_numbered_sheet(self):
+        cap = MAX_SESSION_LIST_ROWS_PER_SHEET
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(cap + 1)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = _session_list(service)
+
+        assert [
+            (page.day.day, page.sheet_index, page.sheet_count)
+            for page in document.pages
+        ] == [(1, 1, 2), (1, 2, 2)]
+        first, second = (len(page.sessions) for page in document.pages)
+        assert (first + second, abs(first - second) <= 1) == (cap + 1, True)
+
+    def test_descriptions_lower_the_row_cap(self):
+        cap = MAX_SESSION_LIST_DESCRIBED_ROWS_PER_SHEET
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(cap + 1)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        bare = _session_list(service)
+        described = _session_list(service, descriptions=True)
+
+        assert [len(bare.pages), len(described.pages)] == [1, 2]
+        assert max(len(page.sessions) for page in described.pages) <= cap
 
     def test_a_room_outside_the_programme_sorts_last_within_its_hour(self):
         spaces = [_space(1, "Alfa", 1), _space(2, "Bravo", 0)]
@@ -353,7 +491,11 @@ class TestBuildSessionList:
 
         document = _session_list(service)
 
-        assert [s.title for s in document.sessions] == ["Bravo", "Alfa", "Lobby"]
+        assert [s.title for s in document.pages[0].sessions] == [
+            "Bravo",
+            "Alfa",
+            "Lobby",
+        ]
 
 
 class TestBuildAreaSchedule:
@@ -499,6 +641,40 @@ class TestBuildDoorCards:
 
         assert [[e.session.title for e in card.entries] for card in document.cards] == [
             ["Afternoon"]
+        ]
+
+    def test_a_day_at_the_entry_cap_fits_one_card(self):
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(MAX_DOOR_CARD_ENTRIES_PER_SHEET)
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = service.build_door_cards(PrintQueryDTO(event_pk=1, tz=UTC))
+
+        assert [
+            (len(card.entries), card.sheet_index, card.sheet_count)
+            for card in document.cards
+        ] == [(MAX_DOOR_CARD_ENTRIES_PER_SHEET, 1, 1)]
+
+    def test_a_busy_day_continues_on_a_numbered_card(self):
+        items = [
+            _item(hour, 1, hour, hour + 1, title=f"S{hour}", confirmed=True)
+            for hour in range(MAX_DOOR_CARD_ENTRIES_PER_SHEET + 1)
+        ]
+        items.append(_item(100, 1, 9, 10, title="Next day", confirmed=True, day=2))
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        document = service.build_door_cards(PrintQueryDTO(event_pk=1, tz=UTC))
+
+        assert [
+            (card.space_name, card.day.day, card.sheet_index, card.sheet_count)
+            for card in document.cards
+        ] == [("Alfa", 1, 1, 2), ("Alfa", 1, 2, 2), ("Alfa", 2, 1, 1)]
+        first, second = document.cards[:2]
+        assert abs(len(first.entries) - len(second.entries)) <= 1
+        assert [e.session.title for e in first.entries + second.entries] == [
+            f"S{hour}" for hour in range(MAX_DOOR_CARD_ENTRIES_PER_SHEET + 1)
         ]
 
 
