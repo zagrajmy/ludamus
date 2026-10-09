@@ -53,31 +53,30 @@ test("a long proposal title keeps its breadcrumb and actions on a phone", async 
   expect(await overflowsViewport(page)).toBe(false);
 
   await page.getByRole("link", { name: /^Q3 Board Deck/ }).click();
-  const header = page.locator("main > header");
-  const breadcrumb = header.locator("p").filter({
-    has: page.getByRole("link", { name: "Proposals", exact: true }),
-  });
+  const eventCrumb = page.getByRole("link", { name: /^Międzynarodowy Festiwal/ });
 
-  await expect(breadcrumb).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /^Q3 Board Deck/ })).toBeVisible();
+  await expect(eventCrumb).toBeVisible();
   // Squeezed beside the actions, the trail ran one word per line in ~100px.
-  expect((await breadcrumb.boundingBox())?.width).toBeGreaterThan(250);
-  await expect(header.getByRole("heading", { level: 2 })).toContainText("Q3 Board Deck");
+  const crumbWidth = (await eventCrumb.boundingBox())?.width;
+  expect(crumbWidth).toBeGreaterThan(250);
   expect(await overflowsViewport(page)).toBe(false);
 
   await attachArtifacts(testInfo, {
     name: "worst-case-proposal-header",
-    region: header,
-    facts: { overflowsViewport: false },
+    region: page.getByRole("main"),
+    facts: { crumbWidth, overflowsViewport: false },
   });
 });
 
 test("a long room name keeps its row in the venue tree", async ({ page }, testInfo) => {
   await page.goto(`${PANEL}/venues/`);
+  // The innermost list item holding the name is the room's own row.
   const row = page
-    .locator("[data-space-node]")
-    .filter({ has: page.getByText("Sala nr 12", { exact: false }) })
+    .getByRole("listitem")
+    .filter({ has: page.getByTitle(/^Sala nr 12/) })
     .last();
-  const name = row.getByTitle(/^Sala nr 12/).first();
+  const name = row.getByTitle(/^Sala nr 12/);
   const edit = row.getByRole("link", { name: /^Edit Sala nr 12/ });
   const track = row.getByTitle(/^Blok programowy/);
 
