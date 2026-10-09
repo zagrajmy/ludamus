@@ -856,14 +856,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         return result
 
     @staticmethod
-    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
-        return dict(
-            Session.objects.filter(pk__in=session_ids).values_list(
-                "pk", "participants_limit"
-            )
-        )
-
-    @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
         try:
             session = Session.objects.get(pk=session_id)

@@ -734,8 +734,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
         if subject is None:
             raise NotFoundError
-        limits = self._repos.sessions.read_participants_limits({session_pk})
-        return self._detect(subject, context, limit=limits.get(session_pk, 0))
+        return self._detect(subject, context)
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
@@ -794,18 +793,13 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         if not subjects:
             return []
 
-        limits = self._repos.sessions.read_participants_limits(
-            {item.session_id for item in subjects}
-        )
         # Detection is symmetric, so a clash between two subjects is reported
         # once, from the side with the lower session pk.
         subject_pks = {item.session_id for item in subjects}
         all_conflicts = [
             conflict
             for item in subjects
-            for conflict in self._detect(
-                item, context, limit=limits.get(item.session_id, 0)
-            )
+            for conflict in self._detect(item, context)
             if conflict.session_pk >= item.session_id
             or conflict.session_pk not in subject_pks
         ]
@@ -838,14 +832,14 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
 
     def _detect(
-        self, item: AgendaItemDTO, context: _EventConflictContext, *, limit: int
+        self, item: AgendaItemDTO, context: _EventConflictContext
     ) -> list[ConflictDTO]:
         # The space->event invariant is enforced when assignments are created
         # but not by the database, so a stale row degrades to a skipped
         # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
-            *self._capacity_conflicts(item, context.spaces.get(item.space_id), limit),
+            *self._capacity_conflicts(item, context.spaces.get(item.space_id)),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator
             ),
@@ -870,8 +864,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
 
     @staticmethod
     def _capacity_conflicts(
-        item: AgendaItemDTO, space: SpaceDTO | None, limit: int
+        item: AgendaItemDTO, space: SpaceDTO | None
     ) -> list[ConflictDTO]:
+        limit = item.session_participants_limit
         if space is None or space.capacity is None or space.capacity >= limit:
             return []
         return [

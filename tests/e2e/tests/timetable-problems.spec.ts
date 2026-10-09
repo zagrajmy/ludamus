@@ -259,7 +259,7 @@ test.describe("Timetable problems", () => {
 
     // Five seats fit every room: all green.
     await arm("Clockwork Heist");
-    await expect(page.locator(".timetable-column.drop-unsupported")).toHaveCount(0);
+    await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(0);
     await hoverOver(room("Basalt Room").locator(".timetable-closed"));
     await expect(preview).toContainText("Extends the day");
     await hoverOver(room("Cobalt Room").getByRole("button", { name: /Tidepool Tales/ }));
@@ -268,7 +268,7 @@ test.describe("Timetable problems", () => {
 
     // Twenty seats fit none of them: all red, and the reason says why.
     await arm("Giant Mech Brawl");
-    await expect(page.locator(".timetable-column.drop-unsupported")).toHaveCount(ROOMS.length);
+    await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(ROOMS.length);
     await hoverOver(room("Amber Room").locator(".timetable-closed"));
     await expect(preview).toContainText("Room too small");
 
@@ -277,7 +277,7 @@ test.describe("Timetable problems", () => {
       region: schedule(page),
       facts: {
         unsupportedRooms: await page
-          .locator(".timetable-column.drop-unsupported")
+          .locator(".timetable-column.room-too-small")
           .evaluateAll((cols) => cols.map((col) => col.getAttribute("aria-label"))),
         preview: squash(await preview.innerText()),
       },

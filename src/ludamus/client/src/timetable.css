@@ -160,6 +160,9 @@
     min-height: max(20px, calc(var(--duration) * var(--minute-px)));
     left: calc(var(--lane-start) + 2px);
     width: calc(var(--lane-width) - 4px);
+    /* Over the assign-mode tint and closed hours (5, 6), so a booking left in
+       closed hours stays visible while assigning. */
+    z-index: 7;
   }
 
   /* Hours no time slot covers. Drawn before the sessions, so a booking left
@@ -191,7 +194,7 @@
     z-index: 5;
   }
 
-  .timetable-column.assign-mode-active.drop-unsupported::after {
+  .timetable-column.assign-mode-active.room-too-small::after {
     background: color-mix(in oklch, var(--color-danger) 10%, transparent);
   }
 
@@ -221,7 +224,7 @@
     position: absolute;
     left: 2px;
     right: 2px;
-    z-index: 6;
+    z-index: 8;
     --guide-tone: var(--color-success);
     border: 2px dashed var(--guide-tone);
     border-radius: 6px;
@@ -234,16 +237,18 @@
     pointer-events: none;
   }
 
-  .timetable-drop-guide.is-closed {
+  .timetable-drop-guide[data-verdict="closed"] {
     --guide-tone: var(--color-foreground-muted);
   }
 
-  .timetable-drop-guide.is-unsupported {
+  .timetable-drop-guide[data-verdict="occupied"],
+  .timetable-drop-guide[data-verdict="tooSmall"] {
     --guide-tone: var(--color-danger);
   }
 
   /* A preference, not a problem: an outline only, so it never reads as the
-     warning a filled amber band would. */
+     warning a filled amber band would. Drawn over the sessions, so a slot
+     already booked still shows its edges. */
   .timetable-preferred-slot {
     position: absolute;
     left: 2px;
@@ -251,7 +256,7 @@
     border: 2px dashed rgba(202, 138, 4, 0.8);
     border-radius: 4px;
     pointer-events: none;
-    z-index: 6;
+    z-index: 8;
   }
 
   .timetable-session:hover,
