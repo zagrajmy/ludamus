@@ -1,0 +1,42 @@
+# no-mistakes gate config: https://kunchenguid.github.io/no-mistakes/reference/repo-config/
+# The daemon reads commands, document, and test settings only from main, so
+# edits here take effect after they merge.
+
+commands:
+  # Run worktrees start with tracked files only: no .venv, node_modules, or
+  # .env.local. Bootstrap builds all three and seeds the dev database.
+  prepare: "mise run bootstrap"
+  lint: "mise run lint"
+  format: "mise run format"
+  # commands.test stays unset: the Test step picks targeted checks for the
+  # change and drives the product itself. The full suite runs in CI.
+
+test:
+  prepare: true
+  instructions: |
+    Toolchain: mise. `mise tasks` lists every task.
+    Python tests: `mise run test:py -- <pytest args>`.
+    Browser: `mise run test:e2e:prep` migrates, seeds, builds the client, and
+    writes tests/e2e/.auth-state.json (the logged-in `e2e-tester` session).
+    `mise run test:e2e -- <spec or -g pattern>` starts the server itself.
+    To drive pages by hand, run `mise run test:e2e:serve` (localhost:8000),
+    then `mise run shots -- <paths>` saves screenshots to screenshots/.
+    Seeded logins: `e2e-tester` (member), `e2e-manager` (sphere manager),
+    `admin`.
+    The UI renders in Polish; the catalog is src/ludamus/locale/pl.
+
+document:
+  instructions: |
+    CLAUDE.md owns agent rules; AGENTS.md is a symlink to it.
+    docs/agents/*.md own agent recipes (architecture map, services migration,
+    MCP tools, sandbox, troubleshooting).
+    docs/LOCAL_DEV.md owns local setup and the toolchain glossary.
+    docs/CODE_LAYOUT.md owns URL conventions; docs/DEPLOYMENT.md owns hosting
+    topology. RELEASE_NOTES.md owns user-facing release notes.
+
+review:
+  path_instructions:
+    - path: "src/ludamus/links/db/django/migrations/**"
+      instructions: |
+        Never rename, renumber, or edit a migration already on main. A
+        schema change needs a reversible migration.

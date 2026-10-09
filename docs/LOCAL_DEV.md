@@ -34,6 +34,23 @@ claude plugin install issue-maker@cabinet
 Inside a Claude Code session the same commands work as `/plugin marketplace add`
 and `/plugin install`.
 
+## no-mistakes
+
+[no-mistakes](https://github.com/kunchenguid/no-mistakes) gates pushes: it
+reviews, tests, lints, and documents the branch in a disposable worktree, then
+pushes it and opens the PR. `.no-mistakes.yaml` holds the repo config. Install
+it once per machine
+([options](https://kunchenguid.github.io/no-mistakes/start-here/installation/)),
+then wire up each clone:
+
+```bash
+no-mistakes doctor   # needs git, gh, and an agent runner such as claude
+no-mistakes init     # adds the `no-mistakes` remote and the /no-mistakes skill
+```
+
+Then push with `git push no-mistakes <branch>` instead of `origin`, or run
+`/no-mistakes` in Claude Code. `git push origin` still bypasses the gate.
+
 ## Rituals
 
 `vekna cast` runs cabinet's rituals (`.vekna.toml`). They push over HTTPS with

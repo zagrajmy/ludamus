@@ -22,6 +22,9 @@ description — run it rather than trusting a hardcoded list here. Most used:
   - UIs have types. a tag cloud wraps tokens that already carry their
     kind; a definition list stacks named groups. restacking a cloud into
     ragged rows is that same type error.
+- Ship through no-mistakes when `git remote` lists `no-mistakes`: commit, then
+  `git push no-mistakes <branch>` (or `/no-mistakes`) instead of
+  `git push origin`. Setup: [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md#no-mistakes).
 - Include screenshots of affected pages in the PR description. With a server
   running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
   resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
