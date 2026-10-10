@@ -10,6 +10,7 @@ from ludamus.pacts.event import (
     ConfirmationSessionDTO,
     ConfirmationStatusGroupDTO,
 )
+from ludamus.pacts.legacy import SessionStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -38,7 +39,8 @@ def _scheduled_group(*items, other_track_names=()):
         contact_email=items[0].session.contact_email,
         status_groups=[
             ConfirmationStatusGroupDTO(
-                status="scheduled",
+                status=SessionStatus.ACCEPTED,
+                is_scheduled=True,
                 sessions=[
                     ConfirmationSessionDTO(
                         session_pk=item.session.pk,

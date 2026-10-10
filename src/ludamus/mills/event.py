@@ -49,7 +49,7 @@ from ludamus.pacts.legacy import (
     TrackRepositoryProtocol,
 )
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
+from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_GROUP, STATUS_ORDER
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -322,14 +322,6 @@ def _session_dto(
     )
 
 
-def _status_key(row: ConfirmationSessionRow) -> str:
-    # Grouping runs on status alone. Confirmation is a checkbox on the row, so
-    # ticking one never moves it into another group.
-    if row["is_scheduled"]:
-        return SCHEDULED_STATUS
-    return str(row["status"])
-
-
 def _email_group(
     *,
     contact_email: str,
@@ -338,14 +330,19 @@ def _email_group(
     facilitator_names: dict[int, dict[int, str]],
     track_pk: int,
 ) -> ConfirmationEmailGroupDTO:
-    by_status: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
+    # Grouping runs on status and placement alone. Confirmation is a checkbox
+    # on the row, so ticking one never moves it into another group.
+    by_status: dict[tuple[SessionStatus, bool], list[ConfirmationSessionRow]] = (
+        defaultdict(list)
+    )
     for row in rows:
-        by_status[_status_key(row)].append(row)
+        by_status[row["status"], row["is_scheduled"]].append(row)
     return ConfirmationEmailGroupDTO(
         contact_email=contact_email,
         status_groups=[
             ConfirmationStatusGroupDTO(
                 status=status,
+                is_scheduled=is_scheduled,
                 sessions=[
                     _session_dto(
                         row=row,
@@ -353,13 +350,13 @@ def _email_group(
                         facilitator_names=facilitator_names,
                         track_pk=track_pk,
                     )
-                    for row in by_status[status]
+                    for row in by_status[status, is_scheduled]
                 ],
             )
-            for status in STATUS_ORDER
-            if by_status.get(status)
+            for status, is_scheduled in STATUS_ORDER
+            if by_status.get((status, is_scheduled))
         ],
-        confirmable_count=len(by_status.get(SCHEDULED_STATUS, [])),
+        confirmable_count=len(by_status.get(SCHEDULED_GROUP, [])),
     )
 
 
