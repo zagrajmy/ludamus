@@ -420,115 +420,51 @@ class ProposalFormPageView(_ProposalFormBase):
             valid={f.pk for f in facilitators},
         )
 
-    def _get_facilitator_personal_data(
-        self, event_pk: int, proposal_id: int
-    ) -> FacilitatorPersonalData:
-        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+    def _personal_data(
+        self, *, fields: Sequence[OrganizerFieldDTO], proposal_id: int
+    ) -> tuple[FacilitatorPersonalData, dict[int, forms.Form]]:
+        # Read once, before the edit can change the assignment, so a facilitator
+        # unticked in the same save keeps the answer posted on their card. The
+        # forms come back bound only for the cards this request posted.
         if not fields:
-            return []
+            return [], {}
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
-        # One query for every assigned facilitator's answers instead of one
-        # lookup per facilitator.
-        values_by_facilitator = (
+        posted_ids: set[int] = set()
+        if self.request.POST.get("personal_data_submitted") == "1":
+            raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
+            posted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
+        # One query for every stored answer instead of one lookup per
+        # facilitator.
+        stored = (
             self.request.di.uow.personal_data_field_values.list_values_for_facilitators(
-                [f.pk for f in assigned], [f.pk for f in fields]
+                [f.pk for f in assigned if f.pk not in posted_ids],
+                [f.pk for f in fields],
             )
         )
-        result: FacilitatorPersonalData = []
+        cards: FacilitatorPersonalData = []
+        bound: dict[int, forms.Form] = {}
         for facilitator in assigned:
             prefix = _facilitator_prefix(facilitator.pk)
+            # A posted card is bound, so the panel enforces the same choice and
+            # length rules the wizard does.
             form = personal_fields_form(
                 prefix=prefix,
                 fields=fields,
-                values=values_by_facilitator.get(facilitator.pk, {}),
+                data=self.request.POST if facilitator.pk in posted_ids else None,
+                values=stored.get(facilitator.pk, {}),
             )
-            result.append(
+            if form.is_bound:
+                bound[facilitator.pk] = form
+            cards.append(
                 PersonalDataCard(
                     facilitator=facilitator,
                     descriptors=personal_descriptors(
                         prefix=prefix, fields=fields, form=form
                     ),
+                    has_errors=form.is_bound and not form.is_valid(),
                 )
             )
-        return result
-
-    def _get_facilitator_personal_data_post(
-        self, event_pk: int, proposal_id: int
-    ) -> FacilitatorPersonalData:
-        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        if not fields:
-            return []
-        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
-        result: FacilitatorPersonalData = []
-        for facilitator in assigned:
-            prefix = _facilitator_prefix(facilitator.pk)
-            form = personal_fields_form(
-                prefix=prefix, fields=fields, data=self.request.POST
-            )
-            result.append(
-                PersonalDataCard(
-                    facilitator=facilitator,
-                    descriptors=personal_descriptors(
-                        prefix=prefix, fields=fields, form=form
-                    ),
-                    has_errors=not form.is_valid(),
-                )
-            )
-        return result
-
-    def _personal_data_forms(
-        self, event_pk: int
-    ) -> tuple[Sequence[OrganizerFieldDTO], dict[int, forms.Form]] | None:
-        # One bound form per facilitator whose block was posted, so the panel
-        # enforces the same choice and length rules the wizard does.
-        if self.request.POST.get("personal_data_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
-        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-        valid_pks = {
-            f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
-        }
-        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        return fields, {
-            facilitator_id: personal_fields_form(
-                prefix=_facilitator_prefix(facilitator_id),
-                fields=fields,
-                data=self.request.POST,
-            )
-            for facilitator_id in submitted_ids & valid_pks
-        }
-
-    def _personal_data_is_valid(self, event_pk: int) -> bool:
-        submitted = self._personal_data_forms(event_pk)
-        return submitted is None or all(
-            form.is_valid() for form in submitted[1].values()
-        )
-
-    def _collect_personal_data(
-        self, event_pk: int
-    ) -> dict[int, list[PersonalDataFieldValueData]] | None:
-        if (submitted := self._personal_data_forms(event_pk)) is None:
-            return None
-        fields, posted = submitted
-        return {
-            facilitator_id: [
-                PersonalDataFieldValueData(
-                    facilitator_id=facilitator_id,
-                    event_id=event_pk,
-                    field_id=field.pk,
-                    value=answered_value(
-                        prefix=_facilitator_prefix(facilitator_id),
-                        field_def=field,
-                        form=form,
-                    ),
-                )
-                for field in fields
-            ]
-            for facilitator_id, form in posted.items()
-            # Validity is checked before the write; is_valid() here only
-            # populates cleaned_data for the forms that passed.
-            if form.is_valid()
-        }
+        return cards, bound
 
     def _collect_remove_field_ids(
         self,
@@ -549,7 +485,12 @@ class ProposalFormPageView(_ProposalFormBase):
         }
         return list(submitted & orphan_pks)
 
-    def _render(self, context: dict[str, Any], prepared: _Prepared) -> HttpResponse:
+    def _render(
+        self,
+        context: dict[str, Any],
+        prepared: _Prepared,
+        personal_data: FacilitatorPersonalData | None = None,
+    ) -> HttpResponse:
         current_event: EventDTO = context["current_event"]
         event_pk = current_event.pk
         session = prepared.session
@@ -599,19 +540,8 @@ class ProposalFormPageView(_ProposalFormBase):
         )
 
         context.update(self._field_context(current_event, prepared))
-        context["facilitator_personal_data"] = (
-            self._personal_data_for_render(event_pk, session.pk)
-            if session is not None
-            else []
-        )
+        context["facilitator_personal_data"] = personal_data or []
         return TemplateResponse(self.request, "panel/proposal-form.html", context)
-
-    def _personal_data_for_render(
-        self, event_pk: int, proposal_id: int
-    ) -> FacilitatorPersonalData:
-        if self.request.POST.get("personal_data_submitted") == "1":
-            return self._get_facilitator_personal_data_post(event_pk, proposal_id)
-        return self._get_facilitator_personal_data(event_pk, proposal_id)
 
     def get(
         self, _request: PanelRequest, slug: str, proposal_id: int | None = None
@@ -624,7 +554,15 @@ class ProposalFormPageView(_ProposalFormBase):
         if isinstance(prepared, HttpResponse):
             return prepared
 
-        return self._render(context, prepared)
+        personal_data: FacilitatorPersonalData = []
+        if (session := prepared.session) is not None:
+            personal_data, _bound = self._personal_data(
+                fields=self.request.di.uow.personal_data_fields.list_by_event(
+                    current_event.pk
+                ),
+                proposal_id=session.pk,
+            )
+        return self._render(context, prepared, personal_data)
 
     def post(
         self, _request: PanelRequest, slug: str, proposal_id: int | None = None
@@ -730,11 +668,17 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
+        personal_data, personal_forms = self._personal_data(
+            fields=personal_fields, proposal_id=session.pk
+        )
+        personal_data_valid = not any(card.has_errors for card in personal_data)
         if not form.is_valid() or not personal_data_valid:
             if not personal_data_valid:
                 form.add_error(None, PERSONAL_DATA_ERROR)
-            return self._render(context, prepared)
+            return self._render(context, prepared, personal_data)
 
         # A DB constraint/data error surfaces as an inline form error (input
         # preserved), not a bare 500 the user reads as a transient glitch.
@@ -744,13 +688,15 @@ class ProposalFormPageView(_ProposalFormBase):
                 session=session,
                 form=form,
                 requirements=prepared.requirements,
+                personal_fields=personal_fields,
+                personal_forms=personal_forms,
             )
         except DatabaseConstraintError:
             messages.error(
                 self.request,
                 _("Couldn't save your changes. Please check your input and try again."),
             )
-            return self._render(context, prepared)
+            return self._render(context, prepared, personal_data)
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect(
@@ -766,6 +712,8 @@ class ProposalFormPageView(_ProposalFormBase):
         session: SessionDTO,
         form: forms.Form,
         requirements: Sequence[SessionFieldRequirementDTO],
+        personal_fields: Sequence[OrganizerFieldDTO],
+        personal_forms: dict[int, forms.Form],
     ) -> None:
         # One savepoint around every write so a DB constraint/data error rolls
         # the whole edit back and re-raises DatabaseConstraintError for the
@@ -803,16 +751,24 @@ class ProposalFormPageView(_ProposalFormBase):
                 ),
             )
 
-            personal_data = self._collect_personal_data(current_event.pk)
-            if personal_data is not None:
-                for facilitator_id, entries in personal_data.items():
-                    service = self.request.services.personal_data_field_values
-                    service.update_personal_data(
-                        event_id=current_event.pk,
-                        facilitator_id=facilitator_id,
-                        entries=entries,
-                        user_id=self.request.context.current_user_id,
-                    )
+            for facilitator_id, personal_form in personal_forms.items():
+                prefix = _facilitator_prefix(facilitator_id)
+                self.request.services.personal_data_field_values.update_personal_data(
+                    event_id=current_event.pk,
+                    facilitator_id=facilitator_id,
+                    entries=[
+                        PersonalDataFieldValueData(
+                            facilitator_id=facilitator_id,
+                            event_id=current_event.pk,
+                            field_id=field.pk,
+                            value=answered_value(
+                                prefix=prefix, field_def=field, form=personal_form
+                            ),
+                        )
+                        for field in personal_fields
+                    ],
+                    user_id=self.request.context.current_user_id,
+                )
 
             # T2: a capacity change may have freed seats — promote waiters. An old
             # limit of 0 (unlimited → finite) also matches; fill_freed_seats recomputes.
