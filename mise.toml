@@ -36,8 +36,8 @@ markdownlint-cli2 = "0.23.3"
 # Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
 # which skips .npmrc's min-release-age cooldown and picked up the broken
 # 1.32.0 the day it shipped.
-"npm:@endevco/aube" = { version = "2.5.0", npm_args = "--ignore-scripts=false" }
-hk = "2.3.0"
+"npm:@endevco/aube" = { version = "2.6.1", npm_args = "--ignore-scripts=false" }
+hk = "2.4.0"
 actionlint = "1.7.12"
 # `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
 # wrappers that append a packaging revision to the upstream version
@@ -48,7 +48,7 @@ actionlint = "1.7.12"
 shellcheck = "prefix:0.11.0"
 hadolint = "prefix:2.15.1"
 "github:reteps/dockerfmt" = "0.5.4"
-pipx = "1.17.6"
+pipx = "1.17.10"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
