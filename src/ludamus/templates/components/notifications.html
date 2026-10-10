@@ -9,7 +9,7 @@
             aria-label="{% translate "Notifications" %}{% if navbar_notifications.unread_count %} ({{ navbar_notifications.unread_count }} {% translate "unread" %}){% endif %}">
         {% icon "bell" class="w-5 h-5" %}
         {% if navbar_notifications.unread_count %}
-            <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-coral-500 text-white text-xs font-semibold flex items-center justify-center">{{ navbar_notifications.unread_count }}</span>
+            <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-coral-500 text-white text-xs font-semibold flex items-center justify-center">{% if navbar_notifications.unread_count > 99 %}99+{% else %}{{ navbar_notifications.unread_count }}{% endif %}</span>
         {% endif %}
     </button>
     <div id="navbar-notifications-panel"
