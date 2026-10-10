@@ -188,6 +188,7 @@
                             {% for invitee in invitees %}
                                 <li class="flex items-center justify-between gap-2 text-sm">
                                     <span class="text-foreground truncate"
+                                          data-ph-block
                                           title="{{ invitee.email }}">{{ invitee.email }}</span>
                                     {% if invitee.status == "accepted" %}
                                         {% translate "Going" as status_label %}
