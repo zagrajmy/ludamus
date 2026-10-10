@@ -771,17 +771,18 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         limits = self._repos.sessions.read_participants_limits(
             {item.session_id for item in subjects}
         )
-        all_conflicts: list[ConflictDTO] = []
-        seen: set[tuple[int, int, ConflictType]] = set()
-        for item in subjects:
+        # Detection is symmetric, so a clash between two subjects is reported
+        # once, from the side with the lower session pk.
+        subject_pks = {item.session_id for item in subjects}
+        all_conflicts = [
+            conflict
+            for item in subjects
             for conflict in self._detect(
                 item, context, limit=limits.get(item.session_id, 0)
-            ):
-                low, high = sorted((conflict.subject_session_pk, conflict.session_pk))
-                if (key := (low, high, conflict.type)) not in seen:
-                    seen.add(key)
-                    all_conflicts.append(conflict)
-
+            )
+            if conflict.session_pk >= item.session_id
+            or conflict.session_pk not in subject_pks
+        ]
         return self._add_track_attribution(all_conflicts, track_pk)
 
     def _load_event_context(self, event_pk: int) -> _EventConflictContext:

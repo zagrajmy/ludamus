@@ -16,6 +16,12 @@ the sphere.{% endcomment %}
         • {{ current_sphere.name }}
     {% endif %}
 {% endblock title_suffix %}
+{% comment %}The panel already floats its own overlays (menus, modals) near
+the viewport edges; a second fixed nag there blocks their controls, so the
+organizer's own verification nudge waits for a page that isn't racing other
+floating UI for the same corner.{% endcomment %}
+{% block email_verification_banner %}
+{% endblock email_verification_banner %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}
@@ -176,12 +182,14 @@ the sphere.{% endcomment %}
                             class="lg:hidden p-2 -ml-2 text-foreground-secondary hover:text-foreground hover:bg-bg-tertiary rounded-lg flex-shrink-0">
                         {% include "panel/parts/sidebar-icon.html" with icon_class="size-6" %}
                     </button>
-                    <div class="flex-1 min-w-0">
+                    {# grow from 12rem, not 0: from zero the actions never wrap and the #}
+                    {# breadcrumb is squeezed to one word per line beside them instead. #}
+                    <div class="min-w-0 grow basis-48">
                         <div class="flex items-center gap-2 min-w-0">
                             {# A phone header is a strip, not a masthead: 20px/28 there is #}
                             {# bulk. 17px on a tight leading keeps it clearly the title over #}
                             {# a 14px subtitle and gives the row back ~6px. #}
-                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground truncate">
+                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground line-clamp-2 wrap-anywhere">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}
