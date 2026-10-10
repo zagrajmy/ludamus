@@ -191,6 +191,7 @@ class AgendaItemDTO(BaseModel):
     session_description: str = ""
     presenter_name: str = ""
     session_duration_minutes: int = 0
+    session_participants_limit: int = 0
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
     category_id: int | None = None
@@ -830,8 +831,6 @@ class SessionRepositoryProtocol(Protocol):
     def read_facilitators_by_sessions(
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]: ...
-    @staticmethod
-    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]: ...
     @staticmethod
     def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]: ...
     @staticmethod

@@ -30,6 +30,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ClosedRangeDTO,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -204,6 +205,36 @@ class TestBuildGridOverlappingSessions:
         grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert grid.days[0].columns[0].sessions == []
+
+    def test_hours_no_slot_covers_are_closed_on_the_shared_axis(self):
+        uow = _spec_uow(agenda_items=_FakeAgendaItems())
+        uow.spaces.list_by_event.side_effect = _lookup({1: [_space(1)]})
+        day_one = datetime(2026, 1, 1, tzinfo=UTC)
+        day_two = datetime(2026, 1, 2, tzinfo=UTC)
+        uow.time_slots.list_by_event.side_effect = _lookup(
+            {
+                1: [
+                    _slot(day_one + timedelta(hours=11), day_one + timedelta(hours=13)),
+                    _slot(day_one + timedelta(hours=10), day_one + timedelta(hours=12)),
+                    _slot(day_one + timedelta(hours=15), day_one + timedelta(hours=16)),
+                    _slot(day_two + timedelta(hours=8), day_two + timedelta(hours=18)),
+                ]
+            }
+        )
+        _stub_warning_reads(uow)
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        # Both days run 08:00-18:00; the first opens late, has a gap, and
+        # closes early. Its overlapping slots leave no gap between them.
+        assert [day.closed_ranges for day in grid.days] == [
+            [
+                ClosedRangeDTO(start_minutes=0, duration_minutes=120),
+                ClosedRangeDTO(start_minutes=300, duration_minutes=120),
+                ClosedRangeDTO(start_minutes=480, duration_minutes=120),
+            ],
+            [],
+        ]
 
     def test_all_days_share_rooms_and_one_time_axis(self):
         uow = MagicMock()
@@ -937,14 +968,11 @@ _SESSION_LIMIT = 25
 
 class TestListAllForTrack:
     @staticmethod
-    def _uow(*, all_items, spaces=(), limits=None, facilitators=None):
+    def _uow(*, all_items, spaces=(), facilitators=None):
         uow = MagicMock()
         uow.agenda_items.list_by_event.return_value = all_items
         uow.agenda_items.list_by_track.return_value = all_items
         uow.spaces.list_by_event.return_value = list(spaces)
-        uow.sessions.read_participants_limits.side_effect = _subset(
-            limits if limits is not None else {i.session_id: 0 for i in all_items}
-        )
         uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.read.return_value = _event_track(event_pk=1)
@@ -989,8 +1017,10 @@ class TestListAllForTrack:
             pk=1,
             slug="room-1",
         )
-        item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(all_items=[item], spaces=[space], limits={10: _SESSION_LIMIT})
+        item = _make_item(
+            pk=1, session_id=10, space_id=1, session_participants_limit=_SESSION_LIMIT
+        )
+        uow = self._uow(all_items=[item], spaces=[space])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -1000,12 +1030,10 @@ class TestListAllForTrack:
         assert conflicts[0].session_limit == _SESSION_LIMIT
 
     def test_a_room_as_big_as_the_limit_is_not_exceeded(self):
-        item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(
-            all_items=[item],
-            spaces=[_space(1, capacity=_SESSION_LIMIT)],
-            limits={10: _SESSION_LIMIT},
+        item = _make_item(
+            pk=1, session_id=10, space_id=1, session_participants_limit=_SESSION_LIMIT
         )
+        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=_SESSION_LIMIT)])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -1013,7 +1041,7 @@ class TestListAllForTrack:
 
     def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self):
         item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=0)], limits={})
+        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=0)])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -1393,7 +1421,6 @@ def _subset(mapping):
 
 def _stub_warning_reads(uow):
     uow.sessions.read_facilitators_by_sessions.side_effect = _subset({})
-    uow.sessions.read_participants_limits.side_effect = _subset({})
     uow.sessions.read_preferred_time_slots_by_sessions.side_effect = _subset({})
     uow.sessions.list_track_names_by_session.side_effect = _subset({})
     uow.tracks.list_manager_names_by_tracks.side_effect = _subset({})
@@ -1930,11 +1957,15 @@ class TestDetectForAssignment:
         ]
 
     def test_reports_a_room_too_small_for_the_session(self, uow):
-        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
+        uow.agenda_items.rows = {
+            1: _make_item(
+                pk=1,
+                session_id=10,
+                space_id=1,
+                session_participants_limit=_SESSION_LIMIT,
+            )
+        }
         uow.spaces.list_by_event.return_value = [_space(1, capacity=_ROOM_CAPACITY)]
-        uow.sessions.read_participants_limits.side_effect = _subset(
-            {10: _SESSION_LIMIT}
-        )
 
         conflicts = _conflict_service(uow).detect_for_assignment(
             event_pk=1, session_pk=10

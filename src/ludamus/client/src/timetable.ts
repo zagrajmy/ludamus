@@ -9,6 +9,7 @@ interface Placement {
   backUrl: string | null;
   confirmed: boolean;
   duration: number;
+  participantsLimit: number;
   preferredSlots: PreferredSlot[];
   sessionPk: string;
 }
@@ -56,6 +57,10 @@ function eventUtcOffsetMinutes(cal: HTMLElement): number {
   return sign * (Number(match[2]) * 60 + Number(match[3]));
 }
 
+// The instant `minutes` along the day grid's axis, which starts at data-event-start.
+const dateAt = (cal: HTMLElement, minutes: number): Date =>
+  new Date(new Date(cal.dataset.eventStart!).getTime() + minutes * 60_000);
+
 function formatHm(d: Date, utcOffsetMinutes: number): string {
   const shifted = new Date(d.getTime() + utcOffsetMinutes * 60_000);
   return `${String(shifted.getUTCHours()).padStart(2, "0")}:${String(shifted.getUTCMinutes()).padStart(2, "0")}`;
@@ -92,19 +97,17 @@ function hideDropGuide(): void {
 
 // A ghost block, snapped to the drop time and sized to the session, shown
 // inside the hovered column while dragging -- the Google-Calendar drop preview.
-function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): void {
+function showDropGuide(col: HTMLElement, start: number, placement: Placement): void {
   const cal = dayGridForColumn(col);
-  if (!cal?.dataset.eventStart) return;
+  if (!cal) return;
   const minutePx = pxPerMinute(cal);
-  const topPx =
-    ((startDt.getTime() - new Date(cal.dataset.eventStart).getTime()) / 60_000) * minutePx;
-  const endDt = new Date(startDt.getTime() + placement.duration * 60_000);
-  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
+  const { text, verdict } = placementLabel(cal, col, start, placement);
 
   const guide = dropGuide();
-  guide.style.top = `calc(${topPx}px + 20px)`;
+  guide.style.top = `calc(${start * minutePx}px + 20px)`;
   guide.style.height = `${Math.max(20, placement.duration * minutePx)}px`;
-  guide.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  guide.dataset.verdict = verdict ?? "";
+  guide.textContent = text;
   if (guide.parentElement !== col) col.append(guide);
 }
 
@@ -168,8 +171,76 @@ function renderPreferredSlotOverlays(): void {
   }
 }
 
-function markColumnsActive(active: boolean): void {
-  for (const col of columns()) col.classList.toggle("assign-mode-active", active);
+// The same rule as the server's capacity conflict: a room with no capacity
+// set holds anything.
+function roomTooSmall(col: HTMLElement, placement: Placement): boolean {
+  const { capacity } = col.dataset;
+  return capacity !== undefined && Number(capacity) < placement.participantsLimit;
+}
+
+function markColumnsActive(placement: Placement | null): void {
+  for (const col of columns()) {
+    col.classList.toggle("assign-mode-active", placement !== null);
+    col.classList.toggle("room-too-small", placement !== null && roomTooSmall(col, placement));
+  }
+}
+
+type DropVerdict = "closed" | "occupied" | "tooSmall";
+
+// Blocks on the grid state their place in data-start-minutes and
+// data-duration-minutes, on the same axis a drop is measured on.
+function blocksOverlap(
+  col: HTMLElement,
+  selector: string,
+  [start, end]: [number, number],
+  skipSessionPk?: string,
+): boolean {
+  return [...col.querySelectorAll<HTMLElement>(selector)].some((el) => {
+    if (skipSessionPk !== undefined && el.dataset.sessionPk === skipSessionPk) return false;
+    const blockStart = Number(el.dataset.startMinutes);
+    const blockEnd = blockStart + Number(el.dataset.durationMinutes);
+    return blockStart < end && start < blockEnd;
+  });
+}
+
+// Every verdict is a warning: the server accepts the drop and reports the
+// clash, or widens the day for a closed hour.
+function dropVerdict(
+  cal: HTMLElement,
+  col: HTMLElement,
+  start: number,
+  placement: Placement,
+): DropVerdict | null {
+  const range: [number, number] = [start, start + placement.duration];
+  if (blocksOverlap(col, ".timetable-session", range, placement.sessionPk)) return "occupied";
+  if (roomTooSmall(col, placement)) return "tooSmall";
+  if (
+    range[1] > Number(cal.dataset.totalMinutes) ||
+    blocksOverlap(col, ".timetable-closed", range)
+  ) {
+    return "closed";
+  }
+  return null;
+}
+
+const VERDICT_LABEL_KEYS: Record<DropVerdict, string> = {
+  closed: "dropClosed",
+  occupied: "dropOccupied",
+  tooSmall: "dropTooSmall",
+};
+
+// One label for the hover preview and the drag guide, so the two cannot drift.
+function placementLabel(
+  cal: HTMLElement,
+  col: HTMLElement,
+  start: number,
+  placement: Placement,
+): { text: string; verdict: DropVerdict | null } {
+  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
+  const times = `${formatHm(dateAt(cal, start), utcOffsetMinutes)} – ${formatHm(dateAt(cal, start + placement.duration), utcOffsetMinutes)}`;
+  const verdict = dropVerdict(cal, col, start, placement);
+  const reason = verdict ? grid().dataset[VERDICT_LABEL_KEYS[verdict]] : "";
+  return { text: reason ? `${times} · ${reason}` : times, verdict };
 }
 
 // Every filter control submits the page, which would drop the armed session
@@ -185,7 +256,7 @@ function markFiltersInert(inert: boolean): void {
 function enterAssignMode(placement: Placement): void {
   armed = placement;
   banner().classList.remove("hidden");
-  markColumnsActive(true);
+  markColumnsActive(placement);
   markFiltersInert(true);
   renderPreferredSlotOverlays();
 }
@@ -193,7 +264,7 @@ function enterAssignMode(placement: Placement): void {
 function exitAssignMode(): void {
   armed = null;
   banner().classList.add("hidden");
-  markColumnsActive(false);
+  markColumnsActive(null);
   markFiltersInert(false);
   clearPreferredSlotOverlays();
   hideHoverPreview();
@@ -204,6 +275,7 @@ function placementFromAssignButton(btn: HTMLElement): Placement {
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
+    participantsLimit: Number(btn.dataset.assignParticipantsLimit) || 0,
     preferredSlots: parsePreferredSlots(btn.dataset.assignPreferredSlots),
     sessionPk: btn.dataset.assignSessionPk!,
   };
@@ -215,27 +287,26 @@ function placementFromDraggable(el: HTMLElement): Placement {
     backUrl: armed?.sessionPk === sessionPk ? armed.backUrl : null,
     confirmed: el.dataset.confirmed === "true",
     duration: Number(el.dataset.duration) || 60,
+    participantsLimit: Number(el.dataset.participantsLimit) || 0,
     preferredSlots: armed?.sessionPk === sessionPk ? armed.preferredSlots : [],
     sessionPk,
   };
 }
 
-function startTimeAt(col: HTMLElement, clientY: number): Date | null {
-  const cal = dayGridForColumn(col);
-  if (!cal) return null;
-  const { eventStart } = cal.dataset;
-  if (!eventStart) return null;
+// The snapped drop time, in minutes along the day grid's axis.
+function startMinutesAt(cal: HTMLElement, col: HTMLElement, clientY: number): number {
   const slotMinutes = Number(cal.dataset.slotMinutes);
   const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
   const pxPerSnap = snapMinutes * pxPerMinute(cal);
-
   const rect = col.getBoundingClientRect();
-  const snapIndex = Math.floor((clientY - rect.top) / pxPerSnap);
-  const offsetMinutes = snapIndex * snapMinutes;
+  return Math.floor((clientY - rect.top) / pxPerSnap) * snapMinutes;
+}
 
-  const startDt = new Date(eventStart);
-  startDt.setMinutes(startDt.getMinutes() + offsetMinutes);
-  return startDt;
+function placeAt(placement: Placement, col: HTMLElement, clientY: number): void {
+  const cal = dayGridForColumn(col);
+  if (!cal) return;
+  const startDt = dateAt(cal, startMinutesAt(cal, col, clientY));
+  submitPlacement(placement, col.dataset.spacePk!, startDt);
 }
 
 function postPlacement(
@@ -313,8 +384,7 @@ document.addEventListener("click", (e) => {
     const col = target.closest<HTMLElement>(".timetable-column.assign-mode-active");
     if (col) {
       const clientY = e instanceof MouseEvent ? e.clientY : col.getBoundingClientRect().top;
-      const startDt = startTimeAt(col, clientY);
-      if (startDt) submitPlacement(armed, col.dataset.spacePk!, startDt);
+      placeAt(armed, col, clientY);
     }
   }
 });
@@ -328,7 +398,7 @@ document.addEventListener("dragstart", (e) => {
   dragging = placementFromDraggable(el);
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", dragging.sessionPk);
-  markColumnsActive(true);
+  markColumnsActive(dragging);
   renderPreferredSlotOverlays();
 });
 
@@ -341,8 +411,8 @@ document.addEventListener("dragover", (e) => {
   }
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-  const startDt = startTimeAt(col, e.clientY);
-  if (startDt) showDropGuide(col, startDt, dragging);
+  const cal = dayGridForColumn(col);
+  if (cal) showDropGuide(col, startMinutesAt(cal, col, e.clientY), dragging);
 });
 
 document.addEventListener("drop", (e) => {
@@ -350,18 +420,17 @@ document.addEventListener("drop", (e) => {
   hideDropGuide();
   if (!dragging || !col) return;
   e.preventDefault();
-  const startDt = startTimeAt(col, e.clientY);
-  if (startDt) submitPlacement(dragging, col.dataset.spacePk!, startDt);
+  placeAt(dragging, col, e.clientY);
   dragging = null;
 });
 
 document.addEventListener("dragend", () => {
   dragging = null;
   hideDropGuide();
+  markColumnsActive(armed);
   if (armed) {
     renderPreferredSlotOverlays();
   } else {
-    markColumnsActive(false);
     clearPreferredSlotOverlays();
   }
 });
@@ -386,13 +455,10 @@ document.addEventListener("mousemove", (e) => {
   }
 
   const cal = dayGridForColumn(col);
-  const startDt = cal && startTimeAt(col, e.clientY);
-  if (!cal || !startDt) return;
-  const endDt = new Date(startDt.getTime() + armed.duration * 60_000);
+  if (!cal) return;
 
-  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
   const preview = hoverPreview();
-  preview.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  preview.textContent = placementLabel(cal, col, startMinutesAt(cal, col, e.clientY), armed).text;
   preview.style.left = `${e.clientX + 12}px`;
   preview.style.top = `${e.clientY + 12}px`;
   preview.classList.remove("hidden");
@@ -405,7 +471,7 @@ document.addEventListener("mouseleave", hideHoverPreview);
 document.body.addEventListener("htmx:afterSwap", () => {
   if (armed) {
     banner().classList.remove("hidden");
-    markColumnsActive(true);
+    markColumnsActive(armed);
     markFiltersInert(true);
     renderPreferredSlotOverlays();
   }
