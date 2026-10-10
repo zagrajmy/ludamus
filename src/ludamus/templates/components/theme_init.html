@@ -2,12 +2,12 @@
 {% comment %}Theme initialization, before CSS to prevent a flash. Page roots
 include it ahead of every other nonce tag, so this one generates the request's
 CSP nonce.{% endcomment %}
-<meta name="theme-color" content="#f0f1f3">
+<meta name="theme-color" content="#fdfcfb">
 <script{% nonce %}>
     function syncThemeColor() {
-        // NOTE: CSS isn't loaded at first paint, so these mirror --color-background in client/src/index.css.
+        // NOTE: The browser bar meets the sticky navbar. CSS isn't loaded at first paint, so these mirror its --color-bg-secondary in src/ludamus/client/src/index.css.
         document.querySelector('meta[name="theme-color"]').content =
-            document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f0f1f3';
+            document.documentElement.classList.contains('dark') ? '#171717' : '#fdfcfb';
     }
 
     (function() {
