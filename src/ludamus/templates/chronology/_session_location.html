@@ -2,14 +2,16 @@
     {% if not session_link_base and event.slug %}
         {% url 'web:chronology:event' slug=event.slug as session_link_base %}
     {% endif %}
-    <span class="min-w-0 truncate" title="{{ data.location_label }}">
+    {# The room is what tells two sessions apart, and it is the last crumb, so #}
+    {# the venue and floor give their width up first and keep 3ch for an initial. #}
+    <span class="flex min-w-0 items-baseline" title="{{ data.location_label }}">
         {% for crumb in data.location_crumbs %}
-            {% if not forloop.first %}<span aria-hidden="true"> > </span>{% endif %}
+            {% if not forloop.first %}<span aria-hidden="true" class="shrink-0 px-1">&gt;</span>{% endif %}
             {% if crumb.space_filter and session_link_base %}
                 <a href="{{ session_link_base }}?space={{ crumb.space_filter }}#schedule-region"
-                   class="pointer-events-auto underline decoration-dotted underline-offset-4 hover:text-primary">{{ crumb.name }}</a>
+                   class="pointer-events-auto truncate underline decoration-dotted underline-offset-4 hover:text-primary {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[999]{% endif %}">{{ crumb.name }}</a>
             {% else %}
-                <span>{{ crumb.name }}</span>
+                <span class="truncate {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[999]{% endif %}">{{ crumb.name }}</span>
             {% endif %}
         {% endfor %}
     </span>
