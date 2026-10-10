@@ -98,7 +98,7 @@ class TestCalendarReplies:
             )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "accepted"})
-        assert encounter.rsvps.filter(user=guest, ip_address=None).exists()
+        assert encounter.rsvps.filter(user=guest).exists()
         assert encounter.invitees.get(email=guest.email).status == "accepted"
         assert mailoutbox == []
 

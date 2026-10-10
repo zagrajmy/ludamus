@@ -157,15 +157,26 @@ class FakeEncounters:
         return self._visible(self.past, sphere_id, user_id)[:limit]
 
 
+class FakeCache:
+    def __init__(self):
+        self.entries = {}
+        self.timeouts = {}
+
+    def get(self, key):
+        return self.entries.get(key)
+
+    def set(self, key, value, timeout=None):
+        self.entries[key] = value
+        self.timeouts[key] = timeout
+
+
 class FakeRSVPs:
-    def __init__(self, signups=(), *, recent_ips=()):
+    def __init__(self, signups=()):
         # (encounter_id, user_id) pairs
         self.signups = list(signups)
-        self.recent_ips = set(recent_ips)
 
-    def create(self, encounter_id, ip_address, user_id):
+    def create(self, encounter_id, user_id):
         self.signups.append((encounter_id, user_id))
-        self.recent_ips.add(ip_address)
 
     def list_by_encounter(self, encounter_id):
         return [
@@ -180,10 +191,6 @@ class FakeRSVPs:
     def count_by_encounters(self, encounter_ids):
         counts = {pk: self.count_by_encounter(pk) for pk in encounter_ids}
         return {pk: count for pk, count in counts.items() if count}
-
-    def recent_rsvp_exists(self, ip_address, seconds=60):
-        del seconds
-        return ip_address in self.recent_ips
 
     def user_has_rsvpd(self, encounter_id, user_id):
         return (encounter_id, user_id) in self.signups
@@ -342,13 +349,12 @@ class EncounterWorld:
         policy=EncountersPolicy.EVERYONE,
         encounters=(),
         signups=(),
-        recent_ips=(),
         users=None,
         invitees=(),
         invited_today=(),
     ):
         self.encounters = FakeEncounters(encounters)
-        self.rsvps = FakeRSVPs(signups, recent_ips=recent_ips)
+        self.rsvps = FakeRSVPs(signups)
         self.users = FakeUsers(
             users
             if users is not None
@@ -369,6 +375,7 @@ class EncounterWorld:
             users=self.users,
             sites=self.sites,
             mailer=self.mailer,
+            cache=FakeCache(),
         )
 
     def service(self):

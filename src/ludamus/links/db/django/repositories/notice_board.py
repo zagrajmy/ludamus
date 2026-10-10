@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, Now
@@ -123,12 +123,8 @@ class EncounterRepository(EncounterRepositoryProtocol):
 
 class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
     @staticmethod
-    def create(
-        encounter_id: int, ip_address: str | None, user_id: int
-    ) -> EncounterRSVPDTO:
-        rsvp = EncounterRSVP.objects.create(
-            encounter_id=encounter_id, ip_address=ip_address, user_id=user_id
-        )
+    def create(encounter_id: int, user_id: int) -> EncounterRSVPDTO:
+        rsvp = EncounterRSVP.objects.create(encounter_id=encounter_id, user_id=user_id)
         return EncounterRSVPDTO.model_validate(rsvp)
 
     @staticmethod
@@ -150,13 +146,6 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
             .annotate(total=Count("pk"))
         )
         return {row["encounter_id"]: row["total"] for row in rows}
-
-    @staticmethod
-    def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool:
-        cutoff = datetime.now(tz=UTC) - timedelta(seconds=seconds)
-        return EncounterRSVP.objects.filter(
-            ip_address=ip_address, creation_time__gte=cutoff
-        ).exists()
 
     @staticmethod
     def user_has_rsvpd(encounter_id: int, user_id: int) -> bool:

@@ -289,7 +289,6 @@ class EncounterRSVPFactory(DjangoModelFactory):
 
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
-    ip_address = Faker("ipv4")
 
 
 class EncounterInviteeFactory(DjangoModelFactory):
@@ -550,8 +549,9 @@ def encounter_with_rsvps(sphere):
 
 @pytest.fixture(autouse=True)
 def _empty_cache():
-    # The locmem cache outlives a test's rolled-back database, so a cached
-    # landing count would leak into the next test's assertions.
+    # The locmem cache outlives a test's rolled-back database: a cached
+    # landing count or a rate-limit window reserved by one test would leak
+    # into the next test's assertions.
     cache.clear()
 
 
