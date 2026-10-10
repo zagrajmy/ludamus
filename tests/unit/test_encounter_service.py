@@ -65,8 +65,8 @@ def _service(
             users=users,
             sites=sites,
             mailer=FakeMailer(),
+            cache=cache or FakeCache(),
         ),
-        cache=cache or FakeCache(),
     )
 
 

@@ -355,7 +355,6 @@ class EncounterWorld:
     ):
         self.encounters = FakeEncounters(encounters)
         self.rsvps = FakeRSVPs(signups)
-        self.cache = FakeCache()
         self.users = FakeUsers(
             users
             if users is not None
@@ -376,6 +375,7 @@ class EncounterWorld:
             users=self.users,
             sites=self.sites,
             mailer=self.mailer,
+            cache=FakeCache(),
         )
 
     def service(self):
@@ -387,5 +387,4 @@ class EncounterWorld:
             spheres=FakeSpheres(),
             sites=self.sites,
             guests=self.guests,
-            cache=self.cache,
         )
