@@ -90,6 +90,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
         authorization_server_metadata,
         name="oauth-authorization-server",
     ),
+    path("parley/", include("ludamus.gates.web.django.parley.urls")),
     path("admin/", admin.site.urls),
     path("about/", about_page, name="about"),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
