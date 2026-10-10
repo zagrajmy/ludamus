@@ -20,6 +20,7 @@
             theme;
         document.documentElement.classList.add(resolved);
         document.documentElement.style.colorScheme = resolved;
+        syncThemeColor();
 
         // Force repaint then remove
         window.getComputedStyle(css).opacity;

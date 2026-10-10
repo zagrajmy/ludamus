@@ -16,18 +16,8 @@
              own root: this is where its CSP nonce gets generated, and the
              back-button handler stays inline rather than pulling in a bundled
              module the broken upstream may not be able to serve. -->
+        {% include "components/theme_init.html" %}
         <script{% nonce %}>
-            (function() {
-                var theme = localStorage.getItem('theme');
-                if (theme === 'light') {
-                    document.documentElement.classList.add('light');
-                } else if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    document.documentElement.classList.add('dark');
-                }
-            })();
-
             document.addEventListener('DOMContentLoaded', function() {
                 var backBtn = document.getElementById('history-back-btn');
                 if (backBtn) {
