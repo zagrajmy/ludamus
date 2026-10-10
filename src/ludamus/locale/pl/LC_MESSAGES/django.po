@@ -6013,6 +6013,11 @@ msgstr "Kod QR z odnośnikiem do pełnego harmonogramu"
 msgid "Full schedule"
 msgstr "Pełny harmonogram"
 
+#: src/ludamus/templates/chronology/parts/print_sheet_number.html
+#, python-format
+msgid "Sheet %(sheet)s of %(total)s"
+msgstr "Arkusz %(sheet)s z %(total)s"
+
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
@@ -11230,8 +11235,12 @@ msgstr "Sala zajęta przez: %(title)s"
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
 #: src/ludamus/templates/panel/timetable-problems.html
 #, python-format
-msgid "Room fits %(capacity)s people, session requires %(limit)s"
-msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
+msgid "Room fits %(capacity)s person, session requires %(limit)s"
+msgid_plural "Room fits %(capacity)s people, session requires %(limit)s"
+msgstr[0] "Sala mieści %(capacity)s os., wymagane %(limit)s"
+msgstr[1] "Sala mieści %(capacity)s os., wymagane %(limit)s"
+msgstr[2] "Sala mieści %(capacity)s os., wymagane %(limit)s"
+msgstr[3] "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
 #: src/ludamus/templates/panel/timetable-problems.html

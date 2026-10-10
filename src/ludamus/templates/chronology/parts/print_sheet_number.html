@@ -1,0 +1,4 @@
+{% load i18n %}
+{% if sheet.sheet_count > 1 %}
+    <span class="{% if variant == 'nav' %}block text-xs{% elif variant == 'aside' %}float-right text-[9pt] font-normal{% else %}block text-[9pt] font-normal{% endif %}">{% blocktranslate with sheet=sheet.sheet_index total=sheet.sheet_count %}Sheet {{ sheet }} of {{ total }}{% endblocktranslate %}</span>
+{% endif %}
