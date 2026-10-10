@@ -1993,6 +1993,10 @@ msgid "Invalid authentication state"
 msgstr "Nieprawidłowy stan uwierzytelnienia"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication failed"
+msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -2011,14 +2015,6 @@ msgid ""
 msgstr ""
 "Ten adres email należy już do innego konta, więc nie został ustawiony. Ustaw "
 "inny w swoim profilu."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication failed"
-msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid redirect URL."
-msgstr "Nieprawidłowy adres URL przekierowania."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid domain for redirect."
@@ -12434,41 +12430,76 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
-#~ msgid "Copy email"
-#~ msgstr "Skopiuj e-mail"
+#, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
 
 #~ msgid ""
-#~ "Everything the app sends from this server lands here. None of it reaches "
-#~ "a real inbox."
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
 #~ msgstr ""
-#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
-#~ "do prawdziwych skrzynek."
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
 
-#~ msgid "Live: new emails show up on their own"
-#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
-
-#~ msgid "Link in this email"
-#~ msgid_plural "Links in this email"
-#~ msgstr[0] "Link w tym e-mailu"
-#~ msgstr[1] "Linki w tym e-mailu"
-#~ msgstr[2] "Linki w tym e-mailu"
-#~ msgstr[3] "Linki w tym e-mailu"
-
-#~ msgid "Staging inbox"
-#~ msgstr "Skrzynka staging"
-
-#~ msgid "Received"
-#~ msgstr "Otrzymano"
-
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
 
 #~ msgid ""
-#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
-#~ "you here."
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
 #~ msgstr ""
-#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-#~ "Ciebie."
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
 
 #~ msgid "Shown columns"
 #~ msgstr "Wyświetlane kolumny"
@@ -12480,8 +12511,29 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Available columns"
 #~ msgstr "Dostępne kolumny"
 
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
+
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
+
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
+
+#~ msgid "Subject"
+#~ msgstr "Temat"
+
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
 #~ msgid "Bookmarks"
 #~ msgstr "Zakładki"
+
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #, python-format
 #~ msgid ""
@@ -12503,49 +12555,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "\n"
 #~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
 #~ "            "
-
-#~ msgid "Select which personal data fields hosts must provide."
-#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
-
-#~ msgid "No personal data fields defined for this event."
-#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Configure host data fields"
-#~ msgstr "Skonfiguruj pola danych twórcy"
-
-#~ msgid "Program item confirmed"
-#~ msgstr "Punkt programu potwierdzony"
-
-#~ msgid "Program item not confirmed"
-#~ msgstr "Punkt programu niepotwierdzony"
-
-#~ msgid "Confirm program item"
-#~ msgstr "Potwierdź punkt programu"
-
-#~ msgid ""
-#~ "Host data fields collect contact and personal information from session "
-#~ "hosts when they submit proposals. Examples: email address, phone number, "
-#~ "Discord username. This data is shared across all categories for the event "
-#~ "- each host fills it once."
-#~ msgstr ""
-#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
-#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
-#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
-
-#~ msgid "confirmed program items in this track"
-#~ msgstr "potwierdzonych punktów programu w tym bloku"
-
-#~ msgid "confirmed program items"
-#~ msgstr "potwierdzonych punktów programu"
-
-#~ msgid ""
-#~ "This program item is confirmed. Moving it will clear the confirmation."
-#~ msgstr ""
-#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
-
-#~ msgid "Not Yet Available"
-#~ msgstr "Jeszcze Niedostępne"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
@@ -12570,59 +12579,8 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Poland"
 #~ msgstr "Polska"
 
-#~ msgid "Time slot must be within event dates."
-#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
-
-#~ msgid "Place the session inside one of the event's time slots."
-#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
-
-#~ msgid ""
-#~ "Friends who enroll together wait together and move up together, and "
-#~ "nobody skips past them. RSVP tools that count seats one by one split such "
-#~ "a group up as soon as a single seat frees up."
-#~ msgstr ""
-#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
-#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
-#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
-
-#~ msgid ""
-#~ "You work directly with the people who build Zagrajmy: no account managers "
-#~ "and no ticket queue between you and the code."
-#~ msgstr ""
-#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
-#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
-
-#~ msgid ""
-#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
-#~ "and sings RPG songs on his YouTube channel."
-#~ msgstr ""
-#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
-#~ "erpegowe piosenki na swoim kanale na YouTubie."
-
-#~ msgid ""
-#~ "Two developers build and run Zagrajmy, with contributions from the open-"
-#~ "source community on GitHub."
-#~ msgstr ""
-#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
-#~ "source na GitHubie."
-
-#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
-#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
-
-#~ msgid ""
-#~ "Writes software with care for the details of human–computer interaction. "
-#~ "Has built Zagrajmy since November 2025, mostly its interface."
-#~ msgstr ""
-#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
-#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
-#~ "interfejs."
-
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."
@@ -12850,8 +12808,26 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
 
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
+
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
+
+#~ msgid "Time slot must be within event dates."
+#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#~ msgid "Place the session inside one of the event's time slots."
+#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
+
+#~ msgid "total"
+#~ msgstr "łącznie"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
@@ -13658,5 +13634,105 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
 
-#~ msgid "This event is not in this sphere."
-#~ msgstr "To wydarzenie nie należy do tej sfery."
+#~ msgid ""
+#~ "Friends who enroll together wait together and move up together, and "
+#~ "nobody skips past them. RSVP tools that count seats one by one split such "
+#~ "a group up as soon as a single seat frees up."
+#~ msgstr ""
+#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
+#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
+#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
+
+#~ msgid ""
+#~ "You work directly with the people who build Zagrajmy: no account managers "
+#~ "and no ticket queue between you and the code."
+#~ msgstr ""
+#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
+#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
+
+#~ msgid ""
+#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
+#~ "and sings RPG songs on his YouTube channel."
+#~ msgstr ""
+#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
+#~ "erpegowe piosenki na swoim kanale na YouTubie."
+
+#~ msgid ""
+#~ "Two developers build and run Zagrajmy, with contributions from the open-"
+#~ "source community on GitHub."
+#~ msgstr ""
+#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
+#~ "source na GitHubie."
+
+#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
+#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
+
+#~ msgid ""
+#~ "Writes software with care for the details of human–computer interaction. "
+#~ "Has built Zagrajmy since November 2025, mostly its interface."
+#~ msgstr ""
+#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
+#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
+#~ "interfejs."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
+
+#~ msgid ""
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
+#~ msgstr ""
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
+
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
+
+#~ msgid "Program item confirmed"
+#~ msgstr "Punkt programu potwierdzony"
+
+#~ msgid "Program item not confirmed"
+#~ msgstr "Punkt programu niepotwierdzony"
+
+#~ msgid "Confirm program item"
+#~ msgstr "Potwierdź punkt programu"
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all categories for the event "
+#~ "- each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+
+#~ msgid "confirmed program items in this track"
+#~ msgstr "potwierdzonych punktów programu w tym bloku"
+
+#~ msgid "confirmed program items"
+#~ msgstr "potwierdzonych punktów programu"
+
+#~ msgid ""
+#~ "This program item is confirmed. Moving it will clear the confirmation."
+#~ msgstr ""
+#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+
+#~ msgid "Copy email"
+#~ msgstr "Skopiuj e-mail"

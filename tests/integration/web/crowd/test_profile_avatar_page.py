@@ -20,7 +20,7 @@ class TestProfileAvatarPageView:
             context_data={
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
-                "has_auth0_avatar": False,
+                "has_provider_avatar": False,
                 "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",
@@ -40,7 +40,7 @@ class TestProfileAvatarPageView:
             context_data={
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
-                "has_auth0_avatar": True,
+                "has_provider_avatar": True,
                 "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",
@@ -55,7 +55,7 @@ class TestProfileAvatarPageView:
         response = authenticated_client.get(self.URL)
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context["has_auth0_avatar"] is False
+        assert response.context["has_provider_avatar"] is False
 
     def test_get_renders_empty_circle_without_email(
         self, authenticated_client, active_user
@@ -72,7 +72,7 @@ class TestProfileAvatarPageView:
             context_data={
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(""),
-                "has_auth0_avatar": False,
+                "has_provider_avatar": False,
                 "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",
@@ -95,7 +95,7 @@ class TestProfileAvatarPageView:
             context_data={
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(""),
-                "has_auth0_avatar": True,
+                "has_provider_avatar": True,
                 "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",

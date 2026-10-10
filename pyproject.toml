@@ -25,7 +25,6 @@ package-mode = false
 requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
-authlib = "~1.8.0"
 cryptography = "~50.0.1"
 dbos = ">=2.31.0,<3"
 django = "~6.1.0"
@@ -49,6 +48,7 @@ segno = "~1.6.6"
 unidecode = "~1.4.0"
 urllib3 = "~2.8.0"
 whitenoise = "~6.12.0"
+workos = "~10.5.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -84,7 +84,6 @@ responses = "^0.26.0"
 ruff = "^0.16.0"
 taplo = "^0.9.3"
 tingle = "^0.8.0"
-types-authlib = "^1.7.2.20260724"
 types-requests = "^2.33.0.20260906"
 vekna = "^0.11.0"
 vulture = "^2.16"
@@ -589,6 +588,9 @@ ignore_names = [
     "handle_data",
     "handle_endtag",
     "handle_starttag",
+    # BaseHTTPRequestHandler dispatches requests to do_<METHOD>
+    "do_GET",
+    "do_POST",
     # Django
     "*Config",
     "add_arguments",

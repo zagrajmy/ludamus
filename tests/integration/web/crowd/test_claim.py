@@ -15,6 +15,10 @@ from ludamus.pacts.crowd import ClaimableProfileDTO
 from ludamus.pacts.party import PartyConsentMode
 from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
+from tests.integration.web.crowd.workos_responses import (
+    AUTHENTICATE,
+    authenticate_response,
+)
 
 
 def _companion(
@@ -149,7 +153,7 @@ class TestClaimPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="/crowd/auth0/do/login?next=%2Fcrowd%2Fprofile%2F",
+            url="/crowd/auth/do/login?next=%2Fcrowd%2Fprofile%2F",
         )
 
     def test_post_already_signed_in_is_refused(self, authenticated_client):
@@ -177,7 +181,7 @@ class TestClaimPageView:
 
 
 class TestClaimRedemptionOnLogin:
-    URL = reverse("web:crowd:auth0:login-callback")
+    URL = reverse("web:crowd:auth:login-callback")
 
     @staticmethod
     def _valid_state():
@@ -196,13 +200,13 @@ class TestClaimRedemptionOnLogin:
         session["pending_claim_token"] = token
         session.save()
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch(AUTHENTICATE)
     def test_converts_managed_row_into_account(self, token_mock, client, faker):
         manager = _active(username="mgr", slug="mgr")
         kid = _companion(manager=manager, token="claimtok", username="connected|kid")
         sponsor_user(leader=manager, member=kid)
         sub = faker.uuid4()
-        token_mock.return_value = {"userinfo": {"sub": sub}}
+        token_mock.return_value = authenticate_response(sub)
         self._arm_claim(client, "claimtok")
         state_token = self._valid_state()
 
@@ -210,7 +214,7 @@ class TestClaimRedemptionOnLogin:
 
         kid.refresh_from_db()
         assert kid.user_type == UserType.ACTIVE
-        assert kid.username == f"auth0|{sub}"
+        assert kid.username == f"workos|{sub}"
         assert not kid.claim_token
         # The membership survives the claim but now needs the member's accept.
         membership = kid.party_memberships.get()
@@ -224,17 +228,17 @@ class TestClaimRedemptionOnLogin:
             ],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch(AUTHENTICATE)
     def test_spent_token_falls_through_to_normal_login(self, token_mock, client, faker):
         sub = faker.uuid4()
-        token_mock.return_value = {"userinfo": {"sub": sub}}
+        token_mock.return_value = authenticate_response(sub)
         self._arm_claim(client, "spent-or-bogus")
         state_token = self._valid_state()
 
         response = client.get(self.URL, {"state": state_token})
 
         assert User.objects.filter(
-            username=f"auth0|{sub}", user_type=UserType.ACTIVE
+            username=f"workos|{sub}", user_type=UserType.ACTIVE
         ).exists()
         # No claim messages — just the ordinary fresh-account onboarding nudge.
         assert_response(
@@ -244,7 +248,7 @@ class TestClaimRedemptionOnLogin:
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch(AUTHENTICATE)
     def test_refuses_when_recipient_already_has_account(
         self, token_mock, client, faker
     ):
@@ -252,7 +256,8 @@ class TestClaimRedemptionOnLogin:
         _active(username=f"auth0|{sub}", slug="existing", name="Me")
         manager = _active(username="mgr", slug="mgr")
         kid = _companion(manager=manager, token="claimtok", username="connected|kid")
-        token_mock.return_value = {"userinfo": {"sub": sub}}
+        # An Auth0-era account, linked through the WorkOS import's external_id.
+        token_mock.return_value = authenticate_response("user_ME", external_id=sub)
         self._arm_claim(client, "claimtok")
         state_token = self._valid_state()
 

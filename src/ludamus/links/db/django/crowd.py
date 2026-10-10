@@ -43,7 +43,10 @@ class UserRepository(UserRepositoryProtocol):
 
     @staticmethod
     def create(user_data: UserData) -> None:
-        User.objects.create(**user_data)
+        user = User(**user_data)
+        if "password" not in user_data:
+            user.set_unusable_password()
+        user.save()
 
     def read(self, slug: str) -> UserDTO:
         try:
@@ -76,6 +79,9 @@ class UserRepository(UserRepositoryProtocol):
         return UserDTO.model_validate(user)
 
     def read_by_email(self, email: str) -> UserDTO:
+        # NOTE: a blank address would match every account that has none.
+        if not email:
+            raise NotFoundError
         user = (
             User.objects.filter(email__iexact=email, user_type=self._user_type)
             .order_by("pk")
