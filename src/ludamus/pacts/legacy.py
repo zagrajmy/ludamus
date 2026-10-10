@@ -282,6 +282,9 @@ class NotificationKind(StrEnum):
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
     PRINTABLES_READY = auto()
+    EMAIL_VERIFICATION = auto()
+    EMAIL_CHANGE_REQUESTED = auto()
+    EMAIL_CHANGE_COMPLETED = auto()
     ANNOUNCEMENT = auto()
     SPHERE_EVENT_PUBLISHED = auto()
 
@@ -1245,6 +1248,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[ConfirmationFacilitatorRow]: ...
     @staticmethod
     def lock(pks: Iterable[int]) -> None: ...
+    @staticmethod
+    def lock_by_event_and_slugs(
+        event_id: int, slugs: list[str]
+    ) -> list[FacilitatorDTO]: ...
     @staticmethod
     def count_sessions(pk: int) -> FacilitatorSessionCountsDTO: ...
     @staticmethod

@@ -14,6 +14,7 @@ from collections import defaultdict
 from datetime import timedelta
 from functools import partial
 from itertools import pairwise
+from math import ceil
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import (
@@ -30,6 +31,7 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
+    PrintSessionListPageDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
@@ -55,6 +57,13 @@ if TYPE_CHECKING:
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4
+# ponytail: counts stand in for printed height, sized against the dense e2e
+# fixture's A4 sheets. Long wrapping titles, long descriptions, or long rows in
+# the timetable can still overflow; estimate height per row if that bites.
+MAX_TIMETABLE_ROWS_PER_PAGE = 11
+MAX_DOOR_CARD_ENTRIES_PER_SHEET = 12
+MAX_SESSION_LIST_ROWS_PER_SHEET = 15
+MAX_SESSION_LIST_DESCRIBED_ROWS_PER_SHEET = 6
 
 
 def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
@@ -69,6 +78,10 @@ def _entry_start(entry: DoorCardEntryDTO) -> datetime:
     return entry.start_time
 
 
+def _tile_position(tile: PrintTimetableTileDTO) -> tuple[int, int]:
+    return (tile.row, tile.col)
+
+
 def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
     return (space.programme_order, space.name, space.pk)
 
@@ -80,11 +93,14 @@ def _session_list_order(
     return (item.start_time, space_order.get(item.space_id, fallback))
 
 
-def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
-    return [
-        spaces[index : index + MAX_TIMETABLE_SPACES_PER_PAGE]
-        for index in range(0, len(spaces), MAX_TIMETABLE_SPACES_PER_PAGE)
-    ]
+def _chunks[T](values: list[T], size: int) -> list[list[T]]:
+    return [values[index : index + size] for index in range(0, len(values), size)]
+
+
+def _even_chunks[T](values: list[T], cap: int) -> list[list[T]]:
+    # As few sheets as the cap allows, filled evenly: thirteen rows under a cap
+    # of twelve print as 7 + 6, not as a full sheet and a near-empty one.
+    return _chunks(values, ceil(len(values) / ceil(len(values) / cap)))
 
 
 def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
@@ -93,53 +109,67 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
     return f"{spaces[0].name} - {spaces[-1].name}"
 
 
-def _timetable_page(
+def _timetable_pages(
     *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
-) -> PrintTimetablePageDTO | None:
-    # One sheet: the day's sessions in these rooms, or None when there are
-    # none. Rows are the stretches between the instants the programme
-    # changes, so a session is one tile spanning exactly the rows it covers —
-    # the shape of the event page's rooms view. Time slots are proposer
-    # availability windows, not display units (see mills/timeslots.py), so
-    # they play no part here. Instants are keyed as timestamps: on the night
-    # the clocks go back two datetimes an hour apart compare equal.
+) -> list[PrintTimetablePageDTO]:
+    # The day's sessions in these rooms, MAX_TIMETABLE_ROWS_PER_PAGE rows a
+    # sheet; none when there are no sessions. Rows are the stretches between
+    # the instants the programme changes, so a session is one tile spanning
+    # exactly the rows it covers — the shape of the event page's rooms view.
+    # A session across a sheet break is cut into a tile on each sheet. Time
+    # slots are proposer availability windows, not display units (see
+    # mills/timeslots.py), so they play no part here. Instants are keyed as
+    # timestamps: on the night the clocks go back two datetimes an hour apart
+    # compare equal.
     col = {space.pk: index + 1 for index, space in enumerate(spaces)}
     if not (items := [item for item in items if item.space_id in col]):
-        return None
+        return []
     instants = {
         instant.timestamp(): instant
         for item in items
         for instant in (item.start_time, item.end_time)
     }
-    keys = sorted(instants)
-    edges = [instants[key] for key in keys]
-    line = {key: index + 1 for index, key in enumerate(keys)}
+    sheets = _even_chunks(list(pairwise(sorted(instants))), MAX_TIMETABLE_ROWS_PER_PAGE)
 
-    def reading_order(item: AgendaItemDTO) -> tuple[int, int]:
-        # Down the rows, then across the columns: the visual order.
-        return (line[item.start_time.timestamp()], col[item.space_id])
+    def sheet(rows: list[tuple[float, float]], index: int) -> PrintTimetablePageDTO:
+        first, last = rows[0][0], rows[-1][1]
+        edges = [start for start, _ in rows] + [last]
+        line = {key: number for number, key in enumerate(edges, start=1)}
 
-    return PrintTimetablePageDTO(
-        day=day,
-        space_names=[space.name for space in spaces],
-        rows=[
-            PrintTimetableRowDTO(start_time=start, end_time=end)
-            for start, end in pairwise(edges)
-        ],
-        tiles=[
-            PrintTimetableTileDTO(
+        def tile(item: AgendaItemDTO) -> PrintTimetableTileDTO:
+            row = line[max(item.start_time.timestamp(), first)]
+            return PrintTimetableTileDTO(
                 session=_to_session(item),
                 start_time=item.start_time,
                 end_time=item.end_time,
                 col=col[item.space_id],
-                row=line[item.start_time.timestamp()],
-                span=line[item.end_time.timestamp()]
-                - line[item.start_time.timestamp()],
+                row=row,
+                span=line[min(item.end_time.timestamp(), last)] - row,
             )
-            for item in sorted(items, key=reading_order)
-        ],
-        space_range_name=_space_range_name(spaces),
-    )
+
+        return PrintTimetablePageDTO(
+            day=day,
+            space_names=[space.name for space in spaces],
+            rows=[
+                PrintTimetableRowDTO(start_time=instants[start], end_time=instants[end])
+                for start, end in rows
+            ],
+            tiles=sorted(
+                (
+                    tile(item)
+                    for item in items
+                    if item.start_time.timestamp() < last
+                    and item.end_time.timestamp() > first
+                ),
+                # Down the rows, then across the columns: the visual order.
+                key=_tile_position,
+            ),
+            space_range_name=_space_range_name(spaces),
+            sheet_index=index,
+            sheet_count=len(sheets),
+        )
+
+    return [sheet(rows, index) for index, rows in enumerate(sheets, start=1)]
 
 
 class PrintMaterialsService:
@@ -187,15 +217,20 @@ class PrintMaterialsService:
                     )
                 )
 
-            cards += [
-                DoorCardDTO(
-                    space_name=space.name,
-                    capacity=space.capacity,
-                    day=day,
-                    entries=sorted(entries_by_day[day], key=_entry_start),
-                )
-                for day in sorted(entries_by_day)
-            ]
+            for day in sorted(entries_by_day):
+                entries = sorted(entries_by_day[day], key=_entry_start)
+                sheets = _even_chunks(entries, MAX_DOOR_CARD_ENTRIES_PER_SHEET)
+                cards += [
+                    DoorCardDTO(
+                        space_name=space.name,
+                        capacity=space.capacity,
+                        day=day,
+                        entries=sheet,
+                        sheet_index=index,
+                        sheet_count=len(sheets),
+                    )
+                    for index, sheet in enumerate(sheets, start=1)
+                ]
 
         return DoorCardsDocumentDTO(
             event_name=event.name,
@@ -229,8 +264,8 @@ class PrintMaterialsService:
         pages = [
             page
             for day in sorted(by_day)
-            for chunk in _space_chunks(spaces)
-            if (page := _timetable_page(day=day, spaces=chunk, items=by_day[day]))
+            for chunk in _chunks(spaces, MAX_TIMETABLE_SPACES_PER_PAGE)
+            for page in _timetable_pages(day=day, spaces=chunk, items=by_day[day])
         ]
 
         return PrintTimetableDocumentDTO(
@@ -303,12 +338,11 @@ class PrintMaterialsService:
             space.pk: _space_order(space)
             for space in self._spaces.list_by_event(query.event_pk)
         }
-        return PrintSessionListDocumentDTO(
-            event_name=event.name,
-            event_description=event.description,
-            event_start=event.start_time,
-            event_end=event.end_time,
-            sessions=[
+        by_day: dict[date, list[PrintSessionListItemDTO]] = defaultdict(list)
+        for item in sorted(
+            items, key=partial(_session_list_order, space_order=space_order)
+        ):
+            by_day[item.start_time.astimezone(query.tz).date()].append(
                 PrintSessionListItemDTO(
                     title=item.session_title,
                     presenter_name=item.presenter_name,
@@ -317,10 +351,27 @@ class PrintMaterialsService:
                     end_time=item.end_time,
                     space_name=item.space_name,
                 )
-                for item in sorted(
-                    items, key=partial(_session_list_order, space_order=space_order)
+            )
+        cap = (
+            MAX_SESSION_LIST_DESCRIBED_ROWS_PER_SHEET
+            if query.descriptions
+            else MAX_SESSION_LIST_ROWS_PER_SHEET
+        )
+        pages: list[PrintSessionListPageDTO] = []
+        for day, sessions in by_day.items():
+            sheets = _even_chunks(sessions, cap)
+            pages += [
+                PrintSessionListPageDTO(
+                    day=day, sessions=sheet, sheet_index=index, sheet_count=len(sheets)
                 )
-            ],
+                for index, sheet in enumerate(sheets, start=1)
+            ]
+        return PrintSessionListDocumentDTO(
+            event_name=event.name,
+            event_description=event.description,
+            event_start=event.start_time,
+            event_end=event.end_time,
+            pages=pages,
         )
 
     def _scoped_spaces(
@@ -387,11 +438,10 @@ class PrintablesReminderService(PrintablesReminderServiceProtocol):
             # emails themselves are deferred to after-commit by the notifier.
             with self._transaction.atomic():
                 self._reminders.mark_reminder_sent(reminder.event_pk, at=now)
-                for recipient in reminder.recipients:
+                for recipient_id in reminder.recipients:
                     self._notifier.notify_printables_ready(
                         PrintablesReadyNotification(
-                            recipient_user_id=recipient.user_id,
-                            recipient_email=recipient.email,
+                            recipient_user_id=recipient_id,
                             event_name=reminder.event_name,
                             event_slug=reminder.event_slug,
                             sphere_domain=reminder.sphere_domain,

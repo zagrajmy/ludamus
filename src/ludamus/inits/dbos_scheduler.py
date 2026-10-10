@@ -38,6 +38,7 @@ from django.db import transaction
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
+    build_email_verification,
     build_encounters,
     build_konwencik_export,
     build_printables_reminder,
@@ -56,6 +57,7 @@ _launch_lock = threading.Lock()
 # go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
+VERIFICATION_REMINDERS_SCHEDULE = "30 7 * * *"
 # Recovery floor for announcement fanouts whose workflow was lost between
 # commit and start; the claim on notified_at keeps a double run harmless.
 ANNOUNCEMENT_FANOUT_SCHEDULE = "*/5 * * * *"
@@ -138,6 +140,18 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+def _send_verification_reminders_step(now: datetime) -> None:
+    sent = build_email_verification().send_due_reminders(now=now)
+    logger.info("verification reminders: reminded %s user(s)", sent)
+
+
+@DBOS.scheduled(VERIFICATION_REMINDERS_SCHEDULE)
+@DBOS.workflow()
+def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
+    _send_verification_reminders_step(scheduled)
+
+
+@DBOS.step()
 def _announce_published_events_step(now: datetime) -> None:
     announced = build_sphere_subscriptions().announce_published_events(now=now)
     logger.info("sphere announcements: announced %s event(s)", announced)
@@ -194,6 +208,7 @@ def _ensure_launched() -> None:
                 for w in (
                     expire_offers_sweep,
                     printables_reminders_tick,
+                    verification_reminders_tick,
                     announcement_fanout_sweep,
                     sphere_announcements_tick,
                     konwencik_export_tick,

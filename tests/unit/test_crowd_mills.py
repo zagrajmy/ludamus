@@ -31,12 +31,6 @@ class FakeUsers:
             update=dict(user_data)
         )
 
-    def email_exists(self, email, exclude_slug=None):
-        return any(
-            user.email == email and user.slug != exclude_slug
-            for user in self._users.values()
-        )
-
 
 class FakeParticipations:
     @staticmethod
@@ -96,17 +90,6 @@ class TestProfileService:
 
         assert service.confirmed_participations_count(1) == _CONFIRMED_COUNT
         assert service.confirmed_participations_count(2) == 0
-
-    def test_email_in_use_ignores_own_row(self):
-        users = FakeUsers(
-            users=[_user_dto(email="mine@example.com"), _user_dto(slug="o", pk=2)]
-        )
-        service = _profile_service(users)
-
-        assert (
-            service.email_in_use("mine@example.com", exclude_slug="auth0user") is False
-        )
-        assert service.email_in_use("mine@example.com", exclude_slug="o") is True
 
     def test_update_writes_the_data(self):
         users = FakeUsers(users=[_user_dto()])
