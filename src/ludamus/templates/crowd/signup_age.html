@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Create account" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                {% icon "user-plus" class="w-10 h-10 mx-auto text-primary" %}
+                <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "How old are you?" %}</h1>
+                <p class="text-sm text-foreground-muted mt-2">
+                    {% blocktranslate trimmed %}
+                        You need to be {{ min_age }} or older to have your own account. Younger players join as a parent's or guardian's companions.
+                    {% endblocktranslate %}
+                </p>
+                <form method="post" class="mt-6 flex flex-col gap-2">
+                    {% csrf_token %}
+                    {% blocktranslate trimmed asvar adult_label %}
+                        I'm {{ min_age }} or older
+                    {% endblocktranslate %}
+                    {% blocktranslate trimmed asvar minor_label %}
+                        I'm under {{ min_age }}
+                    {% endblocktranslate %}
+                    {% tessera_button adult_label name="age" value="adult" extra_class="w-full" %}
+                    {% tessera_button minor_label name="age" value="minor" variant="secondary" extra_class="w-full" %}
+                </form>
+                <p class="text-xs text-foreground-muted mt-6 [&_a]:text-primary [&_a]:hover:underline">
+                    {% url 'terms-of-service' as terms_url %}
+                    {% url 'privacy-policy' as privacy_url %}
+                    {% blocktranslate trimmed %}
+                        By creating an account you accept the <a href="{{ terms_url }}">Terms of Service</a> and the <a href="{{ privacy_url }}">Privacy Policy</a>.
+                    {% endblocktranslate %}
+                </p>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

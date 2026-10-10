@@ -89,6 +89,7 @@ env = environ.Env(
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
+    MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
     ZEAL_RAISE=(bool, False),
@@ -435,6 +436,8 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 # Support
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Sender's postal address, printed under every opt-in (non-transactional) email.
+MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS")
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only

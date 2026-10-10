@@ -5,12 +5,14 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
 from django.contrib.messages import get_messages
+from django.urls import reverse
 from django.utils.timezone import now
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from django.http import HttpResponse
+    from django.test import Client
 
 
 class PageMatcher:
@@ -248,6 +250,11 @@ def assert_rendered(
     assert response.status_code == HTTPStatus.OK, response.status_code
     assert getattr(response, "template_name", None) == template_name
     _assert_content(response=response, contains=contains, not_contains=())
+
+
+def confirm_signup_age(client: Client) -> HttpResponse:
+    """Answer the age question a first-time Auth0 sign-in stops at."""
+    return client.post(reverse("web:crowd:auth0:signup-age"), {"age": "adult"})
 
 
 def assert_login_required(response: HttpResponse, url: str) -> None:

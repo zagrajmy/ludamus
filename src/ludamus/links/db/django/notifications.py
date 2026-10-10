@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
@@ -95,6 +95,42 @@ def _session_host(session_id: int) -> str:
         )
         return str(settings.ROOT_DOMAIN)
     return domain
+
+
+class _OptInMail:
+    """What a mail the recipient chose to get carries on top of its message.
+
+    Transactional mail (a seat, a party, an address proof) needs none of it;
+    a subscription the recipient can drop needs a way out that works without
+    a login, in the body and as RFC 8058 one-click headers, plus the sender's
+    postal address.
+    """
+
+    def __init__(self, *, sphere_name: str, unsubscribe_token: str) -> None:
+        self._sphere_name = sphere_name
+        self._token = unsubscribe_token
+
+    def _url(self, name: str) -> str:
+        return absolute_url(
+            reverse(name, kwargs={"token": self._token}),
+            domain=str(settings.ROOT_DOMAIN),
+        )
+
+    def footer(self) -> str:
+        lines = [
+            _("You get this email because you subscribe to %(sphere)s.")
+            % {"sphere": self._sphere_name},
+            _("Unsubscribe: %(url)s") % {"url": self._url("web:email-unsubscribe")},
+        ]
+        if address := settings.MAIL_POSTAL_ADDRESS:
+            lines.append(address)
+        return "\n".join(lines)
+
+    def headers(self) -> dict[str, str]:
+        return {
+            "List-Unsubscribe": f"<{self._url('web:email-unsubscribe-confirm')}>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        }
 
 
 class DjangoUserNotifier:
@@ -383,7 +419,11 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"event_slug": notification.event_slug},
-            )
+            ),
+            opt_in=_OptInMail(
+                sphere_name=notification.sphere_name,
+                unsubscribe_token=notification.unsubscribe_token,
+            ),
         )
 
     def notify_shadowbanned_signup(
@@ -435,13 +475,17 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
-    def _deliver(notification: Notification) -> None:
+    def _deliver(
+        notification: Notification, *, opt_in: _OptInMail | None = None
+    ) -> None:
         DjangoUserNotifier._deliver_to(
-            notification, _deliverable_email(notification.recipient_id)
+            notification, _deliverable_email(notification.recipient_id), opt_in=opt_in
         )
 
     @staticmethod
-    def _deliver_to(notification: Notification, email: str) -> None:
+    def _deliver_to(
+        notification: Notification, email: str, *, opt_in: _OptInMail | None = None
+    ) -> None:
         """Deliver to an explicit address, trusting the caller's choice of it.
 
         `_deliver` is the default path and passes the recipient's proven
@@ -465,14 +509,16 @@ class DjangoUserNotifier:
             )
             return
 
+        body = f"{notification.body}\n\n{notification.url}"
+        headers: dict[str, str] = {}
+        if opt_in is not None:
+            body = f"{body}\n\n-- \n{opt_in.footer()}"
+            headers = opt_in.headers()
+
         def _send_email() -> None:
-            send_mail(
-                subject=notification.title,
-                message=f"{notification.body}\n\n{notification.url}",
-                from_email=None,
-                recipient_list=[email],
-                fail_silently=True,
-            )
+            EmailMessage(
+                subject=notification.title, body=body, to=[email], headers=headers
+            ).send(fail_silently=True)
 
         transaction.on_commit(_send_email)
 
