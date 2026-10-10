@@ -420,13 +420,18 @@ class ProposalFormPageView(_ProposalFormBase):
             valid={f.pk for f in facilitators},
         )
 
+    def _personal_data_facilitators(self, proposal_id: int) -> list[FacilitatorDTO]:
+        # The one set rendered, validated and written: a posted id for anyone
+        # else would have no card to show its errors on.
+        return self.request.di.uow.sessions.read_facilitators(proposal_id)
+
     def _get_facilitator_personal_data(
         self, event_pk: int, proposal_id: int
     ) -> FacilitatorPersonalData:
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         if not fields:
             return []
-        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        assigned = self._personal_data_facilitators(proposal_id)
         # One query for every assigned facilitator's answers instead of one
         # lookup per facilitator.
         values_by_facilitator = (
@@ -458,7 +463,7 @@ class ProposalFormPageView(_ProposalFormBase):
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         if not fields:
             return []
-        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        assigned = self._personal_data_facilitators(proposal_id)
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
             prefix = _facilitator_prefix(facilitator.pk)
@@ -477,7 +482,7 @@ class ProposalFormPageView(_ProposalFormBase):
         return result
 
     def _personal_data_forms(
-        self, event_pk: int
+        self, event_pk: int, proposal_id: int
     ) -> tuple[Sequence[OrganizerFieldDTO], dict[int, forms.Form]] | None:
         # One bound form per facilitator whose block was posted, so the panel
         # enforces the same choice and length rules the wizard does.
@@ -485,9 +490,7 @@ class ProposalFormPageView(_ProposalFormBase):
             return None
         raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
         submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-        valid_pks = {
-            f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
-        }
+        valid_pks = {f.pk for f in self._personal_data_facilitators(proposal_id)}
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         return fields, {
             facilitator_id: personal_fields_form(
@@ -498,16 +501,16 @@ class ProposalFormPageView(_ProposalFormBase):
             for facilitator_id in submitted_ids & valid_pks
         }
 
-    def _personal_data_is_valid(self, event_pk: int) -> bool:
-        submitted = self._personal_data_forms(event_pk)
+    def _personal_data_is_valid(self, event_pk: int, proposal_id: int) -> bool:
+        submitted = self._personal_data_forms(event_pk, proposal_id)
         return submitted is None or all(
             form.is_valid() for form in submitted[1].values()
         )
 
     def _collect_personal_data(
-        self, event_pk: int
+        self, event_pk: int, proposal_id: int
     ) -> dict[int, list[PersonalDataFieldValueData]] | None:
-        if (submitted := self._personal_data_forms(event_pk)) is None:
+        if (submitted := self._personal_data_forms(event_pk, proposal_id)) is None:
             return None
         fields, posted = submitted
         return {
@@ -730,7 +733,7 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        personal_data_valid = self._personal_data_is_valid(current_event.pk, session.pk)
         if not form.is_valid() or not personal_data_valid:
             if not personal_data_valid:
                 form.add_error(None, PERSONAL_DATA_ERROR)
@@ -803,7 +806,7 @@ class ProposalFormPageView(_ProposalFormBase):
                 ),
             )
 
-            personal_data = self._collect_personal_data(current_event.pk)
+            personal_data = self._collect_personal_data(current_event.pk, session.pk)
             if personal_data is not None:
                 for facilitator_id, entries in personal_data.items():
                     service = self.request.services.personal_data_field_values

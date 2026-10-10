@@ -1709,6 +1709,51 @@ class TestProposalEditPageView:
             facilitator=foreign_facilitator
         ).exists()
 
+    @pytest.mark.parametrize("answer", ("Peanuts", "Far too long an answer"))
+    def test_post_ignores_personal_data_for_facilitator_not_on_proposal(
+        self, panel_client, event, answer
+    ):
+        session = _make_session(event)
+        unassigned = Facilitator.objects.create(
+            event=event, display_name="Bob", slug="bob", user=None
+        )
+        PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=10,
+            order=0,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Renamed",
+                "facilitator_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [unassigned.pk],
+                f"facilitator_{unassigned.pk}_personal_allergy": answer,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.title == "Renamed"
+        assert not PersonalDataFieldValue.objects.exists()
+
     def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         session = _make_session(event)
 
