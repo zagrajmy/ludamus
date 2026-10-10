@@ -25,7 +25,7 @@
                             <option value="{{ value }}"
                                     {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
-                    {% endselect %}
+                    {% end_select %}
                 </form>
                 <div class="flex flex-wrap justify-end gap-2">
                     <form method="post"
@@ -128,7 +128,7 @@
                     </tr>
                 {% endfor %}
             </tbody>
-        {% endtessera_table %}
+        {% end_tessera_table %}
         {% for assignment in assignments %}
             <dialog id="discount-assign-modal-{{ assignment.facilitator.pk }}"
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"

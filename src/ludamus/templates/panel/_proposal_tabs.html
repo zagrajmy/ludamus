@@ -2,13 +2,13 @@
 {% tabs %}
     {% tab "list" href=tab_urls.list %}
         {% translate "List" %}
-    {% endtab %}
+    {% end_tab %}
     {% tab "columns" href=tab_urls.columns %}
         {% translate "Columns" %}
-    {% endtab %}
+    {% end_tab %}
     {# The export is the way out of the list, so it leaves with the filters #}
     {# the current page is showing. #}
     {% tab "export" href=tab_urls.export|add:"?"|add:request.GET.urlencode %}
         {% translate "Export" %}
-    {% endtab %}
-{% endtabs %}
+    {% end_tab %}
+{% end_tabs %}
