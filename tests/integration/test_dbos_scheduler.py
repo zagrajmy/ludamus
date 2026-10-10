@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 
 import pytest
 from dbos import DBOS
+from django.db import DEFAULT_DB_ALIAS, connections
 
 from ludamus.inits import dbos_scheduler as scheduler_module
 from ludamus.links.db.django.models import (
@@ -176,3 +177,21 @@ def test_launch_race_loser_rechecks_under_the_lock(settings, monkeypatch):
             thread.join(timeout=10)
 
     assert not constructed
+
+
+@pytest.mark.postgres
+@pytest.mark.django_db(transaction=True)
+def test_step_releases_its_thread_db_connection():
+    used = []
+
+    @scheduler_module._releases_db_connection
+    def step():
+        Announcement.objects.exists()
+        used.append(connections[DEFAULT_DB_ALIAS])
+
+    # DBOS steps run on long-lived threads that never see a request signal.
+    thread = threading.Thread(target=step)
+    thread.start()
+    thread.join()
+
+    assert [wrapper.connection for wrapper in used] == [None]
