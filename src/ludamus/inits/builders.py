@@ -116,6 +116,7 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         users=repos.active_users,
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
+        cache=DjangoCache(),
     )
 
 
@@ -129,5 +130,4 @@ def build_encounters(sites: SitesServiceProtocol) -> EncounterService:
         spheres=repos.spheres,
         sites=sites,
         guests=build_encounter_guests(sites),
-        cache=DjangoCache(),
     )
