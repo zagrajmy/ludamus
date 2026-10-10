@@ -70,6 +70,8 @@ class TestPublicEventPrintMaterials:
                                 ),
                             )
                         ],
+                        sheet_index=1,
+                        sheet_count=1,
                     )
                 ],
             ),
@@ -169,6 +171,8 @@ class TestPublicEventPrintMaterials:
                                 ),
                             )
                         ],
+                        sheet_index=1,
+                        sheet_count=1,
                     )
                 ],
             ),
