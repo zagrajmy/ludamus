@@ -1220,14 +1220,14 @@ sftp = ["paramiko (>=1.15)"]
 
 [[package]]
 name = "django-stubs"
-version = "6.1.1"
+version = "6.1.2"
 description = "Mypy stubs for Django"
 optional = false
 python-versions = ">=3.11"
 groups = ["dev"]
 files = [
-    {file = "django_stubs-6.1.1-py3-none-any.whl", hash = "sha256:a913d0c35242cd820f638486118fd542d687b6a85104bea9cb7e635b52b889e3"},
-    {file = "django_stubs-6.1.1.tar.gz", hash = "sha256:291fd79197416d191ec9f4e443bc6800b64dd5d41e476b91e679495d005f3d61"},
+    {file = "django_stubs-6.1.2-py3-none-any.whl", hash = "sha256:ffb6e74f54b8c1f9b2f3bc4852c5abbaa2324b2a7cb1c51854c5f95abe67165c"},
+    {file = "django_stubs-6.1.2.tar.gz", hash = "sha256:d62b15fa5cbae79b1922d015e1454d299959d230221dadb23f65c749480b97ec"},
 ]
 
 [package.dependencies]
@@ -1237,7 +1237,7 @@ types-pyyaml = "*"
 typing-extensions = ">=4.11.0"
 
 [package.extras]
-compatible-mypy = ["mypy (>=1.13,<2.4)"]
+compatible-mypy = ["mypy (>=1.13,<2.5)"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
@@ -5775,4 +5775,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "0166dbdd1c6071ce0990dc97487841ba0503cf0190a9d6e20bc31768b83876b6"
+content-hash = "4203dfefdb18fd177e422765bc15f8361b8727de76a7f0e4be48b558338a34c9"
