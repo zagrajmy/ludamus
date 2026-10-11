@@ -1199,7 +1199,6 @@ msgstr "Wybierz przynajmniej jedną kolumnę do eksportu."
 #: src/ludamus/gates/web/django/chronology/panel/views/export.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Scheduled"
 msgstr "Zaplanowane"
@@ -1697,7 +1696,6 @@ msgstr "Oczekujące"
 #: src/ludamus/templates/landing/scena.html
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
 msgstr "Zaakceptowane"
@@ -1705,14 +1703,12 @@ msgstr "Zaakceptowane"
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/landing/scena.html
 #: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "On hold"
 msgstr "Rezerwa"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
