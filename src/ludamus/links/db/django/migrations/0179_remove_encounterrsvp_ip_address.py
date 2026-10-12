@@ -8,6 +8,6 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0175_merge_schedule_confirmed_notification_kind")]
+    dependencies = [("db_main", "0178_alter_notification_kind")]
 
     operations = [migrations.RemoveField(model_name="encounterrsvp", name="ip_address")]
