@@ -83,8 +83,16 @@ class MaintainerTool(ToolProtocol):
     def input_schema(self) -> JsonDict:
         return json_schema(self._input_model)
 
-    def audit_arguments(self, arguments: JsonDict) -> object:
-        return self._tool.audit_arguments(arguments)
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
+        # The actor on the audit line is the maintainer's, with no sphere or
+        # event, and batch tools log only counts and row ids: the target has
+        # to ride in the arguments or the line never says where it wrote.
+        target: JsonDict = {
+            name: arguments[name]
+            for name in ("sphere_id", "event_id")
+            if name in arguments
+        }
+        return {**target, **self._tool.audit_arguments(arguments)}
 
     def run(
         self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict

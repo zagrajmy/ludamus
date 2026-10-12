@@ -85,7 +85,7 @@ class ToolProtocol(Protocol):
     scope: ToolScope
 
     def input_schema(self) -> JsonDict: ...
-    def audit_arguments(self, arguments: JsonDict) -> object: ...
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict: ...
     def run(
         self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict
     ) -> str: ...
@@ -115,8 +115,12 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
     def input_schema(self) -> JsonDict:
         return json_schema(self.input_model)
 
-    def audit_arguments(self, arguments: JsonDict) -> object:
-        return redact_keys(arguments, self.audit_redacted_keys)
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
+        keys = self.audit_redacted_keys
+        return {
+            name: "[redacted]" if name in keys else redact_keys(value, keys)
+            for name, value in arguments.items()
+        }
 
     def run(
         self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict

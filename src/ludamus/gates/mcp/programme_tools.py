@@ -639,7 +639,7 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
     input_model = _CreateSessionsInput
 
     @override
-    def audit_arguments(self, arguments: JsonDict) -> object:
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="sessions",
@@ -738,7 +738,7 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
     input_model = _AssignSessionsInput
 
     @override
-    def audit_arguments(self, arguments: JsonDict) -> object:
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="assignments",

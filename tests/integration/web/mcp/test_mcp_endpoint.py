@@ -710,3 +710,25 @@ class TestOrganizerToolsForMaintainers:
         assert result["content"][0]["text"] == (
             "Invalid arguments: event_id: Field required; name: Field required"
         )
+
+    def test_batch_call_audit_names_the_target(
+        self, client, token, superuser, sphere, caplog
+    ):
+        event = EventFactory(sphere=sphere)
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(
+            client,
+            token,
+            "create_sessions",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "sessions": []},
+        )
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args[6] == {
+            "sphere_id": sphere.pk,
+            "event_id": event.pk,
+            "session_count": 0,
+            "source_row_ids": [],
+        }
