@@ -1,15 +1,15 @@
 import { requestConfirm } from "./confirm";
 
-interface PreferredSlot {
+interface OfferedWindow {
   end: string;
   start: string;
 }
 
 interface Placement {
+  availability: OfferedWindow[];
   backUrl: string | null;
   confirmed: boolean;
   duration: number;
-  preferredSlots: PreferredSlot[];
   sessionPk: string;
 }
 
@@ -31,9 +31,6 @@ const dayGrids = (): NodeListOf<HTMLElement> =>
 
 const columns = (): NodeListOf<HTMLElement> =>
   document.querySelectorAll<HTMLElement>(".timetable-column");
-
-const columnsForDayGrid = (dayGrid: HTMLElement): NodeListOf<HTMLElement> =>
-  dayGrid.querySelectorAll<HTMLElement>(".timetable-column");
 
 const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
   col.closest<HTMLElement>(".timetable-day-grid");
@@ -108,36 +105,37 @@ function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): v
   if (guide.parentElement !== col) col.append(guide);
 }
 
-function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
+function parseAvailability(raw: string | undefined): OfferedWindow[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (s): s is PreferredSlot =>
-        typeof s === "object" &&
-        s !== null &&
-        typeof (s as PreferredSlot).start === "string" &&
-        typeof (s as PreferredSlot).end === "string",
+      (item): item is OfferedWindow =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as OfferedWindow).start === "string" &&
+        typeof (item as OfferedWindow).end === "string",
     );
   } catch {
     return [];
   }
 }
 
-function clearPreferredSlotOverlays(): void {
-  for (const el of document.querySelectorAll<HTMLElement>(".timetable-preferred-slot")) el.remove();
+function clearAvailabilityOverlays(): void {
+  for (const el of document.querySelectorAll<HTMLElement>(".timetable-offered")) el.remove();
 }
 
-function renderPreferredSlotOverlays(): void {
-  clearPreferredSlotOverlays();
-  const slots = (armed ?? dragging)?.preferredSlots ?? [];
-  if (slots.length === 0) return;
+// Parts of a day have hours, so the hint can paint the band the facilitator
+// actually offered. It stays advice: every other hour is still droppable.
+function renderAvailabilityOverlays(): void {
+  clearAvailabilityOverlays();
+  const offered = (armed ?? dragging)?.availability ?? [];
+  if (offered.length === 0) return;
 
   for (const cal of dayGrids()) {
     const { eventStart } = cal.dataset;
     if (!eventStart) continue;
-
     const totalMinutes = Number(cal.dataset.totalMinutes);
     if (!totalMinutes) continue;
 
@@ -146,23 +144,21 @@ function renderPreferredSlotOverlays(): void {
     const pxPerMs = minutePx / 60_000;
     const totalHeightPx = totalMinutes * minutePx;
 
-    for (const slot of slots) {
-      const startMs = new Date(slot.start).getTime();
-      const endMs = new Date(slot.end).getTime();
+    for (const window of offered) {
+      const startMs = new Date(window.start).getTime();
+      const endMs = new Date(window.end).getTime();
       if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
 
-      const rawTop = (startMs - eventStartMs) * pxPerMs;
-      const rawBottom = (endMs - eventStartMs) * pxPerMs;
-      const top = Math.max(0, rawTop);
-      const bottom = Math.min(totalHeightPx, rawBottom);
+      const top = Math.max(0, (startMs - eventStartMs) * pxPerMs);
+      const bottom = Math.min(totalHeightPx, (endMs - eventStartMs) * pxPerMs);
       if (bottom <= top) continue;
 
-      for (const col of columnsForDayGrid(cal)) {
-        const overlay = document.createElement("div");
-        overlay.className = "timetable-preferred-slot";
-        overlay.style.top = `calc(${top}px + 20px)`;
-        overlay.style.height = `${bottom - top}px`;
-        col.append(overlay);
+      for (const col of cal.querySelectorAll<HTMLElement>(".timetable-column")) {
+        const band = document.createElement("div");
+        band.className = "timetable-offered";
+        band.style.top = `calc(${top}px + 20px)`;
+        band.style.height = `${bottom - top}px`;
+        col.append(band);
       }
     }
   }
@@ -187,7 +183,7 @@ function enterAssignMode(placement: Placement): void {
   banner().classList.remove("hidden");
   markColumnsActive(true);
   markFiltersInert(true);
-  renderPreferredSlotOverlays();
+  renderAvailabilityOverlays();
 }
 
 function exitAssignMode(): void {
@@ -195,16 +191,16 @@ function exitAssignMode(): void {
   banner().classList.add("hidden");
   markColumnsActive(false);
   markFiltersInert(false);
-  clearPreferredSlotOverlays();
+  clearAvailabilityOverlays();
   hideHoverPreview();
 }
 
 function placementFromAssignButton(btn: HTMLElement): Placement {
   return {
+    availability: parseAvailability(btn.dataset.assignAvailability),
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
-    preferredSlots: parsePreferredSlots(btn.dataset.assignPreferredSlots),
     sessionPk: btn.dataset.assignSessionPk!,
   };
 }
@@ -212,10 +208,10 @@ function placementFromAssignButton(btn: HTMLElement): Placement {
 function placementFromDraggable(el: HTMLElement): Placement {
   const sessionPk = el.dataset.sessionPk!;
   return {
+    availability: armed?.sessionPk === sessionPk ? armed.availability : [],
     backUrl: armed?.sessionPk === sessionPk ? armed.backUrl : null,
     confirmed: el.dataset.confirmed === "true",
     duration: Number(el.dataset.duration) || 60,
-    preferredSlots: armed?.sessionPk === sessionPk ? armed.preferredSlots : [],
     sessionPk,
   };
 }
@@ -329,7 +325,7 @@ document.addEventListener("dragstart", (e) => {
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", dragging.sessionPk);
   markColumnsActive(true);
-  renderPreferredSlotOverlays();
+  renderAvailabilityOverlays();
 });
 
 document.addEventListener("dragover", (e) => {
@@ -359,10 +355,10 @@ document.addEventListener("dragend", () => {
   dragging = null;
   hideDropGuide();
   if (armed) {
-    renderPreferredSlotOverlays();
+    renderAvailabilityOverlays();
   } else {
     markColumnsActive(false);
-    clearPreferredSlotOverlays();
+    clearAvailabilityOverlays();
   }
 });
 
@@ -407,7 +403,7 @@ document.body.addEventListener("htmx:afterSwap", () => {
     banner().classList.remove("hidden");
     markColumnsActive(true);
     markFiltersInert(true);
-    renderPreferredSlotOverlays();
+    renderAvailabilityOverlays();
   }
 });
 

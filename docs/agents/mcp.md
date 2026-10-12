@@ -88,7 +88,7 @@ sphere. The endpoint loads only organizer-scoped tools, so maintainer tools
 are structurally unreachable from it. Old tokens that omit `event_id` fail
 auth.
 
-The organizer tier provides programme verbs for spaces, time slots, tracks,
+The organizer tier provides programme verbs for spaces, tracks,
 sessions, and venue maps, with writes scoped to one event per token and
 sphere-wide reads.
 

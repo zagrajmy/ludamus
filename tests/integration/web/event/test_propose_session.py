@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from itertools import starmap
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
@@ -24,7 +26,6 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldRequirement,
     SessionFieldValue,
-    TimeSlotRequirement,
     Track,
 )
 from ludamus.pacts import (
@@ -34,16 +35,42 @@ from ludamus.pacts import (
     RedirectError,
     TrackDTO,
 )
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.images import StoredFile
-from tests.integration.conftest import (
-    PNG_BYTES,
-    ProposalCategoryFactory,
-    TimeSlotFactory,
-)
+from tests.integration.conftest import PNG_BYTES, ProposalCategoryFactory
 from tests.integration.utils import assert_response
 
 COVER_LOGGER = propose_cover.__name__
 SUBMITTED_MESSAGE = "Session proposal 'Test Session' submitted successfully!"
+
+# Spelled out rather than imported from the view, so a relabelled chip has to
+# be restated here.
+PART_LABELS = {
+    DayPart.MORNING: "Morning",
+    DayPart.AFTERNOON: "Afternoon",
+    DayPart.EVENING: "Evening",
+    DayPart.NIGHT: "Night",
+}
+
+
+def time_value(day, part):
+    # What one chip posts back: a programme day and the part of it.
+    return f"{day.isoformat()}:{part.value}"
+
+
+def day_descriptor(day, parts, *, selected=()):
+    return {
+        "day": day,
+        "parts": [
+            {
+                "value": time_value(day, part),
+                "label": PART_LABELS[part],
+                "is_selected": part in selected,
+            }
+            for part in parts
+        ],
+    }
+
 
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
@@ -67,9 +94,9 @@ class TestProposeSessionPageView:
             "web:event:session-propose-personal", kwargs={"event_slug": event_slug}
         )
 
-    def _get_timeslots_url(self, event_slug: str) -> str:
+    def _get_days_url(self, event_slug: str) -> str:
         return reverse(
-            "web:event:session-propose-timeslots", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-days", kwargs={"event_slug": event_slug}
         )
 
     def _get_details_url(self, event_slug: str) -> str:
@@ -95,6 +122,46 @@ class TestProposeSessionPageView:
             "+1d", "+10d", tzinfo=time_zone
         )
         event.save()
+
+    def _offer_times(self, event, category, *, days=3):
+        # The time step only shows when the category asks and the event offers
+        # more than one (day, part) pair, so a scenario about it states both.
+        # Doors at 18:00 and closing at noon keep the offer small enough to
+        # spell out: an evening and a night to open with, whole days in the
+        # middle, a morning to close on.
+        opening = localtime(event.start_time).replace(
+            hour=18, minute=0, second=0, microsecond=0
+        )
+        event.start_time = opening
+        event.end_time = opening.replace(hour=12) + timedelta(days=days - 1)
+        event.save(update_fields=["start_time", "end_time"])
+        category.asks_availability = True
+        category.save(update_fields=["asks_availability"])
+        first = opening.date()
+        whole_day = [DayPart.MORNING, DayPart.AFTERNOON, DayPart.EVENING, DayPart.NIGHT]
+        return [
+            (first, [DayPart.EVENING, DayPart.NIGHT]),
+            *(
+                (first + timedelta(days=offset), whole_day)
+                for offset in range(1, days - 1)
+            ),
+            (first + timedelta(days=days - 1), [DayPart.MORNING]),
+        ]
+
+    def _offer_one_time(self, event):
+        # One possible answer is no choice at all: an evening that closes at
+        # midnight reaches no other part of any day.
+        opening = localtime(event.start_time).replace(
+            hour=18, minute=0, second=0, microsecond=0
+        )
+        event.start_time = opening
+        event.end_time = opening + timedelta(hours=6)
+        event.save(update_fields=["start_time", "end_time"])
+        return opening.date(), DayPart.EVENING
+
+    def _asks_days(self, category):
+        category.asks_availability = True
+        category.save(update_fields=["asks_availability"])
 
     def _set_wizard_category(self, client, event, category):
         session = client.session
@@ -169,13 +236,7 @@ class TestProposeSessionPageView:
                 "field_descriptors": [],
                 "current_step": "personal",
                 "is_first_step": True,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
                 "wizard_part_template": "event/propose/parts/personal.html",
@@ -204,13 +265,7 @@ class TestProposeSessionPageView:
                 "error": None,
                 "current_step": "category",
                 "is_first_step": False,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
             },
             template_name="event/propose/parts/category.html",
         )
@@ -441,13 +496,7 @@ class TestProposeSessionPageView:
                 "field_descriptors": descriptors,
                 "current_step": "personal",
                 "is_first_step": True,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
                 "wizard_part_template": "event/propose/parts/personal.html",
@@ -487,13 +536,7 @@ class TestProposeSessionPageView:
                 "error": None,
                 "current_step": "category",
                 "is_first_step": False,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
             },
             template_name="event/propose/parts/category.html",
         )
@@ -629,7 +672,7 @@ class TestProposeSessionPageView:
         form = response.context["form"]
         assert form.initial["personal_phone"] == "+48 999"
 
-    def test_post_personal_advances_to_timeslots(
+    def test_post_personal_advances_to_days(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
@@ -638,14 +681,7 @@ class TestProposeSessionPageView:
         )
         field.is_required = True
         field.save()
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -654,11 +690,11 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert [
-            slot["id"] for slot in response.context["slot_descriptors"][0]["slots"]
-        ] == [slot1.pk, slot2.pk]
+        assert response.context["day_descriptors"] == list(
+            starmap(day_descriptor, offered)
+        )
 
-    def test_post_personal_skips_single_timeslot(
+    def test_post_personal_skips_days_when_one_time_is_offered(
         self,
         authenticated_client,
         active_user,
@@ -675,8 +711,8 @@ class TestProposeSessionPageView:
         )
         field.is_required = True
         field.save()
-        slot = TimeSlotFactory(event=event)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
+        self._asks_days(proposal_category)
+        day, part = self._offer_one_time(event)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
@@ -686,9 +722,9 @@ class TestProposeSessionPageView:
 
         assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert wizard["time_slot_ids"] == [slot.pk]
+        assert wizard["availability"] == [time_value(day, part)]
 
-    def test_single_category_single_timeslot_defaults_are_submitted(
+    def test_single_category_single_time_defaults_are_submitted(
         self,
         authenticated_client,
         active_user,
@@ -700,8 +736,8 @@ class TestProposeSessionPageView:
         active_user.email = ""
         active_user.save()
         self._activate_proposals(event, faker, time_zone)
-        slot = TimeSlotFactory(event=event)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
+        self._asks_days(proposal_category)
+        day, part = self._offer_one_time(event)
 
         response = authenticated_client.get(self._get_url(event.slug))
         assert response.status_code == HTTPStatus.OK
@@ -714,94 +750,91 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
-        assert wizard["time_slot_ids"] == [slot.pk]
+        assert wizard["availability"] == [time_value(day, part)]
 
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
                 "facilitator_name": "Presenter",
                 "title": "Skipped Defaults",
-                "description": "Single category and slot",
+                "description": "Single category and day",
                 "participants_limit": proposal_category.min_participants_limit,
             },
         )
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "event/propose/parts/review.html"
         assert response.context["review"]["category_name"] == proposal_category.name
-        assert response.context["review"]["time_slots"][0]["slots"][0]["id"] == slot.pk
+        assert response.context["review"]["availability"] == [
+            day_descriptor(day, [part], selected=[part])
+        ]
 
         response = authenticated_client.post(self._get_submit_url(event.slug))
 
         assert response.status_code == HTTPStatus.FOUND
         session = Session.objects.get(title="Skipped Defaults")
         assert session.category_id == proposal_category.pk
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
-    def test_post_timeslots_stores_in_session(
+    def test_post_days_stores_in_session(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category)
+        (first_day, first_parts), (last_day, last_parts) = offered[0], offered[-1]
+        picked = [
+            time_value(first_day, first_parts[0]),
+            time_value(last_day, last_parts[0]),
+        ]
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug),
-            {"time_slot_ids": [str(slot1.pk), str(slot2.pk)]},
+            self._get_days_url(event.slug), {"availability": picked}
         )
 
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert sorted(wizard["time_slot_ids"]) == sorted([slot1.pk, slot2.pk])
+        assert wizard["availability"] == picked
         assert response.context["form"] is not None
 
-    def test_post_timeslots_without_selection_shows_error(
+    def test_post_days_without_selection_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        response = authenticated_client.post(self._get_timeslots_url(event.slug), {})
+        response = authenticated_client.post(self._get_days_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["error"]
 
-    def test_post_timeslots_filters_invalid_ids(
+    def test_post_days_filters_times_the_event_does_not_offer(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category)
+        first_day, first_parts = offered[0]
+        kept = time_value(first_day, first_parts[0])
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug),
-            {"time_slot_ids": [str(slot1.pk), "99999"]},
+            self._get_days_url(event.slug),
+            {
+                "availability": [
+                    kept,
+                    # The doors open in the evening, so the opening day has no
+                    # morning to offer, and the event is over by this date.
+                    time_value(first_day, DayPart.MORNING),
+                    time_value(offered[-1][0] + timedelta(days=1), DayPart.MORNING),
+                ]
+            },
         )
 
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        assert wizard["time_slot_ids"] == [slot1.pk]
+        assert wizard["availability"] == [kept]
 
     def test_post_category_skips_personal_step_the_profile_handle_answers(
         self, authenticated_client, active_user, event, faker, time_zone
@@ -880,13 +913,7 @@ class TestProposeSessionPageView:
                 "field_descriptors": response.context["field_descriptors"],
                 "current_step": "personal",
                 "is_first_step": True,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
                 "wizard_part_template": "event/propose/parts/personal.html",
@@ -894,22 +921,20 @@ class TestProposeSessionPageView:
             template_name="event/propose/base.html",
         )
 
-    def test_post_timeslots_with_only_foreign_id_shows_error(
+    def test_post_days_with_only_a_foreign_time_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category, days=2)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"time_slot_ids": ["99999"]}
+            self._get_days_url(event.slug),
+            {
+                "availability": [
+                    time_value(offered[-1][0] + timedelta(days=1), DayPart.MORNING)
+                ]
+            },
         )
 
         assert_response(
@@ -921,66 +946,39 @@ class TestProposeSessionPageView:
                     allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
-                "slot_descriptors": [
-                    {
-                        "day": slot1.start_time.date(),
-                        "slots": [
-                            {
-                                "id": slot1.pk,
-                                "start_time": slot1.start_time,
-                                "end_time": slot1.end_time,
-                                "is_required": True,
-                                "is_selected": False,
-                            },
-                            {
-                                "id": slot2.pk,
-                                "start_time": slot2.start_time,
-                                "end_time": slot2.end_time,
-                                "is_required": True,
-                                "is_selected": False,
-                            },
-                        ],
-                    }
-                ],
-                "error": "Please select at least one time slot.",
-                "current_step": "timeslots",
+                "day_descriptors": list(starmap(day_descriptor, offered)),
+                "error": "Pick at least one time you could host.",
+                "current_step": "days",
                 "is_first_step": True,
-                "wizard_steps": ["timeslots", "details", "review"],
+                "wizard_steps": ["days", "details", "review"],
             },
-            template_name="event/propose/parts/timeslots.html",
+            template_name="event/propose/parts/days.html",
         )
         assert (
-            "time_slot_ids" not in authenticated_client.session[f"propose_{event.slug}"]
+            "availability" not in authenticated_client.session[f"propose_{event.slug}"]
         )
 
-    def test_post_timeslots_skips_when_no_requirements(
+    def test_post_days_skips_when_the_category_does_not_ask(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        response = authenticated_client.post(self._get_timeslots_url(event.slug), {})
+        response = authenticated_client.post(self._get_days_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
         assert response.template_name == "event/propose/parts/details.html"
 
-    def test_post_timeslots_preserves_selection(
+    def test_post_days_preserves_selection(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category)
         session = authenticated_client.session
         session[f"propose_{event.slug}"] = {
             "category_id": proposal_category.pk,
-            "time_slot_ids": [slot1.pk],
+            "availability": [time_value(offered[0][0], offered[0][1][0])],
         }
         session.save()
 
@@ -1197,7 +1195,7 @@ class TestProposeSessionPageView:
         session.save()
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"back": "1"}
+            self._get_days_url(event.slug), {"back": "1"}
         )
 
         assert response.status_code == HTTPStatus.OK
@@ -1235,28 +1233,21 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["field_descriptors"]
 
-    def test_post_back_to_timeslots(
+    def test_post_back_to_days(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"back": "1"}
+            self._get_days_url(event.slug), {"back": "1"}
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context["slot_descriptors"]
+        assert response.context["day_descriptors"]
 
-    def test_post_back_from_details_skips_timeslots_when_none_required(
+    def test_post_back_from_details_skips_days_when_the_category_does_not_ask(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
@@ -1268,14 +1259,14 @@ class TestProposeSessionPageView:
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"back": "1"}
+            self._get_days_url(event.slug), {"back": "1"}
         )
 
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "event/propose/parts/personal.html"
         assert response.context["field_descriptors"]
 
-    def test_post_back_from_details_skips_timeslots_when_one_required(
+    def test_post_back_from_details_skips_days_when_one_time_is_offered(
         self,
         authenticated_client,
         active_user,
@@ -1287,12 +1278,12 @@ class TestProposeSessionPageView:
         self._activate_proposals(event, faker, time_zone)
         active_user.email = ""
         active_user.save()
-        slot = TimeSlotFactory(event=event)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
+        self._asks_days(proposal_category)
+        self._offer_one_time(event)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"back": "1"}
+            self._get_days_url(event.slug), {"back": "1"}
         )
 
         assert response.status_code == HTTPStatus.OK
@@ -1340,14 +1331,13 @@ class TestProposeSessionPageView:
         )
         field.is_required = True
         field.save()
-        slot = TimeSlotFactory(event=event)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_full(
             authenticated_client,
             event,
             proposal_category,
             personal_data={"personal_phone": "+48 123"},
-            time_slot_ids=[slot.pk],
+            availability=[time_value(offered[0][0], offered[0][1][0])],
         )
 
         response = authenticated_client.post(
@@ -1369,7 +1359,7 @@ class TestProposeSessionPageView:
             len(review["public_personal_fields"] + review["private_personal_fields"])
             == 1
         )
-        assert len(review["time_slots"]) == 1
+        assert len(review["availability"]) == 1
 
     def test_review_shows_icon_of_public_session_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1605,20 +1595,25 @@ class TestProposeSessionPageView:
         active_user.refresh_from_db()
         assert active_user.discord_username == "gm_alice"
 
-    def test_submit_sets_time_slots(
+    def test_submit_sets_availability(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot = TimeSlotFactory(event=event)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot)
+        offered = self._offer_times(event, proposal_category)
+        day, parts = offered[0]
         self._set_wizard_full(
-            authenticated_client, event, proposal_category, time_slot_ids=[slot.pk]
+            authenticated_client,
+            event,
+            proposal_category,
+            availability=[time_value(day, parts[0])],
         )
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
         session = Session.objects.get(title="Test Session")
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, parts[0].value)
+        ]
 
     def test_submit_saves_session_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1811,7 +1806,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
 
-        response = authenticated_client.post(self._get_timeslots_url(event.slug), {})
+        response = authenticated_client.post(self._get_days_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.FOUND
 
@@ -1822,7 +1817,7 @@ class TestProposeSessionPageView:
         self._set_wizard_category(authenticated_client, event, proposal_category)
         proposal_category.delete()
 
-        response = authenticated_client.post(self._get_timeslots_url(event.slug), {})
+        response = authenticated_client.post(self._get_days_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.FOUND
 
@@ -2048,7 +2043,7 @@ class TestProposeSessionPageView:
                     "private_session_fields": [],
                     "public_personal_fields": [],
                     "public_session_fields": [],
-                    "time_slots": [],
+                    "availability": [],
                     "title": "Test Session",
                 },
                 "wizard_steps": ["details", "review"],
@@ -2622,18 +2617,12 @@ class TestProposeSessionPageView:
                 "error": "Please select a category.",
                 "current_step": "category",
                 "is_first_step": False,
-                "wizard_steps": [
-                    "personal",
-                    "category",
-                    "timeslots",
-                    "details",
-                    "review",
-                ],
+                "wizard_steps": ["personal", "category", "days", "details", "review"],
             },
             template_name="event/propose/parts/category.html",
         )
 
-    def test_personal_step_stepper_omits_timeslots_when_none_required(
+    def test_personal_step_stepper_omits_days_when_the_category_does_not_ask(
         self,
         authenticated_client,
         active_user,
@@ -2672,22 +2661,15 @@ class TestProposeSessionPageView:
             template_name="event/propose/parts/personal.html",
         )
 
-    def test_timeslots_step_stepper_includes_timeslots(
+    def test_days_step_stepper_includes_days(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
-        slot1 = TimeSlotFactory(event=event)
-        slot2 = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=3),
-            end_time=event.start_time + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
-        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        offered = self._offer_times(event, proposal_category)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(
-            self._get_timeslots_url(event.slug), {"back": "1"}
+            self._get_days_url(event.slug), {"back": "1"}
         )
 
         assert_response(
@@ -2699,33 +2681,13 @@ class TestProposeSessionPageView:
                     allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
-                "slot_descriptors": [
-                    {
-                        "day": slot1.start_time.date(),
-                        "slots": [
-                            {
-                                "id": slot1.pk,
-                                "start_time": slot1.start_time,
-                                "end_time": slot1.end_time,
-                                "is_required": True,
-                                "is_selected": False,
-                            },
-                            {
-                                "id": slot2.pk,
-                                "start_time": slot2.start_time,
-                                "end_time": slot2.end_time,
-                                "is_required": True,
-                                "is_selected": False,
-                            },
-                        ],
-                    }
-                ],
+                "day_descriptors": list(starmap(day_descriptor, offered)),
                 "error": None,
-                "current_step": "timeslots",
+                "current_step": "days",
                 "is_first_step": True,
-                "wizard_steps": ["timeslots", "details", "review"],
+                "wizard_steps": ["days", "details", "review"],
             },
-            template_name="event/propose/parts/timeslots.html",
+            template_name="event/propose/parts/days.html",
         )
 
     def test_details_step_stepper_context(
@@ -2790,7 +2752,7 @@ class TestProposeSessionPageView:
                     "private_session_fields": [],
                     "public_personal_fields": [],
                     "private_personal_fields": [],
-                    "time_slots": [],
+                    "availability": [],
                 },
                 "current_step": "review",
                 "is_first_step": False,
@@ -3384,11 +3346,8 @@ class TestProposeWizardWithoutCategory:
     @pytest.fixture
     def wizard(self, event):
         # Two categories, so the wizard cannot auto-pick one.
-        category = ProposalCategoryFactory(event=event)
+        ProposalCategoryFactory(event=event, asks_availability=True)
         ProposalCategoryFactory(event=event)
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=TimeSlotFactory(event=event)
-        )
         service = Services().propose_session
         return propose._Wizard(
             request=RequestFactory().get("/"),
@@ -3396,8 +3355,10 @@ class TestProposeWizardWithoutCategory:
             event=service.get_event(event.slug, event.sphere_id),
         )
 
-    def test_timeslot_requirements_are_empty(self, wizard):
-        assert wizard.timeslot_requirements == []
+    def test_asks_days_before_a_category_is_picked(self, wizard):
+        # The strip must not grow a step the moment the first choice is made,
+        # so the day step is assumed present until a category says otherwise.
+        assert wizard.asks_days
 
     def test_chosen_redirects_to_category_step(self, wizard):
         with pytest.raises(RedirectError) as exc_info:
@@ -3409,16 +3370,16 @@ class TestProposeWizardWithoutCategory:
         assert exc_info.value.error == "Please select a category first."
 
 
-class TestProposeTimeslotsTemplate:
-    # No view renders the step with nothing to pick (a slot-less category hides
-    # it), so the auto-advance fallback is exercised by rendering directly.
-    def test_auto_advances_when_no_slots_offered(self, event):
+class TestProposeDaysTemplate:
+    # No view renders the step with nothing to pick (a category that does not
+    # ask hides it), so the auto-advance fallback is rendered directly.
+    def test_auto_advances_when_no_days_offered(self, event):
         html = render_to_string(
-            "event/propose/parts/timeslots.html",
+            "event/propose/parts/days.html",
             {
                 "event": event,
                 "proposal_settings": {"description": ""},
-                "slot_descriptors": [],
+                "day_descriptors": [],
                 "csrf_token": "test-token",
             },
         )

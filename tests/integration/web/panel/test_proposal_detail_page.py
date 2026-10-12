@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from http import HTTPStatus
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,7 +12,6 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     ScheduleChangeLog,
     Session,
-    TimeSlot,
     Track,
 )
 from ludamus.pacts import (
@@ -22,9 +21,9 @@ from ludamus.pacts import (
     ScheduleChangeLogDTO,
     SessionDTO,
     SessionStatus,
-    TimeSlotDTO,
     TrackDTO,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -35,6 +34,7 @@ from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
+    SessionAvailabilityFactory,
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
@@ -133,7 +133,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -211,7 +211,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -219,23 +219,19 @@ class TestProposalDetailPageView:
             contains=["Presenter", "Contact Email", 'href="mailto:anna@example.com"'],
         )
 
-    def test_renders_preferred_time_slots_when_attached(self, panel_client, event):
+    def test_lists_availability_when_attached(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
         session = Session.objects.create(
             event=event,
             category=category,
             facilitator_name="Host",
-            title="Session With Slots",
-            slug="session-with-slots",
+            title="Session With Days",
+            slug="session-with-days",
             participants_limit=4,
             status="pending",
         )
-        session.time_slots.add(slot)
+        day = date(2026, 6, 19)
+        SessionAvailabilityFactory(session=session, day=day, part=DayPart.EVENING)
 
         response = panel_client.get(self.get_url(event, session.pk))
 
@@ -262,12 +258,11 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
-            contains="Preferred time slots",
         )
 
     def test_unscheduled_proposal_shows_metadata_without_placement(
@@ -309,7 +304,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -381,7 +376,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -463,7 +458,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -548,7 +543,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -595,7 +590,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -661,7 +656,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -713,7 +708,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [FacilitatorDTO.model_validate(facilitator)],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -765,7 +760,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
@@ -831,7 +826,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "preferred_time_slots": [],
+                "availability": [],
                 "import_log_entry": ImportLogEntryDTO.model_validate(entry),
                 "import_log_integration": EventIntegrationDTO(
                     pk=integration.pk,

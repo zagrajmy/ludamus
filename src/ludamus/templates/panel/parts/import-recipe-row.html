@@ -27,9 +27,9 @@
                     {% if row.selected == "facilitator.display_name" %}selected{% endif %}>
                 {% translate "Facilitator — Display name" %}
             </option>
-            <option value="session.time_slots"
-                    {% if row.selected == "session.time_slots" %}selected{% endif %}>
-                {% translate "Time slots" %}
+            <option value="session.availability"
+                    {% if row.selected == "session.availability" %}selected{% endif %}>
+                {% translate "Available days" %}
             </option>
             <option value="track" {% if row.selected == "track" %}selected{% endif %}>{% translate "Track" %}</option>
             <option value="category"
@@ -116,48 +116,50 @@
             </div>
         </div>
     </div>
-    <div data-recipe-timeslots
-         class="mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
+    <div data-recipe-times
+         class="mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.availability" %}hidden{% endif %}"
          data-row="{{ row.index }}">
-        {% for ow in row.option_windows %}
-            <div data-ts-option
+        {% for group in row.option_times %}
+            <div data-time-option
                  class="rounded-lg border border-border bg-bg-tertiary p-4">
-                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ow.option }}</p>
-                <div data-ts-windows class="space-y-2">
-                    {% for w in ow.windows %}
-                        <div data-ts-window class="flex items-center gap-2">
-                            <input type="hidden" name="tsoption_{{ row.index }}" value="{{ ow.option }}">
-                            <input type="text"
-                                   name="tsstart_{{ row.index }}"
-                                   value="{{ w.start }}"
-                                   aria-label="{% translate "Start" %}"
-                                   placeholder="2025-09-19T16:00"
-                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
-                                   title="2025-09-19T16:00"
+                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ group.option }}</p>
+                <div data-time-rows class="space-y-2">
+                    {% for entry in group.times %}
+                        <div data-time-row class="flex items-center gap-2">
+                            <input type="hidden"
+                                   name="timeoption_{{ row.index }}"
+                                   value="{{ group.option }}">
+                            <input type="date"
+                                   name="timeday_{{ row.index }}"
+                                   value="{{ entry.day }}"
+                                   aria-label="{% translate "Day" %}"
                                    class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                            <span class="shrink-0 text-foreground-muted">–</span>
-                            <input type="text"
-                                   name="tsend_{{ row.index }}"
-                                   value="{{ w.end }}"
-                                   aria-label="{% translate "End" %}"
-                                   placeholder="2025-09-19T16:00"
-                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
-                                   title="2025-09-19T16:00"
-                                   class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                            <select name="timepart_{{ row.index }}"
+                                    aria-label="{% translate "Part of day" %}"
+                                    class="min-w-0 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="morning"
+                                        {% if entry.part == "morning" %}selected{% endif %}>{% translate "Morning" %}</option>
+                                <option value="afternoon"
+                                        {% if entry.part == "afternoon" %}selected{% endif %}>{% translate "Afternoon" %}</option>
+                                <option value="evening"
+                                        {% if entry.part == "evening" %}selected{% endif %}>{% translate "Evening" %}</option>
+                                <option value="night"
+                                        {% if entry.part == "night" %}selected{% endif %}>{% translate "Night" %}</option>
+                            </select>
                             <button type="button"
-                                    data-ts-remove
+                                    data-time-remove
                                     class="shrink-0 text-foreground-muted hover:text-foreground"
-                                    aria-label="{% translate "Remove window" %}">
+                                    aria-label="{% translate "Remove time" %}">
                                 {% icon "x-mark" class="w-4 h-4" %}
                             </button>
                         </div>
                     {% endfor %}
                 </div>
                 <button type="button"
-                        data-ts-add
+                        data-time-add
                         class="mt-2 inline-flex items-center text-sm text-primary hover:underline">
                     {% icon "plus" class="w-4 h-4 mr-1" %}
-                    {% translate "Add window" %}
+                    {% translate "Add time" %}
                 </button>
             </div>
         {% endfor %}
