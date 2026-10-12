@@ -153,8 +153,10 @@ _ROW_TZ_MARK = ' <span class="text-[0.55rem]">{}</span>'
 # The separator rides with the label: no-enrollment is the one state that
 # prints nothing, and a bullet must not outlive what it separates.
 _ROW_AVAILABILITY = ' <span class="print:hidden">· {}</span>'
+# right-px puts the bookmark glyph one gutter in from the sheet's edge, on the
+# axis of the day heading's fold chevron above it.
 _ROW_TOGGLE_CLASS = (
-    "z-20 shrink-0 self-center pointer-events-auto max-sm:absolute max-sm:right-1"
+    "z-20 shrink-0 self-center pointer-events-auto max-sm:absolute max-sm:right-px"
     " max-sm:top-1/2 max-sm:-translate-y-1/2"
 )
 

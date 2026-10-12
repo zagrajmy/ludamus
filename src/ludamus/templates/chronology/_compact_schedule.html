@@ -69,10 +69,15 @@
         {# container — fitRail (event-timeline.ts) thins the markers until they #}
         {# fit the screen, and a non-scrollable rail chains wheel input to the #}
         {# page natively. #}
-        <nav class="schedule-rail print:hidden sticky top-14.5 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
+        {# In the list the first day label sits level with the first day #}
+        {# heading: the top padding is the sheet's border and pt-3, and the #}
+        {# label's line box is as tall as the heading's (a 28px fold toggle, or #}
+        {# a 20px line on a single-day schedule). The rooms grid's sticky day #}
+        {# bar already starts at the rail's top. #}
+        <nav class="schedule-rail print:hidden sticky top-14.5 max-h-[calc(100dvh-6rem)] w-(--schedule-rail-w) shrink-0 touch-none select-none self-start overflow-hidden pb-1 {% if active_tab == 'rooms' %}pt-1{% else %}pt-3.25{% endif %} text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
-                <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>
+                <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0 {% if active_tab != 'rooms' %}{% if schedule_days|length > 1 %}first:leading-7{% else %}first:leading-5{% endif %}{% endif %}">{{ day.day_start|date:"D" }}</span>
                 {% for hour in day.hours %}
                     <a data-schedule-rail-hour
                        class="block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug [-webkit-touch-callout:none] hover:text-foreground data-active:bg-white data-active:font-bold data-active:text-coral-600 data-active:ring-1 data-active:ring-inset data-active:ring-coral-300/60 dark:data-active:bg-black dark:data-active:text-coral-400 dark:data-active:ring-coral-700/60"
