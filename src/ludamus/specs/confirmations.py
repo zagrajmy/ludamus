@@ -2,18 +2,17 @@
 
 from ludamus.pacts.legacy import SessionStatus
 
-# A placed session is its own group: "scheduled" is not a SessionStatus value
-# (the status behind it is always ACCEPTED), but it is the distinction the
-# organizer works by, and the only group whose rows can be confirmed.
-SCHEDULED_STATUS = "scheduled"
+# Groups are keyed by (status, is_scheduled). A placed session is its own
+# group, and the only one whose rows can be confirmed.
+SCHEDULED_GROUP = (SessionStatus.ACCEPTED, True)
 
 # Reading order inside one contact email: what can be confirmed first, then
-# what is settled. Accepted and pending never appear — an unplaced session in
-# either state is counted rather than listed, and a placed one is "scheduled".
+# what is settled. Unplaced accepted and pending never appear — they are
+# counted rather than listed.
 STATUS_ORDER = (
-    SCHEDULED_STATUS,
-    str(SessionStatus.ON_HOLD),
-    str(SessionStatus.REJECTED),
+    SCHEDULED_GROUP,
+    (SessionStatus.ON_HOLD, False),
+    (SessionStatus.REJECTED, False),
 )
 
 # The other half of that rule: unplaced and in one of these states means a
