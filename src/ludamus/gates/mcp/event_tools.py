@@ -31,7 +31,7 @@ from ludamus.pacts.mcp import ToolScope
 ADDRESS_MAX_LENGTH = 255
 
 if TYPE_CHECKING:
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
@@ -217,6 +217,7 @@ class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
         "tool (set_event_image)."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateEventInput
 
     @staticmethod
@@ -246,6 +247,7 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
     name = "set_event_image"
     description = "Replace the token event's cover image or printable logo."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _SetEventImageInput
     audit_redacted_keys = frozenset({"content_base64"})
 
@@ -260,5 +262,5 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-def event_tools() -> tuple[ToolProtocol, ...]:
+def event_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (OrganizerUpdateEventTool(), OrganizerSetEventImageTool())
