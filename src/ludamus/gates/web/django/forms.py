@@ -26,7 +26,7 @@ from ludamus.pacts.durations import (
 )
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import EventVisibility, PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -183,6 +183,25 @@ class EventSettingsForm(forms.Form):
         required=False,
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
+    )
+    visibility = forms.ChoiceField(
+        choices=[
+            (
+                EventVisibility.PUBLIC.value,
+                _("Public: shown in event lists from its publication time"),
+            ),
+            (
+                EventVisibility.UNLISTED.value,
+                _("Unlisted: anyone with the link can open it, even now"),
+            ),
+        ],
+        initial=EventVisibility.PUBLIC.value,
+        widget=forms.RadioSelect,
+        label=_("Who can see the event"),
+        help_text=_(
+            "An unlisted event is never listed and never announced to the "
+            "sphere's followers."
+        ),
     )
     allow_facilitator_session_edit = forms.ChoiceField(
         required=False,

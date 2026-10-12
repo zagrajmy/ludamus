@@ -24,6 +24,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     SphereMembership,
     SphereSubscription,
+    listed_events,
     suggested_spheres,
 )
 from ludamus.links.db.django.repositories.sessions import (
@@ -284,10 +285,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
         sphere_ids = _sphere_ids_with_ties(user_id)
         events = (
             Event.objects.filter(
-                sphere_id__in=sphere_ids,
-                publication_time__isnull=False,
-                publication_time__lte=now,
-                end_time__gte=now,
+                listed_events(now=now), sphere_id__in=sphere_ids, end_time__gte=now
             )
             .select_related("sphere__site")
             .order_by("start_time")[:limit]
@@ -317,11 +315,8 @@ class DashboardRepository(DashboardRepositoryProtocol):
             .annotate(
                 upcoming=Count(
                     "events",
-                    filter=Q(
-                        events__publication_time__isnull=False,
-                        events__publication_time__lte=now,
-                        events__end_time__gte=now,
-                    ),
+                    filter=listed_events(now=now, prefix="events__")
+                    & Q(events__end_time__gte=now),
                     distinct=True,
                 )
             )

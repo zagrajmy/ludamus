@@ -89,9 +89,10 @@
                                                for="id_publication_time">{% translate "Publication Time" %}</label>
                                         {{ form.publication_time }}
                                         <p class="mt-1 text-sm text-foreground-muted">
-                                            {% translate "When the event becomes publicly visible. Leave empty for immediate visibility." %}
+                                            {% translate "When a public event appears in event lists. Leave empty to keep it hidden." %}
                                         </p>
                                     </div>
+                                    {% tessera_field form.visibility %}
                                 </div>
                             </div>
                         </div>

@@ -454,6 +454,14 @@ class SessionSelfEditContext:
     facilitators: list[FacilitatorDTO]
 
 
+class EventVisibility(StrEnum):
+    # PUBLIC follows publication_time: hidden before it, listed after it.
+    # UNLISTED opens to anyone with the link whatever the publication time,
+    # and is never listed or announced.
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -472,6 +480,7 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    visibility: EventVisibility = EventVisibility.PUBLIC
     cover_image_url: str = ""
     cover_image_original_name: str = ""
     logo_url: str = ""
@@ -491,13 +500,18 @@ class EventDTO(BaseModel):
             and self.publication_time <= datetime.now(tz=UTC)
         )
 
-    # Proposals only open on a published event — an unpublished one has no
-    # public page to send a facilitator to.
+    @property
+    def is_open(self) -> bool:
+        """Whether anyone with the link may open the event's pages."""
+        return self.is_published or self.visibility is EventVisibility.UNLISTED
+
+    # Proposals only open on an event with a public page — without one there
+    # is nowhere to send a facilitator.
     @property
     def is_proposal_active(self) -> bool:
         current_time = datetime.now(tz=UTC)
         return bool(
-            self.is_published
+            self.is_open
             and self.proposal_start_time is not None
             and self.proposal_end_time is not None
             and self.proposal_start_time <= current_time <= self.proposal_end_time
@@ -518,6 +532,7 @@ class EventListItemDTO(BaseModel):
     session_count: int
     slug: str
     start_time: datetime
+    visibility: EventVisibility = EventVisibility.PUBLIC
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -574,6 +589,7 @@ class EventUpdateData(TypedDict, total=False):
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None
+    visibility: EventVisibility
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None

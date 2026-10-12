@@ -3047,6 +3047,26 @@ msgid "End time is required."
 msgstr "Czas zakończenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Public: shown in event lists from its publication time"
+msgstr "Publiczne: widoczne na listach wydarzeń od czasu publikacji"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unlisted: anyone with the link can open it, even now"
+msgstr "Niepubliczne: każdy z linkiem może je otworzyć, także już teraz"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Who can see the event"
+msgstr "Kto widzi wydarzenie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"An unlisted event is never listed and never announced to the sphere's "
+"followers."
+msgstr ""
+"Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
+"obserwujące sferę nie dostają o nim powiadomienia."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Use sphere default"
 msgstr "Użyj domyślnego ustawienia sfery"
 
@@ -6335,6 +6355,10 @@ msgstr "W TRAKCIE"
 #: src/ludamus/templates/components/event_card.html
 msgid "Proposals open"
 msgstr "Zgłoszenia otwarte"
+
+#: src/ludamus/templates/components/event_card.html
+msgid "Unlisted"
+msgstr "Niepubliczne"
 
 #: src/ludamus/templates/components/event_card.html
 msgid "Unpublished"
@@ -11861,11 +11885,10 @@ msgstr "Czas publikacji"
 
 #: src/ludamus/templates/panel/settings.html
 msgid ""
-"When the event becomes publicly visible. Leave empty for immediate "
-"visibility."
+"When a public event appears in event lists. Leave empty to keep it hidden."
 msgstr ""
-"Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
-"widoczne natychmiast."
+"Kiedy publiczne wydarzenie pojawi się na listach wydarzeń. Zostaw puste, aby "
+"pozostało ukryte."
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Facilitator permissions"
@@ -12433,6 +12456,13 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid ""
+#~ "When the event becomes publicly visible. Leave empty for immediate "
+#~ "visibility."
+#~ msgstr ""
+#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
+#~ "widoczne natychmiast."
 
 #~ msgid "Copy email"
 #~ msgstr "Skopiuj e-mail"

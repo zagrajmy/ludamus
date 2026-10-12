@@ -1,5 +1,4 @@
 import secrets
-from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
@@ -45,11 +44,7 @@ def _event_state(request: RootRequestProtocol, slug: str) -> str:
         )
     except NotFoundError:
         return _EVENT_MISSING
-    published = (
-        event.publication_time is not None
-        and event.publication_time <= datetime.now(tz=UTC)
-    )
-    return _EVENT_PUBLISHED if published else _EVENT_UNPUBLISHED
+    return _EVENT_PUBLISHED if event.is_open else _EVENT_UNPUBLISHED
 
 
 def _recover_from_404(request: HttpRequest) -> HttpResponse | None:

@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
     Space,
     UserEnrollmentConfig,
     effective_participants_limit,
+    listed_events,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
@@ -283,7 +284,7 @@ class EventRepository(EventRepositoryProtocol):
             session_count=session_count
         )
         if not include_unpublished:
-            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+            events = events.filter(listed_events(now=datetime.now(tz=UTC)))
         return [
             EventListItemDTO.model_validate(event)
             for event in events.order_by("start_time")

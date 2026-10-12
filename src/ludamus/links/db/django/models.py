@@ -28,6 +28,7 @@ from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
@@ -315,6 +316,19 @@ def suggested_spheres() -> Q:
     return Q(visibility=SphereVisibility.PUBLIC) & ~Q(site_id=settings.SITE_ID)
 
 
+def listed_events(*, now: datetime, prefix: str = "") -> Q:
+    # Where an event shows up without its link — sphere and landing lists,
+    # the dashboard, subscriber announcements. `prefix` reaches it through a
+    # relation (`"events__"`). An unlisted event never qualifies.
+    return Q(
+        **{
+            f"{prefix}publication_time__isnull": False,
+            f"{prefix}publication_time__lte": now,
+            f"{prefix}visibility": EventVisibility.PUBLIC,
+        }
+    )
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
@@ -493,6 +507,11 @@ class Event(models.Model):
     end_time = models.DateTimeField()
     # Publication time
     publication_time = models.DateTimeField(blank=True, null=True)
+    visibility = models.CharField(
+        max_length=20,
+        choices=[(v.value, v.name.title()) for v in EventVisibility],
+        default=EventVisibility.PUBLIC,
+    )
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
@@ -577,6 +596,11 @@ class Event(models.Model):
             self.publication_time is not None
             and self.publication_time <= datetime.now(tz=UTC)
         )
+
+    @property
+    def is_open(self) -> bool:
+        """Whether anyone with the link may open the event's pages."""
+        return self.is_published or self.visibility == EventVisibility.UNLISTED
 
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
