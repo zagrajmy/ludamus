@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, override
 
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
@@ -47,7 +47,7 @@ from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidatio
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -104,6 +104,7 @@ class OrganizerCurrentEventTool(Tool[EmptyInput]):
     name = "get_current_event"
     description = "Get the event this organizer token can write to."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = EmptyInput
 
     @staticmethod
@@ -292,6 +293,7 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         "venue root; leaves hold sessions."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSpaceInput
 
     @staticmethod
@@ -322,6 +324,7 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
         "widens them, which the result reports as event_dates_widened."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = AwareDatetimeRange
 
     @staticmethod
@@ -368,6 +371,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
         "repeated import never adds a second copy."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateTrackInput
 
     @staticmethod
@@ -404,6 +408,7 @@ class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
         "import does not add a category twice."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateProposalCategoryInput
 
     @staticmethod
@@ -425,6 +430,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
         "feeds create_session's facilitator_ids."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _FindOrCreateFacilitatorInput
     audit_redacted_keys = frozenset({"display_name"})
 
@@ -594,6 +600,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
         "ready for timetable assign."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name", "description"})
 
@@ -628,10 +635,11 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
         "successful items and can be retried by source_row_id."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> object:
         return _batch_audit_arguments(
             arguments,
             key="sessions",
@@ -692,6 +700,7 @@ class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
         "dates behind them) rather than being refused."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionInput
 
     @staticmethod
@@ -725,10 +734,11 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         "preserve input order; failed items do not roll back successful items."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> object:
         return _batch_audit_arguments(
             arguments,
             key="assignments",
@@ -764,6 +774,7 @@ class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
         "assignments, title, and schedule stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name"})
 
@@ -807,6 +818,7 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         "Only provided fields change; sessions assigned to the space stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSpaceInput
 
     @staticmethod
@@ -870,6 +882,7 @@ class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]
         "Discord username. Answers already given are kept."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _SetPersonalDataFieldTypeInput
 
     @staticmethod
@@ -887,7 +900,7 @@ class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]
         return field.model_dump_json(indent=2)
 
 
-def programme_tools() -> tuple[ToolProtocol, ...]:
+def programme_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
