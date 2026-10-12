@@ -74,7 +74,7 @@
         {# label's line box is as tall as the heading's (a 28px fold toggle, or #}
         {# a 20px line on a single-day schedule). The rooms grid's sticky day #}
         {# bar already starts at the rail's top. #}
-        <nav class="schedule-rail print:hidden sticky top-14.5 max-h-[calc(100dvh-6rem)] w-(--schedule-rail-w) shrink-0 touch-none select-none self-start overflow-hidden pb-1 {% if active_tab == 'rooms' %}pt-1{% else %}pt-3.25{% endif %} text-foreground-muted"
+        <nav class="schedule-rail print:hidden sticky top-14.5 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden pb-1 {% if active_tab == 'rooms' %}pt-1{% else %}pt-3.25{% endif %} text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
                 <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0 {% if active_tab != 'rooms' %}{% if schedule_days|length > 1 %}first:leading-7{% else %}first:leading-5{% endif %}{% endif %}">{{ day.day_start|date:"D" }}</span>

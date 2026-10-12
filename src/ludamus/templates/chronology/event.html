@@ -271,15 +271,9 @@
     {# hx-boost, so switching between List and Rooms replaces the count, the #}
     {# filter toolbar and the schedule in one go, leaving no control #}
     {# describing a session set that is no longer on screen. #}
-    {# On a phone the ledger reaches the screen edges and the hour rail holds #}
-    {# its right-hand column. The rows inset their content by main's gutter, #}
-    {# so the header and the toolbar end where that content does by giving #}
-    {# up the rail's width. The rail takes its width from the same property #}
-    {# (_compact_schedule.html). #}
-    <div id="schedule-region"
-         class="scroll-mt-24{% if compact_schedule %} [--schedule-rail-w:--spacing(9)]{% endif %}">
+    <div id="schedule-region" class="scroll-mt-24">
         <!-- Section Header -->
-        <div class="flex items-center justify-between mb-3 max-sm:pe-[var(--schedule-rail-w,0)]">
+        <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
                 <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-base translate-y-[.5px] font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">
@@ -297,7 +291,7 @@
             <!-- Filter Controls -->
             {% translate "Only with enrollment" as t_enrollment_only %}
             {% translate "Hide ended" as t_hide_ended %}
-            <div class="mb-3 max-sm:pe-[var(--schedule-rail-w,0)] print:hidden">
+            <div class="mb-3 print:hidden">
                 {# The search field sets the row height; the Filters button and #}
                 {# the view tabs stretch to it (h-full, and a flex wrapper for #}
                 {# the tab strip) instead of each landing on whatever its own #}
@@ -309,7 +303,7 @@
                         </span>
                         {% translate "Search by name or text..." as filter_placeholder %}
                         <input type="text"
-                               class="filter-input w-full text-ellipsis pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
+                               class="filter-input w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
                                placeholder="{{ filter_placeholder }}"
                                aria-label="{{ filter_placeholder }}"
