@@ -5,6 +5,7 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.contrib.sessions.models import Session
+from django.core.signing import get_cookie_signer
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereInvitation, SphereMembership
@@ -117,6 +118,39 @@ class TestTeamPageView:
                 "issued_link": None,
             },
         )
+
+    def test_a_superuser_outside_the_team_finds_it_empty(
+        self, authenticated_client, active_user
+    ):
+        active_user.is_superuser = True
+        active_user.save()
+
+        response = authenticated_client.get(TEAM_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/team.html",
+            context_data={
+                **sphere_sidebar_context(active_nav="team"),
+                "members": [],
+                "invitations": [],
+                "invitation_form": ANY,
+                "issued_link": None,
+            },
+        )
+
+    def test_a_tampered_link_cookie_shows_no_link(
+        self, authenticated_client, manager, sphere
+    ):
+        _invitation(sphere)
+        authenticated_client.cookies["sphere_invitation_issued"] = get_cookie_signer(
+            salt="sphere_invitation_issued" + "ludamus.sphere.team.issued-link"
+        ).sign("not-a-pk:")
+
+        response = authenticated_client.get(TEAM_URL)
+
+        assert response.context["issued_link"] is None
 
     def test_a_new_link_is_shown_once_and_never_stored(
         self, authenticated_client, manager, sphere
@@ -472,6 +506,27 @@ class TestJoinSpherePageView:
         _invitation(sphere, created_by=UserFactory(name="Ola Organizatorka"))
 
         response = client.get(_join_url("tok"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/join.html",
+            context_data=_join_page(
+                sphere,
+                invitation=InvitationPreviewDTO(
+                    role=SphereRole.MANAGER, invited_by="Ola Organizatorka"
+                ),
+            ),
+        )
+
+    def test_a_nameless_account_is_offered_the_link_too(
+        self, authenticated_client, active_user, sphere
+    ):
+        active_user.name = ""
+        active_user.save()
+        _invitation(sphere, created_by=UserFactory(name="Ola Organizatorka"))
+
+        response = authenticated_client.get(_join_url("tok"))
 
         assert_response(
             response,
