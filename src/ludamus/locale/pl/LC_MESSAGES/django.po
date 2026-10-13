@@ -9616,6 +9616,11 @@ msgid "Choose an event"
 msgstr "Wybierz wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/event-create.html
+msgid "New event"
+msgstr "Nowe wydarzenie"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
@@ -9689,11 +9694,6 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
-
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/event-create.html
-msgid "New event"
-msgstr "Nowe wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
