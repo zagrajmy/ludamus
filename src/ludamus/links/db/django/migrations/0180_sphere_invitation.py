@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("token", models.CharField(max_length=64, unique=True)),
+                ("token_hash", models.CharField(max_length=64, unique=True)),
                 ("note", models.CharField(blank=True, default="", max_length=100)),
                 ("creation_time", models.DateTimeField(auto_now_add=True)),
                 ("expires_at", models.DateTimeField()),

@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereInvitation, SphereMembership
+from ludamus.mills.team import token_hash
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.team import (
     InvitationPreviewDTO,
@@ -32,7 +33,7 @@ def _invitation(sphere, *, role=SphereRole.MANAGER, token="tok", **fields):
     return SphereInvitation.objects.create(
         sphere=sphere,
         role=role,
-        token=token,
+        token_hash=token_hash(token),
         expires_at=fields.pop("expires_at", datetime.now(UTC) + timedelta(days=7)),
         **fields,
     )
@@ -103,7 +104,6 @@ class TestTeamPageView:
                     SphereInvitationDTO(
                         pk=invitation.pk,
                         role=SphereRole.COMMS,
-                        token="tok",
                         note="Kasia, programme",
                         invited_by="Test User",
                         creation_time=invitation.creation_time,
@@ -111,18 +111,33 @@ class TestTeamPageView:
                     )
                 ],
                 "invitation_form": ANY,
-                "new_invitation_pk": None,
+                "issued_link": None,
             },
         )
 
-    def test_the_link_just_made_is_pointed_out(
+    def test_a_new_link_is_shown_once_and_never_stored(
         self, authenticated_client, manager, sphere
     ):
+        authenticated_client.post(INVITE_URL, data={"role": "comms"})
+        invitation = SphereInvitation.objects.get(sphere=sphere)
+
+        first = authenticated_client.get(TEAM_URL)
+        again = authenticated_client.get(TEAM_URL)
+
+        issued = first.context["issued_link"]
+        assert issued.pk == invitation.pk
+        token = issued.path.removeprefix("/multiverse/join/").removesuffix("/")
+        assert len(token) == URLSAFE_32_BYTES_LENGTH
+        assert invitation.token_hash == token_hash(token)
+        assert token not in invitation.token_hash
+        assert again.context["issued_link"] is None
+
+    def test_a_stored_hash_is_not_a_link(self, authenticated_client, sphere):
         invitation = _invitation(sphere)
 
-        response = authenticated_client.get(f"{TEAM_URL}?new={invitation.pk}")
+        response = authenticated_client.get(_join_url(invitation.token_hash))
 
-        assert response.context["new_invitation_pk"] == invitation.pk
+        assert response.status_code == HTTPStatus.GONE
 
     def test_comms_member_reads_the_team_but_gets_no_invite_controls(
         self, authenticated_client, comms, sphere
@@ -147,7 +162,7 @@ class TestTeamPageView:
                 ],
                 "invitations": [],
                 "invitation_form": None,
-                "new_invitation_pk": None,
+                "issued_link": None,
             },
         )
 
@@ -164,7 +179,7 @@ class TestTeamInviteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"{TEAM_URL}?new={invitation.pk}",
+            url=TEAM_URL,
             messages=[
                 (
                     messages.SUCCESS,
@@ -178,7 +193,6 @@ class TestTeamInviteActionView:
         assert invitation.role == SphereRole.COMMS
         assert invitation.note == "Kasia, programme"
         assert invitation.created_by == manager
-        assert len(invitation.token) == URLSAFE_32_BYTES_LENGTH
         lifetime = invitation.expires_at - invitation.creation_time
         assert timedelta(days=7) - timedelta(minutes=1) < lifetime <= timedelta(days=7)
 
@@ -189,7 +203,7 @@ class TestTeamInviteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"{TEAM_URL}?new={invitation.pk}",
+            url=TEAM_URL,
             messages=[
                 (
                     messages.SUCCESS,

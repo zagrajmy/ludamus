@@ -414,7 +414,8 @@ class SphereInvitation(models.Model):
     role = models.CharField(
         max_length=20, choices=[(r.value, r.name.title()) for r in SphereRole]
     )
-    token = models.CharField(max_length=64, unique=True)
+    # sha256 of the link's token; the token itself is never stored.
+    token_hash = models.CharField(max_length=64, unique=True)
     # Who the manager meant it for ("Kasia, programme"), so open links can be
     # told apart. Shown in the panel only, never to whoever holds the link.
     note = models.CharField(

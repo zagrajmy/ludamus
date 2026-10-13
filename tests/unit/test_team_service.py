@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.team import SphereTeamService
+from ludamus.mills.team import SphereTeamService, token_hash
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.team import (
     AcceptInvitationOutcome,
@@ -27,7 +27,6 @@ def _invitation(role=SphereRole.MANAGER):
     return SphereInvitationDTO(
         pk=INVITATION_PK,
         role=role,
-        token="tok",
         note="",
         invited_by="Inviter",
         creation_time=now,
@@ -51,6 +50,7 @@ class StubTeam:
         self.added = []
         self.accepted = []
         self.clock = []
+        self.looked_up = []
 
     @staticmethod
     def list_members(*, sphere_id):
@@ -63,11 +63,7 @@ class StubTeam:
     def create_invitation(self, data):
         self.created.append(data)
         return _invitation(data["role"]).model_copy(
-            update={
-                "token": data["token"],
-                "note": data["note"],
-                "expires_at": data["expires_at"],
-            }
+            update={"note": data["note"], "expires_at": data["expires_at"]}
         )
 
     def delete_open_invitation(self, *, sphere_id, pk, now):
@@ -78,14 +74,15 @@ class StubTeam:
     def read_sphere_name(*, sphere_id):
         return f"Sphere {sphere_id}"
 
-    def read_open_invitation(self, *, sphere_id, token, now):
+    def read_open_invitation(self, *, sphere_id, token_hash, now):
         if self.open_invitation is None:
             return None
         return InvitationPreviewDTO(
             role=self.open_invitation.role, invited_by="Inviter"
         )
 
-    def lock_open_invitation(self, *, sphere_id, token, now):
+    def lock_open_invitation(self, *, sphere_id, token_hash, now):
+        self.looked_up.append(token_hash)
         return self.open_invitation
 
     def read_member_role(self, *, sphere_id, user_id):
@@ -125,9 +122,11 @@ class TestInvite:
 
         assert first.token != second.token
         assert len(first.token) == URLSAFE_32_BYTES_LENGTH
-        assert before + timedelta(days=7) <= first.expires_at
-        assert first.expires_at <= datetime.now(tz=UTC) + timedelta(days=7)
-        assert first.note == "Kasia, programme"
+        assert team.created[0]["token_hash"] == token_hash(first.token)
+        assert first.token not in team.created[0]["token_hash"]
+        assert before + timedelta(days=7) <= first.invitation.expires_at
+        assert first.invitation.expires_at <= datetime.now(tz=UTC) + timedelta(days=7)
+        assert first.invitation.note == "Kasia, programme"
         assert team.created[0]["created_by_id"] == INVITER_PK
 
 
@@ -138,6 +137,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.JOINED
+        assert team.looked_up == [token_hash("tok")]
         assert team.added == [(NEWCOMER_PK, SphereRole.COMMS)]
         assert team.accepted == [(INVITATION_PK, NEWCOMER_PK)]
 

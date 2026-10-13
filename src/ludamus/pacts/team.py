@@ -39,15 +39,25 @@ class TeamMemberDTO(BaseModel):
 
 
 class SphereInvitationDTO(BaseModel):
+    """An invitation as the panel lists it: never with its link.
+
+    Only the token's hash is stored, so the link exists once, when it is
+    issued (`IssuedInvitationDTO`).
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
     role: SphereRole
-    token: str
     note: str
     invited_by: str
     creation_time: datetime
     expires_at: datetime
+
+
+class IssuedInvitationDTO(BaseModel):
+    invitation: SphereInvitationDTO
+    token: str
 
 
 class InvitationPreviewDTO(BaseModel):
@@ -72,7 +82,7 @@ class JoinPageDTO(BaseModel):
 class SphereInvitationCreateData(TypedDict):
     sphere_id: int
     role: SphereRole
-    token: str
+    token_hash: str
     note: str
     created_by_id: int
     expires_at: datetime
@@ -93,11 +103,11 @@ class SphereTeamRepositoryProtocol(Protocol):
     def read_sphere_name(*, sphere_id: int) -> str: ...
     @staticmethod
     def read_open_invitation(
-        *, sphere_id: int, token: str, now: datetime
+        *, sphere_id: int, token_hash: str, now: datetime
     ) -> InvitationPreviewDTO | None: ...
     @staticmethod
     def lock_open_invitation(
-        *, sphere_id: int, token: str, now: datetime
+        *, sphere_id: int, token_hash: str, now: datetime
     ) -> SphereInvitationDTO | None: ...
     @staticmethod
     def read_member_role(*, sphere_id: int, user_id: int) -> SphereRole | None: ...
@@ -112,7 +122,7 @@ class SphereTeamServiceProtocol(Protocol):
     def list_open_invitations(self, *, sphere_id: int) -> list[SphereInvitationDTO]: ...
     def invite(
         self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
-    ) -> SphereInvitationDTO: ...
+    ) -> IssuedInvitationDTO: ...
     def revoke(self, *, sphere_id: int, pk: int) -> bool: ...
     def join_page(
         self, *, sphere_id: int, token: str, viewer_id: int | None

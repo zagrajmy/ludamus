@@ -7,12 +7,14 @@ sphere is simply not found here.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.team import (
     AcceptInvitationOutcome,
+    IssuedInvitationDTO,
     JoinPageDTO,
     SphereTeamServiceProtocol,
 )
@@ -26,6 +28,12 @@ if TYPE_CHECKING:
         SphereTeamRepositoryProtocol,
         TeamMemberDTO,
     )
+
+
+def token_hash(token: str) -> str:
+    # SAFETY: only this digest is stored. A leaked table or backup then holds
+    # no link that would still let its reader join a team.
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 class SphereTeamService(SphereTeamServiceProtocol):
@@ -45,18 +53,20 @@ class SphereTeamService(SphereTeamServiceProtocol):
 
     def invite(
         self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
-    ) -> SphereInvitationDTO:
+    ) -> IssuedInvitationDTO:
+        token = secrets.token_urlsafe(32)
         with self._transaction.atomic():
-            return self._team.create_invitation(
+            invitation = self._team.create_invitation(
                 {
                     "sphere_id": sphere_id,
                     "role": role,
-                    "token": secrets.token_urlsafe(32),
+                    "token_hash": token_hash(token),
                     "note": note.strip(),
                     "created_by_id": invited_by_id,
                     "expires_at": datetime.now(tz=UTC) + INVITATION_LIFETIME,
                 }
             )
+        return IssuedInvitationDTO(invitation=invitation, token=token)
 
     def revoke(self, *, sphere_id: int, pk: int) -> bool:
         with self._transaction.atomic():
@@ -70,7 +80,9 @@ class SphereTeamService(SphereTeamServiceProtocol):
         return JoinPageDTO(
             sphere_name=self._team.read_sphere_name(sphere_id=sphere_id),
             invitation=self._team.read_open_invitation(
-                sphere_id=sphere_id, token=token, now=datetime.now(tz=UTC)
+                sphere_id=sphere_id,
+                token_hash=token_hash(token),
+                now=datetime.now(tz=UTC),
             ),
             member_role=(
                 None
@@ -88,7 +100,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
                 return AcceptInvitationOutcome.ALREADY_MEMBER
             # Locked, so two people opening one link at once cannot both join.
             invitation = self._team.lock_open_invitation(
-                sphere_id=sphere_id, token=token, now=now
+                sphere_id=sphere_id, token_hash=token_hash(token), now=now
             )
             if invitation is None:
                 return AcceptInvitationOutcome.INVALID

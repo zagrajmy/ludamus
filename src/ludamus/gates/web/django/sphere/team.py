@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
@@ -32,6 +32,26 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# The one moment a link exists in full: the invite action leaves it here for
+# the next Team page render, which shows it once and forgets it.
+_ISSUED_LINK_KEY = "sphere_invitation_issued"
+
+
+class IssuedLink(NamedTuple):
+    pk: int
+    path: str
+
+
+def _pop_issued_link(request: MultiverseRequest) -> IssuedLink | None:
+    issued = request.session.pop(_ISSUED_LINK_KEY, None)
+    if not isinstance(issued, dict):
+        return None
+    pk, token = issued.get("pk"), issued.get("token")
+    if not isinstance(pk, int) or not isinstance(token, str):
+        return None
+    return IssuedLink(pk=pk, path=reverse("multiverse:join", kwargs={"token": token}))
+
+
 class TeamPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
@@ -55,16 +75,9 @@ class TeamPageView(SphereAccessMixin, View):
                     else []
                 ),
                 "invitation_form": SphereInvitationForm() if can_invite else None,
-                "new_invitation_pk": _new_invitation_pk(self.request),
+                "issued_link": _pop_issued_link(self.request) if can_invite else None,
             },
         )
-
-
-def _new_invitation_pk(request: MultiverseRequest) -> int | None:
-    # The invite action sends the manager back here with the link it made, so
-    # the page can point at the one to copy rather than at a list.
-    raw = request.GET.get("new", "")
-    return int(raw) if raw.isdigit() else None
 
 
 class TeamInviteActionView(SphereAccessMixin, View):
@@ -75,12 +88,13 @@ class TeamInviteActionView(SphereAccessMixin, View):
         if not form.is_valid():
             messages.error(self.request, _("Pick a role for the invitation."))
             return redirect("multiverse:panel:team")
-        invitation = self.request.services.sphere_team.invite(
+        issued = self.request.services.sphere_team.invite(
             sphere_id=self.request.context.current_sphere_id,
             role=SphereRole(form.cleaned_data["role"]),
             note=form.cleaned_data["note"],
             invited_by_id=self.request.context.current_user_id,
         )
+        invitation = issued.invitation
         logger.info(
             "Sphere invitation created: sphere=%s invitation=%s role=%s by=%s",
             self.request.context.current_sphere_id,
@@ -88,6 +102,10 @@ class TeamInviteActionView(SphereAccessMixin, View):
             invitation.role,
             self.request.context.current_user_id,
         )
+        self.request.session[_ISSUED_LINK_KEY] = {
+            "pk": invitation.pk,
+            "token": issued.token,
+        }
         messages.success(
             self.request,
             (
@@ -100,7 +118,7 @@ class TeamInviteActionView(SphereAccessMixin, View):
                 )
             ),
         )
-        return redirect(f"{reverse('multiverse:panel:team')}?new={invitation.pk}")
+        return redirect("multiverse:panel:team")
 
 
 class TeamInviteRevokeActionView(SphereAccessMixin, View):

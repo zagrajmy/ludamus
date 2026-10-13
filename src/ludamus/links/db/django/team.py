@@ -42,7 +42,6 @@ def _invitation_dto(invitation: SphereInvitation) -> SphereInvitationDTO:
     return SphereInvitationDTO(
         pk=invitation.pk,
         role=SphereRole(invitation.role),
-        token=invitation.token,
         note=invitation.note,
         invited_by=_name(invitation.created_by),
         creation_time=invitation.creation_time,
@@ -93,12 +92,12 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
 
     @staticmethod
     def read_open_invitation(
-        *, sphere_id: int, token: str, now: datetime
+        *, sphere_id: int, token_hash: str, now: datetime
     ) -> InvitationPreviewDTO | None:
         invitation = (
             _open_invitations(sphere_id=sphere_id, now=now)
             .select_related("created_by")
-            .filter(token=token)
+            .filter(token_hash=token_hash)
             .first()
         )
         if invitation is None:
@@ -113,13 +112,13 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
 
     @staticmethod
     def lock_open_invitation(
-        *, sphere_id: int, token: str, now: datetime
+        *, sphere_id: int, token_hash: str, now: datetime
     ) -> SphereInvitationDTO | None:
         invitation = (
             _open_invitations(sphere_id=sphere_id, now=now)
             .select_for_update()
             .select_related("created_by")
-            .filter(token=token)
+            .filter(token_hash=token_hash)
             .first()
         )
         return None if invitation is None else _invitation_dto(invitation)

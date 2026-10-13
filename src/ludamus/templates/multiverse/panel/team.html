@@ -61,42 +61,49 @@
                         {% tessera_button t_create icon="link" full_width_mobile=False %}
                     </div>
                 </form>
-                <h3 class="text-base font-semibold text-foreground mt-8 mb-3">{% translate "Open invitations" %}</h3>
+                <h3 class="text-base font-semibold text-foreground mt-8 mb-1">{% translate "Open invitations" %}</h3>
+                <p class="text-xs text-foreground-muted mb-3">
+                    {% translate "A link is shown once, right after it's created. Lost one? Withdraw it and create another." %}
+                </p>
                 {% if invitations %}
                     <ul class="space-y-4">
                         {% for invitation in invitations %}
-                            {% url 'multiverse:join' token=invitation.token as join_path %}
                             {% firstof invitation.note invitation.role|role_label as invitation_label %}
-                            <li class="rounded-lg border border-border p-3 {% if invitation.pk == new_invitation_pk %}ring-2 ring-primary{% endif %}">
-                                <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <li class="rounded-lg border border-border p-3 {% if invitation.pk == issued_link.pk %}ring-2 ring-primary{% endif %}">
+                                <div class="flex flex-wrap items-center gap-2">
                                     {% if invitation.note %}
                                         <p class="text-sm font-medium text-foreground min-w-0 truncate"
                                            data-ph-no-capture>{{ invitation.note }}</p>
                                     {% endif %}
                                     <span class="rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium text-foreground-secondary">{{ invitation.role|role_label }}</span>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    {% blocktranslate asvar t_link with label=invitation_label %}Invitation link for {{ label }}{% endblocktranslate %}
-                                    <input type="text"
-                                           data-ph-no-capture
-                                           readonly
-                                           aria-label="{{ t_link }}"
-                                           value="{{ request.scheme }}://{{ request.get_host }}{{ join_path }}"
-                                           {% if invitation.pk == new_invitation_pk %}autofocus{% endif %}
-                                           class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
-                                    {% blocktranslate asvar t_copy with label=invitation_label %}Copy the invitation link for {{ label }}{% endblocktranslate %}
-                                    <button type="button"
-                                            class="icon-btn relative shrink-0"
-                                            data-ph-no-capture
-                                            data-copy="{{ join_path }}"
-                                            data-copy-origin
-                                            data-copied-label="{% translate "Copied!" %}"
-                                            title="{{ t_copy }}">
-                                        {% icon "clipboard-document" class="w-4 h-4" %}
-                                        <span class="sr-only">{{ t_copy }}</span>
-                                        {% tessera_copy_popover %}
-                                    </button>
-                                </div>
+                                {% if invitation.pk == issued_link.pk %}
+                                    <div class="mt-2 flex items-center gap-2">
+                                        {% blocktranslate asvar t_link with label=invitation_label %}Invitation link for {{ label }}{% endblocktranslate %}
+                                        <input type="text"
+                                               data-ph-no-capture
+                                               readonly
+                                               autofocus
+                                               aria-label="{{ t_link }}"
+                                               value="{{ request.scheme }}://{{ request.get_host }}{{ issued_link.path }}"
+                                               class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
+                                        {% blocktranslate asvar t_copy with label=invitation_label %}Copy the invitation link for {{ label }}{% endblocktranslate %}
+                                        <button type="button"
+                                                class="icon-btn relative shrink-0"
+                                                data-ph-no-capture
+                                                data-copy="{{ issued_link.path }}"
+                                                data-copy-origin
+                                                data-copied-label="{% translate "Copied!" %}"
+                                                title="{{ t_copy }}">
+                                            {% icon "clipboard-document" class="w-4 h-4" %}
+                                            <span class="sr-only">{{ t_copy }}</span>
+                                            {% tessera_copy_popover %}
+                                        </button>
+                                    </div>
+                                    <p class="mt-2 text-xs font-medium text-foreground-secondary">
+                                        {% translate "Copy it now: it won't be shown again." %}
+                                    </p>
+                                {% endif %}
                                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
                                     <time datetime="{{ invitation.expires_at|date:'c' }}"
                                           title="{{ invitation.expires_at|date:'SHORT_DATETIME_FORMAT' }}">

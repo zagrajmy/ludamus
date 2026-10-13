@@ -9026,6 +9026,14 @@ msgid "Open invitations"
 msgstr "Aktywne zaproszenia"
 
 #: src/ludamus/templates/multiverse/panel/team.html
+msgid ""
+"A link is shown once, right after it's created. Lost one? Withdraw it and "
+"create another."
+msgstr ""
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj zaproszenie i "
+"utwórz nowe."
+
+#: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
 msgid "Invitation link for %(label)s"
 msgstr "Link zaproszenia: %(label)s"
@@ -9034,6 +9042,10 @@ msgstr "Link zaproszenia: %(label)s"
 #, python-format
 msgid "Copy the invitation link for %(label)s"
 msgstr "Kopiuj link zaproszenia: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Copy it now: it won't be shown again."
+msgstr "Skopiuj go teraz: więcej się nie pokaże."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
