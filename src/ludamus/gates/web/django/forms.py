@@ -179,28 +179,35 @@ class EventSettingsForm(forms.Form):
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
     )
-    publication_time = forms.DateTimeField(
-        required=False,
-        widget=_datetime_local_widget(),
-        input_formats=_DATETIME_LOCAL_FORMATS,
-    )
     visibility = forms.ChoiceField(
         choices=[
             (
                 EventVisibility.PUBLIC.value,
-                _("Public: shown in event lists from its publication time"),
+                _(
+                    "Public: listed and announced to followers from its "
+                    "publication time"
+                ),
             ),
             (
                 EventVisibility.UNLISTED.value,
-                _("Unlisted: anyone with the link can open it, even now"),
+                _(
+                    "Link only: anyone with the link can open it now; never "
+                    "listed or announced"
+                ),
             ),
         ],
         initial=EventVisibility.PUBLIC.value,
         widget=forms.RadioSelect,
         label=_("Who can see the event"),
+    )
+    publication_time = forms.DateTimeField(
+        required=False,
+        widget=_datetime_local_widget(),
+        input_formats=_DATETIME_LOCAL_FORMATS,
+        label=_("Publication time"),
         help_text=_(
-            "An unlisted event is never listed and never announced to the "
-            "sphere's followers."
+            "For a public event: when it appears in event lists and followers "
+            "are notified. Leave empty to keep it hidden."
         ),
     )
     allow_facilitator_session_edit = forms.ChoiceField(

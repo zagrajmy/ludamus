@@ -16,10 +16,13 @@ from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.multiverse import SphereRole
 
+INVITATION_NOTE_MAX_LENGTH = 100
+
 
 class AcceptInvitationOutcome(StrEnum):
     JOINED = "joined"
-    # The link stays unspent, so it can still go to the person it was for.
+    # Checked before the link itself: a member re-opening their own spent
+    # link is told they are in, not that the link is dead.
     ALREADY_MEMBER = "already_member"
     # Unknown, expired, already used, revoked or another sphere's: one answer
     # for all, so a link reveals nothing about the invitations behind it.
@@ -41,23 +44,36 @@ class SphereInvitationDTO(BaseModel):
     pk: int
     role: SphereRole
     token: str
+    note: str
     invited_by: str
     creation_time: datetime
     expires_at: datetime
 
 
 class InvitationPreviewDTO(BaseModel):
-    """What the person holding the link sees before accepting."""
+    """What the person holding the link is offered."""
 
-    sphere_name: str
     role: SphereRole
     invited_by: str
+
+
+class JoinPageDTO(BaseModel):
+    """The join page's whole state: what the link offers and who is asking.
+
+    `invitation` is None when the link no longer works; `member_role` is set
+    when the viewer is already on the team, whatever the link's state.
+    """
+
+    sphere_name: str
+    invitation: InvitationPreviewDTO | None
+    member_role: SphereRole | None
 
 
 class SphereInvitationCreateData(TypedDict):
     sphere_id: int
     role: SphereRole
     token: str
+    note: str
     created_by_id: int
     expires_at: datetime
 
@@ -74,6 +90,8 @@ class SphereTeamRepositoryProtocol(Protocol):
     @staticmethod
     def delete_open_invitation(*, sphere_id: int, pk: int, now: datetime) -> bool: ...
     @staticmethod
+    def read_sphere_name(*, sphere_id: int) -> str: ...
+    @staticmethod
     def read_open_invitation(
         *, sphere_id: int, token: str, now: datetime
     ) -> InvitationPreviewDTO | None: ...
@@ -82,9 +100,9 @@ class SphereTeamRepositoryProtocol(Protocol):
         *, sphere_id: int, token: str, now: datetime
     ) -> SphereInvitationDTO | None: ...
     @staticmethod
-    def is_member(*, sphere_id: int, user_id: int) -> bool: ...
+    def read_member_role(*, sphere_id: int, user_id: int) -> SphereRole | None: ...
     @staticmethod
-    def add_member(*, sphere_id: int, user_id: int, role: SphereRole) -> None: ...
+    def add_member(*, sphere_id: int, user_id: int, role: SphereRole) -> bool: ...
     @staticmethod
     def mark_accepted(*, pk: int, user_id: int, now: datetime) -> None: ...
 
@@ -93,10 +111,12 @@ class SphereTeamServiceProtocol(Protocol):
     def list_members(self, *, sphere_id: int) -> list[TeamMemberDTO]: ...
     def list_open_invitations(self, *, sphere_id: int) -> list[SphereInvitationDTO]: ...
     def invite(
-        self, *, sphere_id: int, role: SphereRole, invited_by_id: int
+        self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
     ) -> SphereInvitationDTO: ...
     def revoke(self, *, sphere_id: int, pk: int) -> bool: ...
-    def preview(self, *, sphere_id: int, token: str) -> InvitationPreviewDTO | None: ...
+    def join_page(
+        self, *, sphere_id: int, token: str, viewer_id: int | None
+    ) -> JoinPageDTO: ...
     def accept(
         self, *, sphere_id: int, token: str, user_id: int
     ) -> AcceptInvitationOutcome: ...

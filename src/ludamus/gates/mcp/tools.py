@@ -98,8 +98,12 @@ class ListSpheresTool(Tool[EmptyInput]):
 
 
 class _ListEventsBody(BaseModel):
-    include_unpublished: bool = Field(
-        default=True, description="Include events that are not published yet"
+    include_hidden: bool = Field(
+        default=True,
+        description=(
+            "Include events missing from public lists: not published yet, or "
+            "link-only (visibility unlisted)"
+        ),
     )
 
 
@@ -197,7 +201,7 @@ class OrganizerListEventsTool(Tool[_ListEventsBody]):
     @staticmethod
     def handle(call: ToolCall[_ListEventsBody]) -> str:
         events = call.services.events.list_for_sphere(
-            actor_sphere(call.actor), include_unpublished=call.data.include_unpublished
+            actor_sphere(call.actor), include_hidden=call.data.include_hidden
         )
         return _EVENT_LIST.dump_json(events, indent=2).decode()
 

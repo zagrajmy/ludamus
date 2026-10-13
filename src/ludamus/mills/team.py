@@ -11,14 +11,17 @@ import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.team import AcceptInvitationOutcome, SphereTeamServiceProtocol
+from ludamus.pacts.team import (
+    AcceptInvitationOutcome,
+    JoinPageDTO,
+    SphereTeamServiceProtocol,
+)
 from ludamus.specs.permissions import INVITATION_LIFETIME
 
 if TYPE_CHECKING:
     from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.team import (
-        InvitationPreviewDTO,
         SphereInvitationDTO,
         SphereTeamRepositoryProtocol,
         TeamMemberDTO,
@@ -41,7 +44,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
         )
 
     def invite(
-        self, *, sphere_id: int, role: SphereRole, invited_by_id: int
+        self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
     ) -> SphereInvitationDTO:
         with self._transaction.atomic():
             return self._team.create_invitation(
@@ -49,6 +52,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
                     "sphere_id": sphere_id,
                     "role": role,
                     "token": secrets.token_urlsafe(32),
+                    "note": note.strip(),
                     "created_by_id": invited_by_id,
                     "expires_at": datetime.now(tz=UTC) + INVITATION_LIFETIME,
                 }
@@ -60,9 +64,19 @@ class SphereTeamService(SphereTeamServiceProtocol):
                 sphere_id=sphere_id, pk=pk, now=datetime.now(tz=UTC)
             )
 
-    def preview(self, *, sphere_id: int, token: str) -> InvitationPreviewDTO | None:
-        return self._team.read_open_invitation(
-            sphere_id=sphere_id, token=token, now=datetime.now(tz=UTC)
+    def join_page(
+        self, *, sphere_id: int, token: str, viewer_id: int | None
+    ) -> JoinPageDTO:
+        return JoinPageDTO(
+            sphere_name=self._team.read_sphere_name(sphere_id=sphere_id),
+            invitation=self._team.read_open_invitation(
+                sphere_id=sphere_id, token=token, now=datetime.now(tz=UTC)
+            ),
+            member_role=(
+                None
+                if viewer_id is None
+                else self._team.read_member_role(sphere_id=sphere_id, user_id=viewer_id)
+            ),
         )
 
     def accept(
@@ -70,16 +84,17 @@ class SphereTeamService(SphereTeamServiceProtocol):
     ) -> AcceptInvitationOutcome:
         now = datetime.now(tz=UTC)
         with self._transaction.atomic():
+            if self._team.read_member_role(sphere_id=sphere_id, user_id=user_id):
+                return AcceptInvitationOutcome.ALREADY_MEMBER
             # Locked, so two people opening one link at once cannot both join.
             invitation = self._team.lock_open_invitation(
                 sphere_id=sphere_id, token=token, now=now
             )
             if invitation is None:
                 return AcceptInvitationOutcome.INVALID
-            if self._team.is_member(sphere_id=sphere_id, user_id=user_id):
-                return AcceptInvitationOutcome.ALREADY_MEMBER
-            self._team.add_member(
+            if not self._team.add_member(
                 sphere_id=sphere_id, user_id=user_id, role=invitation.role
-            )
+            ):
+                return AcceptInvitationOutcome.ALREADY_MEMBER
             self._team.mark_accepted(pk=invitation.pk, user_id=user_id, now=now)
             return AcceptInvitationOutcome.JOINED

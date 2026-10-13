@@ -1,13 +1,8 @@
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
-from ludamus.links.db.django.models import (
-    Event,
-    Session,
-    Sphere,
-    listed_events,
-    suggested_spheres,
-)
+from ludamus.links.db.django.event_visibility import listed_events
+from ludamus.links.db.django.models import Event, Session, Sphere, suggested_spheres
 from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,

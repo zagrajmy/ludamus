@@ -30,6 +30,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("token", models.CharField(max_length=64, unique=True)),
+                ("note", models.CharField(blank=True, default="", max_length=100)),
                 ("creation_time", models.DateTimeField(auto_now_add=True)),
                 ("expires_at", models.DateTimeField()),
                 ("accepted_at", models.DateTimeField(blank=True, null=True)),

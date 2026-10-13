@@ -15,6 +15,7 @@ from django.db.models import Count, Q
 from django.urls import reverse
 
 from ludamus.links.absolute_url import absolute_url
+from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     Encounter,
     Event,
@@ -24,7 +25,6 @@ from ludamus.links.db.django.models import (
     Sphere,
     SphereMembership,
     SphereSubscription,
-    listed_events,
     suggested_spheres,
 )
 from ludamus.links.db.django.repositories.sessions import (

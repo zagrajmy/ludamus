@@ -33,6 +33,7 @@ from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
+from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -316,19 +317,6 @@ def suggested_spheres() -> Q:
     return Q(visibility=SphereVisibility.PUBLIC) & ~Q(site_id=settings.SITE_ID)
 
 
-def listed_events(*, now: datetime, prefix: str = "") -> Q:
-    # Where an event shows up without its link — sphere and landing lists,
-    # the dashboard, subscriber announcements. `prefix` reaches it through a
-    # relation (`"events__"`). An unlisted event never qualifies.
-    return Q(
-        **{
-            f"{prefix}publication_time__isnull": False,
-            f"{prefix}publication_time__lte": now,
-            f"{prefix}visibility": EventVisibility.PUBLIC,
-        }
-    )
-
-
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
@@ -427,6 +415,11 @@ class SphereInvitation(models.Model):
         max_length=20, choices=[(r.value, r.name.title()) for r in SphereRole]
     )
     token = models.CharField(max_length=64, unique=True)
+    # Who the manager meant it for ("Kasia, programme"), so open links can be
+    # told apart. Shown in the panel only, never to whoever holds the link.
+    note = models.CharField(
+        max_length=INVITATION_NOTE_MAX_LENGTH, blank=True, default=""
+    )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="+"
     )

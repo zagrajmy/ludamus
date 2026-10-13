@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.links.db.django.models import (
-    Event,
-    Sphere,
-    SphereSubscription,
-    listed_events,
-)
+from ludamus.links.db.django.event_visibility import listed_events
+from ludamus.links.db.django.models import Event, Sphere, SphereSubscription
 from ludamus.pacts.dashboard import (
     SphereEventAnnouncementDTO,
     SphereSubscriptionRepositoryProtocol,

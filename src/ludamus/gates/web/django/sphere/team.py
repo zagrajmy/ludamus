@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -21,12 +22,12 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.sphere.forms import SphereInvitationForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.multiverse import Capability, SphereRole
-from ludamus.pacts.team import AcceptInvitationOutcome
+from ludamus.pacts.team import AcceptInvitationOutcome, JoinPageDTO
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.gates.web.django.entities import AuthenticatedRootRequest
+    from ludamus.gates.web.django.entities import RootRequest
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,16 @@ class TeamPageView(SphereAccessMixin, View):
                     else []
                 ),
                 "invitation_form": SphereInvitationForm() if can_invite else None,
+                "new_invitation_pk": _new_invitation_pk(self.request),
             },
         )
+
+
+def _new_invitation_pk(request: MultiverseRequest) -> int | None:
+    # The invite action sends the manager back here with the link it made, so
+    # the page can point at the one to copy rather than at a list.
+    raw = request.GET.get("new", "")
+    return int(raw) if raw.isdigit() else None
 
 
 class TeamInviteActionView(SphereAccessMixin, View):
@@ -69,6 +78,7 @@ class TeamInviteActionView(SphereAccessMixin, View):
         invitation = self.request.services.sphere_team.invite(
             sphere_id=self.request.context.current_sphere_id,
             role=SphereRole(form.cleaned_data["role"]),
+            note=form.cleaned_data["note"],
             invited_by_id=self.request.context.current_user_id,
         )
         logger.info(
@@ -80,9 +90,17 @@ class TeamInviteActionView(SphereAccessMixin, View):
         )
         messages.success(
             self.request,
-            _("Invitation link created. Copy it and send it to the person."),
+            (
+                _("Invitation link ready. Copy it below and send it to %(name)s.")
+                % {"name": invitation.note}
+                if invitation.note
+                else _(
+                    "Invitation link ready. Copy it below and send it to the "
+                    "person you're inviting."
+                )
+            ),
         )
-        return redirect("multiverse:panel:team")
+        return redirect(f"{reverse('multiverse:panel:team')}?new={invitation.pk}")
 
 
 class TeamInviteRevokeActionView(SphereAccessMixin, View):
@@ -93,14 +111,14 @@ class TeamInviteRevokeActionView(SphereAccessMixin, View):
             sphere_id=self.request.context.current_sphere_id, pk=pk
         )
         logger.info(
-            "Sphere invitation revoke: sphere=%s invitation=%s revoked=%s by=%s",
+            "Sphere invitation withdraw: sphere=%s invitation=%s withdrawn=%s by=%s",
             self.request.context.current_sphere_id,
             pk,
             revoked,
             self.request.context.current_user_id,
         )
         if revoked:
-            messages.success(self.request, _("Invitation revoked."))
+            messages.success(self.request, _("Invitation withdrawn."))
         else:
             messages.error(
                 self.request, _("That invitation was already used or has expired.")
@@ -108,61 +126,62 @@ class TeamInviteRevokeActionView(SphereAccessMixin, View):
         return redirect("multiverse:panel:team")
 
 
-def _invalid_link(request: AuthenticatedRootRequest) -> HttpResponse:
-    messages.error(
+def _render_join(request: RootRequest, page: JoinPageDTO) -> HttpResponse:
+    # Rendered in place, never redirected: in a private sphere every other
+    # page is a 404 to someone who is not on the team yet.
+    gone = page.invitation is None and page.member_role is None
+    return TemplateResponse(
         request,
-        _(
-            "This invitation link is no longer valid. Ask the person who sent "
-            "it for a new one."
-        ),
+        "multiverse/join.html",
+        {"page": page},
+        status=HTTPStatus.GONE if gone else HTTPStatus.OK,
     )
-    return redirect("web:index")
 
 
-class JoinSpherePageView(LoginRequiredMixin, View):
+class JoinSpherePageView(View):
     """Where an invitation link lands: say what it grants, then accept it.
 
-    Accepting is a POST, never the GET: link previews in chat apps open the
-    URL, and a GET that spent the link would hand the role to a bot.
+    Anyone holding the link may read it, signed in or not: it names only the
+    sphere, the role and who sent it. Accepting is a POST, never the GET:
+    link previews in chat apps open the URL, and a GET that spent the link
+    would hand the role to a bot.
     """
 
-    request: AuthenticatedRootRequest
+    request: RootRequest
 
     @staticmethod
-    def get(request: AuthenticatedRootRequest, token: str) -> HttpResponse:
-        preview = request.services.sphere_team.preview(
-            sphere_id=request.context.current_sphere_id, token=token
-        )
-        if preview is None:
-            return _invalid_link(request)
-        return TemplateResponse(
-            request, "multiverse/join.html", {"invitation": preview}
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        return _render_join(
+            request,
+            request.services.sphere_team.join_page(
+                sphere_id=request.context.current_sphere_id,
+                token=token,
+                viewer_id=request.context.current_user_id,
+            ),
         )
 
     @staticmethod
-    def post(request: AuthenticatedRootRequest, token: str) -> HttpResponse:
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        if (user_id := request.context.current_user_id) is None:
+            return redirect_to_login(request.get_full_path())
+        sphere_id = request.context.current_sphere_id
         outcome = request.services.sphere_team.accept(
-            sphere_id=request.context.current_sphere_id,
-            token=token,
-            user_id=request.context.current_user_id,
+            sphere_id=sphere_id, token=token, user_id=user_id
         )
         logger.info(
             "Sphere invitation accept: sphere=%s user=%s outcome=%s",
-            request.context.current_sphere_id,
-            request.context.current_user_id,
+            sphere_id,
+            user_id,
             outcome,
         )
-        match outcome:
-            case AcceptInvitationOutcome.JOINED:
-                messages.success(request, _("You joined the sphere's team."))
-            case AcceptInvitationOutcome.ALREADY_MEMBER:
-                messages.info(
-                    request,
-                    _(
-                        "You're already on this sphere's team, so the link is "
-                        "still unused."
-                    ),
-                )
-            case AcceptInvitationOutcome.INVALID:
-                return _invalid_link(request)
-        return redirect(reverse("multiverse:panel:team"))
+        if outcome is AcceptInvitationOutcome.JOINED:
+            messages.success(request, _("You joined the sphere's team."))
+            return redirect("multiverse:panel:team")
+        # Already on the team, or the link stopped working: the page itself
+        # says which, the same way it does when the link is opened.
+        return _render_join(
+            request,
+            request.services.sphere_team.join_page(
+                sphere_id=sphere_id, token=token, viewer_id=user_id
+            ),
+        )

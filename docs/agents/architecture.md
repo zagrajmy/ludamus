@@ -409,7 +409,8 @@ and uses its own access mixin keyed off `current_sphere_id` without an
 #### Pages: Team and invitations
 
 Who runs a sphere (`SphereMembership`: Manager or Comms) and the single-use
-links that add to it (`SphereInvitation`, 7 days, revocable while open).
+links that add to it (`SphereInvitation`, expiring after
+`specs.permissions.INVITATION_LIFETIME`, withdrawable while open).
 
 - **URLs:** `/multiverse/panel/team/…` (`multiverse:panel:team*`) and the
   landing page `/multiverse/join/<token>/` (`multiverse:join`), which stays

@@ -2260,8 +2260,9 @@ msgid "Invitation declined."
 msgstr "Zaproszenie zostało odrzucone."
 
 #: src/ludamus/gates/web/django/crowd/views.py
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "Invitation withdrawn."
-msgstr "Zaproszenie zostało wycofane."
+msgstr "Zaproszenie wycofane."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Member removed."
@@ -3048,24 +3049,32 @@ msgid "End time is required."
 msgstr "Czas zakończenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Public: shown in event lists from its publication time"
-msgstr "Publiczne: widoczne na listach wydarzeń od czasu publikacji"
+msgid "Public: listed and announced to followers from its publication time"
+msgstr ""
+"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Unlisted: anyone with the link can open it, even now"
-msgstr "Niepubliczne: każdy z linkiem może je otworzyć, także już teraz"
+msgid ""
+"Link only: anyone with the link can open it now; never listed or announced"
+msgstr ""
+"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+"się na listach ani w powiadomieniach"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Who can see the event"
 msgstr "Kto widzi wydarzenie"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Publication time"
+msgstr "Czas publikacji"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid ""
-"An unlisted event is never listed and never announced to the sphere's "
-"followers."
+"For a public event: when it appears in event lists and followers are "
+"notified. Leave empty to keep it hidden."
 msgstr ""
-"Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
-"obserwujące sferę nie dostają o nim powiadomienia."
+"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Use sphere default"
@@ -3788,12 +3797,16 @@ msgid "Role"
 msgstr "Rola"
 
 #: src/ludamus/gates/web/django/sphere/forms.py
-msgid "Manager: runs the panel and everything in it"
-msgstr "Menedżer: prowadzi panel i wszystko, co w nim jest"
+msgid "Who is it for?"
+msgstr "Dla kogo?"
 
 #: src/ludamus/gates/web/django/sphere/forms.py
-msgid "Comms: reads the panel and posts schedule updates"
-msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+msgid "Only you and other managers see this."
+msgstr "Widzisz to tylko Ty i inni menedżerowie."
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "e.g. Kasia, programme"
+msgstr "np. Kasia, program"
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
@@ -3844,37 +3857,62 @@ msgstr "Prowadzący usunięty."
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
 
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Manager"
+msgstr "Menedżer"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Manager: runs the panel and everything in it"
+msgstr "Menedżer: prowadzi panel i wszystko, co w nim jest"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid ""
+"Managers run the sphere's panel: events, programme, settings and the team "
+"itself."
+msgstr ""
+"Menedżerowie prowadzą panel sfery: wydarzenia, program, ustawienia i sam "
+"zespół."
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Comms"
+msgstr "Komunikacja"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Comms: sees the whole panel, changes only the Errata checklist"
+msgstr "Komunikacja: widzi cały panel, zmienia tylko listę errat"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid ""
+"Comms people see the sphere's panel and tick off schedule changes on the "
+"Errata page once they've announced them. They change nothing else."
+msgstr ""
+"Osoby od komunikacji widzą panel sfery i odhaczają w Erratach zmiany w "
+"programie, które już ogłosiły. Niczego więcej nie zmieniają."
+
 #: src/ludamus/gates/web/django/sphere/team.py
 msgid "Pick a role for the invitation."
 msgstr "Wybierz rolę dla zaproszenia."
 
 #: src/ludamus/gates/web/django/sphere/team.py
-msgid "Invitation link created. Copy it and send it to the person."
-msgstr "Link zaproszenia gotowy. Skopiuj go i wyślij tej osobie."
+#, python-format
+msgid "Invitation link ready. Copy it below and send it to %(name)s."
+msgstr "Link zaproszenia gotowy. Skopiuj go poniżej i wyślij: %(name)s."
 
 #: src/ludamus/gates/web/django/sphere/team.py
-msgid "Invitation revoked."
-msgstr "Zaproszenie wycofane."
+msgid ""
+"Invitation link ready. Copy it below and send it to the person you're "
+"inviting."
+msgstr ""
+"Link zaproszenia gotowy. Skopiuj go poniżej i wyślij osobie, którą "
+"zapraszasz."
 
 #: src/ludamus/gates/web/django/sphere/team.py
 msgid "That invitation was already used or has expired."
 msgstr "To zaproszenie zostało już użyte albo wygasło."
 
 #: src/ludamus/gates/web/django/sphere/team.py
-msgid ""
-"This invitation link is no longer valid. Ask the person who sent it for a "
-"new one."
-msgstr ""
-"Ten link zaproszenia jest już nieważny. Poproś osobę, która go wysłała, o "
-"nowy."
-
-#: src/ludamus/gates/web/django/sphere/team.py
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
-
-#: src/ludamus/gates/web/django/sphere/team.py
-msgid "You're already on this sphere's team, so the link is still unused."
-msgstr "Jesteś już w zespole tej sfery, więc link pozostaje niewykorzystany."
 
 #: src/ludamus/gates/web/django/staging_inbox.py
 msgid "No date"
@@ -6402,8 +6440,8 @@ msgid "Proposals open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/components/event_card.html
-msgid "Unlisted"
-msgstr "Niepubliczne"
+msgid "Link only"
+msgstr "Tylko przez link"
 
 #: src/ludamus/templates/components/event_card.html
 msgid "Unpublished"
@@ -7147,6 +7185,7 @@ msgid "Withdraw the invitation for %(name)s?"
 msgstr "Wycofać zaproszenie dla %(name)s?"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/multiverse/panel/team.html
 msgid "Withdraw invitation"
 msgstr "Wycofaj zaproszenie"
 
@@ -7202,7 +7241,6 @@ msgid "%(leader)s's party"
 msgstr "Drużyna użytkownika %(leader)s"
 
 #: src/ludamus/templates/crowd/user/party_join.html
-#: src/ludamus/templates/multiverse/join.html
 msgid "Not now"
 msgstr "Nie teraz"
 
@@ -8695,37 +8733,47 @@ msgstr "Dołącz do zespołu"
 
 #: src/ludamus/templates/multiverse/join.html
 #, python-format
-msgid "%(name)s invited you to manage this sphere."
-msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+msgid "You're already on this sphere's team (%(role)s)."
+msgstr "Jesteś już w zespole tej sfery (%(role)s)."
 
 #: src/ludamus/templates/multiverse/join.html
-msgid "You're invited to manage this sphere."
-msgstr "Masz zaproszenie do zarządzania tą sferą."
+msgid "This link still works. Send it to the person you're inviting."
+msgstr "Ten link nadal działa – wyślij go osobie, którą zapraszasz."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "Go to the team"
+msgstr "Przejdź do zespołu"
+
+#: src/ludamus/templates/multiverse/join.html
+msgid ""
+"This invitation link no longer works. It was used, withdrawn, or has "
+"expired. Ask the person who sent it for a new one."
+msgstr ""
+"Ten link zaproszenia już nie działa: został użyty, wycofany albo wygasł. "
+"Poproś osobę, która go wysłała, o nowy."
 
 #: src/ludamus/templates/multiverse/join.html
 #, python-format
-msgid "%(name)s invited you to this sphere's comms team."
-msgstr "%(name)s zaprasza Cię do zespołu komunikacji tej sfery."
+msgid "%(name)s invited you to this sphere's team."
+msgstr "%(name)s zaprasza Cię do zespołu tej sfery."
 
 #: src/ludamus/templates/multiverse/join.html
-msgid "You're invited to this sphere's comms team."
-msgstr "Masz zaproszenie do zespołu komunikacji tej sfery."
+msgid "You're invited to this sphere's team."
+msgstr "Masz zaproszenie do zespołu tej sfery."
 
 #: src/ludamus/templates/multiverse/join.html
-msgid ""
-"Managers run the sphere's panel: events, programme, settings and the team "
-"itself."
-msgstr ""
-"Menedżerowie prowadzą panel sfery: wydarzenia, program, ustawienia i sam "
-"zespół."
+#, python-format
+msgid "You'll join as %(name)s (%(email)s)."
+msgstr "Dołączysz jako %(name)s (%(email)s)."
 
 #: src/ludamus/templates/multiverse/join.html
-msgid ""
-"Comms people read the sphere's panel and post schedule updates. They change "
-"nothing else."
-msgstr ""
-"Osoby od komunikacji przeglądają panel sfery i publikują zmiany w "
-"harmonogramie. Niczego więcej nie zmieniają."
+#, python-format
+msgid "You'll join as %(email)s."
+msgstr "Dołączysz jako %(email)s."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "Log in to join"
+msgstr "Zaloguj się, aby dołączyć"
 
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 msgid "Sphere settings sections"
@@ -8950,12 +8998,8 @@ msgid "Members"
 msgstr "Członkowie"
 
 #: src/ludamus/templates/multiverse/panel/team.html
-msgid "Manager"
-msgstr "Menedżer"
-
-#: src/ludamus/templates/multiverse/panel/team.html
-msgid "Comms"
-msgstr "Komunikacja"
+msgid "(you)"
+msgstr "(Ty)"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "Nobody is on this sphere's team yet."
@@ -8967,11 +9011,11 @@ msgstr "Zaproś kogoś"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid ""
-"Each link works once and expires in 7 days. Whoever opens it while signed in "
-"can join with the role you pick."
+"Each link works once, until it expires. Whoever opens it while signed in can "
+"join with the role you pick."
 msgstr ""
-"Każdy link działa raz i wygasa po 7 dniach. Kto otworzy go po zalogowaniu, "
-"dołączy z wybraną przez Ciebie rolą."
+"Każdy link działa raz, dopóki nie wygaśnie. Kto otworzy go po zalogowaniu, "
+"może dołączyć z wybraną przez Ciebie rolą."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "Create invitation link"
@@ -8983,25 +9027,36 @@ msgstr "Aktywne zaproszenia"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
-msgid "Expires %(expires)s"
-msgstr "Wygasa %(expires)s"
+msgid "Invitation link for %(label)s"
+msgstr "Link zaproszenia: %(label)s"
 
 #: src/ludamus/templates/multiverse/panel/team.html
-msgid "Invitation link"
-msgstr "Link zaproszenia"
+#, python-format
+msgid "Copy the invitation link for %(label)s"
+msgstr "Kopiuj link zaproszenia: %(label)s"
 
 #: src/ludamus/templates/multiverse/panel/team.html
-msgid "Copy invitation link"
-msgstr "Kopiuj link zaproszenia"
-
-#: src/ludamus/templates/multiverse/panel/team.html
-msgid "Revoke invitation"
-msgstr "Wycofaj zaproszenie"
+#, python-format
+msgid "Expires in %(expires)s"
+msgstr "Wygasa za %(expires)s"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
 msgid "Created by %(name)s"
 msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Withdraw the invitation for %(label)s"
+msgstr "Wycofaj zaproszenie: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Withdraw this invitation? The link stops working right away."
+msgstr "Wycofać to zaproszenie? Link od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Withdraw"
+msgstr "Wycofaj"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "No open invitations."
@@ -12027,19 +12082,13 @@ msgid "URL identifier for this event. Must be unique."
 msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
 
 #: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Visibility"
+msgstr "Widoczność"
+
+#: src/ludamus/templates/panel/settings.html
 msgid "Event Dates"
 msgstr "Daty wydarzenia"
-
-#: src/ludamus/templates/panel/settings.html
-msgid "Publication Time"
-msgstr "Czas publikacji"
-
-#: src/ludamus/templates/panel/settings.html
-msgid ""
-"When a public event appears in event lists. Leave empty to keep it hidden."
-msgstr ""
-"Kiedy publiczne wydarzenie pojawi się na listach wydarzeń. Zostaw puste, aby "
-"pozostało ukryte."
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Facilitator permissions"
@@ -12449,10 +12498,6 @@ msgstr ""
 "bloków się w nim nie pojawiają."
 
 #: src/ludamus/templates/panel/tracks.html
-msgid "Visibility"
-msgstr "Widoczność"
-
-#: src/ludamus/templates/panel/tracks.html
 msgid "Organizers"
 msgstr "Organizatorzy"
 
@@ -12607,6 +12652,38 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "You're already on this sphere's team as a manager."
+#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
+
+#, python-format
+#~ msgid "%(name)s invited you to manage this sphere."
+#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+
+#~ msgid "You're invited to manage this sphere."
+#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
+
+#~ msgid ""
+#~ "An unlisted event is never listed and never announced to the sphere's "
+#~ "followers."
+#~ msgstr ""
+#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
+#~ "obserwujące sferę nie dostają o nim powiadomienia."
+
+#~ msgid "Comms: reads the panel and posts schedule updates"
+#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+
+#~ msgid "Invitation revoked."
+#~ msgstr "Zaproszenie wycofane."
+
+#~ msgid "Unlisted"
+#~ msgstr "Niepubliczne"
+
+#~ msgid "Copy invitation link"
+#~ msgstr "Kopiuj link zaproszenia"
+
+#~ msgid "Revoke invitation"
+#~ msgstr "Wycofaj zaproszenie"
 
 #~ msgid ""
 #~ "When the event becomes publicly visible. Leave empty for immediate "

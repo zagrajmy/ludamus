@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
-
 from ludamus.links.db.django.models import Sphere, SphereInvitation, SphereMembership
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.team import (
@@ -30,12 +28,14 @@ if TYPE_CHECKING:
 
 def _open_invitations(*, sphere_id: int, now: datetime) -> QuerySet[SphereInvitation]:
     return SphereInvitation.objects.filter(
-        Q(accepted_at__isnull=True), sphere_id=sphere_id, expires_at__gt=now
+        sphere_id=sphere_id, accepted_at__isnull=True, expires_at__gt=now
     )
 
 
 def _name(user: User | None) -> str:
-    return user.full_name if user is not None else ""
+    # The raw name, not `full_name`: that one falls back to a placeholder
+    # person, and an invitation from a stranger by that name misleads.
+    return user.name if user is not None else ""
 
 
 def _invitation_dto(invitation: SphereInvitation) -> SphereInvitationDTO:
@@ -43,6 +43,7 @@ def _invitation_dto(invitation: SphereInvitation) -> SphereInvitationDTO:
         pk=invitation.pk,
         role=SphereRole(invitation.role),
         token=invitation.token,
+        note=invitation.note,
         invited_by=_name(invitation.created_by),
         creation_time=invitation.creation_time,
         expires_at=invitation.expires_at,
@@ -60,7 +61,7 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
         return [
             TeamMemberDTO(
                 user_id=membership.user_id,
-                name=membership.user.full_name,
+                name=_name(membership.user),
                 email=membership.user.email or None,
                 role=SphereRole(membership.role),
             )
@@ -103,10 +104,12 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
         if invitation is None:
             return None
         return InvitationPreviewDTO(
-            sphere_name=Sphere.objects.values_list("name", flat=True).get(pk=sphere_id),
-            role=SphereRole(invitation.role),
-            invited_by=_name(invitation.created_by),
+            role=SphereRole(invitation.role), invited_by=_name(invitation.created_by)
         )
+
+    @staticmethod
+    def read_sphere_name(*, sphere_id: int) -> str:
+        return Sphere.objects.values_list("name", flat=True).get(pk=sphere_id)
 
     @staticmethod
     def lock_open_invitation(
@@ -122,14 +125,22 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
         return None if invitation is None else _invitation_dto(invitation)
 
     @staticmethod
-    def is_member(*, sphere_id: int, user_id: int) -> bool:
-        return SphereMembership.objects.filter(
-            sphere_id=sphere_id, user_id=user_id
-        ).exists()
+    def read_member_role(*, sphere_id: int, user_id: int) -> SphereRole | None:
+        role = (
+            SphereMembership.objects.filter(sphere_id=sphere_id, user_id=user_id)
+            .values_list("role", flat=True)
+            .first()
+        )
+        return None if role is None else SphereRole(role)
 
     @staticmethod
-    def add_member(*, sphere_id: int, user_id: int, role: SphereRole) -> None:
-        SphereMembership.objects.create(sphere_id=sphere_id, user_id=user_id, role=role)
+    def add_member(*, sphere_id: int, user_id: int, role: SphereRole) -> bool:
+        # get_or_create absorbs the unique (sphere, user) race: two links
+        # accepted at once by one person add one membership, not a 500.
+        _, created = SphereMembership.objects.get_or_create(
+            sphere_id=sphere_id, user_id=user_id, defaults={"role": role}
+        )
+        return created
 
     @staticmethod
     def mark_accepted(*, pk: int, user_id: int, now: datetime) -> None:
