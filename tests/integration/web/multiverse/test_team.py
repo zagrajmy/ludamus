@@ -143,14 +143,41 @@ class TestTeamPageView:
     def test_a_tampered_link_cookie_shows_no_link(
         self, authenticated_client, manager, sphere
     ):
-        _invitation(sphere)
+        invitation = _invitation(sphere)
         authenticated_client.cookies["sphere_invitation_issued"] = get_cookie_signer(
             salt="sphere_invitation_issued" + "ludamus.sphere.team.issued-link"
         ).sign("not-a-pk:")
 
         response = authenticated_client.get(TEAM_URL)
 
-        assert response.context["issued_link"] is None
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/team.html",
+            context_data={
+                **sphere_sidebar_context(active_nav="team"),
+                "members": [
+                    TeamMemberDTO(
+                        user_id=manager.pk,
+                        name="Test User",
+                        email="testuser@example.com",
+                        role=SphereRole.MANAGER,
+                    )
+                ],
+                "invitations": [
+                    SphereInvitationDTO(
+                        pk=invitation.pk,
+                        role=SphereRole.MANAGER,
+                        note="",
+                        invited_by="",
+                        creation_time=invitation.creation_time,
+                        expires_at=invitation.expires_at,
+                    )
+                ],
+                "invitation_form": ANY,
+                "issued_link": None,
+            },
+        )
 
     def test_a_new_link_is_shown_once_and_never_stored(
         self, authenticated_client, manager, sphere

@@ -56,12 +56,12 @@ floating UI for the same corner.{% endcomment %}
         <!-- Sidebar -->
         <aside id="sidebar"
                class="transition-transform duration-300 ease-in-out scrollbar-none w-64 lg:folded:w-16 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
-            <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
+            <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:flex-col lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
                     <div class="relative min-w-0 flex-1 lg:folded:hidden">
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
-                                class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
+                                class="w-full appearance-none text-ellipsis bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
                                 data-action="switch-event">
                             {% if not current_event %}
                                 <option value="" disabled selected>{% translate "Choose an event" %}</option>
@@ -83,10 +83,7 @@ floating UI for the same corner.{% endcomment %}
                 {% endif %}
                 {# Beside the picker, not among the pages below: it adds to the list the picker chooses from. #}
                 {% translate "New event" as t_new_event %}
-                <a href="{% url 'panel:event-create' %}"
-                   class="icon-btn shrink-0 lg:folded:hidden"
-                   aria-label="{{ t_new_event }}"
-                   title="{{ t_new_event }}">{% icon "plus" class="size-5" %}</a>
+                {% sidebar_link url="panel:event-create" icon="plus" label=t_new_event key="event-create" compact=True %}
                 {% translate "Toggle sidebar" as t_toggle_sidebar %}
                 <button id="sidebarFoldBtn"
                         type="button"

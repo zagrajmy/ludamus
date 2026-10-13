@@ -9039,8 +9039,8 @@ msgid ""
 "A link is shown once, right after it's created. Lost one? Get a new link for "
 "the same person."
 msgstr ""
-"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Weź nowy link dla tej "
-"samej osoby."
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Utwórz nowy link dla "
+"tej samej osoby."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9073,11 +9073,11 @@ msgstr "Nowy link dla: %(label)s"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "Get a new link? The current one stops working right away."
-msgstr "Wziąć nowy link? Obecny od razu przestanie działać."
+msgstr "Utworzyć nowy link? Obecny od razu przestanie działać."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "Get a new link"
-msgstr "Weź nowy link"
+msgstr "Utwórz nowy link"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid "New link"
