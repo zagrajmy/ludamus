@@ -592,6 +592,7 @@ msgstr "Pokaż opcje"
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/multiverse/panel/team.html
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Copied!"
 msgstr "Skopiowano!"
@@ -3782,6 +3783,18 @@ msgid ""
 msgstr ""
 "Zaimportowani prowadzący nie mają konta — wybierz ich po nazwie z programu."
 
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Role"
+msgstr "Rola"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Manager: runs the panel and everything in it"
+msgstr "Menedżer: prowadzi panel i wszystko, co w nim jest"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Comms: reads the panel and posts schedule updates"
+msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
 msgstr "Gildia utworzona."
@@ -3830,6 +3843,38 @@ msgstr "Prowadzący usunięty."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "Pick a role for the invitation."
+msgstr "Wybierz rolę dla zaproszenia."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "Invitation link created. Copy it and send it to the person."
+msgstr "Link zaproszenia gotowy. Skopiuj go i wyślij tej osobie."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "Invitation revoked."
+msgstr "Zaproszenie wycofane."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "That invitation was already used or has expired."
+msgstr "To zaproszenie zostało już użyte albo wygasło."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid ""
+"This invitation link is no longer valid. Ask the person who sent it for a "
+"new one."
+msgstr ""
+"Ten link zaproszenia jest już nieważny. Poproś osobę, która go wysłała, o "
+"nowy."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "You joined the sphere's team."
+msgstr "Dołączasz do zespołu sfery."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "You're already on this sphere's team, so the link is still unused."
+msgstr "Jesteś już w zespole tej sfery, więc link pozostaje niewykorzystany."
 
 #: src/ludamus/gates/web/django/staging_inbox.py
 msgid "No date"
@@ -7157,6 +7202,7 @@ msgid "%(leader)s's party"
 msgstr "Drużyna użytkownika %(leader)s"
 
 #: src/ludamus/templates/crowd/user/party_join.html
+#: src/ludamus/templates/multiverse/join.html
 msgid "Not now"
 msgstr "Nie teraz"
 
@@ -8643,6 +8689,44 @@ msgstr ""
 msgid "Generate token"
 msgstr "Wygeneruj token"
 
+#: src/ludamus/templates/multiverse/join.html
+msgid "Join the team"
+msgstr "Dołącz do zespołu"
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "%(name)s invited you to manage this sphere."
+msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "You're invited to manage this sphere."
+msgstr "Masz zaproszenie do zarządzania tą sferą."
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "%(name)s invited you to this sphere's comms team."
+msgstr "%(name)s zaprasza Cię do zespołu komunikacji tej sfery."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "You're invited to this sphere's comms team."
+msgstr "Masz zaproszenie do zespołu komunikacji tej sfery."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid ""
+"Managers run the sphere's panel: events, programme, settings and the team "
+"itself."
+msgstr ""
+"Menedżerowie prowadzą panel sfery: wydarzenia, program, ustawienia i sam "
+"zespół."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid ""
+"Comms people read the sphere's panel and post schedule updates. They change "
+"nothing else."
+msgstr ""
+"Osoby od komunikacji przeglądają panel sfery i publikują zmiany w "
+"harmonogramie. Niczego więcej nie zmieniają."
+
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 msgid "Sphere settings sections"
 msgstr "Sekcje ustawień sfery"
@@ -8855,6 +8939,73 @@ msgstr "Zapisz mimo to"
 #: src/ludamus/templates/panel/settings.html
 msgid "Save Settings"
 msgstr "Zapisz ustawienia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#: src/ludamus/templates/panel/base.html
+msgid "Team"
+msgstr "Zespół"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Members"
+msgstr "Członkowie"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Manager"
+msgstr "Menedżer"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Comms"
+msgstr "Komunikacja"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Nobody is on this sphere's team yet."
+msgstr "W zespole tej sfery nie ma jeszcze nikogo."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Invite someone"
+msgstr "Zaproś kogoś"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid ""
+"Each link works once and expires in 7 days. Whoever opens it while signed in "
+"can join with the role you pick."
+msgstr ""
+"Każdy link działa raz i wygasa po 7 dniach. Kto otworzy go po zalogowaniu, "
+"dołączy z wybraną przez Ciebie rolą."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Create invitation link"
+msgstr "Utwórz link zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Open invitations"
+msgstr "Aktywne zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Expires %(expires)s"
+msgstr "Wygasa %(expires)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Invitation link"
+msgstr "Link zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Copy invitation link"
+msgstr "Kopiuj link zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Revoke invitation"
+msgstr "Wycofaj zaproszenie"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "No open invitations."
+msgstr "Brak aktywnych zaproszeń."
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 msgid "Download .ics"
@@ -12649,10 +12800,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
 #~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
 #~ "interfejs."
-
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."

@@ -303,6 +303,26 @@ def _create_party_companion_scenario() -> None:
     )
 
 
+def _create_invitee_scenario() -> None:
+    """Seed a user on no sphere's team, for sphere-invitations.spec.
+
+    The spec has the manager send this user a Comms invitation and accept it,
+    so nothing else may make them a member.
+    """
+    user = User.objects.create_user(
+        username="e2e-invitee",
+        email="e2e-invitee@test.local",
+        password="e2e-invitee-123",
+        name="Ida Invitee",
+        slug="e2e-invitee",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-invitee.json",
+    )
+
+
 def _create_notifications_scenario() -> None:
     """Seed a dedicated user with a content and a destination notification.
 
@@ -1361,6 +1381,7 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+    _create_invitee_scenario()
 
     _create_party_companion_scenario()
 

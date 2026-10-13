@@ -413,6 +413,37 @@ class SphereMembership(models.Model):
         return f"{self.user_id} is {self.role} of sphere {self.sphere_id}"
 
 
+class SphereInvitation(models.Model):
+    """A single-use link that adds whoever accepts it to a sphere's team.
+
+    Open while unaccepted and unexpired; revoking an open one deletes it.
+    An accepted row stays, recording who joined through whose link.
+    """
+
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="invitations"
+    )
+    role = models.CharField(
+        max_length=20, choices=[(r.value, r.name.title()) for r in SphereRole]
+    )
+    token = models.CharField(max_length=64, unique=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "sphere_invitation"
+
+    def __str__(self) -> str:
+        return f"{self.role} invitation to sphere {self.sphere_id}"
+
+
 class Guild(models.Model):
     # The association, club or studio a programme creator belongs to — its mark
     # rides along on every card they present. Sphere-scoped: the same real-world

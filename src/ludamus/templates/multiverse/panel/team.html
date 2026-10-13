@@ -1,0 +1,121 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Team" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Team" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="panel-bleed grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section class="card p-6" aria-labelledby="team-members-heading">
+            <h2 id="team-members-heading"
+                class="text-lg font-semibold text-foreground mb-4">{% translate "Members" %}</h2>
+            {% if members %}
+                <ul class="divide-y divide-border">
+                    {% for member in members %}
+                        <li class="flex items-center justify-between gap-4 py-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-foreground truncate">{{ member.name }}</p>
+                                {% if member.email %}
+                                    <p class="text-sm text-foreground-muted truncate"
+                                       data-ph-no-capture>{{ member.email }}</p>
+                                {% endif %}
+                            </div>
+                            <span class="shrink-0 rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-foreground-secondary">
+                                {% if member.role == "manager" %}
+                                    {% translate "Manager" %}
+                                {% else %}
+                                    {% translate "Comms" %}
+                                {% endif %}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-sm text-foreground-muted">{% translate "Nobody is on this sphere's team yet." %}</p>
+            {% endif %}
+        </section>
+        {% if invitation_form %}
+            <section class="card p-6" aria-labelledby="team-invite-heading">
+                <h2 id="team-invite-heading"
+                    class="text-lg font-semibold text-foreground mb-1">{% translate "Invite someone" %}</h2>
+                <p class="text-sm text-foreground-muted mb-4">
+                    {% blocktranslate %}Each link works once and expires in 7 days. Whoever opens it while signed in can join with the role you pick.{% endblocktranslate %}
+                </p>
+                <form method="post" action="{% url 'multiverse:panel:team-invite' %}">
+                    {% csrf_token %}
+                    {% tessera_field invitation_form.role %}
+                    <div class="mt-4">
+                        {% translate "Create invitation link" as t_create %}
+                        {% tessera_button t_create icon="link" full_width_mobile=False %}
+                    </div>
+                </form>
+                <h3 class="text-base font-semibold text-foreground mt-8 mb-3">{% translate "Open invitations" %}</h3>
+                {% if invitations %}
+                    <ul class="space-y-4">
+                        {% for invitation in invitations %}
+                            {% url 'multiverse:join' token=invitation.token as join_path %}
+                            <li class="rounded-lg border border-border p-3">
+                                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-2">
+                                    <p class="text-sm font-medium text-foreground">
+                                        {% if invitation.role == "manager" %}
+                                            {% translate "Manager" %}
+                                        {% else %}
+                                            {% translate "Comms" %}
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-xs text-foreground-muted">
+                                        {% blocktranslate with expires=invitation.expires_at|date:"SHORT_DATETIME_FORMAT" %}Expires {{ expires }}{% endblocktranslate %}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    {% translate "Invitation link" as t_link %}
+                                    <input type="text"
+                                           data-ph-no-capture
+                                           readonly
+                                           aria-label="{{ t_link }}"
+                                           value="{{ request.scheme }}://{{ request.get_host }}{{ join_path }}"
+                                           class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
+                                    <button type="button"
+                                            class="icon-btn relative shrink-0"
+                                            data-ph-no-capture
+                                            data-copy="{{ join_path }}"
+                                            data-copy-origin
+                                            data-copied-label="{% translate "Copied!" %}"
+                                            title="{% translate "Copy invitation link" %}">
+                                        {% icon "clipboard-document" class="w-4 h-4" %}
+                                        <span class="sr-only">{% translate "Copy invitation link" %}</span>
+                                        {% tessera_copy_popover %}
+                                    </button>
+                                    <form method="post"
+                                          action="{% url 'multiverse:panel:team-invite-revoke' pk=invitation.pk %}"
+                                          class="shrink-0">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="icon-btn text-danger"
+                                                title="{% translate "Revoke invitation" %}">
+                                            {% icon "trash" class="w-4 h-4" %}
+                                            <span class="sr-only">{% translate "Revoke invitation" %}</span>
+                                        </button>
+                                    </form>
+                                </div>
+                                {% if invitation.invited_by %}
+                                    <p class="mt-2 text-xs text-foreground-muted">
+                                        {% blocktranslate with name=invitation.invited_by %}Created by {{ name }}{% endblocktranslate %}
+                                    </p>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-foreground-muted">{% translate "No open invitations." %}</p>
+                {% endif %}
+            </section>
+        {% endif %}
+    </div>
+{% endblock content %}

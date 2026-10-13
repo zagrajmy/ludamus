@@ -2,6 +2,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import logo_field
+from ludamus.pacts.multiverse import SphereRole
 
 
 class GuildForm(forms.Form):
@@ -30,3 +31,21 @@ class GuildMemberForm(forms.Form):
 
 class FacilitatorAssignGuildForm(forms.Form):
     guild_pk = forms.IntegerField(min_value=1)
+
+
+class SphereInvitationForm(forms.Form):
+    role = forms.ChoiceField(
+        label=_("Role"),
+        choices=[
+            (
+                SphereRole.MANAGER.value,
+                _("Manager: runs the panel and everything in it"),
+            ),
+            (
+                SphereRole.COMMS.value,
+                _("Comms: reads the panel and posts schedule updates"),
+            ),
+        ],
+        initial=SphereRole.MANAGER.value,
+        widget=forms.RadioSelect,
+    )
