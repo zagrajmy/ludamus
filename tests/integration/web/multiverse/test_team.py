@@ -137,7 +137,12 @@ class TestTeamPageView:
 
         response = authenticated_client.get(_join_url(invitation.token_hash))
 
-        assert response.status_code == HTTPStatus.GONE
+        assert_response(
+            response,
+            HTTPStatus.GONE,
+            template_name="multiverse/join.html",
+            context_data=_join_page(sphere),
+        )
 
     def test_comms_member_reads_the_team_but_gets_no_invite_controls(
         self, authenticated_client, comms, sphere
@@ -375,8 +380,14 @@ class TestJoinSpherePageView:
 
         response = authenticated_client.get(_join_url("tok"))
 
-        assert response.context["page"].invitation == InvitationPreviewDTO(
-            role=SphereRole.MANAGER, invited_by=""
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/join.html",
+            context_data=_join_page(
+                sphere,
+                invitation=InvitationPreviewDTO(role=SphereRole.MANAGER, invited_by=""),
+            ),
         )
 
     def test_accepting_adds_the_role_and_spends_the_link(
