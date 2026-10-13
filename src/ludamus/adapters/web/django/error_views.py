@@ -1,5 +1,4 @@
 import secrets
-from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
@@ -24,8 +23,8 @@ if TYPE_CHECKING:
 _EVENT_VIEW_NAME = "web:chronology:event"
 
 _EVENT_MISSING = "missing"
-_EVENT_UNPUBLISHED = "unpublished"
-_EVENT_PUBLISHED = "published"
+_EVENT_CLOSED = "closed"
+_EVENT_OPEN = "open"
 
 
 def _event_slug(path: str) -> str | None:
@@ -45,11 +44,7 @@ def _event_state(request: RootRequestProtocol, slug: str) -> str:
         )
     except NotFoundError:
         return _EVENT_MISSING
-    published = (
-        event.publication_time is not None
-        and event.publication_time <= datetime.now(tz=UTC)
-    )
-    return _EVENT_PUBLISHED if published else _EVENT_UNPUBLISHED
+    return _EVENT_OPEN if event.is_open else _EVENT_CLOSED
 
 
 def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
@@ -74,7 +69,7 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
 
     # A junk link to a real, public event: send them on to the clean,
     # canonical event URL with a permanent redirect.
-    if slug_from_cleaned is not None and state == _EVENT_PUBLISHED:
+    if slug_from_cleaned is not None and state == _EVENT_OPEN:
         return HttpResponsePermanentRedirect(
             reverse(_EVENT_VIEW_NAME, kwargs={"slug": slug})
         )
@@ -84,7 +79,7 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
     # reached the right sphere, so send them to the events list with a neutral
     # explanation rather than dropping them on the home page with no context.
     # (A clean URL to a public event renders normally and never reaches here.)
-    if state in {_EVENT_MISSING, _EVENT_UNPUBLISHED}:
+    if state in {_EVENT_MISSING, _EVENT_CLOSED}:
         messages.info(request, _("That event isn't available."))
         return HttpResponseRedirect(reverse("web:index"))
 
