@@ -310,7 +310,6 @@ allowed-confusables = ["–", "×"]
     "ANN",    # flake8-annotations
     "ARG001", # Unused arguments
     "E501",   # Line too long
-    "ICN001", # Django generates `import datetime`; shipped migrations are immutable
     "RUF012", # ClassVar
 ]
 "tests/**.py" = [
@@ -347,6 +346,11 @@ allowed-confusables = ["–", "×"]
 # only reaches tests declared in the same module, never a whole tree. Ruff's
 # own docs for the rule name conftest.py as the one legitimate use.
 "**/conftest.py" = ["pytest-fixture-autouse"]
+
+# Django generates `import datetime` in migrations, and shipped migrations are
+# immutable; ruff 0.17 would otherwise demand `datetime as dt`.
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+datetime = "datetime"
 
 [tool.ruff.lint.pylint]
 max-public-methods = 12
