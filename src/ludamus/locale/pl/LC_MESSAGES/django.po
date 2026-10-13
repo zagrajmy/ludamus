@@ -3916,6 +3916,10 @@ msgid "That invitation was already used or has expired."
 msgstr "To zaproszenie zostało już użyte albo wygasło."
 
 #: src/ludamus/gates/web/django/sphere/team.py
+msgid "New link ready. Copy it below: the old one no longer works."
+msgstr "Nowy link gotowy. Skopiuj go poniżej: poprzedni już nie działa."
+
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
 
@@ -9032,11 +9036,11 @@ msgstr "Aktywne zaproszenia"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid ""
-"A link is shown once, right after it's created. Lost one? Withdraw it and "
-"create another."
+"A link is shown once, right after it's created. Lost one? Get a new link for "
+"the same person."
 msgstr ""
-"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj zaproszenie i "
-"utwórz nowe."
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Weź nowy link dla tej "
+"samej osoby."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9061,6 +9065,23 @@ msgstr "Wygasa za %(expires)s"
 #, python-format
 msgid "Created by %(name)s"
 msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Get a new link for %(label)s"
+msgstr "Nowy link dla: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link? The current one stops working right away."
+msgstr "Wziąć nowy link? Obecny od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link"
+msgstr "Weź nowy link"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "New link"
+msgstr "Nowy link"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format

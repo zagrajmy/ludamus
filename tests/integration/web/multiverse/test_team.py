@@ -352,6 +352,111 @@ class TestTeamInviteRevokeActionView:
         assert SphereInvitation.objects.filter(pk=invitation.pk).exists()
 
 
+class TestTeamInviteReissueActionView:
+    @staticmethod
+    def _url(invitation):
+        return reverse(
+            "multiverse:panel:team-invite-reissue", kwargs={"pk": invitation.pk}
+        )
+
+    def test_a_lost_link_is_swapped_for_a_new_one_for_the_same_person(
+        self, authenticated_client, manager, sphere
+    ):
+        invitation = _invitation(
+            sphere,
+            role=SphereRole.COMMS,
+            note="Kasia",
+            created_by=UserFactory(),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+
+        response = authenticated_client.post(self._url(invitation))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=TEAM_URL,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "New link ready. Copy it below: the old one no longer works.",
+                )
+            ],
+        )
+        token = response.cookies["sphere_invitation_issued"].value.split(":")[1]
+        rotated = SphereInvitation.objects.get()
+        assert rotated.pk == invitation.pk
+        assert (rotated.role, rotated.note) == (SphereRole.COMMS, "Kasia")
+        assert rotated.created_by == manager
+        assert rotated.token_hash == token_hash(token)
+        assert rotated.expires_at > datetime.now(UTC) + timedelta(days=6)
+        assert not SphereInvitation.objects.filter(token_hash=token_hash("tok"))
+
+    def test_the_new_link_is_shown_once_on_the_team_page(
+        self, authenticated_client, manager, sphere
+    ):
+        invitation = _invitation(sphere)
+        authenticated_client.post(self._url(invitation))
+
+        first = authenticated_client.get(TEAM_URL)
+        again = authenticated_client.get(TEAM_URL)
+
+        assert first.context["issued_link"].pk == invitation.pk
+        assert again.context["issued_link"] is None
+
+    def test_another_spheres_invitation_is_left_alone(
+        self, authenticated_client, manager
+    ):
+        foreign = _invitation(SphereFactory())
+
+        response = authenticated_client.post(self._url(foreign))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=TEAM_URL,
+            messages=[
+                (messages.ERROR, "That invitation was already used or has expired.")
+            ],
+        )
+        assert SphereInvitation.objects.get().token_hash == token_hash("tok")
+        assert "sphere_invitation_issued" not in response.cookies
+
+    def test_an_expired_invitation_is_not_revived(
+        self, authenticated_client, manager, sphere
+    ):
+        expired = _invitation(
+            sphere, expires_at=datetime.now(UTC) - timedelta(minutes=1)
+        )
+
+        response = authenticated_client.post(self._url(expired))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=TEAM_URL,
+            messages=[
+                (messages.ERROR, "That invitation was already used or has expired.")
+            ],
+        )
+        assert SphereInvitation.objects.get().token_hash == token_hash("tok")
+
+    def test_comms_member_cannot_get_a_new_link(
+        self, authenticated_client, comms, sphere
+    ):
+        invitation = _invitation(sphere)
+
+        response = authenticated_client.post(self._url(invitation))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
+        )
+        assert SphereInvitation.objects.get().token_hash == token_hash("tok")
+
+
 def _join_page(sphere, *, invitation=None, member_role=None):
     return {
         "page": JoinPageDTO(
