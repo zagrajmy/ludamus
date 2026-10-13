@@ -176,7 +176,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
 
-        if not self.object.is_published and not has_panel_access(self.request):
+        if not self.object.is_open and not has_panel_access(self.request):
             raise Http404
 
         # Every published session of this event, as flat rows. A private track

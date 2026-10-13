@@ -15,7 +15,7 @@ from ludamus.pacts.event import (
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
 )
-from ludamus.pacts.legacy import TrackDTO
+from ludamus.pacts.legacy import SessionStatus, TrackDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import timetable_tab_urls
@@ -428,7 +428,8 @@ class TestConfirmationsPageView:
                                     contact_email=item.session.contact_email,
                                     status_groups=[
                                         ConfirmationStatusGroupDTO(
-                                            status="scheduled",
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
                                             sessions=[_session_dto(item.session, item)],
                                         )
                                     ],
@@ -522,11 +523,13 @@ class TestConfirmationsPageView:
                                     contact_email="ada@example.com",
                                     status_groups=[
                                         ConfirmationStatusGroupDTO(
-                                            status="scheduled",
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
                                             sessions=[_session_dto(scheduled, item)],
                                         ),
                                         ConfirmationStatusGroupDTO(
-                                            status="on_hold",
+                                            status=SessionStatus.ON_HOLD,
+                                            is_scheduled=False,
                                             sessions=[_session_dto(on_hold)],
                                         ),
                                     ],
@@ -615,7 +618,8 @@ class TestConfirmationsPageView:
                                     contact_email="ada@example.com",
                                     status_groups=[
                                         ConfirmationStatusGroupDTO(
-                                            status="scheduled",
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
                                             sessions=[_session_dto(placed, item)],
                                         )
                                     ],

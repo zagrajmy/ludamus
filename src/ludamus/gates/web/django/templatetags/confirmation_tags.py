@@ -9,8 +9,6 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext
 
-from ludamus.specs.confirmations import SCHEDULED_STATUS
-
 if TYPE_CHECKING:
     from ludamus.pacts.event import ConfirmationEmailGroupDTO, ConfirmationSessionDTO
 
@@ -46,7 +44,7 @@ def confirmation_copy_text(group: ConfirmationEmailGroupDTO) -> str:
     lines = [
         _session_line(session)
         for status_group in group.status_groups
-        if status_group.status == SCHEDULED_STATUS
+        if status_group.is_scheduled
         for session in status_group.sessions
     ]
     if not lines:
