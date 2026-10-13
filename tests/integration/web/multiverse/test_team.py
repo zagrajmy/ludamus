@@ -144,6 +144,7 @@ class TestTeamPageView:
         token = issued.value.split(":")[1]
         assert len(token) == URLSAFE_32_BYTES_LENGTH
         assert issued["max-age"] == ISSUED_LINK_MAX_AGE
+        assert issued["path"] == TEAM_URL
         assert all(
             token not in str(session.get_decoded()) for session in Session.objects.all()
         )

@@ -93,7 +93,10 @@ class TeamPageView(SphereAccessMixin, View):
                 "issued_link": _read_issued_link(self.request) if can_invite else None,
             },
         )
-        response.delete_cookie(_ISSUED_LINK_COOKIE)
+        if _ISSUED_LINK_COOKIE in self.request.COOKIES:
+            response.delete_cookie(
+                _ISSUED_LINK_COOKIE, path=reverse("multiverse:panel:team")
+            )
         return response
 
 
@@ -145,6 +148,7 @@ class TeamInviteActionView(SphereAccessMixin, View):
             f"{invitation.pk}:{issued.token}",
             salt=_ISSUED_LINK_SALT,
             max_age=_ISSUED_LINK_MAX_AGE,
+            path=reverse("multiverse:panel:team"),
             secure=self.request.is_secure(),
             httponly=True,
             samesite="Lax",
