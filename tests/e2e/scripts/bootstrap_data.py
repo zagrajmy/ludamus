@@ -55,6 +55,7 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
+from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import UserType
@@ -1249,12 +1250,19 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
 # list them under one heading and still read in time order. Driven by
 # event-slot-headers.spec.ts.
 def _create_slot_states_event(sphere: Sphere) -> None:
+    # NOTE: "yesterday" is the programme day before today's. Before the 06:00
+    # turnover the calendar's yesterday is still today's programme day, still
+    # open, and its slot would not fold.
+    now = timezone.now()
+    programme_yesterday = PROGRAMME_DAYS.date_of(
+        now, get_current_timezone()
+    ) - timedelta(days=1)
     event = _create_event(
         sphere,
         name="Tide Table Weekend",
         slug="slot-states",
         description="Yesterday's games are over; tomorrow's are still to come.",
-        start_offset=timedelta(days=-1),
+        start_offset=timedelta(days=(programme_yesterday - now.date()).days),
         duration_hours=72,
         publication_offset=timedelta(days=3),
     )
