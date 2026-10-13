@@ -81,6 +81,12 @@ floating UI for the same corner.{% endcomment %}
                         </svg>
                     </div>
                 {% endif %}
+                {# Beside the picker, not among the pages below: it adds to the list the picker chooses from. #}
+                {% translate "New event" as t_new_event %}
+                <a href="{% url 'panel:event-create' %}"
+                   class="icon-btn shrink-0 lg:folded:hidden"
+                   aria-label="{{ t_new_event }}"
+                   title="{{ t_new_event }}">{% icon "plus" class="size-5" %}</a>
                 {% translate "Toggle sidebar" as t_toggle_sidebar %}
                 <button id="sidebarFoldBtn"
                         type="button"
@@ -144,10 +150,8 @@ floating UI for the same corner.{% endcomment %}
                     {% translate "Sphere" as t_sphere %}
                     {# Sphere leads the sidebar when there is no event; otherwise it follows the event categories and takes a rule to separate it from them. #}
                     {% sidebar_cat key="sphere" label=t_sphere extra_class="not-first:mt-4 not-first:pt-2 not-first:border-t not-first:border-border" %}
-                        {% translate "New event" as t_new_event %}
-                        {% sidebar_link url="panel:event-create" icon="plus" label=t_new_event key="event-create" %}
                         {% translate "Team" as t_team %}
-                        {% sidebar_link url="multiverse:panel:team" icon="user-group" label=t_team key="team" %}
+                        {% sidebar_link url="multiverse:panel:team" icon="key" label=t_team key="team" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}
