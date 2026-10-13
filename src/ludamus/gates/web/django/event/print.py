@@ -15,7 +15,6 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
-from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
@@ -188,13 +187,12 @@ class PublicEventPrintView(View):
         except NotFoundError as exc:
             raise Http404 from exc
 
-        published = is_event_published(event)
         access = panel_access(request)
         panel_user = access.granted
         # A comms member reads this page and changes nothing by opening it:
         # the printed-materials signal is the organizers' business.
         manages_event = access.allows(Capability.PANEL_WRITE)
-        if not published and not panel_user:
+        if not event.is_open and not panel_user:
             raise Http404
 
         scope_pk = _scope_pk(request.GET.get("scope"))
@@ -280,7 +278,7 @@ class PublicEventPrintView(View):
         )
         # The navbar carries the viewer's identity, so an authenticated response
         # is never shareable; only the anonymous one may sit in a shared cache.
-        if published and not panel_user:
+        if event.is_open and not panel_user:
             patch_cache_control(response, public=True, max_age=300)
         else:
             patch_cache_control(response, private=True, max_age=5)

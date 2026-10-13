@@ -685,6 +685,28 @@ class TestOrganizerToolsForMaintainers:
         assert Space.objects.get(pk=space["pk"]).event_id == event.pk
         assert not Space.objects.filter(event=sibling).exists()
 
+    def test_update_event_makes_it_unlisted(self, client, token, sphere):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        updated = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "update_event",
+                    {
+                        "sphere_id": sphere.pk,
+                        "event_id": event.pk,
+                        "visibility": "unlisted",
+                    },
+                )
+            )
+        )
+
+        event.refresh_from_db()
+        assert event.visibility == "unlisted"
+        assert updated["visibility"] == "unlisted"
+
     def test_event_from_another_sphere_is_not_found(self, client, token, sphere):
         foreign = EventFactory(sphere=SphereFactory())
 
