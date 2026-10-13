@@ -92,6 +92,19 @@ The organizer tier provides programme verbs for spaces, time slots, tracks,
 sessions, and venue maps, with writes scoped to one event per token and
 sphere-wide reads.
 
+### Organizer tools on the maintainer endpoint
+
+`/mcp/` serves every organizer tool too, run by the same code. A maintainer
+token names no sphere or event, so `MaintainerTool`
+(`gates/mcp/organizer_context.py`) adds them as arguments: `sphere_id` on
+every tool, and `event_id` on the tools that act on "the token event"
+(`needs_event = True` on the tool class). It validates them together with
+the tool's own fields, then calls the organizer tool with an actor carrying
+that sphere and event. The organizer tool's own checks still decide what the
+call may touch: an `event_id` outside `sphere_id` is "Resource not found".
+Maintainer-only tools (`list_spheres`, announcement writes) take `sphere_id`
+themselves.
+
 ## Architecture
 
 The MCP gate follows GLIMPSE. It is a transport, not an agent: the app has no
@@ -102,7 +115,7 @@ model and no LLM dependency, and makes no decisions on its own.
 | Piece | Location | Role |
 | ----- | -------- | ---- |
 | Tool registry | `gates/mcp/registry.py` | `Tool` base (pydantic input → JSON text output) + `ToolRegistry` |
-| Tool set | `gates/mcp/tools.py` | Hand-curated maintainer tools over `ServicesProtocol` |
+| Tool set | `gates/mcp/tools.py` | Hand-curated tools over `ServicesProtocol`; organizer tools reach maintainers through `MaintainerTool` |
 | Protocol | `gates/mcp/protocol.py` | Stateless JSON-RPC subset of MCP Streamable HTTP |
 | HTTP gate | `gates/web/django/mcp/views.py` | Bearer auth, JSON parsing, `/mcp/token/` mint page |
 | OAuth gate | `gates/web/django/mcp/oauth.py` | Discovery metadata, consent page, code-for-token exchange |
@@ -174,7 +187,10 @@ the styles on its next run. No integration creation or sync-toggle tool.
    loads only its tier's tools), and a `handle(call)` that reads
    `call.services` / `call.data` / `call.actor` and returns DTO JSON
    (`model_dump_json` / `TypeAdapter.dump_json`).
-2. Add it to `_all_tools()`.
+   An organizer tool that calls `token_event` sets `needs_event = True`, so
+   maintainers get an `event_id` argument for it. Don't write a maintainer
+   copy of an organizer tool: the maintainer endpoint already serves it.
+2. Add it to `_all_tools()` (organizer tools: `_organizer_tools()`).
 3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
    a tools/call case).
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from pydantic import BaseModel, ValidationError
 
@@ -58,46 +58,74 @@ def redact_keys(value: object, keys: frozenset[str]) -> object:
     return value
 
 
+def json_schema[ModelT: BaseModel](model: type[ModelT]) -> JsonDict:
+    return model.model_json_schema()
+
+
+def validate_arguments[ModelT: BaseModel](
+    model: type[ModelT], arguments: JsonDict
+) -> ModelT:
+    try:
+        return model.model_validate(arguments)
+    except ValidationError as error:
+        # Built from structured error fields, not str(error): the raw
+        # pydantic text echoes input values and must not reach clients.
+        details = "; ".join(
+            f"{'.'.join(str(part) for part in item['loc']) or 'arguments'}: "
+            f"{item['msg']}"
+            for item in error.errors()
+        )
+        message = f"Invalid arguments: {details}"
+        raise InvalidArgumentsError(message) from error
+
+
 class ToolProtocol(Protocol):
     name: str
     description: str
     scope: ToolScope
 
     def input_schema(self) -> JsonDict: ...
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object: ...
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict: ...
     def run(
         self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict
     ) -> str: ...
+
+
+class OrganizerToolProtocol(ToolProtocol, Protocol):
+    # What the maintainer endpoint needs to reopen an organizer tool with the
+    # sphere and event passed as arguments instead of read off a token.
+    @property
+    def input_model(self) -> type[BaseModel]: ...
+    @property
+    def needs_event(self) -> bool: ...
+    @property
+    def maintainer_description(self) -> str | None: ...
 
 
 class Tool[InputT: BaseModel](ToolProtocol, ABC):
     input_model: type[InputT]
     # Argument keys carrying personal data, redacted before the audit line.
     audit_redacted_keys: frozenset[str] = frozenset()
+    # True when `handle` acts on the token's event (`token_event`). The
+    # maintainer endpoint has no token event, so it asks for an `event_id`.
+    needs_event: ClassVar[bool] = False
+    # For the rare organizer description that is false for a maintainer.
+    maintainer_description: ClassVar[str | None] = None
 
     def input_schema(self) -> JsonDict:
-        return self.input_model.model_json_schema()
+        return json_schema(self.input_model)
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
-        return redact_keys(arguments, cls.audit_redacted_keys)
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
+        keys = self.audit_redacted_keys
+        return {
+            name: "[redacted]" if name in keys else redact_keys(value, keys)
+            for name, value in arguments.items()
+        }
 
     def run(
         self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict
     ) -> str:
-        try:
-            data = self.input_model.model_validate(arguments)
-        except ValidationError as error:
-            # Built from structured error fields, not str(error): the raw
-            # pydantic text echoes input values and must not reach clients.
-            details = "; ".join(
-                f"{'.'.join(str(part) for part in item['loc']) or 'arguments'}: "
-                f"{item['msg']}"
-                for item in error.errors()
-            )
-            message = f"Invalid arguments: {details}"
-            raise InvalidArgumentsError(message) from error
+        data = validate_arguments(self.input_model, arguments)
         return self.handle(ToolCall(services=services, actor=actor, data=data))
 
     @staticmethod
@@ -108,6 +136,12 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
 class ToolRegistry:
     def __init__(self, tools: Sequence[ToolProtocol]) -> None:
         self._tools = {tool.name: tool for tool in tools}
+        if len(self._tools) < len(tools):
+            # A second tool under one name would silently replace the first.
+            names = [tool.name for tool in tools]
+            duplicates = sorted({name for name in names if names.count(name) > 1})
+            message = f"Duplicate MCP tool names: {', '.join(duplicates)}"
+            raise ValueError(message)
 
     def describe(self) -> list[JsonDict]:
         return [

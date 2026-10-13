@@ -2853,6 +2853,22 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
+    def test_unlisted_event_opens_for_anonymous_before_publication(
+        self, client, sphere
+    ):
+        event = EventFactory(
+            sphere=sphere, publication_time=None, visibility="unlisted"
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
+        )
+
     def test_unpublished_event_redirects_regular_user_to_events_list(
         self, authenticated_client, sphere
     ):

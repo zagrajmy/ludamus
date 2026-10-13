@@ -8,9 +8,10 @@ of work live here:
   until the offer deadline and then runs ``WaitlistPromotionService
   .expire_offer`` (behind ``OfferExpirySchedulerProtocol`` so it is swappable
   with the cron sweep);
-- ``@DBOS.scheduled`` cron workflows for the periodic sweeps, so they run
-  in-process without external cron. Each tick fires once across all gunicorn
-  workers (DBOS dedups on schedule name + tick in the system database).
+- cron workflows for the periodic sweeps, registered as named DBOS schedules
+  at launch (``DBOS.apply_schedules``), so they run in-process without
+  external cron. Each tick fires once across all gunicorn workers (DBOS dedups
+  on schedule name + tick in the system database).
 
 The per-offer timers and the offers sweep intentionally coexist. The timer
 hands a freed seat to the next waiting party at the exact deadline — during a
@@ -94,7 +95,6 @@ def _expire_lapsed_offers_step(now: datetime) -> None:
     logger.info("expire_offers sweep: processed %s lapsed offer(s)", expired)
 
 
-@DBOS.scheduled(EXPIRE_OFFERS_SCHEDULE)
 @DBOS.workflow()
 def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
     _expire_lapsed_offers_step(scheduled)
@@ -121,7 +121,6 @@ def _fanout_due_announcements_step() -> None:
         logger.info("announcement fanout sweep: notified %s subscriber(s)", notified)
 
 
-@DBOS.scheduled(ANNOUNCEMENT_FANOUT_SCHEDULE)
 @DBOS.workflow()
 def announcement_fanout_sweep(_scheduled: datetime, _actual: datetime) -> None:
     _fanout_due_announcements_step()
@@ -133,7 +132,6 @@ def _send_printables_reminders_step(now: datetime) -> None:
     logger.info("printables reminders: reminded %s event(s)", reminded)
 
 
-@DBOS.scheduled(PRINTABLES_REMINDERS_SCHEDULE)
 @DBOS.workflow()
 def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
     _send_printables_reminders_step(scheduled)
@@ -145,7 +143,6 @@ def _send_verification_reminders_step(now: datetime) -> None:
     logger.info("verification reminders: reminded %s user(s)", sent)
 
 
-@DBOS.scheduled(VERIFICATION_REMINDERS_SCHEDULE)
 @DBOS.workflow()
 def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
     _send_verification_reminders_step(scheduled)
@@ -157,7 +154,6 @@ def _announce_published_events_step(now: datetime) -> None:
     logger.info("sphere announcements: announced %s event(s)", announced)
 
 
-@DBOS.scheduled(SPHERE_ANNOUNCEMENTS_SCHEDULE)
 @DBOS.workflow()
 def sphere_announcements_tick(scheduled: datetime, _actual: datetime) -> None:
     _announce_published_events_step(scheduled)
@@ -169,7 +165,6 @@ def _export_konwencik_step(now: datetime) -> None:
     logger.info("konwencik export sweep: exported %s integration(s)", exported)
 
 
-@DBOS.scheduled(KONWENCIK_EXPORT_SCHEDULE)
 @DBOS.workflow()
 def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
     _export_konwencik_step(scheduled)
@@ -180,10 +175,35 @@ def _purge_encounter_invitees_step(now: datetime) -> None:
     build_encounters(build_sites()).purge_stale_invitees(now=now)
 
 
-@DBOS.scheduled(ENCOUNTER_INVITEE_PURGE_SCHEDULE)
 @DBOS.workflow()
 def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None:
     _purge_encounter_invitees_step(scheduled)
+
+
+CRON_WORKFLOWS = (
+    (expire_offers_sweep, EXPIRE_OFFERS_SCHEDULE),
+    (printables_reminders_tick, PRINTABLES_REMINDERS_SCHEDULE),
+    (verification_reminders_tick, VERIFICATION_REMINDERS_SCHEDULE),
+    (announcement_fanout_sweep, ANNOUNCEMENT_FANOUT_SCHEDULE),
+    (sphere_announcements_tick, SPHERE_ANNOUNCEMENTS_SCHEDULE),
+    (konwencik_export_tick, KONWENCIK_EXPORT_SCHEDULE),
+    (encounter_invitee_purge_tick, ENCOUNTER_INVITEE_PURGE_SCHEDULE),
+)
+
+
+def _apply_schedules() -> None:
+    # Upsert by name, so every launch (and every worker) converges on the same
+    # definitions; cadence edits in this module take effect on the next launch.
+    DBOS.apply_schedules(
+        [
+            {
+                "schedule_name": workflow.__name__,
+                "workflow_fn": workflow,
+                "schedule": cron,
+            }
+            for workflow, cron in CRON_WORKFLOWS
+        ]
+    )
 
 
 def _ensure_launched() -> None:
@@ -196,25 +216,14 @@ def _ensure_launched() -> None:
             config={
                 "name": "ludamus",
                 "system_database_url": settings.DBOS_SYSTEM_DATABASE_URL,
-                "run_admin_server": False,
             }
         )
         DBOS.launch()
+        _apply_schedules()
         _launched.set()
         logger.info(
             "DBOS launched; schedules active: %s",
-            [
-                w.__name__
-                for w in (
-                    expire_offers_sweep,
-                    printables_reminders_tick,
-                    verification_reminders_tick,
-                    announcement_fanout_sweep,
-                    sphere_announcements_tick,
-                    konwencik_export_tick,
-                    encounter_invitee_purge_tick,
-                )
-            ],
+            [workflow.__name__ for workflow, _cron in CRON_WORKFLOWS],
         )
 
 

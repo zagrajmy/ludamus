@@ -32,6 +32,7 @@ from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRe
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.pacts.crowd import UserType
 
 
@@ -72,6 +73,10 @@ class Repositories:
     @cached_property
     def guilds(self) -> GuildRepository:
         return GuildRepository()
+
+    @cached_property
+    def sphere_team(self) -> SphereTeamRepository:
+        return SphereTeamRepository()
 
     @cached_property
     def parties(self) -> PartyRepository:

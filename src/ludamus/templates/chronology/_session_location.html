@@ -4,14 +4,16 @@
     {% endif %}
     {# The room is what tells two sessions apart, and it is the last crumb, so #}
     {# the venue and floor give their width up first and keep 3ch for an initial. #}
+    {# Shrink is weighted by width: at 999:1 the room still lost a sliver and its #}
+    {# ellipsis showed beside a half-empty row; 100000:1 rounds that share to 0. #}
     <span class="flex min-w-0 items-baseline" title="{{ data.location_label }}">
         {% for crumb in data.location_crumbs %}
-            {% if not forloop.first %}<span aria-hidden="true" class="shrink-0 px-1">&gt;</span>{% endif %}
+            {% if not forloop.first %}<span aria-hidden="true" class="shrink-0 whitespace-pre"> &gt; </span>{% endif %}
             {% if crumb.space_filter and session_link_base %}
                 <a href="{{ session_link_base }}?space={{ crumb.space_filter }}#schedule-region"
-                   class="pointer-events-auto truncate underline decoration-dotted underline-offset-4 hover:text-primary {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[999]{% endif %}">{{ crumb.name }}</a>
+                   class="pointer-events-auto truncate underline decoration-dotted underline-offset-4 hover:text-primary {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[100000]{% endif %}">{{ crumb.name }}</a>
             {% else %}
-                <span class="truncate {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[999]{% endif %}">{{ crumb.name }}</span>
+                <span class="truncate {% if forloop.last %}min-w-0{% else %}min-w-[3ch] shrink-[100000]{% endif %}">{{ crumb.name }}</span>
             {% endif %}
         {% endfor %}
     </span>

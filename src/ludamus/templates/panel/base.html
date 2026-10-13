@@ -146,6 +146,8 @@ floating UI for the same corner.{% endcomment %}
                     {% sidebar_cat key="sphere" label=t_sphere extra_class="not-first:mt-4 not-first:pt-2 not-first:border-t not-first:border-border" %}
                         {% translate "New event" as t_new_event %}
                         {% sidebar_link url="panel:event-create" icon="plus" label=t_new_event key="event-create" %}
+                        {% translate "Team" as t_team %}
+                        {% sidebar_link url="multiverse:panel:team" icon="user-group" label=t_team key="team" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}

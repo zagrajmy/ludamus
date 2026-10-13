@@ -105,6 +105,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -230,6 +231,12 @@ class Services:
     @cached_property
     def guilds(self) -> GuildService:
         return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
+    def sphere_team(self) -> SphereTeamService:
+        return SphereTeamService(
+            transaction=self._transaction, team=self._repos.sphere_team
+        )
 
     @cached_property
     def parties(self) -> PartyService:

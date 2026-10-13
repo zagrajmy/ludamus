@@ -1,3 +1,4 @@
+from datetime import timedelta
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -14,3 +15,7 @@ ROLE_CAPABILITIES: Mapping[SphereRole, frozenset[Capability]] = MappingProxyType
         SphereRole.COMMS: frozenset({Capability.ERRATUM_ACK}),
     }
 )
+
+# Long enough to reach someone over a weekend; short enough that a link
+# forgotten in a chat log stops granting a role on its own.
+INVITATION_LIFETIME = timedelta(days=7)

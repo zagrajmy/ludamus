@@ -25,13 +25,14 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError
+from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.mcp import ToolScope
 
 # What `Event.address` holds.
 ADDRESS_MAX_LENGTH = 255
 
 if TYPE_CHECKING:
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
@@ -74,6 +75,14 @@ class _UpdateEventInput(BaseModel):
         description=(
             "New aware publication time; null unsets it and hides the event; "
             "omit to keep"
+        ),
+    )
+    visibility: EventVisibility | None = Field(
+        default=None,
+        description=(
+            "public: hidden until publication_time, then listed and announced; "
+            "unlisted: anyone with the link can open it at any time, never "
+            "listed or announced; omit to keep"
         ),
     )
     proposal_start_time: datetime | None = Field(
@@ -145,8 +154,9 @@ def _apply_event_update(
     return token_event(services=services, actor=actor).model_dump_json(indent=2)
 
 
-# Split by what a null means in the database, which is the only distinction
-# between the two halves: one set of columns accepts it, the other does not.
+# Split by what a null means in the database: `_event_settings_cleared`
+# takes the columns that accept one; the columns that do not are cut in two
+# only to keep each function readable.
 def _event_settings_kept(body: _UpdateEventInput) -> EventUpdateData:
     """Collect the settings whose column rejects a null.
 
@@ -168,6 +178,19 @@ def _event_settings_kept(body: _UpdateEventInput) -> EventUpdateData:
         data["start_time"] = body.start_time
     if "end_time" in sent and body.end_time is not None:
         data["end_time"] = body.end_time
+    return data
+
+
+def _event_switches_kept(body: _UpdateEventInput) -> EventUpdateData:
+    """Collect the visibility and the flags, which also reject a null.
+
+    Returns:
+        The ones the caller sent to a value.
+    """
+    sent = body.model_fields_set
+    data: EventUpdateData = {}
+    if "visibility" in sent and body.visibility is not None:
+        data["visibility"] = body.visibility
     if "auto_confirm_sessions" in sent and body.auto_confirm_sessions is not None:
         data["auto_confirm_sessions"] = body.auto_confirm_sessions
     if (
@@ -203,20 +226,25 @@ def _event_update_data(body: _UpdateEventInput) -> EventUpdateData:
     """Turn the sent settings into one write shape.
 
     Returns:
-        The union of the two halves, which never overlap.
+        The union of the three parts, which never overlap.
     """
-    return {**_event_settings_kept(body), **_event_settings_cleared(body)}
+    return {
+        **_event_settings_kept(body),
+        **_event_switches_kept(body),
+        **_event_settings_cleared(body),
+    }
 
 
 class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
     name = "update_event"
     description = (
         "Update any of the token event's settings: name, slug, description, "
-        "address, start/end times, publication and proposal windows, and the "
-        "programme flags. Only provided fields change. Images have their own "
+        "address, start/end times, publication, visibility, proposal windows, "
+        "and the programme flags. Only provided fields change. Images have their own "
         "tool (set_event_image)."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateEventInput
 
     @staticmethod
@@ -246,6 +274,7 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
     name = "set_event_image"
     description = "Replace the token event's cover image or printable logo."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _SetEventImageInput
     audit_redacted_keys = frozenset({"content_base64"})
 
@@ -260,5 +289,5 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-def event_tools() -> tuple[ToolProtocol, ...]:
+def event_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (OrganizerUpdateEventTool(), OrganizerSetEventImageTool())

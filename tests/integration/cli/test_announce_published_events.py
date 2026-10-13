@@ -79,6 +79,25 @@ class TestAnnouncePublishedEvents:
         event.refresh_from_db()
         assert event.subscribers_announced_at is None
 
+    def test_leaves_an_unlisted_event_alone(
+        self,
+        non_root_sphere,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
+        event = _published_event(non_root_sphere)
+        event.visibility = "unlisted"
+        event.save(update_fields=["visibility"])
+
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("announce_published_events")
+
+        assert mailoutbox == []
+        event.refresh_from_db()
+        assert event.subscribers_announced_at is None
+
     def test_stamps_an_event_whose_sphere_nobody_follows(
         self, non_root_sphere, mailoutbox, django_capture_on_commit_callbacks
     ):

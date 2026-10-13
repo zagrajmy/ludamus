@@ -43,6 +43,7 @@ SKIPPED_FIELDS = {
     "sphere",
     "start_time",
     "subscribers_announced_at",
+    "visibility",
 }
 
 

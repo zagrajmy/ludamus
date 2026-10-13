@@ -523,10 +523,10 @@ class EventsService(EventsServiceProtocol):
         self._setup = setup
 
     def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
+        self, sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]:
         return self._events.list_for_events_page(
-            sphere_id, include_unpublished=include_unpublished
+            sphere_id, include_hidden=include_hidden
         )
 
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:

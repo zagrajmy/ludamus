@@ -17,7 +17,7 @@ from ludamus.pacts.multiverse import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
 
 
 class _UpdateSphereSettingsInput(BaseModel):
@@ -112,5 +112,5 @@ class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
 
 
-def sphere_tools() -> tuple[ToolProtocol, ...]:
+def sphere_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (OrganizerUpdateSphereSettingsTool(), OrganizerSetSphereLogoTool())

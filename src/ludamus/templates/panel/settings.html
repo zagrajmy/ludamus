@@ -67,30 +67,30 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Visibility: who can open the event, and from when it is listed -->
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Visibility" %}</h3>
+                                <div class="space-y-6">
+                                    {% tessera_field form.visibility %}
+                                    {% tessera_field form.publication_time %}
+                                </div>
+                            </div>
+                        </div>
                         <!-- Event Dates -->
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Event Dates" %}</h3>
-                                <div class="space-y-6">
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <div>
-                                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                                   for="id_start_time">{% translate "Start Time" %}</label>
-                                            {{ form.start_time }}
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                                   for="id_end_time">{% translate "End Time" %}</label>
-                                            {{ form.end_time }}
-                                        </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                               for="id_start_time">{% translate "Start Time" %}</label>
+                                        {{ form.start_time }}
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_publication_time">{% translate "Publication Time" %}</label>
-                                        {{ form.publication_time }}
-                                        <p class="mt-1 text-sm text-foreground-muted">
-                                            {% translate "When the event becomes publicly visible. Leave empty for immediate visibility." %}
-                                        </p>
+                                               for="id_end_time">{% translate "End Time" %}</label>
+                                        {{ form.end_time }}
                                     </div>
                                 </div>
                             </div>

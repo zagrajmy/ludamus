@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load i18n tessera team_tags %}
+{% block title %}
+    {% translate "Join the team" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                <h1 class="text-2xl font-bold text-foreground">{{ page.sphere_name }}</h1>
+                {% if page.member_role %}
+                    <p class="text-sm text-foreground-secondary mt-3">
+                        {% blocktranslate with role=page.member_role|role_label %}You're already on this sphere's team ({{ role }}).{% endblocktranslate %}
+                    </p>
+                    {% if page.invitation %}
+                        <p class="text-sm text-foreground-muted mt-2">
+                            {% translate "This link still works. Send it to the person you're inviting." %}
+                        </p>
+                    {% endif %}
+                    {% url 'multiverse:panel:team' as team_url %}
+                    {% translate "Go to the team" as t_team %}
+                    <div class="mt-6">{% tessera_button t_team href=team_url variant="secondary" %}</div>
+                {% elif not page.invitation %}
+                    <p class="text-sm text-foreground-secondary mt-3">
+                        {% translate "This invitation link no longer works. It was used, withdrawn, or has expired. Ask the person who sent it for a new one." %}
+                    </p>
+                {% else %}
+                    <p class="text-sm text-foreground-secondary mt-1">
+                        {% if page.invitation.invited_by %}
+                            {% blocktranslate with name=page.invitation.invited_by %}{{ name }} invited you to this sphere's team.{% endblocktranslate %}
+                        {% else %}
+                            {% translate "You're invited to this sphere's team." %}
+                        {% endif %}
+                    </p>
+                    <p class="text-sm font-medium text-foreground mt-4">{{ page.invitation.role|role_label }}</p>
+                    <p class="text-sm text-foreground-muted mt-1">{{ page.invitation.role|role_duty }}</p>
+                    {% if user.is_authenticated %}
+                        <p class="text-sm text-foreground-muted mt-4" data-ph-no-capture>
+                            {% if user.name %}
+                                {% blocktranslate with name=user.name email=user.email %}You'll join as {{ name }} ({{ email }}).{% endblocktranslate %}
+                            {% else %}
+                                {% blocktranslate with email=user.email %}You'll join as {{ email }}.{% endblocktranslate %}
+                            {% endif %}
+                        </p>
+                        {# No action: the view serves GET and POST here, so the form self-posts and the token stays out of the markup. #}
+                        <form method="post" class="mt-6">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="btn btn-primary w-full">{% translate "Join the team" %}</button>
+                        </form>
+                    {% else %}
+                        {% translate "Log in to join" as t_login %}
+                        <div class="mt-6">{% include "components/login_button.html" with text=t_login extra_class="w-full" %}</div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock body %}

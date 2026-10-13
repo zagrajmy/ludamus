@@ -1,6 +1,7 @@
 {% load i18n %}
 {% if location_preview %}
-    <section class="mt-8" aria-labelledby="location-preview-title">
+    <section class="mt-8 border-t border-border pt-6"
+             aria-labelledby="location-preview-title">
         <div class="mb-5">
             <h2 id="location-preview-title"
                 class="text-lg font-semibold text-foreground">{% translate "Longest scheduled location" %}</h2>
@@ -15,7 +16,7 @@
                     {% translate "Phone modal · 390 px viewport" %}
                 </figcaption>
                 <div class="overflow-x-auto pb-1">
-                    <div class="w-[calc(390px-0.5rem)] rounded-xl border border-border bg-bg-secondary px-6 py-4 shadow-sm"
+                    <div class="w-[min(calc(390px-0.5rem),100%)] rounded-xl border border-border bg-bg-secondary px-6 py-4 shadow-sm"
                          role="group"
                          aria-label="{% translate "Phone modal preview" %}">
                         {% include "panel/_venue_path_sample.html" %}
