@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.team import SphereTeamService, token_hash
+from ludamus.mills import team as team_mills
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.team import (
     AcceptInvitationOutcome,
@@ -20,6 +20,7 @@ MEMBER = TeamMemberDTO(
 )
 # secrets.token_urlsafe(32): 32 random bytes, base64-encoded without padding.
 URLSAFE_32_BYTES_LENGTH = 43
+HASH_OF_TOK = team_mills.token_hash("tok")
 
 
 def _invitation(role=SphereRole.MANAGER):
@@ -50,7 +51,6 @@ class StubTeam:
         self.added = []
         self.accepted = []
         self.clock = []
-        self.looked_up = []
 
     @staticmethod
     def list_members(*, sphere_id):
@@ -82,8 +82,8 @@ class StubTeam:
         )
 
     def lock_open_invitation(self, *, sphere_id, token_hash, now):
-        self.looked_up.append(token_hash)
-        return self.open_invitation
+        # Only the digest of the link's token finds it.
+        return self.open_invitation if token_hash == HASH_OF_TOK else None
 
     def read_member_role(self, *, sphere_id, user_id):
         return self.member_role
@@ -97,7 +97,7 @@ class StubTeam:
 
 
 def _service(team):
-    return SphereTeamService(transaction=FakeTransaction(), team=team)
+    return team_mills.SphereTeamService(transaction=FakeTransaction(), team=team)
 
 
 def _accept(service):
@@ -122,7 +122,7 @@ class TestInvite:
 
         assert first.token != second.token
         assert len(first.token) == URLSAFE_32_BYTES_LENGTH
-        assert team.created[0]["token_hash"] == token_hash(first.token)
+        assert team.created[0]["token_hash"] == team_mills.token_hash(first.token)
         assert first.token not in team.created[0]["token_hash"]
         assert before + timedelta(days=7) <= first.invitation.expires_at
         assert first.invitation.expires_at <= datetime.now(tz=UTC) + timedelta(days=7)
@@ -137,7 +137,6 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.JOINED
-        assert team.looked_up == [token_hash("tok")]
         assert team.added == [(NEWCOMER_PK, SphereRole.COMMS)]
         assert team.accepted == [(INVITATION_PK, NEWCOMER_PK)]
 
