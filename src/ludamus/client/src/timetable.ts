@@ -435,6 +435,18 @@ document.addEventListener("dragend", () => {
   }
 });
 
+function placeClosedRanges(root: ParentNode): void {
+  for (const el of root.querySelectorAll<HTMLElement>(".timetable-closed")) {
+    el.style.setProperty("--offset", el.dataset.startMinutes ?? "0");
+    el.style.setProperty("--duration", el.dataset.durationMinutes ?? "0");
+  }
+}
+
+document.body.addEventListener("htmx:load", (evt) => {
+  const el = (evt as CustomEvent).detail?.elt;
+  placeClosedRanges(el instanceof Element ? el : document);
+});
+
 // Clicking a session (list card or grid block) loads the detail pane for
 // review only — it never arms assign mode. Placement arms solely from an
 // explicit Assign/Reassign click (handled by the delegated click listener
