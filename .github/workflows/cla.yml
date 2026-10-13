@@ -38,8 +38,9 @@ jobs:
           branch: cla-signatures
           path-to-signatures: signatures/v1/cla.json
           # Maintainers hold the copyright already; bots cannot agree to
-          # anything.
-          allowlist: fancysnake,hasparus,lprasol,*[bot]
+          # anything. Claude commits are made in a maintainer's session, under
+          # that maintainer's direction and responsibility.
+          allowlist: fancysnake,hasparus,lprasol,Claude,*[bot]
           custom-notsigned-prcomment: >
             Thanks for the pull request. Before it can be merged, please read
             our [Contributor License Agreement](https://github.com/zagrajmy/ludamus/blob/main/CLA.md)
