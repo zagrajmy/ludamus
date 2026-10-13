@@ -27,7 +27,7 @@ requires-poetry = ">=2.0,<3"
 [tool.poetry.dependencies]
 authlib = "~1.8.0"
 cryptography = "~50.0.1"
-dbos = ">=2.31.0,<3"
+dbos = ">=3.2.0,<4"
 django = "~6.1.0"
 django-environ = "~0.14.0"
 django-extensions = "~4.1"
