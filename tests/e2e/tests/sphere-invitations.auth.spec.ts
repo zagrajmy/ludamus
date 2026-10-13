@@ -1,5 +1,4 @@
 import { type Browser, type Page } from "@playwright/test";
-import fs from "node:fs";
 import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
@@ -15,7 +14,14 @@ import { BASE_URL, CREW_SPHERE } from "./helpers/urls";
 
 test.use({ storageState: path.join(__dirname, "..", ".auth-state-invitee.json") });
 
-const SPHERES = [
+interface SphereCase {
+  label: string;
+  origin: string;
+  signIn: (page: Page) => Promise<void>;
+  storageState?: string;
+}
+
+const SPHERES: SphereCase[] = [
   {
     label: "root sphere",
     origin: BASE_URL,
@@ -31,10 +37,8 @@ const SPHERES = [
   },
 ];
 
-const managerPage = async (browser: Browser, sphere: (typeof SPHERES)[number]): Promise<Page> => {
-  const storageState =
-    "storageState" in sphere ? JSON.parse(fs.readFileSync(sphere.storageState, "utf8")) : undefined;
-  const context = await browser.newContext({ storageState });
+const managerPage = async (browser: Browser, sphere: SphereCase): Promise<Page> => {
+  const context = await browser.newContext({ storageState: sphere.storageState });
   const page = await context.newPage();
   await sphere.signIn(page);
   return page;
