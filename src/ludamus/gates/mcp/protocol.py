@@ -122,7 +122,7 @@ def _run_tool(
     services: ServicesProtocol,
     actor: ActorContext,
     name: str,
-    arguments: dict[str, object],
+    arguments: JsonDict,
 ) -> tuple[ToolOutcome, str]:
     try:
         text = registry.call(
