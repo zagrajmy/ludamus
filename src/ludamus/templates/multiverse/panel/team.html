@@ -62,10 +62,10 @@
                     </div>
                 </form>
                 <h3 class="text-base font-semibold text-foreground mt-8 mb-1">{% translate "Open invitations" %}</h3>
-                <p class="text-xs text-foreground-muted mb-3">
-                    {% translate "A link is shown once, right after it's created. Lost one? Withdraw it and create another." %}
-                </p>
                 {% if invitations %}
+                    <p class="text-xs text-foreground-muted mb-3">
+                        {% translate "A link is shown once, right after it's created. Lost one? Withdraw it and create another." %}
+                    </p>
                     <ul class="space-y-4">
                         {% for invitation in invitations %}
                             {% firstof invitation.note invitation.role|role_label as invitation_label %}
@@ -83,12 +83,12 @@
                                         <input type="text"
                                                data-ph-no-capture
                                                readonly
-                                               autofocus
                                                aria-label="{{ t_link }}"
                                                value="{{ request.scheme }}://{{ request.get_host }}{{ issued_link.path }}"
                                                class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
                                         {% blocktranslate asvar t_copy with label=invitation_label %}Copy the invitation link for {{ label }}{% endblocktranslate %}
                                         <button type="button"
+                                                autofocus
                                                 class="icon-btn relative shrink-0"
                                                 data-ph-no-capture
                                                 data-copy="{{ issued_link.path }}"

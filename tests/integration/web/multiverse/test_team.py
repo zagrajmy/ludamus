@@ -4,12 +4,14 @@ from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
+from django.contrib.sessions.models import Session
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereInvitation, SphereMembership
 from ludamus.mills.team import token_hash
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.team import (
+    INVITATION_NOTE_MAX_LENGTH,
     InvitationPreviewDTO,
     JoinPageDTO,
     SphereInvitationDTO,
@@ -25,6 +27,7 @@ from tests.integration.web.multiverse.helpers import (
 
 # secrets.token_urlsafe(32): 32 random bytes, base64-encoded without padding.
 URLSAFE_32_BYTES_LENGTH = 43
+ISSUED_LINK_MAX_AGE = 300
 TEAM_URL = reverse("multiverse:panel:team")
 INVITE_URL = reverse("multiverse:panel:team-invite")
 
@@ -132,6 +135,19 @@ class TestTeamPageView:
         assert token not in invitation.token_hash
         assert again.context["issued_link"] is None
 
+    def test_a_link_never_opened_is_not_kept_in_the_session_table(
+        self, authenticated_client, manager, sphere
+    ):
+        response = authenticated_client.post(INVITE_URL, data={"role": "comms"})
+
+        issued = response.cookies["sphere_invitation_issued"]
+        token = issued.value.split(":")[1]
+        assert len(token) == URLSAFE_32_BYTES_LENGTH
+        assert issued["max-age"] == ISSUED_LINK_MAX_AGE
+        assert all(
+            token not in str(session.get_decoded()) for session in Session.objects.all()
+        )
+
     def test_a_stored_hash_is_not_a_link(self, authenticated_client, sphere):
         invitation = _invitation(sphere)
 
@@ -229,6 +245,25 @@ class TestTeamInviteActionView:
             HTTPStatus.FOUND,
             url=TEAM_URL,
             messages=[(messages.ERROR, "Pick a role for the invitation.")],
+        )
+        assert not SphereInvitation.objects.exists()
+
+    def test_an_overlong_note_is_named_as_the_problem(
+        self, authenticated_client, manager
+    ):
+        response = authenticated_client.post(
+            INVITE_URL,
+            data={
+                "role": SphereRole.COMMS,
+                "note": "x" * (INVITATION_NOTE_MAX_LENGTH + 1),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=TEAM_URL,
+            messages=[(messages.ERROR, "Keep the note to 100 characters.")],
         )
         assert not SphereInvitation.objects.exists()
 

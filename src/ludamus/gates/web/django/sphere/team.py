@@ -22,7 +22,11 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.sphere.forms import SphereInvitationForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.multiverse import Capability, SphereRole
-from ludamus.pacts.team import AcceptInvitationOutcome, JoinPageDTO
+from ludamus.pacts.team import (
+    INVITATION_NOTE_MAX_LENGTH,
+    AcceptInvitationOutcome,
+    JoinPageDTO,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -32,9 +36,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# The one moment a link exists in full: the invite action leaves it here for
-# the next Team page render, which shows it once and forgets it.
-_ISSUED_LINK_KEY = "sphere_invitation_issued"
+# The one moment a link exists in full: the invite action hands it to the next
+# Team page render in a short-lived signed cookie, never the session table, so
+# a redirect that is never followed leaves no usable link at rest.
+_ISSUED_LINK_COOKIE = "sphere_invitation_issued"
+_ISSUED_LINK_SALT = "ludamus.sphere.team.issued-link"
+_ISSUED_LINK_MAX_AGE = 300
 
 
 class IssuedLink(NamedTuple):
@@ -42,14 +49,22 @@ class IssuedLink(NamedTuple):
     path: str
 
 
-def _pop_issued_link(request: MultiverseRequest) -> IssuedLink | None:
-    issued = request.session.pop(_ISSUED_LINK_KEY, None)
-    if not isinstance(issued, dict):
+def _read_issued_link(request: MultiverseRequest) -> IssuedLink | None:
+    signed = request.get_signed_cookie(
+        _ISSUED_LINK_COOKIE,
+        default=None,
+        salt=_ISSUED_LINK_SALT,
+        max_age=_ISSUED_LINK_MAX_AGE,
+    )
+    if signed is None:
         return None
-    pk, token = issued.get("pk"), issued.get("token")
-    if not isinstance(pk, int) or not isinstance(token, str):
+    pk, _sep, token = signed.partition(":")
+    if not pk.isdigit() or not token:
+        logger.warning("Sphere invitation: malformed issued-link cookie ignored")
         return None
-    return IssuedLink(pk=pk, path=reverse("multiverse:join", kwargs={"token": token}))
+    return IssuedLink(
+        pk=int(pk), path=reverse("multiverse:join", kwargs={"token": token})
+    )
 
 
 class TeamPageView(SphereAccessMixin, View):
@@ -59,7 +74,7 @@ class TeamPageView(SphereAccessMixin, View):
         sphere_id = self.request.context.current_sphere_id
         # Comms people read the team too; only managers may grow it.
         can_invite = panel_access(self.request).allows(Capability.PANEL_WRITE)
-        return TemplateResponse(
+        response = TemplateResponse(
             self.request,
             "multiverse/panel/team.html",
             {
@@ -75,9 +90,11 @@ class TeamPageView(SphereAccessMixin, View):
                     else []
                 ),
                 "invitation_form": SphereInvitationForm() if can_invite else None,
-                "issued_link": _pop_issued_link(self.request) if can_invite else None,
+                "issued_link": _read_issued_link(self.request) if can_invite else None,
             },
         )
+        response.delete_cookie(_ISSUED_LINK_COOKIE)
+        return response
 
 
 class TeamInviteActionView(SphereAccessMixin, View):
@@ -86,7 +103,15 @@ class TeamInviteActionView(SphereAccessMixin, View):
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         form = SphereInvitationForm(self.request.POST)
         if not form.is_valid():
-            messages.error(self.request, _("Pick a role for the invitation."))
+            messages.error(
+                self.request,
+                (
+                    _("Keep the note to %(limit)d characters.")
+                    % {"limit": INVITATION_NOTE_MAX_LENGTH}
+                    if "note" in form.errors
+                    else _("Pick a role for the invitation.")
+                ),
+            )
             return redirect("multiverse:panel:team")
         issued = self.request.services.sphere_team.invite(
             sphere_id=self.request.context.current_sphere_id,
@@ -102,10 +127,6 @@ class TeamInviteActionView(SphereAccessMixin, View):
             invitation.role,
             self.request.context.current_user_id,
         )
-        self.request.session[_ISSUED_LINK_KEY] = {
-            "pk": invitation.pk,
-            "token": issued.token,
-        }
         messages.success(
             self.request,
             (
@@ -118,7 +139,17 @@ class TeamInviteActionView(SphereAccessMixin, View):
                 )
             ),
         )
-        return redirect("multiverse:panel:team")
+        response = redirect("multiverse:panel:team")
+        response.set_signed_cookie(
+            _ISSUED_LINK_COOKIE,
+            f"{invitation.pk}:{issued.token}",
+            salt=_ISSUED_LINK_SALT,
+            max_age=_ISSUED_LINK_MAX_AGE,
+            secure=self.request.is_secure(),
+            httponly=True,
+            samesite="Lax",
+        )
+        return response
 
 
 class TeamInviteRevokeActionView(SphereAccessMixin, View):

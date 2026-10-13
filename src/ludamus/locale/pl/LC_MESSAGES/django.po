@@ -3890,13 +3890,18 @@ msgstr ""
 "programie, które już ogłosiły. Niczego więcej nie zmieniają."
 
 #: src/ludamus/gates/web/django/sphere/team.py
+#, python-format
+msgid "Keep the note to %(limit)d characters."
+msgstr "Notatka może mieć najwyżej %(limit)d znaków."
+
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "Pick a role for the invitation."
 msgstr "Wybierz rolę dla zaproszenia."
 
 #: src/ludamus/gates/web/django/sphere/team.py
 #, python-format
 msgid "Invitation link ready. Copy it below and send it to %(name)s."
-msgstr "Link zaproszenia gotowy. Skopiuj go poniżej i wyślij: %(name)s."
+msgstr "Link zaproszenia gotowy. Skopiuj go poniżej i wyślij osobie: %(name)s."
 
 #: src/ludamus/gates/web/django/sphere/team.py
 msgid ""
