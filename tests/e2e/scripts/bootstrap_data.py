@@ -59,7 +59,11 @@ from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
+from ludamus.pacts.legacy import (
+    EventVisibility,
+    NotificationKind,
+    SessionParticipationStatus,
+)
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -222,7 +226,11 @@ def _cookie_domain() -> str:
     )
 
 
-def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
+def _write_storage_state(
+    user: User, *, domain: str, path: Path, also_on: tuple[str, ...] = ()
+) -> None:
+    # `also_on` signs the same session in on other sphere hosts, for specs
+    # that walk one user through the root and a non-root sphere.
     session = SessionStore()
     session["_auth_user_id"] = str(user.pk)
     session["_auth_user_backend"] = "django.contrib.auth.backends.ModelBackend"
@@ -234,12 +242,13 @@ def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
             {
                 "name": "sessionid",
                 "value": session.session_key,
-                "domain": domain,
+                "domain": cookie_domain,
                 "path": "/",
                 "httpOnly": True,
                 "secure": False,
                 "sameSite": "Lax",
             }
+            for cookie_domain in (domain, *also_on)
         ],
         "origins": [],
     }
@@ -303,13 +312,60 @@ def _create_party_companion_scenario() -> None:
     )
 
 
-def _create_invitee_scenario() -> None:
-    """Seed a user on no sphere's team, for sphere-invitations.spec.
+CREW_HOST = "crew.localhost"
 
-    The spec has the manager send this user a Comms invitation and accept it,
-    so nothing else may make them a member.
+
+def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
+    """Seed what unlisted-events.spec and sphere-invitations.auth.spec need.
+
+    Both specs run on the root sphere and on a non-root one, because the two
+    root `/` differently: the root shows the landing page or a dashboard, any
+    other sphere its events feed. Crew is that non-root sphere, kept apart
+    from Empty Sphere, which other specs need without events.
     """
-    user = User.objects.create_user(
+    _, crew = _create_site(f"{CREW_HOST}:8000", name="Crew")
+    crew_manager = User.objects.create_user(
+        username="e2e-crew-manager",
+        email="e2e-crew-manager@test.local",
+        password="e2e-crew-manager-123",
+        name="Crew Manager",
+        slug="e2e-crew-manager",
+    )
+    crew.managers.add(crew_manager)
+    _write_storage_state(
+        crew_manager,
+        domain=CREW_HOST,
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-crew-manager.json",
+    )
+
+    _create_event(
+        crew,
+        name="Crew Open Night",
+        slug="crew-open-night",
+        description="A public evening every follower hears about.",
+        start_offset=timedelta(days=5),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    for sphere, name, slug in (
+        (crew, "Crew Sneak Peek", "crew-sneak-peek"),
+        (root_sphere, "Root Sneak Peek", "root-sneak-peek"),
+    ):
+        event = _create_event(
+            sphere,
+            name=name,
+            slug=slug,
+            description="Shared by link before anyone may list it.",
+            start_offset=timedelta(days=6),
+            duration_hours=4,
+            publication_offset=timedelta(0),
+        )
+        event.publication_time = None
+        event.visibility = EventVisibility.UNLISTED
+        event.save(update_fields=["publication_time", "visibility"])
+
+    # On no sphere's team: the invitations spec makes them a member of both.
+    invitee = User.objects.create_user(
         username="e2e-invitee",
         email="e2e-invitee@test.local",
         password="e2e-invitee-123",
@@ -317,9 +373,10 @@ def _create_invitee_scenario() -> None:
         slug="e2e-invitee",
     )
     _write_storage_state(
-        user,
+        invitee,
         domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-invitee.json",
+        also_on=(CREW_HOST,),
     )
 
 
@@ -1381,7 +1438,7 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
-    _create_invitee_scenario()
+    _create_unlisted_and_team_scenario(sphere)
 
     _create_party_companion_scenario()
 
