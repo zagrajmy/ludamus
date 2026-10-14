@@ -988,14 +988,14 @@ xml-validation = ["lxml (>=4,<7)"]
 
 [[package]]
 name = "dbos"
-version = "2.31.1"
+version = "3.2.0"
 description = "Ultra-lightweight durable execution in Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dbos-2.31.1-py3-none-any.whl", hash = "sha256:5c32840683cbb10727d30d208d8e1eb3ccaec7ed881776e5bf9d89cb32d7583c"},
-    {file = "dbos-2.31.1.tar.gz", hash = "sha256:646918de8ec579f56281ec744b87f562497e2618edbedf79960311fa03f2b078"},
+    {file = "dbos-3.2.0-py3-none-any.whl", hash = "sha256:8b78c38e3d1904acca98484107a8f50f38d7605eb6c7c03550259405d7f1b801"},
+    {file = "dbos-3.2.0.tar.gz", hash = "sha256:91e0e56f0102f63bce81f306b807540f1ed4962a145b86591f87cfa26b2a29bc"},
 ]
 
 [package.dependencies]
@@ -5856,4 +5856,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "b167e67b1f1e4a3fc7cb9b6da45ce9b3dc68255f4ebdcbd62d4bb2f37bd01b2d"
+content-hash = "f002c15d7396ad6f8517af3335f3b618f9fbd7a697cdc221e6bfc53864213da5"
