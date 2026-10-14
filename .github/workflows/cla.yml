@@ -38,7 +38,9 @@ jobs:
           branch: cla-signatures
           path-to-signatures: signatures/v1/cla.json
           # Maintainers hold the copyright already; bots cannot agree to
-          # anything.
+          # anything. Not "Claude": an author GitHub cannot link is matched by
+          # its free-text name, which anyone can set. Cloud sessions author
+          # as their human instead (see .claude/hooks/session-start.sh).
           allowlist: fancysnake,hasparus,lprasol,*[bot]
           custom-notsigned-prcomment: >
             Thanks for the pull request. Before it can be merged, please read
