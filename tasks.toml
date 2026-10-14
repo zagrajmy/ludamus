@@ -185,8 +185,8 @@ raw_args = true
 env = { _.file = '.env.test', DB_NAME = "{{ config_root }}/.local/perf-event-page.sqlite3", IN_TESTS = "False", ZEAL_RAISE = "False", PYTHONPATH = "src:." }
 
 [control-ludamus]
-description = "Drive the local ludamus instance for agent verification (doctor, open, screenshot, mcp)"
-run = "aubr varlock python -m scripts.control_ludamus"
+description = "Launch and drive a disposable ludamus instance for agent verification (launch, doctor, open, screenshot, cleanup)"
+run = "python -m scripts.control_ludamus"
 raw_args = true
 
 [env-show]
