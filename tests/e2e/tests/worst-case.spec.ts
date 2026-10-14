@@ -99,3 +99,21 @@ test("a one-seat room's conflict reads in the singular", async ({ page }) => {
 
   await expect(page.getByText("Room fits 1 person, session requires 1284")).toBeVisible();
 });
+
+test("programme order names every room on a phone", async ({ page }, testInfo) => {
+  await page.goto(`${PANEL}/venues/?view=programme`);
+  const order = page.getByRole("list", { name: "Programme room order" });
+
+  for (const room of ["B", "Hol"]) {
+    const crumb = order.getByText(room, { exact: true });
+    await expect(crumb).toBeVisible();
+    expect(await fullyShown(crumb)).toBe(true);
+  }
+  expect(await overflowsViewport(page)).toBe(false);
+
+  await attachArtifacts(testInfo, {
+    name: "worst-case-programme-order",
+    region: order,
+    facts: { rooms: ["B", "Hol"], fullyShown: true },
+  });
+});

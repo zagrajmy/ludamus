@@ -47,6 +47,7 @@ class OrganizerGetKonwencikSettingsTool(Tool[EmptyInput]):
         "Does not return connection credentials or export anything."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = EmptyInput
 
     @staticmethod
@@ -79,6 +80,7 @@ class OrganizerUpdateKonwencikStylesTool(Tool[_UpdateStylesInput]):
         "if automatic sync is enabled, the next sync uses these styles."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateStylesInput
 
     @staticmethod
