@@ -1,11 +1,18 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from django import template
 from django.utils import timezone
 from django.utils.formats import date_format, get_format, time_format
+from django.utils.translation import gettext_lazy
+
+from ludamus.pacts.availability import DayPart
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import DateTimeRangeProtocol
 
@@ -60,3 +67,26 @@ def format_datetime_range(obj: DateTimeRangeProtocol) -> str:
     return _format_date_range(
         timezone.localtime(obj.start_time), timezone.localtime(obj.end_time)
     )
+
+
+# Lowercase: these land inside a sentence ("Friday morning"), never alone as a
+# label. The picker chips have their own Title Case set.
+DAY_PART_NAMES: dict[DayPart, _StrPromise] = {
+    DayPart.MORNING: gettext_lazy("morning"),
+    DayPart.AFTERNOON: gettext_lazy("afternoon"),
+    DayPart.EVENING: gettext_lazy("evening"),
+    DayPart.NIGHT: gettext_lazy("night"),
+}
+
+
+@register.filter
+def day_part(value: str) -> str:
+    """Name a part of the day in the reader's language.
+
+    Returns:
+        The translated name, or the raw value if it names no known part.
+    """
+    try:
+        return str(DAY_PART_NAMES[DayPart(value)])
+    except ValueError:
+        return value

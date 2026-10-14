@@ -81,7 +81,7 @@ from ludamus.pacts import (
     NotFoundError,
     RedirectError,
 )
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR, SessionCardDTO
+from ludamus.pacts.availability import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     NO_ENROLLMENT_ACCESS,
@@ -109,6 +109,7 @@ from .forms import create_enrollment_form
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.chronology import SessionCardDTO
     from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
 logger = logging.getLogger(__name__)
@@ -565,7 +566,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for seat in card.participations
                 ],
-                preferred_time_slots=card.preferred_time_slots,
+                offered_times=card.offered_times,
             )
 
         # Check if any active enrollment config has limit_to_end_time enabled

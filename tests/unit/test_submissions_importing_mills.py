@@ -100,7 +100,6 @@ def _service(
             session_fields=None,
             personal_fields=None,
             personal_data_field_values=None,
-            time_slots=None,
             tracks=None,
             categories=None,
             facilitators=None,
