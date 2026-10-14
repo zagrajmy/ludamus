@@ -88,6 +88,15 @@ class SphereInvitationCreateData(TypedDict):
     expires_at: datetime
 
 
+class InvitationRotationData(TypedDict):
+    # A fresh link for an open invitation: its role and note stay, the token,
+    # the issuer and the week it lives for are new.
+    token_hash: str
+    created_by_id: int
+    creation_time: datetime
+    expires_at: datetime
+
+
 class SphereTeamRepositoryProtocol(Protocol):
     @staticmethod
     def list_members(*, sphere_id: int) -> list[TeamMemberDTO]: ...
@@ -99,6 +108,10 @@ class SphereTeamRepositoryProtocol(Protocol):
     def create_invitation(data: SphereInvitationCreateData) -> SphereInvitationDTO: ...
     @staticmethod
     def delete_open_invitation(*, sphere_id: int, pk: int, now: datetime) -> bool: ...
+    @staticmethod
+    def rotate_open_invitation(
+        *, sphere_id: int, pk: int, rotation: InvitationRotationData, now: datetime
+    ) -> SphereInvitationDTO | None: ...
     @staticmethod
     def read_sphere_name(*, sphere_id: int) -> str: ...
     @staticmethod
@@ -124,6 +137,9 @@ class SphereTeamServiceProtocol(Protocol):
         self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
     ) -> IssuedInvitationDTO: ...
     def revoke(self, *, sphere_id: int, pk: int) -> bool: ...
+    def reissue(
+        self, *, sphere_id: int, pk: int, reissued_by_id: int
+    ) -> IssuedInvitationDTO | None: ...
     def join_page(
         self, *, sphere_id: int, token: str, viewer_id: int | None
     ) -> JoinPageDTO: ...
