@@ -26,7 +26,7 @@ from ludamus.pacts.durations import (
 )
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import EventVisibility, PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -179,10 +179,36 @@ class EventSettingsForm(forms.Form):
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
     )
+    visibility = forms.ChoiceField(
+        choices=[
+            (
+                EventVisibility.PUBLIC.value,
+                _(
+                    "Public: listed and announced to followers from its "
+                    "publication time"
+                ),
+            ),
+            (
+                EventVisibility.UNLISTED.value,
+                _(
+                    "Link only: anyone with the link can open it now; never "
+                    "listed or announced"
+                ),
+            ),
+        ],
+        initial=EventVisibility.PUBLIC.value,
+        widget=forms.RadioSelect,
+        label=_("Who can see the event"),
+    )
     publication_time = forms.DateTimeField(
         required=False,
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
+        label=_("Publication time"),
+        help_text=_(
+            "For a public event: when it appears in event lists and followers "
+            "are notified. Leave empty to keep it hidden."
+        ),
     )
     allow_facilitator_session_edit = forms.ChoiceField(
         required=False,

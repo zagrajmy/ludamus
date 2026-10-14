@@ -42,10 +42,6 @@ if TYPE_CHECKING:
         name: str
         classes: str
 
-    class ProgrammeSpaceRow(TypedDict):
-        space: ProgrammeSpaceRowDTO
-        tracks: list[ProgrammeTrackTone]
-
     class LocationCrumb(TypedDict):
         name: str
         space_filter: None
@@ -53,6 +49,11 @@ if TYPE_CHECKING:
     class LocationPreview(TypedDict):
         location_label: str
         location_crumbs: list[LocationCrumb]
+
+    class ProgrammeSpaceRow(TypedDict):
+        space: ProgrammeSpaceRowDTO
+        location: LocationPreview
+        tracks: list[ProgrammeTrackTone]
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ def _programme_rows(spaces: list[ProgrammeSpaceRowDTO]) -> list[ProgrammeSpaceRo
     return [
         {
             "space": space,
+            "location": _location(space.path),
             "tracks": [
                 {"name": name, "classes": tone_by_name[name]}
                 for name in space.track_names
@@ -97,15 +99,17 @@ def _programme_rows(spaces: list[ProgrammeSpaceRowDTO]) -> list[ProgrammeSpaceRo
     ]
 
 
-def _location_preview(space: ProgrammeSpaceRowDTO | None) -> LocationPreview | None:
-    if space is None:
-        return None
+def _location(path: str) -> LocationPreview:
     return {
-        "location_label": space.path,
+        "location_label": path,
         "location_crumbs": [
-            {"name": name, "space_filter": None} for name in space.path.split(" > ")
+            {"name": name, "space_filter": None} for name in path.split(" > ")
         ],
     }
+
+
+def _location_preview(space: ProgrammeSpaceRowDTO | None) -> LocationPreview | None:
+    return None if space is None else _location(space.path)
 
 
 def suggest_copy_name(name: str) -> str:

@@ -103,6 +103,9 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     # launch_scheduler starts the launch on a background thread (fail-soft).
     scheduler_module.launch_scheduler()
     assert launched.wait(timeout=_LAUNCH_TIMEOUT_SECONDS)
+    assert {s["schedule_name"] for s in DBOS.list_schedules()} == {
+        workflow.__name__ for workflow, _cron in scheduler_module.CRON_WORKFLOWS
+    }
 
     # The fanout sweep is the one workflow given real work: its step branches on
     # having notified somebody, and the worker thread reads on its own
