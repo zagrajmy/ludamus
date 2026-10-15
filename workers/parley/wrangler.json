@@ -18,5 +18,8 @@
     "JWT_ISSUER": "ludamus",
     "JWT_AUDIENCE": "parley",
     "ALLOWED_ORIGINS": "http://localhost:8000"
+  },
+  "secrets": {
+    "required": ["PARLEY_PUBLIC_KEY", "PARLEY_INTERNAL_SECRET"]
   }
 }

@@ -1,4 +1,2 @@
 .alchemy/
-.dev.vars
-.env
 .wrangler/
