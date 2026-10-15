@@ -90,7 +90,11 @@ export class ParleySessionAgent extends RoomAgent {
         secret: this.workerEnv.PARLEY_INTERNAL_SECRET,
         sphere: input.sphere,
       });
-    } catch {
+    } catch (error) {
+      // The retry keeps users whole but would otherwise hide a sphere agent
+      // that rejects every call, rescheduling itself every 5s forever.
+      // console.error is what raises a caught failure as a Workers Issue.
+      console.error("parley: recordActivity failed, scheduling retry", error);
       await this.schedule(
         5,
         "reconcileActivity",
