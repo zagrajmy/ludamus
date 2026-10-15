@@ -1,0 +1,21 @@
+{% load tessera %}
+{% comment %}
+    One plain-text tag in a feed card's tag row, beside the calendar page.
+
+    Every tag is one icon tall (min-h-3.5) whether or not it has an icon, so
+    the labels in a row share a centre line. The label is trimmed to cap height
+    so the icon centres on the glyphs; the icon then sits 1.5px higher still,
+    where it reads as centred.
+
+    Variables:
+      label     the text
+      icon      heroicon name, optional
+      tone      "state" (coral), "quiet" (muted); anything else is secondary
+      truncate  set for text the organizer typed, which may not fit
+{% endcomment %}
+<span class="inline-flex min-h-3.5 items-center gap-[5px] whitespace-nowrap text-[13px] font-medium {% if truncate %}min-w-0 shrink{% else %}shrink-0{% endif %} {% if tone == 'state' %}text-coral-700 dark:text-coral-300{% elif tone == 'quiet' %}text-foreground-muted{% else %}text-foreground-secondary{% endif %}">
+    {% if icon %}
+        {% icon icon class="size-3.5 -translate-y-[1.5px]" %}
+    {% endif %}
+    <span class="text-box-trim-both {% if truncate %}min-w-0 overflow-x-clip text-ellipsis{% endif %}">{{ label }}</span>
+</span>
