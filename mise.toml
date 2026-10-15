@@ -199,6 +199,7 @@ run = [
     "django-admin migrate --noinput",
     "django-admin createcachetable",
     "django-admin downloadvendor",
+    "django-admin compilemessages -l pl",
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",

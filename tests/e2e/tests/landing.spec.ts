@@ -239,8 +239,11 @@ test.describe("Landing", () => {
           Math.max(...frames.map((f) => f.nextTop)) - Math.min(...frames.map((f) => f.nextTop)),
         ).toBeLessThan(1);
         expect(frames.every((f) => f.contentFits)).toBe(true);
+        const captionWrapping = await page.evaluate(() =>
+          CSS.supports("text-wrap-style", "pretty") ? "pretty" : "auto",
+        );
         for (const caption of await enrollment.locator(".p1-cap > p").all()) {
-          await expect(caption).toHaveCSS("text-wrap-style", "pretty");
+          await expect(caption).toHaveCSS("text-wrap-style", captionWrapping);
         }
         await enrollment.evaluate((section) => {
           for (const animation of section.getAnimations({ subtree: true }))
