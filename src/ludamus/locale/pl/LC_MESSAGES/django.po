@@ -3916,6 +3916,10 @@ msgid "That invitation was already used or has expired."
 msgstr "To zaproszenie zostało już użyte albo wygasło."
 
 #: src/ludamus/gates/web/django/sphere/team.py
+msgid "New link ready. Copy it below: the old one no longer works."
+msgstr "Nowy link gotowy. Skopiuj go poniżej: poprzedni już nie działa."
+
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
 
@@ -3974,6 +3978,14 @@ msgstr "Scalono z"
 msgid "track"
 msgstr "blok"
 
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "ongoing"
+msgstr "trwa"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "today"
+msgstr "dziś"
+
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/event.html
@@ -3988,6 +4000,7 @@ msgstr "W Trakcie"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/components/encounter_card.html
 msgid "Full"
 msgstr "Pełne"
 
@@ -4009,6 +4022,7 @@ msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/components/encounter_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -6426,24 +6440,21 @@ msgid "You organize"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/detail.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Public"
-msgstr "Publiczny"
+#, python-format
+msgid "Hosted by %(name)s"
+msgstr "Prowadzi %(name)s"
 
 #: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/notice_board/detail.html
 msgid "attending"
 msgstr "uczestników"
 
-#: src/ludamus/templates/components/event_card.html
-msgid "LIVE"
-msgstr "W TRAKCIE"
+#: src/ludamus/templates/components/encounter_card.html
+#, python-format
+msgid "%(count)s of %(max)s signed up"
+msgstr "%(count)s z %(max)s zapisanych"
 
-#: src/ludamus/templates/components/event_card.html
-msgid "Proposals open"
-msgstr "Zgłoszenia otwarte"
-
+#: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/components/event_card.html
 msgid "Link only"
 msgstr "Tylko przez link"
@@ -6451,6 +6462,10 @@ msgstr "Tylko przez link"
 #: src/ludamus/templates/components/event_card.html
 msgid "Unpublished"
 msgstr "Nieopublikowane"
+
+#: src/ludamus/templates/components/event_card.html
+msgid "Proposals open"
+msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/components/event_card.html
 #, python-format
@@ -9032,11 +9047,11 @@ msgstr "Aktywne zaproszenia"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid ""
-"A link is shown once, right after it's created. Lost one? Withdraw it and "
-"create another."
+"A link is shown once, right after it's created. Lost one? Get a new link for "
+"the same person."
 msgstr ""
-"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj zaproszenie i "
-"utwórz nowe."
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Utwórz nowy link dla "
+"tej samej osoby."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9061,6 +9076,23 @@ msgstr "Wygasa za %(expires)s"
 #, python-format
 msgid "Created by %(name)s"
 msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Get a new link for %(label)s"
+msgstr "Nowy link dla: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link? The current one stops working right away."
+msgstr "Utworzyć nowy link? Obecny od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link"
+msgstr "Utwórz nowy link"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "New link"
+msgstr "Nowy link"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9154,6 +9186,11 @@ msgstr "Bierzesz udział w tym spotkaniu"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "invites you to an encounter"
 msgstr "zaprasza Cię na spotkanie"
+
+#: src/ludamus/templates/notice_board/detail.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Public"
+msgstr "Publiczny"
 
 #: src/ludamus/templates/notice_board/detail.html
 msgid "Spots"
@@ -9595,6 +9632,11 @@ msgid "Choose an event"
 msgstr "Wybierz wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/event-create.html
+msgid "New event"
+msgstr "Nowe wydarzenie"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
@@ -9668,11 +9710,6 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
-
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/event-create.html
-msgid "New event"
-msgstr "Nowe wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -12821,6 +12858,9 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Not Yet Available"
 #~ msgstr "Jeszcze Niedostępne"
+
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"

@@ -94,3 +94,44 @@ for (const sphere of SPHERES) {
     });
   });
 }
+
+test("a lost link is swapped for a new one and the old one stops working", async ({
+  browser,
+}, testInfo) => {
+  const [root] = SPHERES;
+  const manager = await managerPage(browser, root);
+  await manager.goto(`${root.origin}/multiverse/panel/team/`);
+  // Unique per run: open invitations outlive a test, and two rows named
+  // alike would make every lookup below ambiguous.
+  const note = `Lost ${testInfo.testId.slice(0, 6)}-${testInfo.repeatEachIndex}-${testInfo.retry}`;
+  await manager.getByLabel("Who is it for?").fill(note);
+  await manager.getByRole("button", { name: "Create invitation link" }).click();
+  const linkBox = manager.getByRole("textbox", { name: `Invitation link for ${note}` });
+  const lost = await linkBox.inputValue();
+
+  // Shown once: after a reload only the way to a new link is left.
+  await manager.reload();
+  await expect(linkBox).toHaveCount(0);
+  await manager.getByRole("button", { name: `Get a new link for ${note}` }).click();
+  await manager.getByRole("alertdialog").getByRole("button", { name: "Get a new link" }).click();
+  const fresh = await linkBox.inputValue();
+  expect(fresh).not.toBe(lost);
+  await manager.context().close();
+
+  // Signed out, so the answer depends on the link alone, not on membership.
+  // An explicit empty state: newContext() otherwise inherits the invitee's.
+  const visitor = await (
+    await browser.newContext({ storageState: { cookies: [], origins: [] } })
+  ).newPage();
+  await visitor.goto(lost);
+  await expect(visitor.getByText("This invitation link no longer works.")).toBeVisible();
+  await visitor.goto(fresh);
+  await expect(visitor.getByText("invited you to this sphere's team.")).toBeVisible();
+
+  await attachArtifacts(testInfo, {
+    name: "sphere-invitation-reissued",
+    region: visitor.getByRole("main"),
+    facts: { oldLinkDead: true, newLinkOffers: true },
+  });
+  await visitor.context().close();
+});

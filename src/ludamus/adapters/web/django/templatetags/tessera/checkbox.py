@@ -121,9 +121,12 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         },
     )
 
+    # A radio group with an answer picked cannot be left empty: no requirement
+    # is left for the user to meet, so the label flags none.
+    answered = is_radio and any(is_checked for _, _, is_checked, _ in options)
     return format_html(
         "{}\n{}\n{}\n{}",
-        render_label(field),
+        render_label(field, required=False if answered else None),
         group_html,
         render_help_text(field),
         render_errors(field),
