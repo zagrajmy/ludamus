@@ -83,8 +83,10 @@ instead of guessing.
 
 Four parts, in the order they have to be wired:
 
-1. **Detection.** `observability.issues.enabled` in a Worker's Wrangler
-   configuration, and PostHog error tracking for Django. Issues only sees
+1. **Detection.** Workers Issues, switched on in each Worker's deploy
+   configuration (Parley's `workers/parley/alchemy.run.ts`), and PostHog error
+   tracking for Django. Every deploy uploads the Worker's whole observability
+   block, so one deployed without Issues turns it off. Issues only sees
    traffic from the moment it is switched on, so enable it before a Worker's
    first deploy.
 2. **An API trigger on the routine.** Add it at
