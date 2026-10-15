@@ -19,8 +19,7 @@
     "JWT_AUDIENCE": "parley",
     "ALLOWED_ORIGINS": "http://localhost:8000"
   },
-  "observability": {
-    "enabled": true,
-    "logs": { "invocation_logs": false }
+  "secrets": {
+    "required": ["PARLEY_PUBLIC_KEY", "PARLEY_INTERNAL_SECRET"]
   }
 }
