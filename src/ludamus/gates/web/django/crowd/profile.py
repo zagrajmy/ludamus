@@ -143,8 +143,9 @@ class ProfileCompanionsPageView(
         if companion_count >= MAX_COMPANIONS:
             messages.error(
                 self.request,
-                _("You can only have up to %(max)s companions.")
-                % {"max": MAX_COMPANIONS},
+                _("You can only have up to %(max)s companions.") % {
+                    "max": MAX_COMPANIONS
+                },
             )
             return self.form_invalid(form)
 
