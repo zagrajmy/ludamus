@@ -193,6 +193,7 @@ run = [
       exit 1
     fi
     """,
+    "mise bootstrap packages apply --yes",
     "poetry install",
     "aube install",
     'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
