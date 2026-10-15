@@ -287,7 +287,16 @@ test.describe("Landing", () => {
         await expect
           .poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth))
           .toBe(1268);
-        await expect(cover).toHaveCSS("object-fit", "contain");
+        await expect(cover).toHaveCSS("object-fit", "cover");
+        const visibleFraction = await cover.evaluate((image: HTMLImageElement) => {
+          const { width, height } = image.getBoundingClientRect();
+          const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+          return Math.min(
+            width / (scale * image.naturalWidth),
+            height / (scale * image.naturalHeight),
+          );
+        });
+        expect(visibleFraction).toBeGreaterThan(0.99);
         await cover.hover();
         await expect(cover).toHaveCSS("transform", "none");
       }
