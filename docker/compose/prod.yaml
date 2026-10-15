@@ -144,9 +144,9 @@ volumes:
 
 secrets:
   # Personal API key for the PostHog CLI's source map upload during the image
-  # build. Materialized by deploy-production.yml next to .env.local (empty
-  # file when the GitHub secret is unset — the Dockerfile then skips the
-  # upload). File-sourced, not environment-sourced, so it never lands in
-  # container env or an image layer.
+  # build, for builds run through this file by hand. Deploys build in
+  # deploy-coolify.yml, which passes the secret itself. An empty file makes
+  # the Dockerfile skip the upload. File-sourced, not environment-sourced, so
+  # it never lands in container env or an image layer.
   posthog_cli_token:
     file: ../../.posthog_cli_token

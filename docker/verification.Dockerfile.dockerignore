@@ -2,7 +2,6 @@
 # <dockerfile>.dockerignore before the root .dockerignore). Unlike the deploy
 # image, verification needs almost the whole repo — tests, templates, lint
 # configs — so this list only strips what can never affect a check run.
-.git
 .venv
 .aube
 node_modules

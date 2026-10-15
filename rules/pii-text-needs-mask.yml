@@ -5,7 +5,9 @@ rule:
   kind: text
   # NOTE: a bare {{ contact_email }} is Zagrajmy's public inbox (landing,
   # about); a person's address always arrives dotted (proposal.contact_email).
-  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|\.contact_email\s*[|}]|name_value\s*[|}])'
+  # A bare .name is mostly events, tracks and spaces; only these receivers
+  # name a person.
+  regex: '\{\{[^}]*(full_name|\.email\s*[|}]|\.contact_email\s*[|}]|name_value\s*[|}]|\b(companion|claimable|manager|presenter|linked_user|member|participant|attendee|invitee)\.name\s*[|}])'
   not:
     inside:
       stopBy: end

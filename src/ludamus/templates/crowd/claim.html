@@ -10,9 +10,10 @@
                 {# avatar.html wants full_name/name/username/avatar_url; the slim ClaimableProfileDTO gets an initials circle instead. #}
                 <div class="size-16 rounded-full mx-auto flex items-center justify-center {{ claimable.name|avatar_bg_class }}"
                      aria-hidden="true">
-                    <span class="text-xl font-semibold {{ claimable.name|avatar_text_class }}">{{ claimable.name|slice:":2"|upper }}</span>
+                    <span class="text-xl font-semibold {{ claimable.name|avatar_text_class }}"
+                          data-ph-mask>{{ claimable.name|slice:":2"|upper }}</span>
                 </div>
-                <h1 class="text-2xl font-bold text-foreground mt-4">{{ claimable.name }}</h1>
+                <h1 class="text-2xl font-bold text-foreground mt-4" data-ph-mask>{{ claimable.name }}</h1>
                 <p class="text-sm text-foreground-muted mt-1">
                     {% blocktranslate with manager=claimable.manager_name %}{{ manager }} invited you to take over this profile{% endblocktranslate %}
                 </p>
