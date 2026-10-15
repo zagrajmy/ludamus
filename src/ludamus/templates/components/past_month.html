@@ -1,0 +1,15 @@
+{% comment %}
+    One month of the past archive: its name in a side column (above the rows
+    on a phone), then a row per item.
+
+    Variables:
+      month  a PastMonth from the past_archive filter
+{% endcomment %}
+<section class="grid gap-x-6 border-t border-neutral-200/50 pt-3.5 sm:grid-cols-[150px_minmax(0,1fr)] dark:border-neutral-700/50">
+    <h3 class="pt-1 text-sm font-semibold text-foreground-secondary sm:pt-3">{{ month.month|date:"F Y" }}</h3>
+    <ul class="grid min-w-0">
+        {% for item in month.items %}
+            <li>{% include "components/past_row.html" with item=item only %}</li>
+        {% endfor %}
+    </ul>
+</section>

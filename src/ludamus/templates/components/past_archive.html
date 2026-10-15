@@ -1,0 +1,35 @@
+{% load i18n %}
+{% load tessera %}
+{% load feed_tags %}
+{% comment %}
+    The past section once it outgrows cards (see PAST_CARDS_LIMIT): a list
+    grouped by month, the latest months open and the rest behind one
+    disclosure. Nobody browses old events to decide whether to go; they come
+    back to find one, and a row per item does that in a screen, not seven.
+
+    Variables:
+      items  the past feed items, newest first
+{% endcomment %}
+{% with archive=items|past_archive %}
+    <div class="flex max-w-4xl flex-col">
+        {% for month in archive.recent %}
+            {% include "components/past_month.html" with month=month only %}
+        {% endfor %}
+        {% if archive.older %}
+            <details class="group">
+                <summary class="btn btn-secondary mt-4 inline-flex list-none items-center gap-1.5 text-sm [&::-webkit-details-marker]:hidden">
+                    {% icon "chevron-down" class="h-4 w-4 transition-transform group-open:rotate-180" %}
+                    <span class="group-open:hidden">
+                        {% blocktranslate with count=archive.older_count %}Show older ({{ count }}){% endblocktranslate %}
+                    </span>
+                    <span class="hidden group-open:inline">{% translate "Hide older" %}</span>
+                </summary>
+                <div class="mt-4 flex flex-col">
+                    {% for month in archive.older %}
+                        {% include "components/past_month.html" with month=month only %}
+                    {% endfor %}
+                </div>
+            </details>
+        {% endif %}
+    </div>
+{% endwith %}

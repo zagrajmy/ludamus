@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from operator import itemgetter
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from django.utils.decorators import method_decorator
@@ -35,11 +35,19 @@ class FeedEvent:
     entry: EventInfo
     kind: ClassVar[Literal["event"]] = "event"
 
+    @property
+    def start_time(self) -> datetime:
+        return self.entry.start_time
+
 
 @dataclass(frozen=True)
 class FeedEncounter:
     entry: EncounterIndexItem
     kind: ClassVar[Literal["encounter"]] = "encounter"
+
+    @property
+    def start_time(self) -> datetime:
+        return self.entry.encounter.start_time
 
 
 type FeedItem = FeedEvent | FeedEncounter
@@ -48,13 +56,10 @@ type FeedItem = FeedEvent | FeedEncounter
 def _merge(
     *, events: list[EventInfo], encounters: list[EncounterIndexItem], newest_first: bool
 ) -> list[FeedItem]:
-    # Sorted as (when, what) pairs so the start time stays on the payload it
-    # came from rather than being copied onto the wrapper, where it could drift.
-    dated: list[tuple[datetime, FeedItem]] = [
-        (event.start_time, FeedEvent(entry=event)) for event in events
-    ] + [(item.encounter.start_time, FeedEncounter(entry=item)) for item in encounters]
-    dated.sort(key=itemgetter(0), reverse=newest_first)
-    return [item for _, item in dated]
+    merged: list[FeedItem] = [FeedEvent(entry=event) for event in events] + [
+        FeedEncounter(entry=item) for item in encounters
+    ]
+    return sorted(merged, key=attrgetter("start_time"), reverse=newest_first)
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")

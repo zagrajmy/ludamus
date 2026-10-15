@@ -5258,6 +5258,7 @@ msgid "Now"
 msgstr "Teraz"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
+#: src/ludamus/templates/components/past_row.html
 #, python-format
 msgid "%(counter)s session"
 msgid_plural "%(counter)s sessions"
@@ -6436,6 +6437,7 @@ msgid "Go to profile"
 msgstr "Przejdź do profilu"
 
 #: src/ludamus/templates/components/encounter_card.html
+#: src/ludamus/templates/components/past_row.html
 msgid "You organize"
 msgstr "Organizujesz"
 
@@ -6583,6 +6585,15 @@ msgstr "Brak powiadomień."
 #: src/ludamus/templates/components/notifications.html
 msgid "View all"
 msgstr "Zobacz wszystkie"
+
+#: src/ludamus/templates/components/past_archive.html
+#, python-format
+msgid "Show older (%(count)s)"
+msgstr "Pokaż starsze (%(count)s)"
+
+#: src/ludamus/templates/components/past_archive.html
+msgid "Hide older"
+msgstr "Zwiń starsze"
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"

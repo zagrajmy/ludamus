@@ -68,4 +68,20 @@ test.describe("Calendar page on feed cards", () => {
     // Listed encounters are all public, so the card no longer says so.
     await expect(card.getByText("Public", { exact: true })).toHaveCount(0);
   });
+
+  test("an upcoming encounter with every seat taken says it is full", async ({ page }) => {
+    await page.goto(FEED);
+
+    const card = page.locator("#events").getByRole("link").filter({ hasText: "Sold Out Duel" });
+    await expect(card.getByText("Full", { exact: true })).toBeVisible();
+    await expect(card.getByText(/spots? left/)).toHaveCount(0);
+  });
+
+  test("a single past item stays a card, not an archive row", async ({ page }) => {
+    await page.goto(FEED);
+
+    await expect(page.getByRole("heading", { name: "Past" })).toBeVisible();
+    await expect(calendarPage(page, "Old Tuesday Table")).toBeVisible();
+    await expect(page.getByText(/^Show older/)).toHaveCount(0);
+  });
 });

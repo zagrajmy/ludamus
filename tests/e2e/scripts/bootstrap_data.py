@@ -34,6 +34,7 @@ from ludamus.links.db.django.models import (
     Announcement,
     Connection,
     Encounter,
+    EncounterRSVP,
     EnrollmentConfig,
     Event,
     EventIntegration,
@@ -1832,6 +1833,7 @@ def main() -> None:
     )
 
     _seed_feed_cards_sphere(tester)
+    _seed_past_archive_sphere(tester)
 
 
 def _seed_feed_cards_sphere(tester: User) -> None:
@@ -1890,6 +1892,66 @@ def _seed_feed_cards_sphere(tester: User) -> None:
             end_time=end,
             place="Tester's place",
             max_participants=6,
+            is_public=True,
+            share_code=code,
+        )
+    full = Encounter.objects.create(
+        sphere=sphere,
+        creator=tester,
+        title="Sold Out Duel",
+        game="Memoir '44",
+        start_time=datetime(2031, 11, 6, 19, tzinfo=tz),
+        place="Tester's place",
+        max_participants=1,
+        is_public=True,
+        share_code="FEED03",
+    )
+    EncounterRSVP.objects.create(
+        encounter=full,
+        user=User.objects.create_user(
+            username="e2e-feed-guest", slug="e2e-feed-guest", name="Feed Guest"
+        ),
+    )
+
+
+def _seed_past_archive_sphere(tester: User) -> None:
+    # One past item over the cards limit, so past-archive.spec.ts sees the
+    # month list: three months open (8 items), June behind the fold (2).
+    _, sphere = _create_site("archive.localhost:8000", name="Past Archive")
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save()
+    tz = get_current_timezone()
+    for day in (
+        (2025, 9, 28),
+        (2025, 9, 14),
+        (2025, 8, 31),
+        (2025, 8, 17),
+        (2025, 8, 3),
+        (2025, 7, 20),
+        (2025, 6, 22),
+    ):
+        start = datetime(*day, 12, tzinfo=tz)
+        Event.objects.create(
+            sphere=sphere,
+            name=f"Archive Meetup {start:%b %d}",
+            slug=f"archive-meetup-{start:%m-%d}",
+            start_time=start,
+            end_time=start + timedelta(hours=6),
+            publication_time=start - timedelta(days=30),
+        )
+    for title, code, day in (
+        ("Archive Table September", "ARCH01", (2025, 9, 2)),
+        ("Archive Table July", "ARCH02", (2025, 7, 8)),
+        ("Archive Table June", "ARCH03", (2025, 6, 10)),
+    ):
+        Encounter.objects.create(
+            sphere=sphere,
+            creator=tester,
+            title=title,
+            game="Root",
+            start_time=datetime(*day, 18, tzinfo=tz),
+            place="Tester's place",
+            max_participants=4,
             is_public=True,
             share_code=code,
         )

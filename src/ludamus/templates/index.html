@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load feed_tags %}
 {% block title %}
     {% translate "Events" %}
 {% endblock title %}
@@ -38,7 +39,11 @@
             {% endif %}
             {% if past %}
                 <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past" %}</h2>
-                {% include "components/feed_grid.html" with items=past extra_class="" %}
+                {% if past|reads_as_archive %}
+                    {% include "components/past_archive.html" with items=past only %}
+                {% else %}
+                    {% include "components/feed_grid.html" with items=past extra_class="" %}
+                {% endif %}
             {% endif %}
         {% else %}
             <div class="text-center py-16">
