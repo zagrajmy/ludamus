@@ -1831,6 +1831,69 @@ def main() -> None:
         },
     )
 
+    _seed_feed_cards_sphere(tester)
+
+
+def _seed_feed_cards_sphere(tester: User) -> None:
+    # The calendar page on feed cards, driven by feed-cards.spec.ts. Fixed
+    # dates, so the page's lines are known exactly; one relative event for the
+    # state that only exists while something is running.
+    _, sphere = _create_site("feed.localhost:8000", name="Feed Cards")
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save()
+    tz = get_current_timezone()
+    now = timezone.now()
+    for name, slug, start, end in (
+        (
+            "Harvest Convention",
+            "harvest-convention",
+            datetime(2031, 10, 30, 10, tzinfo=tz),
+            datetime(2031, 11, 1, 18, tzinfo=tz),
+        ),
+        (
+            "Sunday Pub Session",
+            "sunday-pub-session",
+            datetime(2031, 11, 9, 13, tzinfo=tz),
+            datetime(2031, 11, 9, 18, tzinfo=tz),
+        ),
+        (
+            "Running Marathon",
+            "running-marathon",
+            now - timedelta(days=1),
+            now + timedelta(days=1),
+        ),
+    ):
+        Event.objects.create(
+            sphere=sphere,
+            name=name,
+            slug=slug,
+            start_time=start,
+            end_time=end,
+            publication_time=min(start, now) - timedelta(days=1),
+        )
+    for title, code, start, end in (
+        # Runs past midnight: still one evening on the calendar.
+        (
+            "Late Night Tactics",
+            "FEED01",
+            datetime(2031, 11, 4, 19, tzinfo=tz),
+            datetime(2031, 11, 5, 1, tzinfo=tz),
+        ),
+        ("Old Tuesday Table", "FEED02", datetime(2025, 9, 23, 18, tzinfo=tz), None),
+    ):
+        Encounter.objects.create(
+            sphere=sphere,
+            creator=tester,
+            title=title,
+            game="Memoir '44",
+            start_time=start,
+            end_time=end,
+            place="Tester's place",
+            max_participants=6,
+            is_public=True,
+            share_code=code,
+        )
+
 
 if __name__ == "__main__":
     main()
