@@ -7479,8 +7479,8 @@ msgstr ""
 "zapiszesz lub które dodasz do zakładek, oraz spotkania, do których dołączysz."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Past events"
-msgstr "Minione wydarzenia"
+msgid "In your spheres"
+msgstr "W Twoich sferach"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -7491,12 +7491,12 @@ msgid "No open encounters right now. Start one and people will find it here."
 msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tutaj."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "In your spheres"
-msgstr "W Twoich sferach"
-
-#: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
 
 #: src/ludamus/templates/design.html
 msgid ""

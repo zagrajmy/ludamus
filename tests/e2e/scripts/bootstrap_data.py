@@ -1785,6 +1785,24 @@ def main() -> None:
         share_code="ENCQR1",
     )
 
+    for domain, name in zip(
+        settings.LANDING_CONVENTION_DOMAINS,
+        ("Kapitularz", "Bachanalia Fantastyczne", "Otwarte Opcje Fantastyczne"),
+        strict=True,
+    ):
+        _, convention_sphere = _create_site(domain, name=name)
+        convention_sphere.name = name
+        convention_sphere.save(update_fields=["name"])
+        _create_event(
+            convention_sphere,
+            name=name,
+            slug=f"landing-{convention_sphere.pk}",
+            description="Published cover examples for the landing page.",
+            start_offset=timedelta(days=-20),
+            duration_hours=8,
+            publication_offset=timedelta(days=30),
+        )
+
     _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
     foreign_event = _create_event(
         foreign_sphere,
