@@ -166,6 +166,9 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+      varlock:
+        specifier: 1.12.0
+        version: 1.12.0
       vitest:
         specifier: 4.1.9
         version: 4.1.9(@types/node@24.10.1)(vite@8.0.16(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
