@@ -16,6 +16,12 @@ the sphere.{% endcomment %}
         • {{ current_sphere.name }}
     {% endif %}
 {% endblock title_suffix %}
+{% comment %}The panel already floats its own overlays (menus, modals) near
+the viewport edges; a second fixed nag there blocks their controls, so the
+organizer's own verification nudge waits for a page that isn't racing other
+floating UI for the same corner.{% endcomment %}
+{% block email_verification_banner %}
+{% endblock email_verification_banner %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}
@@ -50,13 +56,16 @@ the sphere.{% endcomment %}
         <!-- Sidebar -->
         <aside id="sidebar"
                class="transition-transform duration-300 ease-in-out scrollbar-none w-64 lg:folded:w-16 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen [view-transition-name:panel-sidebar]">
-            <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
+            <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:flex-col lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
                     <div class="relative min-w-0 flex-1 lg:folded:hidden">
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
-                                class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
+                                class="w-full appearance-none text-ellipsis bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
                                 data-action="switch-event">
+                            {% if not current_event %}
+                                <option value="" disabled selected>{% translate "Choose an event" %}</option>
+                            {% endif %}
                             {% for event in events %}
                                 <option value="{{ event.slug }}"
                                         data-url="{% url 'panel:event-index' slug=event.slug %}"
@@ -72,6 +81,9 @@ the sphere.{% endcomment %}
                         </svg>
                     </div>
                 {% endif %}
+                {# Beside the picker, not among the pages below: it adds to the list the picker chooses from. #}
+                {% translate "New event" as t_new_event %}
+                {% sidebar_link url="panel:event-create" icon="plus" label=t_new_event key="event-create" compact=True %}
                 {% translate "Toggle sidebar" as t_toggle_sidebar %}
                 <button id="sidebarFoldBtn"
                         type="button"
@@ -135,6 +147,8 @@ the sphere.{% endcomment %}
                     {% translate "Sphere" as t_sphere %}
                     {# Sphere leads the sidebar when there is no event; otherwise it follows the event categories and takes a rule to separate it from them. #}
                     {% sidebar_cat key="sphere" label=t_sphere extra_class="not-first:mt-4 not-first:pt-2 not-first:border-t not-first:border-border" %}
+                        {% translate "Team" as t_team %}
+                        {% sidebar_link url="multiverse:panel:team" icon="key" label=t_team key="team" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}
@@ -171,12 +185,14 @@ the sphere.{% endcomment %}
                             class="lg:hidden p-2 -ml-2 text-foreground-secondary hover:text-foreground hover:bg-bg-tertiary rounded-lg flex-shrink-0">
                         {% include "panel/parts/sidebar-icon.html" with icon_class="size-6" %}
                     </button>
-                    <div class="flex-1 min-w-0">
+                    {# grow from 12rem, not 0: from zero the actions never wrap and the #}
+                    {# breadcrumb is squeezed to one word per line beside them instead. #}
+                    <div class="min-w-0 grow basis-48">
                         <div class="flex items-center gap-2 min-w-0">
                             {# A phone header is a strip, not a masthead: 20px/28 there is #}
                             {# bulk. 17px on a tight leading keeps it clearly the title over #}
                             {# a 14px subtitle and gives the row back ~6px. #}
-                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground truncate">
+                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground line-clamp-2 wrap-anywhere">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}

@@ -22,11 +22,20 @@
                     {% translate "Proposals open" %}
                 </span>
             {% endif %}
-            {% if has_panel_access and not event.is_published %}
-                <span class="inline-flex items-center gap-1 rounded-full bg-black/50 text-white pl-2 pr-2.5 py-1 text-xs font-medium">
-                    {% icon "eye-slash" class="h-3.5 w-3.5" variant="mini" %}
-                    {% translate "Unpublished" %}
-                </span>
+            {% if has_panel_access %}
+                {% if event.visibility == "unlisted" %}
+                    {% translate "Link only" as hidden_label %}
+                    {% firstof "link" as hidden_icon %}
+                {% elif not event.is_published %}
+                    {% translate "Unpublished" as hidden_label %}
+                    {% firstof "eye-slash" as hidden_icon %}
+                {% endif %}
+                {% if hidden_label %}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-black/50 text-white pl-2 pr-2.5 py-1 text-xs font-medium">
+                        {% icon hidden_icon class="h-3.5 w-3.5" variant="mini" %}
+                        {{ hidden_label }}
+                    </span>
+                {% endif %}
             {% endif %}
         </div>
     </div>

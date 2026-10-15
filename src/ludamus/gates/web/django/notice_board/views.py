@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.decorators.cache import cache_control
 from django.views.generic.base import View
 
@@ -26,7 +27,7 @@ from ludamus.mills import (
 )
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
-from ludamus.pacts.encounter import RSVPOutcome
+from ludamus.pacts.encounter import InviteeStatus, InviteLimitError, RSVPOutcome
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 
 from .forms import EncounterForm
@@ -40,6 +41,12 @@ if TYPE_CHECKING:
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
+
+
+_INVITE_LIMIT_MESSAGE = gettext_lazy(
+    "You have sent as many calendar invites as one day allows. Try again "
+    "tomorrow, or share the encounter link instead."
+)
 
 
 class _EncounterGate(View):
@@ -86,13 +93,14 @@ class _EncounterFormPageView(_EncounterGate, LoginRequiredMixin, View):
     ) -> EncounterForm:
         form = EncounterForm(data, files, initial=initial)
         # An owner the policy no longer covers may still edit their
-        # encounter, but not list it. The service enforces this again on
-        # write, so a forged flag never gets through.
+        # encounter, but not list it or invite anyone. The service enforces
+        # both again on write, so a forged field never gets through.
         if not self.request.services.encounters.can_create(
             sphere_id=self.request.context.current_sphere_id,
             user_id=self.request.context.current_user_id,
         ):
             del form.fields["is_public"]
+            del form.fields["invitees"]
         return form
 
 
@@ -129,9 +137,14 @@ class EncounterCreatePageView(_EncounterFormPageView):
         data["is_public"] = form.cleaned_data["is_public"]
 
         try:
-            encounter = self.request.services.encounters.create(data)
+            encounter = self.request.services.encounters.create(
+                data, invitee_emails=form.cleaned_data["invitees"]
+            )
         except NotFoundError as exc:
             raise Http404 from exc
+        except InviteLimitError:
+            form.add_error("invitees", _INVITE_LIMIT_MESSAGE)
+            return TemplateResponse(request, "notice_board/create.html", {"form": form})
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -160,8 +173,22 @@ class EncounterEditPageView(_EncounterFormPageView):
         # encounter by the offset on every save.
         return localtime(dt).strftime("%Y-%m-%dT%H:%M")
 
+    def _rerender(self, form: EncounterForm, pk: int) -> TemplateResponse:
+        return TemplateResponse(
+            self.request,
+            "notice_board/edit.html",
+            {"form": form, "encounter": self._get_encounter(pk)},
+        )
+
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
-        encounter = self._get_encounter(pk)
+        try:
+            encounter, invitees = request.services.encounters.read_owned_with_invitees(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
         form = self._form(
             initial={
                 "title": encounter.title,
@@ -175,6 +202,13 @@ class EncounterEditPageView(_EncounterFormPageView):
                 "header_image": stored_file(
                     encounter.header_image_url, encounter.header_image_original_name
                 ),
+                # NOTE: a guest who declined stays declined whatever the
+                # list says, so the list offers only those still asked.
+                "invitees": "\n".join(
+                    invitee.email
+                    for invitee in invitees
+                    if invitee.status is not InviteeStatus.DECLINED
+                ),
             }
         )
         return TemplateResponse(
@@ -184,11 +218,7 @@ class EncounterEditPageView(_EncounterFormPageView):
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         form = self._form(request.POST, request.FILES)
         if not form.is_valid():
-            return TemplateResponse(
-                request,
-                "notice_board/edit.html",
-                {"form": form, "encounter": self._get_encounter(pk)},
-            )
+            return self._rerender(form, pk)
 
         data = EncounterData(
             title=form.cleaned_data["title"],
@@ -213,9 +243,16 @@ class EncounterEditPageView(_EncounterFormPageView):
                 sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 data=data,
+                invitee_emails=form.cleaned_data.get("invitees", []),
             )
         except NotFoundError as exc:
             raise Http404 from exc
+        except InviteLimitError:
+            # NOTE: an owner the policy dropped has no invitee field, yet a
+            # time change still mails their guests and can hit the budget.
+            field = "invitees" if "invitees" in form.fields else None
+            form.add_error(field, _INVITE_LIMIT_MESSAGE)
+            return self._rerender(form, pk)
         messages.success(request, _("Encounter updated."))
         return redirect(
             reverse(
@@ -288,6 +325,7 @@ class EncounterDetailPageView(_EncounterGate, View):
                 "encounter_meta_description": meta_description,
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
+                "invitees": result.invitees,
                 "google_calendar_url": google_calendar_url(result.encounter, share_url),
                 "outlook_calendar_url": outlook_calendar_url(
                     result.encounter, share_url

@@ -12,20 +12,22 @@
 {% block header_actions %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="card card-body max-w-xl">
-        <p class="text-foreground-secondary mb-4">
-            {% blocktranslate with name=connection.display_name %}
-                Are you sure you want to delete connection "{{ name }}"?
-            {% endblocktranslate %}
-        </p>
-        <form method="post"
-              action="{% url 'multiverse:panel:connection-delete' pk=connection.pk %}">
-            {% csrf_token %}
-            <div class="flex justify-end gap-2">
-                <a href="{% url 'multiverse:panel:connections' %}"
-                   class="btn btn-secondary">{% translate "Cancel" %}</a>
-                <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
-            </div>
-        </form>
+    <div class="panel-bleed">
+        <div class="card card-body max-w-xl">
+            <p class="text-foreground-secondary mb-4">
+                {% blocktranslate trimmed with name=connection.display_name %}
+                    Are you sure you want to delete connection "{{ name }}"?
+                {% endblocktranslate %}
+            </p>
+            <form method="post"
+                  action="{% url 'multiverse:panel:connection-delete' pk=connection.pk %}">
+                {% csrf_token %}
+                <div class="flex justify-end gap-2">
+                    <a href="{% url 'multiverse:panel:connections' %}"
+                       class="btn btn-secondary">{% translate "Cancel" %}</a>
+                    <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
+                </div>
+            </form>
+        </div>
     </div>
 {% endblock content %}

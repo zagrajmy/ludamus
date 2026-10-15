@@ -11,17 +11,25 @@ cd "$CLAUDE_PROJECT_DIR"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# Write the commit-credit guidance FIRST, before any install/network step that
+# Write the commit-credit setup FIRST, before any install/network step that
 # can fail. Crediting the human who drove the session must not depend on a
 # successful bootstrap — when an install fails under `set -e`, everything below
 # it is skipped, so this has to come before that risk, not after it.
+#
+# The human driving the session authors its commits: they carry them, and the
+# CLA check reads the commit author, not trailers. Claude is the co-author.
+# The name is the email local-part (best-effort); GitHub attributes by email.
+human_email="${CLAUDE_CODE_USER_EMAIL:-}"
+if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  for role in AUTHOR COMMITTER; do
+    printf 'export GIT_%s_NAME=%q\nexport GIT_%s_EMAIL=%q\n' \
+      "$role" "${human_email%@*}" "$role" "$human_email" >> "$CLAUDE_ENV_FILE"
+  done
+fi
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
-  # Credit whoever is driving this session, not Claude/Anthropic. The trailer
-  # name is the email local-part (best-effort); GitHub attributes by email.
-  human_email="${CLAUDE_CODE_USER_EMAIL:-}"
   if [ -n "$human_email" ]; then
-    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human, not Claude/Anthropic. End commits with:\n\n    Co-authored-by: %s <%s>\n' \
-      "${human_email%@*}" "$human_email" >> CLAUDE.local.md
+    printf '@CLAUDE.md\n\n## Commits\n\nCommits are authored as %s (session-start sets GIT_AUTHOR_*). Co-author Claude. End commits with:\n\n    Co-authored-by: Claude <noreply@anthropic.com>\n' \
+      "$human_email" >> CLAUDE.local.md
   else
     printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human driving this session, not Claude/Anthropic.\n' >> CLAUDE.local.md
   fi
@@ -47,8 +55,8 @@ export MISE_ENV=sandbox
 # appended, the venv lands after the container's bare /usr/local/bin/python
 # and every `mise run` task fails with "No module named 'django'".
 # `.venv/bin` sits between them because mise cannot shim the interpreter here:
-# mise.sandbox.toml disables the `python` tool (apt provides 3.14, `_.python.venv`
-# builds .venv from it), so no `python` shim is generated and a bare `python` in
+# mise.sandbox.toml disables the `python` tool (this hook builds a 3.14 .venv
+# instead), so no `python` shim is generated and a bare `python` in
 # an agent's shell falls through to the image's /usr/local/bin/python 3.11. That
 # reads as a repo bug the moment it meets 3.14-only syntax — PEP 758's
 # unparenthesized `except A, B:` in scripts/impeccable_lint.py raises SyntaxError
@@ -71,19 +79,31 @@ if ! command -v mise > /dev/null 2>&1; then
     || echo "WARN: mise self-install failed; most tooling below will be unavailable"
 fi
 
-# python3.14 and pipx come from apt: mise.sandbox.toml disables the (blocked)
-# mise-managed python, the sandbox image preconfigures the deadsnakes PPA, and
-# `_.python.venv` then creates .venv from this interpreter. pipx serves the
-# pipx: backends (poetry, shellcheck, hadolint).
-if ! command -v python3.14 > /dev/null 2>&1 \
-  || ! command -v pipx > /dev/null 2>&1; then
+# pipx serves the pipx: backends (poetry, shellcheck, hadolint) and runs uv
+# below. It is in Ubuntu's own archive.
+if ! command -v pipx > /dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   # --allow-releaseinfo-change: image PPAs occasionally change their metadata
   # (e.g. ondrej/php renamed its Label), which otherwise fails the update.
-  apt-get update -q --allow-releaseinfo-change > /dev/null \
-    || echo "WARN: apt-get update failed"
-  apt-get install -y -q python3.14 python3.14-venv pipx > /dev/null \
-    || echo "WARN: apt-get install python3.14/pipx failed; Python tooling may be unavailable"
+  { apt-get update -q --allow-releaseinfo-change > /dev/null \
+    && apt-get install -y -q pipx > /dev/null; } \
+    || echo "WARN: apt-get install pipx failed; pipx: tools will be unavailable"
+fi
+
+# ./.venv on Python 3.14. mise.sandbox.toml disables the mise-managed python,
+# and images ship 3.10-3.13 with no deadsnakes PPA (seen 2026-10), so uv
+# builds the venv: it takes a python3.14 already on PATH, or fetches the
+# python-build-standalone build mise uses on laptops, and needs no ensurepip
+# (Debian packages that apart as python3.14-venv). A fresh uv from PyPI, not
+# the image's, which predates 3.14.0 and resolves `3.14` to an rc Poetry
+# rejects. Poetry can't be left to it: it finds python3.14, then virtualenv
+# builds the venv from the image's 3.11 anyway. A venv on another version,
+# left by such a run, is rebuilt; Poetry then installs into it (poetry.toml).
+if ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' \
+  > /dev/null 2>&1; then
+  rm -rf .venv
+  pipx run uv venv --python 3.14 --seed .venv > /dev/null \
+    || echo "WARN: could not build a Python 3.14 .venv; the Python toolchain will be unavailable"
 fi
 
 # GNU gettext (msguniq) is what `mise run messages` shells out to; the image

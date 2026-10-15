@@ -10,6 +10,7 @@ from ludamus.pacts.event import (
     ConfirmationSessionDTO,
     ConfirmationStatusGroupDTO,
 )
+from ludamus.pacts.legacy import SessionStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -38,7 +39,8 @@ def _scheduled_group(*items, other_track_names=()):
         contact_email=items[0].session.contact_email,
         status_groups=[
             ConfirmationStatusGroupDTO(
-                status="scheduled",
+                status=SessionStatus.ACCEPTED,
+                is_scheduled=True,
                 sessions=[
                     ConfirmationSessionDTO(
                         session_pk=item.session.pk,
@@ -47,7 +49,7 @@ def _scheduled_group(*items, other_track_names=()):
                         room_name=item.space.name,
                         start_time=item.start_time,
                         end_time=item.end_time,
-                        agenda_item_pk=item.pk,
+                        is_scheduled=True,
                         is_confirmed=item.session_confirmed,
                         co_facilitator_names=[],
                         other_track_names=list(other_track_names),
@@ -125,13 +127,18 @@ class TestConfirmationsConfirmActionView:
                 "scope": "session",
                 "facilitator_pk": facilitator.pk,
                 "track_pk": track.pk,
-                "agenda_item_pk": item.pk,
+                "session_pk": item.session.pk,
                 "confirmed": "true",
             },
         )
 
         item.refresh_from_db()
         other.refresh_from_db()
+        item.session.refresh_from_db()
+        other.session.refresh_from_db()
+        assert item.session.schedule_confirmed
+        assert not other.session.schedule_confirmed
+        # The agenda-item column mirrors the session's until it is dropped.
         assert item.session_confirmed
         assert not other.session_confirmed
         assert_response(
@@ -169,7 +176,7 @@ class TestConfirmationsConfirmActionView:
                 "scope": "session",
                 "facilitator_pk": facilitator.pk,
                 "track_pk": track.pk,
-                "agenda_item_pk": item.pk,
+                "session_pk": item.session.pk,
             },
         )
 
@@ -358,7 +365,7 @@ class TestConfirmationsConfirmActionView:
                 "scope": "session",
                 "facilitator_pk": facilitator.pk,
                 "track_pk": foreign_track.pk,
-                "agenda_item_pk": item.pk,
+                "session_pk": item.session.pk,
                 "confirmed": "true",
             },
         )
@@ -386,7 +393,7 @@ class TestConfirmationsConfirmActionView:
                 "scope": "session",
                 "facilitator_pk": facilitator.pk,
                 "track_pk": track.pk,
-                "agenda_item_pk": theirs.pk,
+                "session_pk": theirs.session.pk,
                 "confirmed": "true",
             },
         )

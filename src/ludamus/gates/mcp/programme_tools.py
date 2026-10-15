@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, override
 
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
@@ -22,6 +22,7 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
@@ -46,7 +47,7 @@ from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidatio
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -56,6 +57,7 @@ _TIME_SLOT_LIST = TypeAdapter(list[TimeSlotDTO])
 _SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
 _FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
+_PERSONAL_FIELD_LIST = TypeAdapter(list[OrganizerFieldDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -102,6 +104,7 @@ class OrganizerCurrentEventTool(Tool[EmptyInput]):
     name = "get_current_event"
     description = "Get the event this organizer token can write to."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = EmptyInput
 
     @staticmethod
@@ -205,6 +208,27 @@ class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
+class OrganizerListPersonalDataFieldsTool(Tool[EventIdInput]):
+    name = "list_personal_data_fields"
+    description = (
+        "List an event's host data fields (questions asked of proposers on the "
+        "wizard's Your info step) with slug, question and field_type."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = EventIdInput
+
+    @staticmethod
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
+        fields = [
+            summary.field
+            for summary in call.services.personal_data_fields.list_summaries(event.pk)
+        ]
+        return _PERSONAL_FIELD_LIST.dump_json(fields, indent=2).decode()
+
+
 class OrganizerListSessionsTool(Tool[EventIdInput]):
     name = "list_sessions"
     description = (
@@ -269,6 +293,7 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         "venue root; leaves hold sessions."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSpaceInput
 
     @staticmethod
@@ -299,6 +324,7 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
         "widens them, which the result reports as event_dates_widened."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = AwareDatetimeRange
 
     @staticmethod
@@ -345,6 +371,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
         "repeated import never adds a second copy."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateTrackInput
 
     @staticmethod
@@ -381,6 +408,7 @@ class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
         "import does not add a category twice."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateProposalCategoryInput
 
     @staticmethod
@@ -402,6 +430,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
         "feeds create_session's facilitator_ids."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _FindOrCreateFacilitatorInput
     audit_redacted_keys = frozenset({"display_name"})
 
@@ -571,6 +600,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
         "ready for timetable assign."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name", "description"})
 
@@ -605,10 +635,11 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
         "successful items and can be retried by source_row_id."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="sessions",
@@ -669,6 +700,7 @@ class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
         "dates behind them) rather than being refused."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionInput
 
     @staticmethod
@@ -702,10 +734,11 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         "preserve input order; failed items do not roll back successful items."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="assignments",
@@ -741,6 +774,7 @@ class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
         "assignments, title, and schedule stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name"})
 
@@ -784,6 +818,7 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         "Only provided fields change; sessions assigned to the space stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSpaceInput
 
     @staticmethod
@@ -829,13 +864,50 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-def programme_tools() -> tuple[ToolProtocol, ...]:
+class _SetPersonalDataFieldTypeInput(BaseModel):
+    slug: str = Field(description="Field slug (see list_personal_data_fields)")
+    field_type: TextFieldKind = Field(
+        description=(
+            '"discord" prefills the answer from the proposer\'s profile (the '
+            "wizard skips the step only when the account answers all of it); "
+            '"text" asks it every time'
+        )
+    )
+
+
+class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]):
+    name = "set_personal_data_field_type"
+    description = (
+        "Switch a host data field in this token's event between text and "
+        "Discord username. Answers already given are kept."
+    )
+    scope = ToolScope.ORGANIZER
+    needs_event = True
+    input_model = _SetPersonalDataFieldTypeInput
+
+    @staticmethod
+    def handle(call: ToolCall[_SetPersonalDataFieldTypeInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        try:
+            field = call.services.personal_data_fields.set_field_type(
+                event_pk=event.pk,
+                field_slug=call.data.slug,
+                field_type=call.data.field_type,
+            )
+        except FieldTypeSwitchError as error:
+            message = "Only text and Discord username fields can switch type"
+            raise ToolError(message) from error
+        return field.model_dump_json(indent=2)
+
+
+def programme_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
         OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),
         OrganizerListProposalCategoriesTool(),
+        OrganizerListPersonalDataFieldsTool(),
         OrganizerListSessionsTool(),
         OrganizerListFacilitatorsTool(),
         OrganizerCreateSpaceTool(),
@@ -849,6 +921,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
+        OrganizerSetPersonalDataFieldTypeTool(),
         *event_tools(),
         *sphere_tools(),
         *map_tools(),

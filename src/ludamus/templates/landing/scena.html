@@ -13,7 +13,7 @@
         </p>
         {% comment %}
             min-w-0: a fieldset defaults to min-width:min-content, so the
-            40rem stage inside would stop the section shrinking on a phone.
+            stage's min-width would stop the section shrinking on a phone.
         {% endcomment %}
         <fieldset class="group/krok min-w-0">
             <legend class="sr-only">{% translate "Pick an act." %}</legend>
@@ -32,39 +32,39 @@
                     <label for="k5"><b>05</b> <span class="max-[42rem]:sr-only">{% translate "Enrollment" %}</span></label>
                     <label for="k6"><b>06</b> <span class="max-[42rem]:sr-only">{% translate "Print" context "landing walkthrough step" %}</span></label>
                 </div>
-                <div class="@container mt-[1.1rem] overflow-x-auto rounded-[1.25rem]"
+                <div class="mt-[1.1rem] overflow-x-auto rounded-[1.25rem]"
                      tabindex="0"
                      role="group"
                      aria-label="{% translate 'The programme grid, scrollable sideways' %}">
                     <div class="stage">
                         <!-- context strip -->
                         <div class="ctx ctx1">
-                            <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Proposal inbox" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "a form with your own questions" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "7 proposals" %}</span>
+                            <span class="font-bold text-[0.95em] tracking-[-0.01em] max-[42rem]:hidden">{% translate "Proposal inbox" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "a form with your own questions" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "7 proposals" %}</span>
                         </div>
                         <div class="ctx ctx2">
-                            <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Proposal review" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "5 accepted" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-warning-bg border-warning-light text-warning-text">{% translate "1 on hold" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-info-bg border-info-light text-info-text">{% translate "1 new" %}</span>
+                            <span class="font-bold text-[0.95em] tracking-[-0.01em] max-[42rem]:hidden">{% translate "Proposal review" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "5 accepted" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-warning-bg border-warning-light text-warning-text">{% translate "1 on hold" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-info-bg border-info-light text-info-text">{% translate "1 new" %}</span>
                         </div>
                         <div class="ctx ctx3">
-                            <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Board Game Days 2026" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "Saturday, 14 March" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-danger-bg border-danger-light text-danger-text">{% translate "1 room conflict" %}</span>
+                            <span class="font-bold text-[0.95em] max-[42rem]:text-[0.76em] tracking-[-0.01em] whitespace-nowrap">{% translate "Board Game Days 2026" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "Saturday, 14 March" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-danger-bg border-danger-light text-danger-text">{% translate "1 room conflict" %}</span>
                         </div>
                         <div class="ctx ctx4">
-                            <span class="text-[0.78rem] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[0.9rem] py-[0.28rem] tracking-[0.01em]">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "Published" context "landing scena status" %}</span>
+                            <span class="text-[0.78em] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[1.15em] py-[0.35em] tracking-[0.01em] whitespace-nowrap">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "Published" context "landing scena status" %}</span>
                         </div>
                         <div class="ctx ctx5">
-                            <span class="text-[0.78rem] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[0.9rem] py-[0.28rem] tracking-[0.01em]">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-secondary-light border-secondary-light text-secondary-hover">{% translate "Enrollment open" %}</span>
+                            <span class="text-[0.78em] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[1.15em] py-[0.35em] tracking-[0.01em] whitespace-nowrap">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 bg-secondary-light border-secondary-light text-secondary-hover">{% translate "Enrollment open" %}</span>
                         </div>
                         <div class="ctx ctx6">
-                            <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "saturday-schedule.pdf" %}</span>
-                            <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "A4 · ready to print" %}</span>
+                            <span class="font-bold text-[0.95em] max-[42rem]:text-[0.76em] tracking-[-0.01em] whitespace-nowrap">{% translate "saturday-schedule.pdf" %}</span>
+                            <span class="inline-flex items-center gap-[0.5em] text-[0.72em] font-semibold px-[0.9em] py-[0.25em] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "A4 · ready to print" %}</span>
                         </div>
                         <!-- grid scaffold -->
                         <div class="scaffold" aria-hidden="true">
@@ -77,53 +77,54 @@
                             <span class="tl tl3">15:00</span>
                         </div>
                         <div class="cellwarn" aria-hidden="true">
-                            <span class="absolute -top-[0.7rem] left-[0.7rem] z-10 inline-flex h-[1.1rem] items-center whitespace-nowrap bg-danger-bg text-danger-text border border-danger-light text-[0.58rem]/none font-bold tracking-[0.05em] uppercase text-box-trim-both px-[0.45rem] rounded-full"><span class="@max-[480px]:hidden">{% translate "Room conflict" %}</span><span class="hidden @max-[480px]:inline">{% translate "Conflict" %}</span></span>
+                            <span class="absolute -top-[1.2em] left-[1.2em] z-10 inline-flex h-[1.9em] items-center whitespace-nowrap bg-danger-bg text-danger-text border border-danger-light text-[0.58em]/none font-bold tracking-[0.05em] uppercase text-box-trim-both px-[0.78em] rounded-full"><span class="max-[42rem]:hidden">{% translate "Room conflict" %}</span><span class="hidden max-[42rem]:inline">{% translate "Conflict" %}</span></span>
                         </div>
                         <!-- the travelling cast -->
                         <article class="chip cA">
                             <span class="ct">{% translate "Opening talk" %}</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                         </article>
                         <article class="chip cB">
                             <span class="ct">{% translate "Self-publishing: a survival guide" %}</span>
-                            <span class="ca text-[0.66rem] font-medium text-foreground-muted">Piotrek</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="ca text-[0.66em] font-medium text-foreground-muted">Piotrek</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
                         </article>
                         <article class="chip cC">
                             <span class="ct">{% translate "Two decades of convention mishaps" %}</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "On hold" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-warning-bg text-warning-text border-warning-light">{% translate "On hold" %}</span>
                         </article>
                         <article class="chip cD">
                             <span class="ct">{% translate "Board game prototyping workshop" %}</span>
-                            <span class="ca text-[0.66rem] font-medium text-foreground-muted">Radowit</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
-                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
-                            <span class="hidden group-has-[#k5:checked]/krok:inline text-[0.6rem] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
+                            <span class="ca text-[0.66em] font-medium text-foreground-muted">Radowit</span>
+                            <span class="cw hidden group-has-[#k5:checked]/krok:inline text-[0.6em] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.62em] font-bold px-[0.8em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
                         </article>
                         <article class="chip cE">
                             <span class="ct">{% translate "Painting miniatures for beginners" %}</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
-                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "3 spots free" %}</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="hidden group-has-[#k5:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.62em] font-bold px-[0.8em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "3 spots free" %}</span>
                         </article>
                         <article class="chip cF">
                             <span class="ct">{% translate "Publisher Q&A" %}</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
-                            <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
+                            <span class="ca text-[0.66em] font-medium text-foreground-muted">Wytwórnia Wyobraźni</span>
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                            <span class="warnDot absolute top-[0.6em] right-[0.65em] w-[1.5em] h-[1.5em] rounded-full bg-danger text-white text-[0.68em] font-extrabold leading-[1.5em] text-center"
                                   aria-hidden="true">!</span>
                         </article>
                         <article class="chip cG">
                             <span class="ct">{% translate "Community meetup" %}</span>
-                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-info-bg text-info-text border-info-light">{% translate "New" context "landing scena status" %}</span>
-                            <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
+                            <span class="hidden group-has-[#k2:checked]/krok:inline-flex mt-auto self-end translate-x-[calc(0.58em_-_1px)] translate-y-[calc(0.42em_-_1px)] text-[0.6em] font-bold tracking-[0.04em] uppercase px-[0.83em] h-[2em] items-center text-box-trim-both rounded-full border whitespace-nowrap bg-info-bg text-info-text border-info-light">{% translate "New" context "landing scena status" %}</span>
+                            <span class="warnDot absolute top-[0.6em] right-[0.65em] w-[1.5em] h-[1.5em] rounded-full bg-danger text-white text-[0.68em] font-extrabold leading-[1.5em] text-center"
                                   aria-hidden="true">!</span>
                         </article>
                         <!-- print-state door card -->
                         <aside class="doorcard" aria-hidden="true">
-                            <span class="text-[0.68rem] font-extrabold tracking-[0.16em] uppercase text-warm-700">{% translate "Workshop room" %}</span>
-                            <p class="font-extrabold text-[0.95rem] leading-[1.15] tracking-[-0.02em] mt-[0.3rem] text-warm-900">
+                            <span class="text-[0.68em] font-extrabold tracking-[0.16em] max-[22.5rem]:tracking-[0.06em] uppercase text-warm-700 whitespace-nowrap">{% translate "Workshop room" %}</span>
+                            <p class="font-extrabold text-[0.95em] leading-[1.15] tracking-[-0.02em] mt-[0.32em] text-warm-900">
                                 {% translate "Board game prototyping workshop" %}
                             </p>
-                            <p class="text-[0.7rem] font-semibold text-warm-700 mt-[0.35rem]">{% translate "Saturday · 12:00 · run by Radowit" %}</p>
+                            <p class="text-[0.7em] font-semibold text-warm-700 mt-[0.5em]">{% translate "Saturday · 12:00 · run by Radowit" %}</p>
                         </aside>
                     </div>
                 </div>

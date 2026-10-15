@@ -2,6 +2,9 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import logo_field
+from ludamus.gates.web.django.sphere.roles import ROLE_COPY
+from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 
 class GuildForm(forms.Form):
@@ -30,3 +33,20 @@ class GuildMemberForm(forms.Form):
 
 class FacilitatorAssignGuildForm(forms.Form):
     guild_pk = forms.IntegerField(min_value=1)
+
+
+class SphereInvitationForm(forms.Form):
+    role = forms.ChoiceField(
+        label=_("Role"),
+        choices=[(role.value, copy.choice) for role, copy in ROLE_COPY.items()],
+        initial=SphereRole.MANAGER.value,
+        widget=forms.RadioSelect,
+    )
+    note = forms.CharField(
+        label=_("Who is it for?"),
+        required=False,
+        max_length=INVITATION_NOTE_MAX_LENGTH,
+        strip=True,
+        help_text=_("Only you and other managers see this."),
+        widget=forms.TextInput(attrs={"placeholder": _("e.g. Kasia, programme")}),
+    )

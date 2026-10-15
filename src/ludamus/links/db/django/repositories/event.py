@@ -1,6 +1,7 @@
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
+from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import Event, Session, Sphere, suggested_spheres
 from ludamus.pacts.event import (
     LandingConventionDTO,
@@ -29,13 +30,11 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
             went private or has nothing published yet drops out rather than
             leaving a dead card.
         """
-        # Same predicate as Event.is_published: a draft or not-yet-published
-        # event must not surface its cover art or domain on the public
-        # landing page just because it exists.
+        # A draft, not-yet-published or unlisted event must not surface its
+        # cover art or domain on the public landing page just because it
+        # exists.
         newest = Event.objects.filter(
-            sphere=OuterRef("pk"),
-            publication_time__isnull=False,
-            publication_time__lte=timezone.now(),
+            listed_events(now=timezone.now()), sphere=OuterRef("pk")
         ).order_by("-start_time")
         spheres = (
             Sphere.objects.select_related("site")
@@ -67,14 +66,10 @@ class LandingStatsRepository(LandingStatsRepositoryProtocol):
             The slug of the published event with the latest start, or None
             when the sphere runs no published event.
         """
-        # Same predicate as Event.is_published: a draft is not a page anyone
-        # can be sent to.
+        # A draft is not a page anyone can be sent to, and an unlisted event
+        # is only for those who were handed its link.
         return (
-            Event.objects.filter(
-                sphere_id=sphere_id,
-                publication_time__isnull=False,
-                publication_time__lte=timezone.now(),
-            )
+            Event.objects.filter(listed_events(now=timezone.now()), sphere_id=sphere_id)
             .order_by("-start_time")
             .values_list("slug", flat=True)
             .first()

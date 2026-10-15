@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
@@ -24,7 +24,8 @@ from ludamus.gates.web.django.crowd.helpers import (
     build_parties_context,
     companion_edit_auto_id,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import ChangeRequestOutcome, UserDTO
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:
@@ -56,10 +57,12 @@ class ProfilePageView(
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form: UserForm) -> HttpResponse:
-        email = form.user_data.get("email", "").strip()
-        if email and self.request.services.profile.email_in_use(
-            email, exclude_slug=self.request.context.current_user_slug
-        ):
+        data = form.user_data
+        email = data.pop("email", "").strip()
+        outcome = self.request.services.email_verification.request_change(
+            user_slug=self.request.context.current_user_slug, new_address=email
+        )
+        if outcome == ChangeRequestOutcome.TAKEN:
             form.add_error(
                 "email",
                 _(
@@ -70,9 +73,19 @@ class ProfilePageView(
             return self.form_invalid(form)
 
         self.request.services.profile.update(
-            self.request.context.current_user_slug, form.user_data
+            self.request.context.current_user_slug, data
         )
-        messages.success(self.request, _("Profile updated successfully!"))
+        if outcome == ChangeRequestOutcome.REQUESTED:
+            messages.success(
+                self.request,
+                _(
+                    "Profile updated. We sent a confirmation link to %(email)s — "
+                    "the address changes once you confirm it."
+                )
+                % {"email": email},
+            )
+        else:
+            messages.success(self.request, _("Profile updated successfully!"))
         return super().form_valid(form)
 
     def form_invalid(self, form: forms.Form) -> HttpResponse:
@@ -86,9 +99,12 @@ class ProfilePageView(
         return str(self.success_url)
 
     def get_initial(self) -> dict[str, Any]:
-        return self.request.services.profile.read(
+        user = self.request.services.profile.read(
             self.request.context.current_user_slug
-        ).model_dump()
+        )
+        # A blank field would save as "clear my address" and drop the pending
+        # one, so the field shows the address the user last asked for.
+        return user.model_dump() | {"email": user.pending_email or user.email}
 
 
 class ProfileCompanionsPageView(
@@ -297,6 +313,39 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
             request.context.current_user_slug, use_gravatar=use_gravatar
         )
         return redirect("web:crowd:profile-avatar")
+
+
+class ProfileNotificationsPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        subscriptions = request.services.notification_subscriptions.list_for_user(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request,
+            "crowd/user/notifications.html",
+            {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
+        )
+
+
+class ProfileNotificationsMuteActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        muted = request.POST.get("muted") == "true"
+        try:
+            request.services.notification_subscriptions.set_muted(
+                user_id=request.context.current_user_id, pk=pk, muted=muted
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        messages.success(
+            request, _("Subscription muted.") if muted else _("Subscription unmuted.")
+        )
+        return redirect("web:crowd:profile-notifications")
 
 
 class ProfileShadowbanPageView(LoginRequiredMixin, View):

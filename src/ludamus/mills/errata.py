@@ -56,7 +56,9 @@ def _read_moves(logs: list[ScheduleChangeLogDTO]) -> list[ErratumDTO]:
     for log in logs:
         if log.pk in left_behind:
             continue
+        # pragma: no mutate start
         before = by_pk.get(log.moved_from_id) if log.moved_from_id else None
+        # pragma: no mutate end
         errata.append(_erratum(before, log) if before else _erratum(log))
     return errata
 

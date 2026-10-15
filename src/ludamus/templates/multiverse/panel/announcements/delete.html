@@ -12,21 +12,23 @@
 {% block header_actions %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="card card-body max-w-xl">
-        <p class="text-foreground-secondary mb-4">
-            {% blocktranslate with title=announcement.title %}
-                Are you sure you want to delete announcement "{{ title }}"?
-            {% endblocktranslate %}
-        </p>
-        <form method="post"
-              action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}"
-              data-submit-once>
-            {% csrf_token %}
-            <div class="flex justify-end gap-2">
-                <a href="{% url 'multiverse:panel:announcements' %}"
-                   class="btn btn-secondary">{% translate "Cancel" %}</a>
-                <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
-            </div>
-        </form>
+    <div class="panel-bleed">
+        <div class="card card-body max-w-xl">
+            <p class="text-foreground-secondary mb-4">
+                {% blocktranslate trimmed with title=announcement.title %}
+                    Are you sure you want to delete announcement "{{ title }}"?
+                {% endblocktranslate %}
+            </p>
+            <form method="post"
+                  action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}"
+                  data-submit-once>
+                {% csrf_token %}
+                <div class="flex justify-end gap-2">
+                    <a href="{% url 'multiverse:panel:announcements' %}"
+                       class="btn btn-secondary">{% translate "Cancel" %}</a>
+                    <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
+                </div>
+            </form>
+        </div>
     </div>
 {% endblock content %}

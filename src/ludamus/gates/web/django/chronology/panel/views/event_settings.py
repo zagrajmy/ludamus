@@ -22,6 +22,7 @@ from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.legacy import EventVisibility
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -50,6 +51,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
         "publication_time": cd.get("publication_time"),
+        "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
@@ -115,6 +117,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     if current_event.publication_time
                     else None
                 ),
+                "visibility": current_event.visibility.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
                 "auto_confirm_sessions": current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
@@ -187,20 +190,20 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
             sphere_id=self.request.context.current_sphere_id, slug=slug
         )
         context["fields"] = display.fields
-        context["filterable_field_ids"] = display.displayed_field_ids
+        context["shown_on_cards_ids"] = display.shown_on_cards_ids
         context["has_any_fields"] = display.has_any_fields
 
         return TemplateResponse(self.request, "panel/display-settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        raw_ids = self.request.POST.getlist("displayed_session_fields")
+        raw_ids = self.request.POST.getlist("show_on_cards")
         if not all(raw_pk.isdecimal() for raw_pk in raw_ids):
             messages.error(self.request, _("Invalid field selection."))
             return redirect("panel:event-display-settings", slug=slug)
         selected_ids = [int(raw_pk) for raw_pk in raw_ids]
 
         try:
-            self.request.services.event_settings.update_displayed_fields(
+            self.request.services.event_settings.update_shown_on_cards(
                 sphere_id=self.request.context.current_sphere_id,
                 slug=slug,
                 selected_ids=selected_ids,

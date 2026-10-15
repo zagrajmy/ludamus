@@ -43,6 +43,7 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     ProposalCategory,
     Session,
+    SessionBookmark,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
@@ -54,11 +55,16 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
+from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
+from ludamus.pacts.legacy import (
+    EventVisibility,
+    NotificationKind,
+    SessionParticipationStatus,
+)
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -202,6 +208,7 @@ def _create_session(
         description=description,
         participants_limit=participants_limit,
         min_age=min_age,
+        schedule_confirmed=True,
     )
     AgendaItem.objects.create(
         space=space,
@@ -220,7 +227,11 @@ def _cookie_domain() -> str:
     )
 
 
-def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
+def _write_storage_state(
+    user: User, *, domain: str, path: Path, also_on: tuple[str, ...] = ()
+) -> None:
+    # `also_on` signs the same session in on other sphere hosts, for specs
+    # that walk one user through the root and a non-root sphere.
     session = SessionStore()
     session["_auth_user_id"] = str(user.pk)
     session["_auth_user_backend"] = "django.contrib.auth.backends.ModelBackend"
@@ -232,12 +243,13 @@ def _write_storage_state(user: User, *, domain: str, path: Path) -> None:
             {
                 "name": "sessionid",
                 "value": session.session_key,
-                "domain": domain,
+                "domain": cookie_domain,
                 "path": "/",
                 "httpOnly": True,
                 "secure": False,
                 "sameSite": "Lax",
             }
+            for cookie_domain in (domain, *also_on)
         ],
         "origins": [],
     }
@@ -298,6 +310,74 @@ def _create_party_companion_scenario() -> None:
         leader,
         domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-party-host.json",
+    )
+
+
+CREW_HOST = "crew.localhost"
+
+
+def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
+    """Seed what unlisted-events.spec and sphere-invitations.auth.spec need.
+
+    Both specs run on the root sphere and on a non-root one, because the two
+    root `/` differently: the root shows the landing page or a dashboard, any
+    other sphere its events feed. Crew is that non-root sphere, kept apart
+    from Empty Sphere, which other specs need without events.
+    """
+    _, crew = _create_site(f"{CREW_HOST}:8000", name="Crew")
+    crew_manager = User.objects.create_user(
+        username="e2e-crew-manager",
+        email="e2e-crew-manager@test.local",
+        password="e2e-crew-manager-123",
+        name="Crew Manager",
+        slug="e2e-crew-manager",
+    )
+    crew.managers.add(crew_manager)
+    _write_storage_state(
+        crew_manager,
+        domain=CREW_HOST,
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-crew-manager.json",
+    )
+
+    _create_event(
+        crew,
+        name="Crew Open Night",
+        slug="crew-open-night",
+        description="A public evening every follower hears about.",
+        start_offset=timedelta(days=5),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    for sphere, name, slug in (
+        (crew, "Crew Sneak Peek", "crew-sneak-peek"),
+        (root_sphere, "Root Sneak Peek", "root-sneak-peek"),
+    ):
+        event = _create_event(
+            sphere,
+            name=name,
+            slug=slug,
+            description="Shared by link before anyone may list it.",
+            start_offset=timedelta(days=6),
+            duration_hours=4,
+            publication_offset=timedelta(0),
+        )
+        event.publication_time = None
+        event.visibility = EventVisibility.UNLISTED
+        event.save(update_fields=["publication_time", "visibility"])
+
+    # On no sphere's team: the invitations spec makes them a member of both.
+    invitee = User.objects.create_user(
+        username="e2e-invitee",
+        email="e2e-invitee@test.local",
+        password="e2e-invitee-123",
+        name="Ida Invitee",
+        slug="e2e-invitee",
+    )
+    _write_storage_state(
+        invitee,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-invitee.json",
+        also_on=(CREW_HOST,),
     )
 
 
@@ -367,6 +447,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         description="A full session used by the promotion e2e.",
         participants_limit=1,
         min_age=0,
+        schedule_confirmed=True,
     )
     AgendaItem.objects.create(
         space=space,
@@ -381,6 +462,9 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         password="e2e-waiter-123",
         name="E2E Waiter",
         slug="e2e-waiter",
+        # Promotion mail is suppressed for unverified addresses; this scenario
+        # exists to exercise that delivery, not to re-test verification gating.
+        email_verified=True,
     )
     SessionParticipation.objects.create(
         session=session,
@@ -1159,6 +1243,80 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# A live event whose slots are in every state a card schedule can show: one
+# over yesterday, and tomorrow a 10:00 holding a talk that takes no sign-up
+# beside a workshop whose window has not opened, then a sign-up-free 14:00.
+# The two 10:00 sessions differ only in enrollment, so the schedule has to
+# list them under one heading and still read in time order. Driven by
+# event-slot-headers.spec.ts.
+def _create_slot_states_event(sphere: Sphere) -> None:
+    # NOTE: "yesterday" is the programme day before today's. Before the 06:00
+    # turnover the calendar's yesterday is still today's programme day, still
+    # open, and its slot would not fold.
+    now = timezone.now()
+    programme_yesterday = PROGRAMME_DAYS.date_of(
+        now, get_current_timezone()
+    ) - timedelta(days=1)
+    event = _create_event(
+        sphere,
+        name="Tide Table Weekend",
+        slug="slot-states",
+        description="Yesterday's games are over; tomorrow's are still to come.",
+        start_offset=timedelta(days=(programme_yesterday - now.date()).days),
+        duration_hours=72,
+        publication_offset=timedelta(days=3),
+    )
+    venue = _create_venue(event, name="Tide Venue", slug="tide-venue")
+    area = _create_area(venue, name="Tide Area", slug="tide-area")
+    space = _create_space(area, name="Tide Room", slug="tide-room", capacity=8)
+    for title, slug, seats, hour in (
+        ("Low Tide Skirmish", "low-tide-skirmish", 6, 8),
+        ("Welcome Talk", "tide-welcome-talk", 0, 48),
+        ("Dice Workshop", "tide-dice-workshop", 6, 48),
+        ("Closing Circle", "tide-closing-circle", 0, 52),
+    ):
+        _scheduled_session(
+            event,
+            space,
+            title=title,
+            slug=slug,
+            presenter="Tide Crew",
+            description="A session on the tide table.",
+            seats=seats,
+            hour=hour,
+        )
+
+
+# Enrollment and proposals both open around one scheduled session: a single
+# enrollable slot, whose header must not repeat the section's propose button.
+# Driven by event-propose-entry.spec.ts.
+def _create_single_slot_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Lone Table Evening",
+        slug="lone-table",
+        description="One table, one slot, and room for your own game.",
+        start_offset=timedelta(days=18),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+        enrollment_banner="Enrollment is open",
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Lone Venue", slug="lone-venue")
+    area = _create_area(venue, name="Lone Area", slug="lone-area")
+    space = _create_space(area, name="Lone Room", slug="lone-room", capacity=6)
+    _scheduled_session(
+        event,
+        space,
+        title="Lone Table Demo",
+        slug="lone-table-demo",
+        presenter="Lone GM",
+        description="The only session of the evening.",
+        seats=6,
+        hour=1,
+    )
+
+
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -1205,6 +1363,53 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_discord_proposal_scenario(sphere: Sphere) -> None:
+    """Seed an event asking proposers for their Discord handle, for discord-proposal.
+
+    The dedicated user already holds a handle, so the wizard has nothing to ask
+    them; the shared e2e-tester has none and still sees the question.
+    """
+    user = User.objects.create_user(
+        username="e2e-discord",
+        email="e2e-discord@test.local",
+        password="e2e-discord-123",
+        name="E2E Discord",
+        slug="e2e-discord",
+        discord_username="e2e_dragon",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-discord.json",
+    )
+    event = _create_event(
+        sphere,
+        name="Pub Night Proposals",
+        slug="pub-night",
+        description="RPG sessions at the pub; GMs get a Discord channel.",
+        start_offset=timedelta(days=20),
+        duration_hours=6,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG",
+        slug="rpg",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT3H"],
+    )
+    PersonalDataField.objects.create(
+        event=event,
+        name="Discord",
+        question="Identyfikator discord",
+        slug="discord",
+        field_type="discord",
+        is_required=True,
+    )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1241,6 +1446,7 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+    _create_unlisted_and_team_scenario(sphere)
 
     _create_party_companion_scenario()
 
@@ -1501,7 +1707,10 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_discord_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_single_slot_event(sphere)
+    _create_slot_states_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)
@@ -1551,7 +1760,7 @@ def main() -> None:
     )
 
     _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
-    _create_event(
+    foreign_event = _create_event(
         foreign_sphere,
         name="Foreign Programme",
         slug="foreign-programme",
@@ -1560,6 +1769,56 @@ def main() -> None:
         duration_hours=8,
         publication_offset=timedelta(days=1),
     )
+    # A bookmark from another sphere's event, so the dashboard's Coming up
+    # section has a cross-sphere starred row to show. Driven by
+    # dashboard.auth.spec.ts.
+    foreign_hall = _create_venue(
+        foreign_event, name="Foreign Hall", slug="foreign-hall"
+    )
+    foreign_table = _create_space(
+        _create_area(foreign_hall, name="Ground floor", slug="ground-floor"),
+        name="Table 1",
+        slug="table-1",
+    )
+    starred = _scheduled_session(
+        foreign_event,
+        foreign_table,
+        title="Starred Dungeon Crawl",
+        slug="starred-dungeon-crawl",
+        presenter="Foreign GM",
+        description="A session the tester bookmarked but holds no seat at.",
+        seats=5,
+        hour=1,
+    )
+    SessionBookmark.objects.create(user=tester, session=starred)
+    # Where the tester waits and where a seat is held for them: Coming up says
+    # which is which, and the offer carries its claim button.
+    for hour, title, slug, status in (
+        (3, "Waitlisted Heist", "waitlisted-heist", SessionParticipationStatus.WAITING),
+        (5, "Offered Duel", "offered-duel", SessionParticipationStatus.OFFERED),
+    ):
+        SessionParticipation.objects.create(
+            session=_scheduled_session(
+                foreign_event,
+                foreign_table,
+                title=title,
+                slug=slug,
+                presenter="Foreign GM",
+                description="A seat the tester waits for or was offered.",
+                seats=1,
+                hour=hour,
+            ),
+            user=tester,
+            status=status.value,
+            **(
+                {
+                    "claim_token": "e2e-dashboard-offer",
+                    "offer_expires_at": timezone.now() + timedelta(days=1),
+                }
+                if status is SessionParticipationStatus.OFFERED
+                else {}
+            ),
+        )
     # Announcements belong to a sphere that runs a programme: they sit above
     # its feed, for people who came for that feed. The root sphere has none of
     # that, so this is where the rendering is covered.

@@ -7,6 +7,7 @@ from ludamus.links.db.django.content_change_log import ContentChangeLogRepositor
 from ludamus.links.db.django.crowd import (
     ClaimRepository,
     CompanionRepository,
+    EmailVerificationReminderRepository,
     ProfileStatsRepository,
     UserRepository,
 )
@@ -20,12 +21,18 @@ from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.notifications import (
+    AnnouncementFanoutRepository,
+    NotificationReadRepository,
+    NotificationSubscriptionRepository,
+)
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
+from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.pacts.crowd import UserType
 
 
@@ -68,6 +75,10 @@ class Repositories:
         return GuildRepository()
 
     @cached_property
+    def sphere_team(self) -> SphereTeamRepository:
+        return SphereTeamRepository()
+
+    @cached_property
     def parties(self) -> PartyRepository:
         return PartyRepository()
 
@@ -94,10 +105,6 @@ class Repositories:
     @cached_property
     def landing_stats(self) -> repositories.LandingStatsRepository:
         return repositories.LandingStatsRepository()
-
-    @cached_property
-    def event_settings(self) -> repositories.EventSettingsRepository:
-        return repositories.EventSettingsRepository()
 
     @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
@@ -152,8 +159,20 @@ class Repositories:
         return NotificationReadRepository()
 
     @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionRepository:
+        return NotificationSubscriptionRepository()
+
+    @cached_property
+    def announcement_fanout(self) -> AnnouncementFanoutRepository:
+        return AnnouncementFanoutRepository()
+
+    @cached_property
     def printables_reminders(self) -> PrintablesReminderRepository:
         return PrintablesReminderRepository()
+
+    @cached_property
+    def verification_reminders(self) -> EmailVerificationReminderRepository:
+        return EmailVerificationReminderRepository()
 
     @cached_property
     def dashboard(self) -> repositories.DashboardRepository:
@@ -182,6 +201,10 @@ class Repositories:
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
         return repositories.SpaceRepository()
+
+    @cached_property
+    def event_setup(self) -> repositories.EventSetupRepository:
+        return repositories.EventSetupRepository()
 
     @cached_property
     def space_tree(self) -> repositories.SpaceTreeRepository:
@@ -234,3 +257,7 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def encounter_invitees(self) -> EncounterInviteeRepository:
+        return EncounterInviteeRepository()

@@ -1,12 +1,18 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.fields import (
+    FieldValue,
+    OrganizerFieldDTO,
+    PersonalFieldType,
+    SessionFieldType,
+    TextFieldKind,
+)
 from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 from ludamus.pacts.multiverse import SphereVisibility
 
@@ -128,6 +134,7 @@ class SessionFieldValueDTO(BaseModel):
     field_order: int = 0
     field_type: str = "text"
     is_public: bool = False
+    show_on_cards: bool = True
     value: str | list[str] | bool
 
 
@@ -175,7 +182,7 @@ class AgendaItemDTO(BaseModel):
 
     end_time: datetime
     pk: int
-    session_confirmed: bool
+    schedule_confirmed: bool
     start_time: datetime
     space_id: int = 0
     space_name: str = ""
@@ -275,6 +282,10 @@ class NotificationKind(StrEnum):
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
     PRINTABLES_READY = auto()
+    EMAIL_VERIFICATION = auto()
+    EMAIL_CHANGE_REQUESTED = auto()
+    EMAIL_CHANGE_COMPLETED = auto()
+    ANNOUNCEMENT = auto()
     SPHERE_EVENT_PUBLISHED = auto()
 
 
@@ -368,6 +379,7 @@ class SessionData(TypedDict, total=False):
     min_age: int
     participants_limit: int
     presenter_id: int | None
+    schedule_confirmed: bool
     facilitator_name: str
     slug: str
     status: SessionStatus
@@ -383,6 +395,7 @@ class SessionUpdateData(TypedDict, total=False):
     duration: str
     min_age: int
     participants_limit: int
+    schedule_confirmed: bool
     slug: str
     status: SessionStatus
     title: str
@@ -441,6 +454,14 @@ class SessionSelfEditContext:
     facilitators: list[FacilitatorDTO]
 
 
+class EventVisibility(StrEnum):
+    # PUBLIC follows publication_time: hidden before it, listed after it.
+    # UNLISTED opens to anyone with the link whatever the publication time,
+    # and is never listed or announced.
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -459,6 +480,7 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    visibility: EventVisibility = EventVisibility.PUBLIC
     cover_image_url: str = ""
     cover_image_original_name: str = ""
     logo_url: str = ""
@@ -478,13 +500,18 @@ class EventDTO(BaseModel):
             and self.publication_time <= datetime.now(tz=UTC)
         )
 
-    # Proposals only open on a published event — an unpublished one has no
-    # public page to send a facilitator to.
+    @property
+    def is_open(self) -> bool:
+        """Whether anyone with the link may open the event's pages."""
+        return self.is_published or self.visibility is EventVisibility.UNLISTED
+
+    # Proposals only open on an event with a public page — without one there
+    # is nowhere to send a facilitator.
     @property
     def is_proposal_active(self) -> bool:
         current_time = datetime.now(tz=UTC)
         return bool(
-            self.is_published
+            self.is_open
             and self.proposal_start_time is not None
             and self.proposal_end_time is not None
             and self.proposal_start_time <= current_time <= self.proposal_end_time
@@ -505,6 +532,7 @@ class EventListItemDTO(BaseModel):
     session_count: int
     slug: str
     start_time: datetime
+    visibility: EventVisibility = EventVisibility.PUBLIC
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -549,15 +577,6 @@ class EventProposalSettingsDTO(BaseModel):
     pk: int
 
 
-class EventSettingsDTO(BaseModel):
-    """Display settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    displayed_session_field_ids: list[int] = []
-    pk: int
-
-
 class EventUpdateData(TypedDict, total=False):
     """Write shape for updating event fields."""
 
@@ -570,6 +589,7 @@ class EventUpdateData(TypedDict, total=False):
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None
+    visibility: EventVisibility
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
@@ -598,12 +618,6 @@ class FieldUsageSummary:
             True when at least one category requires or offers the field.
         """
         return bool(self.required_count or self.optional_count)
-
-
-class PersonalFieldRequirementDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    field: OrganizerFieldDTO
-    is_required: bool
 
 
 class SessionFieldRequirementDTO(BaseModel):
@@ -753,6 +767,15 @@ class SessionRepositoryProtocol(Protocol):
     def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
+    @staticmethod
+    def set_schedule_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        session_pk: int | None = None,
+    ) -> int: ...
     @staticmethod
     def soft_delete(pk: int) -> None: ...
     @staticmethod
@@ -915,7 +938,7 @@ class ConfirmationSessionRow(TypedDict):
     status: SessionStatus
     contact_email: str
     category_name: str
-    agenda_item_pk: int | None
+    is_scheduled: bool
     is_confirmed: bool
     start_time: datetime | None
     end_time: datetime | None
@@ -957,15 +980,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def count_event_totals(event_pk: int) -> ConfirmationTotalsRow: ...
     @staticmethod
-    def set_confirmed_for_facilitator(
-        *,
-        event_pk: int,
-        facilitator_pk: int,
-        confirmed: bool,
-        contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
-    ) -> int: ...
-    @staticmethod
     def count_without_facilitator(
         event_pk: int, track_pk: int | None = None
     ) -> int: ...
@@ -978,7 +992,7 @@ class EventRepositoryProtocol(Protocol):
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
     def list_for_events_page(
-        sphere_id: int, *, include_unpublished: bool
+        sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]: ...
     @staticmethod
     def read(pk: int) -> EventDTO: ...
@@ -1012,10 +1026,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]: ...
     @staticmethod
-    def get_field_order(category_id: int) -> list[int]: ...
-    @staticmethod
-    def get_field_requirements(category_id: int) -> dict[int, bool]: ...
-    @staticmethod
     def get_session_field_order(category_id: int) -> list[int]: ...
     @staticmethod
     def get_session_field_requirements(category_id: int) -> dict[int, bool]: ...
@@ -1028,10 +1038,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_slug(event_id: int, slug: str) -> ProposalCategoryDTO: ...
     @staticmethod
-    def list_personal_field_requirements(
-        category_id: int,
-    ) -> list[PersonalFieldRequirementDTO]: ...
-    @staticmethod
     def list_session_field_requirements(
         category_id: int,
     ) -> list[SessionFieldRequirementDTO]: ...
@@ -1039,10 +1045,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def list_time_slot_requirements(
         category_id: int,
     ) -> list[TimeSlotRequirementDTO]: ...
-    @staticmethod
-    def set_field_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None: ...
     @staticmethod
     def set_session_field_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
@@ -1056,12 +1058,6 @@ class ProposalCategoryRepositoryProtocol(Protocol):
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
-    def get_personal_field_categories(field_id: int) -> dict[int, bool]: ...
-    @staticmethod
-    def set_personal_field_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None: ...
-    @staticmethod
     def get_session_field_categories(field_id: int) -> dict[int, bool]: ...
     @staticmethod
     def set_session_field_categories(
@@ -1070,11 +1066,16 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO: ...
 
 
-class PersonalDataFieldCreateData(TypedDict):
+class OrganizerFieldFormData(TypedDict):
+    """What the field forms share, personal-data and session alike.
+
+    The type itself is not here: a personal-data field may be a Discord
+    username and a session field may not, so each kind declares its own.
+    """
+
     name: str
     slug: NotRequired[str]
     question: str
-    field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
     is_multiple: bool
     allow_custom: bool
@@ -1083,29 +1084,22 @@ class PersonalDataFieldCreateData(TypedDict):
     is_public: bool
 
 
-class PersonalDataFieldUpdateData(TypedDict):
-    name: str
-    question: str
-    max_length: int
-    help_text: str
-    is_public: bool
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
+class PersonalDataFieldCreateData(OrganizerFieldFormData):
+    field_type: PersonalFieldType
+    is_required: bool
+    order: int
 
 
-class SessionFieldCreateData(TypedDict):
-    name: str
-    slug: NotRequired[str]
-    question: str
-    field_type: Literal["text", "select", "checkbox"]
-    options: list[str] | None
-    is_multiple: bool
-    allow_custom: bool
-    max_length: int
-    help_text: str
+class PersonalDataFieldUpdateData(OrganizerFieldFormData):
+    # No `field_type`: switching one is its own operation, so an edit leaves
+    # the stored type alone unless `set_field_type` changes it.
+    is_required: bool
+    order: int
+
+
+class SessionFieldCreateData(OrganizerFieldFormData):
+    field_type: SessionFieldType
     icon: str
-    is_public: bool
 
 
 class SessionFieldUpdateData(TypedDict):
@@ -1129,13 +1123,16 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete_orphans_for_event(event_id: int) -> int: ...
     @staticmethod
-    def has_requirements(pk: int) -> bool: ...
+    def has_values(pk: int) -> bool: ...
     @staticmethod
-    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
+    def count_values(event_id: int) -> dict[int, int]: ...
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
+    ) -> OrganizerFieldDTO: ...
+    def set_field_type(
+        self, pk: int, field_type: TextFieldKind
     ) -> OrganizerFieldDTO: ...
 
 
@@ -1153,6 +1150,8 @@ class SessionFieldRepositoryProtocol(Protocol):
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
     def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def show_on_cards_only(event_id: int, field_ids: list[int]) -> None: ...
     def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
 
 
@@ -1193,13 +1192,6 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
 
     @staticmethod
     def update_description(event_id: int, description: str) -> None: ...
-
-
-class EventSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO: ...
-    @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None: ...
 
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
@@ -1272,6 +1264,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[ConfirmationFacilitatorRow]: ...
     @staticmethod
     def lock(pks: Iterable[int]) -> None: ...
+    @staticmethod
+    def lock_by_event_and_slugs(
+        event_id: int, slugs: list[str]
+    ) -> list[FacilitatorDTO]: ...
     @staticmethod
     def count_sessions(pk: int) -> FacilitatorSessionCountsDTO: ...
     @staticmethod
@@ -1517,8 +1513,6 @@ class UnitOfWorkProtocol(Protocol):
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property
     def events(self) -> EventRepositoryProtocol: ...
-    @property
-    def event_settings(self) -> EventSettingsRepositoryProtocol: ...
     @property
     def facilitators(self) -> FacilitatorRepositoryProtocol: ...
     @property
