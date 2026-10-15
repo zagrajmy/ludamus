@@ -262,8 +262,12 @@ test.describe("Landing", () => {
             return { left, right, top, bottom };
           }),
         );
-        expect(boxes[0].right).toBeGreaterThanOrEqual(boxes[1].left);
-        expect(boxes[0].bottom).toBeGreaterThanOrEqual(boxes[1].top);
+        expect(Math.min(boxes[0].right, boxes[1].right)).toBeGreaterThanOrEqual(
+          Math.max(boxes[0].left, boxes[1].left),
+        );
+        expect(Math.min(boxes[0].bottom, boxes[1].bottom)).toBeGreaterThanOrEqual(
+          Math.max(boxes[0].top, boxes[1].top),
+        );
         await attachArtifacts(testInfo, {
           name: `print-${width}-${language}`,
           region: print,
