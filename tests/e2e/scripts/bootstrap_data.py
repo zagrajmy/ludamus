@@ -9,6 +9,7 @@ import sys
 from datetime import datetime, time, timedelta
 from importlib import import_module
 from pathlib import Path
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_DIR = REPO_ROOT / "src"
@@ -19,8 +20,6 @@ if str(SRC_DIR) not in sys.path:
 import django
 
 django.setup()
-
-from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
@@ -1073,9 +1072,35 @@ def _create_guild_roster_event(sphere: Sphere) -> Event:
     return event
 
 
-# NOTE: profile-edit.auth.spec.ts renames this user and tries a taken email, so
-# it can't use the shared e2e-tester, whose name and email other specs read.
-# The spec counts the one confirmed seat.
+def _create_email_verification_profiles() -> None:
+    # NOTE: CI retries twice; verification sends need one unsent account per attempt.
+    domains = {
+        "verified": "test.local",
+        "missing": "",
+        "pending": "test.local",
+        "nongmail": "notgmail.com",
+        "lookalike": "gmail.com.test.local",
+        **{f"unverified-chromium-{retry}": "GMAIL.COM" for retry in range(3)},
+    }
+    for state, domain in domains.items():
+        slug = f"email-{state}"
+        user = User.objects.create_user(
+            username=slug,
+            email=f"{slug}@{domain}" if domain else "",
+            email_verified=state in {"verified", "pending"},
+            pending_email="email-pending-new@test.local" if state == "pending" else "",
+            email_verification_sent_at=timezone.now() if state == "pending" else None,
+            password="e2e-email-123",
+            name=f"Email {state}",
+            slug=slug,
+        )
+        _write_storage_state(
+            user,
+            domain=_cookie_domain(),
+            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-email-{state}.json",
+        )
+
+
 def _create_profile_editor_scenario(sphere: Sphere) -> None:
     editor = User.objects.create_user(
         username="e2e-profile",
@@ -1697,6 +1722,7 @@ def main() -> None:
         start_offset=timedelta(days=28),
     )
     _create_profile_editor_scenario(sphere)
+    _create_email_verification_profiles()
     _create_party_refusals_scenario()
     _create_merge_event(
         sphere,

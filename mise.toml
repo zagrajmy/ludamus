@@ -94,7 +94,7 @@ run = [{ task = "format:py" }, { task = "format:djlint" }, { task = "format:oxfm
 
 [tasks."lint:ast-grep"]
 description = "Run structural code pattern checks via ast-grep"
-run = "ast-grep scan --error src tests"
+run = ["ast-grep test --skip-snapshot-tests", "ast-grep scan --error src tests"]
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
