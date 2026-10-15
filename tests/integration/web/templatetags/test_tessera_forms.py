@@ -272,3 +272,25 @@ class TestSoleChoiceNaming:
 
         assert not tessera_sole_choice(form["required_one"])
         assert "<select" in tessera_field(form["required_one"])
+
+
+class PickOneForm(forms.Form):
+    size = forms.ChoiceField(
+        label="Size", choices=[("s", "Small"), ("l", "Large")], widget=RadioSelect
+    )
+
+
+class TestRadioRequiredMarker:
+    """A required radio group is flagged only while it still lacks an answer."""
+
+    def test_an_unanswered_group_is_flagged_required(self) -> None:
+        html = tessera_field(PickOneForm()["size"])
+
+        assert "(required)" in html
+
+    def test_a_group_with_an_answer_picked_is_not(self) -> None:
+        html = tessera_field(PickOneForm(initial={"size": "s"})["size"])
+
+        assert "(required)" not in html
+        assert 'value="s"' in html
+        assert "checked" in html

@@ -111,12 +111,12 @@ class FakeEvents:
         return [e for e in self.rows.values() if e.sphere_id == sphere_id]
 
     def list_for_events_page(
-        self, sphere_id: int, *, include_unpublished: bool
+        self, sphere_id: int, *, include_hidden: bool
     ) -> list[EventDTO]:
         return [
             e
             for e in self.list_by_sphere(sphere_id)
-            if include_unpublished or e.publication_time is not None
+            if include_hidden or e.publication_time is not None
         ]
 
     def get_stats_data(self, pk: int) -> EventStatsData:
@@ -466,11 +466,12 @@ class TestEventsService:
         service = _events_service(events)
 
         assert [
-            e.pk for e in service.list_for_sphere(SPHERE, include_unpublished=False)
+            e.pk for e in service.list_for_sphere(SPHERE, include_hidden=False)
         ] == [EVENT]
-        assert [
-            e.pk for e in service.list_for_sphere(SPHERE, include_unpublished=True)
-        ] == [EVENT, OTHER_EVENT]
+        assert [e.pk for e in service.list_for_sphere(SPHERE, include_hidden=True)] == [
+            EVENT,
+            OTHER_EVENT,
+        ]
 
     def test_reads_are_scoped_to_the_sphere(self):
         service = _events_service(FakeEvents([_event()]))
