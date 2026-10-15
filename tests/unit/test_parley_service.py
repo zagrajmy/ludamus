@@ -5,9 +5,11 @@ from ludamus.mills.parley import ParleyService
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
     ParleyCapabilityClaims,
+    ParleyReportData,
     ParleyRoomDTO,
     ParleyRoomKind,
 )
+from ludamus.specs.parley import PARLEY_SESSION_RETENTION
 
 
 def test_bootstrap_signs_exact_room_permissions() -> None:
@@ -113,3 +115,22 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
     repository.read_access.assert_called_once()
     assert repository.read_access.call_args.kwargs["window"].now == now
     signer.sign.assert_not_called()
+
+
+def test_report_message_returns_refusal_for_window_anchored_at_now() -> None:
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+    repository = Mock()
+    repository.create_report.return_value = False
+    service = ParleyService(
+        repository=repository, signer=Mock(), agent_host="parley.example.com"
+    )
+    data = ParleyReportData(
+        sphere_id=45, user_id=123, room_id="session:981", message_id=7, reason="spam"
+    )
+
+    result = service.report_message(data=data, now=now)
+
+    assert result is False
+    window = repository.create_report.call_args.kwargs["window"]
+    assert window.now == now
+    assert window.retained_after == now - PARLEY_SESSION_RETENTION
