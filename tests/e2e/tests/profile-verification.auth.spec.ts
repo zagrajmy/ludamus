@@ -4,7 +4,6 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
 const PROFILE_URL = "/crowd/profile/";
-const TARGET_EMAIL = "email-unverified@gmail.com";
 
 for (const state of ["verified", "missing"] as const) {
   test.describe(`${state} email`, () => {
@@ -30,12 +29,25 @@ for (const state of ["verified", "missing"] as const) {
 }
 
 test.describe("Unverified email", () => {
-  test.use({ storageState: path.join(__dirname, "..", ".auth-state-email-unverified.json") });
+  test.use({
+    storageState: async ({ browserName }, use, testInfo) => {
+      await use(
+        path.join(
+          __dirname,
+          "..",
+          `.auth-state-email-unverified-${browserName}-${testInfo.retry}.json`,
+        ),
+      );
+    },
+  });
 
   test("Verify sits beside the email label, opens instructions, sends and throttles resend", async ({
     page,
+    browserName,
   }, testInfo) => {
+    const targetEmail = `email-unverified-${browserName}-${testInfo.retry}@gmail.com`;
     await page.goto(PROFILE_URL);
+    const savedName = await page.getByLabel("Display name").inputValue();
     const verify = page.getByRole("link", { name: "Verify", exact: true });
     await expect(verify).toBeVisible();
     await expect(page.getByText("Your email address is not verified yet.")).toHaveCount(0);
@@ -50,7 +62,7 @@ test.describe("Unverified email", () => {
     await verify.click();
     const dialog = page.getByRole("dialog", { name: "Verify email address", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText(TARGET_EMAIL);
+    await expect(dialog).toContainText(targetEmail);
     await expect(dialog).toContainText("noreply@zagrajmy.net");
     await expect(dialog).toContainText("Confirm your email address");
     await expect(dialog).toContainText("Check spam too.");
@@ -66,14 +78,14 @@ test.describe("Unverified email", () => {
       .toBe(true);
     const gmailUrl = new URL((await gmail.getAttribute("href"))!);
     expect(gmailUrl.origin).toBe("https://mail.google.com");
-    expect(gmailUrl.searchParams.get("authuser")).toBe(TARGET_EMAIL);
+    expect(gmailUrl.searchParams.get("authuser")).toBe(targetEmail);
     expect(decodeURIComponent(gmailUrl.hash)).toContain("in:anywhere");
     expect(decodeURIComponent(gmailUrl.hash)).toContain("from:noreply@zagrajmy.net");
-    expect(decodeURIComponent(gmailUrl.hash)).toContain(`to:${TARGET_EMAIL}`);
+    expect(decodeURIComponent(gmailUrl.hash)).toContain(`to:${targetEmail}`);
     await attachArtifacts(testInfo, {
       name: "verify-email-modal",
       region: dialog,
-      facts: { target: TARGET_EMAIL, gmailUrl: gmailUrl.href },
+      facts: { target: targetEmail, gmailUrl: gmailUrl.href },
     });
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
@@ -88,7 +100,7 @@ test.describe("Unverified email", () => {
     await expect(
       page.getByText("A verification email was sent a moment ago — try again in a few minutes."),
     ).toBeVisible();
-    await expect(page.getByLabel("Display name")).toHaveValue("Email unverified");
+    await expect(page.getByLabel("Display name")).toHaveValue(savedName);
   });
 });
 

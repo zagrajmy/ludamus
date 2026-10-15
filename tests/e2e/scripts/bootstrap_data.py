@@ -1072,27 +1072,21 @@ def _create_guild_roster_event(sphere: Sphere) -> Event:
     return event
 
 
-# NOTE: profile-edit.auth.spec.ts renames this user and tries a taken email, so
-# it can't use the shared e2e-tester, whose name and email other specs read.
 def _create_email_verification_profiles() -> None:
-    for state in (
-        "verified",
-        "missing",
-        "unverified",
-        "pending",
-        "nongmail",
-        "lookalike",
-    ):
+    # NOTE: CI retries twice; verification sends need one unsent account per attempt.
+    domains = {
+        "verified": "test.local",
+        "missing": "",
+        "pending": "test.local",
+        "nongmail": "notgmail.com",
+        "lookalike": "gmail.com.test.local",
+        **{f"unverified-chromium-{retry}": "GMAIL.COM" for retry in range(3)},
+    }
+    for state, domain in domains.items():
         slug = f"email-{state}"
-        addresses = {
-            "missing": "",
-            "unverified": f"{slug}@GMAIL.COM",
-            "nongmail": f"{slug}@notgmail.com",
-            "lookalike": f"{slug}@gmail.com.test.local",
-        }
         user = User.objects.create_user(
             username=slug,
-            email=addresses.get(state, f"{slug}@test.local"),
+            email=f"{slug}@{domain}" if domain else "",
             email_verified=state in {"verified", "pending"},
             pending_email="email-pending-new@test.local" if state == "pending" else "",
             email_verification_sent_at=timezone.now() if state == "pending" else None,
