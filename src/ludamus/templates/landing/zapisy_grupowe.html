@@ -353,7 +353,7 @@
             }
         }
     </style>
-    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-[4.5rem] grid grid-cols-1 min-[920px]:grid-cols-[5fr_6fr] gap-11 min-[920px]:gap-16 items-center">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-12 grid grid-cols-1 min-[920px]:grid-cols-[5fr_6fr] gap-11 min-[920px]:gap-16 items-center">
         <div class="min-w-0">
             <p class="mb-3 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase text-secondary-hover">
                 {% translate "Enrollment and waiting lists" %}
@@ -369,13 +369,7 @@
                 {% endblocktranslate %}
             </p>
         </div>
-        {% comment %}
-            The card grows and shrinks by ~120px as rows fold through the loop,
-            which would walk the rest of the page up and down. The column
-            reserves the tallest frame once and centres the card in it, so the
-            motion stays inside this box.
-        {% endcomment %}
-        <div class="min-w-0 max-w-[470px] w-full mx-auto flex flex-col justify-center min-h-[38rem]">
+        <div class="min-w-0 max-w-[470px] w-full mx-auto flex flex-col justify-center min-h-[44rem]">
             {# Participants-tab replica: follows the theme, because the tab it copies does. #}
             <div class="p1-anim bg-bg-secondary border border-border rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_-18px_rgba(61,55,50,0.25)] overflow-hidden"
                  aria-hidden="true">
@@ -456,8 +450,8 @@
                 </div>
             </div>
             <div class="p1-cap p1-anim" aria-hidden="true">
-                <p class="p1-cap1">{% translate "The group needs two seats. Nobody splits it up, and nobody skips past it." %}</p>
-                <p class="p1-cap2">
+                <p class="p1-cap1 text-pretty">{% translate "The group needs two seats. Nobody splits it up, and nobody skips past it." %}</p>
+                <p class="p1-cap2 text-pretty">
                     {% translate "Two seats free up: Ala and Ola enter together, and Basia moves to the front of the queue." %}
                 </p>
             </div>
