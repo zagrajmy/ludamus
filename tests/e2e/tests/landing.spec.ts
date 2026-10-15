@@ -184,7 +184,11 @@ test.describe("Landing", () => {
     });
   }
 
-  for (const width of [375, 1920]) {
+  for (const { width, fontSize } of [
+    { width: 320, fontSize: 32 },
+    { width: 375, fontSize: 16 },
+    { width: 1920, fontSize: 24 },
+  ]) {
     for (const language of ["en", "pl"]) {
       test(`keeps the enrollment animation and print layout stable at ${width}px in ${language}`, async ({
         page,
@@ -196,10 +200,10 @@ test.describe("Landing", () => {
             { name: "django_language", value: language, url: testInfo.project.use.baseURL! },
           ]);
         await page.goto("/");
-        await page.evaluate(async (width) => {
-          if (width === 1920) document.documentElement.style.fontSize = "24px";
+        await page.evaluate(async (fontSize) => {
+          document.documentElement.style.fontSize = `${fontSize}px`;
           await document.fonts.ready;
-        }, width);
+        }, fontSize);
 
         const enrollment = page.getByRole("region", {
           name:
@@ -245,7 +249,7 @@ test.describe("Landing", () => {
         await attachArtifacts(testInfo, {
           name: `enrollment-${width}-${language}`,
           region: enrollment,
-          facts: { width, language, frames },
+          facts: { width, fontSize, language, frames },
         });
 
         const print = page.getByRole("region", {
