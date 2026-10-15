@@ -198,7 +198,6 @@ class Services:
         return ProfileService(
             transaction=self._transaction,
             users=self._repos.active_users,
-            participations=self._repos.profile_stats,
             avatar_url=gravatar_url,
         )
 
