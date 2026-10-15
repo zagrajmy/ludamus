@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy:dry": "wrangler deploy --dry-run",
+    "deploy": "alchemy deploy",
+    "plan": "alchemy plan",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -23,6 +24,10 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.20.1",
     "@cloudflare/workers-types": "5.20260801.1",
+    "@effect/platform-node": "4.0.1",
+    "@types/node": "24.10.1",
+    "alchemy": "2.0.0-beta.81",
+    "effect": "4.0.1",
     "typescript": "5.9.3",
     "vitest": "4.1.9",
     "wrangler": "4.145.0"
