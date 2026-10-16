@@ -71,8 +71,8 @@ for (const width of [375, 1280]) {
         expect(entering.at(-1)!.cards.every((card) => card.filter === "grayscale(1)")).toBe(true);
         if (reducedMotion === "no-preference") {
           const early = entering[6].cards;
-          expect(early[0].filter).not.toBe("grayscale(0)");
-          expect(early[6].filter).toBe("grayscale(0)");
+          expect(early[0].filter).toMatch(/^grayscale\(0\.\d+\)$/);
+          expect(early[6].filter).toMatch(/^(none|grayscale\(0\))$/);
         }
         await attachArtifacts(testInfo, {
           name: `print-enter-${width}-${theme}-${reducedMotion}`,
