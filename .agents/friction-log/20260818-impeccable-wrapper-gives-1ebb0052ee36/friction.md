@@ -30,3 +30,10 @@ from a real finding.
 Originally recorded on 2026-08-18. Imported from [PAPERCUTS.txt](https://github.com/zagrajmy/ludamus/blob/51c7d71cd/PAPERCUTS.txt#L282).
 
 Historical observation; not reproduced as part of this migration.
+
+On 2026-10-15, PR #1516's checks job failed with only
+`impeccable failed (exit 152):` and no detector findings or child output. The
+same lint task passed locally. GitHub would not rerun the completed job while
+other jobs in its workflow were still running.
+
+[CI job log](https://github.com/zagrajmy/ludamus/actions/runs/38785914701/job/116598333478).

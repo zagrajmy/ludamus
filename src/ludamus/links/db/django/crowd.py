@@ -4,11 +4,7 @@ from django.contrib.auth.hashers import make_password
 from django.db.models import Q
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
-from ludamus.links.db.django.models import (
-    PartyMembership,
-    SessionParticipation,
-    SessionParticipationStatus,
-)
+from ludamus.links.db.django.models import PartyMembership
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     EMAIL_LINK_MAX_AGE,
@@ -17,7 +13,6 @@ from ludamus.pacts.crowd import (
     CompanionDTO,
     CompanionRepositoryProtocol,
     EmailVerificationReminderRepositoryProtocol,
-    ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
     UserRepositoryProtocol,
@@ -228,14 +223,6 @@ class CompanionRepository(CompanionRepositoryProtocol):
         if (user := companions.filter(slug=user_slug).first()) is None:
             raise NotFoundError
         user.delete()
-
-
-class ProfileStatsRepository(ProfileParticipationRepositoryProtocol):
-    @staticmethod
-    def confirmed_count(user_id: int) -> int:
-        return SessionParticipation.objects.filter(
-            user_id=user_id, status=SessionParticipationStatus.CONFIRMED
-        ).count()
 
 
 class ClaimRepository(ClaimRepositoryProtocol):

@@ -2298,7 +2298,6 @@ msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/email_verification.py
-#: src/ludamus/templates/crowd/user/edit.html
 msgid "Your email address is verified."
 msgstr "Twój adres email jest zweryfikowany."
 
@@ -3912,6 +3911,10 @@ msgid "That invitation was already used or has expired."
 msgstr "To zaproszenie zostało już użyte albo wygasło."
 
 #: src/ludamus/gates/web/django/sphere/team.py
+msgid "New link ready. Copy it below: the old one no longer works."
+msgstr "Nowy link gotowy. Skopiuj go poniżej: poprzedni już nie działa."
+
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
 
@@ -3970,6 +3973,14 @@ msgstr "Scalono z"
 msgid "track"
 msgstr "blok"
 
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "ongoing"
+msgstr "trwa"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "today"
+msgstr "dziś"
+
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/event.html
@@ -3984,6 +3995,7 @@ msgstr "W Trakcie"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/components/encounter_card.html
 msgid "Full"
 msgstr "Pełne"
 
@@ -4005,6 +4017,7 @@ msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/components/encounter_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -4299,6 +4312,7 @@ msgstr ""
 "zostanie zwolnione."
 
 #: src/ludamus/links/db/django/notifications.py
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 msgid "Confirm your email address"
 msgstr "Potwierdź swój adres email"
 
@@ -5736,6 +5750,7 @@ msgstr "Zakończ"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
 #: src/ludamus/templates/notifications/parts/modal.html
 msgid "Close"
@@ -6422,24 +6437,21 @@ msgid "You organize"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/detail.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Public"
-msgstr "Publiczny"
+#, python-format
+msgid "Hosted by %(name)s"
+msgstr "Prowadzi %(name)s"
 
 #: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/notice_board/detail.html
 msgid "attending"
 msgstr "uczestników"
 
-#: src/ludamus/templates/components/event_card.html
-msgid "LIVE"
-msgstr "W TRAKCIE"
+#: src/ludamus/templates/components/encounter_card.html
+#, python-format
+msgid "%(count)s of %(max)s signed up"
+msgstr "%(count)s z %(max)s zapisanych"
 
-#: src/ludamus/templates/components/event_card.html
-msgid "Proposals open"
-msgstr "Zgłoszenia otwarte"
-
+#: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/components/event_card.html
 msgid "Link only"
 msgstr "Tylko przez link"
@@ -6447,6 +6459,10 @@ msgstr "Tylko przez link"
 #: src/ludamus/templates/components/event_card.html
 msgid "Unpublished"
 msgstr "Nieopublikowane"
+
+#: src/ludamus/templates/components/event_card.html
+msgid "Proposals open"
+msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/components/event_card.html
 #, python-format
@@ -6763,6 +6779,51 @@ msgstr "Wymagane logowanie"
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
 
+#: src/ludamus/templates/crowd/user/_email_verify_action.html
+msgid "Verify"
+msgstr "Zweryfikuj"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Verify email address"
+msgstr "Zweryfikuj adres email"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Click the link in your verification email."
+msgstr "Kliknij link w wiadomości weryfikacyjnej."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send a verification email, then click the link inside."
+msgstr "Wyślij wiadomość weryfikacyjną, a potem kliknij zawarty w niej link."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"Search for \"%(subject)s\" from <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Check spam too."
+msgstr ""
+"Wyszukaj „%(subject)s” od <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Sprawdź też spam."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"<span class=\"break-all\">%(current)s</span> stays active until you confirm."
+msgstr ""
+"<span class=\"break-all\">%(current)s</span> pozostaje aktywny do "
+"potwierdzenia."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Open Gmail"
+msgstr "Otwórz Gmail"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Resend email"
+msgstr "Wyślij email ponownie"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send email"
+msgstr "Wyślij email"
+
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -6819,60 +6880,6 @@ msgid ""
 msgstr ""
 "Brak awatara z konta. Zaloguj się kontem obsługującym awatary, aby uzyskać "
 "więcej opcji."
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participation.\n"
-"                            "
-msgid_plural ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participations.\n"
-"                            "
-msgstr[0] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwo w "
-"punkcie programu.\n"
-"                            "
-msgstr[1] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwa w "
-"punktach programu.\n"
-"                            "
-msgstr[2] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-msgstr[3] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"We sent a confirmation link to <strong>%(pending)s</strong>. The change "
-"takes effect once you confirm it."
-msgstr ""
-"Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
-"zacznie obowiązywać po jego potwierdzeniu."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Resend"
-msgstr "Wyślij ponownie"
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Your email address is not verified yet."
-msgstr "Twój adres email nie jest jeszcze zweryfikowany."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Send verification email"
-msgstr "Wyślij email weryfikacyjny"
 
 #: src/ludamus/templates/crowd/user/notifications.html
 msgid "Mute"
@@ -7461,15 +7468,15 @@ msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid ""
-"Nothing yet. Sign up for or bookmark a session, or join an encounter, and it "
-"will wait for you here."
+"No upcoming plans. Sign up for or bookmark a session, or join an encounter, "
+"to see it here."
 msgstr ""
-"Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
-"programu do zakładek, a poczeka tu na Ciebie."
+"Brak nadchodzących planów. Tutaj zobaczysz punkty programu, na które się "
+"zapiszesz lub które dodasz do zakładek, oraz spotkania, do których dołączysz."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Past events"
-msgstr "Minione wydarzenia"
+msgid "In your spheres"
+msgstr "W Twoich sferach"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -7480,12 +7487,12 @@ msgid "No open encounters right now. Start one and people will find it here."
 msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tutaj."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "In your spheres"
-msgstr "W Twoich sferach"
-
-#: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
 
 #: src/ludamus/templates/design.html
 msgid ""
@@ -9028,11 +9035,11 @@ msgstr "Aktywne zaproszenia"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 msgid ""
-"A link is shown once, right after it's created. Lost one? Withdraw it and "
-"create another."
+"A link is shown once, right after it's created. Lost one? Get a new link for "
+"the same person."
 msgstr ""
-"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj zaproszenie i "
-"utwórz nowe."
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Utwórz nowy link dla "
+"tej samej osoby."
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9057,6 +9064,23 @@ msgstr "Wygasa za %(expires)s"
 #, python-format
 msgid "Created by %(name)s"
 msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Get a new link for %(label)s"
+msgstr "Nowy link dla: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link? The current one stops working right away."
+msgstr "Utworzyć nowy link? Obecny od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link"
+msgstr "Utwórz nowy link"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "New link"
+msgstr "Nowy link"
 
 #: src/ludamus/templates/multiverse/panel/team.html
 #, python-format
@@ -9150,6 +9174,11 @@ msgstr "Bierzesz udział w tym spotkaniu"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "invites you to an encounter"
 msgstr "zaprasza Cię na spotkanie"
+
+#: src/ludamus/templates/notice_board/detail.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Public"
+msgstr "Publiczny"
 
 #: src/ludamus/templates/notice_board/detail.html
 msgid "Spots"
@@ -9591,6 +9620,11 @@ msgid "Choose an event"
 msgstr "Wybierz wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/event-create.html
+msgid "New event"
+msgstr "Nowe wydarzenie"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
@@ -9664,11 +9698,6 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
-
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/event-create.html
-msgid "New event"
-msgstr "Nowe wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -9780,6 +9809,10 @@ msgid "No durations configured yet."
 msgstr "Nie skonfigurowano jeszcze czasów trwania."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+msgid "Select which session fields hosts must provide."
+msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
+
+#: src/ludamus/templates/panel/cfp-edit.html
 #, python-format
 msgid "There is %(count)s existing proposal for this category."
 msgid_plural "There are %(count)s existing proposals for this category."
@@ -9795,10 +9828,6 @@ msgid ""
 msgstr ""
 "Zmiany w wymaganiach pól nie wpłyną na istniejące zgłoszenia. Nowe pola nie "
 "zostaną do nich dodane, a usunięte pola zachowają swoje dane."
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which session fields hosts must provide."
-msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
@@ -12666,6 +12695,75 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participation.\n"
+#~ "                            "
+#~ msgid_plural ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participations.\n"
+#~ "                            "
+#~ msgstr[0] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwo w punkcie programu.\n"
+#~ "                            "
+#~ msgstr[1] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwa w punktach programu.\n"
+#~ "                            "
+#~ msgstr[2] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+#~ msgstr[3] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+
+#, python-format
+#~ msgid ""
+#~ "We sent a confirmation link to <strong>%(pending)s</strong>. The change "
+#~ "takes effect once you confirm it."
+#~ msgstr ""
+#~ "Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
+#~ "zacznie obowiązywać po jego potwierdzeniu."
+
+#~ msgid "Resend"
+#~ msgstr "Wyślij ponownie"
+
+#~ msgid "Your email address is not verified yet."
+#~ msgstr "Twój adres email nie jest jeszcze zweryfikowany."
+
+#~ msgid "Send verification email"
+#~ msgstr "Wyślij email weryfikacyjny"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for or bookmark a session, or join an encounter, and "
+#~ "it will wait for you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
+#~ "programu do zakładek, a poczeka tu na Ciebie."
+
+#~ msgid ""
+#~ "A link is shown once, right after it's created. Lost one? Withdraw it and "
+#~ "create another."
+#~ msgstr ""
+#~ "Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj "
+#~ "zaproszenie i utwórz nowe."
+
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
+
 #~ msgid "Publication Time"
 #~ msgstr "Czas publikacji"
 
@@ -12675,9 +12773,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr ""
 #~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
 #~ "widoczne natychmiast."
-
-#~ msgid "Invalid redirect URL."
-#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
 #, python-format
 #~ msgid "Export failed: %(hint)s"
@@ -14014,3 +14109,40 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Revoke invitation"
 #~ msgstr "Wycofaj zaproszenie"
+
+#~ msgid "Different address? Save your profile first."
+#~ msgstr "Inny adres? Najpierw zapisz profil."
+
+#, python-format
+#~ msgid ""
+#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
+#~ "changing your email address."
+#~ msgstr ""
+#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
+#~ "zmianę adresu email."
+
+#, python-format
+#~ msgid ""
+#~ "Open the confirmation email sent to <strong class=\"break-"
+#~ "all\">%(address)s</strong> and follow its link."
+#~ msgstr ""
+#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
+#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
+
+#, python-format
+#~ msgid ""
+#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
+#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
+#~ msgstr ""
+#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
+#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
+
+#~ msgid "To verify a different address, save your changes first."
+#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
+
+#~ msgid "Resend verification email"
+#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
+
+#, python-format
+#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
+#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"

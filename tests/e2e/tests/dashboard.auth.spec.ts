@@ -1,4 +1,5 @@
 import { analyzePageAccessibility } from "./helpers/a11y";
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
 // The root domain serves the pitch to a visitor (landing.spec.ts) and this
@@ -50,6 +51,48 @@ test.describe("Dashboard", () => {
     await expect(card).toBeVisible();
     await expect(card).toContainText(/\d{4}/);
   });
+
+  for (const width of [375, 1440]) {
+    test(`keeps your spheres with the agenda and past events last at ${width}px`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 1080 });
+      await page.goto("/dashboard/");
+
+      const agenda = page.getByRole("region", { name: "Coming up" });
+      const spheres = page.getByRole("region", { name: "In your spheres" });
+      const forYou = page.getByRole("region", { name: "For you" });
+      const discover = page.getByRole("region", { name: "Spheres to discover" });
+      const past = page.getByRole("region", { name: "Past events" });
+      await expect(spheres).toBeVisible();
+      await expect(past).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      const boxes = {
+        agenda: await agenda.boundingBox(),
+        spheres: await spheres.boundingBox(),
+        forYou: await forYou.boundingBox(),
+        discover: await discover.boundingBox(),
+        past: await past.boundingBox(),
+      };
+      expect(boxes.spheres!.x).toBe(boxes.agenda!.x);
+      expect(boxes.spheres!.y).toBeGreaterThanOrEqual(boxes.agenda!.y + boxes.agenda!.height);
+      expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
+      expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.discover!.y + boxes.discover!.height);
+      if (width >= 1024)
+        expect(boxes.forYou!.x).toBeGreaterThan(boxes.spheres!.x + boxes.spheres!.width);
+      else expect(boxes.forYou!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
+      const main = page.getByRole("main");
+      await page.setViewportSize({
+        width,
+        height: await main.evaluate((el) => el.scrollHeight + 128),
+      });
+      await attachArtifacts(testInfo, {
+        name: `dashboard-layout-${width}`,
+        region: page.getByRole("main"),
+        facts: { width, boxes },
+      });
+    });
+  }
 
   test("subscribing to a sphere asks before it commits, and undoes", async ({ page }) => {
     await page.goto("/dashboard/");

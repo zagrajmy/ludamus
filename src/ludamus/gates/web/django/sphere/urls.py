@@ -10,6 +10,11 @@ urlpatterns = [
     path("team/", team.TeamPageView.as_view(), name="team"),
     path("team/do/invite", team.TeamInviteActionView.as_view(), name="team-invite"),
     path(
+        "team/invitations/<int:pk>/do/reissue",
+        team.TeamInviteReissueActionView.as_view(),
+        name="team-invite-reissue",
+    ),
+    path(
         "team/invitations/<int:pk>/do/revoke",
         team.TeamInviteRevokeActionView.as_view(),
         name="team-invite-revoke",
