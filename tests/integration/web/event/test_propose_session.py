@@ -97,6 +97,8 @@ class TestProposeSessionPageView:
             "+1d", "+10d", tzinfo=time_zone
         ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
         event.refresh_from_db()
 
     def _set_wizard_category(self, client, event, category):
@@ -3126,6 +3128,8 @@ class TestAnonymousProposalSubmission:
             "+1d", "+10d", tzinfo=time_zone
         ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
         event.refresh_from_db()
 
     def _enable_anonymous(self, event):
