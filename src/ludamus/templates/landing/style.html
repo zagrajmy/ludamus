@@ -731,11 +731,15 @@ white once the page around them is dark.
         border-color: var(--color-warm-500);
     }
 
+    /* NOTE: border width is not transitioned, so it disappears with the
+       padding, not on each card's stagger. The 1px inset preserves title
+       positions; transparent colour lets the border fade back in on exit. */
     #k6:checked~.sc .chip {
         filter: grayscale(1);
         box-shadow: none;
         background: transparent;
-        padding: 0;
+        padding: 1px;
+        border-width: 0;
         border-color: transparent;
         border-radius: 0;
     }
