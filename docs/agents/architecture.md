@@ -501,13 +501,12 @@ User profile management and delegate (connected) accounts.
   `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`
 - **Templates:** `templates/crowd/user/edit.html`, `avatar.html`,
   `parties.html`, `shadowbans.html`, `crowd/claim.html`
-- **Services:** `ProfileService` (self-profile reads/updates, avatar,
-  confirmed-participation count), `CompanionsService` (connected-user
+- **Services:** `ProfileService` (self-profile reads/updates and avatar
+  preferences), `CompanionsService` (connected-user
   CRUD), `ClaimService` (issue/redeem claim links), `ShadowbanService`
 - **DTOs:** `UserDTO`, `ConnectedUserDTO`, `AvatarPageDTO`, `UserData`,
   `UserType` (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
-- **Repositories:** `UserRepository`, `ConnectedUserRepository`,
-  `ProfileStatsRepository`
+- **Repositories:** `UserRepository`, `ConnectedUserRepository`
 - **External integration:** `MembershipApiClient` (`links/ticket_api.py`)
   — fetches enrollment quotas; Gravatar (`links/gravatar.py`) —
   email-hash avatar

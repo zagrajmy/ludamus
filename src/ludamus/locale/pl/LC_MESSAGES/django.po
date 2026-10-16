@@ -2302,7 +2302,6 @@ msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/email_verification.py
-#: src/ludamus/templates/crowd/user/edit.html
 msgid "Your email address is verified."
 msgstr "Twój adres email jest zweryfikowany."
 
@@ -4317,6 +4316,7 @@ msgstr ""
 "zostanie zwolnione."
 
 #: src/ludamus/links/db/django/notifications.py
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 msgid "Confirm your email address"
 msgstr "Potwierdź swój adres email"
 
@@ -5754,6 +5754,7 @@ msgstr "Zakończ"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
 #: src/ludamus/templates/notifications/parts/modal.html
 msgid "Close"
@@ -6782,6 +6783,51 @@ msgstr "Wymagane logowanie"
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
 
+#: src/ludamus/templates/crowd/user/_email_verify_action.html
+msgid "Verify"
+msgstr "Zweryfikuj"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Verify email address"
+msgstr "Zweryfikuj adres email"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Click the link in your verification email."
+msgstr "Kliknij link w wiadomości weryfikacyjnej."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send a verification email, then click the link inside."
+msgstr "Wyślij wiadomość weryfikacyjną, a potem kliknij zawarty w niej link."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"Search for \"%(subject)s\" from <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Check spam too."
+msgstr ""
+"Wyszukaj „%(subject)s” od <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Sprawdź też spam."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"<span class=\"break-all\">%(current)s</span> stays active until you confirm."
+msgstr ""
+"<span class=\"break-all\">%(current)s</span> pozostaje aktywny do "
+"potwierdzenia."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Open Gmail"
+msgstr "Otwórz Gmail"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Resend email"
+msgstr "Wyślij email ponownie"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send email"
+msgstr "Wyślij email"
+
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -6838,60 +6884,6 @@ msgid ""
 msgstr ""
 "Brak awatara z konta. Zaloguj się kontem obsługującym awatary, aby uzyskać "
 "więcej opcji."
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participation.\n"
-"                            "
-msgid_plural ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participations.\n"
-"                            "
-msgstr[0] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwo w "
-"punkcie programu.\n"
-"                            "
-msgstr[1] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwa w "
-"punktach programu.\n"
-"                            "
-msgstr[2] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-msgstr[3] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"We sent a confirmation link to <strong>%(pending)s</strong>. The change "
-"takes effect once you confirm it."
-msgstr ""
-"Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
-"zacznie obowiązywać po jego potwierdzeniu."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Resend"
-msgstr "Wyślij ponownie"
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Your email address is not verified yet."
-msgstr "Twój adres email nie jest jeszcze zweryfikowany."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Send verification email"
-msgstr "Wyślij email weryfikacyjny"
 
 #: src/ludamus/templates/crowd/user/notifications.html
 msgid "Mute"
@@ -7480,15 +7472,15 @@ msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid ""
-"Nothing yet. Sign up for or bookmark a session, or join an encounter, and it "
-"will wait for you here."
+"No upcoming plans. Sign up for or bookmark a session, or join an encounter, "
+"to see it here."
 msgstr ""
-"Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
-"programu do zakładek, a poczeka tu na Ciebie."
+"Brak nadchodzących planów. Tutaj zobaczysz punkty programu, na które się "
+"zapiszesz lub które dodasz do zakładek, oraz spotkania, do których dołączysz."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Past events"
-msgstr "Minione wydarzenia"
+msgid "In your spheres"
+msgstr "W Twoich sferach"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -7499,12 +7491,12 @@ msgid "No open encounters right now. Start one and people will find it here."
 msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tutaj."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "In your spheres"
-msgstr "W Twoich sferach"
-
-#: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
 
 #: src/ludamus/templates/design.html
 msgid ""
@@ -9821,6 +9813,10 @@ msgid "No durations configured yet."
 msgstr "Nie skonfigurowano jeszcze czasów trwania."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+msgid "Select which session fields hosts must provide."
+msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
+
+#: src/ludamus/templates/panel/cfp-edit.html
 #, python-format
 msgid "There is %(count)s existing proposal for this category."
 msgid_plural "There are %(count)s existing proposals for this category."
@@ -9836,10 +9832,6 @@ msgid ""
 msgstr ""
 "Zmiany w wymaganiach pól nie wpłyną na istniejące zgłoszenia. Nowe pola nie "
 "zostaną do nich dodane, a usunięte pola zachowają swoje dane."
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which session fields hosts must provide."
-msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
@@ -12707,6 +12699,65 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participation.\n"
+#~ "                            "
+#~ msgid_plural ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participations.\n"
+#~ "                            "
+#~ msgstr[0] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwo w punkcie programu.\n"
+#~ "                            "
+#~ msgstr[1] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwa w punktach programu.\n"
+#~ "                            "
+#~ msgstr[2] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+#~ msgstr[3] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+
+#, python-format
+#~ msgid ""
+#~ "We sent a confirmation link to <strong>%(pending)s</strong>. The change "
+#~ "takes effect once you confirm it."
+#~ msgstr ""
+#~ "Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
+#~ "zacznie obowiązywać po jego potwierdzeniu."
+
+#~ msgid "Resend"
+#~ msgstr "Wyślij ponownie"
+
+#~ msgid "Your email address is not verified yet."
+#~ msgstr "Twój adres email nie jest jeszcze zweryfikowany."
+
+#~ msgid "Send verification email"
+#~ msgstr "Wyślij email weryfikacyjny"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for or bookmark a session, or join an encounter, and "
+#~ "it will wait for you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
+#~ "programu do zakładek, a poczeka tu na Ciebie."
+
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
+
 #~ msgid "You're already on this sphere's team as a manager."
 #~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
 
@@ -12858,9 +12909,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Not Yet Available"
 #~ msgstr "Jeszcze Niedostępne"
-
-#~ msgid "LIVE"
-#~ msgstr "W TRAKCIE"
 
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
@@ -13971,3 +14019,124 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "This event is not in this sphere."
 #~ msgstr "To wydarzenie nie należy do tej sfery."
+
+#~ msgid "Different address? Save your profile first."
+#~ msgstr "Inny adres? Najpierw zapisz profil."
+
+#, python-format
+#~ msgid ""
+#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
+#~ "changing your email address."
+#~ msgstr ""
+#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
+#~ "zmianę adresu email."
+
+#, python-format
+#~ msgid ""
+#~ "Open the confirmation email sent to <strong class=\"break-"
+#~ "all\">%(address)s</strong> and follow its link."
+#~ msgstr ""
+#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
+#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
+
+#, python-format
+#~ msgid ""
+#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
+#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
+#~ msgstr ""
+#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
+#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
+
+#~ msgid "To verify a different address, save your changes first."
+#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
+
+#~ msgid "Resend verification email"
+#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
+
+#, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+
+#~ msgid ""
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
+#~ msgstr ""
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
+
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
+
+#~ msgid ""
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
+
+#, python-format
+#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
+#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
+
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid "Subject"
+#~ msgstr "Temat"
+
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"

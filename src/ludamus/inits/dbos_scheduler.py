@@ -29,13 +29,15 @@ this module (or running the rest of the suite) never starts DBOS.
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from dbos import DBOS
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
@@ -47,6 +49,9 @@ from ludamus.inits.builders import (
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +79,22 @@ SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
 ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
 
 
+def _releases_db_connection[**P](step: Callable[P, None]) -> Callable[P, None]:
+    # NOTE: DBOS runs steps on its own long-lived threads, where Django's
+    # request signals never fire, so each thread would hold an idle Postgres
+    # connection forever.
+    @functools.wraps(step)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+        try:
+            step(*args, **kwargs)
+        finally:
+            connection.close()
+
+    return wrapper
+
+
 @DBOS.step()
+@_releases_db_connection
 def _expire_offer_step(participation_id: int) -> None:
     # Re-offers produced by the expiry stay durable by reusing this scheduler.
     build_waitlist_promotion(DBOSOfferExpiryScheduler()).expire_offer(
@@ -89,6 +109,7 @@ def _expire_offer_workflow(participation_id: int, delay_seconds: float) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _expire_lapsed_offers_step(now: datetime) -> None:
     service = build_waitlist_promotion(DBOSOfferExpiryScheduler())
     expired = service.expire_lapsed_offers(now=now)
@@ -101,6 +122,7 @@ def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _fanout_announcement_step(announcement_id: int) -> None:
     notified = build_announcement_fanout().fanout(announcement_id)
     logger.info(
@@ -116,6 +138,7 @@ def _fanout_announcement_workflow(announcement_id: int) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _fanout_due_announcements_step() -> None:
     if notified := build_announcement_fanout().fanout_due():
         logger.info("announcement fanout sweep: notified %s subscriber(s)", notified)
@@ -127,6 +150,7 @@ def announcement_fanout_sweep(_scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _send_printables_reminders_step(now: datetime) -> None:
     reminded = build_printables_reminder().send_due_reminders(now=now)
     logger.info("printables reminders: reminded %s event(s)", reminded)
@@ -138,6 +162,7 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _send_verification_reminders_step(now: datetime) -> None:
     sent = build_email_verification().send_due_reminders(now=now)
     logger.info("verification reminders: reminded %s user(s)", sent)
@@ -149,6 +174,7 @@ def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _announce_published_events_step(now: datetime) -> None:
     announced = build_sphere_subscriptions().announce_published_events(now=now)
     logger.info("sphere announcements: announced %s event(s)", announced)
@@ -160,6 +186,7 @@ def sphere_announcements_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _export_konwencik_step(now: datetime) -> None:
     exported = build_konwencik_export().run_sweep(now=now)
     logger.info("konwencik export sweep: exported %s integration(s)", exported)
@@ -171,6 +198,7 @@ def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _purge_encounter_invitees_step(now: datetime) -> None:
     build_encounters(build_sites()).purge_stale_invitees(now=now)
 
@@ -216,6 +244,8 @@ def _ensure_launched() -> None:
             config={
                 "name": "ludamus",
                 "system_database_url": settings.DBOS_SYSTEM_DATABASE_URL,
+                # Per gunicorn worker; the default 20 exhausts Postgres slots.
+                "sys_db_pool_size": 2,
             }
         )
         DBOS.launch()
