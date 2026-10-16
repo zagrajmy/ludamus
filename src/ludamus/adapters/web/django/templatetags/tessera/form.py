@@ -14,6 +14,7 @@ from django.forms.widgets import (
     Select,
     Textarea,
 )
+from django.template.loader import render_to_string
 from django.utils.html import format_html, format_html_join
 
 from ._choices import sole_required_choice
@@ -71,7 +72,11 @@ def _render_field_input(field: BoundField) -> str:
 
 @register.simple_tag
 def tessera_field(
-    field: BoundField, *, layout: str = "vertical", required: bool | None = None
+    field: BoundField,
+    *,
+    layout: str = "vertical",
+    required: bool | None = None,
+    label_action_template: str = "",
 ) -> str:
     """Render a single form field.
 
@@ -112,7 +117,12 @@ def tessera_field(
     elif isinstance(widget, CheckboxInput):
         body = render_checkbox_field(field)
     else:
-        body = _render_labelled_field(field, layout=layout, required=required)
+        body = _render_labelled_field(
+            field,
+            layout=layout,
+            required=required,
+            label_action_template=label_action_template,
+        )
 
     return format_html('<div class="{}">\n{}\n</div>', container_class, body)
 
@@ -138,7 +148,7 @@ def tessera_sole_choice(field: BoundField) -> str:
 
 
 def _render_labelled_field(
-    field: BoundField, *, layout: str, required: bool | None
+    field: BoundField, *, layout: str, required: bool | None, label_action_template: str
 ) -> str:
     # File inputs surface their errors inside the dropzone itself.
     is_file = isinstance(field.field.widget, FileInput)
@@ -149,6 +159,12 @@ def _render_labelled_field(
         "" if is_file else render_errors(field),
     )
     label = render_label(field, required=required)
+    if label_action_template:
+        label = format_html(
+            '<div class="flex items-center justify-between gap-3">{}\n{}</div>',
+            label,
+            render_to_string(label_action_template),
+        )
     if layout == "horizontal":
         return format_html(
             '<div class="sm:w-1/3 sm:pt-2">\n{}\n</div>\n'
