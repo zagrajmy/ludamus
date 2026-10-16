@@ -6,8 +6,8 @@ landing templates; this file keeps only what utilities cannot express:
 - the spreadsheet-caricature artwork,
 - the Scena step machine (radio-driven positional states for the chip cast).
 Colors reference the theme-aware tessera variables so dark mode keeps working;
-the print artifacts (printouts, door card, step-6 stage) stay paper in both
-themes — newsprint rather than white once the page around them is dark.
+the printouts and door card stay paper in both themes — newsprint rather than
+white once the page around them is dark.
 {% endcomment %}
 <style>
     .landing {
@@ -22,8 +22,7 @@ themes — newsprint rather than white once the page around them is dark.
 
     .dark .landing {
         --paper: #f2efeb;
-        /* Step 6 keeps its cards on paper but leaves the sheet behind them
-           dark, so the stage chrome has to read against the page instead. */
+        /* NOTE: the print act's chrome and text follow the page theme. */
         --stage-paper: var(--color-background);
         --stage-ink: var(--color-foreground);
         --ktab-on: var(--color-primary-light);
@@ -752,9 +751,7 @@ themes — newsprint rather than white once the page around them is dark.
         border-color: var(--color-warning-light);
     }
 
-    /* step 6 — the printed cards are paper; the stage stays the page behind
-       them, so dark mode reads as white sheets on black rather than one
-       full-bleed glare panel. */
+    /* NOTE: the print act follows the page theme; the door card stays paper. */
     #k6:checked~.sc .stage {
         background: var(--stage-paper, var(--paper));
         border-color: var(--color-warm-400);
@@ -773,24 +770,18 @@ themes — newsprint rather than white once the page around them is dark.
     #k6:checked~.sc .chip {
         filter: grayscale(1);
         box-shadow: none;
-        border-color: var(--color-warm-500);
-        background: var(--paper);
-    }
-
-    /* Light mode prints cards on the sheet's own paper: no box to pad or
-       round. Dark mode keeps them as white cards on the dark page. */
-    html:not(.dark) #k6:checked~.sc .chip {
+        background: transparent;
         padding: 0;
         border-color: transparent;
         border-radius: 0;
     }
 
     #k6:checked~.sc .chip .ct {
-        color: var(--color-warm-900);
+        color: var(--stage-ink, var(--color-warm-900));
     }
 
     #k6:checked~.sc .chip .ca {
-        color: var(--color-warm-700);
+        color: var(--color-foreground-secondary);
     }
 
     #k6:checked~.sc .scaffold .rh,

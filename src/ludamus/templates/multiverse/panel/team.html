@@ -64,7 +64,7 @@
                 <h3 class="text-base font-semibold text-foreground mt-8 mb-1">{% translate "Open invitations" %}</h3>
                 {% if invitations %}
                     <p class="text-xs text-foreground-muted mb-3">
-                        {% translate "A link is shown once, right after it's created. Lost one? Withdraw it and create another." %}
+                        {% translate "A link is shown once, right after it's created. Lost one? Get a new link for the same person." %}
                     </p>
                     <ul class="space-y-4">
                         {% for invitation in invitations %}
@@ -107,22 +107,35 @@
                                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
                                     <time datetime="{{ invitation.expires_at|date:'c' }}"
                                           title="{{ invitation.expires_at|date:'SHORT_DATETIME_FORMAT' }}">
-                                        {% blocktranslate with expires=invitation.expires_at|timeuntil %}Expires in {{ expires }}{% endblocktranslate %}
+                                        {% blocktranslate with expires=invitation.expires_at|expires_in %}Expires in {{ expires }}{% endblocktranslate %}
                                     </time>
                                     {% if invitation.invited_by %}
                                         <span>{% blocktranslate with name=invitation.invited_by %}Created by {{ name }}{% endblocktranslate %}</span>
                                     {% endif %}
-                                    {% blocktranslate asvar t_withdraw with label=invitation_label %}Withdraw the invitation for {{ label }}{% endblocktranslate %}
-                                    <form method="post"
-                                          action="{% url 'multiverse:panel:team-invite-revoke' pk=invitation.pk %}"
-                                          class="ml-auto"
-                                          data-confirm="{% translate "Withdraw this invitation? The link stops working right away." %}"
-                                          data-confirm-action="{% translate "Withdraw invitation" %}">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                                class="text-danger hover:text-danger/80 font-medium"
-                                                aria-label="{{ t_withdraw }}">{% translate "Withdraw" %}</button>
-                                    </form>
+                                    <div class="ml-auto flex items-center gap-x-3">
+                                        {% if invitation.pk != issued_link.pk %}
+                                            {% blocktranslate asvar t_reissue with label=invitation_label %}Get a new link for {{ label }}{% endblocktranslate %}
+                                            <form method="post"
+                                                  action="{% url 'multiverse:panel:team-invite-reissue' pk=invitation.pk %}"
+                                                  data-confirm="{% translate "Get a new link? The current one stops working right away." %}"
+                                                  data-confirm-action="{% translate "Get a new link" %}">
+                                                {% csrf_token %}
+                                                <button type="submit"
+                                                        class="text-foreground-secondary hover:text-foreground font-medium"
+                                                        aria-label="{{ t_reissue }}">{% translate "New link" %}</button>
+                                            </form>
+                                        {% endif %}
+                                        {% blocktranslate asvar t_withdraw with label=invitation_label %}Withdraw the invitation for {{ label }}{% endblocktranslate %}
+                                        <form method="post"
+                                              action="{% url 'multiverse:panel:team-invite-revoke' pk=invitation.pk %}"
+                                              data-confirm="{% translate "Withdraw this invitation? The link stops working right away." %}"
+                                              data-confirm-action="{% translate "Withdraw invitation" %}">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="text-danger hover:text-danger/80 font-medium"
+                                                    aria-label="{{ t_withdraw }}">{% translate "Withdraw" %}</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </li>
                         {% endfor %}

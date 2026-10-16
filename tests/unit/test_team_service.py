@@ -66,6 +66,15 @@ class StubTeam:
             update={"note": data["note"], "expires_at": data["expires_at"]}
         )
 
+    def rotate_open_invitation(self, *, sphere_id, pk, rotation, now):
+        self.clock.append(now)
+        if self.open_invitation is None:
+            return None
+        self.created.append(rotation)
+        return self.open_invitation.model_copy(
+            update={"expires_at": rotation["expires_at"]}
+        )
+
     def delete_open_invitation(self, *, sphere_id, pk, now):
         self.clock.append(now)
         return True
@@ -128,6 +137,35 @@ class TestInvite:
         assert first.invitation.expires_at <= datetime.now(tz=UTC) + timedelta(days=7)
         assert first.invitation.note == "Kasia, programme"
         assert team.created[0]["created_by_id"] == INVITER_PK
+
+
+class TestReissue:
+    def test_a_new_link_replaces_the_old_one_for_another_week(self):
+        team = StubTeam(open_invitation=_invitation(SphereRole.COMMS))
+        before = datetime.now(tz=UTC)
+
+        issued = _service(team).reissue(
+            sphere_id=SPHERE_PK, pk=INVITATION_PK, reissued_by_id=INVITER_PK
+        )
+
+        assert issued is not None
+        assert issued.invitation.role is SphereRole.COMMS
+        assert len(issued.token) == URLSAFE_32_BYTES_LENGTH
+        rotation = team.created[0]
+        assert rotation["token_hash"] == team_mills.token_hash(issued.token)
+        assert rotation["created_by_id"] == INVITER_PK
+        assert rotation["expires_at"] == rotation["creation_time"] + timedelta(days=7)
+        assert before <= rotation["creation_time"] == team.clock[0]
+
+    def test_an_invitation_no_longer_open_gets_no_link(self):
+        team = StubTeam(open_invitation=None)
+
+        issued = _service(team).reissue(
+            sphere_id=SPHERE_PK, pk=INVITATION_PK, reissued_by_id=INVITER_PK
+        )
+
+        assert issued is None
+        assert not team.created
 
 
 class TestAccept:

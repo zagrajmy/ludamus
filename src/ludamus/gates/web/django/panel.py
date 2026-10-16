@@ -13,8 +13,9 @@ from ludamus.pacts.submissions import RequirementSelectionDTO
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
-# Every value `active_nav` can take — one per entry in the panel sidebar
-# (`panel/base.html`). A value outside this set highlights nothing, silently.
+# Every value `active_nav` can take — one per `{% sidebar_link %}` in the panel
+# sidebar (`panel/base.html`), list row or header button. A value outside this
+# set highlights nothing, silently.
 # Most producers assign into loosely typed context mappings no type checker
 # sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[

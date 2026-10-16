@@ -210,30 +210,24 @@
     {% endif %}
     <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
-        <div class="alert backdrop-blur-lg alert-warning mb-4 print:hidden"
-             role="alert">
-            <div class="flex">
-                <div class="shrink-0">{% icon "eye-slash" class="w-5 h-5" %}</div>
-                <div class="grow ml-3">
-                    <h6 class="font-semibold mb-2">{% translate "Anonymous Mode Active" %}</h6>
-                    <p class="mb-2">
-                        {% translate "Your Anonymous Code" %}: <strong class="text-lg">{{ anonymous_code }}</strong>
-                        <br>
-                        <small class="text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</small>
-                    </p>
-                    <div class="flex gap-2" role="group">
-                        <a href="?enter-code=1"
-                           class="btn btn-secondary text-sm"
-                           aria-controls="anonymousCodeModal"
-                           aria-haspopup="dialog">
-                            {% icon "key" class="w-4 h-4" variant="mini" %} {% translate "Enter Different Code" %}
-                        </a>
-                        <a href="{% url 'web:chronology:anonymous-reset' %}"
-                           class="btn btn-primary text-sm">
-                            {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "Finish" %}
-                        </a>
-                    </div>
-                </div>
+        <div class="mb-4 print:hidden">
+            <h2 class="font-semibold mb-2">{% translate "Anonymous Mode Active" %}</h2>
+            <p class="mb-2">
+                {% translate "Your Anonymous Code" %}: <strong class="text-lg">{{ anonymous_code }}</strong>
+                <br>
+                <small class="text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</small>
+            </p>
+            <div class="flex flex-wrap gap-2" role="group">
+                <a href="?enter-code=1"
+                   class="btn btn-secondary text-sm"
+                   aria-controls="anonymousCodeModal"
+                   aria-haspopup="dialog">
+                    {% icon "key" class="w-4 h-4" variant="mini" %} {% translate "Enter Different Code" %}
+                </a>
+                <a href="{% url 'web:chronology:anonymous-reset' %}"
+                   class="btn btn-primary text-sm">
+                    {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "Finish" %}
+                </a>
             </div>
         </div>
         <!-- Anonymous Code Entry Modal -->

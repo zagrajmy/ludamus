@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
     from ludamus.links.db.django.models import User
-    from ludamus.pacts.team import SphereInvitationCreateData
+    from ludamus.pacts.team import InvitationRotationData, SphereInvitationCreateData
 
 
 def _open_invitations(*, sphere_id: int, now: datetime) -> QuerySet[SphereInvitation]:
@@ -89,6 +89,21 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
             _open_invitations(sphere_id=sphere_id, now=now).filter(pk=pk).delete()
         )
         return deleted > 0
+
+    @staticmethod
+    def rotate_open_invitation(
+        *, sphere_id: int, pk: int, rotation: InvitationRotationData, now: datetime
+    ) -> SphereInvitationDTO | None:
+        rotated = (
+            _open_invitations(sphere_id=sphere_id, now=now)
+            .filter(pk=pk)
+            .update(**rotation)
+        )
+        if not rotated:
+            return None
+        return _invitation_dto(
+            SphereInvitation.objects.select_related("created_by").get(pk=pk)
+        )
 
     @staticmethod
     def read_open_invitation(

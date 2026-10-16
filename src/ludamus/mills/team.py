@@ -68,6 +68,27 @@ class SphereTeamService(SphereTeamServiceProtocol):
             )
         return IssuedInvitationDTO(invitation=invitation, token=token)
 
+    def reissue(
+        self, *, sphere_id: int, pk: int, reissued_by_id: int
+    ) -> IssuedInvitationDTO | None:
+        token = secrets.token_urlsafe(32)
+        now = datetime.now(tz=UTC)
+        with self._transaction.atomic():
+            invitation = self._team.rotate_open_invitation(
+                sphere_id=sphere_id,
+                pk=pk,
+                rotation={
+                    "token_hash": token_hash(token),
+                    "created_by_id": reissued_by_id,
+                    "creation_time": now,
+                    "expires_at": now + INVITATION_LIFETIME,
+                },
+                now=now,
+            )
+        if invitation is None:
+            return None
+        return IssuedInvitationDTO(invitation=invitation, token=token)
+
     def revoke(self, *, sphere_id: int, pk: int) -> bool:
         with self._transaction.atomic():
             return self._team.delete_open_invitation(

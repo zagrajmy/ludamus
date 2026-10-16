@@ -95,6 +95,7 @@ class TestProposeSessionPageView:
             "+1d", "+10d", tzinfo=time_zone
         )
         event.save()
+        event.refresh_from_db()
 
     def _set_wizard_category(self, client, event, category):
         session = client.session
@@ -3121,6 +3122,7 @@ class TestAnonymousProposalSubmission:
             "+1d", "+10d", tzinfo=time_zone
         )
         event.save()
+        event.refresh_from_db()
 
     def _enable_anonymous(self, event):
         EventProposalSettings.objects.update_or_create(

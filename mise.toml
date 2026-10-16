@@ -94,7 +94,7 @@ run = [{ task = "format:py" }, { task = "format:djlint" }, { task = "format:oxfm
 
 [tasks."lint:ast-grep"]
 description = "Run structural code pattern checks via ast-grep"
-run = "ast-grep scan --error src tests"
+run = ["ast-grep test --skip-snapshot-tests", "ast-grep scan --error src tests"]
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
@@ -193,12 +193,14 @@ run = [
       exit 1
     fi
     """,
+    "mise bootstrap packages apply --yes",
     "poetry install",
     "aube install",
     'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
     "django-admin migrate --noinput",
     "django-admin createcachetable",
     "django-admin downloadvendor",
+    "django-admin compilemessages -l pl",
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",
