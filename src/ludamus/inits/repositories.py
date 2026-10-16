@@ -8,7 +8,6 @@ from ludamus.links.db.django.crowd import (
     ClaimRepository,
     CompanionRepository,
     EmailVerificationReminderRepository,
-    ProfileStatsRepository,
     UserRepository,
 )
 from ludamus.links.db.django.enrollment import (
@@ -149,10 +148,6 @@ class Repositories:
     @cached_property
     def companions(self) -> CompanionRepository:
         return CompanionRepository()
-
-    @cached_property
-    def profile_stats(self) -> ProfileStatsRepository:
-        return ProfileStatsRepository()
 
     @cached_property
     def notifications(self) -> NotificationReadRepository:
