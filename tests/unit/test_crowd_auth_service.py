@@ -482,3 +482,13 @@ class TestIsKnownSphereDomain:
 
         assert service.is_known_sphere_domain("a.example.com") is True
         assert service.is_known_sphere_domain("b.example.com") is False
+
+
+class TestHasAccount:
+    def test_known_identity_has_an_account(self):
+        service = _service(users=FakeUsers(users=[_user_dto(username="auth0|sub")]))
+
+        assert service.has_account("auth0|sub") is True
+
+    def test_unknown_identity_has_none(self):
+        assert _service(users=FakeUsers()).has_account("auth0|sub") is False

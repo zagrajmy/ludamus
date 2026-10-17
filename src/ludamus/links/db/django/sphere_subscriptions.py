@@ -79,6 +79,7 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
                 event_pk=event.pk,
                 event_name=event.name,
                 event_slug=event.slug,
+                sphere_id=event.sphere_id,
                 sphere_name=event.sphere.name,
                 sphere_domain=event.sphere.site.domain,
                 recipients=subscribers.get(event.sphere_id, []),
