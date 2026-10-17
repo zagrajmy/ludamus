@@ -108,7 +108,7 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         status = self._guests.invitees.read_status(encounter.pk, email)
         if status not in {InviteeStatus.INVITED, InviteeStatus.DECLINED}:
             return ReplyOutcome.IGNORED
-        if self._guests.admit(encounter, email=email, user=user, ip_address=None):
+        if self._guests.admit(encounter, email=email, user=user):
             return ReplyOutcome.ACCEPTED
         guest = (
             guest_for(user)
