@@ -118,3 +118,19 @@ class TestSignupAgeGate:
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert list(User.objects.values_list("username", flat=True)) == [f"auth0|{sub}"]
+
+    def test_later_login_discards_the_pending_sign_in(self, client, faker):
+        existing_sub = faker.uuid4()
+        User.objects.create(
+            username=f"auth0|{existing_sub}", slug="existing", name="Existing"
+        )
+        _reach_gate(client, faker.uuid4())
+        _reach_gate(client, existing_sub)
+
+        response = client.post(GATE_URL, {"age": "adult"})
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+        assert list(User.objects.values_list("username", flat=True)) == [
+            f"auth0|{existing_sub}"
+        ]
+        assert "pending_signup" not in client.session

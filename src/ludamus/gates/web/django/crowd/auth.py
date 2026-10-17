@@ -213,6 +213,7 @@ def _finish_login(
     request: RootRequest, *, userinfo: Auth0UserInfo, redirect_to: str
 ) -> str:
     index_url = request.build_absolute_uri(reverse("web:index"))
+    request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
     user = _provision_user(request, userinfo)
 
     _login_user(request, user.slug)
@@ -358,7 +359,7 @@ class Auth0SignupAgePageView(View):
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
         pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
-        if not isinstance(pending, dict):
+        if request.context.current_user_slug or not isinstance(pending, dict):
             return redirect("web:index")
         match request.POST.get("age"):
             case "adult":
