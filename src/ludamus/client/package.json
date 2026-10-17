@@ -17,7 +17,6 @@
   "devDependencies": {
     "@hasparus/oxlint-config": "^0.1.1",
     "@hasparus/tailwind": "1.1.8",
-    "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "@types/node": "24.10.1",

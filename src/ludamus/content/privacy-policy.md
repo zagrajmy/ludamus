@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 21.08.2026**
+**Data ostatniej aktualizacji: 25.09.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -20,7 +20,7 @@ W ramach świadczonych usług przetwarzamy następujące kategorie danych osobow
 
 - Pseudonim (identyfikator użytkownika)
 - Adres email
-- Unikalny identyfikator z systemu Auth0
+- Unikalny identyfikator z systemu logowania WorkOS (w kontach założonych przed 25.09.2026 także dawny identyfikator Auth0)
 
 ### 2.2 Dane techniczne:
 
@@ -41,7 +41,7 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 ### 3.1 Świadczenie usługi zapisów na wydarzenia
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** pseudonim, email, identyfikator Auth0
+- **Dane:** pseudonim, email, identyfikator z systemu logowania
 - **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia; interes polega na świadczeniu usługi społecznościowej organizacji wydarzeń
 
 ### 3.2 Komunikacja z użytkownikami (planowana)
@@ -75,7 +75,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 ### 4.1 Dostawcy usług technicznych:
 
 - **OVH SAS** (Francja) - dostawca usług hostingowych
-- **Auth0** (USA/UE) - dostawca usług uwierzytelniania
+- **WorkOS** (USA) - dostawca usług uwierzytelniania
 
 ### 4.2 Dostawcy analityki:
 
@@ -89,7 +89,7 @@ W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie
 
 Część danych może być przetwarzana poza Europejskim Obszarem Gospodarczym przez:
 
-- **Auth0** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **WorkOS** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
 - Inne usługi, z których możemy korzystać w przyszłości
 
 Zapewniamy, że wszystkie transfery odbywają się z zachowaniem odpowiednich zabezpieczeń przewidzianych przez RODO.
