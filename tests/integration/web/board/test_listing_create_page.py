@@ -19,8 +19,7 @@ URL = reverse("web:board:create")
 
 def _post(**overrides):
     return {
-        "role": "gm",
-        "seeking": "players",
+        "pair": "gm:players",
         "title": "Mörk Borg one-shot",
         "what": "A grim dungeon crawl",
         "when_text": "Friday evenings",
@@ -79,7 +78,7 @@ class TestListingCreatePageView:
 
         assert_response_404(response)
 
-    def test_publish_stores_picked_tags_and_their_ancestors(
+    def test_publish_stores_the_picked_tags(
         self, authenticated_client, active_user, sphere
     ):
         activity = TagCategory.objects.create(slug="activity", name="Activity")
@@ -107,7 +106,6 @@ class TestListingCreatePageView:
             RequestTimeMatcher(),
         )
         assert list(listing.picked_tags.all()) == [mork]
-        assert set(listing.tags.all()) == {ttrpg, osr, mork}
 
     def test_save_draft(self, authenticated_client):
         response = authenticated_client.post(URL, _post(draft=""))
@@ -137,14 +135,19 @@ class TestListingCreatePageView:
         assert not Listing.objects.exists()
 
     def test_refuses_a_pair_not_offered(self, authenticated_client):
-        response = authenticated_client.post(URL, _post(role="gm", seeking="gm"))
+        response = authenticated_client.post(URL, _post(pair="gm:gm"))
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "form": FormErrorsMatcher(
-                    seeking=["Pick who you are looking for again."]
+                    pair=[
+                        (
+                            "Select a valid choice. gm:gm is not one of the "
+                            "available choices."
+                        )
+                    ]
                 )
             },
             template_name="board/create.html",

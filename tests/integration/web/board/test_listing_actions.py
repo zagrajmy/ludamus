@@ -76,6 +76,29 @@ class TestListingPublishActionView:
         listing.refresh_from_db()
         assert listing.status == ListingStatus.DRAFT
 
+    def test_closed_listing_reports_the_stale_click_and_stays_closed(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(
+            sphere=sphere, author=active_user, status=ListingStatus.CLOSED
+        )
+        before = listing_dto(listing)
+
+        response = authenticated_client.post(_url("publish", listing))
+
+        assert_response(
+            response,
+            302,
+            messages=(
+                (
+                    constants.ERROR,
+                    "This listing has already changed. Nothing was done.",
+                ),
+            ),
+            url=_detail(listing),
+        )
+        assert listing_dto(listing) == before
+
 
 class TestListingCloseActionView:
     def test_closes(self, authenticated_client, active_user, sphere):

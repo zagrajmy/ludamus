@@ -93,7 +93,7 @@ class TagService(TagServiceProtocol):
             )
             created = updated = 0
             for category_slug in sorted(
-                {key[0] for key in planned} - self._tags.category_slugs()
+                {key[0] for key in planned} - set(self._tags.category_names())
             ):
                 self._tags.create_category(category_slug)
             # Parents first, so every create and update finds its parent stored.

@@ -6,10 +6,7 @@
 {% tessera_errors form %}
 <div class="flex max-md:flex-col gap-4 md:gap-x-6">
     <div class="flex-1 min-w-0">
-        <div class="flex max-sm:flex-col gap-x-6">
-            {% tessera_field form.role %}
-            {% tessera_field form.seeking %}
-        </div>
+        {% tessera_field form.pair %}
         {% tessera_field form.title %}
         {% tessera_field form.what %}
         {% for category in form.tag_categories %}

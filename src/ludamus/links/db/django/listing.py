@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Prefetch, QuerySet
 
-from ludamus.links.db.django.models import Listing, Tag, User
+from ludamus.links.db.django.models import Listing, Tag
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -76,10 +76,8 @@ class ListingRepository(ListingRepositoryProtocol):
         save_replacing_files(Listing.objects.get(pk=pk), data)
 
     @staticmethod
-    def set_tags(*, pk: int, picked: list[int], with_ancestors: list[int]) -> None:
-        listing = Listing.objects.get(pk=pk)
-        listing.picked_tags.set(picked)
-        listing.tags.set(with_ancestors)
+    def set_tags(*, pk: int, tag_ids: list[int]) -> None:
+        Listing.objects.get(pk=pk).picked_tags.set(Tag.objects.filter(pk__in=tag_ids))
 
     @staticmethod
     def read(*, pk: int, sphere_id: int) -> ListingDTO:
@@ -100,20 +98,15 @@ class ListingRepository(ListingRepositoryProtocol):
         return [_dto(listing) for listing in listings.order_by("-creation_time")]
 
     @staticmethod
-    def set_status(
-        *, pk: int, status: ListingStatus, opened_at: datetime | None = None
-    ) -> None:
-        changes: dict[str, object] = {"status": status}
-        if opened_at is not None:
-            changes["opened_at"] = opened_at
-        Listing.objects.filter(pk=pk).update(**changes)
+    def open(*, pk: int, at: datetime) -> None:
+        Listing.objects.filter(pk=pk).update(status=ListingStatus.OPEN, opened_at=at)
+
+    @staticmethod
+    def close(pk: int) -> None:
+        Listing.objects.filter(pk=pk).update(status=ListingStatus.CLOSED)
 
     @staticmethod
     def close_opened_before(cutoff: datetime) -> int:
         return Listing.objects.filter(
             status=ListingStatus.OPEN, opened_at__lt=cutoff
         ).update(status=ListingStatus.CLOSED)
-
-    @staticmethod
-    def discord_of(user_id: int) -> str:
-        return User.objects.values_list("discord_username", flat=True).get(pk=user_id)

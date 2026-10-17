@@ -19,8 +19,7 @@ def _url(listing):
 
 def _post(**overrides):
     return {
-        "role": "player",
-        "seeking": "group",
+        "pair": "player:group",
         "title": "New title",
         "what": "Board games",
         "starts_at": "2031-05-01T19:00",
@@ -43,10 +42,11 @@ class TestListingEditPageView:
             HTTPStatus.OK,
             context_data={
                 "form": FormInitialMatcher(
+                    pair="gm:players",
                     title=listing.title,
                     what=listing.what,
                     tags=[],
-                    starts_at="2031-05-01T19:00",
+                    starts_at=datetime(2031, 5, 1, 17, 0, tzinfo=UTC),
                     when_text="Fridays",
                 ),
                 "listing": listing_dto(listing),

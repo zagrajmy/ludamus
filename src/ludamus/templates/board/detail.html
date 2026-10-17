@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n tessera markdown_tags meta_tags %}
+{% load i18n tessera markdown_tags meta_tags board_tags %}
 {% block title %}
     {{ listing.title }}
 {% endblock title %}
@@ -23,7 +23,7 @@
             {% endif %}
             <div>
                 <p class="flex flex-wrap items-center gap-x-3 text-sm font-medium text-coral-700 dark:text-coral-300">
-                    {% include "board/_pair.html" %}
+                    {{ listing|pair_label }}
                     {% include "board/_status.html" %}
                 </p>
                 <h1 class="mt-1 text-2xl font-bold text-foreground">{{ listing.title }}</h1>

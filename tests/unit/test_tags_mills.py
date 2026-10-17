@@ -16,9 +16,6 @@ class FakeTags:
         self.categories = set(categories) | {key[0] for key in self.tags}
         self.writes = []
 
-    def category_slugs(self):
-        return set(self.categories)
-
     def category_names(self):
         return {slug: slug.title() for slug in self.categories}
 

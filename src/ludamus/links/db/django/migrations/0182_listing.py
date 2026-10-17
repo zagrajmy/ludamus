@@ -109,12 +109,6 @@ class Migration(migrations.Migration):
                         to="db_main.sphere",
                     ),
                 ),
-                (
-                    "tags",
-                    models.ManyToManyField(
-                        blank=True, related_name="listings", to="db_main.tag"
-                    ),
-                ),
             ],
             options={
                 "db_table": "listing",

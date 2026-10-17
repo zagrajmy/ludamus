@@ -10,12 +10,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.board.forms import ListingForm
+from ludamus.gates.web.django.board.forms import ListingForm, pair_value, split_pair
 from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import NotFoundError
@@ -23,8 +22,7 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingContactMissingError,
     ListingCreateDict,
-    ListingRole,
-    ListingSeeking,
+    ListingStatusError,
     ListingWriteDict,
 )
 
@@ -33,6 +31,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse, QueryDict
     from django.http.response import HttpResponseBase
     from django.utils.datastructures import MultiValueDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts.listing import ListingDTO
@@ -139,9 +138,10 @@ class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
 
 def _write_data(form: ListingForm) -> ListingWriteDict:
     data = form.cleaned_data
+    role, seeking = split_pair(data["pair"])
     write = ListingWriteDict(
-        role=ListingRole(data["role"]),
-        seeking=ListingSeeking(data["seeking"]),
+        role=role,
+        seeking=seeking,
         title=data["title"],
         what=data["what"],
         description=data["description"],
@@ -206,20 +206,15 @@ class ListingEditPageView(_ListingFormPageView):
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         listing = self._listing(pk)
-        starts_at = listing.starts_at
         form = self._form(
             initial={
-                "role": listing.role,
-                "seeking": listing.seeking,
+                "pair": pair_value(listing.role, listing.seeking),
                 "title": listing.title,
                 "what": listing.what,
                 # Strings, as posted data arrives, so the picker matches either.
                 "tags": [str(tag.pk) for tag in listing.tags],
                 "description": listing.description,
-                # datetime-local is a wall clock; the stored value is UTC.
-                "starts_at": (
-                    localtime(starts_at).strftime("%Y-%m-%dT%H:%M") if starts_at else ""
-                ),
+                "starts_at": listing.starts_at,
                 "when_text": listing.when_text,
                 "medium": listing.medium,
                 "place": listing.place,
@@ -252,60 +247,59 @@ class ListingEditPageView(_ListingFormPageView):
         return redirect("web:board:detail", pk=pk)
 
 
-class ListingPublishActionView(_BoardGate, LoginRequiredMixin, View):
+class _ListingActionView(_BoardGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
+    success_message: _StrPromise
 
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+    def _apply(self, pk: int) -> None:
+        raise NotImplementedError
+
+    def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         try:
-            request.services.listings.publish(
-                pk=pk,
-                sphere_id=request.context.current_sphere_id,
-                author_id=request.context.current_user_id,
-                now=_now(),
-            )
+            self._apply(pk)
         except NotFoundError as exc:
             raise Http404 from exc
         except ListingContactMissingError:
             messages.error(request, _CONTACT_MISSING)
-        else:
-            messages.success(request, _("Listing published."))
-        return redirect("web:board:detail", pk=pk)
-
-
-class ListingCloseActionView(_BoardGate, LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        try:
-            request.services.listings.close(
-                pk=pk,
-                sphere_id=request.context.current_sphere_id,
-                author_id=request.context.current_user_id,
+        except ListingStatusError:
+            messages.error(
+                request, _("This listing has already changed. Nothing was done.")
             )
-        except NotFoundError as exc:
-            raise Http404 from exc
-        messages.success(request, _("Listing closed."))
-        return redirect("web:board:detail", pk=pk)
-
-
-class ListingReopenActionView(_BoardGate, LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        try:
-            request.services.listings.reopen(
-                pk=pk,
-                sphere_id=request.context.current_sphere_id,
-                author_id=request.context.current_user_id,
-                now=_now(),
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-        except ListingContactMissingError:
-            messages.error(request, _CONTACT_MISSING)
         else:
-            messages.success(request, _("Listing reopened."))
+            messages.success(request, self.success_message)
         return redirect("web:board:detail", pk=pk)
+
+
+class ListingPublishActionView(_ListingActionView):
+    success_message = gettext_lazy("Listing published.")
+
+    def _apply(self, pk: int) -> None:
+        self.request.services.listings.publish(
+            pk=pk,
+            sphere_id=self.request.context.current_sphere_id,
+            author_id=self.request.context.current_user_id,
+            now=_now(),
+        )
+
+
+class ListingCloseActionView(_ListingActionView):
+    success_message = gettext_lazy("Listing closed.")
+
+    def _apply(self, pk: int) -> None:
+        self.request.services.listings.close(
+            pk=pk,
+            sphere_id=self.request.context.current_sphere_id,
+            author_id=self.request.context.current_user_id,
+        )
+
+
+class ListingReopenActionView(_ListingActionView):
+    success_message = gettext_lazy("Listing reopened.")
+
+    def _apply(self, pk: int) -> None:
+        self.request.services.listings.reopen(
+            pk=pk,
+            sphere_id=self.request.context.current_sphere_id,
+            author_id=self.request.context.current_user_id,
+            now=_now(),
+        )

@@ -738,20 +738,24 @@ msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
 msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "A GM"
-msgstr "MG"
+msgid "GM looking for players"
+msgstr "MG szuka graczy"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "A player"
-msgstr "Gracz"
+msgid "Player looking for a GM"
+msgstr "Gracz szuka MG"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "A group"
-msgstr "Grupa"
+msgid "Player looking for a group"
+msgstr "Gracz szuka grupy"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Players"
-msgstr "Graczy"
+msgid "Group looking for players"
+msgstr "Grupa szuka graczy"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Group looking for a GM"
+msgstr "Grupa szuka MG"
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/templates/board/detail.html
@@ -764,12 +768,8 @@ msgid "Account email"
 msgstr "E-mail konta"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "I am"
-msgstr "Jestem"
-
-#: src/ludamus/gates/web/django/board/forms.py
-msgid "I'm looking for"
-msgstr "Szukam"
+msgid "Who is looking for whom"
+msgstr "Kto kogo szuka"
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -866,10 +866,6 @@ msgid "Shown only to the people in the party you form."
 msgstr "Widoczny tylko dla osób z drużyny, którą utworzysz."
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Pick who you are looking for again."
-msgstr "Wybierz jeszcze raz, kogo szukasz."
-
-#: src/ludamus/gates/web/django/board/forms.py
 msgid "Give a date and time, or describe when."
 msgstr "Podaj datę i godzinę albo opisz, kiedy."
 
@@ -892,6 +888,10 @@ msgstr "Szkic zapisany."
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing updated."
 msgstr "Ogłoszenie zaktualizowane."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "This listing has already changed. Nothing was done."
+msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing closed."
@@ -5294,26 +5294,6 @@ msgstr "Opublikuj ogłoszenie"
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
-
-#: src/ludamus/templates/board/_pair.html
-msgid "GM looking for players"
-msgstr "MG szuka graczy"
-
-#: src/ludamus/templates/board/_pair.html
-msgid "Player looking for a GM"
-msgstr "Gracz szuka MG"
-
-#: src/ludamus/templates/board/_pair.html
-msgid "Player looking for a group"
-msgstr "Gracz szuka grupy"
-
-#: src/ludamus/templates/board/_pair.html
-msgid "Group looking for players"
-msgstr "Grupa szuka graczy"
-
-#: src/ludamus/templates/board/_pair.html
-msgid "Group looking for a GM"
-msgstr "Grupa szuka MG"
 
 #: src/ludamus/templates/board/_status.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -12935,6 +12915,27 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "A GM"
+#~ msgstr "MG"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "Players"
+#~ msgstr "Graczy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "I'm looking for"
+#~ msgstr "Szukam"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
 
 #, python-format
 #~ msgid ""

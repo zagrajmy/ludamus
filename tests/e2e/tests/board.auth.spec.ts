@@ -6,8 +6,7 @@ test.describe("Board listings", () => {
     const title = `Mörk Borg one-shot ${Date.now()}`;
 
     await page.goto("/board/create/");
-    await page.getByLabel("A GM").first().check();
-    await page.getByLabel("Players").check();
+    await page.getByLabel("GM looking for players").check();
     await page.getByLabel("Title").fill(title);
     await page.getByLabel("What we'll do").fill("A grim dungeon crawl");
     await page.getByLabel("When, in your words").fill("Every other Friday evening");
@@ -48,8 +47,7 @@ test.describe("Board listings", () => {
 
   test("asks for a date or a description of when", async ({ page }) => {
     await page.goto("/board/create/");
-    await page.getByLabel("A GM").first().check();
-    await page.getByLabel("Players").check();
+    await page.getByLabel("GM looking for players").check();
     await page.getByLabel("Title").fill("No time given");
     await page.getByLabel("What we'll do").fill("Board games");
     await page.getByRole("button", { name: "Publish listing" }).click();

@@ -18,16 +18,30 @@ from ludamus.pacts.listing import (
 if TYPE_CHECKING:
     from ludamus.pacts.tags import TagCategoryOptionsDTO
 
-ROLE_CHOICES = (
-    (ListingRole.GM, _("A GM")),
-    (ListingRole.PLAYER, _("A player")),
-    (ListingRole.GROUP, _("A group")),
+PAIR_LABELS = dict(
+    zip(
+        LISTING_PAIRS,
+        (
+            _("GM looking for players"),
+            _("Player looking for a GM"),
+            _("Player looking for a group"),
+            _("Group looking for players"),
+            _("Group looking for a GM"),
+        ),
+        strict=True,
+    )
 )
-SEEKING_CHOICES = (
-    (ListingSeeking.PLAYERS, _("Players")),
-    (ListingSeeking.GM, _("A GM")),
-    (ListingSeeking.GROUP, _("A group")),
-)
+
+
+def pair_value(role: ListingRole, seeking: ListingSeeking) -> str:
+    return f"{role}:{seeking}"
+
+
+def split_pair(value: str) -> tuple[ListingRole, ListingSeeking]:
+    role, seeking = value.split(":")
+    return ListingRole(role), ListingSeeking(seeking)
+
+
 CONTACT_CHOICES = (
     (ListingContact.DISCORD, _("Discord")),
     (ListingContact.EMAIL, _("Account email")),
@@ -35,11 +49,10 @@ CONTACT_CHOICES = (
 
 
 class ListingForm(forms.Form):
-    role = forms.ChoiceField(
-        label=_("I am"), choices=ROLE_CHOICES, widget=forms.RadioSelect
-    )
-    seeking = forms.ChoiceField(
-        label=_("I'm looking for"), choices=SEEKING_CHOICES, widget=forms.RadioSelect
+    pair = forms.ChoiceField(
+        label=_("Who is looking for whom"),
+        choices=[(pair_value(*pair), label) for pair, label in PAIR_LABELS.items()],
+        widget=forms.RadioSelect,
     )
     title = forms.CharField(label=_("Title"), max_length=LISTING_TITLE_MAX_LENGTH)
     what = forms.CharField(
@@ -56,7 +69,9 @@ class ListingForm(forms.Form):
     starts_at = forms.DateTimeField(
         label=_("Date and time"),
         required=False,
-        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
     )
     when_text = forms.CharField(
         label=_("When, in your words"),
@@ -117,14 +132,12 @@ class ListingForm(forms.Form):
         return image
 
     def clean(self) -> dict[str, Any] | None:
-        if cleaned := super().clean():
-            pair = (cleaned.get("role"), cleaned.get("seeking"))
-            if None not in pair and pair not in LISTING_PAIRS:
-                self.add_error(
-                    "seeking", gettext("Pick who you are looking for again.")
-                )
-            if not cleaned.get("starts_at") and not cleaned.get("when_text"):
-                self.add_error(
-                    "when_text", gettext("Give a date and time, or describe when.")
-                )
+        if (
+            (cleaned := super().clean())
+            and not cleaned.get("starts_at")
+            and not cleaned.get("when_text")
+        ):
+            self.add_error(
+                "when_text", gettext("Give a date and time, or describe when.")
+            )
         return cleaned

@@ -484,8 +484,8 @@ for 30 days. Reopening restarts that clock.
 - **Views:** `gates/web/django/board/views.py`, all behind `_BoardGate`
 - **Templates:** `templates/board/`
 - **Service:** `ListingService` — `create()`, `update()`, `publish()`,
-  `close()`, `reopen()`, `board()`, `authored()`, `close_stale()`; tags are
-  stored as picked plus their ancestors. `TagService.picker()` feeds the form.
+  `close()`, `reopen()`, `board()`, `authored()`, `close_stale()`; it stores
+  the picked tags only. `TagService.picker()` feeds the form.
 - **DTOs:** `ListingDTO`, `ListingWriteDict`, `ListingCreateDict`
 - **Repositories:** `ListingRepository`
 
@@ -572,5 +572,3 @@ Notes:
   proposal intake writes it, scheduling and enrollment read it, all
   inside the event noun. The remaining debt is the enrollment behaviour
   still living on the `Session` model (see the event section).
-- `Tag` / `TagCategory` are slated for deletion and are intentionally
-  absent from this mapping.

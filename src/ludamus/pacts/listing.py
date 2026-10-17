@@ -2,9 +2,9 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol
@@ -53,8 +53,6 @@ class ListingTagDTO(BaseModel):
 
 
 class ListingDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     pk: int
     sphere_id: int
     author_id: int
@@ -77,7 +75,7 @@ class ListingDTO(BaseModel):
     header_image_original_name: str
 
 
-class ListingWriteDict(TypedDict, total=False):
+class ListingWriteDict(TypedDict):
     role: ListingRole
     seeking: ListingSeeking
     title: str
@@ -89,7 +87,7 @@ class ListingWriteDict(TypedDict, total=False):
     starts_at: datetime | None
     when_text: str
     contact: ListingContact
-    header_image: UploadedFileProtocol | str
+    header_image: NotRequired[UploadedFileProtocol | str]
 
 
 class ListingCreateDict(ListingWriteDict):
@@ -101,13 +99,17 @@ class ListingContactMissingError(Exception):
     """The contact the listing names is not on the author's profile."""
 
 
+class ListingStatusError(Exception):
+    """The listing is not in the status the transition starts from."""
+
+
 class ListingRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: ListingCreateDict) -> int: ...
     @staticmethod
     def update(pk: int, data: ListingWriteDict) -> None: ...
     @staticmethod
-    def set_tags(*, pk: int, picked: list[int], with_ancestors: list[int]) -> None: ...
+    def set_tags(*, pk: int, tag_ids: list[int]) -> None: ...
     @staticmethod
     def read(*, pk: int, sphere_id: int) -> ListingDTO: ...
     @staticmethod
@@ -117,13 +119,11 @@ class ListingRepositoryProtocol(Protocol):
     @staticmethod
     def list_authored(*, sphere_id: int, author_id: int) -> list[ListingDTO]: ...
     @staticmethod
-    def set_status(
-        *, pk: int, status: ListingStatus, opened_at: datetime | None = None
-    ) -> None: ...
+    def open(*, pk: int, at: datetime) -> None: ...
+    @staticmethod
+    def close(pk: int) -> None: ...
     @staticmethod
     def close_opened_before(cutoff: datetime) -> int: ...
-    @staticmethod
-    def discord_of(user_id: int) -> str: ...
 
 
 class ListingServiceProtocol(Protocol):

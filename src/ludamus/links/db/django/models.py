@@ -384,10 +384,7 @@ class Listing(models.Model):
     title = models.CharField(max_length=LISTING_TITLE_MAX_LENGTH)
     what = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH)
     description = models.TextField(blank=True, default="")
-    # What the author picked, for the form; `tags` adds their ancestors, so a
-    # filter on TTRPG also finds Mörk Borg.
     picked_tags = models.ManyToManyField(Tag, related_name="+", blank=True)
-    tags = models.ManyToManyField(Tag, related_name="listings", blank=True)
     seats = models.PositiveSmallIntegerField(null=True, blank=True)
     medium = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
     place = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)

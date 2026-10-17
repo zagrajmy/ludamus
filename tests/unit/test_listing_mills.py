@@ -12,8 +12,8 @@ from ludamus.pacts.listing import (
     ListingRole,
     ListingSeeking,
     ListingStatus,
+    ListingStatusError,
 )
-from ludamus.pacts.tags import TagDTO
 from tests.unit.factories import FakeTransaction
 
 AUTHOR_ID = 7
@@ -48,10 +48,8 @@ def _listing(pk=1, **overrides):
 
 
 class FakeListings:
-    def __init__(self, *listings, discord=""):
+    def __init__(self, *listings):
         self.listings = {listing.pk: listing for listing in listings}
-        self.discord = discord
-        self.tags = None
 
     def create(self, data):
         pk = len(self.listings) + 1
@@ -63,8 +61,8 @@ class FakeListings:
     def update(self, pk, data):
         self.listings[pk] = self.listings[pk].model_copy(update=data)
 
-    def set_tags(self, *, pk, picked, with_ancestors):
-        self.tags = (pk, picked, with_ancestors)
+    def set_tags(self, *, pk, tag_ids):
+        pass
 
     def read(self, *, pk, sphere_id):
         assert sphere_id == SPHERE_ID
@@ -90,12 +88,15 @@ class FakeListings:
             if listing.author_id == author_id
         ]
 
-    def set_status(self, *, pk, status, opened_at=None):
-        update = {
-            "status": status,
-            "opened_at": opened_at or self.listings[pk].opened_at,
-        }
-        self.listings[pk] = self.listings[pk].model_copy(update=update)
+    def open(self, *, pk, at):
+        self.listings[pk] = self.listings[pk].model_copy(
+            update={"status": ListingStatus.OPEN, "opened_at": at}
+        )
+
+    def close(self, pk):
+        self.listings[pk] = self.listings[pk].model_copy(
+            update={"status": ListingStatus.CLOSED}
+        )
 
     def close_opened_before(self, cutoff):
         stale = [
@@ -104,31 +105,21 @@ class FakeListings:
             if listing.status is ListingStatus.OPEN and listing.opened_at < cutoff
         ]
         for pk in stale:
-            self.set_status(pk=pk, status=ListingStatus.CLOSED)
+            self.close(pk)
         return len(stale)
 
-    def discord_of(self, user_id):
-        assert user_id == AUTHOR_ID
-        return self.discord
+
+class FakeUsers:
+    def __init__(self, discord):
+        self.discord = discord
+
+    def read_by_id(self, pk):
+        assert pk == AUTHOR_ID
+        return SimpleNamespace(discord_username=self.discord)
 
 
-def _tag(pk, slug, parent=None, *, category="activity"):
-    return TagDTO(
-        pk=pk, category_slug=category, slug=slug, name=slug, parent_slug=parent
-    )
-
-
-TAGS = [
-    _tag(1, "ttrpg"),
-    _tag(2, "osr", "ttrpg"),
-    _tag(3, "mork-borg", "osr"),
-    _tag(4, "horror", category="genre"),
-]
-
-
-def _service(listings):
-    tags = SimpleNamespace(read_all=lambda: TAGS)
-    return ListingService(FakeTransaction(), listings, tags)
+def _service(listings, discord=""):
+    return ListingService(FakeTransaction(), listings, FakeUsers(discord))
 
 
 def _create_data(contact=ListingContact.EMAIL):
@@ -164,15 +155,6 @@ class TestCreate:
                 _create_data(ListingContact.DISCORD), tag_ids=[], publish_at=NOW
             )
 
-    def test_tags_are_stored_with_their_ancestors(self):
-        listings = FakeListings()
-
-        _service(listings).create(
-            _create_data(), tag_ids=[3, 2, 4, 99], publish_at=None
-        )
-
-        assert listings.tags == (1, [2, 3, 4], [2, 1, 3, 4])
-
 
 class TestUpdate:
     def test_draft_may_name_a_missing_contact(self):
@@ -187,7 +169,6 @@ class TestUpdate:
         )
 
         assert listings.listings[1].contact is ListingContact.DISCORD
-        assert listings.tags == (1, [1], [1])
 
     def test_open_listing_rejects_a_missing_contact(self):
         listings = FakeListings(_listing(status=ListingStatus.OPEN))
@@ -202,9 +183,9 @@ class TestUpdate:
             )
 
     def test_open_listing_accepts_discord_on_profile(self):
-        listings = FakeListings(_listing(status=ListingStatus.OPEN), discord="gm#1")
+        listings = FakeListings(_listing(status=ListingStatus.OPEN))
 
-        _service(listings).update(
+        _service(listings, discord="gm#1").update(
             pk=1,
             sphere_id=SPHERE_ID,
             author_id=AUTHOR_ID,
@@ -272,9 +253,7 @@ class TestReads:
 
     @pytest.mark.parametrize(("discord", "expected"), (("", False), ("gm#1", True)))
     def test_has_discord(self, discord, expected):
-        assert (
-            _service(FakeListings(discord=discord)).has_discord(AUTHOR_ID) is expected
-        )
+        assert _service(FakeListings(), discord).has_discord(AUTHOR_ID) is expected
 
 
 class TestTransitions:
@@ -287,12 +266,13 @@ class TestTransitions:
 
         assert _status(listings) == (ListingStatus.OPEN, NOW)
 
-    def test_publish_leaves_a_closed_listing(self):
+    def test_publish_refuses_a_closed_listing(self):
         listings = FakeListings(_listing(status=ListingStatus.CLOSED))
 
-        _service(listings).publish(
-            pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID, now=NOW
-        )
+        with pytest.raises(ListingStatusError):
+            _service(listings).publish(
+                pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID, now=NOW
+            )
 
         assert _status(listings) == (ListingStatus.CLOSED, None)
 
@@ -303,10 +283,11 @@ class TestTransitions:
 
         assert _status(listings) == (ListingStatus.CLOSED, NOW)
 
-    def test_close_leaves_a_draft(self):
+    def test_close_refuses_a_draft(self):
         listings = FakeListings(_listing())
 
-        _service(listings).close(pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID)
+        with pytest.raises(ListingStatusError):
+            _service(listings).close(pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID)
 
         assert _status(listings) == (ListingStatus.DRAFT, None)
 
@@ -332,12 +313,13 @@ class TestTransitions:
                 pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID, now=NOW
             )
 
-    def test_reopen_leaves_a_draft(self):
+    def test_reopen_refuses_a_draft(self):
         listings = FakeListings(_listing())
 
-        _service(listings).reopen(
-            pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID, now=NOW
-        )
+        with pytest.raises(ListingStatusError):
+            _service(listings).reopen(
+                pk=1, sphere_id=SPHERE_ID, author_id=AUTHOR_ID, now=NOW
+            )
 
         assert _status(listings) == (ListingStatus.DRAFT, None)
 
