@@ -8,7 +8,6 @@ from ludamus.links.db.django.crowd import (
     ClaimRepository,
     CompanionRepository,
     EmailVerificationReminderRepository,
-    ProfileStatsRepository,
     UserRepository,
 )
 from ludamus.links.db.django.enrollment import (
@@ -33,6 +32,8 @@ from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRe
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.tags import TagRepository
+from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.pacts.crowd import UserType
 
 
@@ -75,8 +76,16 @@ class Repositories:
         return GuildRepository()
 
     @cached_property
+    def sphere_team(self) -> SphereTeamRepository:
+        return SphereTeamRepository()
+
+    @cached_property
     def parties(self) -> PartyRepository:
         return PartyRepository()
+
+    @cached_property
+    def tags(self) -> TagRepository:
+        return TagRepository()
 
     @cached_property
     def party_session_history(self) -> repositories.PartySessionHistoryRepository:
@@ -145,10 +154,6 @@ class Repositories:
     @cached_property
     def companions(self) -> CompanionRepository:
         return CompanionRepository()
-
-    @cached_property
-    def profile_stats(self) -> ProfileStatsRepository:
-        return ProfileStatsRepository()
 
     @cached_property
     def notifications(self) -> NotificationReadRepository:

@@ -159,3 +159,8 @@ def test_assign_session_converts_placement_rejection_to_tool_error():
 def test_assign_session_does_not_hide_unrelated_value_error():
     with pytest.raises(ValueError, match="unexpected failure"):
         _assign_session_call(side_effect=ValueError("unexpected failure"))
+
+
+def test_registry_refuses_two_tools_under_one_name():
+    with pytest.raises(ValueError, match="Duplicate MCP tool names: echo_actor"):
+        ToolRegistry([_EchoActorTool(), _EchoActorTool()])

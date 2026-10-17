@@ -8,7 +8,7 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import EventDTO, TimeSlotDTO
-from tests.integration.conftest import EventFactory, TimeSlotFactory
+from tests.integration.conftest import EventFactory, TimeSlotFactory, dst_free_midnight
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -99,9 +99,7 @@ class TestTimeSlotEditPageView:
         """Edit a slot to cross midnight; end_date auto-advances."""
         sphere.managers.add(active_user)
         tz = get_current_timezone()
-        start = datetime.combine(
-            (datetime.now(tz) + timedelta(days=7)).date(), time(20, 0), tzinfo=tz
-        )
+        start = datetime.combine(dst_free_midnight().date(), time(20, 0), tzinfo=tz)
         event = EventFactory(
             sphere=sphere, start_time=start, end_time=start + timedelta(hours=8)
         )
