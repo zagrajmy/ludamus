@@ -25,6 +25,10 @@ class TagRepository(TagRepositoryProtocol):
         return set(TagCategory.objects.values_list("slug", flat=True))
 
     @staticmethod
+    def category_names() -> dict[str, str]:
+        return dict(TagCategory.objects.values_list("slug", "name"))
+
+    @staticmethod
     def read_all() -> list[TagDTO]:
         return [
             TagDTO(

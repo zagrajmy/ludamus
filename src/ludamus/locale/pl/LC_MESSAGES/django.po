@@ -737,6 +737,170 @@ msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
 msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
 msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
 
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "A GM"
+msgstr "MG"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "A player"
+msgstr "Gracz"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "A group"
+msgstr "Grupa"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Players"
+msgstr "Graczy"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Discord"
+msgstr "Discord"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Account email"
+msgstr "E-mail konta"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "I am"
+msgstr "Jestem"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "I'm looking for"
+msgstr "Szukam"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Title"
+msgstr "Tytuł"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "What we'll do"
+msgstr "Co będziemy robić"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: a Mörk Borg campaign, or painting D&D minis."
+msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Description"
+msgstr "Opis"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Supports Markdown formatting."
+msgstr "Obsługuje formatowanie Markdown."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Date and time"
+msgstr "Data i godzina"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "When, in your words"
+msgstr "Kiedy, własnymi słowami"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: every other Friday evening, or to be agreed."
+msgstr "Na przykład: co drugi piątek wieczorem albo do ustalenia."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Online or offline"
+msgstr "Online czy na miejscu"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: online on Discord, or at my place."
+msgstr "Na przykład: online na Discordzie albo u mnie."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/notice_board/detail.html
+msgid "Where"
+msgstr "Gdzie"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Seats"
+msgstr "Miejsca"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Only informs; nobody is turned away when they fill up."
+msgstr ""
+"Tylko informacyjnie; nikt nie zostanie odesłany, gdy miejsca się skończą."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Tags"
+msgstr "Tagi"
+
+#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
+msgid "Contact"
+msgstr "Kontakt"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Shown only to the people in the party you form."
+msgstr "Widoczny tylko dla osób z drużyny, którą utworzysz."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Pick who you are looking for again."
+msgstr "Wybierz jeszcze raz, kogo szukasz."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Give a date and time, or describe when."
+msgstr "Podaj datę i godzinę albo opisz, kiedy."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid ""
+"Add your Discord username to your profile, or pick the account email as the "
+"contact."
+msgstr ""
+"Dodaj nazwę użytkownika Discorda w profilu albo wybierz jako kontakt e-mail "
+"konta."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing published."
+msgstr "Ogłoszenie opublikowane."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Draft saved."
+msgstr "Szkic zapisany."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing updated."
+msgstr "Ogłoszenie zaktualizowane."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing closed."
+msgstr "Ogłoszenie zamknięte."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing reopened."
+msgstr "Ogłoszenie wznowione."
+
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
@@ -1059,19 +1223,6 @@ msgstr "Akredytacja"
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Organizer"
 msgstr "Przypisany do"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
-#: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Title"
-msgstr "Tytuł"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/event/propose_forms.py
@@ -2917,19 +3068,6 @@ msgid "Empty or 0 = no enrollment"
 msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Description"
-msgstr "Opis"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/session_tags_cloud.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -3670,10 +3808,6 @@ msgstr "Połączenie zostało usunięte."
 #: src/ludamus/gates/web/django/multiverse/panel/views/sphere_settings.py
 msgid "Sphere settings saved successfully."
 msgstr "Ustawienia sfery zostały zapisane."
-
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "Supports Markdown formatting."
-msgstr "Obsługuje formatowanie Markdown."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/templates/landing/spotkanie.html
@@ -5146,9 +5280,113 @@ msgstr "Ustawienia ciasteczek"
 msgid "Brand"
 msgstr "Marka"
 
-#: src/ludamus/templates/base.html
-msgid "Contact"
-msgstr "Kontakt"
+#: src/ludamus/templates/board/_create_actions.html
+msgid "Save draft"
+msgstr "Zapisz szkic"
+
+#: src/ludamus/templates/board/_create_actions.html
+#: src/ludamus/templates/board/detail.html
+msgid "Publish listing"
+msgstr "Opublikuj ogłoszenie"
+
+#: src/ludamus/templates/board/_edit_actions.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Save changes"
+msgstr "Zapisz zmiany"
+
+#: src/ludamus/templates/board/_pair.html
+msgid "GM looking for players"
+msgstr "MG szuka graczy"
+
+#: src/ludamus/templates/board/_pair.html
+msgid "Player looking for a GM"
+msgstr "Gracz szuka MG"
+
+#: src/ludamus/templates/board/_pair.html
+msgid "Player looking for a group"
+msgstr "Gracz szuka grupy"
+
+#: src/ludamus/templates/board/_pair.html
+msgid "Group looking for players"
+msgstr "Grupa szuka graczy"
+
+#: src/ludamus/templates/board/_pair.html
+msgid "Group looking for a GM"
+msgstr "Grupa szuka MG"
+
+#: src/ludamus/templates/board/_status.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Draft"
+msgstr "Szkic"
+
+#: src/ludamus/templates/board/_status.html
+msgctxt "listing status"
+msgid "Ended"
+msgstr "Zakończone"
+
+#: src/ludamus/templates/board/create.html
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+msgid "Add listing"
+msgstr "Dodaj ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/notice_board/detail.html
+msgid "When"
+msgstr "Kiedy"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Posted by"
+msgstr "Autor"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Contact for your party"
+msgstr "Kontakt dla twojej drużyny"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Close listing"
+msgstr "Zamknij ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Reopen listing"
+msgstr "Wznów ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/board/edit.html
+msgid "Edit listing"
+msgstr "Edytuj ogłoszenie"
+
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Board"
+msgstr "Ogłoszenia"
+
+#: src/ludamus/templates/board/index.html
+msgid "GMs, players and groups looking for each other."
+msgstr "MG, gracze i grupy szukają siebie nawzajem."
+
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+msgid "My listings"
+msgstr "Moje ogłoszenia"
+
+#: src/ludamus/templates/board/index.html
+msgid "No listings yet"
+msgstr "Nie ma jeszcze ogłoszeń"
+
+#: src/ludamus/templates/board/index.html
+msgid "Looking for players, a GM or a group? Add the first listing."
+msgstr "Szukasz graczy, MG albo grupy? Dodaj pierwsze ogłoszenie."
+
+#: src/ludamus/templates/board/mine.html
+msgid "You have no listings yet"
+msgstr "Nie masz jeszcze ogłoszeń"
+
+#: src/ludamus/templates/board/mine.html
+msgid ""
+"Add one, and people looking for the same thing will find you on the board."
+msgstr "Dodaj ogłoszenie, a osoby szukające tego samego znajdą cię na tablicy."
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -5462,12 +5700,6 @@ msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/panel/enrollment-settings.html
-msgid "Seats"
-msgstr "Miejsca"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Length"
@@ -6152,11 +6384,6 @@ msgstr "Arkusz %(sheet)s z %(total)s"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Save changes"
-msgstr "Zapisz zmiany"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -8496,18 +8723,8 @@ msgid "Brass: Birmingham on Thursday"
 msgstr "Brass: Birmingham na czwartek"
 
 #: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/notice_board/detail.html
-msgid "When"
-msgstr "Kiedy"
-
-#: src/ludamus/templates/landing/spotkanie.html
 msgid "Thu, 9 July, 18:30"
 msgstr "czw., 9 lipca, 18:30"
-
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/notice_board/detail.html
-msgid "Where"
-msgstr "Gdzie"
 
 #: src/ludamus/templates/landing/spotkanie.html
 msgid "Kostka café, table 4"
@@ -8834,10 +9051,6 @@ msgstr "Edytuj ogłoszenie"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements for this sphere"
 msgstr "Ogłoszenia organizacji dla tej sfery"
-
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-msgid "Draft"
-msgstr "Szkic"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
@@ -13283,22 +13496,12 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
-#~ msgid "Session list"
-#~ msgstr "Lista punktów programu"
-
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
-
-#~ msgid "Player"
-#~ msgid_plural "Players"
-#~ msgstr[0] "Gracz"
-#~ msgstr[1] "Graczy"
-#~ msgstr[2] "Graczy"
-#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -13849,10 +14052,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Invalid facilitator selection."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
-
-#, python-format
-#~ msgid "Remove %(name)s from your party?"
-#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
 
 #, python-format
 #~ msgid "Party of %(leader_name)s"

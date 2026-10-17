@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load i18n tessera markdown_tags meta_tags %}
+{% block title %}
+    {{ listing.title }}
+{% endblock title %}
+{% block og_image %}
+    {% meta_image_url listing.header_image_url %}
+{% endblock og_image %}
+{% block twitter_image %}
+    {% meta_image_url listing.header_image_url %}
+{% endblock twitter_image %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <article class="lg:col-span-2 card card-body flex flex-col gap-4 self-start">
+            {% if listing.header_image_url %}
+                <img src="{{ listing.header_image_url }}"
+                     alt=""
+                     width="800"
+                     height="400"
+                     class="aspect-[2/1] w-full rounded-2xl object-cover">
+            {% endif %}
+            <div>
+                <p class="flex flex-wrap items-center gap-x-3 text-sm font-medium text-coral-700 dark:text-coral-300">
+                    {% include "board/_pair.html" %}
+                    {% include "board/_status.html" %}
+                </p>
+                <h1 class="mt-1 text-2xl font-bold text-foreground">{{ listing.title }}</h1>
+                <p class="mt-2 text-lg text-foreground-secondary">{{ listing.what }}</p>
+            </div>
+            {% if listing.tags %}
+                <ul class="flex flex-wrap gap-1" aria-label="{% translate "Tags" %}">
+                    {% for tag in listing.tags %}
+                        <li class="flex">{% include "components/_field_pill.html" with value=tag.name only %}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if listing.description %}
+                <div class="prose prose-sm max-w-none dark:prose-invert">{{ listing.description|render_markdown }}</div>
+            {% endif %}
+        </article>
+        <aside class="card card-body flex flex-col gap-4 self-start">
+            <dl class="grid gap-3 text-sm">
+                <div>
+                    <dt class="text-foreground-muted">{% translate "When" %}</dt>
+                    <dd class="text-foreground-primary">
+                        {% include "board/_when.html" %}
+                    </dd>
+                </div>
+                {% if listing.medium or listing.place %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "Where" %}</dt>
+                        <dd class="text-foreground-primary">
+                            {{ listing.medium }}{% if listing.medium and listing.place %} · {% endif %}{{ listing.place }}
+                        </dd>
+                    </div>
+                {% endif %}
+                {% if listing.seats %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "Seats" %}</dt>
+                        <dd class="text-foreground-primary">
+                            {{ listing.seats }}
+                        </dd>
+                    </div>
+                {% endif %}
+                <div>
+                    <dt class="text-foreground-muted">{% translate "Posted by" %}</dt>
+                    <dd class="text-foreground-primary">
+                        {{ listing.author_name }}
+                    </dd>
+                </div>
+                {% if is_author %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "Contact for your party" %}</dt>
+                        <dd class="text-foreground-primary">
+                            {% if listing.contact == "discord" %}
+                                {% translate "Discord" %}
+                            {% else %}
+                                {% translate "Account email" %}
+                            {% endif %}
+                        </dd>
+                    </div>
+                {% endif %}
+            </dl>
+            {% if is_author %}
+                <div class="flex flex-col gap-2 border-t border-border pt-4">
+                    {% if listing.status == "draft" %}
+                        <form method="post" action="{% url 'web:board:publish' pk=listing.pk %}">
+                            {% csrf_token %}
+                            {% translate "Publish listing" as t_publish %}
+                            {% tessera_button text=t_publish extra_class="w-full" %}
+                        </form>
+                    {% elif listing.status == "open" %}
+                        <form method="post" action="{% url 'web:board:close' pk=listing.pk %}">
+                            {% csrf_token %}
+                            {% translate "Close listing" as t_close %}
+                            {% tessera_button text=t_close variant="secondary" extra_class="w-full" %}
+                        </form>
+                    {% else %}
+                        <form method="post" action="{% url 'web:board:reopen' pk=listing.pk %}">
+                            {% csrf_token %}
+                            {% translate "Reopen listing" as t_reopen %}
+                            {% tessera_button text=t_reopen extra_class="w-full" %}
+                        </form>
+                    {% endif %}
+                    {% url 'web:board:edit' pk=listing.pk as edit_url %}
+                    {% translate "Edit listing" as t_edit %}
+                    {% tessera_button text=t_edit href=edit_url variant="secondary" extra_class="w-full justify-center" %}
+                </div>
+            {% endif %}
+        </aside>
+    </div>
+{% endblock body %}

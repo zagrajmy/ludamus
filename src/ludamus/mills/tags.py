@@ -9,6 +9,7 @@ from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
     TAG_SLUG_MAX_LENGTH,
+    TagCategoryOptionsDTO,
     TagImportReportDTO,
     TagOptionDTO,
     TagServiceProtocol,
@@ -112,23 +113,38 @@ class TagService(TagServiceProtocol):
             errors=[f"line {line}: {message}" for line, message in sorted(errors)],
         )
 
-    def options(self, category_slug: str) -> list[TagOptionDTO]:
-        tags = {
-            (tag.category_slug, tag.slug): tag
-            for tag in self._tags.read_all()
-            if tag.category_slug == category_slug
-        }
-        graph = _Graph(existing=tags, planned={})
-        options = [
-            TagOptionDTO(
-                pk=tag.pk,
-                path=TAG_PATH_SEPARATOR.join(
-                    [tags[a].name for a in reversed(graph.ancestors(key))] + [tag.name]
-                ),
+    def picker(self) -> list[TagCategoryOptionsDTO]:
+        tags = self._tags.read_all()
+        categories = [
+            TagCategoryOptionsDTO(
+                slug=slug, name=name, options=_options(tags, category_slug=slug)
             )
-            for key, tag in tags.items()
+            for slug, name in self._tags.category_names().items()
         ]
-        return sorted(options, key=_by_path)
+        return sorted(categories, key=_by_name)
+
+
+def _options(all_tags: list[TagDTO], category_slug: str) -> list[TagOptionDTO]:
+    tags = {
+        (tag.category_slug, tag.slug): tag
+        for tag in all_tags
+        if tag.category_slug == category_slug
+    }
+    graph = _Graph(existing=tags, planned={})
+    options = [
+        TagOptionDTO(
+            pk=tag.pk,
+            path=TAG_PATH_SEPARATOR.join(
+                [tags[a].name for a in reversed(graph.ancestors(key))] + [tag.name]
+            ),
+        )
+        for key, tag in tags.items()
+    ]
+    return sorted(options, key=_by_path)
+
+
+def _by_name(category: TagCategoryOptionsDTO) -> str:
+    return category.name.casefold()
 
 
 def _by_path(option: TagOptionDTO) -> str:
