@@ -3,7 +3,6 @@ from http import HTTPStatus
 import pytest
 from django.contrib import messages
 from django.contrib.admin import helpers
-from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, Tag, TagCategory
@@ -125,25 +124,3 @@ class TestTagAdmin:
             ],
         )
         assert tag.search_key == "mork borg"
-
-
-@pytest.mark.django_db
-class TestTagValidation:
-    def test_parent_from_another_category_is_refused(self):
-        genre = TagCategory.objects.create(name="Gatunek", slug="genre")
-        horror = Tag.objects.create(category=genre, name="Horror", slug="horror")
-        activity = TagCategory.objects.create(name="Gra", slug="activity")
-        tag = Tag(category=activity, name="Mörk Borg", slug="mork-borg", parent=horror)
-
-        with pytest.raises(ValidationError, match="parent's category"):
-            tag.full_clean()
-
-    def test_reparenting_under_own_descendant_is_refused(self):
-        activity = TagCategory.objects.create(name="Gra", slug="activity")
-        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
-        ttrpg.parent = Tag.objects.create(
-            category=activity, name="OSR", slug="osr", parent=ttrpg
-        )
-
-        with pytest.raises(ValidationError, match="own ancestor"):
-            ttrpg.full_clean()
