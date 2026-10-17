@@ -1,7 +1,8 @@
-"""Maintainer MCP tool set.
+"""MCP tool set for both tiers.
 
 A hand-curated surface, not an auto-export of every service: each tool is a
-deliberate maintainer operation. All calls go through `ServicesProtocol`, so
+deliberate operation. Organizer tools are written once and serve maintainers
+too, through `MaintainerTool`. All calls go through `ServicesProtocol`, so
 business invariants hold for MCP callers exactly as they do for views.
 """
 
@@ -24,7 +25,7 @@ from ludamus.gates.mcp.konwencik_tools import (
     OrganizerGetKonwencikSettingsTool,
     OrganizerUpdateKonwencikStylesTool,
 )
-from ludamus.gates.mcp.organizer_context import actor_sphere
+from ludamus.gates.mcp.organizer_context import MaintainerTool, actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
 from ludamus.pacts.event import (
@@ -41,30 +42,12 @@ from ludamus.pacts.multiverse import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol, ToolProtocol
     from ludamus.pacts.services import ServicesProtocol
 
 _SPHERE_LIST = TypeAdapter(list[SphereListItemDTO])
 _EVENT_LIST = TypeAdapter(list[EventListItemDTO])
 _ANNOUNCEMENT_LIST = TypeAdapter(list[AnnouncementDTO])
-
-
-def _render_sphere(services: ServicesProtocol, sphere_id: int) -> str:
-    return services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
-
-
-def _render_events(
-    *, services: ServicesProtocol, sphere_id: int, include_unpublished: bool
-) -> str:
-    events = services.events.list_for_sphere(
-        sphere_id, include_unpublished=include_unpublished
-    )
-    return _EVENT_LIST.dump_json(events, indent=2).decode()
-
-
-def _render_announcements(services: ServicesProtocol, sphere_id: int) -> str:
-    items = services.announcements.list_for_sphere(sphere_id)
-    return _ANNOUNCEMENT_LIST.dump_json(items, indent=2).decode()
 
 
 def _create_announcement(
@@ -114,69 +97,14 @@ class ListSpheresTool(Tool[EmptyInput]):
         return _SPHERE_LIST.dump_json(spheres, indent=2).decode()
 
 
-class GetSphereTool(Tool[_SphereInput]):
-    name = "get_sphere"
-    description = "Read one sphere's settings and configuration."
-    scope = ToolScope.MAINTAINER
-    input_model = _SphereInput
-
-    @staticmethod
-    def handle(call: ToolCall[_SphereInput]) -> str:
-        return _render_sphere(call.services, call.data.sphere_id)
-
-
 class _ListEventsBody(BaseModel):
-    include_unpublished: bool = Field(
-        default=True, description="Include events that are not published yet"
+    include_hidden: bool = Field(
+        default=True,
+        description=(
+            "Include events missing from public lists: not published yet, or "
+            "link-only (visibility unlisted)"
+        ),
     )
-
-
-class _ListEventsInput(_SphereInput, _ListEventsBody):
-    pass
-
-
-class ListEventsTool(Tool[_ListEventsInput]):
-    name = "list_events"
-    description = "List a sphere's events with their status and session counts."
-    scope = ToolScope.MAINTAINER
-    input_model = _ListEventsInput
-
-    @staticmethod
-    def handle(call: ToolCall[_ListEventsInput]) -> str:
-        return _render_events(
-            services=call.services,
-            sphere_id=call.data.sphere_id,
-            include_unpublished=call.data.include_unpublished,
-        )
-
-
-class _GetEventInput(_SphereInput):
-    slug: str = Field(description="Event slug (see list_events)")
-
-
-class GetEventTool(Tool[_GetEventInput]):
-    name = "get_event"
-    description = "Read one event's full configuration by slug."
-    scope = ToolScope.MAINTAINER
-    input_model = _GetEventInput
-
-    @staticmethod
-    def handle(call: ToolCall[_GetEventInput]) -> str:
-        event: EventDTO = call.services.events.read_by_slug(
-            call.data.sphere_id, call.data.slug
-        )
-        return event.model_dump_json(indent=2)
-
-
-class ListAnnouncementsTool(Tool[_SphereInput]):
-    name = "list_announcements"
-    description = "List a sphere's announcements, published and drafts."
-    scope = ToolScope.MAINTAINER
-    input_model = _SphereInput
-
-    @staticmethod
-    def handle(call: ToolCall[_SphereInput]) -> str:
-        return _render_announcements(call.services, call.data.sphere_id)
 
 
 class _AnnouncementBody(BaseModel):
@@ -254,39 +182,40 @@ def _announcement_data(body: _AnnouncementBody) -> AnnouncementData:
 
 class OrganizerGetSphereTool(Tool[EmptyInput]):
     name = "get_sphere"
-    description = "Read your sphere's settings and configuration."
+    description = "Read the sphere's settings and configuration."
     scope = ToolScope.ORGANIZER
     input_model = EmptyInput
 
     @staticmethod
     def handle(call: ToolCall[EmptyInput]) -> str:
-        return _render_sphere(call.services, actor_sphere(call.actor))
+        sphere = call.services.sphere_panel.read(actor_sphere(call.actor))
+        return sphere.model_dump_json(indent=2)
 
 
 class OrganizerListEventsTool(Tool[_ListEventsBody]):
     name = "list_events"
-    description = "List your sphere's events with their status and session counts."
+    description = "List the sphere's events with their status and session counts."
     scope = ToolScope.ORGANIZER
     input_model = _ListEventsBody
 
     @staticmethod
     def handle(call: ToolCall[_ListEventsBody]) -> str:
-        return _render_events(
-            services=call.services,
-            sphere_id=actor_sphere(call.actor),
-            include_unpublished=call.data.include_unpublished,
+        events = call.services.events.list_for_sphere(
+            actor_sphere(call.actor), include_hidden=call.data.include_hidden
         )
+        return _EVENT_LIST.dump_json(events, indent=2).decode()
 
 
 class OrganizerListAnnouncementsTool(Tool[EmptyInput]):
     name = "list_announcements"
-    description = "List your sphere's announcements, published and drafts."
+    description = "List the sphere's announcements, published and drafts."
     scope = ToolScope.ORGANIZER
     input_model = EmptyInput
 
     @staticmethod
     def handle(call: ToolCall[EmptyInput]) -> str:
-        return _render_announcements(call.services, actor_sphere(call.actor))
+        items = call.services.announcements.list_for_sphere(actor_sphere(call.actor))
+        return _ANNOUNCEMENT_LIST.dump_json(items, indent=2).decode()
 
 
 class _EventSlugInput(BaseModel):
@@ -295,7 +224,7 @@ class _EventSlugInput(BaseModel):
 
 class OrganizerGetEventTool(Tool[_EventSlugInput]):
     name = "get_event"
-    description = "Read one event in your sphere by slug."
+    description = "Read one event in the sphere by slug."
     scope = ToolScope.ORGANIZER
     input_model = _EventSlugInput
 
@@ -310,6 +239,7 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 class _CreateEventBody(BaseModel):
     # SAFETY: unknown fields are refused, not dropped: an organizer's sphere
     # comes from the token, and a sphere_id sent anyway must not look accepted.
+    # (A maintainer's sphere_id is taken off before this model sees it.)
     model_config = ConfigDict(extra="forbid")
 
     name: NonBlankName = Field(description="Public event name")
@@ -353,49 +283,6 @@ class _CreateEventBody(BaseModel):
         return require_aware_datetime(value)
 
 
-class _CreateEventInput(_SphereInput, _CreateEventBody):
-    pass
-
-
-def _create_event(
-    *, services: ServicesProtocol, sphere_id: int, body: _CreateEventBody
-) -> str:
-    try:
-        event = services.events.create(
-            sphere_id=sphere_id,
-            data={
-                "name": body.name,
-                "slug": body.slug,
-                "description": body.description,
-                "start_time": body.start_time,
-                "end_time": body.end_time,
-                "publication_time": body.publication_time,
-                "auto_confirm_sessions": body.auto_confirm_sessions,
-            },
-        )
-    except EventDatesInvalidError as error:
-        raise ToolError("end_time must be after start_time") from error
-    except EventPublicationInvalidError as error:
-        raise ToolError("publication_time must not be after start_time") from error
-    except EventSlugConflictError as error:
-        message = f"Slug already taken: {body.slug}"
-        raise ToolError(message) from error
-    return event.model_dump_json(indent=2)
-
-
-class CreateEventTool(Tool[_CreateEventInput]):
-    name = "create_event"
-    description = "Create an event in a sphere."
-    scope = ToolScope.MAINTAINER
-    input_model = _CreateEventInput
-
-    @staticmethod
-    def handle(call: ToolCall[_CreateEventInput]) -> str:
-        return _create_event(
-            services=call.services, sphere_id=call.data.sphere_id, body=call.data
-        )
-
-
 class OrganizerCreateEventTool(Tool[_CreateEventBody]):
     name = "create_event"
     description = (
@@ -403,27 +290,38 @@ class OrganizerCreateEventTool(Tool[_CreateEventBody]):
         "own event: to write the new event's programme, connect again and "
         "pick the new event."
     )
+    maintainer_description = "Create an event in a sphere."
     scope = ToolScope.ORGANIZER
     input_model = _CreateEventBody
 
     @staticmethod
     def handle(call: ToolCall[_CreateEventBody]) -> str:
-        return _create_event(
-            services=call.services, sphere_id=actor_sphere(call.actor), body=call.data
-        )
+        body = call.data
+        try:
+            event = call.services.events.create(
+                sphere_id=actor_sphere(call.actor),
+                data={
+                    "name": body.name,
+                    "slug": body.slug,
+                    "description": body.description,
+                    "start_time": body.start_time,
+                    "end_time": body.end_time,
+                    "publication_time": body.publication_time,
+                    "auto_confirm_sessions": body.auto_confirm_sessions,
+                },
+            )
+        except EventDatesInvalidError as error:
+            raise ToolError("end_time must be after start_time") from error
+        except EventPublicationInvalidError as error:
+            raise ToolError("publication_time must not be after start_time") from error
+        except EventSlugConflictError as error:
+            message = f"Slug already taken: {body.slug}"
+            raise ToolError(message) from error
+        return event.model_dump_json(indent=2)
 
 
-def _all_tools() -> tuple[ToolProtocol, ...]:
+def _organizer_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (
-        ListSpheresTool(),
-        GetSphereTool(),
-        ListEventsTool(),
-        GetEventTool(),
-        CreateEventTool(),
-        ListAnnouncementsTool(),
-        CreateAnnouncementTool(),
-        UpdateAnnouncementTool(),
-        DeleteAnnouncementTool(),
         OrganizerGetSphereTool(),
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
@@ -432,6 +330,20 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerGetKonwencikSettingsTool(),
         OrganizerUpdateKonwencikStylesTool(),
         OrganizerListAnnouncementsTool(),
+    )
+
+
+def _all_tools() -> tuple[ToolProtocol, ...]:
+    organizer_tools = _organizer_tools()
+    return (
+        ListSpheresTool(),
+        CreateAnnouncementTool(),
+        UpdateAnnouncementTool(),
+        DeleteAnnouncementTool(),
+        # Maintainers outrank organizers, so they get every organizer tool,
+        # run by the same code, with the sphere and event as arguments.
+        *(MaintainerTool(tool) for tool in organizer_tools),
+        *organizer_tools,
     )
 
 

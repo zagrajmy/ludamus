@@ -10,6 +10,7 @@ from ludamus.pacts.legacy import (
     EventListItemDTO,
     EventRepositoryProtocol,
     PanelStatsDTO,
+    SessionStatus,
     TimeSlotDTO,
 )
 
@@ -52,7 +53,7 @@ class EventSetupRepositoryProtocol(Protocol):
 
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
+        self, sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]: ...
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
@@ -164,7 +165,8 @@ class ConfirmationSessionDTO(BaseModel):
 class ConfirmationStatusGroupDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    status: str
+    status: SessionStatus
+    is_scheduled: bool
     sessions: list[ConfirmationSessionDTO]
 
 

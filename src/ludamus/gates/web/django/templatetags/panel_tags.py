@@ -50,6 +50,7 @@ def sidebar_link(
     label: str,
     key: str | None = None,
     new_tab: bool = False,
+    compact: bool = False,
     **url_kwargs: str,
 ) -> SafeString:
     if key is not None and key not in PANEL_NAV_KEYS:
@@ -72,8 +73,14 @@ def sidebar_link(
         )
         raise ImproperlyConfigured(msg)
 
+    # `compact` is the icon-only entry beside the event picker: the same
+    # destination contract, drawn as a header button rather than a list row.
     return render_to_string(
-        "panel/parts/sidebar-link.html",
+        (
+            "panel/parts/sidebar-header-link.html"
+            if compact
+            else "panel/parts/sidebar-link.html"
+        ),
         {
             "href": reverse(url, kwargs=url_kwargs),
             "icon": icon,
