@@ -624,6 +624,8 @@ ignore_names = [
     # Unused but stays
     "deleted_at",
     "modification_time",
+    # Read only through ORM lookups (search_key__contains)
+    "search_key",
     "test_func",
     # Vekna rituals
     "pr_refresh",
