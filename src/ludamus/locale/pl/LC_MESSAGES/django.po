@@ -4186,6 +4186,18 @@ msgid "users"
 msgstr "użytkownicy"
 
 #: src/ludamus/links/db/django/models.py
+msgid "A tag with children cannot change its category."
+msgstr "Nie można zmienić kategorii tagu, który ma tagi podrzędne."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A tag must belong to its parent's category."
+msgstr "Tag musi należeć do tej samej kategorii co jego rodzic."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A tag cannot be its own ancestor."
+msgstr "Tag nie może być swoim własnym przodkiem."
+
+#: src/ludamus/links/db/django/models.py
 msgid "A space must belong to its parent's event."
 msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
 
@@ -12481,6 +12493,18 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable.html
 msgid "Move"
 msgstr "Przenieś"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room taken"
+msgstr "Sala zajęta"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room too small"
+msgstr "Sala za mała"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Extends the day"
+msgstr "Wydłuża dzień"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
