@@ -103,6 +103,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
@@ -198,7 +199,6 @@ class Services:
         return ProfileService(
             transaction=self._transaction,
             users=self._repos.active_users,
-            participations=self._repos.profile_stats,
             avatar_url=gravatar_url,
         )
 
@@ -547,6 +547,10 @@ class Services:
     def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return FernetDecryptor(key)
+
+    @cached_property
+    def tags(self) -> TagService:
+        return TagService(self._transaction, self._repos.tags)
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:

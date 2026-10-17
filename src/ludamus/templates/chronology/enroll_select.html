@@ -14,26 +14,6 @@
     {% include "chronology/decorative_background_blobs.html" %}
     {% enroll_seats_left session as seats_left %}
     <div class="max-w-5xl mx-auto w-full">
-        {# Shadowban warning: players the viewer shadowbanned are already here. #}
-        {% if shadowban_warnings %}
-            <div class="alert backdrop-blur-lg alert-warning flex flex-col gap-3 mb-6">
-                <div class="flex items-center gap-2 font-semibold">
-                    {% icon "shield-exclamation" class="w-5 h-5 shrink-0" %}
-                    {% translate "Players you shadowbanned are already signed up here" %}
-                </div>
-                <ul class="flex flex-col gap-2">
-                    {% for warning in shadowban_warnings %}
-                        <li class="flex items-center gap-2">
-                            {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
-                            <span class="font-medium">{{ warning.user.full_name }}</span>
-                            <span class="text-sm text-foreground-muted">
-                                {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}
-                            </span>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endif %}
         {# Split stage: the session lives in a card on the left — the same #}
         {# design as the event modal's Information tab — and the enrollment #}
         {# panel sits on the right; on mobile they stack into one column. #}
@@ -104,6 +84,23 @@
                 </div>
             </div>
             <div id="enrollment">
+                {# Shadowban warning: players the viewer shadowbanned are already here. #}
+                {% if shadowban_warnings %}
+                    <div class="mb-6">
+                        <h2 class="font-semibold mb-3">{% translate "Players you shadowbanned are already signed up here" %}</h2>
+                        <ul class="flex flex-col gap-2">
+                            {% for warning in shadowban_warnings %}
+                                <li class="flex flex-wrap items-center gap-2">
+                                    {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
+                                    <span class="font-medium">{{ warning.user.full_name }}</span>
+                                    <span class="text-sm text-foreground-muted">
+                                        {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}
                     {# Marks a desired-state submit: the system routes each included #}

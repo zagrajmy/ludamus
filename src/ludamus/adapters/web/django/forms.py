@@ -163,25 +163,30 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
             self._raise_enroll_error(user_name)
         elif value != "waitlist":
             raise ValidationError(
-                _("Invalid choice for %(user)s: %(value)s")
-                % {"user": user_name, "value": value}
+                _("Invalid choice for %(user)s: %(value)s") % {
+                    "user": user_name,
+                    "value": value,
+                }
             )
 
     def _raise_enroll_error(self, user_name: str) -> None:
         if self._restricted_out:
             if not self._current_user.email:
                 raise ValidationError(
-                    _("%(user)s cannot enroll: email address required")
-                    % {"user": user_name}
+                    _("%(user)s cannot enroll: email address required") % {
+                        "user": user_name
+                    }
                 )
             raise ValidationError(
-                _("%(user)s cannot enroll: enrollment access permission required")
-                % {"user": user_name}
+                _("%(user)s cannot enroll: enrollment access permission required") % {
+                    "user": user_name
+                }
             )
         if not self._user_can_enroll:
             raise ValidationError(
-                _("%(user)s cannot enroll: enrollment not available")
-                % {"user": user_name}
+                _("%(user)s cannot enroll: enrollment not available") % {
+                    "user": user_name
+                }
             )
 
 
