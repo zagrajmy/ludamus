@@ -278,6 +278,7 @@ def grid_with(
     day_start=None,
     extra_days=0,
     total_minutes=0,
+    closed_ranges=None,
     sessions_by_space=None,
     page=1,
     total_pages=1,
@@ -316,6 +317,7 @@ def grid_with(
                 )
                 for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
             ],
+            closed_ranges=closed_ranges or [],
         )
         for index, start in enumerate(day_starts)
     ]

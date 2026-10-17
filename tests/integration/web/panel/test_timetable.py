@@ -9,7 +9,7 @@ from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Facilitator, Space, Track
 from ludamus.pacts import EventDTO, ProposalCategoryDTO, TrackDTO
-from ludamus.pacts.chronology import MultiselectOptionDTO, SpaceGroupDTO
+from ludamus.pacts.chronology import ClosedRangeDTO, MultiselectOptionDTO, SpaceGroupDTO
 from ludamus.pacts.legacy import SpaceDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
@@ -769,6 +769,13 @@ class TestTimetablePageView:
                     spaces=[space],
                     day_start=event_day_start(event),
                     total_minutes=6 * HOUR_MINUTES,
+                    # Between `time_slot` and the preferred slot, nothing is open.
+                    closed_ranges=[
+                        ClosedRangeDTO(
+                            start_minutes=2 * HOUR_MINUTES,
+                            duration_minutes=2 * HOUR_MINUTES,
+                        )
+                    ],
                     sessions_by_space={
                         space.pk: [
                             session_position(

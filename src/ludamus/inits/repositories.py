@@ -31,6 +31,7 @@ from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRe
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.pacts.crowd import UserType
 
@@ -80,6 +81,10 @@ class Repositories:
     @cached_property
     def parties(self) -> PartyRepository:
         return PartyRepository()
+
+    @cached_property
+    def tags(self) -> TagRepository:
+        return TagRepository()
 
     @cached_property
     def party_session_history(self) -> repositories.PartySessionHistoryRepository:

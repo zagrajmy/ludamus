@@ -88,6 +88,7 @@ if TYPE_CHECKING:
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
     from ludamus.pacts.timetable import (
         ConflictDetectionServiceProtocol,
@@ -229,6 +230,8 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
+    @property
+    def tags(self) -> TagServiceProtocol: ...
     @property
     def propose_session(self) -> ProposeSessionServiceProtocol: ...
     @property

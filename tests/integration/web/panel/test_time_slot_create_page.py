@@ -8,7 +8,7 @@ from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import TimeSlotDTO
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EventFactory, dst_free_midnight
 from tests.integration.utils import (
     FormErrorsMatcher,
     assert_login_required,
@@ -140,9 +140,7 @@ class TestTimeSlotCreatePageView:
         """Slot 22:00-02:00 with same date auto-advances end to next day."""
         sphere.managers.add(active_user)
         tz = get_current_timezone()
-        start = datetime.combine(
-            (datetime.now(tz) + timedelta(days=7)).date(), time(20, 0), tzinfo=tz
-        )
+        start = datetime.combine(dst_free_midnight().date(), time(20, 0), tzinfo=tz)
         event = EventFactory(
             sphere=sphere, start_time=start, end_time=start + timedelta(hours=8)
         )
