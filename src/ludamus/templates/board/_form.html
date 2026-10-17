@@ -1,0 +1,43 @@
+{% load i18n tessera %}
+{% comment %}
+    The listing form, shared by create and edit. Variable: form, plus the
+    submit buttons in the `actions` include.
+{% endcomment %}
+{% tessera_errors form %}
+<div class="flex max-md:flex-col gap-4 md:gap-x-6">
+    <div class="flex-1 min-w-0">
+        {% tessera_field form.pair %}
+        {% tessera_field form.title %}
+        {% tessera_field form.what %}
+        {% for category in form.tag_categories %}
+            {% if category.options %}
+                <div class="mb-4">
+                    <label for="listing-tags-{{ category.slug }}"
+                           class="block mb-1.5 text-sm font-medium text-foreground-primary">{{ category.name }}</label>
+                    {% with selected=form.tags.value %}
+                        {% tessera_combobox id="listing-tags-"|add:category.slug name="tags" multiple=True has_errors=form.tags.errors %}
+                            {% for option in category.options %}
+                                <option value="{{ option.pk }}"
+                                        {% if option.pk|stringformat:"d" in selected %}selected{% endif %}>{{ option.path }}</option>
+                            {% endfor %}
+                        {% endtessera_combobox %}
+                    {% endwith %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        {% if form.tags.errors %}
+            <p class="mb-4 text-sm text-danger">{{ form.tags.errors|join:" " }}</p>
+        {% endif %}
+        {% tessera_field form.description %}
+        {% tessera_field form.header_image %}
+    </div>
+    <div class="flex flex-col md:w-80">
+        {% tessera_field form.starts_at %}
+        {% tessera_field form.when_text %}
+        {% tessera_field form.medium %}
+        {% tessera_field form.place %}
+        {% tessera_field form.seats %}
+        {% tessera_field form.contact %}
+        <div class="mt-2 md:mt-auto md:pt-4 flex max-md:flex-col gap-2 md:justify-end">{% include actions %}</div>
+    </div>
+</div>
