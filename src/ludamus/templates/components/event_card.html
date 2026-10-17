@@ -1,58 +1,38 @@
 {% load i18n %}
-{% load date_tags %}
 {% load tessera %}
-{# Event card component - expects 'event' in context #}
-{# Optional: 'variant' can be "past" for muted styling #}
+{% comment %}
+    Event card. Expects 'event'; reads 'has_panel_access' from the page.
+
+    Past events look exactly like upcoming ones: the section they sit in says
+    they are over. "Today" and "ongoing" live on the calendar page, so there
+    is no live badge either.
+{% endcomment %}
 <a href="{% url 'web:chronology:event' slug=event.slug %}"
-   class="relative min-h-56 flex flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/50 dark:border-neutral-700/50 ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100 ring-offset-background bg-bg-secondary"
-   {% if variant == 'past' %}style="filter: saturate(0.7)"{% endif %}>
-    <div class="relative min-h-32 bg-cover bg-center p-3 pb-16 z-10 rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
-         style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ event.cover_image_url }}')">
-        <div class="flex flex-wrap gap-2">
-            {% if event.is_live %}
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white"
-                      style="background-color: rgba(0,0,0,0.25)">
-                    <span class="rounded-full bg-white" style="width: 0.5rem; height: 0.5rem;"></span>
-                    {% translate "LIVE" %}
-                </span>
-            {% endif %}
-            {% if event.is_proposal_active %}
-                <span class="inline-flex items-center gap-1 rounded-full pr-2.5 py-1 text-xs font-medium bg-bg-secondary text-foreground-secondary pl-[7px]">
-                    {% icon "pencil-square" class="h-3.5 w-3.5" variant="mini" %}
-                    {% translate "Proposals open" %}
-                </span>
-            {% endif %}
+   class="relative flex flex-col rounded-2xl border border-neutral-200/50 bg-bg-secondary ring-offset-[.5px] ring-offset-background duration-100 hover:ring-1 hover:ring-neutral-200 dark:border-neutral-700/50 dark:hover:ring-neutral-600">
+    {% include "components/feed_cover.html" with url=event.cover_image_url start=event.start_time end=event.end_time only %}
+    <div class="flex flex-1 flex-col px-4 pb-4">
+        {# ml-[70px]: past the 58px page and a 12px gap, so tags never touch it. #}
+        <div class="ml-[70px] flex min-h-7 min-w-0 items-end justify-end gap-x-3.5">
             {% if has_panel_access %}
                 {% if event.visibility == "unlisted" %}
                     {% translate "Link only" as hidden_label %}
-                    {% firstof "link" as hidden_icon %}
+                    {% include "components/feed_tag.html" with label=hidden_label icon="link" tone="quiet" only %}
                 {% elif not event.is_published %}
                     {% translate "Unpublished" as hidden_label %}
-                    {% firstof "eye-slash" as hidden_icon %}
-                {% endif %}
-                {% if hidden_label %}
-                    <span class="inline-flex items-center gap-1 rounded-full bg-black/50 text-white pl-2 pr-2.5 py-1 text-xs font-medium">
-                        {% icon hidden_icon class="h-3.5 w-3.5" variant="mini" %}
-                        {{ hidden_label }}
-                    </span>
+                    {% include "components/feed_tag.html" with label=hidden_label icon="eye-slash" tone="quiet" only %}
                 {% endif %}
             {% endif %}
+            {% if event.is_proposal_active %}
+                {% translate "Proposals open" as proposals_label %}
+                {% include "components/feed_tag.html" with label=proposals_label icon="pencil-square" tone="state" only %}
+            {% endif %}
         </div>
-    </div>
-    <div class="relative p-4 flex-1 flex flex-col">
-        <h3 class="mb-3 text-lg font-semibold leading-tight text-foreground">{{ event.name }}</h3>
-        {% if event.description %}<p class="mb-4 line-clamp-2 text-sm text-foreground">{{ event.description }}</p>{% endif %}
-        {# gap-y: the two rows only ever sit apart once they wrap, and cap-height #}
-        {# boxes leave nothing between them. 4px is the half-leading the trim #}
-        {# took away, so the pair keeps the rhythm it had. #}
-        <div class="flex flex-wrap items-center justify-between gap-y-1 border-t border-neutral-200/50 dark:border-neutral-700/50 pt-3 text-sm text-foreground-secondary mt-auto">
-            <div class="flex items-center gap-1.5">
-                {% icon "calendar" class="h-4 w-4" %}
-                {# Trimmed to cap height so the icon centers on the glyphs. #}
-                <span class="text-box-trim-both">{{ event|format_datetime_range }}</span>
-            </div>
-            <div class="flex items-center gap-1.5">
+        <h3 class="mt-3.5 text-lg font-semibold leading-tight text-foreground">{{ event.name }}</h3>
+        {% if event.description %}<p class="mt-1.5 line-clamp-2 text-sm text-foreground-secondary">{{ event.description }}</p>{% endif %}
+        <div class="mt-auto pt-4">
+            <div class="flex items-center gap-1.5 border-t border-neutral-200/50 pt-3 text-sm text-foreground-secondary dark:border-neutral-700/50">
                 {% icon "squares-2x2" class="h-4 w-4" %}
+                {# Trimmed to cap height so the icon centers on the glyphs. #}
                 <span class="text-box-trim-both">
                     {% blocktranslate count counter=event.session_count|default:0 %}
                         {{ counter }} session

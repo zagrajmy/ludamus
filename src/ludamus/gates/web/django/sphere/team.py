@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts.team import IssuedInvitationDTO
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,21 @@ def _read_issued_link(request: MultiverseRequest) -> IssuedLink | None:
     return IssuedLink(
         pk=int(pk), path=reverse("multiverse:join", kwargs={"token": token})
     )
+
+
+def _hand_over(request: MultiverseRequest, issued: IssuedInvitationDTO) -> HttpResponse:
+    response = redirect("multiverse:panel:team")
+    response.set_signed_cookie(
+        _ISSUED_LINK_COOKIE,
+        f"{issued.invitation.pk}:{issued.token}",
+        salt=_ISSUED_LINK_SALT,
+        max_age=_ISSUED_LINK_MAX_AGE,
+        path=reverse("multiverse:panel:team"),
+        secure=request.is_secure(),
+        httponly=True,
+        samesite="Lax",
+    )
+    return response
 
 
 class TeamPageView(SphereAccessMixin, View):
@@ -109,8 +125,9 @@ class TeamInviteActionView(SphereAccessMixin, View):
             messages.error(
                 self.request,
                 (
-                    _("Keep the note to %(limit)d characters.")
-                    % {"limit": INVITATION_NOTE_MAX_LENGTH}
+                    _("Keep the note to %(limit)d characters.") % {
+                        "limit": INVITATION_NOTE_MAX_LENGTH
+                    }
                     if "note" in form.errors
                     else _("Pick a role for the invitation.")
                 ),
@@ -133,8 +150,9 @@ class TeamInviteActionView(SphereAccessMixin, View):
         messages.success(
             self.request,
             (
-                _("Invitation link ready. Copy it below and send it to %(name)s.")
-                % {"name": invitation.note}
+                _("Invitation link ready. Copy it below and send it to %(name)s.") % {
+                    "name": invitation.note
+                }
                 if invitation.note
                 else _(
                     "Invitation link ready. Copy it below and send it to the "
@@ -142,18 +160,37 @@ class TeamInviteActionView(SphereAccessMixin, View):
                 )
             ),
         )
-        response = redirect("multiverse:panel:team")
-        response.set_signed_cookie(
-            _ISSUED_LINK_COOKIE,
-            f"{invitation.pk}:{issued.token}",
-            salt=_ISSUED_LINK_SALT,
-            max_age=_ISSUED_LINK_MAX_AGE,
-            path=reverse("multiverse:panel:team"),
-            secure=self.request.is_secure(),
-            httponly=True,
-            samesite="Lax",
+        return _hand_over(self.request, issued)
+
+
+class TeamInviteReissueActionView(SphereAccessMixin, View):
+    """Swap a lost link for a new one: same role and note, the old one dies."""
+
+    request: MultiverseRequest
+
+    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+        issued = self.request.services.sphere_team.reissue(
+            sphere_id=self.request.context.current_sphere_id,
+            pk=pk,
+            reissued_by_id=self.request.context.current_user_id,
         )
-        return response
+        logger.info(
+            "Sphere invitation reissue: sphere=%s invitation=%s reissued=%s by=%s",
+            self.request.context.current_sphere_id,
+            pk,
+            issued is not None,
+            self.request.context.current_user_id,
+        )
+        if issued is None:
+            messages.error(
+                self.request, _("That invitation was already used or has expired.")
+            )
+            return redirect("multiverse:panel:team")
+        messages.success(
+            self.request,
+            _("New link ready. Copy it below: the old one no longer works."),
+        )
+        return _hand_over(self.request, issued)
 
 
 class TeamInviteRevokeActionView(SphereAccessMixin, View):

@@ -123,6 +123,9 @@
                          data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                          data-confirm-move="{% translate "The schedule of this program item is confirmed. Moving it will clear the confirmation." %}"
                          data-confirm-move-action="{% translate "Move" %}"
+                         data-drop-occupied="{% translate "Room taken" %}"
+                         data-drop-too-small="{% translate "Room too small" %}"
+                         data-drop-closed="{% translate "Extends the day" %}"
                          hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}{% querystring %}"
                          hx-swap="innerHTML"
                          hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
