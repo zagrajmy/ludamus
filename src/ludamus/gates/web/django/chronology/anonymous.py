@@ -112,9 +112,8 @@ def _cancel_response(
     if result.cancelled:
         messages.success(
             request,
-            _("Successfully cancelled enrollment in session: %(title)s") % {
-                "title": result.session_title
-            },
+            _("Successfully cancelled enrollment in session: %(title)s")
+            % {"title": result.session_title},
         )
     else:
         messages.warning(request, _("No enrollment found to cancel."))
@@ -256,9 +255,8 @@ class SessionEnrollmentAnonymousPageView(View):
             case AnonymousEnrollOutcome.ENROLLED:
                 messages.success(
                     request,
-                    _("Successfully enrolled in session: %(title)s") % {
-                        "title": enrolled.session_title
-                    },
+                    _("Successfully enrolled in session: %(title)s")
+                    % {"title": enrolled.session_title},
                 )
             case _:
                 assert_never(enrolled.outcome)

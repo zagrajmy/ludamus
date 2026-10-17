@@ -249,6 +249,32 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+class ParleyReport(models.Model):
+    sphere = models.ForeignKey(
+        "Sphere", on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    room_id = models.CharField(max_length=64)
+    message_id = models.PositiveBigIntegerField()
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_report"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("reporter", "room_id", "message_id"),
+                name="parley_report_unique_reporter_message",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Parley report {self.pk} for {self.room_id}:{self.message_id}"
+
+
 class Party(models.Model):
     # The group that enrolls together. See RFC 0001.
     name = models.CharField(max_length=255, blank=True, default="")
@@ -399,6 +425,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    parley_enabled = models.BooleanField(default=False)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -989,9 +1016,8 @@ class Space(models.Model):
             seen.add(ancestor.pk)
             if depth > SPACE_MAX_DEPTH:
                 raise ValidationError(
-                    _("Spaces can be nested at most %(max)d levels deep.") % {
-                        "max": SPACE_MAX_DEPTH
-                    }
+                    _("Spaces can be nested at most %(max)d levels deep.")
+                    % {"max": SPACE_MAX_DEPTH}
                 )
 
     def _validate_leaf_parent(self) -> None:

@@ -116,7 +116,8 @@ def _enrollment_pill(access: EnrollmentAccessDTO) -> list[StatusPill]:
     opens_at = timezone.localtime(access.opens_at)
     return [
         StatusPill(
-            label=_("Your enrollment opens %(day)s at %(time)s") % {
+            label=_("Your enrollment opens %(day)s at %(time)s")
+            % {
                 "day": short_date(opens_at),
                 "time": time_format(opens_at, format="G:i"),
             },

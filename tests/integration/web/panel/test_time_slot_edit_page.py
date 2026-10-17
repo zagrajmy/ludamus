@@ -322,9 +322,8 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "Time slot overlaps with an existing slot." in response.context[
-                "form"
-            ].non_field_errors()
+            "Time slot overlaps with an existing slot."
+            in response.context["form"].non_field_errors()
         )
         other.delete()
 

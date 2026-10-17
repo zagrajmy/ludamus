@@ -401,9 +401,8 @@ def _availability(sheet: _Sheet, data: SessionData) -> str:
         return _SPOTS_LABEL.format(
             _CORAL if data.spots_scarce else _TEAL,
             escape(
-                ngettext("%(counter)s spot left", "%(counter)s spots left", spots) % {
-                    "counter": spots
-                }
+                ngettext("%(counter)s spot left", "%(counter)s spots left", spots)
+                % {"counter": spots}
             ),
         )
     return ""
@@ -556,7 +555,8 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
     duration = sheet.duration(session.duration)
     availability = _availability(sheet, data)
     return SafeString(
-        _ROW % {
+        _ROW
+        % {
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
             "attrs": _session_attrs(
                 sheet=sheet, data=data, local_start=local_start, local_end=local_end
@@ -609,7 +609,8 @@ def room_lane_tile(
             "host": escape(session.facilitator_name),
         }
     return SafeString(
-        _TILE % {
+        _TILE
+        % {
             "slot": _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
             "attrs": _session_attrs(

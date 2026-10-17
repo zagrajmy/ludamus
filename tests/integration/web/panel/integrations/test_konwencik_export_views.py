@@ -277,7 +277,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "previews": [],
@@ -298,9 +299,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
-                "active_integration": None
-            },
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {"active_integration": None},
         )
 
     def test_get_ignores_an_import_integration(self, panel_client, event, connection):
@@ -319,9 +319,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
-                "active_integration": None
-            },
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {"active_integration": None},
         )
 
     def test_get_renders_a_row_per_category_and_public_track(
@@ -337,7 +336,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "previews": [],
@@ -389,7 +389,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
@@ -417,7 +418,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
@@ -559,7 +561,8 @@ class TestKonwencikExportSettingsPageView:
     ):
         response = panel_client.post(
             _settings_page_url(event, export_integration),
-            data=_post_data(categories=[], tracks=[]) | {
+            data=_post_data(categories=[], tracks=[])
+            | {
                 "colors-TOTAL_FORMS": "1",
                 "colors-INITIAL_FORMS": "1",
                 "colors-0-pk": "",
@@ -571,7 +574,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),
@@ -600,7 +604,8 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="konwencik-export") | {
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
                 "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),

@@ -84,7 +84,8 @@ class TestEventIntegrationSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/integration-settings.html",
-            context_data=panel_context(event) | {
+            context_data=panel_context(event)
+            | {
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
@@ -101,7 +102,8 @@ class TestEventIntegrationSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/integration-settings.html",
-            context_data=panel_context(event) | {
+            context_data=panel_context(event)
+            | {
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
@@ -125,7 +127,8 @@ class TestEventIntegrationSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/integration-settings.html",
-            context_data=panel_context(event) | {
+            context_data=panel_context(event)
+            | {
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
@@ -390,7 +393,8 @@ class TestIntegrationEditPageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
-            context_data=panel_context(event) | {
+            context_data=panel_context(event)
+            | {
                 "active_nav": "settings",
                 "form": ANY,
                 "integration": integration_dto(integration),
@@ -485,7 +489,8 @@ class TestIntegrationEditPageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
-            context_data=panel_context(event) | {
+            context_data=panel_context(event)
+            | {
                 "active_nav": "settings",
                 "form": ANY,
                 "integration": integration_dto(integration),
@@ -518,10 +523,8 @@ class TestIntegrationDeletePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/delete.html",
-            context_data=panel_context(event) | {
-                "active_nav": "settings",
-                "integration": integration_dto(integration),
-            },
+            context_data=panel_context(event)
+            | {"active_nav": "settings", "integration": integration_dto(integration)},
         )
 
     def test_get_redirects_on_unknown_event(self, panel_client):

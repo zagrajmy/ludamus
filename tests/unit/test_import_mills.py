@@ -3034,10 +3034,8 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         ]
         personal_data_field_values.save.assert_not_called()
         assert (
-            personal_data_field_values.delete_for_facilitator_fields.call_args_list == [
-                call(7, [12]),
-                call(7, [12]),
-            ]
+            personal_data_field_values.delete_for_facilitator_fields.call_args_list
+            == [call(7, [12]), call(7, [12])]
         )
         assert result == ApplyFieldLayoutResult(
             sessions_processed=2,

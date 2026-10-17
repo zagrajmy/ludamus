@@ -125,9 +125,8 @@ class TeamInviteActionView(SphereAccessMixin, View):
             messages.error(
                 self.request,
                 (
-                    _("Keep the note to %(limit)d characters.") % {
-                        "limit": INVITATION_NOTE_MAX_LENGTH
-                    }
+                    _("Keep the note to %(limit)d characters.")
+                    % {"limit": INVITATION_NOTE_MAX_LENGTH}
                     if "note" in form.errors
                     else _("Pick a role for the invitation.")
                 ),
@@ -150,9 +149,8 @@ class TeamInviteActionView(SphereAccessMixin, View):
         messages.success(
             self.request,
             (
-                _("Invitation link ready. Copy it below and send it to %(name)s.") % {
-                    "name": invitation.note
-                }
+                _("Invitation link ready. Copy it below and send it to %(name)s.")
+                % {"name": invitation.note}
                 if invitation.note
                 else _(
                     "Invitation link ready. Copy it below and send it to the "
