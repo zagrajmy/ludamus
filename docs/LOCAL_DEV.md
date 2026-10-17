@@ -57,11 +57,12 @@ mise run mcp-token
 python -c 'import json; print(json.load(open(".local/mcp-tokens.json"))["maintainer"]["token"])'
 ```
 
-Point an MCP client at the live origin doctor reports. Do not hardcode
+Point an MCP client at the origin `mise run start` serves: the current
+`Site.domain`, `http://<name>.localhost:1355` under portless. Do not hardcode
 `:8000`.
 
 ```bash
-base="$(mise run control-ludamus -- base-url)"
+base="http://<name>.localhost:1355"
 token="$(python -c 'import json; print(json.load(open(".local/mcp-tokens.json"))["maintainer"]["token"])')"
 claude mcp add --transport http zagrajmy "$base/mcp/" \
   --header "Authorization: Bearer $token"
