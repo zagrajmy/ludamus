@@ -8,7 +8,7 @@ from django.db import DataError, IntegrityError, transaction
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from contextlib import AbstractContextManager
 
 
@@ -23,7 +23,7 @@ class DjangoTransaction:
 
     @staticmethod
     @contextmanager
-    def savepoint() -> Iterator[None]:
+    def savepoint() -> Generator[None]:
         # A nested savepoint: a constraint/data violation rolls back only this
         # block and is re-raised as DatabaseConstraintError, leaving the
         # surrounding transaction usable so the caller can record the failure.

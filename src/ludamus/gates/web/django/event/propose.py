@@ -523,7 +523,7 @@ class ProposeWizardMixin(View):
         if not event.is_proposal_active:
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
-                if event.is_published
+                if event.is_open
                 else reverse("web:index")
             )
             raise RedirectError(

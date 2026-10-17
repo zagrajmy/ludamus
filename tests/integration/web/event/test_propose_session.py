@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, timedelta
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -88,13 +88,18 @@ class TestProposeSessionPageView:
         )
 
     def _activate_proposals(self, event, faker, time_zone):
+        # NOTE: in UTC, as read back from the DB; a local time in the DST fold
+        # never equals its UTC twin (PEP 495).
         event.proposal_start_time = faker.date_time_between(
             "-10d", "-1d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.proposal_end_time = faker.date_time_between(
             "+1d", "+10d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
+        event.refresh_from_db()
 
     def _set_wizard_category(self, client, event, category):
         session = client.session
@@ -3114,13 +3119,18 @@ class TestAnonymousProposalSubmission:
         return reverse(name, kwargs={"event_slug": event_slug})
 
     def _activate_proposals(self, event, faker, time_zone):
+        # NOTE: in UTC, as read back from the DB; a local time in the DST fold
+        # never equals its UTC twin (PEP 495).
         event.proposal_start_time = faker.date_time_between(
             "-10d", "-1d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.proposal_end_time = faker.date_time_between(
             "+1d", "+10d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
+        event.refresh_from_db()
 
     def _enable_anonymous(self, event):
         EventProposalSettings.objects.update_or_create(

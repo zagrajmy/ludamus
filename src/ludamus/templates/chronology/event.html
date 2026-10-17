@@ -20,6 +20,10 @@
 {% block twitter_description %}
     {% firstof link_preview.description event.description|truncatewords:20 default_description %}
 {% endblock twitter_description %}
+{% block extra_head %}
+    {# "Never listed" has to hold for search engines too, once the link is posted somewhere public. #}
+    {% if event.visibility == "unlisted" %}<meta name="robots" content="noindex">{% endif %}
+{% endblock extra_head %}
 {% block og_image %}
     {% meta_image_url link_preview.image_url event.cover_image_url %}
 {% endblock og_image %}
@@ -206,30 +210,24 @@
     {% endif %}
     <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
-        <div class="alert backdrop-blur-lg alert-warning mb-4 print:hidden"
-             role="alert">
-            <div class="flex">
-                <div class="shrink-0">{% icon "eye-slash" class="w-5 h-5" %}</div>
-                <div class="grow ml-3">
-                    <h6 class="font-semibold mb-2">{% translate "Anonymous Mode Active" %}</h6>
-                    <p class="mb-2">
-                        {% translate "Your Anonymous Code" %}: <strong class="text-lg">{{ anonymous_code }}</strong>
-                        <br>
-                        <small class="text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</small>
-                    </p>
-                    <div class="flex gap-2" role="group">
-                        <a href="?enter-code=1"
-                           class="btn btn-secondary text-sm"
-                           aria-controls="anonymousCodeModal"
-                           aria-haspopup="dialog">
-                            {% icon "key" class="w-4 h-4" variant="mini" %} {% translate "Enter Different Code" %}
-                        </a>
-                        <a href="{% url 'web:chronology:anonymous-reset' %}"
-                           class="btn btn-primary text-sm">
-                            {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "Finish" %}
-                        </a>
-                    </div>
-                </div>
+        <div class="mb-4 print:hidden">
+            <h2 class="font-semibold mb-2">{% translate "Anonymous Mode Active" %}</h2>
+            <p class="mb-2">
+                {% translate "Your Anonymous Code" %}: <strong class="text-lg">{{ anonymous_code }}</strong>
+                <br>
+                <small class="text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</small>
+            </p>
+            <div class="flex flex-wrap gap-2" role="group">
+                <a href="?enter-code=1"
+                   class="btn btn-secondary text-sm"
+                   aria-controls="anonymousCodeModal"
+                   aria-haspopup="dialog">
+                    {% icon "key" class="w-4 h-4" variant="mini" %} {% translate "Enter Different Code" %}
+                </a>
+                <a href="{% url 'web:chronology:anonymous-reset' %}"
+                   class="btn btn-primary text-sm">
+                    {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "Finish" %}
+                </a>
             </div>
         </div>
         <!-- Anonymous Code Entry Modal -->
@@ -564,12 +562,15 @@
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
     <div id="session-modals"
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
-    <!-- Back to Events List -->
-    <div class="mt-8 print:hidden">
-        <a href="{% url 'web:index' %}" class="btn btn-secondary">
-            {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
-        </a>
-    </div>
+    {# A link-only event is in no list, so a way "back" to one would lead nowhere it was. #}
+    {% if event.visibility != "unlisted" %}
+        <!-- Back to Events List -->
+        <div class="mt-8 print:hidden">
+            <a href="{% url 'web:index' %}" class="btn btn-secondary">
+                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
+            </a>
+        </div>
+    {% endif %}
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts). File→Print and the toolbar cannot be intercepted, so #}
     {# the page itself prints: chrome and controls carry print:hidden, and #}

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from django.core.files.base import ContentFile
 
     from ludamus.gates.mcp.protocol import JsonDict
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -102,6 +102,7 @@ class OrganizerCreateMapTool(Tool[_CreateMapInput]):
         "pictures. Attach the spaces it draws with set_map_spaces."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateMapInput
     audit_redacted_keys = frozenset({"content_base64"})
 
@@ -123,6 +124,7 @@ class OrganizerUpdateMapTool(Tool[_UpdateMapInput]):
         "pictures. The spaces it draws stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateMapInput
     audit_redacted_keys = frozenset({"content_base64"})
 
@@ -149,6 +151,7 @@ class OrganizerSetMapSpacesTool(Tool[_SetMapSpacesInput]):
         "space is listed beside the plan and links to its sessions."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _SetMapSpacesInput
 
     @staticmethod
@@ -173,6 +176,7 @@ class OrganizerDeleteMapTool(Tool[_MapIdInput]):
     name = "delete_map"
     description = "Remove a plan from this token's event, pictures and all."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _MapIdInput
 
     @staticmethod
@@ -185,7 +189,7 @@ class OrganizerDeleteMapTool(Tool[_MapIdInput]):
         return json.dumps(result, indent=2)
 
 
-def map_tools() -> tuple[ToolProtocol, ...]:
+def map_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (
         OrganizerListMapsTool(),
         OrganizerCreateMapTool(),

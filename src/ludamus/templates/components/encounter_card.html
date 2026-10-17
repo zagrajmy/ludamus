@@ -1,50 +1,70 @@
 {% load i18n %}
 {% load tessera %}
-{# Encounter card component #}
-{# Required: 'encounter', 'rsvp_count', 'is_mine' #}
-{# Optional: 'variant' ("past"), 'organizer_name' #}
-<div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-primary{% endif %}">
+{% load feed_tags %}
+{% comment %}
+    Encounter card, the event card's sibling in the feed.
+    Required: 'encounter', 'rsvp_count', 'is_mine'. Optional: 'organizer_name'.
+
+    The tag row holds at most two tags, the state first, then the game, so it
+    never wraps; "Link only" goes to the organizer's footer instead. Listed
+    encounters are public, so only the exception is ever marked.
+{% endcomment %}
+<div class="relative flex flex-col rounded-2xl border border-neutral-200/50 bg-bg-secondary ring-offset-[.5px] ring-offset-background duration-100 has-[>a:hover]:ring-1 has-[>a:hover]:ring-neutral-200 dark:border-neutral-700/50 dark:has-[>a:hover]:ring-neutral-600">
     <a href="{% url 'web:notice-board:encounter-detail' share_code=encounter.share_code %}"
-       class="block hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
-        {% if encounter.header_image_url %}
-            {% include "components/cover_tint.html" with url=encounter.header_image_url extra_class="min-h-32" only %}
-        {% endif %}
-        <div class="p-4">
-            <div class="flex items-start justify-between gap-2 mb-1">
-                <h3 class="font-semibold text-foreground">{{ encounter.title }}</h3>
+       class="flex flex-1 flex-col rounded-2xl">
+        {% include "components/feed_cover.html" with url=encounter.header_image_url|cover_or_placeholder:encounter.pk start=encounter.start_time end=encounter.end_time only %}
+        <div class="flex flex-1 flex-col px-4 pb-4">
+            {# ml-[70px]: past the 58px page and a 12px gap, so tags never touch it. #}
+            <div class="ml-[70px] flex min-h-7 min-w-0 items-end justify-end gap-x-3.5">
                 {% if is_mine %}
-                    <span class="text-xs uppercase tracking-wider font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10 shrink-0 mt-0.5">{% translate "You organize" %}</span>
+                    {% translate "You organize" as mine_label %}
+                    {% include "components/feed_tag.html" with label=mine_label tone="state" only %}
                 {% endif %}
-                {% if encounter.is_public %}
-                    <span class="text-xs uppercase tracking-wider font-semibold text-foreground-muted px-1.5 py-0.5 rounded-full bg-bg-tertiary shrink-0 mt-0.5">{% translate "Public" %}</span>
+                {% if encounter.game %}
+                    {% include "components/feed_tag.html" with label=encounter.game icon="puzzle-piece" truncate=True only %}
                 {% endif %}
             </div>
+            <h3 class="mt-3.5 text-lg font-semibold leading-tight text-foreground">{{ encounter.title }}</h3>
             {% if not is_mine and organizer_name %}
-                <div class="text-xs text-foreground-muted italic mb-1">{{ organizer_name }}</div>
+                <p class="mt-1.5 text-sm text-foreground-secondary">
+                    {% blocktranslate with name=organizer_name %}Hosted by {{ name }}{% endblocktranslate %}
+                </p>
+            {% elif is_mine and encounter.place %}
+                <p class="mt-1.5 text-sm text-foreground-secondary">{{ encounter.place }}</p>
             {% endif %}
-            {% if encounter.game %}
-                <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-                    {% icon "puzzle-piece" class="h-4 w-4 flex-shrink-0" %}
-                    <span>{{ encounter.game }}</span>
+            <div class="mt-auto pt-4">
+                <div class="flex min-w-0 items-center justify-between gap-3 border-t border-neutral-200/50 pt-3 text-sm text-foreground-secondary dark:border-neutral-700/50">
+                    {% if not is_mine and encounter.place %}
+                        <span class="flex min-w-0 items-center gap-1.5">
+                            {% icon "map-pin" class="h-4 w-4" %}
+                            <span class="truncate">{{ encounter.place }}</span>
+                        </span>
+                    {% endif %}
+                    <span class="flex shrink-0 items-center gap-1.5">
+                        {% icon "users" class="h-4 w-4" %}
+                        <span class="text-box-trim-both">
+                            {% if not encounter.max_participants or encounter.start_time|has_started %}
+                                {{ rsvp_count }} {% translate "attending" %}
+                            {% elif is_mine %}
+                                {% blocktranslate with count=rsvp_count max=encounter.max_participants %}{{ count }} of {{ max }} signed up{% endblocktranslate %}
+                            {% else %}
+                                {% with left=encounter.max_participants|spots_left:rsvp_count %}
+                                    {% if left %}
+                                        {% blocktranslate count counter=left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
+                                    {% else %}
+                                        {% translate "Full" %}
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </span>
+                    </span>
+                    {% if is_mine and not encounter.is_public %}
+                        <span class="flex shrink-0 items-center gap-1.5 text-foreground-muted">
+                            {% icon "lock-closed" class="h-4 w-4" %}
+                            <span class="text-box-trim-both">{% translate "Link only" %}</span>
+                        </span>
+                    {% endif %}
                 </div>
-            {% endif %}
-            <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-                {% icon "calendar" class="h-4 w-4 flex-shrink-0" %}
-                <span>{{ encounter.start_time }}</span>
-            </div>
-            {% if encounter.place %}
-                <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-                    {% icon "map-pin" class="h-4 w-4 flex-shrink-0" %}
-                    <span>{{ encounter.place }}</span>
-                </div>
-            {% endif %}
-            <div class="flex items-center gap-1.5 text-sm text-foreground-muted">
-                {% icon "users" class="h-4 w-4 flex-shrink-0" %}
-                {% if encounter.max_participants %}
-                    <span>{{ rsvp_count }} / {{ encounter.max_participants }}</span>
-                {% else %}
-                    <span>{{ rsvp_count }} {% translate "attending" %}</span>
-                {% endif %}
             </div>
         </div>
     </a>

@@ -118,8 +118,9 @@ class _OptInMail:
 
     def footer(self) -> str:
         lines = [
-            _("You get this email because you subscribe to %(sphere)s.")
-            % {"sphere": self._sphere_name},
+            _("You get this email because you subscribe to %(sphere)s.") % {
+                "sphere": self._sphere_name
+            },
             _("Unsubscribe: %(url)s") % {"url": self._url("web:email-unsubscribe")},
         ]
         if address := settings.MAIL_POSTAL_ADDRESS:
@@ -430,11 +431,13 @@ class DjangoUserNotifier:
         self, notification: ShadowbanSignupNotification
     ) -> None:
         title = (
-            _("A shadowbanned player joined %(session)s with you")
-            % {"session": notification.session_title}
+            _("A shadowbanned player joined %(session)s with you") % {
+                "session": notification.session_title
+            }
             if notification.session_player_names
-            else _("A shadowbanned player joined %(event)s")
-            % {"event": notification.event_name}
+            else _("A shadowbanned player joined %(event)s") % {
+                "event": notification.event_name
+            }
         )
         parts = []
         if notification.session_player_names:
@@ -450,8 +453,7 @@ class DjangoUserNotifier:
             )
         if notification.player_names:
             parts.append(
-                _("Someone you shadowbanned signed up to %(event)s: %(players)s.")
-                % {
+                _("Someone you shadowbanned signed up to %(event)s: %(players)s.") % {
                     "event": notification.event_name,
                     "players": ", ".join(notification.player_names),
                 }

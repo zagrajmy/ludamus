@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
+from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import Event, Sphere, SphereSubscription
 from ludamus.pacts.dashboard import (
     SphereEventAnnouncementDTO,
@@ -58,8 +59,7 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
         """
         events = list(
             Event.objects.filter(
-                publication_time__isnull=False,
-                publication_time__lte=now,
+                listed_events(now=now),
                 subscribers_announced_at__isnull=True,
                 end_time__gte=now,
             )

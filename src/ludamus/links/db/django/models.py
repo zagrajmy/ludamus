@@ -15,6 +15,7 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
+from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts import (
@@ -28,10 +29,17 @@ from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
+from ludamus.pacts.tags import (
+    TAG_NAME_MAX_LENGTH,
+    TAG_PATH_SEPARATOR,
+    TAG_SLUG_MAX_LENGTH,
+)
+from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -289,6 +297,70 @@ class PartyMembership(models.Model):
         return f"{self.member_id} in party {self.party_id}"
 
 
+def tag_search_key(name: str) -> str:
+    return unidecode(name).lower()
+
+
+class TagCategory(models.Model):
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True)
+
+    class Meta:
+        db_table = "tag_category"
+        ordering: ClassVar = ["name"]
+        verbose_name_plural = "tag categories"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Tag(models.Model):
+    category = models.ForeignKey(
+        TagCategory, on_delete=models.PROTECT, related_name="tags"
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="children"
+    )
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH)
+    # tag_search_key(name): a plain `contains` finds "Mörk Borg" from "mork" on
+    # SQLite as well as Postgres. TextField: transliteration outgrows the name
+    # ("北" → "Bei ").
+    search_key = models.TextField(editable=False, db_index=True)
+
+    class Meta:
+        db_table = "tag"
+        ordering: ClassVar = ["name"]
+        constraints = (
+            models.UniqueConstraint(
+                fields=("category", "slug"), name="tag_has_unique_slug_per_category"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.parent}{TAG_PATH_SEPARATOR}{self.name}"
+            if self.parent
+            else self.name
+        )
+
+    def clean(self) -> None:
+        # The admin's only path to save; the repository sets search_key itself.
+        super().clean()
+        self.search_key = tag_search_key(self.name)
+        if self.pk and self.children.exclude(category_id=self.category_id).exists():
+            raise ValidationError(_("A tag with children cannot change its category."))
+        if self.parent is None:
+            return
+        if self.parent.category_id != self.category_id:
+            raise ValidationError(_("A tag must belong to its parent's category."))
+        ancestor: Tag | None = self.parent
+        while ancestor is not None:
+            if ancestor.pk == self.pk:
+                raise ValidationError(_("A tag cannot be its own ancestor."))
+            ancestor = ancestor.parent
+
+
 class SessionBookmark(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="session_bookmarks"
@@ -399,6 +471,43 @@ class SphereMembership(models.Model):
         return f"{self.user_id} is {self.role} of sphere {self.sphere_id}"
 
 
+class SphereInvitation(models.Model):
+    """A single-use link that adds whoever accepts it to a sphere's team.
+
+    Open while unaccepted and unexpired; revoking an open one deletes it.
+    An accepted row stays, recording who joined through whose link.
+    """
+
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="invitations"
+    )
+    role = models.CharField(
+        max_length=20, choices=[(r.value, r.name.title()) for r in SphereRole]
+    )
+    # sha256 of the link's token; the token itself is never stored.
+    token_hash = models.CharField(max_length=64, unique=True)
+    # Who the manager meant it for ("Kasia, programme"), so open links can be
+    # told apart. Shown in the panel only, never to whoever holds the link.
+    note = models.CharField(
+        max_length=INVITATION_NOTE_MAX_LENGTH, blank=True, default=""
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "sphere_invitation"
+
+    def __str__(self) -> str:
+        return f"{self.role} invitation to sphere {self.sphere_id}"
+
+
 class Guild(models.Model):
     # The association, club or studio a programme creator belongs to — its mark
     # rides along on every card they present. Sphere-scoped: the same real-world
@@ -493,6 +602,11 @@ class Event(models.Model):
     end_time = models.DateTimeField()
     # Publication time
     publication_time = models.DateTimeField(blank=True, null=True)
+    visibility = models.CharField(
+        max_length=20,
+        choices=[(v.value, v.name.title()) for v in EventVisibility],
+        default=EventVisibility.PUBLIC,
+    )
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
@@ -577,6 +691,11 @@ class Event(models.Model):
             self.publication_time is not None
             and self.publication_time <= datetime.now(tz=UTC)
         )
+
+    @property
+    def is_open(self) -> bool:
+        """Whether anyone with the link may open the event's pages."""
+        return self.is_published or self.visibility == EventVisibility.UNLISTED
 
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
@@ -870,8 +989,9 @@ class Space(models.Model):
             seen.add(ancestor.pk)
             if depth > SPACE_MAX_DEPTH:
                 raise ValidationError(
-                    _("Spaces can be nested at most %(max)d levels deep.")
-                    % {"max": SPACE_MAX_DEPTH}
+                    _("Spaces can be nested at most %(max)d levels deep.") % {
+                        "max": SPACE_MAX_DEPTH
+                    }
                 )
 
     def _validate_leaf_parent(self) -> None:

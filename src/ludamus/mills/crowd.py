@@ -51,7 +51,6 @@ if TYPE_CHECKING:
         EmailTokenCodecProtocol,
         EmailVerificationNotifierProtocol,
         EmailVerificationReminderRepositoryProtocol,
-        ProfileParticipationRepositoryProtocol,
         SphereDomainRepositoryProtocol,
         UserDTO,
         UserRepositoryProtocol,
@@ -447,19 +446,14 @@ class ProfileService(ProfileServiceProtocol):
         *,
         transaction: TransactionProtocol,
         users: UserRepositoryProtocol,
-        participations: ProfileParticipationRepositoryProtocol,
         avatar_url: AvatarUrlProviderProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
-        self._participations = participations
         self._avatar_url = avatar_url
 
     def read(self, user_slug: str) -> UserDTO:
         return self._users.read(user_slug)
-
-    def confirmed_participations_count(self, user_id: int) -> int:
-        return self._participations.confirmed_count(user_id)
 
     def update(self, user_slug: str, data: UserData) -> None:
         with self._transaction.atomic():

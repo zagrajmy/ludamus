@@ -22,6 +22,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ClosedRangeDTO,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -187,6 +188,28 @@ def _within_selected_spaces(
     return kept
 
 
+def _closed_ranges(
+    windows: list[Window], day_range: tuple[datetime, datetime]
+) -> list[ClosedRangeDTO]:
+    grid_start, grid_end = day_range
+    gaps: list[tuple[datetime, datetime]] = []
+    cursor = grid_start
+    # Slots may overlap, so the sweep carries the furthest end seen so far.
+    for start, end in sorted(windows):
+        if start > cursor:
+            gaps.append((cursor, start))
+        cursor = max(cursor, end)
+    if cursor < grid_end:
+        gaps.append((cursor, grid_end))
+    return [
+        ClosedRangeDTO(
+            start_minutes=round((start - grid_start).total_seconds() / 60),
+            duration_minutes=round((end - start).total_seconds() / 60),
+        )
+        for start, end in gaps
+    ]
+
+
 def _day_range(
     day: date, span: tuple[int, int], tz: tzinfo
 ) -> tuple[datetime, datetime]:
@@ -308,6 +331,7 @@ class TimetableService(TimetableServiceProtocol):
             self._build_day_grid(
                 date_to_render=date_to_render,
                 day_range=_day_range(date_to_render, span, tz),
+                windows=windows_by_date[date_to_render],
                 spaces=spaces,
                 all_items=shown_items,
                 states=states,
@@ -340,6 +364,7 @@ class TimetableService(TimetableServiceProtocol):
         *,
         date_to_render: date,
         day_range: tuple[datetime, datetime],
+        windows: list[Window],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
         states: dict[int, SessionPositionState],
@@ -386,6 +411,7 @@ class TimetableService(TimetableServiceProtocol):
                 )
                 for index in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
             ],
+            closed_ranges=_closed_ranges(windows, day_range),
         )
 
     @staticmethod
@@ -708,8 +734,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
         if subject is None:
             raise NotFoundError
-        limits = self._repos.sessions.read_participants_limits({session_pk})
-        return self._detect(subject, context, limit=limits.get(session_pk, 0))
+        return self._detect(subject, context)
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
@@ -768,18 +793,13 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         if not subjects:
             return []
 
-        limits = self._repos.sessions.read_participants_limits(
-            {item.session_id for item in subjects}
-        )
         # Detection is symmetric, so a clash between two subjects is reported
         # once, from the side with the lower session pk.
         subject_pks = {item.session_id for item in subjects}
         all_conflicts = [
             conflict
             for item in subjects
-            for conflict in self._detect(
-                item, context, limit=limits.get(item.session_id, 0)
-            )
+            for conflict in self._detect(item, context)
             if conflict.session_pk >= item.session_id
             or conflict.session_pk not in subject_pks
         ]
@@ -812,14 +832,14 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
 
     def _detect(
-        self, item: AgendaItemDTO, context: _EventConflictContext, *, limit: int
+        self, item: AgendaItemDTO, context: _EventConflictContext
     ) -> list[ConflictDTO]:
         # The space->event invariant is enforced when assignments are created
         # but not by the database, so a stale row degrades to a skipped
         # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
-            *self._capacity_conflicts(item, context.spaces.get(item.space_id), limit),
+            *self._capacity_conflicts(item, context.spaces.get(item.space_id)),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator
             ),
@@ -844,8 +864,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
 
     @staticmethod
     def _capacity_conflicts(
-        item: AgendaItemDTO, space: SpaceDTO | None, limit: int
+        item: AgendaItemDTO, space: SpaceDTO | None
     ) -> list[ConflictDTO]:
+        limit = item.session_participants_limit
         if space is None or space.capacity is None or space.capacity >= limit:
             return []
         return [

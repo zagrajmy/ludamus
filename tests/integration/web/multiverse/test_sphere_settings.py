@@ -394,8 +394,10 @@ class TestSphereSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name=SETTINGS_TEMPLATE,
-            context_data=GENERAL_PANEL_CONTEXT
-            | {"needs_disable_confirmation": True, "lost_logo_change": True},
+            context_data=GENERAL_PANEL_CONTEXT | {
+                "needs_disable_confirmation": True,
+                "lost_logo_change": True,
+            },
         )
         sphere.refresh_from_db()
         assert sphere.encounters_policy == "everyone"
