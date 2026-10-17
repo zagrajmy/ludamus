@@ -44,10 +44,7 @@ class Migration(migrations.Migration):
                 ),
                 ("name", models.CharField(max_length=255)),
                 ("slug", models.SlugField()),
-                (
-                    "search_key",
-                    models.CharField(db_index=True, editable=False, max_length=255),
-                ),
+                ("search_key", models.TextField(db_index=True, editable=False)),
                 (
                     "parent",
                     models.ForeignKey(

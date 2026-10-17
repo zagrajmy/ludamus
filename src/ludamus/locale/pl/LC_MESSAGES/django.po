@@ -4190,6 +4190,10 @@ msgid "users"
 msgstr "użytkownicy"
 
 #: src/ludamus/links/db/django/models.py
+msgid "A tag with children cannot change its category."
+msgstr "Nie można zmienić kategorii tagu, który ma tagi podrzędne."
+
+#: src/ludamus/links/db/django/models.py
 msgid "A tag must belong to its parent's category."
 msgstr "Tag musi należeć do tej samej kategorii co jego rodzic."
 

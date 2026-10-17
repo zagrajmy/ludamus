@@ -214,3 +214,12 @@ class TestTagValidation:
 
         with pytest.raises(ValidationError, match="own ancestor"):
             ttrpg.full_clean()
+
+    def test_category_change_with_children_is_refused(self):
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
+        Tag.objects.create(category=activity, name="OSR", slug="osr", parent=ttrpg)
+        ttrpg.category = TagCategory.objects.create(name="Gatunek", slug="genre")
+
+        with pytest.raises(ValidationError, match="cannot change its category"):
+            ttrpg.full_clean()

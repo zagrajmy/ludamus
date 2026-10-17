@@ -324,10 +324,9 @@ class Tag(models.Model):
     name = models.CharField(max_length=TAG_NAME_MAX_LENGTH)
     slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH)
     # tag_search_key(name): a plain `contains` finds "Mörk Borg" from "mork" on
-    # SQLite as well as Postgres.
-    search_key = models.CharField(
-        max_length=TAG_NAME_MAX_LENGTH, editable=False, db_index=True
-    )
+    # SQLite as well as Postgres. TextField: transliteration outgrows the name
+    # ("北" → "Bei ").
+    search_key = models.TextField(editable=False, db_index=True)
 
     class Meta:
         db_table = "tag"
@@ -349,6 +348,8 @@ class Tag(models.Model):
         # The admin's only path to save; the repository sets search_key itself.
         super().clean()
         self.search_key = tag_search_key(self.name)
+        if self.pk and self.children.exclude(category_id=self.category_id).exists():
+            raise ValidationError(_("A tag with children cannot change its category."))
         if self.parent is None:
             return
         if self.parent.category_id != self.category_id:
