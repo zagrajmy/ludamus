@@ -7,8 +7,6 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import CompanionDTO
 from tests.unit.factories import FakeTransaction, user_dto
 
-_CONFIRMED_COUNT = 3
-
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
 
@@ -30,12 +28,6 @@ class FakeUsers:
         self._users[user_slug] = self._users[user_slug].model_copy(
             update=dict(user_data)
         )
-
-
-class FakeParticipations:
-    @staticmethod
-    def confirmed_count(user_id):
-        return {1: _CONFIRMED_COUNT}.get(user_id, 0)
 
 
 class FakeCompanions:
@@ -70,7 +62,6 @@ def _profile_service(users, avatar_url=None):
     return ProfileService(
         transaction=FakeTransaction(),
         users=users,
-        participations=FakeParticipations(),
         avatar_url=avatar_url or (lambda email: f"https://gravatar/{email}"),
     )
 
@@ -84,12 +75,6 @@ class TestProfileService:
     def test_read_unknown_user_raises(self):
         with pytest.raises(NotFoundError):
             _profile_service(FakeUsers()).read("nobody")
-
-    def test_confirmed_participations_count(self):
-        service = _profile_service(FakeUsers())
-
-        assert service.confirmed_participations_count(1) == _CONFIRMED_COUNT
-        assert service.confirmed_participations_count(2) == 0
 
     def test_update_writes_the_data(self):
         users = FakeUsers(users=[_user_dto()])

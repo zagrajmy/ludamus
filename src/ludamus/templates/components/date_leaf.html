@@ -1,0 +1,20 @@
+{% comment %}
+    A tear-off calendar page: month band, the day (or day range), the weekday
+    (or weekday range) and the start hour. Rendered by the date_leaf tag in
+    date_tags, which works out every line and flag; this only draws them.
+
+    The page follows the theme: paper in light mode, the raised surface in
+    dark mode, so a dark feed never carries a white block.
+{% endcomment %}
+<time datetime="{{ datetime }}"
+      class="relative flex w-[58px] flex-col items-center overflow-hidden rounded-[7px] bg-bg-secondary text-center leading-none tabular-nums text-foreground shadow-[0_3px_10px_rgb(60_40_20/.10),0_1px_2px_rgb(60_40_20/.08)] ring-1 ring-black/8 dark:bg-bg-tertiary dark:shadow-[0_6px_16px_rgb(0_0_0/.32)] dark:ring-white/8">
+    <span class="sr-only">{{ label }}</span>
+    <span aria-hidden="true"
+          class="self-stretch whitespace-nowrap bg-coral-600 pt-1 font-bold uppercase text-white dark:bg-coral-700 {% if band_is_long %}pb-1 text-[9px] tracking-[.02em]{% else %}pb-[3px] text-[10px] tracking-[.12em]{% endif %}">{{ band }}</span>
+    <span aria-hidden="true"
+          class="whitespace-nowrap font-bold {% if is_range %}pt-2 pb-px text-base tracking-[-.045em]{% else %}pt-1.5 text-[26px] tracking-[-.02em]{% endif %} {% if is_sunday %}text-coral-700 dark:text-coral-400{% endif %}">{{ day }}</span>
+    <span aria-hidden="true"
+          class="mt-[3px] whitespace-nowrap font-semibold uppercase {% if is_range %}text-[9px]{% else %}text-[10px] tracking-[.06em]{% endif %} {% if is_today %}text-coral-700 dark:text-coral-300{% else %}text-foreground-muted{% endif %}">{{ weekday }}</span>
+    <span aria-hidden="true"
+          class="mt-[7px] self-stretch whitespace-nowrap border-t border-dashed border-warm-300 pt-[5px] pb-1.5 text-xs font-semibold dark:border-neutral-600 {% if is_ongoing %}text-coral-700 dark:text-coral-300{% endif %}">{{ hour }}</span>
+</time>
