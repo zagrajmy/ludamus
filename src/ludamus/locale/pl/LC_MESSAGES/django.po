@@ -5654,9 +5654,8 @@ msgid "needs their approval"
 msgstr "wymaga ich zgody"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Include %(name)s"
-msgstr "Uwzględnij: %(name)s"
+msgid "Include"
+msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -12768,8 +12767,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
-#~ msgid "Include"
-#~ msgstr "Uwzględnij"
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
 
 #, python-format
 #~ msgid ""
