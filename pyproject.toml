@@ -41,7 +41,7 @@ markdown = "~3.11.0"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~12.3.0"
-posthog = "~7.60.1"
+posthog = "~7.62.1"
 psycopg = "~3.3.6"
 pydantic = "~2.13.5"
 requests = "~2.34.2"
@@ -53,7 +53,7 @@ whitenoise = "~6.12.0"
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
 # NOTE: cabinet is not on PyPI and is not going there; git is its only source.
-cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v1.0.1" }
+cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v3.0.0" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^10.6.0"
@@ -86,7 +86,6 @@ taplo = "^0.9.3"
 tingle = "^0.8.0"
 types-authlib = "^1.7.2.20260724"
 types-requests = "^2.33.0.20261006"
-vekna = "^0.11.0"
 vulture = "^2.16"
 yamllint = "^1.38.0"
 
@@ -625,6 +624,8 @@ ignore_names = [
     # Unused but stays
     "deleted_at",
     "modification_time",
+    # Read only through ORM lookups (search_key__contains)
+    "search_key",
     "test_func",
     # Vekna rituals
     "pr_refresh",

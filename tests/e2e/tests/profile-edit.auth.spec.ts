@@ -3,9 +3,6 @@ import path from "node:path";
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
-// NOTE: Wren Hollis (bootstrap_data.py) is this spec's own participant, with
-// one confirmed seat on Tidewater Games Night. The walkthrough renames her to
-// the same name every run, so it never depends on where the last run left her.
 test.use({ storageState: path.join(__dirname, "..", ".auth-state-profile.json") });
 
 const PROFILE_URL = "/crowd/profile/";
@@ -14,12 +11,12 @@ const OWN_EMAIL = "e2e-profile@test.local";
 const NEW_NAME = "Wren Hollis-Tide";
 
 test.describe("Editing your own profile", () => {
-  test("a taken email is refused with the form kept, then a rename saves and survives a reload next to her confirmed-seats count", async ({
+  test("a taken email is refused, a rename persists, and the signup belongs on the dashboard", async ({
     page,
   }, testInfo) => {
     await page.goto(PROFILE_URL);
     const name = page.getByLabel("Display name");
-    const email = page.getByLabel("email address");
+    const email = page.getByLabel("email address", { exact: true });
 
     await name.fill(NEW_NAME);
     await email.fill(TAKEN_EMAIL);
@@ -39,23 +36,59 @@ test.describe("Editing your own profile", () => {
     await page.reload();
     await expect(name).toHaveValue(NEW_NAME);
     await expect(email).toHaveValue(OWN_EMAIL);
-    const banner = page.getByText(/You have \d+ confirmed session participation/);
-    await expect(banner).toHaveText("You have 1 confirmed session participation.");
+    await expect(page.getByText(/confirmed session participation/)).toHaveCount(0);
+    await expect(page.getByText("Your email address is verified.")).toHaveCount(0);
 
     const facts = {
       displayName: await name.inputValue(),
       email: await email.inputValue(),
-      confirmedBanner: (await banner.innerText()).trim(),
     };
-    expect(facts).toEqual({
-      displayName: NEW_NAME,
-      email: OWN_EMAIL,
-      confirmedBanner: "You have 1 confirmed session participation.",
-    });
+    expect(facts).toEqual({ displayName: NEW_NAME, email: OWN_EMAIL });
     await attachArtifacts(testInfo, {
       name: "profile-edit",
       region: page.getByRole("main"),
       facts,
+    });
+
+    await page.goto("/dashboard/");
+    const comingUp = page.getByRole("region", { name: "Coming up" });
+    const signup = comingUp.getByRole("link", { name: /Lighthouse Mysteries/ });
+    await expect(signup).toContainText("Tidewater Games Night");
+    await expect(signup).toContainText("You're signed up");
+    await expect(signup).toContainText("Chart Room");
+    await expect(signup).toContainText(/\d{1,2} \w+, \d{2}:\d{2}/);
+    await expect(signup).toHaveAttribute(
+      "href",
+      /\/event\/tidewater-night\/session\/\d+\/enrollment\/$/,
+    );
+    await attachArtifacts(testInfo, {
+      name: "profile-dashboard-signup",
+      region: comingUp,
+      facts: { signup: await signup.innerText(), url: await signup.getAttribute("href") },
+    });
+    await signup.click();
+    await expect(
+      page.getByRole("heading", { name: "Lighthouse Mysteries", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("profile and dashboard remain readable on a narrow viewport", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(PROFILE_URL);
+    await expect(page.getByLabel("Display name")).toBeVisible();
+    await expect(page.getByText(/confirmed session participation/)).toHaveCount(0);
+    await attachArtifacts(testInfo, {
+      name: "profile-mobile",
+      region: page.getByRole("main"),
+      facts: { viewport: page.viewportSize() },
+    });
+    await page.goto("/dashboard/");
+    const comingUp = page.getByRole("region", { name: "Coming up" });
+    await expect(comingUp.getByRole("link", { name: /Lighthouse Mysteries/ })).toBeVisible();
+    await attachArtifacts(testInfo, {
+      name: "dashboard-mobile",
+      region: page.getByRole("main"),
+      facts: { viewport: page.viewportSize() },
     });
   });
 });

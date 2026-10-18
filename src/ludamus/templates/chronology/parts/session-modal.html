@@ -169,17 +169,9 @@
                 {# sessions), so the two never repeat the same sentence. #}
                 {% if not enroll_actions and current_user %}
                     {% if data.user_enrolled %}
-                        <div class="pt-4 border-t border-border">
-                            <div class="alert alert-success inline-flex items-center gap-2 text-sm">
-                                {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
-                            </div>
-                        </div>
+                        <p class="text-sm text-foreground-secondary">{% translate "You are enrolled in this session" %}</p>
                     {% elif data.user_waiting %}
-                        <div class="pt-4 border-t border-border">
-                            <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
-                                {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
-                            </div>
-                        </div>
+                        <p class="text-sm text-foreground-secondary">{% translate "You are on the waiting list" %}</p>
                     {% endif %}
                 {% endif %}
             </div>
