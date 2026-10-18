@@ -95,8 +95,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         return TemplateResponse(
             self.request,
             "multiverse/panel/sphere-settings.html",
-            base
-            | {
+            base | {
                 "form": form,
                 "needs_disable_confirmation": needs_confirmation,
                 "lost_logo_change": lost_logo_change,
