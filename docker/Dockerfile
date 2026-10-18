@@ -112,6 +112,9 @@ RUN mise run build-frontend && mise run dj compilemessages
 # inject must run here, before the runtime collectstatic hashes the files
 # it annotates.
 ARG POSTHOG_CLI_ENV_ID
+# NOTE: BuildKit leaves secret mounts out of the cache key, so without this
+# flag a deploy that only adds the token would reuse the cached skip.
+ARG POSTHOG_SOURCEMAPS_ARMED
 RUN --mount=type=secret,id=posthog_cli_token,mode=0444 \
     if [ -s /run/secrets/posthog_cli_token ] && [ -n "$POSTHOG_CLI_ENV_ID" ]; then \
         POSTHOG_CLI_TOKEN="$(cat /run/secrets/posthog_cli_token)" mise run posthog-sourcemaps; \

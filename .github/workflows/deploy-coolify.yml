@@ -146,6 +146,7 @@ jobs:
             ENV=production
             DJANGO_SETTINGS_MODULE=ludamus.edges.settings
             POSTHOG_CLI_ENV_ID=${{ vars.POSTHOG_CLI_ENV_ID }}
+            POSTHOG_SOURCEMAPS_ARMED=${{ secrets.POSTHOG_CLI_TOKEN != '' }}
           # NOTE: the action rejects a secret with an empty value, so the
           # token is passed only when the Environment has one. Without it,
           # the Dockerfile skips the source-map upload.
