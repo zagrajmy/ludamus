@@ -309,7 +309,6 @@ allowed-confusables = ["–", "×"]
     "ANN",    # flake8-annotations
     "ARG001", # Unused arguments
     "E501",   # Line too long
-    "ICN001", # Unconventional import alias
     "RUF012", # ClassVar
 ]
 "tests/**.py" = [
