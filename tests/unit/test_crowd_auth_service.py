@@ -1,5 +1,5 @@
 import math
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -8,7 +8,7 @@ from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDTO
 from ludamus.pacts.services import DatabaseConstraintError
-from tests.unit.factories import FakeTransaction, email_unavailable, user_dto
+from tests.unit.factories import FakeTransaction, user_dto
 
 _TOKEN_LENGTH = 64
 
@@ -21,12 +21,14 @@ def _user_dto(**overrides) -> UserDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=()):
+    def __init__(self, *, users=(), taken=()):
         self._users = list(users)
-        self._existing_emails = set(existing_emails)
+        # Unavailable address -> slug of the account holding or reserving it.
+        self._taken = dict(taken)
         self.created = []
         self.updated = []
         self.email_checks = []
+        self.checked_at = []
 
     def create(self, user_data):
         self.created.append(dict(user_data))
@@ -58,12 +60,8 @@ class FakeUsers:
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
         self.email_checks.append((email, exclude_slug))
-        return (
-            email_unavailable(
-                self._users, email=email, now=now, exclude_slug=exclude_slug
-            )
-            or email in self._existing_emails
-        )
+        self.checked_at.append(now)
+        return email in self._taken and self._taken[email] != exclude_slug
 
     def slug_exists(self, slug):
         return any(user.slug == slug for user in self._users)
@@ -144,16 +142,6 @@ class FakeSpheres:
         return domain in self._domains
 
 
-def _reserving(address, *, slug="other"):
-    # Another account asked for `address` an hour ago; its link still proves it.
-    return _user_dto(
-        slug=slug,
-        username=slug,
-        pending_email=address,
-        email_verification_sent_at=datetime.now(UTC) - timedelta(hours=1),
-    )
-
-
 def _service(*, users, claims=None, spheres=None):
     return CrowdAuthService(
         transaction=FakeTransaction(),
@@ -220,8 +208,9 @@ class TestClaimServiceRedeem:
 
 class TestProvisionUser:
     def test_create_strips_duplicate_email_and_reports_conflict(self):
-        users = FakeUsers(existing_emails={"taken@example.com"})
+        users = FakeUsers(taken={"taken@example.com": "other"})
         service = _service(users=users)
+        before = datetime.now(UTC)
 
         result = service.provision_user(
             username="auth0|sub",
@@ -241,6 +230,7 @@ class TestProvisionUser:
             }
         ]
         assert result.email_conflict is True
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
 
     def test_create_without_conflict_reports_none(self):
         users = FakeUsers()
@@ -305,17 +295,6 @@ class TestProvisionUser:
         assert result.claim_outcome == ClaimOutcome.INVALID
         assert not users.created
 
-    def test_address_another_account_is_confirming_is_dropped_on_create(self):
-        users = FakeUsers(users=[_reserving("dup@example.com")])
-
-        result = _service(users=users).provision_user(
-            username="auth0|sub",
-            create_data={"username": "auth0|sub", "email": "dup@example.com"},
-        )
-
-        assert result.email_conflict is True
-        assert not users.created[0]["email"]
-
     def test_converted_claim_returns_the_claimed_profile(self):
         users = FakeUsers(users=[_user_dto(slug="kid", username="auth0|sub")])
         claims = FakeClaims(
@@ -345,9 +324,7 @@ class TestProvisionUser:
         assert result.user.username == "auth0|sub"
 
     def test_taken_email_is_dropped_on_create(self):
-        users = FakeUsers(
-            users=[_user_dto(slug="other", username="x", email="dup@example.com")]
-        )
+        users = FakeUsers(taken={"dup@example.com": "other"})
 
         result = _service(users=users).provision_user(
             username="auth0|sub",
@@ -481,8 +458,10 @@ class TestSyncIdentity:
 
     def test_someone_elses_email_is_not_synced(self):
         users = FakeUsers(
-            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")]
+            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")],
+            taken={"theirs@example.com": "other"},
         )
+        before = datetime.now(UTC)
 
         result = _service(users=users).sync_identity(
             user_slug="auth0user", data={"email": "theirs@example.com", "name": "New"}
@@ -491,19 +470,28 @@ class TestSyncIdentity:
         assert users.updated == [("auth0user", {"name": "New"})]
         assert result.name == "New"
         assert not result.email
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
 
-    def test_address_another_account_is_confirming_is_not_synced(self):
-        users = FakeUsers(users=[_user_dto(), _reserving("theirs@example.com")])
+    def test_claim_without_the_flag_adopts_the_address_unverified(self):
+        users = FakeUsers(users=[_user_dto()])
 
         _service(users=users).sync_identity(
-            user_slug="auth0user",
-            data={"email": "theirs@example.com", "email_verified": True},
+            user_slug="auth0user", data={"email": "new@example.com"}
         )
 
-        assert not users.updated
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": False,
+                    "pending_email": "",
+                },
+            )
+        ]
 
     def test_own_pending_address_proven_by_the_provider_is_adopted(self):
-        users = FakeUsers(users=[_reserving("new@example.com", slug="auth0user")])
+        users = FakeUsers(users=[_user_dto()], taken={"new@example.com": "auth0user"})
 
         _service(users=users).sync_identity(
             user_slug="auth0user",
@@ -522,9 +510,7 @@ class TestSyncIdentity:
         ]
 
     def test_nothing_left_to_sync_skips_the_write(self):
-        users = FakeUsers(
-            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")]
-        )
+        users = FakeUsers(users=[_user_dto()], taken={"theirs@example.com": "other"})
 
         result = _service(users=users).sync_identity(
             user_slug="auth0user", data={"email": "theirs@example.com"}

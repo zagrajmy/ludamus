@@ -12,7 +12,7 @@ from ludamus.pacts.crowd import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
-from tests.unit.factories import email_unavailable, user_dto
+from tests.unit.factories import user_dto
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
@@ -31,12 +31,14 @@ class FakeTransaction:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=(), constraint_on_email=None):
+    def __init__(self, *, users=(), taken=(), constraint_on_email=None):
         self._users = {user.slug: user for user in users}
-        self._existing_emails = set(existing_emails)
+        # Unavailable address -> slug of the account holding or reserving it.
+        self._taken = dict(taken)
         self._constraint_on_email = constraint_on_email
         self.updated = []
         self.claimed = []
+        self.checked_at = []
 
     def read(self, slug):
         return self._users[slug]
@@ -58,12 +60,8 @@ class FakeUsers:
         )
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
-        return (
-            email_unavailable(
-                self._users.values(), email=email, now=now, exclude_slug=exclude_slug
-            )
-            or email in self._existing_emails
-        )
+        self.checked_at.append(now)
+        return email in self._taken and self._taken[email] != exclude_slug
 
     def claim_verification_send(self, *, user_slug, now, throttle):
         user = self._users[user_slug]
@@ -390,10 +388,10 @@ class TestRequestChange:
 
     def test_taken_address_is_rejected_without_writes(self):
         users = FakeUsers(
-            users=[_user(email="old@example.com")],
-            existing_emails={"taken@example.com"},
+            users=[_user(email="old@example.com")], taken={"taken@example.com": "other"}
         )
         service = _service(users)
+        before = datetime.now(UTC)
 
         outcome = service.request_change(
             user_slug="auth0user", new_address="taken@example.com"
@@ -401,25 +399,13 @@ class TestRequestChange:
 
         assert outcome == ChangeRequestOutcome.TAKEN
         assert not users.updated
-
-    def test_address_another_account_is_confirming_is_taken(self):
-        reserving = _user(
-            slug="other",
-            pk=2,
-            pending_email="new@example.com",
-            email_verification_sent_at=datetime.now(UTC) - timedelta(hours=1),
-        )
-        users = FakeUsers(users=[_user(email="old@example.com"), reserving])
-
-        outcome = _service(users).request_change(
-            user_slug="auth0user", new_address="new@example.com"
-        )
-
-        assert outcome == ChangeRequestOutcome.TAKEN
-        assert not users.updated
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
 
     def test_recasing_own_address_is_not_taken_by_oneself(self):
-        users = FakeUsers(users=[_user(email="Old@example.com")])
+        users = FakeUsers(
+            users=[_user(email="Old@example.com")],
+            taken={"old@example.com": "auth0user"},
+        )
 
         outcome = _service(users).request_change(
             user_slug="auth0user", new_address="old@example.com"

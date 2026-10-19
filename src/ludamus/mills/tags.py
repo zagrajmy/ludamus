@@ -8,6 +8,7 @@ from ludamus.mills.submissions.mapping import slugify
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
+    TAG_SLUG_MAX_LENGTH,
     TagImportReportDTO,
     TagOptionDTO,
     TagServiceProtocol,
@@ -141,7 +142,12 @@ def _parse(row: ImportTagRowDict) -> TagWriteDict | str:
         return "category and name are required"
     if len(name) > TAG_NAME_MAX_LENGTH:
         return f"name is longer than {TAG_NAME_MAX_LENGTH} characters"
-    if not (slug := slugify(row["slug"] or name)):
+    # NOTE: slugify's default width equals TAG_SLUG_MAX_LENGTH, so dropping
+    # the argument is an equivalent mutant while the two agree.
+    slug = slugify(
+        row["slug"] or name, max_length=TAG_SLUG_MAX_LENGTH
+    )  # pragma: no mutate
+    if not slug:
         return f"cannot make a slug from {name!r}"
     return {
         "category_slug": category,

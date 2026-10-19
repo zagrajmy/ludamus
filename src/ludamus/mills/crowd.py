@@ -184,11 +184,10 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def _identity_updates(self, *, user: UserDTO, data: UserData) -> UserData:
         updates = data.copy()
-        claim_email = updates.pop("email") if "email" in updates else ""
-        claim_verified = (
-            updates.pop("email_verified") if "email_verified" in updates else False
-        )
-        if "avatar_url" in updates and updates["avatar_url"] == user.avatar_url:
+        # NOTE: a None default would read the same as "" in _email_updates.
+        claim_email = updates.pop("email", "")  # pragma: no mutate
+        claim_verified = updates.pop("email_verified", False)
+        if updates.get("avatar_url") == user.avatar_url:
             del updates["avatar_url"]
         if "name" in updates and (user.name or "").strip():
             del updates["name"]

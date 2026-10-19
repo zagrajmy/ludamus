@@ -128,9 +128,9 @@ def _service(team):
     return team_mills.SphereTeamService(transaction=FakeTransaction(), team=team)
 
 
-def _assert_judged_now(team, *, before, reads):
+def _assert_judged_now(team, *, before, expected_calls):
     after = datetime.now(tz=UTC)
-    assert len(team.clock) == len(reads)
+    assert len(team.clock) == expected_calls
     assert all(before <= moment <= after for moment in team.clock)
 
 
@@ -206,7 +206,7 @@ class TestAccept:
             ("add", SPHERE_PK, NEWCOMER_PK, SphereRole.COMMS),
             ("accept", INVITATION_PK, NEWCOMER_PK),
         ]
-        _assert_judged_now(team, before=before, reads=("lock", "mark accepted"))
+        _assert_judged_now(team, before=before, expected_calls=2)
 
     def test_a_member_is_told_so_before_the_link_is_even_considered(self):
         # Their own spent link must not read as dead to them.
@@ -243,7 +243,7 @@ class TestJoinPage:
             sphere_id=SPHERE_PK, token="tok", viewer_id=None
         )
 
-        _assert_judged_now(team, before=before, reads=("read",))
+        _assert_judged_now(team, before=before, expected_calls=1)
         assert not team.role_lookups
         assert page == JoinPageDTO(
             sphere_name=f"Sphere {SPHERE_PK}",
@@ -275,4 +275,4 @@ class TestOpenInvitationsAreJudgedNow:
         assert service.list_open_invitations(sphere_id=SPHERE_PK) == [invitation]
         assert service.revoke(sphere_id=SPHERE_PK, pk=INVITATION_PK)
 
-        _assert_judged_now(team, before=before, reads=("list", "revoke"))
+        _assert_judged_now(team, before=before, expected_calls=2)
