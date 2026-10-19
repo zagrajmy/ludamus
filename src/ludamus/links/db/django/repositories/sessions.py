@@ -773,8 +773,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 start_time=row["agenda_item__start_time"],
                 end_time=row["agenda_item__end_time"],
                 room_name=row["agenda_item__space__name"] or "",
-            )
-            for row in rows
+            ) for row in rows
         ]
 
     @staticmethod
