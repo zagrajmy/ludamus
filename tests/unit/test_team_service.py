@@ -48,8 +48,7 @@ class StubTeam:
         self.open_invitation = open_invitation
         self.add_succeeds = add_succeeds
         self.created = []
-        self.added = []
-        self.accepted = []
+        self.writes = []
         self.clock = []
         self.role_lookups = []
 
@@ -104,12 +103,12 @@ class StubTeam:
         return self.member_role if is_newcomer else None
 
     def add_member(self, *, sphere_id, user_id, role):
-        self.added.append((sphere_id, user_id, role))
+        self.writes.append(("add", sphere_id, user_id, role))
         return self.add_succeeds
 
     def mark_accepted(self, *, pk, user_id, now):
         self.clock.append(now)
-        self.accepted.append((pk, user_id))
+        self.writes.append(("accept", pk, user_id))
 
     def _is_open(self, *, sphere_id, pk):
         return self.open_invitation is not None and (sphere_id, pk) == (
@@ -203,8 +202,10 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.JOINED
-        assert team.added == [(SPHERE_PK, NEWCOMER_PK, SphereRole.COMMS)]
-        assert team.accepted == [(INVITATION_PK, NEWCOMER_PK)]
+        assert team.writes == [
+            ("add", SPHERE_PK, NEWCOMER_PK, SphereRole.COMMS),
+            ("accept", INVITATION_PK, NEWCOMER_PK),
+        ]
         _assert_judged_now(team, before=before, reads=("lock", "mark accepted"))
 
     def test_a_member_is_told_so_before_the_link_is_even_considered(self):
@@ -214,8 +215,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.ALREADY_MEMBER
-        assert not team.added
-        assert not team.accepted
+        assert not team.writes
 
     def test_a_link_that_is_not_open_grants_nothing(self):
         team = StubTeam(open_invitation=None)
@@ -223,7 +223,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.INVALID
-        assert not team.added
+        assert not team.writes
 
     def test_losing_the_race_to_a_second_link_leaves_this_one_unspent(self):
         team = StubTeam(open_invitation=_invitation(), add_succeeds=False)
@@ -231,7 +231,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.ALREADY_MEMBER
-        assert not team.accepted
+        assert team.writes == [("add", SPHERE_PK, NEWCOMER_PK, SphereRole.MANAGER)]
 
 
 class TestJoinPage:
