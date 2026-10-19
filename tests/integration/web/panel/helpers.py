@@ -306,8 +306,7 @@ def grid_with(
                     # A block sits on one day, and `sessions_by_space` places
                     # it on the first one.
                     sessions=sessions.get(space.pk, []) if index == 0 else [],
-                )
-                for space in space_dtos
+                ) for space in space_dtos
             ],
             event_start_iso=start.isoformat(),
             total_minutes=total_minutes,
@@ -318,8 +317,7 @@ def grid_with(
                 for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
             ],
             closed_ranges=closed_ranges or [],
-        )
-        for index, start in enumerate(day_starts)
+        ) for index, start in enumerate(day_starts)
     ]
     return TimetableGridDTO(
         spaces=space_dtos,
