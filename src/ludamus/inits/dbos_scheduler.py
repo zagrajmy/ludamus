@@ -8,9 +8,10 @@ of work live here:
   until the offer deadline and then runs ``WaitlistPromotionService
   .expire_offer`` (behind ``OfferExpirySchedulerProtocol`` so it is swappable
   with the cron sweep);
-- ``@DBOS.scheduled`` cron workflows for the periodic sweeps, so they run
-  in-process without external cron. Each tick fires once across all gunicorn
-  workers (DBOS dedups on schedule name + tick in the system database).
+- cron workflows for the periodic sweeps, registered as named DBOS schedules
+  at launch (``DBOS.apply_schedules``), so they run in-process without
+  external cron. Each tick fires once across all gunicorn workers (DBOS dedups
+  on schedule name + tick in the system database).
 
 The per-offer timers and the offers sweep intentionally coexist. The timer
 hands a freed seat to the next waiting party at the exact deadline — during a
@@ -28,19 +29,29 @@ this module (or running the rest of the suite) never starts DBOS.
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from dbos import DBOS
 from django.conf import settings
+from django.db import connection, transaction
 
 from ludamus.inits.builders import (
+    build_announcement_fanout,
+    build_email_verification,
+    build_encounters,
     build_konwencik_export,
     build_printables_reminder,
+    build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +63,10 @@ _launch_lock = threading.Lock()
 # go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
+VERIFICATION_REMINDERS_SCHEDULE = "30 7 * * *"
+# Recovery floor for announcement fanouts whose workflow was lost between
+# commit and start; the claim on notified_at keeps a double run harmless.
+ANNOUNCEMENT_FANOUT_SCHEDULE = "*/5 * * * *"
 # One cadence for every event, not a per-event knob: the export is a full
 # rewrite, so re-running is free and nothing accumulates between ticks. The
 # sweep is already bounded by sync-on and event-not-long-finished.
@@ -60,9 +75,26 @@ KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
 # publishing is an editorial act, and a burst of mail on the exact tick
 # would catch the organizer's own last-second fixes.
 SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
+# Rows only wait out the one-day invite window, so daily is enough.
+ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
+
+
+def _releases_db_connection[**P](step: Callable[P, None]) -> Callable[P, None]:
+    # NOTE: DBOS runs steps on its own long-lived threads, where Django's
+    # request signals never fire, so each thread would hold an idle Postgres
+    # connection forever.
+    @functools.wraps(step)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+        try:
+            step(*args, **kwargs)
+        finally:
+            connection.close()
+
+    return wrapper
 
 
 @DBOS.step()
+@_releases_db_connection
 def _expire_offer_step(participation_id: int) -> None:
     # Re-offers produced by the expiry stay durable by reusing this scheduler.
     build_waitlist_promotion(DBOSOfferExpiryScheduler()).expire_offer(
@@ -77,52 +109,129 @@ def _expire_offer_workflow(participation_id: int, delay_seconds: float) -> None:
 
 
 @DBOS.step()
+@_releases_db_connection
 def _expire_lapsed_offers_step(now: datetime) -> None:
     service = build_waitlist_promotion(DBOSOfferExpiryScheduler())
     expired = service.expire_lapsed_offers(now=now)
     logger.info("expire_offers sweep: processed %s lapsed offer(s)", expired)
 
 
-@DBOS.scheduled(EXPIRE_OFFERS_SCHEDULE)
 @DBOS.workflow()
 def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
     _expire_lapsed_offers_step(scheduled)
 
 
 @DBOS.step()
+@_releases_db_connection
+def _fanout_announcement_step(announcement_id: int) -> None:
+    notified = build_announcement_fanout().fanout(announcement_id)
+    logger.info(
+        "announcement fanout: announcement=%s notified %s subscriber(s)",
+        announcement_id,
+        notified,
+    )
+
+
+@DBOS.workflow()
+def _fanout_announcement_workflow(announcement_id: int) -> None:
+    _fanout_announcement_step(announcement_id)
+
+
+@DBOS.step()
+@_releases_db_connection
+def _fanout_due_announcements_step() -> None:
+    if notified := build_announcement_fanout().fanout_due():
+        logger.info("announcement fanout sweep: notified %s subscriber(s)", notified)
+
+
+@DBOS.workflow()
+def announcement_fanout_sweep(_scheduled: datetime, _actual: datetime) -> None:
+    _fanout_due_announcements_step()
+
+
+@DBOS.step()
+@_releases_db_connection
 def _send_printables_reminders_step(now: datetime) -> None:
     reminded = build_printables_reminder().send_due_reminders(now=now)
     logger.info("printables reminders: reminded %s event(s)", reminded)
 
 
-@DBOS.scheduled(PRINTABLES_REMINDERS_SCHEDULE)
 @DBOS.workflow()
 def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
     _send_printables_reminders_step(scheduled)
 
 
 @DBOS.step()
+@_releases_db_connection
+def _send_verification_reminders_step(now: datetime) -> None:
+    sent = build_email_verification().send_due_reminders(now=now)
+    logger.info("verification reminders: reminded %s user(s)", sent)
+
+
+@DBOS.workflow()
+def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
+    _send_verification_reminders_step(scheduled)
+
+
+@DBOS.step()
+@_releases_db_connection
 def _announce_published_events_step(now: datetime) -> None:
     announced = build_sphere_subscriptions().announce_published_events(now=now)
     logger.info("sphere announcements: announced %s event(s)", announced)
 
 
-@DBOS.scheduled(SPHERE_ANNOUNCEMENTS_SCHEDULE)
 @DBOS.workflow()
 def sphere_announcements_tick(scheduled: datetime, _actual: datetime) -> None:
     _announce_published_events_step(scheduled)
 
 
 @DBOS.step()
+@_releases_db_connection
 def _export_konwencik_step(now: datetime) -> None:
     exported = build_konwencik_export().run_sweep(now=now)
     logger.info("konwencik export sweep: exported %s integration(s)", exported)
 
 
-@DBOS.scheduled(KONWENCIK_EXPORT_SCHEDULE)
 @DBOS.workflow()
 def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
     _export_konwencik_step(scheduled)
+
+
+@DBOS.step()
+@_releases_db_connection
+def _purge_encounter_invitees_step(now: datetime) -> None:
+    build_encounters(build_sites()).purge_stale_invitees(now=now)
+
+
+@DBOS.workflow()
+def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None:
+    _purge_encounter_invitees_step(scheduled)
+
+
+CRON_WORKFLOWS = (
+    (expire_offers_sweep, EXPIRE_OFFERS_SCHEDULE),
+    (printables_reminders_tick, PRINTABLES_REMINDERS_SCHEDULE),
+    (verification_reminders_tick, VERIFICATION_REMINDERS_SCHEDULE),
+    (announcement_fanout_sweep, ANNOUNCEMENT_FANOUT_SCHEDULE),
+    (sphere_announcements_tick, SPHERE_ANNOUNCEMENTS_SCHEDULE),
+    (konwencik_export_tick, KONWENCIK_EXPORT_SCHEDULE),
+    (encounter_invitee_purge_tick, ENCOUNTER_INVITEE_PURGE_SCHEDULE),
+)
+
+
+def _apply_schedules() -> None:
+    # Upsert by name, so every launch (and every worker) converges on the same
+    # definitions; cadence edits in this module take effect on the next launch.
+    DBOS.apply_schedules(
+        [
+            {
+                "schedule_name": workflow.__name__,
+                "workflow_fn": workflow,
+                "schedule": cron,
+            }
+            for workflow, cron in CRON_WORKFLOWS
+        ]
+    )
 
 
 def _ensure_launched() -> None:
@@ -135,22 +244,16 @@ def _ensure_launched() -> None:
             config={
                 "name": "ludamus",
                 "system_database_url": settings.DBOS_SYSTEM_DATABASE_URL,
-                "run_admin_server": False,
+                # Per gunicorn worker; the default 20 exhausts Postgres slots.
+                "sys_db_pool_size": 2,
             }
         )
         DBOS.launch()
+        _apply_schedules()
         _launched.set()
         logger.info(
             "DBOS launched; schedules active: %s",
-            [
-                w.__name__
-                for w in (
-                    expire_offers_sweep,
-                    printables_reminders_tick,
-                    sphere_announcements_tick,
-                    konwencik_export_tick,
-                )
-            ],
+            [workflow.__name__ for workflow, _cron in CRON_WORKFLOWS],
         )
 
 
@@ -172,3 +275,16 @@ class DBOSOfferExpiryScheduler:
         _ensure_launched()
         delay = max(0.0, (run_at - datetime.now(UTC)).total_seconds())
         DBOS.start_workflow(_expire_offer_workflow, participation_id, delay)
+
+
+class DBOSAnnouncementFanoutScheduler:
+    @staticmethod
+    def schedule_fanout(*, announcement_id: int) -> None:
+        _ensure_launched()
+        # ATOMIC_REQUESTS holds the announcement row uncommitted until the
+        # request ends; a zero-delay workflow started now would race the commit
+        # and find nothing to claim. After commit the row is visible; a crash
+        # in between loses only the trigger, and the sweep recovers it.
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_fanout_announcement_workflow, announcement_id)
+        )

@@ -10,11 +10,14 @@ from ludamus.links.db.django.models import (
     Guild,
     GuildMembership,
     Notification,
+    NotificationSubscription,
     Party,
     PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
     SphereMembership,
+    Tag,
+    TagCategory,
     TimeSlot,
     Track,
 )
@@ -148,6 +151,13 @@ class TestModelStringRepresentations:
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
 
+    def test_notification_subscription_str(self, active_user, sphere):
+        subscription = NotificationSubscription.objects.create(
+            user=active_user, sphere=sphere, source="visit"
+        )
+
+        assert str(subscription) == f"{active_user.pk} follows {sphere}"
+
     def test_discount_rule_str(self, event):
         rule = DiscountRule.objects.create(
             event=event,
@@ -182,3 +192,34 @@ class TestPartyMembershipConstraint:
 
         with pytest.raises(IntegrityError), transaction.atomic():
             PartyMembership.objects.create(party=party, member=active_user)
+
+
+@pytest.mark.django_db
+class TestTagValidation:
+    def test_parent_from_another_category_is_refused(self):
+        genre = TagCategory.objects.create(name="Gatunek", slug="genre")
+        horror = Tag.objects.create(category=genre, name="Horror", slug="horror")
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        tag = Tag(category=activity, name="Mörk Borg", slug="mork-borg", parent=horror)
+
+        with pytest.raises(ValidationError, match="parent's category"):
+            tag.full_clean()
+
+    def test_reparenting_under_own_descendant_is_refused(self):
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
+        ttrpg.parent = Tag.objects.create(
+            category=activity, name="OSR", slug="osr", parent=ttrpg
+        )
+
+        with pytest.raises(ValidationError, match="own ancestor"):
+            ttrpg.full_clean()
+
+    def test_category_change_with_children_is_refused(self):
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
+        Tag.objects.create(category=activity, name="OSR", slug="osr", parent=ttrpg)
+        ttrpg.category = TagCategory.objects.create(name="Gatunek", slug="genre")
+
+        with pytest.raises(ValidationError, match="cannot change its category"):
+            ttrpg.full_clean()

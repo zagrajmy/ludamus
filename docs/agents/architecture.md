@@ -406,6 +406,21 @@ and uses its own access mixin keyed off `current_sphere_id` without an
 - **First feature:** sphere-scoped import-connections CRUD
   ("Połączenia importu" subpage)
 
+#### Pages: Team and invitations
+
+Who runs a sphere (`SphereMembership`: Manager or Comms) and the single-use
+links that add to it (`SphereInvitation`, expiring after
+`specs.permissions.INVITATION_LIFETIME`, withdrawable while open).
+
+- **URLs:** `/multiverse/panel/team/…` (`multiverse:panel:team*`) and the
+  landing page `/multiverse/join/<token>/` (`multiverse:join`), which stays
+  open in a private sphere so an invitee can reach it
+- **Views:** `gates/web/django/sphere/team.py`
+- **Templates:** `templates/multiverse/panel/team.html`,
+  `templates/multiverse/join.html`
+- **Pacts/Mills/Links:** `pacts/team.py`, `mills/team.py`,
+  `links/db/django/team.py`; lifetime in `specs/permissions.py`
+
 `Sphere` ORM models and repositories continue to live in
 `links/db/django/models.py` and `links/db/django/repositories.py` per the
 split-when-big rule; they are not moved into a sphere-named file.
@@ -486,13 +501,12 @@ User profile management and delegate (connected) accounts.
   `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`
 - **Templates:** `templates/crowd/user/edit.html`, `avatar.html`,
   `parties.html`, `shadowbans.html`, `crowd/claim.html`
-- **Services:** `ProfileService` (self-profile reads/updates, avatar,
-  confirmed-participation count), `CompanionsService` (connected-user
+- **Services:** `ProfileService` (self-profile reads/updates and avatar
+  preferences), `CompanionsService` (connected-user
   CRUD), `ClaimService` (issue/redeem claim links), `ShadowbanService`
 - **DTOs:** `UserDTO`, `ConnectedUserDTO`, `AvatarPageDTO`, `UserData`,
   `UserType` (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
-- **Repositories:** `UserRepository`, `ConnectedUserRepository`,
-  `ProfileStatsRepository`
+- **Repositories:** `UserRepository`, `ConnectedUserRepository`
 - **External integration:** `MembershipApiClient` (`links/ticket_api.py`)
   — fetches enrollment quotas; Gravatar (`links/gravatar.py`) —
   email-hash avatar
@@ -515,13 +529,13 @@ owns them.
 
 <!-- markdownlint-disable MD013 -->
 
-| Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation`                |
 
 <!-- markdownlint-enable MD013 -->
 

@@ -9,6 +9,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     columns,
     discounts,
     event_settings,
+    export,
     facilitators,
     google_docs_import,
     index,
@@ -27,6 +28,7 @@ from ludamus.gates.web.django.event.panel.views import (
     discount_settings,
     enrollment_settings,
     errata,
+    event_create,
     facilitator_actions,
     facilitator_edit,
     konwencik_export,
@@ -120,6 +122,9 @@ _timetable_urlpatterns = [
 
 urlpatterns = [
     path("", index.PanelIndexRedirectView.as_view(), name="index"),
+    path(
+        "events/new/", event_create.EventCreatePageView.as_view(), name="event-create"
+    ),
     path("event/<slug:slug>/", index.EventIndexPageView.as_view(), name="event-index"),
     path(
         "event/<slug:slug>/settings/",
@@ -305,6 +310,11 @@ urlpatterns = [
         name="proposal-columns",
     ),
     path(
+        "event/<slug:slug>/proposals/export/",
+        export.ProposalExportPageView.as_view(),
+        name="proposal-export",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/history/",
         proposals.ProposalHistoryPageView.as_view(),
         name="proposal-history",
@@ -452,6 +462,11 @@ urlpatterns = [
         name="facilitator-columns",
     ),
     path(
+        "event/<slug:slug>/facilitators/export/",
+        export.FacilitatorExportPageView.as_view(),
+        name="facilitator-export",
+    ),
+    path(
         "event/<slug:slug>/facilitators/do/bulk-action",
         facilitators.FacilitatorBulkActionView.as_view(),
         name="facilitator-bulk-action",
@@ -523,7 +538,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/discounts/export/",
-        discounts.DiscountExportPageView.as_view(),
+        export.DiscountExportPageView.as_view(),
         name="discount-export",
     ),
     path(

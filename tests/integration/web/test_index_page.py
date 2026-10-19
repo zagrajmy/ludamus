@@ -92,7 +92,11 @@ class TestIndexRedirectView:
             HTTPStatus.OK,
             context_data={
                 "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                    agenda=[],
+                    open_encounters=[],
+                    sphere_feed=[],
+                    discover=[],
+                    past_events=[],
                 ),
                 "can_create_encounter": True,
             },
@@ -555,6 +559,30 @@ class TestEventsPageView:
 
     def test_unpublished_event_hidden_for_anonymous(self, client, non_root_sphere):
         EventFactory(sphere=non_root_sphere, publication_time=None)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_unlisted_event_hidden_for_anonymous_even_once_published(
+        self, client, non_root_sphere
+    ):
+        EventFactory(
+            sphere=non_root_sphere,
+            publication_time=datetime.now(UTC) - timedelta(days=1),
+            visibility="unlisted",
+        )
 
         response = client.get(self.URL)
 

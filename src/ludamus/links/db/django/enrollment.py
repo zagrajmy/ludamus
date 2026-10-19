@@ -198,7 +198,6 @@ class ParticipationPromotionRepository:
                     has_conflict=participation.user_id in conflicted,
                     owner_slots_remaining=slots_by_owner[recipient.pk],
                     recipient_user_id=recipient.pk,
-                    recipient_email=recipient.email or "",
                 )
             )
 
@@ -349,6 +348,23 @@ class ParticipationPromotionRepository:
             participation.session_id, participation.claim_token
         )
 
+    def read_offer_for_member(
+        self, *, user_id: int, session_id: int
+    ) -> OfferDTO | None:
+        token = (
+            SessionParticipation.objects.filter(
+                user_id=user_id,
+                session_id=session_id,
+                status=SessionParticipationStatus.OFFERED,
+            )
+            .exclude(claim_token="")
+            .values_list("claim_token", flat=True)
+            .first()
+        )
+        if token is None:
+            return None
+        return self._read_locked_party(session_id, token)
+
     def _read_locked_party(self, session_id: int, token: str) -> OfferDTO | None:
         # Lock the party's still-OFFERED rows for the caller's transaction so
         # claim and expiry serialise; the loser re-reads an empty set and no-ops.
@@ -373,7 +389,7 @@ class ParticipationPromotionRepository:
         event_slug = session.event.slug
         sponsors = sponsors_by_member(p.user for p in party)
         recipients = distinct_recipients(
-            (recipient.pk, recipient.email or "")
+            recipient.pk
             for recipient in (sponsors.get(p.user.pk, p.user) for p in party)
         )
         return OfferDTO(

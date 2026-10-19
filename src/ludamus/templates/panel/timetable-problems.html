@@ -39,7 +39,7 @@
                                         {% if conflict.type == "space_overlap" %}
                                             {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
                                         {% elif conflict.type == "capacity_exceeded" %}
-                                            {% blocktranslate with capacity=conflict.space_capacity limit=conflict.session_limit %}Room fits {{ capacity }} people, session requires {{ limit }}{% endblocktranslate %}
+                                            {% blocktranslate with limit=conflict.session_limit count capacity=conflict.space_capacity %}Room fits {{ capacity }} person, session requires {{ limit }}{% plural %}Room fits {{ capacity }} people, session requires {{ limit }}{% endblocktranslate %}
                                         {% elif conflict.type == "facilitator_overlap" %}
                                             {% blocktranslate with name=conflict.facilitator_name title=conflict.session_title %}{{ name }} facilitates simultaneously: {{ title }}{% endblocktranslate %}
                                         {% endif %}

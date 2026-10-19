@@ -266,7 +266,7 @@ class SessionContentEditServiceProtocol(Protocol):
 
 class SessionConfirmationServiceProtocol(Protocol):
     def set_session_confirmed(
-        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+        self, event_pk: int, session_pk: int, *, confirmed: bool
     ) -> None: ...
 
 
@@ -455,6 +455,13 @@ class TimeLabelDTO(BaseModel):
     offset_minutes: int
 
 
+class ClosedRangeDTO(BaseModel):
+    # A stretch of the day's axis no time slot covers. A drop there is
+    # accepted and widens the day, so the grid greys it instead of refusing it.
+    start_minutes: int
+    duration_minutes: int
+
+
 class SpaceColumnDTO(BaseModel):
     space: SpaceDTO
     sessions: list[SessionPositionDTO] = []
@@ -478,6 +485,7 @@ class TimetableDayGridDTO(BaseModel):
     # mostly empty, on every day of the event.
     total_minutes: int
     time_labels: list[TimeLabelDTO]
+    closed_ranges: list[ClosedRangeDTO]
 
 
 class MultiselectOptionDTO(BaseModel):

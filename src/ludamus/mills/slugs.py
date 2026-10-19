@@ -18,7 +18,7 @@ def unique_slug(*, base: str, default: str, exists: Callable[[str], bool]) -> st
     # `base` arrives already slugified — mills can't import Django's slugify,
     # so the gate does that half. Cap after the fallback so an over-long
     # default can't overflow either.
-    capped = (base or default)[:_SLUG_BASE_MAX_LENGTH]
+    capped = (default if base == "" else base)[:_SLUG_BASE_MAX_LENGTH]
     slug = capped
     for _attempt in range(4):
         if not exists(slug):

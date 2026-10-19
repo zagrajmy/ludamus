@@ -7,9 +7,11 @@ from django.core import signing
 from freezegun import freeze_time
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR
+from ludamus.gates.mcp.tools import build_registry
 from ludamus.gates.web.django.mcp.tokens import SIGNING_SALT, mint_token
 from ludamus.links.db.django.models import Announcement, Event, Space
-from tests.integration.conftest import EventFactory, UserFactory
+from ludamus.pacts.mcp import ToolScope
+from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 
 URL = "/mcp/"
@@ -203,21 +205,23 @@ class TestProtocol:
             client, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=token
         )
 
-        tools = response.json()["result"]["tools"]
-        assert [tool["name"] for tool in tools] == [
+        tools = {tool["name"]: tool for tool in response.json()["result"]["tools"]}
+        organizer_names = [
+            tool["name"] for tool in build_registry(ToolScope.ORGANIZER).describe()
+        ]
+        assert list(tools) == [
             "list_spheres",
-            "get_sphere",
-            "list_events",
-            "get_event",
-            "create_event",
-            "list_announcements",
             "create_announcement",
             "update_announcement",
             "delete_announcement",
+            *organizer_names,
         ]
-        schema = tools[1]["inputSchema"]
-        assert schema["required"] == ["sphere_id"]
-        assert schema["properties"]["sphere_id"]["type"] == "integer"
+        assert tools["get_sphere"]["inputSchema"]["required"] == ["sphere_id"]
+        assert tools["create_space"]["inputSchema"]["required"] == [
+            "sphere_id",
+            "event_id",
+            "name",
+        ]
 
     def test_unknown_method(self, client, token):
         response = post_message(
@@ -437,6 +441,28 @@ class TestTools:
         assert result["content"][0]["text"] == message
         assert not Event.objects.filter(name="Bad input").exists()
 
+    def test_create_event_rejects_unknown_fields(self, client, token, sphere):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Unknown field",
+                "slug": "unknown-field",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "address": "Zgorzelec",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: address: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="unknown-field").exists()
+
     def test_create_event_rejects_publication_after_start(self, client, token, sphere):
         response = call_tool(
             client,
@@ -616,3 +642,115 @@ class TestAudit:
         post_message(client, {"jsonrpc": "2.0", "id": 1, "method": "ping"}, token=token)
 
         assert audit_records(caplog) == []
+
+
+class TestOrganizerToolsForMaintainers:
+    def test_update_sphere_settings_takes_the_sphere_as_an_argument(
+        self, client, token, sphere
+    ):
+        other = SphereFactory()
+
+        updated = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "update_sphere_settings",
+                    {"sphere_id": sphere.pk, "visibility": "unlisted"},
+                )
+            )
+        )
+
+        sphere.refresh_from_db()
+        other.refresh_from_db()
+        assert sphere.visibility == "unlisted"
+        assert other.visibility == "public"
+        assert updated["visibility"] == "unlisted"
+
+    def test_event_write_lands_in_the_named_event(self, client, token, sphere):
+        event = EventFactory(sphere=sphere)
+        sibling = EventFactory(sphere=sphere)
+
+        space = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "create_space",
+                    {"sphere_id": sphere.pk, "event_id": event.pk, "name": "Aula"},
+                )
+            )
+        )
+
+        assert Space.objects.get(pk=space["pk"]).event_id == event.pk
+        assert not Space.objects.filter(event=sibling).exists()
+
+    def test_update_event_makes_it_unlisted(self, client, token, sphere):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        updated = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "update_event",
+                    {
+                        "sphere_id": sphere.pk,
+                        "event_id": event.pk,
+                        "visibility": "unlisted",
+                    },
+                )
+            )
+        )
+
+        event.refresh_from_db()
+        assert event.visibility == "unlisted"
+        assert updated["visibility"] == "unlisted"
+
+    def test_event_from_another_sphere_is_not_found(self, client, token, sphere):
+        foreign = EventFactory(sphere=SphereFactory())
+
+        response = call_tool(
+            client,
+            token,
+            "create_space",
+            {"sphere_id": sphere.pk, "event_id": foreign.pk, "name": "Aula"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Space.objects.filter(name="Aula").exists()
+
+    def test_missing_target_is_reported_with_the_tools_own_errors(
+        self, client, token, sphere
+    ):
+        response = call_tool(client, token, "create_space", {"sphere_id": sphere.pk})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: event_id: Field required; name: Field required"
+        )
+
+    def test_batch_call_audit_names_the_target(
+        self, client, token, superuser, sphere, caplog
+    ):
+        event = EventFactory(sphere=sphere)
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(
+            client,
+            token,
+            "create_sessions",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "sessions": []},
+        )
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args[6] == {
+            "sphere_id": sphere.pk,
+            "event_id": event.pk,
+            "session_count": 0,
+            "source_row_ids": [],
+        }

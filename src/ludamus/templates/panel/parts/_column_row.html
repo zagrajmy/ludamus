@@ -1,7 +1,7 @@
 {% load i18n tessera %}
 {# One list column: the checkbox decides whether it shows, the row's position decides where. #}
 <li data-column-row
-    class="flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-2{% if not shown %} opacity-60{% endif %}">
+    class="flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-2 opacity-60 has-checked:opacity-100">
     <div class="flex-1">
         {% include "components/checkbox-field.html" with name="columns" value=column.key checked=shown label=label %}
     </div>

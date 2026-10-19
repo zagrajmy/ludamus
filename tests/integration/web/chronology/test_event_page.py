@@ -30,7 +30,6 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
-    EventSettings,
     SessionBookmark,
     SessionField,
     SessionFieldOption,
@@ -132,7 +131,7 @@ _PROPOSALS_IN_QUEUE = 5
 # rather than merely "constant in the session count": a prefetch graph
 # nothing reads (#1063) adds a fixed number of queries per page, which a
 # constant-in-N check never sees.
-_EVENT_PAGE_QUERIES = 17
+_EVENT_PAGE_QUERIES = 16
 
 
 class TestEventPageView:
@@ -192,7 +191,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -212,7 +210,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -483,8 +480,6 @@ class TestEventPageView:
             icon="puzzle-piece",
         )
         SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
-        event_settings, _ = EventSettings.objects.get_or_create(event=event)
-        event_settings.displayed_session_fields.add(game_type)
 
         response = client.get(self._get_url(event.slug))
 
@@ -868,7 +863,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=False,
                 scheduled_count=1,
@@ -877,14 +871,10 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_ok_live_event_card_slot_shows_now_and_propose(
-        self, agenda_item, client, event
-    ):
+    def test_ok_live_event_card_slot_shows_now(self, agenda_item, client, event):
         now = timezone.now()
         event.start_time = now - timedelta(hours=2)
         event.end_time = now + timedelta(days=1)
-        event.proposal_start_time = now - timedelta(days=1)
-        event.proposal_end_time = now + timedelta(days=1)
         event.save()
         agenda_item.start_time = now - timedelta(minutes=30)
         agenda_item.end_time = now + timedelta(hours=1)
@@ -906,7 +896,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
-                current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -915,7 +904,6 @@ class TestEventPageView:
         )
         content = response.content.decode()
         assert re.search(r">\s*Now\s*</span>", content)
-        assert re.search(r">\s*Propose\s*</span>", content)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
@@ -1033,7 +1021,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -1107,7 +1094,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data=hour_data,
-                future_unavailable_hour_data=hour_data,
                 sessions=cards,
                 track_filter_names=[track_a.name, track_b.name],
                 category_filter_names=[category_b.name, category_a.name],
@@ -1172,7 +1158,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data=hour_data,
-                future_unavailable_hour_data=hour_data,
                 sessions=visible,
                 category_filter_names=sorted(
                     session.category.name for session in (untracked, public_only)
@@ -1237,7 +1222,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -1261,8 +1245,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["a", "b", "c", "d", "e"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -1291,7 +1273,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 filterable_tag_categories=[_field_dto(session_field)],
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -1359,7 +1340,6 @@ class TestEventPageView:
             filterable_tag_categories=[_field_dto(session_field)] if filterable else [],
             category_filter_names=sorted(s.category.name for s in sessions),
             hour_data=hour_data,
-            future_unavailable_hour_data=hour_data,
             sessions=cards,
             total_enrolled=len(cards),
             has_enrollable_sessions=True,
@@ -1384,9 +1364,8 @@ class TestEventPageView:
             presenter=session.presenter,
             enrolled_count=1,
             category_name=session.category.name,
-            # The field is public but not on the event's displayed list, so it
-            # reaches the card's values without a display row.
             field_values=[field_value_dto],
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
@@ -1624,7 +1603,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -1650,7 +1628,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -1677,7 +1654,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -1952,7 +1928,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 scheduled_count=1,
                 has_enrollable_sessions=True,
@@ -2103,7 +2078,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 total_enrolled=1,
@@ -2144,7 +2118,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2185,7 +2158,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 scheduled_count=1,
@@ -2236,7 +2208,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2275,7 +2246,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                ended_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2313,7 +2283,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2510,7 +2479,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 anonymous_code=user.slug.split("_")[1],
                 anonymous_user_enrollments=[participation],
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 total_enrolled=1,
@@ -2555,7 +2523,6 @@ class TestEventPageView:
                 event,
                 url=self._get_url(event.slug),
                 access=ENROLLMENT_OPEN,
-                current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2582,8 +2549,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["RPG"]
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2623,7 +2588,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2655,8 +2619,6 @@ class TestEventPageView:
             field=session_field,
             value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2686,7 +2648,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 filterable_tag_categories=[_field_dto(session_field)],
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2695,10 +2656,9 @@ class TestEventPageView:
             contains=["+2", "Echo", "Foxtrot"],
         )
 
-    def test_ok_session_with_non_displayed_field_excluded_from_rows(
+    def test_ok_session_with_hidden_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
     ):
-        """Field values not in displayed_session_fields are excluded from rows."""
         session_field = SessionField.objects.create(
             event=event,
             name="RPG System",
@@ -2706,6 +2666,7 @@ class TestEventPageView:
             slug="rpg-system",
             field_type="text",
             is_public=True,
+            show_on_cards=False,
         )
         session = agenda_item.session
         SessionFieldValue.objects.create(
@@ -2738,6 +2699,7 @@ class TestEventPageView:
                     field_slug="rpg-system",
                     field_type="text",
                     is_public=True,
+                    show_on_cards=False,
                     value="D&D 5e",
                 )
             ],
@@ -2750,7 +2712,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2775,8 +2736,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value="D&D 5e"
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2816,7 +2775,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2842,8 +2800,6 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=True
         )
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(session_field)
 
         response = client.get(self._get_url(event.slug))
 
@@ -2883,7 +2839,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 has_enrollable_sessions=True,
@@ -2906,6 +2861,22 @@ class TestEventPageView:
             HTTPStatus.FOUND,
             url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
+        )
+
+    def test_unlisted_event_opens_for_anonymous_before_publication(
+        self, client, sphere
+    ):
+        event = EventFactory(
+            sphere=sphere, publication_time=None, visibility="unlisted"
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
         )
 
     def test_unpublished_event_redirects_regular_user_to_events_list(
@@ -2992,7 +2963,6 @@ class TestEventPageEditAffordance:
                 event,
                 url=self._get_url(event.slug),
                 hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,

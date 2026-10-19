@@ -1,8 +1,11 @@
-from typing import TYPE_CHECKING
+import calendar
+from datetime import timedelta
+from typing import TYPE_CHECKING, TypedDict
 
 from django import template
 from django.utils import timezone
 from django.utils.formats import date_format, get_format, time_format
+from django.utils.translation import gettext as _
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -60,3 +63,75 @@ def format_datetime_range(obj: DateTimeRangeProtocol) -> str:
     return _format_date_range(
         timezone.localtime(obj.start_time), timezone.localtime(obj.end_time)
     )
+
+
+# A game night that runs 19:00–01:00 is one evening on a calendar, not two
+# days, so the small hours count towards the day before.
+_DAY_ROLLOVER = timedelta(hours=6)
+
+
+class DateLeaf(TypedDict):
+    band: str
+    band_is_long: bool
+    datetime: str
+    day: str
+    hour: str
+    is_ongoing: bool
+    is_range: bool
+    is_sunday: bool
+    is_today: bool
+    label: str
+    weekday: str
+
+
+@register.inclusion_tag("components/date_leaf.html")
+def date_leaf(start: datetime, end: datetime | None = None) -> DateLeaf:
+    """Lay a start (and optional end) out as a tear-off calendar page.
+
+    Returns:
+        The page's lines: the month band, the day or day range, the weekday
+        or weekday range and the start hour, plus the flags that colour them.
+    """
+    start = timezone.localtime(start)
+    finish = timezone.localtime(end) if end else start
+    first = start.date()
+    last = max(first, (finish - _DAY_ROLLOVER).date())
+    now = timezone.localtime()
+    is_range = last != first
+    if (first.year, first.month) == (last.year, last.month):
+        band = date_format(first, format="b")
+        # Past items reach back past New Year, where "paź" alone is ambiguous.
+        if first.year != now.year:
+            band = f"{band} {first.year}"
+    else:
+        # NOTE: a range across New Year has no room for a year on a 58 px
+        # page; its months already say which way it runs.
+        band = f"{date_format(first, format='b')}–{date_format(last, format='b')}"
+    if is_range:
+        day = f"{first.day}–{last.day}"
+        weekday = f"{date_format(first, format='D')}–{date_format(last, format='D')}"
+    else:
+        day = str(first.day)
+        weekday = date_format(first, format="D")
+    label = (
+        _format_date_range(start, finish)
+        if end
+        else f"{date_format(start, format=_short_spec(with_year=True))}, {_time(start)}"
+    )
+    is_today = not is_range and first == now.date()
+    is_ongoing = is_range and start <= now <= finish
+    return {
+        "band": band,
+        "band_is_long": len(band) > len("paź"),
+        "datetime": start.isoformat(),
+        "day": day,
+        # A 58 px page has no room for "12:30 p.m.", so the page itself keeps
+        # to the 24-hour clock; the spoken label follows the locale.
+        "hour": _("ongoing") if is_ongoing else date_format(start, format="H:i"),
+        "is_ongoing": is_ongoing,
+        "is_range": is_range,
+        "is_sunday": not is_range and first.weekday() == calendar.SUNDAY,
+        "is_today": is_today,
+        "label": label,
+        "weekday": _("today") if is_today else weekday,
+    }

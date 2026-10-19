@@ -3,24 +3,28 @@
 {% block title %}
     {% translate "Edit profile" %}
 {% endblock title %}
+{% block email_verification_banner %}
+{% endblock email_verification_banner %}
 {% block profile_content %}
-    {% if confirmed_participations_count > 0 %}
-        <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
-            {% icon "calendar-days" class="w-5 h-5 shrink-0" %}
-            <span>
-                {% blocktranslate count counter=confirmed_participations_count %}
-                                You have {{ counter }} confirmed session participation.
-                            {% plural %}
-                                You have {{ counter }} confirmed session participations.
-                            {% endblocktranslate %}
-            </span>
-        </div>
-    {% endif %}
     <form action="{% url 'web:crowd:profile' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
           method="post">
         {% csrf_token %}
-        {% tessera_form form %}
+        {% tessera_errors form %}
+        {% for field in form %}
+            {% if field.name == "email" %}
+                {% if user.pending_email or user.email and not user.email_verified %}
+                    {% tessera_field field label_action_template="crowd/user/_email_verify_action.html" %}
+                {% else %}
+                    {% tessera_field field %}
+                {% endif %}
+            {% else %}
+                {% tessera_field field %}
+            {% endif %}
+        {% endfor %}
         {% translate "Save" as t_save %}
         {% tessera_button t_save %}
     </form>
+    {% if user.pending_email or user.email and not user.email_verified %}
+        {% include "crowd/user/_email_verify_modal.html" %}
+    {% endif %}
 {% endblock profile_content %}

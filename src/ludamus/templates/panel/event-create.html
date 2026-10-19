@@ -1,0 +1,28 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "New event" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "New event" %}
+{% endblock page_title %}
+{% block content %}
+    <div class="panel-bleed">
+        <div class="card card-body max-w-xl">
+            {% if not events %}
+                <p class="mb-4 text-sm text-foreground-muted">
+                    {% translate "This sphere has no events yet. Create the first one to open the panel." %}
+                </p>
+            {% endif %}
+            <form method="post" action="" class="space-y-4" data-submit-once>
+                {% csrf_token %}
+                {% tessera_form form %}
+                <div class="flex justify-end gap-2 border-t border-border pt-4">
+                    {% translate "Create event" as t_create %}
+                    {% tessera_button t_create %}
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock content %}

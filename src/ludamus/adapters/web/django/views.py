@@ -3,13 +3,10 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from email import message_from_bytes, policy
 from enum import StrEnum, auto
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -51,7 +48,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
     build_room_lanes,
     build_schedule_days,
-    group_sessions_by_state,
 )
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
@@ -66,7 +62,6 @@ from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
-    EventSettings,
     Session,
     SessionParticipation,
     SessionParticipationStatus,
@@ -148,53 +143,6 @@ class DesignPageView(TemplateView):
         return context
 
 
-class CapturedEmail(NamedTuple):
-    subject: str
-    to: str
-    date: str
-    body: str
-
-
-def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
-    if not directory.exists():
-        return []
-    emails: list[CapturedEmail] = []
-    for log_file in sorted(directory.glob("*.log"), reverse=True):
-        for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
-            if not (raw := chunk.strip()):
-                continue
-            message = message_from_bytes(raw, policy=policy.default)
-            body = message.get_body(preferencelist=("plain", "html"))
-            emails.append(
-                CapturedEmail(
-                    subject=str(message["Subject"] or ""),
-                    to=str(message["To"] or ""),
-                    date=str(message["Date"] or ""),
-                    body=body.get_content() if body else "",
-                )
-            )
-    return emails
-
-
-class StagingEmailInboxView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        if not settings.EMAIL_FILE_PATH or not self.request.user.is_staff:
-            raise Http404
-        return TemplateResponse(
-            self.request,
-            "staging_email_inbox.html",
-            {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
-        )
-
-
-def _get_displayed_field_ids(event: Event) -> set[int]:
-    with suppress(EventSettings.DoesNotExist):
-        return set(event.settings.displayed_session_fields.values_list("id", flat=True))
-    return set()
-
-
 def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:
     # One read of these users' seats on the page's sessions; a seat held by
     # any of them marks the card.
@@ -233,7 +181,7 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
 
-        if not self.object.is_published and not has_panel_access(self.request):
+        if not self.object.is_open and not has_panel_access(self.request):
             raise Http404
 
         # Every published session of this event, as flat rows. A private track
@@ -301,12 +249,9 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
 
         # The day-major grouping only feeds the card-grid layout; the compact
         # schedule renders from schedule_days instead, so skip the pass there.
-        card_days: list[CardDay] = []
-        if not compact_schedule:
-            ended, current, future_unavailable = group_sessions_by_state(sessions_data)
-            card_days = build_card_days(
-                ended=ended, current=current, future_unavailable=future_unavailable
-            )
+        card_days: list[CardDay] = (
+            [] if compact_schedule else build_card_days(hour_data)
+        )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
         # The compact schedule offers two layouts: the chronological ledger
@@ -639,12 +584,11 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
             earliest_limit_end_time = min(config.end_time for config in limit_configs)
 
         # Set displayed field values and display status for each session
-        displayed_field_ids = _get_displayed_field_ids(self.object)
         for session_data in sessions_data.values():
             session_data.displayed_field_rows = [
                 build_display_field_row(fv)
                 for fv in session_data.field_values
-                if fv.field_id in displayed_field_ids
+                if fv.show_on_cards
             ]
 
             if session_data.agenda_item is None:
@@ -1532,7 +1476,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     session_id=session.pk,
                     session_title=session.title,
                     user_id=member.pk,
-                    user_email=member.email,
                     party_id=party_pk,
                     actor_name=actor_name,
                 )
@@ -1551,7 +1494,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             self.request.services.parties.announce_member_enrolled(
                 PartyEnrolledNotification(
                     recipient_user_id=member.pk,
-                    recipient_email=member.email,
                     actor_name=actor_name,
                     session_id=session.pk,
                     session_title=session.title,

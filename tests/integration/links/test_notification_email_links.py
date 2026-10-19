@@ -28,7 +28,6 @@ class TestEmailLink:
             DjangoUserNotifier().notify_offered(
                 OfferNotification(
                     recipient_user_id=session.presenter_id,
-                    recipient_email="waiter@example.com",
                     session_id=session.pk,
                     session_title=session.title,
                     event_slug=session.event.slug,
@@ -49,7 +48,6 @@ class TestEmailLink:
             DjangoUserNotifier().notify_shadowbanned_signup(
                 ShadowbanSignupNotification(
                     recipient_user_id=active_user.pk,
-                    recipient_email="organizer@example.com",
                     event_slug="con-2026",
                     event_name="Con 2026",
                     session_title="Deniable Game",
@@ -70,7 +68,6 @@ class TestEmailLink:
             DjangoUserNotifier().notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=active_user.pk,
-                    recipient_email="invitee@example.com",
                     actor_name="Kobold",
                     party_name="Drużyna",
                 )
@@ -90,7 +87,6 @@ class TestEmailLink:
             DjangoUserNotifier().notify_promoted(
                 PromotionNotification(
                     recipient_user_id=active_user.pk,
-                    recipient_email="waiter@example.com",
                     session_id=404_404,
                     session_title="Gone Game",
                     event_slug="con-2026",
@@ -104,6 +100,24 @@ class TestEmailLink:
         assert _mailed_link(mailoutbox) == f"https://zagrajmy.example.net{path}"
         assert "No sphere host for session 404404" in caplog.text
 
+    def test_unproven_recipient_gets_the_bell_but_no_mail(
+        self, mailoutbox, django_capture_on_commit_callbacks, active_user
+    ):
+        active_user.email_verified = False
+        active_user.save(update_fields=["email_verified"])
+
+        with django_capture_on_commit_callbacks(execute=True):
+            DjangoUserNotifier().notify_party_invited(
+                PartyInviteNotification(
+                    recipient_user_id=active_user.pk,
+                    actor_name="Kobold",
+                    party_name="Drużyna",
+                )
+            )
+
+        assert mailoutbox == []
+        assert Notification.objects.filter(recipient=active_user).exists()
+
     @override_settings(ROOT_DOMAIN="localhost:8000")
     def test_local_hosts_keep_http(
         self, mailoutbox, django_capture_on_commit_callbacks, active_user
@@ -112,7 +126,6 @@ class TestEmailLink:
             DjangoUserNotifier().notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=active_user.pk,
-                    recipient_email="invitee@example.com",
                     actor_name="Kobold",
                     party_name="Drużyna",
                 )

@@ -86,6 +86,13 @@ pattern = '#\s*pragma'
 ranges = ["python-tests"]
 
 [[metrics]]
+name = "no-mutate-pragma"
+type = "regex_count"
+group = "testing"
+pattern = '#\s*pragma:\s*no mutate(?!\s+end)'
+ranges = ["python-src"]
+
+[[metrics]]
 base = "tingle.builtins.unittest_mock.any_used"
 name = "mock-ANY"
 ranges = ["python-tests"]

@@ -197,6 +197,7 @@ class TestEventSettingsPageViewPost:
             "slug": event.slug,
             "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
             "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
+            "visibility": event.visibility,
         }
         data.update(overrides)
         return data
@@ -257,6 +258,20 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.name == new_name
+
+    def test_makes_the_event_unlisted(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, visibility="unlisted")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.visibility == "unlisted"
 
     def test_normalizes_address_lines(self, panel_client, event):
         response = panel_client.post(

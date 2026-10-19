@@ -7,6 +7,7 @@ from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
+from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     DomainEnrollmentConfig,
@@ -14,7 +15,6 @@ from ludamus.links.db.django.models import (
     Event,
     EventIntegration,
     EventPanelSettings,
-    EventSettings,
     Session,
     SessionParticipation,
     Space,
@@ -31,8 +31,6 @@ from ludamus.pacts import (
     EventDTO,
     EventListItemDTO,
     EventRepositoryProtocol,
-    EventSettingsDTO,
-    EventSettingsRepositoryProtocol,
     EventStatsData,
     EventUpdateData,
     NotFoundError,
@@ -269,7 +267,7 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def list_for_events_page(
-        sphere_id: int, *, include_unpublished: bool
+        sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]:
         session_count = Coalesce(
             Subquery(
@@ -285,8 +283,8 @@ class EventRepository(EventRepositoryProtocol):
         events = Event.objects.filter(sphere_id=sphere_id).annotate(
             session_count=session_count
         )
-        if not include_unpublished:
-            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+        if not include_hidden:
+            events = events.filter(listed_events(now=datetime.now(tz=UTC)))
         return [
             EventListItemDTO.model_validate(event)
             for event in events.order_by("start_time")
@@ -388,23 +386,6 @@ class EventRepository(EventRepositoryProtocol):
             raise NotFoundError from exception
 
         save_replacing_files(event, data)
-
-
-class EventSettingsRepository(EventSettingsRepositoryProtocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventSettingsDTO:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        return EventSettingsDTO(
-            pk=settings.pk,
-            displayed_session_field_ids=list(
-                settings.displayed_session_fields.values_list("pk", flat=True)
-            ),
-        )
-
-    @staticmethod
-    def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
-        settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
-        settings.displayed_session_fields.set(field_ids)
 
 
 class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):

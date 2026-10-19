@@ -72,7 +72,7 @@ class EventsPageView(AudienceCachedResponseMixin, TemplateView):
         )
         events = split_events(
             self.request.services.events.list_for_sphere(
-                sphere_id, include_unpublished=has_panel_access(self.request)
+                sphere_id, include_hidden=has_panel_access(self.request)
             )
         )
         # Listed encounters for everyone, plus the ones this visitor organises

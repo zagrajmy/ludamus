@@ -9,7 +9,23 @@ const countPdfPages = (pdf: Buffer) => {
 };
 
 test.describe("Public print page", () => {
-  test("defaults to the participant program, one sheet per day", async ({ page }) => {
+  test("participant program prints one page per sheet, each headed", async ({
+    browserName,
+    page,
+  }) => {
+    test.skip(browserName !== "chromium", "page.pdf is Chromium-only");
+    for (const url of [densePrintUrl, `${densePrintUrl}?descriptions=1`]) {
+      await page.emulateMedia({ media: "screen" });
+      await page.goto(url);
+      const sheets = page.getByRole("region", { name: "Print preview" }).getByRole("group");
+      await expect(sheets.getByText(/^Sheet 1 of \d+$/).first()).toBeVisible();
+      await page.emulateMedia({ media: "print" });
+      const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+      expect(countPdfPages(pdf), url).toBe(await sheets.count());
+    }
+  });
+
+  test("defaults to the participant program, one run of sheets per day", async ({ page }) => {
     await page.goto(densePrintUrl);
 
     await expect(page.getByLabel("Printable")).toHaveValue("session-list");
@@ -19,7 +35,9 @@ test.describe("Public print page", () => {
 
     const preview = page.getByRole("region", { name: "Print preview" });
     const sheets = preview.getByRole("group");
-    await expect(sheets).toHaveCount(3);
+    // Three days, each starting a run of sheets; continuations say so.
+    const continued = page.getByText(/^Sheet ([2-9]|\d{2,}) of \d+$/);
+    await expect(sheets.filter({ hasNot: continued })).toHaveCount(3);
     const rows = sheets.nth(0).getByRole("row");
     await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
     await expect(sheets.nth(0)).toContainText("Open Play B");
@@ -50,7 +68,7 @@ test.describe("Public print page", () => {
 
     const preview = page.getByRole("region", { name: "Print preview" });
     const previewPages = preview.getByRole("group");
-    await expect(previewPages).toHaveCount(21);
+    await expect(previewPages).toHaveCount(22);
     await expect(previewPages.nth(0)).toContainText("Workshop Studio - RPG Table 2");
     await expect(previewPages.nth(6)).toContainText("Open Play B");
 
@@ -99,6 +117,23 @@ test.describe("Public print page", () => {
       expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
       expect(countPdfPages(pdf)).toBe(await previewPages.count());
     }
+  });
+
+  test("dense door cards print one page per sheet, each headed", async ({ browserName, page }) => {
+    test.skip(browserName !== "chromium", "page.pdf is Chromium-only");
+    await page.goto(`${densePrintUrl}?material=door-cards`);
+
+    // Every printed page is a sheet that names its room and day: nothing
+    // spills onto a page without them.
+    const sheets = page.getByRole("region", { name: "Print preview" }).getByRole("group");
+    for (const sheet of await sheets.all()) {
+      await expect(sheet.getByRole("heading", { level: 2 })).toHaveCount(1);
+      await expect(sheet.getByRole("heading", { level: 3 })).toHaveCount(1);
+    }
+
+    await page.emulateMedia({ media: "print" });
+    const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+    expect(countPdfPages(pdf)).toBe(await sheets.count());
   });
 
   test("offers dense-fixture printable materials", async ({ page }) => {

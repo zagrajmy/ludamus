@@ -15,7 +15,7 @@ from ludamus.pacts.event import (
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
 )
-from ludamus.pacts.legacy import TrackDTO
+from ludamus.pacts.legacy import SessionStatus, TrackDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import timetable_tab_urls
@@ -74,7 +74,7 @@ def _session_dto(session, item=None, **overrides):
             "room_name": item.space.name if item else "",
             "start_time": item.start_time if item else None,
             "end_time": item.end_time if item else None,
-            "agenda_item_pk": item.pk if item else None,
+            "is_scheduled": item is not None,
             "is_confirmed": bool(item and item.session_confirmed),
             "co_facilitator_names": [],
             "other_track_names": [],
@@ -428,7 +428,8 @@ class TestConfirmationsPageView:
                                     contact_email=item.session.contact_email,
                                     status_groups=[
                                         ConfirmationStatusGroupDTO(
-                                            status="scheduled",
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
                                             sessions=[_session_dto(item.session, item)],
                                         )
                                     ],
@@ -522,11 +523,13 @@ class TestConfirmationsPageView:
                                     contact_email="ada@example.com",
                                     status_groups=[
                                         ConfirmationStatusGroupDTO(
-                                            status="scheduled",
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
                                             sessions=[_session_dto(scheduled, item)],
                                         ),
                                         ConfirmationStatusGroupDTO(
-                                            status="on_hold",
+                                            status=SessionStatus.ON_HOLD,
+                                            is_scheduled=False,
                                             sessions=[_session_dto(on_hold)],
                                         ),
                                     ],
@@ -545,6 +548,96 @@ class TestConfirmationsPageView:
                     scheduled_count=1,
                     confirmed_count=1,
                     progress_pct=100,
+                    without_facilitator_count=0,
+                ),
+            ),
+        )
+
+    def test_unplaced_session_with_a_stale_flag_is_not_counted_as_confirmed(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        # Only a placed session can be confirmed. The flag lives on the session
+        # and is cleared by hand at several sites, so a session that lost its
+        # agenda item while still flagged must not inflate the card — the
+        # dashboard totals count over agenda items and would disagree.
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="RPG", slug="rpg", is_public=True
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Ada", slug="ada", organizer=active_user
+        )
+        placed = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            title="Dragons",
+            contact_email="ada@example.com",
+        )
+        placed.facilitators.add(facilitator)
+        placed.tracks.add(track)
+        item = AgendaItemFactory(session=placed, session_confirmed=False)
+        stale = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            title="Orphan",
+            contact_email="ada@example.com",
+            schedule_confirmed=True,
+        )
+        stale.facilitators.add(facilitator)
+        stale.tracks.add(track)
+
+        url = f"{self.get_url(event)}?track={track.pk}"
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=2,
+                    scheduled_sessions=1,
+                    total_proposals=2,
+                    total_sessions=1,
+                ),
+                all_tracks=[TrackDTO.model_validate(track)],
+                filter_track_pk=track.pk,
+                dashboard=None,
+                next_url=url,
+                track_view=ConfirmationTrackViewDTO(
+                    facilitators=[
+                        ConfirmationFacilitatorDTO(
+                            display_name="Ada",
+                            organizer_name=active_user.name,
+                            organizer_id=active_user.pk,
+                            pk=facilitator.pk,
+                            slug="ada",
+                            email_groups=[
+                                ConfirmationEmailGroupDTO(
+                                    contact_email="ada@example.com",
+                                    status_groups=[
+                                        ConfirmationStatusGroupDTO(
+                                            status=SessionStatus.ACCEPTED,
+                                            is_scheduled=True,
+                                            sessions=[_session_dto(placed, item)],
+                                        )
+                                    ],
+                                    confirmable_count=1,
+                                )
+                            ],
+                            scheduled_count=1,
+                            confirmed_count=0,
+                            unplaced_count=1,
+                            pending_count=0,
+                            is_fully_confirmed=False,
+                        )
+                    ],
+                    facilitator_count=1,
+                    unclaimed_facilitator_count=0,
+                    scheduled_count=1,
+                    confirmed_count=0,
+                    progress_pct=0,
                     without_facilitator_count=0,
                 ),
             ),

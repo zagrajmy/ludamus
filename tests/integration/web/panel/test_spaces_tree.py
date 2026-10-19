@@ -167,6 +167,12 @@ class TestSpacesTreePage:
                             programme_order=room.programme_order,
                             track_names=[],
                         ),
+                        "location": {
+                            "location_label": room.name,
+                            "location_crumbs": [
+                                {"name": room.name, "space_filter": None}
+                            ],
+                        },
                         "tracks": [],
                     }
                 ],

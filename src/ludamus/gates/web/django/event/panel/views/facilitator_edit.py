@@ -114,7 +114,7 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
             context["facilitator"] = facilitator
             context["form"] = form
             context["field_descriptors"] = personal_descriptors(
-                all_personal_fields, fields_form
+                fields=all_personal_fields, form=fields_form
             )
             context.update(
                 _guild_attach(

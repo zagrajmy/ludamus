@@ -22,6 +22,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ClosedRangeDTO,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -101,19 +102,15 @@ def _position_sessions(
         return []
 
     groups: list[list[AgendaItemDTO]] = []
-    current_group: list[AgendaItemDTO] = []
     group_end: datetime | None = None
 
     for item in items:
         if group_end is None or item.start_time >= group_end:
-            if current_group:
-                groups.append(current_group)
-            current_group = [item]
+            groups.append([item])
             group_end = item.end_time
         else:
-            current_group.append(item)
+            groups[-1].append(item)
             group_end = max(group_end, item.end_time)
-    groups.append(current_group)
 
     positions: list[SessionPositionDTO] = []
     for group in groups:
@@ -191,6 +188,28 @@ def _within_selected_spaces(
     return kept
 
 
+def _closed_ranges(
+    windows: list[Window], day_range: tuple[datetime, datetime]
+) -> list[ClosedRangeDTO]:
+    grid_start, grid_end = day_range
+    gaps: list[tuple[datetime, datetime]] = []
+    cursor = grid_start
+    # Slots may overlap, so the sweep carries the furthest end seen so far.
+    for start, end in sorted(windows):
+        if start > cursor:
+            gaps.append((cursor, start))
+        cursor = max(cursor, end)
+    if cursor < grid_end:
+        gaps.append((cursor, grid_end))
+    return [
+        ClosedRangeDTO(
+            start_minutes=round((start - grid_start).total_seconds() / 60),
+            duration_minutes=round((end - start).total_seconds() / 60),
+        )
+        for start, end in gaps
+    ]
+
+
 def _day_range(
     day: date, span: tuple[int, int], tz: tzinfo
 ) -> tuple[datetime, datetime]:
@@ -206,18 +225,17 @@ class TimetableService(TimetableServiceProtocol):
     def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
         self._transaction = transaction
         self._repos = repos
-        self._walked_event_pk: int | None = None
-        self._walked: list[tuple[SpaceDTO, int]] = []
+        self._walked: dict[int, list[tuple[SpaceDTO, int]]] = {}
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
         # The page builds the grid and the space filter's options from the same
-        # tree; the instance lives for one request and sees one event, so read
-        # and walk it once. Nothing this service writes touches spaces, so
-        # there is nothing to invalidate.
-        if self._walked_event_pk != event_pk:
-            self._walked = _walk_tree(self._repos.spaces.list_by_event(event_pk))
-            self._walked_event_pk = event_pk
-        return self._walked
+        # tree, so read and walk it once per event. Nothing this service writes
+        # touches spaces, so there is nothing to invalidate.
+        if event_pk not in self._walked:
+            self._walked[event_pk] = _walk_tree(
+                self._repos.spaces.list_by_event(event_pk)
+            )
+        return self._walked[event_pk]
 
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
         return [
@@ -300,11 +318,20 @@ class TimetableService(TimetableServiceProtocol):
             else all_items
         )
         states = _card_states(conflicts, violations)
-        span = self._shared_day_span(dates_to_render, windows_by_date, tz)
+        # Every rendered date is a `windows_by_date` key, so it carries at least
+        # one window; with no dates there is no span and nothing to render.
+        # pragma: no mutate start
+        span = (
+            self._shared_day_span(dates_to_render, windows_by_date, tz)
+            if dates_to_render
+            else (0, 0)
+        )
+        # pragma: no mutate end
         days = [
             self._build_day_grid(
                 date_to_render=date_to_render,
                 day_range=_day_range(date_to_render, span, tz),
+                windows=windows_by_date[date_to_render],
                 spaces=spaces,
                 all_items=shown_items,
                 states=states,
@@ -337,6 +364,7 @@ class TimetableService(TimetableServiceProtocol):
         *,
         date_to_render: date,
         day_range: tuple[datetime, datetime],
+        windows: list[Window],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
         states: dict[int, SessionPositionState],
@@ -383,6 +411,7 @@ class TimetableService(TimetableServiceProtocol):
                 )
                 for index in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
             ],
+            closed_ranges=_closed_ranges(windows, day_range),
         )
 
     @staticmethod
@@ -401,8 +430,6 @@ class TimetableService(TimetableServiceProtocol):
             for window in windows_by_date[day]
             for edge in window
         ]
-        if not minutes:
-            return (0, 0)
         return (
             math.floor(min(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
             math.ceil(max(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
@@ -419,7 +446,7 @@ class TimetableService(TimetableServiceProtocol):
                 groups.append(
                     SpaceGroupDTO(
                         parent_pk=parent_pk,
-                        parent_name=name_by_pk.get(parent_pk, "") if parent_pk else "",
+                        parent_name=name_by_pk[parent_pk] if parent_pk else "",
                         span=0,
                     )
                 )
@@ -479,7 +506,7 @@ class TimetableService(TimetableServiceProtocol):
         # the windows merge into one that holds the whole placement.
         first, *rest = touched
         reaches = [slot.start_time for slot in rest] + [placement.end_time]
-        for slot, reach in zip(touched, reaches, strict=True):
+        for slot, reach in zip(touched, reaches, strict=True):  # pragma: no mutate
             start = (
                 min(slot.start_time, placement.start_time)
                 if slot is first
@@ -490,16 +517,13 @@ class TimetableService(TimetableServiceProtocol):
                 self._repos.time_slots.update(slot.pk, start, end)
 
     @staticmethod
-    def _require_placeable(placement: SessionPlacement) -> None:
-        if (
-            placement.start_time.utcoffset() is None
-            or placement.end_time.utcoffset() is None
-        ):
+    def _require_aware(start_time: datetime, end_time: datetime) -> None:
+        if start_time.utcoffset() is None or end_time.utcoffset() is None:
             raise PlacementRejectedError(
                 PlacementRejection.NAIVE_DATETIME,
                 "placement datetimes must include a timezone",
             )
-        if placement.end_time <= placement.start_time:
+        if end_time <= start_time:
             raise PlacementRejectedError(
                 PlacementRejection.END_NOT_AFTER_START,
                 "end_time must be after start_time",
@@ -518,7 +542,7 @@ class TimetableService(TimetableServiceProtocol):
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        self._require_placeable(placement)
+        self._require_aware(placement.start_time, placement.end_time)
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -543,13 +567,16 @@ class TimetableService(TimetableServiceProtocol):
             )
             self._require_accepted(session_pk)
             self._widen_time_slots_around(placement, event)
+            # A move needs the facilitator's fresh agreement to the new slot.
+            confirmed = event.auto_confirm_sessions and not is_move
+            self._repos.sessions.update(session_pk, {"schedule_confirmed": confirmed})
             self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions and not is_move,
+                    "session_confirmed": confirmed,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -581,6 +608,7 @@ class TimetableService(TimetableServiceProtocol):
                 raise NotFoundError
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.delete(agenda_item.pk)
+            self._repos.sessions.update(session_pk, {"schedule_confirmed": False})
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": session_pk,
@@ -611,6 +639,9 @@ class TimetableService(TimetableServiceProtocol):
                 if agenda_item is None:
                     raise NotFoundError
                 self._repos.agenda_items.delete(agenda_item.pk)
+                self._repos.sessions.update(
+                    log.session_id, {"schedule_confirmed": False}
+                )
             elif log.action == ScheduleChangeAction.UNASSIGN:
                 if (
                     log.old_space_id is None
@@ -619,16 +650,14 @@ class TimetableService(TimetableServiceProtocol):
                 ):
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
-                restored = SessionPlacement(
-                    space_pk=log.old_space_id,
-                    start_time=log.old_start_time,
-                    end_time=log.old_end_time,
-                )
                 # Undo restores a placement that was legitimate when it was
                 # made, so the time-slot windows are not re-checked here: a
                 # window edited afterwards must not strand the change log.
-                self._require_placeable(restored)
+                self._require_aware(log.old_start_time, log.old_end_time)
                 self._require_accepted(log.session_id)
+                self._repos.sessions.update(
+                    log.session_id, {"schedule_confirmed": False}
+                )
                 self._repos.agenda_items.create(
                     {
                         "session_id": log.session_id,
@@ -680,8 +709,10 @@ def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
 class _EventConflictContext(NamedTuple):
     # Everything conflict detection needs about an event, loaded once.
     items: list[AgendaItemDTO]
-    items_by_space: dict[int, list[AgendaItemDTO]]
-    items_by_facilitator: dict[int, list[AgendaItemDTO]]
+    # defaultdicts on purpose: a space or facilitator with nothing scheduled is
+    # read as an empty list rather than a KeyError.
+    items_by_space: defaultdict[int, list[AgendaItemDTO]]
+    items_by_facilitator: defaultdict[int, list[AgendaItemDTO]]
     facilitators_by_session: dict[int, list[FacilitatorDTO]]
     spaces: dict[int, SpaceDTO]
 
@@ -703,8 +734,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
         if subject is None:
             raise NotFoundError
-        limits = self._repos.sessions.read_participants_limits({session_pk})
-        return self._detect(subject, context, limit=limits.get(session_pk, 0))
+        return self._detect(subject, context)
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
@@ -763,20 +793,16 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         if not subjects:
             return []
 
-        limits = self._repos.sessions.read_participants_limits(
-            {item.session_id for item in subjects}
-        )
-        all_conflicts: list[ConflictDTO] = []
-        seen: set[tuple[int, int, ConflictType]] = set()
-        for item in subjects:
-            for conflict in self._detect(
-                item, context, limit=limits.get(item.session_id, 0)
-            ):
-                low, high = sorted((conflict.subject_session_pk, conflict.session_pk))
-                if (key := (low, high, conflict.type)) not in seen:
-                    seen.add(key)
-                    all_conflicts.append(conflict)
-
+        # Detection is symmetric, so a clash between two subjects is reported
+        # once, from the side with the lower session pk.
+        subject_pks = {item.session_id for item in subjects}
+        all_conflicts = [
+            conflict
+            for item in subjects
+            for conflict in self._detect(item, context)
+            if conflict.session_pk >= item.session_id
+            or conflict.session_pk not in subject_pks
+        ]
         return self._add_track_attribution(all_conflicts, track_pk)
 
     def _load_event_context(self, event_pk: int) -> _EventConflictContext:
@@ -791,8 +817,8 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         facilitators_by_session = self._repos.sessions.read_facilitators_by_sessions(
             {item.session_id for item in items}
         )
-        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
-        items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_space: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_facilitator: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
             items_by_space[item.space_id].append(item)
             for facilitator in facilitators_by_session.get(item.session_id, []):
@@ -806,14 +832,14 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         )
 
     def _detect(
-        self, item: AgendaItemDTO, context: _EventConflictContext, *, limit: int
+        self, item: AgendaItemDTO, context: _EventConflictContext
     ) -> list[ConflictDTO]:
         # The space->event invariant is enforced when assignments are created
         # but not by the database, so a stale row degrades to a skipped
         # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
-            *self._capacity_conflicts(item, context.spaces.get(item.space_id), limit),
+            *self._capacity_conflicts(item, context.spaces.get(item.space_id)),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator
             ),
@@ -832,14 +858,15 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 session_title=other.session_title,
                 session_pk=other.session_id,
             )
-            for other in items_by_space.get(item.space_id, [])
+            for other in items_by_space[item.space_id]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 
     @staticmethod
     def _capacity_conflicts(
-        item: AgendaItemDTO, space: SpaceDTO | None, limit: int
+        item: AgendaItemDTO, space: SpaceDTO | None
     ) -> list[ConflictDTO]:
+        limit = item.session_participants_limit
         if space is None or space.capacity is None or space.capacity >= limit:
             return []
         return [
@@ -875,7 +902,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             # person, so its parallel program points are not a clash.
             for facilitator in facilitators_by_session.get(item.session_id, [])
             if not facilitator.is_collective
-            for other in items_by_facilitator.get(facilitator.pk, [])
+            for other in items_by_facilitator[facilitator.pk]
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 
@@ -967,7 +994,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
 
         violating: list[tuple[AgendaItemDTO, list[TimeSlotDTO]]] = []
         for item in scheduled:
-            if not (preferred := preferred_by_session.get(item.session_id, [])):
+            if not (preferred := preferred_by_session.get(item.session_id)):
                 continue
             if any(
                 start <= item.start_time and end >= item.end_time
