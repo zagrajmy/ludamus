@@ -1,4 +1,5 @@
 import math
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -7,7 +8,7 @@ from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDTO
 from ludamus.pacts.services import DatabaseConstraintError
-from tests.unit.factories import FakeTransaction, user_dto
+from tests.unit.factories import FakeTransaction, email_unavailable, user_dto
 
 _TOKEN_LENGTH = 64
 
@@ -56,14 +57,10 @@ class FakeUsers:
                 self._users[index] = user.model_copy(update=dict(user_data))
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
-        _ = now
         self.email_checks.append((email, exclude_slug))
-        if not email:
-            return False
         return (
-            any(
-                user.email == email and user.slug != exclude_slug
-                for user in self._users
+            email_unavailable(
+                self._users, email=email, now=now, exclude_slug=exclude_slug
             )
             or email in self._existing_emails
         )
@@ -145,6 +142,16 @@ class FakeSpheres:
 
     def domain_exists(self, domain):
         return domain in self._domains
+
+
+def _reserving(address, *, slug="other"):
+    # Another account asked for `address` an hour ago; its link still proves it.
+    return _user_dto(
+        slug=slug,
+        username=slug,
+        pending_email=address,
+        email_verification_sent_at=datetime.now(UTC) - timedelta(hours=1),
+    )
 
 
 def _service(*, users, claims=None, spheres=None):
@@ -286,6 +293,28 @@ class TestProvisionUser:
         assert result.user.slug == "auth0user"
         assert result.claim_outcome is None
         assert not users.created
+
+    def test_existing_user_still_hears_how_their_claim_went(self):
+        users = FakeUsers(users=[_user_dto(username="auth0|sub")])
+        claims = FakeClaims(ClaimResultDTO(outcome=ClaimOutcome.INVALID))
+
+        result = _service(users=users, claims=claims).provision_user(
+            username="auth0|sub", create_data={"slug": "auth0user"}, claim_token="x"
+        )
+
+        assert result.claim_outcome == ClaimOutcome.INVALID
+        assert not users.created
+
+    def test_address_another_account_is_confirming_is_dropped_on_create(self):
+        users = FakeUsers(users=[_reserving("dup@example.com")])
+
+        result = _service(users=users).provision_user(
+            username="auth0|sub",
+            create_data={"username": "auth0|sub", "email": "dup@example.com"},
+        )
+
+        assert result.email_conflict is True
+        assert not users.created[0]["email"]
 
     def test_converted_claim_returns_the_claimed_profile(self):
         users = FakeUsers(users=[_user_dto(slug="kid", username="auth0|sub")])
@@ -462,6 +491,35 @@ class TestSyncIdentity:
         assert users.updated == [("auth0user", {"name": "New"})]
         assert result.name == "New"
         assert not result.email
+
+    def test_address_another_account_is_confirming_is_not_synced(self):
+        users = FakeUsers(users=[_user_dto(), _reserving("theirs@example.com")])
+
+        _service(users=users).sync_identity(
+            user_slug="auth0user",
+            data={"email": "theirs@example.com", "email_verified": True},
+        )
+
+        assert not users.updated
+
+    def test_own_pending_address_proven_by_the_provider_is_adopted(self):
+        users = FakeUsers(users=[_reserving("new@example.com", slug="auth0user")])
+
+        _service(users=users).sync_identity(
+            user_slug="auth0user",
+            data={"email": "new@example.com", "email_verified": True},
+        )
+
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": True,
+                    "pending_email": "",
+                },
+            )
+        ]
 
     def test_nothing_left_to_sync_skips_the_write(self):
         users = FakeUsers(

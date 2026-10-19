@@ -9,7 +9,7 @@ from __future__ import annotations
 import secrets
 from contextlib import suppress
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Literal
 
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
@@ -184,10 +184,12 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def _identity_updates(self, *, user: UserDTO, data: UserData) -> UserData:
         updates = data.copy()
-        claim_email = updates.pop("email", "")
-        claim_verified = updates.pop("email_verified", False)
-        if updates.get("avatar_url") == user.avatar_url:
-            updates.pop("avatar_url", None)
+        claim_email = updates.pop("email") if "email" in updates else ""
+        claim_verified = (
+            updates.pop("email_verified") if "email_verified" in updates else False
+        )
+        if "avatar_url" in updates and updates["avatar_url"] == user.avatar_url:
+            del updates["avatar_url"]
         if "name" in updates and (user.name or "").strip():
             del updates["name"]
         updates.update(
@@ -353,7 +355,7 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         if (resolved := self._resolve(token)) is None:
             return RedeemOutcome.EXPIRED
         user, payload = resolved
-        match effect := self._effect(user, payload):
+        match self._effect(user, payload):
             case None:
                 return RedeemOutcome.ALREADY_USED
             case "cancel":
@@ -366,8 +368,6 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
                 with self._transaction.atomic():
                     self._users.update(user.slug, UserData(email_verified=True))
                 return RedeemOutcome.VERIFIED
-            case _:
-                assert_never(effect)
 
     def _resolve(self, token: str) -> tuple[UserDTO, EmailTokenPayload] | None:
         if (payload := self._tokens.loads(token)) is None:

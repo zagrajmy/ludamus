@@ -12,7 +12,7 @@ from ludamus.pacts.crowd import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
-from tests.unit.factories import user_dto
+from tests.unit.factories import email_unavailable, user_dto
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
@@ -58,8 +58,12 @@ class FakeUsers:
         )
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
-        _ = (now, exclude_slug)
-        return email in self._existing_emails
+        return (
+            email_unavailable(
+                self._users.values(), email=email, now=now, exclude_slug=exclude_slug
+            )
+            or email in self._existing_emails
+        )
 
     def claim_verification_send(self, *, user_slug, now, throttle):
         user = self._users[user_slug]
@@ -270,6 +274,7 @@ class TestSendDueReminders:
         service = _service(FakeUsers(users=due), notifier=notifier, reminders=reminders)
 
         assert service.count_due(now=NOW) == 1
+        assert reminders.calls == [(NOW, EMAIL_VERIFICATION_REMINDER_INTERVAL)]
         assert not notifier.verifications
 
 
@@ -278,6 +283,7 @@ class TestRequestChange:
         users = FakeUsers(users=[_user(email="old@example.com", email_verified=True)])
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
+        before = datetime.now(UTC)
 
         outcome = service.request_change(
             user_slug="auth0user", new_address="new@example.com"
@@ -287,7 +293,7 @@ class TestRequestChange:
         slug, data = users.updated[0]
         assert slug == "auth0user"
         assert data["pending_email"] == "new@example.com"
-        assert data["email_verification_sent_at"] is not None
+        assert before <= data["email_verification_sent_at"] <= datetime.now(UTC)
         assert notifier.verifications[0].recipient_email == "new@example.com"
         assert notifier.change_requests[0].recipient_email == "old@example.com"
         assert notifier.change_requests[0].new_address == "new@example.com"
@@ -395,6 +401,31 @@ class TestRequestChange:
 
         assert outcome == ChangeRequestOutcome.TAKEN
         assert not users.updated
+
+    def test_address_another_account_is_confirming_is_taken(self):
+        reserving = _user(
+            slug="other",
+            pk=2,
+            pending_email="new@example.com",
+            email_verification_sent_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+        users = FakeUsers(users=[_user(email="old@example.com"), reserving])
+
+        outcome = _service(users).request_change(
+            user_slug="auth0user", new_address="new@example.com"
+        )
+
+        assert outcome == ChangeRequestOutcome.TAKEN
+        assert not users.updated
+
+    def test_recasing_own_address_is_not_taken_by_oneself(self):
+        users = FakeUsers(users=[_user(email="Old@example.com")])
+
+        outcome = _service(users).request_change(
+            user_slug="auth0user", new_address="old@example.com"
+        )
+
+        assert outcome == ChangeRequestOutcome.REQUESTED
 
 
 class TestDescribe:
