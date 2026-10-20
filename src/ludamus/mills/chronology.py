@@ -222,9 +222,8 @@ class ProposalAcceptanceService:
     ) -> ProposalAcceptContextDTO | None:
         try:
             session = self._sessions.read(session_id)
+            event = self._require_event_in_sphere(session.pk, sphere_id)
         except NotFoundError:
-            return None
-        if (event := self._read_event_in_sphere(session.pk, sphere_id)) is None:
             return None
         return ProposalAcceptContextDTO(
             session=session,
@@ -239,17 +238,17 @@ class ProposalAcceptanceService:
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
         )
 
-    def _read_event_in_sphere(self, session_id: int, sphere_id: int) -> EventDTO | None:
+    def _require_event_in_sphere(self, session_id: int, sphere_id: int) -> EventDTO:
         event = self._sessions.read_event(session_id)
-        if event.sphere_id == sphere_id:
-            return event
-        logger.warning(
-            "Refused session %s of sphere %s to a reviewer in sphere %s",
-            session_id,
-            event.sphere_id,
-            sphere_id,
-        )
-        return None
+        if event.sphere_id != sphere_id:
+            logger.warning(
+                "Refused session %s of sphere %s to a reviewer in sphere %s",
+                session_id,
+                event.sphere_id,
+                sphere_id,
+            )
+            raise NotFoundError
+        return event
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         return can_write_programme(
@@ -271,8 +270,7 @@ class ProposalAcceptanceService:
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
-        if (event := self._read_event_in_sphere(session_id, sphere_id)) is None:
-            raise NotFoundError
+        event = self._require_event_in_sphere(session_id, sphere_id)
         if space_id not in {
             option.pk for option in self._sessions.read_space_options(session_id)
         }:
