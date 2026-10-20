@@ -1016,8 +1016,9 @@ class Space(models.Model):
             seen.add(ancestor.pk)
             if depth > SPACE_MAX_DEPTH:
                 raise ValidationError(
-                    _("Spaces can be nested at most %(max)d levels deep.")
-                    % {"max": SPACE_MAX_DEPTH}
+                    _("Spaces can be nested at most %(max)d levels deep.") % {
+                        "max": SPACE_MAX_DEPTH
+                    }
                 )
 
     def _validate_leaf_parent(self) -> None:
