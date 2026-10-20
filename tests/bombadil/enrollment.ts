@@ -1,6 +1,7 @@
 // Bombadil specification for the enrollment pages: Bombadil clicks and types
 // its way through the running app and checks these on every state it reaches.
-// The defaults catch 4xx/5xx responses, uncaught exceptions and console errors.
+// The defaults catch uncaught exceptions and console errors, and the HTTP
+// check below flags 4xx/5xx responses outside the Auth0 hand-off.
 // The property below holds the seat count the enroll page shows to the rule
 // formal/enrollment proves about the database: nothing a visitor does takes a
 // session past its limit.
@@ -8,7 +9,28 @@ import { always, extract, now } from "@antithesishq/bombadil";
 import { actions, getFingerprint } from "@antithesishq/bombadil/browser";
 import { clickablePoint, inViewport, isVisible } from "@antithesishq/bombadil/browser/dom";
 
-export * from "@antithesishq/bombadil/browser/defaults";
+export {
+  defaultActions,
+  noConsoleErrors,
+  noUncaughtExceptions,
+  noUnhandledPromiseRejections,
+} from "@antithesishq/bombadil/browser/defaults";
+
+// The default noHttpErrorCodes, minus the Auth0 hand-off: the e2e tenant is a
+// placeholder, so /crowd/auth0/ can only answer 500. Bombadil still lands
+// there when a page sends a signed-out visitor to sign in.
+const response = extract((state) => {
+  const [entry] = state.window.performance.getEntriesByType("navigation");
+  if (!(entry instanceof PerformanceNavigationTiming)) return null;
+  return { path: new URL(entry.name).pathname, status: entry.responseStatus };
+});
+
+export const noHttpErrorCodes = always(
+  () =>
+    response.current === null ||
+    response.current.path.startsWith("/crowd/auth0/") ||
+    response.current.status < 400,
+);
 
 type Capacity = { session: number; enrolled: number; limit: number };
 
