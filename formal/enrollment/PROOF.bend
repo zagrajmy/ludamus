@@ -150,3 +150,6 @@ def Laws.capacity(limit, ops):
 
 def Laws.conflict_blocks_serial_enroll():
   {==}
+
+def Laws.allowance_refuses_serial_third():
+  {==}

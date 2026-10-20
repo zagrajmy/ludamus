@@ -243,3 +243,6 @@ CLAUDE.local.md
 
 # skill-creator eval workspaces (transient test artifacts)
 .claude/skills/*-workspace/
+
+# Bombadil traces and screenshots (tests/bombadil/run.sh)
+bombadil-output/

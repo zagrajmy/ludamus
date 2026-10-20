@@ -5,3 +5,5 @@
 PROOF.bend                  law      every law in LAWS.bend holds
 finding_two_requests.bend   finding  two requests at once double-book a person
 finding_offered_seat.bend   finding  a held or offered seat gets past the conflict check
+finding_allowance_race.bend finding  two requests at once seat more people than the owner has passes
+seats.gen.mjs               js       seats.bend compiled for the differential test

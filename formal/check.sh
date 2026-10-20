@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # Check every Bend file a spec directory's `expected` file lists, with a pinned
-# Bend. Usage: formal/check.sh formal/enrollment
+# Bend. Usage: formal/check.sh [formal/enrollment ...]; no argument checks every
+# directory under formal/ that has an `expected` file.
+# FORMAL_REGEN=1 rewrites the compiled `js` entries instead of comparing them.
 set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  dirs=("$@")
+  if [ "${#dirs[@]}" -eq 0 ]; then
+    for expected in "$(dirname "$0")"/*/expected; do
+      dirs+=("$(dirname "$expected")")
+    done
+  fi
+  status=0
+  for dir in "${dirs[@]}"; do
+    echo "== $dir"
+    "$0" "$dir" || status=1
+  done
+  exit "$status"
+fi
 
 BEND_VERSION="2.0.37"
 
-spec_dir="${1:?usage: formal/check.sh <spec dir>}"
+spec_dir="$1"
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ludamus/bend-$BEND_VERSION"
 bend="$cache_dir/bend/bin/bend"
 
@@ -50,9 +67,26 @@ if [ ! -x "$bend" ]; then
   rm "$cache_dir/$archive"
 fi
 
+work_dir="$(mktemp -d)"
+trap 'rm -rf "$work_dir"' EXIT
+
 failed=0
 while read -r file kind why; do
   case "$file" in '' | '#'*) continue ;; esac
+  if [ "$kind" = js ]; then
+    source="${file%.gen.mjs}.bend"
+    if [ "${FORMAL_REGEN:-}" = 1 ]; then
+      (cd "$spec_dir" && BEND_NO_TELEMETRY=1 "$bend" "$source" -o "$file")
+      echo "wrote     $file from $source"
+    elif (cd "$spec_dir" && BEND_NO_TELEMETRY=1 "$bend" "$source" -o "$work_dir/$file") &&
+      cmp -s "$work_dir/$file" "$spec_dir/$file"; then
+      echo "ok        $file ($kind): $why"
+    else
+      echo "STALE     $file: not what $source compiles to; rerun with FORMAL_REGEN=1"
+      failed=1
+    fi
+    continue
+  fi
   set +e
   out="$(cd "$spec_dir" && BEND_NO_TELEMETRY=1 "$bend" "$file" 2>&1)"
   code=$?
@@ -64,7 +98,7 @@ while read -r file kind why; do
   failed=1
   case "$kind" in
     law) echo "BROKEN    $file: a law no longer has a proof" ;;
-    finding) echo "GONE      $file: the witness no longer reproduces the bug" ;;
+    finding) echo "GONE      $file: the witness no longer checks: the bug is fixed, or the model broke" ;;
     *) echo "BROKEN    $file: unknown kind '$kind'" ;;
   esac
   while IFS= read -r line; do

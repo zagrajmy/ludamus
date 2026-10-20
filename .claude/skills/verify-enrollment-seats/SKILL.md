@@ -22,7 +22,7 @@ proofs. It covers two properties that tests rarely reach:
 ## Run it
 
 ```sh
-mise run formal:enrollment
+mise run formal
 ```
 
 The first run downloads Bend 2.0.37 into `~/.cache/ludamus/` and checks it
@@ -36,20 +36,32 @@ seconds. Each file in `formal/enrollment/expected` prints one of:
 Bend's own error follows each failure. The task exits non-zero unless every
 file checks. CI runs the same script in the `formal` job of
 `.github/workflows/ci.yml` on every pull request, so a change that breaks a
-proof, or fixes a finding without updating it, fails there too.
+proof, or fixes a finding without updating it, fails there too. `mise run
+formal formal/enrollment` checks one area; `formal/programme` and
+`formal/announcements` model accepting proposals and the announcement sweep
+the same way.
+
+The seat model is also run against the real enroll view:
+`tests/integration/web/chronology/test_seats_model_differential.py` drives
+both with the same steps. After editing `seats.bend`, regenerate its compiled
+copy with `FORMAL_REGEN=1 mise run formal formal/enrollment`; the check
+reports `STALE` until you do. [docs/VERIFICATION.md](../../../docs/VERIFICATION.md)
+maps every verification tool to the layer it covers.
 
 | File | What it is |
 | --- | --- |
 | `seats.bend` | One session's seats: `taken` rows, and `held` seats the lock holder will write. Ops: `Check`, `Commit`, `Free`, `Claim`, `Join` |
 | `schedule.bend` | One person's rows in sessions A and B, which overlap, with each session's lock. Ops: `Enroll`, `Hold`, `Promote`, `Commit`, `Join`, `Cancel`, `Claim`, `Drop` |
-| `LAWS.bend` | The claims: `capacity`, and `conflict_blocks_serial_enroll`, which pins the model's conflict check to the code's |
+| `allowance.bend` | One pass owner's household across the event, against two enroll requests into different sessions. Ops: `Check`, `Commit` |
+| `LAWS.bend` | The claims: `capacity`, plus `conflict_blocks_serial_enroll` and `allowance_refuses_serial_third`, which pin the models' checks to the code's |
 | `PROOF.bend` | The proofs. Capacity: `taken + held <= limit` holds at the start and every op keeps it |
-| `finding_*.bend` | One known bug each: a law that a double-booking trace exists, proven by the trace itself |
+| `finding_*.bend` | One known bug each: a law that a trace reaching it exists, proven by the trace itself |
+| `seats.gen.mjs`, `replay_seats.mjs` | `seats.bend` compiled to JS, and the Node runner the differential test calls |
 
 ## Known findings
 
-Both are open on `main`. The finding files check for as long as the bugs
-exist.
+All three are open on `main`. The finding files check for as long as the
+bugs exist.
 
 1. **`finding_two_requests.bend`: two requests at once double-book a
    person.** Trace: `Enroll A, Enroll B, Commit A, Commit B`. Person P sends an
@@ -67,6 +79,19 @@ exist.
    `_claim` → `mark_claimed` never rechecks. It was reproduced against the real
    views and services: the enroll POST answered "Enrolled", `claim_offer`
    succeeded, and both rows were `confirmed`.
+3. **`finding_allowance_race.bend`: two requests at once seat more people than
+   the owner holds passes.** Trace: the owner is seated; request 1 checks
+   companion First, request 2 checks companion Second, both commit. The form
+   checks the allowance in `can_enroll_users` before `_process_enrollments`
+   takes any lock, and each request then locks a different session, so both
+   read {owner} and see 2 <= 2. This finding comes from the model.
+
+A related single-request bug lives outside the models: promotion charges a pass
+for a waiter who already holds a seat in the event (`_slots_remaining`), so a
+one-pass holder seated anywhere is never promoted. Hypothesis found and shrank
+it on the real database in
+`tests/integration/web/chronology/test_promotion_allowance_properties.py`,
+which is a strict xfail until it is fixed.
 
 The fix for finding 2 is to count OFFERED rows in the conflict check, or to
 recheck conflicts in `_claim`. Finding 1 needs a lock that every session the
@@ -185,7 +210,9 @@ connections. Do not change product code unless the user asks.
 - The schedule model has one person, two overlapping sessions, and seats
   always free. The findings show that a path exists. They are not a search,
   so other paths to the same bug may exist.
-- Left out: parties and the whole-party rule; membership allowance
-  (`owner_slots_remaining`), which is also checked outside any shared lock and
-  may have the same race as finding 1; guests as separate people; enrollment
-  windows; presenter and shadowban skips; offer deadlines; notifications.
+- The allowance model has one owner, two companions and two requests, and
+  covers the enroll gate; promotion's own allowance read
+  (`owner_slots_remaining`) has the same shape but is not modelled.
+- Left out: parties and the whole-party rule; guests as separate people;
+  enrollment windows; presenter and shadowban skips; offer deadlines;
+  notifications.
