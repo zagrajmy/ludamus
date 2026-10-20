@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TypedDict
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1"})
 DEFAULT_EMAIL = "default@example.com"
@@ -113,7 +113,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             code = _BODY.validate_json(self.rfile.read(length))["code"]
             identity = parse_qs(base64.urlsafe_b64decode(code + "==").decode())
-        except ValidationError, ValueError:
+        except ValueError:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid_grant"})
             return
         if not (email := _first(identity, "email")):
