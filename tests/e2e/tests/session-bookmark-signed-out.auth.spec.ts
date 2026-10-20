@@ -9,7 +9,7 @@ test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json"
 // ended after the page loaded, in another tab or by expiry.
 test("a bookmark after the session ended asks to sign in again", async ({ context, page }) => {
   await page.goto(DENSE_EVENT_URL);
-  const toggle = page.locator("[data-bookmark-toggle]:visible").first();
+  const toggle = page.getByRole("button", { name: "Bookmark session" }).first();
 
   // Signs out without touching the CSRF cookie, the way a logout elsewhere does.
   await context.clearCookies({ name: "sessionid" });

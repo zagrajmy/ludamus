@@ -11,21 +11,24 @@ test("closing a modal mid-open leaves no unhandled rejection", async ({ page }) 
 
   // The observer fires on the microtask right after showModal() inside the
   // opening transition's update callback: always before `ready` can settle.
-  await page.evaluate(() => {
-    const observer = new MutationObserver((records) => {
-      for (const { target } of records) {
-        if (target instanceof HTMLDialogElement && target.open) {
-          observer.disconnect();
-          target.dispatchEvent(new Event("cancel", { cancelable: true }));
-          document.documentElement.dataset.closedMidOpen = "";
+  // Wrapped in an object: evaluateHandle would wait for a bare promise.
+  const closedMidOpen = await page.evaluateHandle(() => ({
+    done: new Promise<void>((resolve) => {
+      const observer = new MutationObserver((records) => {
+        for (const { target } of records) {
+          if (target instanceof HTMLDialogElement && target.open) {
+            observer.disconnect();
+            target.dispatchEvent(new Event("cancel", { cancelable: true }));
+            resolve();
+          }
         }
-      }
-    });
-    observer.observe(document.documentElement, { attributeFilter: ["open"], subtree: true });
-  });
+      });
+      observer.observe(document.documentElement, { attributeFilter: ["open"], subtree: true });
+    }),
+  }));
   await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
 
-  await expect(page.locator("html[data-closed-mid-open]")).toHaveCount(1);
+  await closedMidOpen.evaluate(({ done }) => done);
   await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeHidden();
   await settleViewTransitions(page);
   expect(errors).toEqual([]);
