@@ -9,7 +9,6 @@ from django.middleware.csrf import get_token
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
-from pydantic import ValidationError
 
 from ludamus.pacts.parley import ParleyReportData
 
@@ -108,7 +107,7 @@ def report(request: RootHttpRequest) -> JsonResponse:
             message_id=int(request.POST["message_id"]),
             reason=request.POST.get("reason", ""),
         )
-    except KeyError, ValidationError, ValueError:
+    except KeyError, ValueError:
         return JsonResponse({"error": "invalid_report"}, status=422)
     created = request.services.parley.report_message(
         data=data, now=datetime.now(tz=UTC)
