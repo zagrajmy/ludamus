@@ -1,6 +1,6 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/edit/ page."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -553,7 +553,9 @@ class TestProposalEditPageView:
     def test_post_ignores_category_from_other_event(self, panel_client, sphere, event):
         session = _make_session(event)
         original_category_id = session.category_id
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign_category = ProposalCategory.objects.create(
             event=other_event, name="Foreign", slug="foreign"
         )

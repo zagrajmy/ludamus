@@ -485,7 +485,9 @@ class TestTimetablePageView:
     ):
         sphere.managers.add(active_user)
         ours = SpaceFactory(event=event, name="Ours")
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign_space = SpaceFactory(event=other_event, name="Theirs")
 
         response = authenticated_client.get(
@@ -621,7 +623,9 @@ class TestTimetablePageView:
             start_time=start,
             end_time=start + timedelta(hours=1),
         )
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign = Facilitator.objects.create(
             event=other_event, display_name="Alice", slug="alice", user=None
         )

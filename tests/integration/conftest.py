@@ -176,11 +176,12 @@ class SphereFactory(DjangoModelFactory):
 
 def dst_free_midnight():
     # NOTE: wall-clock expectations break when an event's days span a DST
-    # switch (02:00 repeats on the autumn one). Among the next 7 midnights one
-    # always clears the switch; take the latest so the event stays a week out.
+    # switch (02:00 repeats on the autumn one). Among 7 consecutive midnights
+    # one always clears the switch; search from a week out so the event never
+    # starts sooner, as tests postpone publication_time by a day.
     tz = get_current_timezone()
     today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    midnights = (today + timedelta(days=days) for days in range(7, 0, -1))
+    midnights = (today + timedelta(days=days) for days in range(7, 14))
     return next(
         midnight
         for midnight in midnights
