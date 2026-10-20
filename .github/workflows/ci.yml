@@ -262,6 +262,18 @@ jobs:
           flags: python
           disable_search: true
 
+  # Bend proofs and known findings for enrollment seats (formal/enrollment);
+  # check.sh pins and verifies the Bend release itself.
+  formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ludamus
+          key: bend-${{ runner.os }}-${{ hashFiles('formal/check.sh') }}
+      - run: formal/check.sh formal/enrollment
+
   # advisory: reports the branch's debt without blocking the merge
   tingle:
     runs-on: ubuntu-latest

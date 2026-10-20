@@ -34,7 +34,9 @@ seconds. Each file in `formal/enrollment/expected` prints one of:
 - `GONE`: a finding's trace no longer double-books.
 
 Bend's own error follows each failure. The task exits non-zero unless every
-file checks.
+file checks. CI runs the same script in the `formal` job of
+`.github/workflows/ci.yml` on every pull request, so a change that breaks a
+proof, or fixes a finding without updating it, fails there too.
 
 | File | What it is |
 | --- | --- |
