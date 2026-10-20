@@ -3,19 +3,18 @@ import path from "node:path";
 import { expect, test } from "./helpers/fixtures";
 import { DENSE_EVENT_URL } from "./helpers/urls";
 
+test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
+
 // The toggle only renders for a signed-in viewer, so a 401 means the session
 // ended after the page loaded, in another tab or by expiry.
-test("a bookmark after the session ended asks to sign in again", async ({ browser }) => {
-  const context = await browser.newContext({
-    storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
-  });
-  const page = await context.newPage();
+test("a bookmark after the session ended asks to sign in again", async ({ context, page }) => {
   await page.goto(DENSE_EVENT_URL);
   const toggle = page.locator("[data-bookmark-toggle]:visible").first();
 
   // Signs out without touching the CSRF cookie, the way a logout elsewhere does.
   await context.clearCookies({ name: "sessionid" });
-  // The e2e Auth0 tenant is a placeholder, so stop at our own login view.
+  // The e2e Auth0 tenant is a placeholder, so this stands in for the login
+  // view; what that view does with `next` is test_auth0_login_action.py's.
   await page.route(/\/crowd\/auth0\/do\/login/, (route) =>
     route.fulfill({ body: "<title>Sign in</title>", contentType: "text/html" }),
   );
@@ -33,5 +32,4 @@ test("a bookmark after the session ended asks to sign in again", async ({ browse
   const next = new URL(page.url()).searchParams.get("next");
   expect(next).toBe(DENSE_EVENT_URL);
   expect(errors).toEqual([]);
-  await context.close();
 });

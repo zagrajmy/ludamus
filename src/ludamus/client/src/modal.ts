@@ -128,7 +128,7 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
   document.documentElement.classList.add(ROOT_PAGE_LIVE);
   const transition = document.startViewTransition(callback);
   // NOTE: a skipped or aborted transition rejects `ready`, and Chrome 151 no
-  // longer marks that rejection handled, so nobody awaiting it is an error.
+  // longer marks that rejection handled, so leaving it unawaited is an error.
   void transition.ready.catch(() => null);
   void transition.finished
     .catch(() => null)

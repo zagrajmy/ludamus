@@ -47,7 +47,8 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   const root = button.closest<HTMLElement>("[data-bookmark-url-template]");
   const { sessionId } = button.dataset;
   const template = root?.dataset.bookmarkUrlTemplate;
-  if (!root || !sessionId || !template || inFlight.has(sessionId)) return;
+  const loginUrl = root?.dataset.loginUrl;
+  if (!root || !sessionId || !template || !loginUrl || inFlight.has(sessionId)) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
   const previousCount = Number(button.querySelector("[data-bookmark-count]")?.textContent ?? 0);
@@ -62,10 +63,10 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     });
     // Only a signed-in page renders the toggle, so a 401 means the session
     // ended after it loaded: sign in again and come back to this page.
-    if (response.status === 401 && root.dataset.loginUrl) {
+    if (response.status === 401) {
       paintSession(sessionId, previous, previousCount);
       const next = encodeURIComponent(globalThis.location.pathname + globalThis.location.search);
-      globalThis.location.assign(`${root.dataset.loginUrl}?next=${next}`);
+      globalThis.location.assign(`${loginUrl}?next=${next}`);
       return;
     }
     if (!response.ok) throw new Error(`Bookmark toggle failed: ${response.status}`);
