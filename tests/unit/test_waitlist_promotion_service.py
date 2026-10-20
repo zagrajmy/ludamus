@@ -104,6 +104,7 @@ class FakeRepo:
 
     def mark_claimed(self, ids, *, claimed_at):
         self.log.claimed.append((ids, claimed_at))
+        return True
 
     def drop(self, ids):
         self.log.dropped.append(ids)

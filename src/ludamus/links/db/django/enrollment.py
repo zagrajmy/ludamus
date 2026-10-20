@@ -422,16 +422,26 @@ class ParticipationPromotionRepository:
         return representatives
 
     @staticmethod
-    def mark_claimed(participation_ids: list[int], *, claimed_at: datetime) -> None:
-        # Status-scoped so a racing expiry that already dropped the party cannot
-        # be clobbered (and vice-versa) — only still-OFFERED rows are claimed.
+    def mark_claimed(participation_ids: list[int], *, claimed_at: datetime) -> bool:
+        offered = list(
+            SessionParticipation.objects.filter(
+                id__in=participation_ids, status=SessionParticipationStatus.OFFERED
+            ).select_related("session")
+        )
+        if not offered:
+            return False
+        session = offered[0].session
+        user_ids = list({participation.user_id for participation in offered})
+        if Session.objects.conflicted_user_ids(session, user_ids):
+            return False
         SessionParticipation.objects.filter(
-            id__in=participation_ids, status=SessionParticipationStatus.OFFERED
+            id__in=[participation.id for participation in offered]
         ).update(
             status=SessionParticipationStatus.CONFIRMED,
             claimed_at=claimed_at,
             modification_time=datetime.now(UTC),
         )
+        return True
 
     @staticmethod
     def drop(participation_ids: list[int]) -> None:
