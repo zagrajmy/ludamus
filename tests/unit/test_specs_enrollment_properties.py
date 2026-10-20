@@ -10,7 +10,7 @@ through CrossHair's solver instead of random examples.
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from ludamus.pacts.enrollment import (
@@ -23,6 +23,35 @@ from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _USERS = range(1, 7)
+
+
+def _member(
+    user_id: int, *, order: int, slots: int = UNLIMITED_SLOTS
+) -> WaitingParticipantDTO:
+    return WaitingParticipantDTO(
+        participation_id=100 + order,
+        user_id=user_id,
+        sponsor_id=None,
+        full_name=f"user-{user_id}",
+        email=f"u{user_id}@example.com",
+        creation_time=_BASE + timedelta(minutes=order),
+        has_conflict=False,
+        owner_slots_remaining=slots,
+        recipient_user_id=user_id,
+    )
+
+
+def _state(waiting: list[WaitingParticipantDTO], *, seats: int) -> PromotionStateDTO:
+    return PromotionStateDTO(
+        session_id=1,
+        session_title="S",
+        event_slug="ev",
+        promotion_mode=PromotionMode.AUTO,
+        offer_claim_window=timedelta(hours=24),
+        presenter_id=None,
+        available_seats=seats,
+        waiting=waiting,
+    )
 
 
 @st.composite
@@ -123,6 +152,8 @@ def test_never_spends_more_slots_than_an_owner_has(state):
 
 
 @given(promotion_states())
+# The head of the line has no slots left, so the seat goes to the next party.
+@example(_state([_member(1, order=0, slots=0), _member(2, order=1)], seats=1))
 def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     selected = [_ids(party) for party in select_promotable_parties(state)]
     parties = _eligible_parties(state)
