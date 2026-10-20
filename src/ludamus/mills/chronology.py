@@ -5,13 +5,12 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
-import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from ludamus.mills.event import require_session_in_event
+from ludamus.mills.event import require_session_in_event, require_session_in_sphere
 from ludamus.mills.multiverse import can_write_programme
 from ludamus.pacts import (
     EventDTO,
@@ -37,8 +36,6 @@ from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
-
-logger = logging.getLogger(__name__)
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -222,7 +219,9 @@ class ProposalAcceptanceService:
     ) -> ProposalAcceptContextDTO | None:
         try:
             session = self._sessions.read(session_id)
-            event = self._require_event_in_sphere(session.pk, sphere_id)
+            event = require_session_in_sphere(
+                sessions=self._sessions, session_pk=session.pk, sphere_id=sphere_id
+            )
         except NotFoundError:
             return None
         return ProposalAcceptContextDTO(
@@ -237,18 +236,6 @@ class ProposalAcceptanceService:
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
         )
-
-    def _require_event_in_sphere(self, session_id: int, sphere_id: int) -> EventDTO:
-        event = self._sessions.read_event(session_id)
-        if event.sphere_id != sphere_id:
-            logger.warning(
-                "Refused session %s of sphere %s to a reviewer in sphere %s",
-                session_id,
-                event.sphere_id,
-                sphere_id,
-            )
-            raise NotFoundError
-        return event
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         return can_write_programme(
@@ -270,7 +257,9 @@ class ProposalAcceptanceService:
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
-        event = self._require_event_in_sphere(session_id, sphere_id)
+        event = require_session_in_sphere(
+            sessions=self._sessions, session_pk=session_id, sphere_id=sphere_id
+        )
         if space_id not in {
             option.pk for option in self._sessions.read_space_options(session_id)
         }:
