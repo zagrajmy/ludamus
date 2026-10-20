@@ -5,6 +5,7 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
+import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -36,6 +37,8 @@ from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+
+logger = logging.getLogger(__name__)
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -221,9 +224,11 @@ class ProposalAcceptanceService:
             session = self._sessions.read(session_id)
         except NotFoundError:
             return None
+        if (event := self._read_event_in_sphere(session.pk, sphere_id)) is None:
+            return None
         return ProposalAcceptContextDTO(
             session=session,
-            event=self._sessions.read_event(session.pk),
+            event=event,
             presenter=self._sessions.read_presenter(session.pk),
             space_options=self._sessions.read_space_options(session.pk),
             time_slots=self._sessions.read_time_slots(session.pk),
@@ -233,6 +238,18 @@ class ProposalAcceptanceService:
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
         )
+
+    def _read_event_in_sphere(self, session_id: int, sphere_id: int) -> EventDTO | None:
+        event = self._sessions.read_event(session_id)
+        if event.sphere_id == sphere_id:
+            return event
+        logger.warning(
+            "Refused session %s of sphere %s to a reviewer in sphere %s",
+            session_id,
+            event.sphere_id,
+            sphere_id,
+        )
+        return None
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         return can_write_programme(
@@ -254,11 +271,17 @@ class ProposalAcceptanceService:
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
+        if (event := self._read_event_in_sphere(session_id, sphere_id)) is None:
+            raise NotFoundError
+        if space_id not in {
+            option.pk for option in self._sessions.read_space_options(session_id)
+        }:
+            raise NotFoundError
         time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
         # Same rule as assign_session: the event decides whether a first
         # placement counts as agreed. Acceptance is always a first placement,
         # so the move exemption that path carries does not apply here.
-        confirmed = self._sessions.read_event(session_id).auto_confirm_sessions
+        confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
             if self._agenda_items.list_overlapping_in_space(
                 space_id,

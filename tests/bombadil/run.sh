@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Explore the seeded e2e app with Bombadil, signed in as the party host, and
 # check tests/bombadil/enrollment.ts on every state. Exits 2 on a violation.
-# Run via `mise run test:bombadil`, which loads .env.e2e.
+# Run via `mise run test:bombadil`, which loads .env.e2e. The spec's
+# `@antithesishq/bombadil` imports resolve inside the Bombadil binary, so the
+# package is not in package.json and no tsconfig covers tests/bombadil/.
 #   BOMBADIL_TIME_LIMIT  how long to explore (default 3m)
 #   BOMBADIL_SKIP_PREP=1 reuse the database `mise run test:e2e:prep` made
 #   BOMBADIL_ARGS        extra CLI options, e.g. for an older Chromium:

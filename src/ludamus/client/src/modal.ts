@@ -132,6 +132,8 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
   }
   document.documentElement.classList.add(ROOT_PAGE_LIVE);
   const transition = doc.startViewTransition(callback);
+  // NOTE: an aborted transition rejects `ready` too, and nothing else awaits it.
+  void transition.ready.catch(() => null);
   void transition.finished
     .catch(() => null)
     .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
