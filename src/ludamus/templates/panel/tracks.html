@@ -70,7 +70,9 @@
                             <td class="px-6 py-4 text-sm">
                                 {% include "components/pill_list.html" with items=track.space_names icon="map-pin" %}
                             </td>
-                            <td class="px-6 py-4 text-sm">{% include "components/pill_list.html" with items=track.manager_names icon="user" %}</td>
+                            <td class="px-6 py-4 text-sm" data-ph-mask>
+                                {% include "components/pill_list.html" with items=track.manager_names icon="user" %}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=track.slug %}"
                                    data-row-action
