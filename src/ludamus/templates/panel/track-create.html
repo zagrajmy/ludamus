@@ -84,7 +84,8 @@
                                                        value="{{ manager.pk }}"
                                                        {% if manager.pk in selected_manager_pks %}checked{% endif %}
                                                        class="w-4 h-4 rounded border-border text-primary focus:ring-primary">
-                                                <span class="text-sm text-foreground">{{ manager.name|default:manager.username }}</span>
+                                                <span class="text-sm text-foreground"
+                                                      data-ph-mask>{{ manager.name|default:manager.username }}</span>
                                             </label>
                                         {% endfor %}
                                     </div>
