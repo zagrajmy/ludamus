@@ -37,8 +37,11 @@ that breaks it. Each layer of the code gets the tool that reaches it best.
 
 A test or model that exposes a bug on `main` is kept, not skipped:
 
-- A Bend finding (`formal/<area>/finding_*.bend`) proves that a trace reaching
-  the bug exists. It checks while the bug is there and stops checking once the
+- A Bend finding (`formal/<area>/finding_*.bend`) proves that the model can
+  reach a trace that breaks the rule. That convicts the model; it says the
+  code has the bug only as far as the model is true to the code, so the
+  findings table below says which ones were also reproduced against the real
+  code. A finding checks while its trace exists and stops checking once the
   code and model are fixed; then delete it and prove the rule in `LAWS.bend`.
 - A Hypothesis property for an open bug is marked
   `@pytest.mark.xfail(strict=True, raises=AssertionError, reason="finding: …")`.

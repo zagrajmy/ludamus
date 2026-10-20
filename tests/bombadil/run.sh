@@ -77,6 +77,8 @@ PY
 # The boundary keeps exploration on the event's pages and the dashboard: the
 # sign-in and sign-out links live under /crowd/, and the e2e login points at a
 # placeholder Auth0 tenant that can only answer 500.
+# `${extra[@]+...}` because Bash 3.2 (macOS) treats an empty array as unset
+# under `set -u`.
 read -r -a extra <<<"${BOMBADIL_ARGS:-}"
 "$bombadil" browser test --headless --no-sandbox --exit-on-violation \
   --time-limit "${BOMBADIL_TIME_LIMIT:-3m}" \
@@ -84,5 +86,5 @@ read -r -a extra <<<"${BOMBADIL_ARGS:-}"
   --cookie "$cookie" \
   --allow-url 'http://localhost/event/*' \
   --allow-url 'http://localhost/dashboard/*' \
-  "${extra[@]}" \
+  ${extra[@]+"${extra[@]}"} \
   "http://localhost:8000/event/$event/" tests/bombadil/enrollment.ts

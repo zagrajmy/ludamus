@@ -12,15 +12,20 @@ export * from "@antithesishq/bombadil/browser/defaults";
 
 type Capacity = { session: number; enrolled: number; limit: number };
 
-// The capacity pill ("enrolled/limit") on a session's enroll page
-// (chronology/enroll_select.html), or null anywhere else.
+// The seat count a session's enroll page shows (chronology/enroll_select.html),
+// found by its visible text, "enrolled/limit"; null anywhere else.
 const capacity = extract((state): Capacity | null => {
   const page = /\/session\/(\d+)\/enrollment\/$/.exec(state.window.location.pathname);
   if (!page) return null;
-  for (const pill of Array.from(state.document.querySelectorAll("span.tabular-nums"))) {
-    const count = /^(\d+)\/(\d+)$/.exec((pill.textContent ?? "").trim());
+  for (const element of Array.from(state.document.querySelectorAll("body *"))) {
+    if (element.children.length > 0) continue;
+    const count = /^(\d+)\/(\d+)$/.exec((element.textContent ?? "").trim());
     if (count) {
-      return { session: Number(page[1]), enrolled: Number(count[1]), limit: Number(count[2]) };
+      return {
+        session: Number(page[1]),
+        enrolled: Number(count[1]),
+        limit: Number(count[2]),
+      };
     }
   }
   return null;
@@ -45,16 +50,22 @@ export const sessionNeverGoesPastItsLimit = always(() => {
 });
 
 // Random clicking seldom ticks a member and then submits, so on an enroll page
-// the form's own controls are offered as extra actions: the member checkboxes,
-// the guest stepper, and the submit button.
+// the form's own controls are offered as extra actions, found by their
+// accessible names: each member's "Include <name>" checkbox and the submit
+// button, whose label names what submitting does.
+const SUBMIT_LABELS = ["Join this session", "Join the waiting list", "Confirm"];
+
 const enrollControls = extract((state) => {
   if (!/\/session\/\d+\/enrollment\/$/.test(state.window.location.pathname)) {
     return [];
   }
-  const selector =
-    "[data-enroll-row] input[type=checkbox]:not([disabled]), " +
-    "form[method=post] button:not([disabled])";
-  return Array.from(state.document.querySelectorAll(selector))
+  const members = Array.from(
+    state.document.querySelectorAll("input[type=checkbox]:not([disabled])"),
+  ).filter((box) => (box.getAttribute("aria-label") ?? "").startsWith("Include "));
+  const submits = Array.from(
+    state.document.querySelectorAll("button[type=submit]:not([disabled])"),
+  ).filter((button) => SUBMIT_LABELS.includes((button.textContent ?? "").trim()));
+  return [...members, ...submits]
     .filter((element) => isVisible(state.window, element))
     .map((element) => ({ element, point: clickablePoint(element) }))
     .filter(({ point }) => point !== null && inViewport(state.window, point))

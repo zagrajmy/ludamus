@@ -53,7 +53,7 @@ maps every verification tool to the layer it covers.
 | `seats.bend` | One session's seats: `taken` rows, and `held` seats the lock holder will write. Ops: `Check`, `Commit`, `Free`, `Claim`, `Join` |
 | `schedule.bend` | One person's rows in sessions A and B, which overlap, with each session's lock. Ops: `Enroll`, `Hold`, `Promote`, `Commit`, `Join`, `Cancel`, `Claim`, `Drop` |
 | `allowance.bend` | One pass owner's household across the event, against two enroll requests into different sessions. Ops: `Check`, `Commit` |
-| `LAWS.bend` | The claims: `capacity`, plus `conflict_blocks_serial_enroll` and `allowance_refuses_serial_third`, which pin the models' checks to the code's |
+| `LAWS.bend` | The claims: `capacity`, plus `conflict_blocks_serial_enroll` and `allowance_refuses_serial_third`, which pin the models' checks to the checks in the code |
 | `PROOF.bend` | The proofs. Capacity: `taken + held <= limit` holds at the start and every op keeps it |
 | `finding_*.bend` | One known bug each: a law that a trace reaching it exists, proven by the trace itself |
 | `seats.gen.mjs`, `replay_seats.mjs` | `seats.bend` compiled to JS, and the Node runner the differential test calls |
