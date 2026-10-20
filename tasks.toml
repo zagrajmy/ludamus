@@ -192,3 +192,7 @@ raw_args = true
 [env-show]
 description = "Print resolved env with secrets redacted (agent-safe JSON)"
 run = "aube exec varlock load --agent"
+
+["formal:enrollment"]
+description = "Check the Bend proofs and findings for enrollment seats"
+run = "formal/check.sh formal/enrollment"
