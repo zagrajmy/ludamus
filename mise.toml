@@ -28,7 +28,7 @@ enter = "poetry install"
 # binary).
 [tools]
 python = "3.14"
-node = "26.11.1"
+node = "26.12.1"
 "pipx:poetry" = "2.5.1"
 "npm:frog" = "1.1.0"
 "npm:@ast-grep/cli" = { version = "0.50.0", npm_args = "--ignore-scripts=false" }
