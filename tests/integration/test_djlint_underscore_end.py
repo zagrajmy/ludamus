@@ -1,23 +1,18 @@
-# T038U (scripts/djlint_underscore_end.py) replaces djlint's built-in T038 so
-# that `{% end_name %}` pairs with `{% name %}`. Two things need pinning: that
-# it still catches everything T038 caught — it is a vendored copy, and a copy
-# that quietly stopped checking would look exactly like a clean run — and that
-# the copy is noticed when upstream's original changes.
 import hashlib
 import importlib.util
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_FILE = REPO_ROOT / ".djlint_rules.yaml"
 CONFIG_FILE = REPO_ROOT / "pyproject.toml"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
-# Upstream djlint 1.45.2's rules/T038.py. scripts/djlint_underscore_end.py is a
-# copy of it with one regex changed; when this no longer matches, re-diff the
-# two files, port anything new, and update the hash. Deleting the copy outright
-# is better still — see the tracking issue in its module docstring.
 UPSTREAM_T038_SHA256 = (
     "2968446868b755c87a44a73573baf8cdf8011891ed77e71068e70fbc2da1b448"
 )
@@ -41,6 +36,7 @@ def _lint(tmp_path: Path, template: str) -> str:
         check=False,
         env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(SCRIPTS_DIR)},
     )
+    assert result.returncode in {0, 1}, result.stdout + result.stderr
     return result.stdout + result.stderr
 
 
@@ -53,8 +49,6 @@ class TestClosersPair:
         assert "T038U" not in output
 
     def test_the_run_on_spelling_still_pairs(self, tmp_path):
-        # Not the convention any more, but djlint should not be the thing that
-        # objects — Django raises TemplateSyntaxError on it, loudly, at render.
         output = _lint(
             tmp_path, "{% tessera_table %}\n    <p>hi</p>\n{% endtessera_table %}\n"
         )
@@ -84,9 +78,33 @@ class TestStillCatchesWhatT038Caught:
         assert "Endblock name should match opening block name" in output
 
 
+@pytest.mark.parametrize("editor", (False, True), ids=("mise-cli", "vscode"))
+def test_supported_callers_load_the_rule(editor):
+    settings = json.loads((REPO_ROOT / ".vscode/settings.json").read_text())
+    command = (
+        [str(REPO_ROOT / settings["djlint.executablePath"])]
+        if editor
+        else ["mise", "exec", "--", "djlint"]
+    )
+    result = subprocess.run(
+        [*command, "-", "--lint", "--profile=django", f"--configuration={CONFIG_FILE}"],
+        input="{% tessera_table %}\n    <p>hi</p>\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+        env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "T038U" in result.stdout
+    assert "Block tag has no matching end tag" in result.stdout
+    assert "ModuleNotFoundError" not in result.stderr
+    if editor:
+        assert settings["djlint.useVenv"] is False
+
+
 def test_the_vendored_copy_is_still_in_step_with_upstream():
-    # Not guarded on djlint being importable: it is a dev dependency, and if it
-    # were missing the rule it is copied from would not run either.
     spec = importlib.util.find_spec("djlint.rules.T038")
     assert spec is not None
     assert spec.origin is not None
