@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Confirm age range" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold text-foreground">{% translate "Confirm your age range" %}</h1>
+        <p class="text-sm text-foreground-secondary mt-3">
+            {% translate "You can have your own account from age 13. Younger children join as a parent's or guardian's companions." %}
+        </p>
+        <p class="text-sm text-foreground-secondary mt-3">
+            {% translate "If you are 13–15, you can manage your bookings yourself. Optional analytics, session recordings and promotional emails stay off." %}
+        </p>
+        <p class="text-xs text-foreground-muted mt-2">
+            {% translate "We save only your age range, not your date of birth." %}
+        </p>
+        {% if request.user.is_authenticated %}
+            <p class="text-sm text-foreground-secondary mt-3">
+                {% translate "Choosing Under 13 disables independent sign-in. Contact us if you already have bookings." %}
+            </p>
+        {% endif %}
+        <form method="post" class="mt-6 space-y-4" data-ph-no-capture>
+            {% csrf_token %}
+            {% tessera_form form %}
+            {% translate "Continue" as continue_label %}
+            {% tessera_button continue_label extra_class="w-full" %}
+        </form>
+        {% if not request.user.is_authenticated %}
+            <p class="text-xs text-foreground-muted mt-6 [&_a]:text-primary [&_a]:hover:underline">
+                {% url 'terms-of-service' as terms_url %}
+                {% url 'privacy-policy' as privacy_url %}
+                {% blocktranslate trimmed %}
+                    By creating an account you accept the <a href="{{ terms_url }}">Terms of Service</a>. The <a href="{{ privacy_url }}">Privacy Policy</a> explains how we use your data.
+                {% endblocktranslate %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock body %}

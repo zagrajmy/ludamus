@@ -19,6 +19,8 @@ from ludamus.pacts.dashboard import (
     DashboardServiceProtocol,
     SphereEventPublishedNotification,
     SphereSubscriptionServiceProtocol,
+    SphereUnsubscribeTokenPayload,
+    SubscriptionAgeRestrictedError,
 )
 
 if TYPE_CHECKING:
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
         DashboardRepositoryProtocol,
         SphereSubscriptionNotifierProtocol,
         SphereSubscriptionRepositoryProtocol,
+        SphereUnsubscribeTokenCodecProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -61,18 +64,33 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
         transaction: TransactionProtocol,
         subscriptions: SphereSubscriptionRepositoryProtocol,
         notifier: SphereSubscriptionNotifierProtocol,
+        tokens: SphereUnsubscribeTokenCodecProtocol,
     ) -> None:
         self._transaction = transaction
         self._subscriptions = subscriptions
         self._notifier = notifier
+        self._tokens = tokens
 
     def subscribe(self, *, sphere_id: int, user_id: int) -> None:
         with self._transaction.atomic():
+            if not self._subscriptions.can_subscribe(user_id):
+                raise SubscriptionAgeRestrictedError
             self._subscriptions.subscribe(sphere_id=sphere_id, user_id=user_id)
 
     def unsubscribe(self, *, sphere_id: int, user_id: int) -> None:
         with self._transaction.atomic():
             self._subscriptions.unsubscribe(sphere_id=sphere_id, user_id=user_id)
+
+    def read_unsubscribe_token(
+        self, token: str
+    ) -> SphereUnsubscribeTokenPayload | None:
+        return self._tokens.loads(token)
+
+    def unsubscribe_by_token(self, token: str) -> SphereUnsubscribeTokenPayload | None:
+        if (payload := self._tokens.loads(token)) is None:
+            return None
+        self.unsubscribe(sphere_id=payload.sphere_id, user_id=payload.user_id)
+        return payload
 
     def announce_published_events(self, *, now: datetime) -> int:
         """Tell each sphere's subscribers about the events it just published.
@@ -97,6 +115,13 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
                             event_slug=announcement.event_slug,
                             sphere_name=announcement.sphere_name,
                             sphere_domain=announcement.sphere_domain,
+                            unsubscribe_token=self._tokens.dumps(
+                                SphereUnsubscribeTokenPayload(
+                                    user_id=recipient.user_id,
+                                    sphere_id=announcement.sphere_id,
+                                    sphere_name=announcement.sphere_name,
+                                )
+                            ),
                         )
                     )
         return len(pending)

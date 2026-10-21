@@ -5,7 +5,12 @@ import pytest
 
 from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDTO
+from ludamus.pacts.crowd import (
+    AgeBand,
+    ClaimableProfileDTO,
+    ClaimOutcome,
+    ClaimResultDTO,
+)
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, user_dto
 
@@ -54,6 +59,9 @@ class FakeUsers:
         for index, user in enumerate(self._users):
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
+
+    def set_age_band(self, user_slug, age_band):
+        self.update(user_slug, {"age_band": age_band})
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
         _ = now
@@ -482,3 +490,47 @@ class TestIsKnownSphereDomain:
 
         assert service.is_known_sphere_domain("a.example.com") is True
         assert service.is_known_sphere_domain("b.example.com") is False
+
+
+class TestAgeConfirmation:
+    def test_underage_account_cannot_keep_independent_access(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+
+        _service(users=users).disable_underage_account("auth0user")
+
+        user = users.read("auth0user")
+        assert user.is_active is False
+        assert user.age_band == AgeBand.UNKNOWN
+
+    @pytest.mark.parametrize(
+        "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)
+    )
+    def test_confirmed_range_is_persisted(self, age_band):
+        users = FakeUsers(users=[_user_dto()])
+
+        result = _service(users=users).confirm_age(
+            user_slug="auth0user", age_band=age_band
+        )
+
+        assert result.age_band == age_band
+        assert users.read("auth0user").age_band == age_band
+
+    def test_unknown_is_not_an_age_confirmation(self):
+        users = FakeUsers(users=[_user_dto()])
+
+        with pytest.raises(ValueError, match="Choose an account age range"):
+            _service(users=users).confirm_age(
+                user_slug="auth0user", age_band=AgeBand.UNKNOWN
+            )
+
+        assert users.read("auth0user").age_band == AgeBand.UNKNOWN
+
+
+class TestHasAccount:
+    def test_known_identity_has_an_account(self):
+        service = _service(users=FakeUsers(users=[_user_dto(username="auth0|sub")]))
+
+        assert service.has_account("auth0|sub") is True
+
+    def test_unknown_identity_has_none(self):
+        assert _service(users=FakeUsers()).has_account("auth0|sub") is False

@@ -13,7 +13,9 @@
 //               session recording with every input masked.
 // - "declined": PostHog is never initialized; withdrawing consent on a
 //               pageload where it already runs opts out and stops recording.
-import posthog from "posthog-js/dist/module.full.no-external";
+import type posthogClient from "posthog-js/dist/module.full.no-external";
+
+let posthog: typeof posthogClient;
 
 const STORAGE_KEY = "prologue.consent";
 
@@ -152,7 +154,12 @@ const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void
   }
 };
 
-const initPosthog = (config: PosthogServerConfig): void => {
+const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
+  if (!posthog) {
+    const client = await import("posthog-js/dist/module.full.no-external");
+    posthog = client.default;
+  }
+  if (readConsent() !== "accepted") return;
   const rules = compileRules(config.redaction_rules);
   posthog.init(config.api_key, {
     api_host: config.host,
@@ -239,18 +246,21 @@ const renderConsentState = (): void => {
   }
 };
 
-const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined"): void => {
+const applyChoice = async (
+  config: PosthogServerConfig,
+  choice: "accepted" | "declined",
+): Promise<void> => {
   localStorage.setItem(STORAGE_KEY, choice);
   if (choice === "accepted") {
-    if (posthog.__loaded) {
+    if (posthog?.__loaded) {
       posthog.set_config({ persistence: "localStorage+cookie" });
       posthog.opt_in_capturing();
       posthog.startSessionRecording();
       syncIdentity(config.user_id);
     } else {
-      initPosthog(config);
+      await initPosthog(config);
     }
-  } else if (posthog.__loaded) {
+  } else if (posthog?.__loaded) {
     // reset() before opt_out_capturing(), never after: reset() calls
     // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
     // reverse order withdraws consent and then immediately clears the
@@ -262,12 +272,39 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
   }
 };
 
-const init = (): void => {
+const clearTrackingStorage = async (): Promise<void> => {
+  localStorage.removeItem(STORAGE_KEY);
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("ph_") || key.startsWith("__ph_opt_in_out_")) localStorage.removeItem(key);
+  }
+  if (!("cookieStore" in globalThis)) return;
+  for (const { name } of await globalThis.cookieStore.getAll()) {
+    if (!name || (!name.startsWith("ph_") && !name.startsWith("__ph_opt_in_out_"))) continue;
+    await globalThis.cookieStore.delete(name);
+    const parts = location.hostname.split(".");
+    while (parts.length > 1) {
+      await globalThis.cookieStore.delete({ domain: parts.join("."), name, path: "/" });
+      parts.shift();
+    }
+  }
+};
+
+const init = async (): Promise<void> => {
   const config = readServerConfig();
-  if (!config) return;
+  if (!config) {
+    await clearTrackingStorage();
+    return;
+  }
+
+  globalThis.addEventListener("storage", async (event) => {
+    if (event.key !== STORAGE_KEY || event.newValue === "accepted") return;
+    if (posthog?.__loaded) await applyChoice(config, "declined");
+    renderConsentState();
+    if (event.newValue === null) globalThis.location.reload();
+  });
 
   const consent = readConsent();
-  if (consent === "accepted") initPosthog(config);
+  if (consent === "accepted") await initPosthog(config);
   renderConsentState();
 
   const banner = document.getElementById("consent-banner");
@@ -275,10 +312,10 @@ const init = (): void => {
   if (consent === null) banner.hidden = false;
 
   for (const button of banner.querySelectorAll<HTMLButtonElement>("[data-consent-choice]")) {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const { consentChoice } = button.dataset;
       if (consentChoice !== "accepted" && consentChoice !== "declined") return;
-      applyChoice(config, consentChoice);
+      await applyChoice(config, consentChoice);
       renderConsentState();
       banner.hidden = true;
     });
@@ -292,4 +329,4 @@ const init = (): void => {
   }
 };
 
-init();
+await init();

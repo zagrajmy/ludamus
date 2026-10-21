@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.links.db.django.event_visibility import listed_events
-from ludamus.links.db.django.models import Event, Sphere, SphereSubscription
+from ludamus.links.db.django.models import Event, Sphere, SphereSubscription, User
+from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     SphereEventAnnouncementDTO,
     SphereSubscriptionRepositoryProtocol,
@@ -27,6 +28,11 @@ if TYPE_CHECKING:
 
 
 class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
+    @staticmethod
+    def can_subscribe(user_id: int) -> bool:
+        user = User.objects.select_for_update().get(pk=user_id)
+        return user.age_band == AgeBand.SIXTEEN_PLUS
+
     @staticmethod
     def subscribe(*, sphere_id: int, user_id: int) -> None:
         # The id comes off a URL, so it is checked before it reaches a write.
@@ -69,7 +75,8 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
         )
         subscribers: dict[int, list[SubscriptionRecipientDTO]] = {}
         for sphere_id, user_id, email in SphereSubscription.objects.filter(
-            sphere_id__in={event.sphere_id for event in events}
+            sphere_id__in={event.sphere_id for event in events},
+            user__age_band=AgeBand.SIXTEEN_PLUS,
         ).values_list("sphere_id", "user_id", "user__email"):
             subscribers.setdefault(sphere_id, []).append(
                 SubscriptionRecipientDTO(user_id=user_id, email=email)
@@ -79,6 +86,7 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
                 event_pk=event.pk,
                 event_name=event.name,
                 event_slug=event.slug,
+                sphere_id=event.sphere_id,
                 sphere_name=event.sphere.name,
                 sphere_domain=event.sphere.site.domain,
                 recipients=subscribers.get(event.sphere_id, []),

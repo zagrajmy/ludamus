@@ -7,6 +7,7 @@ from django.conf import settings
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.analytics import identity, redaction
+from ludamus.pacts.crowd import AgeBand
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -75,7 +76,13 @@ class AnalyticsContextData(TypedDict):
 
 
 def analytics(request: HttpRequest) -> AnalyticsContextData:
-    if not settings.POSTHOG_API_KEY:
+    user = getattr(request, "user", None)
+    if (
+        not settings.POSTHOG_API_KEY
+        or user is None
+        or not user.is_authenticated
+        or user.age_band != AgeBand.SIXTEEN_PLUS
+    ):
         return AnalyticsContextData(posthog_config=None)
     # Identify by pk, not slug: a slug follows a rename and would split one
     # person across two distinct_ids. request.user rather than the profile
@@ -106,6 +113,7 @@ def static_version(_request: HttpRequest) -> dict[str, str]:
 
 
 class CurrentUserContextData(TypedDict):
+    optional_features_available: bool
     current_user_info: NotRequired[UserInfo]
     current_user: UserDTO | None
     navbar_notifications: NotRequired[NavbarNotificationsDTO]
@@ -118,11 +126,14 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
         or not hasattr(request, "di")
         or not request.context.current_user_slug
     ):
-        return CurrentUserContextData(current_user=None)
+        return CurrentUserContextData(
+            current_user=None, optional_features_available=False
+        )
 
     user_dto = request.services.profile.read(request.context.current_user_slug)
     return CurrentUserContextData(
         current_user=user_dto,
+        optional_features_available=user_dto.age_band == AgeBand.SIXTEEN_PLUS,
         current_user_info=UserInfo.from_user_dto(
             user_dto, gravatar_url=request.di.gravatar_url
         ),

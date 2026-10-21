@@ -14,8 +14,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.hashers import make_password
+from django.core import signing
 from django.core.cache import cache
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.crypto import constant_time_compare
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
@@ -24,8 +28,15 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.oauth import oauth
+from ludamus.gates.web.django.crowd.forms import SignupAgeForm
 from ludamus.pacts import RedirectError
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, ClaimOutcome, UserData
+from ludamus.pacts.crowd import (
+    MAX_AVATAR_URL_LENGTH,
+    MIN_ACCOUNT_AGE,
+    AgeBand,
+    ClaimOutcome,
+    UserData,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -36,6 +47,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 CACHE_TIMEOUT = 600  # 10 minutes
+PENDING_SIGNUP_SESSION_KEY = "pending_signup"
+AGE_CONFIRMATION_SALT = "crowd.age-confirmation"
 
 # A bare hostname: dot-separated DNS labels, no scheme, path, port, credentials,
 # or fragment. Rejects the `evil.com#x.ROOT_DOMAIN` suffix-match bypass, where a
@@ -171,6 +184,78 @@ class Auth0UserInfo(BaseModel):
         return data
 
 
+def _provision_user(request: RootRequest, userinfo: Auth0UserInfo) -> UserDTO:
+    claim_token = request.session.pop("pending_claim_token", "")
+    result = request.services.crowd_auth.provision_user(
+        username=userinfo.username,
+        create_data=userinfo.to_create_data(
+            slug=slugify(userinfo.username), password=make_password(None)
+        ),
+        claim_token=claim_token,
+    )
+    if result.claim_outcome == ClaimOutcome.CONVERTED:
+        messages.success(request, _("Profile claimed — it is now your own account."))
+    elif result.claim_outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
+        messages.info(
+            request,
+            _(
+                "You already have an account, so this profile can't be moved "
+                "into it. Ask the person who invited you to enroll you directly."
+            ),
+        )
+    if result.email_conflict:
+        messages.warning(
+            request,
+            _(
+                "That email address already belongs to another account, "
+                "so it was not set. Set a different one in your profile."
+            ),
+        )
+    return result.user
+
+
+def _finish_login(
+    request: RootRequest,
+    *,
+    userinfo: Auth0UserInfo,
+    redirect_to: str,
+    age_band: AgeBand | None = None,
+) -> str:
+    index_url = request.build_absolute_uri(reverse("web:index"))
+    request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+    user = _provision_user(request, userinfo)
+    if not user.is_active:
+        messages.error(
+            request, _("This account is inactive. Contact support for help.")
+        )
+        return index_url
+    if age_band is not None:
+        user = request.services.crowd_auth.confirm_age(
+            user_slug=user.slug, age_band=age_band
+        )
+
+    _login_user(request, user.slug)
+    if request.session.get("anonymous_enrollment_active"):
+        request.session.pop("anonymous_user_code", None)
+        request.session.pop("anonymous_enrollment_active", None)
+        request.session.pop("anonymous_event_id", None)
+    if update_data := userinfo.to_update_data():
+        user = request.services.crowd_auth.sync_identity(
+            user_slug=user.slug, data=update_data
+        )
+
+    if not (user.name or "").strip():
+        messages.success(request, _("Please complete your profile."))
+        profile_path = reverse("web:crowd:profile")
+        onboarding = f"{profile_path}?{urlencode({'next': reverse('web:index')})}"
+        if redirect_to:
+            parsed = urlparse(redirect_to)
+            return f"{parsed.scheme}://{parsed.netloc}{onboarding}"
+        return request.build_absolute_uri(onboarding)
+
+    return redirect_to or index_url
+
+
 class Auth0LoginCallbackActionView(RedirectView):
     request: RootRequest
 
@@ -193,28 +278,19 @@ class Auth0LoginCallbackActionView(RedirectView):
             return redirect_to or index_url
 
         userinfo = self._get_userinfo()
-        user = self._provision_user(userinfo)
-
-        _login_user(self.request, user.slug)
-        if self.request.session.get("anonymous_enrollment_active"):
-            self.request.session.pop("anonymous_user_code", None)
-            self.request.session.pop("anonymous_enrollment_active", None)
-            self.request.session.pop("anonymous_event_id", None)
-        if update_data := userinfo.to_update_data():
-            user = self.request.services.crowd_auth.sync_identity(
-                user_slug=user.slug, data=update_data
+        if not self.request.services.crowd_auth.has_account(userinfo.username):
+            self.request.session[PENDING_SIGNUP_SESSION_KEY] = {
+                "userinfo": userinfo.model_dump(),
+                "redirect_to": redirect_to,
+                "confirmation_token": signing.dumps(
+                    {"username": userinfo.username, "nonce": token_urlsafe(16)},
+                    salt=AGE_CONFIRMATION_SALT,
+                ),
+            }
+            return self.request.build_absolute_uri(
+                reverse("web:crowd:auth0:signup-age")
             )
-
-        if not (user.name or "").strip():
-            messages.success(self.request, _("Please complete your profile."))
-            profile_path = reverse("web:crowd:profile")
-            onboarding = f"{profile_path}?{urlencode({'next': reverse('web:index')})}"
-            if redirect_to:
-                parsed = urlparse(redirect_to)
-                return f"{parsed.scheme}://{parsed.netloc}{onboarding}"
-            return self.request.build_absolute_uri(onboarding)
-
-        return redirect_to or index_url
+        return _finish_login(self.request, userinfo=userinfo, redirect_to=redirect_to)
 
     def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
         if not (state_token := self.request.GET.get("state")):
@@ -254,37 +330,6 @@ class Auth0LoginCallbackActionView(RedirectView):
 
         return redirect_to
 
-    def _provision_user(self, userinfo: Auth0UserInfo) -> UserDTO:
-        claim_token = self.request.session.pop("pending_claim_token", "")
-        result = self.request.services.crowd_auth.provision_user(
-            username=userinfo.username,
-            create_data=userinfo.to_create_data(
-                slug=slugify(userinfo.username), password=make_password(None)
-            ),
-            claim_token=claim_token,
-        )
-        if result.claim_outcome == ClaimOutcome.CONVERTED:
-            messages.success(
-                self.request, _("Profile claimed — it is now your own account.")
-            )
-        elif result.claim_outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
-            messages.info(
-                self.request,
-                _(
-                    "You already have an account, so this profile can't be moved "
-                    "into it. Ask the person who invited you to enroll you directly."
-                ),
-            )
-        if result.email_conflict:
-            messages.warning(
-                self.request,
-                _(
-                    "That email address already belongs to another account, "
-                    "so it was not set. Set a different one in your profile."
-                ),
-            )
-        return result.user
-
     def _get_userinfo(self) -> Auth0UserInfo:
         token = oauth.auth0.authorize_access_token(self.request)
         raw: dict[str, Any] = {}
@@ -313,6 +358,108 @@ class Auth0LoginCallbackActionView(RedirectView):
             bool(userinfo.name),
         )
         return userinfo
+
+
+def _valid_age_confirmation(request: RootRequest) -> bool:
+    token = request.POST.get("confirmation_token", "")
+    try:
+        payload = signing.loads(
+            token, salt=AGE_CONFIRMATION_SALT, max_age=CACHE_TIMEOUT
+        )
+    except signing.BadSignature:
+        return False
+    if request.context.current_user_slug:
+        return bool(payload.get("user_slug") == request.context.current_user_slug)
+    pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
+    return isinstance(pending, dict) and constant_time_compare(
+        token, pending.get("confirmation_token", "")
+    )
+
+
+class Auth0SignupAgePageView(View):
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        if request.context.current_user_slug:
+            token = signing.dumps(
+                {"user_slug": request.context.current_user_slug},
+                salt=AGE_CONFIRMATION_SALT,
+            )
+        elif pending := request.session.get(PENDING_SIGNUP_SESSION_KEY):
+            token = signing.dumps(
+                {"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT
+            )
+            request.session[PENDING_SIGNUP_SESSION_KEY] = {
+                **pending,
+                "confirmation_token": token,
+            }
+        else:
+            return redirect("web:index")
+        return TemplateResponse(
+            request,
+            "crowd/signup_age.html",
+            {"form": SignupAgeForm(initial={"confirmation_token": token})},
+        )
+
+    @staticmethod
+    def post(request: RootRequest) -> HttpResponse:
+        pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
+        if not request.context.current_user_slug and not isinstance(pending, dict):
+            return redirect("web:index")
+        if not _valid_age_confirmation(request):
+            if request.context.current_user_slug:
+                return redirect("web:index")
+            messages.error(
+                request,
+                _("This age confirmation has expired. Choose your age range again."),
+            )
+            return redirect("web:crowd:auth0:signup-age")
+        form = SignupAgeForm(request.POST)
+        if not form.is_valid():
+            return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
+        if form.cleaned_data["age_band"] == "under_13":
+            if request.context.current_user_slug:
+                request.services.crowd_auth.disable_underage_account(
+                    request.context.current_user_slug
+                )
+            request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+            request.session.pop("pending_claim_token", None)
+            django_logout(request)
+            logger.info("Independent signup declined: below minimum age")
+            return TemplateResponse(
+                request,
+                "crowd/signup_guardian.html",
+                {
+                    "min_age": MIN_ACCOUNT_AGE,
+                    "guardian_login_url": _auth0_logout_url(
+                        request, redirect_to=reverse("web:crowd:auth0:login")
+                    ),
+                },
+            )
+        age_band = AgeBand(form.cleaned_data["age_band"])
+        if request.context.current_user_slug:
+            request.services.crowd_auth.confirm_age(
+                user_slug=request.context.current_user_slug, age_band=age_band
+            )
+            logger.info("Account age range updated")
+            messages.success(
+                request, _("Age range saved. Your bookings are unchanged.")
+            )
+            return redirect("user:profile-privacy")
+        if not isinstance(pending, dict):
+            return redirect("web:index")
+        userinfo = Auth0UserInfo.model_validate(pending["userinfo"])
+        logger.info("Signup age range confirmed")
+        destination = _finish_login(
+            request,
+            userinfo=userinfo,
+            redirect_to=pending.get("redirect_to") or "",
+            age_band=age_band,
+        )
+        if (host := urlparse(destination).netloc) and host != request.get_host():
+            return TemplateResponse(
+                request, "crowd/signup_continue.html", {"redirect_to": destination}
+            )
+        return redirect(destination)
 
 
 class Auth0LogoutActionView(RedirectView):

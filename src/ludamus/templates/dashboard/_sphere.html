@@ -35,7 +35,7 @@
             {% translate "Subscribed" as unsubscribe_label %}
             {% tessera_button unsubscribe_label variant="secondary" size="sm" icon="check" full_width_mobile=False %}
         </form>
-    {% else %}
+    {% elif optional_features_available %}
         {% blocktranslate asvar subscribe_prompt with name=sphere.name %}
             We'll notify you whenever {{ name }} publishes a new event. You can unsubscribe here any time.
         {% endblocktranslate %}
@@ -54,5 +54,9 @@
             {% csrf_token %}
             {% tessera_button subscribe_label size="sm" icon="bell-alert" full_width_mobile=False %}
         </form>
+    {% else %}
+        <p class="text-xs text-foreground-muted mt-auto">
+            {% translate "Promotional emails are off. You can still browse events and sign up." %}
+        </p>
     {% endif %}
 </article>

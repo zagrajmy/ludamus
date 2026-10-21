@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test";
 
+import path from "node:path";
+
 import { expect, test } from "./helpers/fixtures";
 
 // The Prologue consent gate. The suite-wide fixture pre-answers the banner
@@ -8,7 +10,7 @@ import { expect, test } from "./helpers/fixtures";
 // browser until the visitor explicitly allows it — posthog-js writes a
 // `ph_<key>_posthog` localStorage entry the moment it initializes, so the
 // absence of any `ph_` key doubles as proof it never started.
-test.use({ consentSeed: null });
+test.use({ consentSeed: null, storageState: path.join(__dirname, "..", ".auth-state.json") });
 
 const storedConsent = (page: Page) =>
   page.evaluate(() => window.localStorage.getItem("prologue.consent"));

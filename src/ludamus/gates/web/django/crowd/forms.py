@@ -3,7 +3,20 @@ from typing import cast
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.crowd import UserData, UserType
+from ludamus.pacts.crowd import AgeBand, UserData, UserType
+
+
+class SignupAgeForm(forms.Form):
+    confirmation_token = forms.CharField(widget=forms.HiddenInput())
+    age_band = forms.ChoiceField(
+        label=_("Age range"),
+        choices=[
+            (AgeBand.SIXTEEN_PLUS, _("16 or older")),
+            (AgeBand.THIRTEEN_TO_FIFTEEN, _("13–15")),
+            ("under_13", _("Under 13")),
+        ],
+        widget=forms.RadioSelect,
+    )
 
 
 class BaseUserForm(forms.Form):

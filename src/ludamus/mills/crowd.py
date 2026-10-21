@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    AgeBand,
     AuthProvisionDTO,
     AvatarPageDTO,
     ChangeRequestOutcome,
@@ -152,6 +153,25 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             claim_outcome=claim_outcome,
             email_conflict=email_conflict,
         )
+
+    def disable_underage_account(self, user_slug: str) -> None:
+        with self._transaction.atomic():
+            self._users.set_age_band(user_slug, AgeBand.UNKNOWN)
+            self._users.update(user_slug, UserData(is_active=False))
+
+    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> UserDTO:
+        if age_band == AgeBand.UNKNOWN:
+            raise ValueError("Choose an account age range")
+        with self._transaction.atomic():
+            self._users.set_age_band(user_slug, age_band)
+            return self._users.read(user_slug)
+
+    def has_account(self, username: str) -> bool:
+        try:
+            self._users.read_by_username(username)
+        except NotFoundError:
+            return False
+        return True
 
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()

@@ -10,7 +10,10 @@ export const coverageOptions: CoverageReportOptions = {
   name: "Client TypeScript",
   outputDir: path.join(repoRoot, "coverage-client"),
   reports: [["lcovonly", { file: "lcov.info" }], "console-summary"],
-  entryFilter: "**/static/vite/**",
+  entryFilter: (entry) => {
+    const isImportStub = /^(?:import\s*["']\.\/[^"'\n]+["'];\s*)+$/u.test(entry.source ?? "");
+    return entry.url.includes("/static/vite/") && !isImportStub;
+  },
   sourceFilter: "**/client/src/**",
   sourcePath: (filePath) => {
     const marker = "client/src/";
