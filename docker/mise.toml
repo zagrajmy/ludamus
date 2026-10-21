@@ -4,7 +4,7 @@ jobs = 1
 
 [tools]
 python = "3.14"
-node = "v25.6.1"
+node = "26.12.1"
 poetry = { version = "2.3.2", pyproject = "/app/pyproject.toml" }
 "github:endevco/aube" = "1.38.0"
 
