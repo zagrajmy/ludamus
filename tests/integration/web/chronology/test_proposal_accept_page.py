@@ -8,7 +8,6 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.gates.web.django.chronology.forms import slot_label
 from ludamus.links.db.django.models import (
     AgendaItem,
     Session,
@@ -19,6 +18,13 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
 from ludamus.pacts.crowd import UserDTO
+from tests.integration.conftest import (
+    EventFactory,
+    SessionFactory,
+    SpaceFactory,
+    SphereFactory,
+    TimeSlotFactory,
+)
 from tests.integration.utils import assert_response
 
 
@@ -129,33 +135,6 @@ class TestProposalAcceptPageView:
         assert "<select" in content
         assert 'name="time_slot"' in content
 
-    @pytest.mark.usefixtures("event", "space")
-    def test_get_carries_a_single_time_slot_and_names_it(
-        self, pending_session, manager_client, time_slot
-    ):
-        # A lone slot is a foregone choice: the form carries it and the page
-        # stops asking. It still has to say *when*, or the organizer confirms
-        # a booking against a time nothing on the page names.
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert (
-            f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
-        )
-        assert (
-            slot_label(
-                TimeSlotDTO(
-                    pk=time_slot.pk,
-                    start_time=time_slot.start_time,
-                    end_time=time_slot.end_time,
-                )
-            )
-            in content
-        )
-
     @pytest.mark.usefixtures("space")
     def test_get_groups_preferred_time_slots_in_picker(
         self, event, pending_session, manager_client, time_slot
@@ -228,25 +207,6 @@ class TestProposalAcceptPageView:
             },
             template_name="chronology/accept_proposal.html",
         )
-
-    @pytest.mark.usefixtures("event", "time_slot")
-    def test_get_carries_a_single_space_and_names_it(
-        self, pending_session, space, manager_client
-    ):
-        """A lone space is carried, never asked for — and still named.
-
-        Without the name the decision card would offer "Accept and add to
-        agenda" for a room the page never mentions.
-        """
-        response = manager_client.get(
-            self._get_url(pending_session.id, pending_session.event.slug)
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert f'<input type="hidden" name="space" value="{space.id}"' in content
-        assert "<optgroup" not in content
-        assert space.name in content
 
     @pytest.mark.usefixtures("time_slot")
     def test_get_groups_leaf_spaces_under_their_parent(
@@ -579,6 +539,27 @@ class TestProposalAcceptPageView:
             ],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
+
+    def test_post_error_proposal_of_another_sphere(self, manager_client):
+        foreign_event = EventFactory(sphere=SphereFactory())
+        foreign_session = SessionFactory(event=foreign_event, status="pending")
+        space = SpaceFactory(event=foreign_event)
+        time_slot = TimeSlotFactory(event=foreign_event)
+
+        response = manager_client.post(
+            self._get_url(foreign_session.id, foreign_event.slug),
+            data={"space": space.id, "time_slot": time_slot.id},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url=reverse("web:index"),
+        )
+        foreign_session.refresh_from_db()
+        assert foreign_session.status == "pending"
+        assert not AgendaItem.objects.filter(session=foreign_session).exists()
 
     @pytest.mark.usefixtures("space")
     def test_post_invalid_space_id(

@@ -84,6 +84,9 @@ local linters = new Mapping<String, Step> {
   // Frontend — oxlint, run as an aube devDep like oxfmt
   ["oxlint"] = (Builtins.ox_lint) {
     prefix = "aube exec --no-install"
+    // Bend's compiler output, kept in step with its .bend source by
+    // formal/check.sh; it carries the whole runtime, used or not.
+    exclude = List("formal/**/*.gen.mjs")
   }
 
   // Config / infra
