@@ -77,7 +77,10 @@ class ListingForm(forms.Form):
         label=_("When, in your words"),
         max_length=LISTING_TEXT_MAX_LENGTH,
         required=False,
-        help_text=_("For example: every other Friday evening, or to be agreed."),
+        help_text=_(
+            "Required without a date and time. For example: every other Friday "
+            "evening, or to be agreed."
+        ),
     )
     medium = forms.CharField(
         label=_("Online or offline"),

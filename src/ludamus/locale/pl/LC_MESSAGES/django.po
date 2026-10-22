@@ -821,8 +821,12 @@ msgid "When, in your words"
 msgstr "Kiedy, własnymi słowami"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "For example: every other Friday evening, or to be agreed."
-msgstr "Na przykład: co drugi piątek wieczorem albo do ustalenia."
+msgid ""
+"Required without a date and time. For example: every other Friday evening, "
+"or to be agreed."
+msgstr ""
+"Wymagane, jeśli nie podasz daty i godziny. Na przykład: co drugi piątek "
+"wieczorem albo do ustalenia."
 
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Online or offline"
@@ -871,11 +875,11 @@ msgstr "Podaj datę i godzinę albo opisz, kiedy."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid ""
-"Add your Discord username to your profile, or pick the account email as the "
-"contact."
+"Your profile is missing this contact. Add it to your profile, or pick the "
+"other contact."
 msgstr ""
-"Dodaj nazwę użytkownika Discorda w profilu albo wybierz jako kontakt e-mail "
-"konta."
+"W profilu brakuje tego kontaktu. Uzupełnij go w profilu albo wybierz inny "
+"kontakt."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing published."

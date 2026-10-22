@@ -13,7 +13,7 @@
 {% endblock header %}
 {% block body %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        <article class="lg:col-span-2 card card-body flex flex-col gap-4 self-start">
+        <article class="lg:col-span-2 card card-body flex min-w-0 flex-col gap-4 self-start">
             {% if listing.header_image_url %}
                 <img src="{{ listing.header_image_url }}"
                      alt=""
@@ -26,8 +26,8 @@
                     {{ listing|pair_label }}
                     {% include "board/_status.html" %}
                 </p>
-                <h1 class="mt-1 text-2xl font-bold text-foreground">{{ listing.title }}</h1>
-                <p class="mt-2 text-lg text-foreground-secondary">{{ listing.what }}</p>
+                <h1 class="mt-1 break-words text-2xl font-bold text-foreground">{{ listing.title }}</h1>
+                <p class="mt-2 break-words text-lg text-foreground-secondary">{{ listing.what }}</p>
             </div>
             {% if listing.tags %}
                 <ul class="flex flex-wrap gap-1" aria-label="{% translate "Tags" %}">

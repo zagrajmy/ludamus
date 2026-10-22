@@ -11,8 +11,8 @@
                 {% include "board/_status.html" %}
             {% endif %}
         </span>
-        <span class="text-lg font-semibold leading-tight text-foreground-primary">{{ listing.title }}</span>
-        <span class="text-sm text-foreground-secondary">{{ listing.what }}</span>
+        <span class="break-words text-lg font-semibold leading-tight text-foreground-primary">{{ listing.title }}</span>
+        <span class="break-words text-sm text-foreground-secondary">{{ listing.what }}</span>
         {% if listing.tags %}
             <span class="flex flex-wrap gap-1">
                 {% for tag in listing.tags %}

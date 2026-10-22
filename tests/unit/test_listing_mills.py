@@ -110,16 +110,17 @@ class FakeListings:
 
 
 class FakeUsers:
-    def __init__(self, discord):
+    def __init__(self, discord, email):
         self.discord = discord
+        self.email = email
 
     def read_by_id(self, pk):
         assert pk == AUTHOR_ID
-        return SimpleNamespace(discord_username=self.discord)
+        return SimpleNamespace(discord_username=self.discord, email=self.email)
 
 
-def _service(listings, discord=""):
-    return ListingService(FakeTransaction(), listings, FakeUsers(discord))
+def _service(listings, discord="", email="author@example.com"):
+    return ListingService(FakeTransaction(), listings, FakeUsers(discord, email))
 
 
 def _create_data(contact=ListingContact.EMAIL):
@@ -153,6 +154,14 @@ class TestCreate:
         with pytest.raises(ListingContactMissingError):
             _service(listings).create(
                 _create_data(ListingContact.DISCORD), tag_ids=[], publish_at=NOW
+            )
+
+    def test_open_with_email_contact_needs_email_on_account(self):
+        listings = FakeListings()
+
+        with pytest.raises(ListingContactMissingError):
+            _service(listings, email="").create(
+                _create_data(ListingContact.EMAIL), tag_ids=[], publish_at=NOW
             )
 
 

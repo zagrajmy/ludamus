@@ -153,6 +153,11 @@ class ListingService(ListingServiceProtocol):
         self._listings.open(pk=pk, at=now)
 
     def _check_contact(self, author_id: int, contact: ListingContact) -> None:
-        # The account email always exists; Discord only once the profile has it.
-        if contact is ListingContact.DISCORD and not self.has_discord(author_id):
+        author = self._users.read_by_id(author_id)
+        reachable_at = (
+            author.discord_username
+            if contact is ListingContact.DISCORD
+            else author.email
+        )
+        if not reachable_at:
             raise ListingContactMissingError

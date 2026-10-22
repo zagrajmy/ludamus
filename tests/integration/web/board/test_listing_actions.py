@@ -66,8 +66,8 @@ class TestListingPublishActionView:
                 (
                     constants.ERROR,
                     (
-                        "Add your Discord username to your profile, or pick the "
-                        "account email as the contact."
+                        "Your profile is missing this contact. Add it to your "
+                        "profile, or pick the other contact."
                     ),
                 ),
             ),
