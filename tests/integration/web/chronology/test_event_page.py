@@ -10,6 +10,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
 from freezegun import freeze_time
+from zeal import zeal_ignore
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -1312,15 +1313,18 @@ class TestEventPageView:
         allow_custom=False,
         filterable=True,
     ):
-        cards = [
-            cls._tagged_card(
-                session,
-                session_field=session_field,
-                values=values,
-                allow_custom=allow_custom,
-            )
-            for session in sessions
-        ]
+        # Expected-value construction, not the code under test: each session was
+        # refreshed, so reading its relations here is what zeal flags as a loop.
+        with zeal_ignore():
+            cards = [
+                cls._tagged_card(
+                    session,
+                    session_field=session_field,
+                    values=values,
+                    allow_custom=allow_custom,
+                )
+                for session in sessions
+            ]
         hour_data = {}
         for session, card in zip(sessions, cards, strict=True):
             hour_data.setdefault(session.agenda_item.start_time, []).append(card)

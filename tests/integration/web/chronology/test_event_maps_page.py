@@ -36,7 +36,9 @@ def make_map(event, name, *spaces, page_count=1):
 
 
 def _page_names(event_map):
-    return [page.image.name for page in event_map.pages.all()]
+    return list(
+        EventMapPage.objects.filter(event_map=event_map).values_list("image", flat=True)
+    )
 
 
 def _png(name="plan.png"):
