@@ -4,7 +4,6 @@ from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
-from django.utils import timezone
 
 from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
@@ -461,7 +460,7 @@ class TestPublicEventPrintView:
         )
 
     def test_unpublished_event_is_not_found_for_anonymous(self, client, event):
-        event.publication_time = timezone.now() + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = client.get(self._url(event.slug))
@@ -477,7 +476,7 @@ class TestPublicEventPrintView:
     def test_manager_and_superuser_preview_unpublished_event(
         self, authenticated_client, event, session, space
     ):
-        event.publication_time = timezone.now() + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
         _confirmed_item(event, session, space)
 

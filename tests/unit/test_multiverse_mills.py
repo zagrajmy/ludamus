@@ -124,6 +124,39 @@ class TestAnnouncementsService:
         assert not repo.rows
 
 
+class TestAnnouncementFanoutScheduling:
+    @staticmethod
+    def _service():
+        repo, fanout = FakeAnnouncements(), FakeFanout()
+        return AnnouncementsService(FakeTransaction(), repo, fanout), repo, fanout
+
+    def test_publishing_schedules_the_fanout_and_a_draft_does_not(self):
+        service, _, fanout = self._service()
+        service.create(SPHERE_PK, _announcement(is_published=False))
+
+        published = service.create(SPHERE_PK, _announcement())
+
+        assert fanout.scheduled == [published.pk]
+
+    def test_publishing_a_draft_by_editing_it_schedules_the_fanout(self):
+        service, _, fanout = self._service()
+        draft = service.create(SPHERE_PK, _announcement(is_published=False))
+
+        service.update(SPHERE_PK, draft.pk, _announcement())
+
+        assert fanout.scheduled == [draft.pk]
+
+    def test_editing_an_announcement_already_sent_does_not_resend_it(self):
+        service, repo, fanout = self._service()
+        sent = service.create(SPHERE_PK, _announcement())
+        repo.rows[sent.pk] = sent.model_copy(update={"notified_at": _NOW})
+        fanout.scheduled.clear()
+
+        service.update(SPHERE_PK, sent.pk, _announcement(title="Typo fixed"))
+
+        assert not fanout.scheduled
+
+
 class FakeConnections:
     def __init__(self):
         self.rows = {}
