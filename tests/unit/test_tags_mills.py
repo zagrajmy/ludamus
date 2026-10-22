@@ -1,6 +1,8 @@
 from ludamus.mills.tags import TagService
 from ludamus.pacts.tags import (
+    TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
+    TAG_SLUG_MAX_LENGTH,
     TagCategoryOptionsDTO,
     TagDTO,
     TagImportReportDTO,
@@ -120,6 +122,24 @@ class TestImportRows:
         assert report == _report(updated=1)
         assert repo.tags["activity", "osr"] == ("OSR!", None)
 
+    def test_force_counts_every_updated_row(self):
+        repo = FakeTags([_tag("ttrpg"), _tag("osr", "ttrpg")])
+
+        report = _import(
+            repo, [_row(2, "TTRPG", "ttrpg"), _row(3, "OSR", "osr")], force=True
+        )
+
+        assert report == _report(updated=2)
+
+    def test_longest_name_is_kept_and_its_slug_cut_to_fit(self):
+        repo = FakeTags()
+        name = "x" * TAG_NAME_MAX_LENGTH
+
+        report = _import(repo, [_row(2, name)])
+
+        assert report == _report(created=1)
+        assert repo.tags == {("activity", "x" * TAG_SLUG_MAX_LENGTH): (name, None)}
+
     def test_force_reparenting_into_a_cycle_is_rejected(self):
         repo = FakeTags([_tag("ttrpg"), _tag("osr", "ttrpg")])
 
@@ -173,12 +193,15 @@ class TestImportRows:
     def test_repeated_slug_keeps_the_first_row(self):
         repo = FakeTags()
 
-        report = _import(repo, [_row(2, "OSR"), _row(3, "osr")])
+        report = _import(repo, [_row(2, "OSR"), _row(3, "osr"), _row(4, "TTRPG")])
 
         assert report == _report(
-            created=1, errors=["line 3: slug 'osr' repeats line 2"]
+            created=2, errors=["line 3: slug 'osr' repeats line 2"]
         )
-        assert repo.tags == {("activity", "osr"): ("OSR", None)}
+        assert repo.tags == {
+            ("activity", "osr"): ("OSR", None),
+            ("activity", "ttrpg"): ("TTRPG", None),
+        }
 
     def test_unusable_rows_are_reported(self):
         report = _import(

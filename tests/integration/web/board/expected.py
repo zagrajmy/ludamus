@@ -1,3 +1,4 @@
+from ludamus.links.db.django.models import Listing
 from ludamus.pacts.listing import (
     ListingContact,
     ListingDTO,
@@ -9,7 +10,7 @@ from ludamus.pacts.listing import (
 
 
 def listing_dto(listing):
-    listing.refresh_from_db()
+    listing = Listing.objects.select_related("author").get(pk=listing.pk)
     return ListingDTO(
         pk=listing.pk,
         sphere_id=listing.sphere_id,

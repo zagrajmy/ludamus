@@ -25,9 +25,9 @@ def _claimed(pk, *, sphere_id=1):
 
 
 class FakeRepo:
-    def __init__(self, *, claimable=(), subscribers=(), due=()):
+    def __init__(self, *, claimable=(), subscribers_by_sphere=None, due=()):
         self._claimable = {a.pk: a for a in claimable}
-        self._subscribers = list(subscribers)
+        self._subscribers_by_sphere = subscribers_by_sphere or {}
         self._due = list(due)
         self.created = []
 
@@ -38,7 +38,7 @@ class FakeRepo:
         return list(self._due)
 
     def active_sphere_subscriber_ids(self, sphere_id):
-        return list(self._subscribers)
+        return list(self._subscribers_by_sphere.get(sphere_id, ()))
 
     def create_announcement_notifications(self, *, recipient_ids, announcement):
         self.created.append((recipient_ids, announcement))
@@ -49,7 +49,9 @@ class TestFanout:
     def test_claimed_announcement_notifies_subscribers(self):
         announcement = _claimed(5)
         subscribers = [7, 8]
-        repo = FakeRepo(claimable=[announcement], subscribers=subscribers)
+        repo = FakeRepo(
+            claimable=[announcement], subscribers_by_sphere={1: subscribers}
+        )
         transaction = FakeTransaction()
         service = AnnouncementFanoutService(transaction, repo)
 
@@ -70,7 +72,7 @@ class TestFanout:
         claimable_ids = [1, 2]
         repo = FakeRepo(
             claimable=[_claimed(pk) for pk in claimable_ids],
-            subscribers=[7],
+            subscribers_by_sphere={1: [7]},
             due=[*claimable_ids, 3],
         )
         service = AnnouncementFanoutService(FakeTransaction(), repo)
