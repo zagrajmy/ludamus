@@ -1,7 +1,6 @@
 from http import HTTPStatus
 
 from django.urls import reverse
-from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import AgendaItem, Event, Facilitator, Track
 from ludamus.pacts import EventDTO
@@ -36,34 +35,35 @@ def _schedule(
 def _scheduled_group(*items, other_track_names=()):
     # One contact address, its placed program in the order the card renders it:
     # by start time, and every item of these fixtures is placed.
-    # Expected-value construction, not the code under test: each item was
-    # refreshed, so reading its relations here is what zeal flags as a loop.
-    with zeal_ignore():
-        return ConfirmationEmailGroupDTO(
-            contact_email=items[0].session.contact_email,
-            status_groups=[
-                ConfirmationStatusGroupDTO(
-                    status=SessionStatus.ACCEPTED,
-                    is_scheduled=True,
-                    sessions=[
-                        ConfirmationSessionDTO(
-                            session_pk=item.session.pk,
-                            title=item.session.title,
-                            category_name=item.session.category.name,
-                            room_name=item.space.name,
-                            start_time=item.start_time,
-                            end_time=item.end_time,
-                            is_scheduled=True,
-                            is_confirmed=item.session_confirmed,
-                            co_facilitator_names=[],
-                            other_track_names=list(other_track_names),
-                        )
-                        for item in items
-                    ],
-                )
-            ],
-            confirmable_count=len(items),
-        )
+    loaded = AgendaItem.objects.select_related("session__category", "space").in_bulk(
+        [item.pk for item in items]
+    )
+    items = [loaded[item.pk] for item in items]
+    return ConfirmationEmailGroupDTO(
+        contact_email=items[0].session.contact_email,
+        status_groups=[
+            ConfirmationStatusGroupDTO(
+                status=SessionStatus.ACCEPTED,
+                is_scheduled=True,
+                sessions=[
+                    ConfirmationSessionDTO(
+                        session_pk=item.session.pk,
+                        title=item.session.title,
+                        category_name=item.session.category.name,
+                        room_name=item.space.name,
+                        start_time=item.start_time,
+                        end_time=item.end_time,
+                        is_scheduled=True,
+                        is_confirmed=item.session_confirmed,
+                        co_facilitator_names=[],
+                        other_track_names=list(other_track_names),
+                    )
+                    for item in items
+                ],
+            )
+        ],
+        confirmable_count=len(items),
+    )
 
 
 def _card(facilitator, *groups, confirmed_count, scheduled_count):

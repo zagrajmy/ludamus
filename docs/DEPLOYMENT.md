@@ -9,8 +9,8 @@
 #    The committed .env carries dev defaults that work out of the box.
 cp .env.docker .env.local  # only if you want to start from the docker baseline
 
-# 2. Install toolchain (Python 3.14, Node v25.6.1, Poetry)
-#    Re-run after Python/Node version bumps in mise.toml
+# 2. Install toolchain (Python, Node, Poetry; versions pinned in mise.toml)
+#    Re-run after version bumps in mise.toml
 mise install
 
 # 3. Install Python dependencies
