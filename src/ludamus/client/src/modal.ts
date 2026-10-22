@@ -110,28 +110,26 @@ const isAppleTouchDevice = (): boolean =>
 // modal opens, so its cost buys the animation without taking anything.
 const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
 
-interface ViewTransition {
-  finished: Promise<void>;
-}
-
-interface ViewTransitionDocument {
-  startViewTransition?: (callback: () => void) => ViewTransition;
-}
-
 // Held on <html> for a transition's lifetime: it opts the root out of the
 // capture (modal.css), which is what keeps the page under a modal animation
 // tappable — the root's snapshot would otherwise stand in for every element on
 // it, and a snapshot takes no taps.
 const ROOT_PAGE_LIVE = "vt-page-live";
 
+// NOTE: lib.dom declares startViewTransition on every Document; Firefox
+// before 144 has none.
+const hasViewTransitions = (): boolean => typeof document.startViewTransition === "function";
+
 const startViewTransition = (callback: () => void): ViewTransition | null => {
-  const doc = document as Document & ViewTransitionDocument;
-  if (!doc.startViewTransition) {
+  if (!hasViewTransitions()) {
     callback();
     return null;
   }
   document.documentElement.classList.add(ROOT_PAGE_LIVE);
-  const transition = doc.startViewTransition(callback);
+  const transition = document.startViewTransition(callback);
+  // NOTE: a skipped or aborted transition rejects `ready`, and Chrome 151 no
+  // longer marks that rejection handled, so leaving it unawaited is an error.
+  void transition.ready.catch(() => null);
   void transition.finished
     .catch(() => null)
     .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
@@ -171,7 +169,7 @@ const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
   card.dataset.noMorph === undefined &&
   !prefersReducedMotion() &&
-  typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
+  hasViewTransitions();
 
 const setSubMorph = (root: HTMLElement, active: boolean): void => {
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
