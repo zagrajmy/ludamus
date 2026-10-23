@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 CACHE_TIMEOUT = 600  # 10 minutes
 PENDING_SIGNUP_SESSION_KEY = "pending_signup"
+PENDING_SIGNUP_MAX_AGE = timedelta(hours=1)
 AGE_CONFIRMATION_SALT = "crowd.age-confirmation"
 
 # A bare hostname: dot-separated DNS labels, no scheme, path, port, credentials,
@@ -284,8 +285,8 @@ class Auth0LoginCallbackActionView(RedirectView):
         userinfo = self._get_userinfo()
         if not self.request.services.crowd_auth.has_account(userinfo.username):
             self.request.session[PENDING_SIGNUP_SESSION_KEY] = _PendingSignup(
-                userinfo=userinfo, redirect_to=redirect_to
-            ).model_dump()
+                userinfo=userinfo, redirect_to=redirect_to, started_at=datetime.now(UTC)
+            ).model_dump(mode="json")
             return self.request.build_absolute_uri(
                 reverse("web:crowd:auth0:signup-age")
             )
@@ -393,17 +394,25 @@ class _PendingSignup(BaseModel):
     userinfo: Auth0UserInfo
     redirect_to: str = ""
     confirmation_token: str = ""
+    started_at: datetime
 
 
 def _read_pending_signup(request: RootRequest) -> _PendingSignup | None:
     if request.context.current_user_slug:
         return None
     try:
-        return _PendingSignup.model_validate(
+        pending = _PendingSignup.model_validate(
             request.session.get(PENDING_SIGNUP_SESSION_KEY)
         )
     except PydanticValidationError:
         return None
+    # The session outlives the sign-in by weeks; without a bound, anyone at
+    # this browser later could finish the abandoned signup as its owner.
+    if datetime.now(UTC) - pending.started_at > PENDING_SIGNUP_MAX_AGE:
+        request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+        messages.info(request, _("Your sign-in timed out. Sign in again."))
+        return None
+    return pending
 
 
 class Auth0SignupAgePageView(View):
@@ -416,7 +425,7 @@ class Auth0SignupAgePageView(View):
         token = signing.dumps({"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT)
         request.session[PENDING_SIGNUP_SESSION_KEY] = pending.model_copy(
             update={"confirmation_token": token}
-        ).model_dump()
+        ).model_dump(mode="json")
         return TemplateResponse(
             request,
             "crowd/signup_age.html",

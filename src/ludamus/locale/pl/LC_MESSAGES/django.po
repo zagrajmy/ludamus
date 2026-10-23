@@ -2022,6 +2022,10 @@ msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Your sign-in timed out. Sign in again."
+msgstr "Logowanie wygasło. Zaloguj się ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "This age confirmation has expired. Choose your age range again."
 msgstr "Potwierdzenie wieku wygasło. Wybierz ponownie swój przedział wiekowy."
 

@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from secrets import token_urlsafe
 from unittest.mock import ANY, patch
@@ -80,6 +80,25 @@ class TestSignupAgeGate:
             template_name="crowd/signup_age.html",
             context_data={"form": ANY},
         )
+
+    def test_abandoned_pending_sign_in_expires(self, client, faker):
+        _reach_gate(client, faker.uuid4())
+        session = client.session
+        session["pending_signup"]["started_at"] = (
+            datetime.now(UTC) - timedelta(hours=2)
+        ).isoformat()
+        session.save()
+
+        response = client.get(GATE_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:index"),
+            messages=[(messages.INFO, "Your sign-in timed out. Sign in again.")],
+        )
+        assert "pending_signup" not in client.session
+        assert not User.objects.exists()
 
     def test_malformed_pending_sign_in_goes_home(self, client):
         session = client.session

@@ -1457,6 +1457,7 @@ def _create_age_scenarios() -> None:
                 "http://another.localhost:8000/" if scenario == "cross-sphere" else ""
             ),
             "confirmation_token": "",
+            "started_at": timezone.now().isoformat(),
         }
         session.create()
         state = {

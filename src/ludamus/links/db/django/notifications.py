@@ -303,7 +303,7 @@ class DjangoUserNotifier:
         ) % {"hours": _EMAIL_LINK_HOURS}
         # The address being proven: nobody has proven it yet, by definition.
         self._deliver_to(
-            Notification(
+            notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_VERIFICATION.value,
                 title=title,
@@ -311,7 +311,7 @@ class DjangoUserNotifier:
                 url=url,
                 payload={},
             ),
-            notification.recipient_email,
+            email=notification.recipient_email,
         )
 
     def notify_email_change_requested(
@@ -336,7 +336,7 @@ class DjangoUserNotifier:
         # The pre-change address, so the cancel link reaches the account's
         # current owner rather than whoever asked for the change.
         self._deliver_to(
-            Notification(
+            notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_REQUESTED.value,
                 title=title,
@@ -344,7 +344,7 @@ class DjangoUserNotifier:
                 url=url,
                 payload={"new_address": notification.new_address},
             ),
-            notification.recipient_email,
+            email=notification.recipient_email,
         )
 
     def notify_email_change_completed(
@@ -357,7 +357,7 @@ class DjangoUserNotifier:
         ) % {"new_address": notification.new_address}
         # The pre-change address; the row already holds the new one.
         self._deliver_to(
-            Notification(
+            notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_COMPLETED.value,
                 title=title,
@@ -367,7 +367,7 @@ class DjangoUserNotifier:
                 ),
                 payload={"new_address": notification.new_address},
             ),
-            notification.recipient_email,
+            email=notification.recipient_email,
         )
 
     def notify_printables_ready(
@@ -481,12 +481,14 @@ class DjangoUserNotifier:
         notification: Notification, *, opt_in: _OptInMail | None = None
     ) -> None:
         DjangoUserNotifier._deliver_to(
-            notification, _deliverable_email(notification.recipient_id), opt_in=opt_in
+            notification=notification,
+            email=_deliverable_email(notification.recipient_id),
+            opt_in=opt_in,
         )
 
     @staticmethod
     def _deliver_to(
-        notification: Notification, email: str, *, opt_in: _OptInMail | None = None
+        *, notification: Notification, email: str, opt_in: _OptInMail | None = None
     ) -> None:
         """Deliver to an explicit address, trusting the caller's choice of it.
 
