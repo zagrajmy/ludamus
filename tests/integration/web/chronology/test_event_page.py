@@ -126,8 +126,9 @@ _PROPOSALS_IN_QUEUE = 5
 # schedule whose sessions carry attendees and custom field values. Pinned
 # rather than merely "constant in the session count": a prefetch graph
 # nothing reads (#1063) adds a fixed number of queries per page, which a
-# constant-in-N check never sees.
-_EVENT_PAGE_QUERIES = 16
+# constant-in-N check never sees. One of them asks whether the event sells
+# tickets; a free event stops there.
+_EVENT_PAGE_QUERIES = 17
 
 
 class TestEventPageView:

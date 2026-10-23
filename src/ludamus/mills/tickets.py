@@ -216,13 +216,17 @@ class TicketSalesService(TicketSalesServiceProtocol):
         closes_at: datetime | None = None,
     ) -> EventShopDTO:
         now = datetime.now(tz=UTC)
+        types = self._ticket_types.list_for_event(event_id=event_id, now=now)
+        # Most events are free: one query says so, and the event page asks.
+        if not types:
+            return EventShopDTO(
+                offers=[], accepting_payments=False, viewer_ticket_count=0
+            )
         account = self._accounts.read(sphere_id=sphere_id)
         return EventShopDTO(
             offers=[
                 offer_for(ticket_type, now=now, closes_at=closes_at)
-                for ticket_type in self._ticket_types.list_for_event(
-                    event_id=event_id, now=now
-                )
+                for ticket_type in types
             ],
             accepting_payments=self._payments.enabled
             and payout_status(account) is PayoutStatus.ACTIVE,
