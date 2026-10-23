@@ -7,6 +7,7 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
+from ludamus.pacts.dashboard import SphereUnsubscribeTokenPayload
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
@@ -74,7 +75,11 @@ class TestAnnouncementEmailUnsubscribe:
             HTTPStatus.OK,
             template_name="dashboard/unsubscribe.html",
             context_data={
-                "sphere_name": non_root_sphere.name,
+                "payload": SphereUnsubscribeTokenPayload(
+                    user_id=active_user.pk,
+                    sphere_id=non_root_sphere.pk,
+                    sphere_name=non_root_sphere.name,
+                ),
                 "token": token,
                 "done": False,
             },
@@ -107,7 +112,11 @@ class TestAnnouncementEmailUnsubscribe:
             HTTPStatus.OK,
             template_name="dashboard/unsubscribe.html",
             context_data={
-                "sphere_name": non_root_sphere.name,
+                "payload": SphereUnsubscribeTokenPayload(
+                    user_id=active_user.pk,
+                    sphere_id=non_root_sphere.pk,
+                    sphere_name=non_root_sphere.name,
+                ),
                 "token": one_click.split("/")[3],
                 "done": True,
             },
@@ -126,6 +135,6 @@ class TestAnnouncementEmailUnsubscribe:
             response,
             HTTPStatus.NOT_FOUND,
             template_name="dashboard/unsubscribe.html",
-            context_data={"sphere_name": "", "token": "forged", "done": True},
+            context_data={"payload": None, "token": "forged", "done": True},
         )
         assert SphereSubscription.objects.filter(user=active_user).exists()

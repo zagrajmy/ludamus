@@ -7,7 +7,7 @@
     <div class="max-w-md mx-auto">
         <div class="card">
             <div class="card-body px-6 py-8 sm:px-8 text-center">
-                {% if not sphere_name %}
+                {% if not payload %}
                     {% icon "exclamation-circle" class="w-10 h-10 mx-auto text-foreground-muted" %}
                     <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "This link doesn't work" %}</h1>
                     <p class="text-sm text-foreground-muted mt-2">
@@ -20,7 +20,7 @@
                     {% icon "bell-slash" class="w-10 h-10 mx-auto text-primary" %}
                     <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "You're unsubscribed" %}</h1>
                     <p class="text-sm text-foreground-muted mt-2">
-                        {% blocktranslate trimmed %}
+                        {% blocktranslate trimmed with sphere_name=payload.sphere_name %}
                             We won't email you when <strong>{{ sphere_name }}</strong> announces an event. You can subscribe again from your dashboard.
                         {% endblocktranslate %}
                     </p>
@@ -28,7 +28,7 @@
                     {% icon "envelope" class="w-10 h-10 mx-auto text-primary" %}
                     <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "Stop these emails?" %}</h1>
                     <p class="text-sm text-foreground-muted mt-2">
-                        {% blocktranslate trimmed %}
+                        {% blocktranslate trimmed with sphere_name=payload.sphere_name %}
                             You'll no longer get an email when <strong>{{ sphere_name }}</strong> announces an event.
                         {% endblocktranslate %}
                     </p>

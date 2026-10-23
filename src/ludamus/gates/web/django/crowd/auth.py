@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.oauth import oauth
-from ludamus.gates.web.django.crowd.forms import UNDER_MIN_AGE, SignupAgeForm
+from ludamus.gates.web.django.crowd.forms import SignupAgeForm
 from ludamus.pacts import RedirectError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
@@ -226,7 +226,7 @@ def _finish_login(
     *,
     userinfo: Auth0UserInfo,
     redirect_to: str,
-    age_band: AgeBand = AgeBand.UNKNOWN,
+    age_band: AgeBand,
 ) -> str:
     """Provision and log in. `age_band` only reaches an account created here."""
     index_url = request.build_absolute_uri(reverse("web:index"))
@@ -290,7 +290,12 @@ class Auth0LoginCallbackActionView(RedirectView):
             return self.request.build_absolute_uri(
                 reverse("web:crowd:auth0:signup-age")
             )
-        return _finish_login(self.request, userinfo=userinfo, redirect_to=redirect_to)
+        return _finish_login(
+            self.request,
+            userinfo=userinfo,
+            redirect_to=redirect_to,
+            age_band=AgeBand.UNKNOWN,
+        )
 
     def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
         if not (state_token := self.request.GET.get("state")):
@@ -369,10 +374,9 @@ def _valid_signup_confirmation(request: RootRequest, expected: str) -> bool:
     return constant_time_compare(token, expected)
 
 
-def guardian_page(request: RootRequest) -> TemplateResponse:
+def sign_out_to_guardian_page(request: RootRequest) -> TemplateResponse:
     """Sign out and point an under-13 to the guardian-managed route."""
-    request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
-    request.session.pop("pending_claim_token", None)
+    # NOTE: logout flushes the session, pending signup and claim token included.
     django_logout(request)
     return TemplateResponse(
         request,
@@ -421,15 +425,15 @@ class Auth0SignupAgePageView(View):
         form = SignupAgeForm(request.POST)
         if not form.is_valid():
             return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
-        if form.cleaned_data["age_band"] == UNDER_MIN_AGE:
+        if (age_band := form.cleaned_data["age_band"]) is None:
             logger.info("Independent signup declined: below minimum age")
-            return guardian_page(request)
+            return sign_out_to_guardian_page(request)
         logger.info("Signup age range confirmed")
         destination = _finish_login(
             request,
             userinfo=Auth0UserInfo.model_validate(pending["userinfo"]),
             redirect_to=pending.get("redirect_to") or "",
-            age_band=AgeBand(form.cleaned_data["age_band"]),
+            age_band=age_band,
         )
         # NOTE: CSP form-action stops a form POST from redirecting to another
         # sphere's host, so a cross-host destination is reached from a page.

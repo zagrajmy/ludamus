@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core import checks
 from django.core.checks import CheckMessage, Error
+from django.core.checks import Warning as CheckWarning
 from django.urls import Resolver404, resolve
 from django.views.static import serve
 
@@ -53,7 +53,7 @@ def check_mail_postal_address(
     if not settings.IS_PRODUCTION or settings.MAIL_POSTAL_ADDRESS:
         return []
     return [
-        checks.Warning(
+        CheckWarning(
             "MAIL_POSTAL_ADDRESS is empty, so sphere announcement emails go "
             "out without the sender's postal address in their footer.",
             hint="Set MAIL_POSTAL_ADDRESS in the production environment.",

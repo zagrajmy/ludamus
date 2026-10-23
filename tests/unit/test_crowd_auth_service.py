@@ -593,11 +593,8 @@ class TestAgeConfirmation:
     def test_confirmed_range_is_persisted(self, age_band):
         users = FakeUsers(users=[_user_dto()])
 
-        result = _service(users=users).confirm_age(
-            user_slug="auth0user", age_band=age_band
-        )
+        _service(users=users).confirm_age(user_slug="auth0user", age_band=age_band)
 
-        assert result.age_band == age_band
         assert users.read("auth0user").age_band == age_band
 
     def test_unknown_is_not_an_age_confirmation(self):

@@ -10,9 +10,8 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.crowd.auth import guardian_page
-from ludamus.gates.web.django.crowd.forms import UNDER_MIN_AGE, AgeRangeForm
-from ludamus.pacts.crowd import AgeBand
+from ludamus.gates.web.django.crowd.auth import sign_out_to_guardian_page
+from ludamus.gates.web.django.crowd.forms import AgeRangeForm
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -43,13 +42,11 @@ class ProfileAgeRangePageView(LoginRequiredMixin, View):
                 request, _TEMPLATE, {"form": form, "profile_active_tab": "privacy"}
             )
         user_slug = request.context.current_user_slug
-        if form.cleaned_data["age_band"] == UNDER_MIN_AGE:
+        if (age_band := form.cleaned_data["age_band"]) is None:
             request.services.crowd_auth.disable_underage_account(user_slug)
             logger.info("Account disabled: declared below minimum age: %s", user_slug)
-            return guardian_page(request)
-        request.services.crowd_auth.confirm_age(
-            user_slug=user_slug, age_band=AgeBand(form.cleaned_data["age_band"])
-        )
+            return sign_out_to_guardian_page(request)
+        request.services.crowd_auth.confirm_age(user_slug=user_slug, age_band=age_band)
         logger.info("Account age range updated")
         messages.success(request, _("Age range saved. Your bookings are unchanged."))
         return redirect("user:profile-privacy")

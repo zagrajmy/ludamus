@@ -7414,19 +7414,19 @@ msgstr ""
 
 #: src/ludamus/templates/crowd/user/privacy.html
 msgid ""
-"Your age range is 13–15. Optional analytics, recordings and promotional "
-"emails are off."
-msgstr ""
-"Twój przedział wiekowy to 13–15 lat. Opcjonalna analityka, nagrania sesji i "
-"emaile promocyjne są wyłączone."
-
-#: src/ludamus/templates/crowd/user/privacy.html
-msgid ""
 "Your age range is 16 or older. Optional features still need your separate "
 "opt-in."
 msgstr ""
 "Twój przedział wiekowy to 16 lat lub więcej. Funkcje opcjonalne nadal "
 "wymagają Twojej osobnej zgody."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Your age range is 13–15. Optional analytics, recordings and promotional "
+"emails are off."
+msgstr ""
+"Twój przedział wiekowy to 13–15 lat. Opcjonalna analityka, nagrania sesji i "
+"emaile promocyjne są wyłączone."
 
 #: src/ludamus/templates/crowd/user/privacy.html
 msgid ""
@@ -7437,6 +7437,7 @@ msgstr ""
 "sesji i emaile promocyjne pozostają wyłączone. Twoje zapisy nadal działają."
 
 #: src/ludamus/templates/crowd/user/privacy.html
+#: src/ludamus/templates/dashboard/_sphere.html
 msgid "Update age range"
 msgstr "Zaktualizuj przedział wiekowy"
 
@@ -7659,6 +7660,12 @@ msgstr[3] ""
 "                    "
 
 #: src/ludamus/templates/dashboard/_sphere.html
+msgid "Promotional emails are off. You can still browse events and sign up."
+msgstr ""
+"Emaile promocyjne są wyłączone. Nadal możesz przeglądać wydarzenia i się "
+"zapisywać."
+
+#: src/ludamus/templates/dashboard/_sphere.html
 msgid "Subscribed"
 msgstr "Subskrybujesz"
 
@@ -7689,12 +7696,6 @@ msgstr ""
 #: src/ludamus/templates/dashboard/_sphere.html
 msgid "Subscribe"
 msgstr "Subskrybuj"
-
-#: src/ludamus/templates/dashboard/_sphere.html
-msgid "Promotional emails are off. You can still browse events and sign up."
-msgstr ""
-"Emaile promocyjne są wyłączone. Nadal możesz przeglądać wydarzenia i się "
-"zapisywać."
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "Coming up"

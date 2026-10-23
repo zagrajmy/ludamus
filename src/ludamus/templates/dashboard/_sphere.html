@@ -27,7 +27,18 @@
             </span>
         </a>
     </div>
-    {% if sphere.is_subscribed %}
+    {% if not optional_features_available %}
+        {% comment %}
+            Before the subscription state: a subscriber without a confirmed
+            16+ range gets no mail, so "Subscribed" would be untrue.
+        {% endcomment %}
+        <p class="text-xs text-foreground-muted mt-auto">
+            {% translate "Promotional emails are off. You can still browse events and sign up." %}
+        </p>
+        {% url "user:profile-age-range" as age_url %}
+        {% translate "Update age range" as age_label %}
+        {% tessera_button age_label href=age_url variant="secondary" size="sm" full_width_mobile=False %}
+    {% elif sphere.is_subscribed %}
         <form method="post"
               action="{% url 'web:sphere-unsubscribe' pk=sphere.pk %}"
               class="mt-auto">
@@ -35,7 +46,7 @@
             {% translate "Subscribed" as unsubscribe_label %}
             {% tessera_button unsubscribe_label variant="secondary" size="sm" icon="check" full_width_mobile=False %}
         </form>
-    {% elif optional_features_available %}
+    {% else %}
         {% blocktranslate asvar subscribe_prompt with name=sphere.name %}
             We'll notify you whenever {{ name }} publishes a new event. You can unsubscribe here any time.
         {% endblocktranslate %}
@@ -54,9 +65,5 @@
             {% csrf_token %}
             {% tessera_button subscribe_label size="sm" icon="bell-alert" full_width_mobile=False %}
         </form>
-    {% else %}
-        <p class="text-xs text-foreground-muted mt-auto">
-            {% translate "Promotional emails are off. You can still browse events and sign up." %}
-        </p>
     {% endif %}
 </article>

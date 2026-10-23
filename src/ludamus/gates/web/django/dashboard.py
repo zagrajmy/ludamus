@@ -112,11 +112,7 @@ def _unsubscribe_page(
     return TemplateResponse(
         request,
         "dashboard/unsubscribe.html",
-        {
-            "sphere_name": payload.sphere_name if payload else "",
-            "token": token,
-            "done": done,
-        },
+        {"payload": payload, "token": token, "done": done},
         status=HTTPStatus.OK if payload else HTTPStatus.NOT_FOUND,
     )
 
