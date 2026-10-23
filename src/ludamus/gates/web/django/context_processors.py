@@ -60,6 +60,10 @@ def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
+def board(_request: HttpRequest) -> dict[str, bool]:
+    return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
+
+
 class PosthogConfig(TypedDict):
     api_key: str
     environment: str
