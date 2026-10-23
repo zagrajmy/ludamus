@@ -27,6 +27,7 @@ from ludamus.links.db.django.notifications import (
 )
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
+from ludamus.links.db.django.report import ReportRepository
 from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
@@ -237,6 +238,10 @@ class Repositories:
     @cached_property
     def event_bans(self) -> EventBanRepository:
         return EventBanRepository()
+
+    @cached_property
+    def reports(self) -> ReportRepository:
+        return ReportRepository()
 
     @cached_property
     def bookmarks(self) -> BookmarkRepository:

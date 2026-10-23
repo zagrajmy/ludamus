@@ -288,6 +288,8 @@ class NotificationKind(StrEnum):
     EMAIL_CHANGE_COMPLETED = auto()
     ANNOUNCEMENT = auto()
     SPHERE_EVENT_PUBLISHED = auto()
+    REPORT_RECEIVED = auto()
+    REPORT_DECIDED = auto()
 
 
 class SpaceDTO(BaseModel):

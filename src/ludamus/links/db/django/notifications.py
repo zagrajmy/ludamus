@@ -52,6 +52,10 @@ if TYPE_CHECKING:
         PartyInviteNotification,
     )
     from ludamus.pacts.printing import PrintablesReadyNotification
+    from ludamus.pacts.report import (
+        ReportDecidedNotification,
+        ReportReceivedNotification,
+    )
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
@@ -132,6 +136,18 @@ class _OptInMail:
             "List-Unsubscribe": f"<{self._url('web:email-unsubscribe-confirm')}>",
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         }
+
+
+def _send_on_commit(*, subject: str, body: str, url: str, email: str) -> None:
+    # Deferred to after-commit and best-effort: SMTP can't be un-sent, so it
+    # waits for the real commit and a failure must not roll back the change
+    # it announces.
+    message = f"{body}\n\n{url}" if url else body
+
+    def _send_email() -> None:
+        EmailMessage(subject=subject, body=message, to=[email]).send(fail_silently=True)
+
+    transaction.on_commit(_send_email)
 
 
 class DjangoUserNotifier:
@@ -475,6 +491,92 @@ class DjangoUserNotifier:
                 payload={"event_slug": notification.event_slug},
             )
         )
+
+    def notify_report_received(self, notification: ReportReceivedNotification) -> None:
+        title = _("We received your report #%(number)d") % {
+            "number": notification.report_id
+        }
+        body = _(
+            "Thank you for your report about “%(content)s”. We will review it "
+            "and email you our decision. To add anything, write to %(support)s "
+            "and quote report #%(number)d."
+        ) % {
+            "content": notification.content_label,
+            "support": settings.SUPPORT_EMAIL,
+            "number": notification.report_id,
+        }
+        self._deliver_report(
+            kind=NotificationKind.REPORT_RECEIVED,
+            title=title,
+            body=body,
+            url=notification.location,
+            recipient_user_id=notification.recipient_user_id,
+            email=notification.recipient_email,
+        )
+
+    def notify_report_decided(self, notification: ReportDecidedNotification) -> None:
+        title = _("Decision on your report #%(number)d") % {
+            "number": notification.report_id
+        }
+        made_by = (
+            _("This decision was made with automated means.")
+            if notification.decided_automatically
+            else _("A person on our team made this decision, without automated means.")
+        )
+        body = " ".join(
+            (
+                _(
+                    "We reviewed your report about “%(content)s”. "
+                    "Our decision: %(decision)s"
+                )
+                % {
+                    "content": notification.content_label,
+                    "decision": notification.decision,
+                },
+                made_by,
+                _(
+                    "If you disagree, write to %(support)s and quote report "
+                    "#%(number)d. You can also take the matter to court."
+                )
+                % {"support": settings.SUPPORT_EMAIL, "number": notification.report_id},
+            )
+        )
+        self._deliver_report(
+            kind=NotificationKind.REPORT_DECIDED,
+            title=title,
+            body=body,
+            url="",
+            recipient_user_id=notification.recipient_user_id,
+            email=notification.recipient_email,
+        )
+
+    @staticmethod
+    def _deliver_report(
+        *,
+        kind: NotificationKind,
+        title: str,
+        body: str,
+        url: str,
+        recipient_user_id: int | None,
+        email: str,
+    ) -> None:
+        # The reporter may have no account (DSA Art. 16 lets anyone report),
+        # so the bell row is only for a signed-in reporter, while the email
+        # goes to the address typed on the form, which may differ from the
+        # account's.
+        if recipient_user_id is not None:
+            Notification.objects.create(
+                recipient_id=recipient_user_id,
+                kind=kind.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={},
+            )
+        if not email:
+            logger.info("No address for report notification kind=%s", kind)
+            return
+        _send_on_commit(subject=title, body=body, url=url, email=email)
 
     @staticmethod
     def _deliver(

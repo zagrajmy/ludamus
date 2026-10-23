@@ -78,6 +78,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.propose import ProposeSessionServiceProtocol
+    from ludamus.pacts.report import ReportQueueServiceProtocol, ReportServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -218,6 +219,10 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def reports(self) -> ReportServiceProtocol: ...
+    @property
+    def report_queue(self) -> ReportQueueServiceProtocol: ...
     @property
     def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property

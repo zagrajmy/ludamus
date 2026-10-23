@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -33,6 +35,12 @@ from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.report import (
+    REPORT_LOCATION_MAX_LENGTH,
+    REPORTER_NAME_MAX_LENGTH,
+    ReportReason,
+    ReportStatus,
+)
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
@@ -252,6 +260,82 @@ class EventBan(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} banned from event {self.event_id}"
+
+
+class ContentReport(models.Model):
+    """A notice that some user content is illegal (DSA Art. 16).
+
+    The content is named by content type and id, so any model can be
+    reported without a model of its own. Its label and location are copied
+    in when the report is made, so the record still says what was reported
+    after the content changes or goes.
+    """
+
+    sphere = models.ForeignKey(
+        "Sphere", on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.PROTECT, related_name="+"
+    )
+    object_id = models.PositiveBigIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+    content_label = models.CharField(max_length=255)
+    location = models.URLField(max_length=REPORT_LOCATION_MAX_LENGTH)
+    reason = models.CharField(
+        max_length=32, choices=[(item.value, item.name) for item in ReportReason]
+    )
+    explanation = models.TextField()
+    reporter = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reporter_name = models.CharField(
+        max_length=REPORTER_NAME_MAX_LENGTH, blank=True, default=""
+    )
+    reporter_email = models.EmailField(blank=True, default="")
+    good_faith = models.BooleanField()
+    status = models.CharField(
+        max_length=16,
+        choices=[(item.value, item.name) for item in ReportStatus],
+        default=ReportStatus.OPEN.value,
+    )
+    decision = models.TextField(blank=True, default="")
+    decided_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_automatically = models.BooleanField(default=False)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_report"
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(good_faith=True), name="content_report_good_faith"
+            ),
+            models.CheckConstraint(
+                condition=Q(reason=ReportReason.CHILD_SEXUAL_ABUSE.value)
+                | (~Q(reporter_name="") & ~Q(reporter_email="")),
+                name="content_report_contact_unless_csam",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(status=ReportStatus.OPEN.value, decided_at__isnull=True)
+                    | Q(status=ReportStatus.DECIDED.value, decided_at__isnull=False)
+                ),
+                name="content_report_decided_has_time",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("status", "-creation_time"), name="content_report_queue_idx"
+            ),
+            models.Index(
+                fields=("content_type", "object_id"), name="content_report_target_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Report {self.pk} on {self.content_type_id}/{self.object_id}"
 
 
 class Party(models.Model):

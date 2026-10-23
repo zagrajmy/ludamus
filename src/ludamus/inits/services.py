@@ -90,6 +90,7 @@ from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.propose import ProposeSessionService
+from ludamus.mills.report import ReportQueueService, ReportService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -522,6 +523,23 @@ class Services:
     @cached_property
     def event_bans(self) -> EventBanService:
         return EventBanService(self._transaction, self._repos.event_bans)
+
+    @cached_property
+    def reports(self) -> ReportService:
+        return ReportService(
+            transaction=self._transaction,
+            reports=self._repos.reports,
+            cache=DjangoCache(),
+            notifier=DjangoUserNotifier(),
+        )
+
+    @cached_property
+    def report_queue(self) -> ReportQueueService:
+        return ReportQueueService(
+            transaction=self._transaction,
+            reports=self._repos.reports,
+            notifier=DjangoUserNotifier(),
+        )
 
     @cached_property
     def bookmarks(self) -> BookmarkService:
