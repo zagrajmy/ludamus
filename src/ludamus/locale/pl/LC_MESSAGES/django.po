@@ -2567,8 +2567,8 @@ msgid "Allow enrollment without an account"
 msgstr "Zezwalaj na zapisy bez konta"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-msgid "Sales have to close after they open."
-msgstr "Sprzedaż musi kończyć się po jej rozpoczęciu."
+msgid "Enrollment must close after it opens."
+msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Started hours"
@@ -2673,6 +2673,10 @@ msgstr "Koniec sprzedaży"
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Leave empty to sell until the event ends."
 msgstr "Zostaw puste, by sprzedawać do końca wydarzenia."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Sales have to close after they open."
+msgstr "Sprzedaż musi kończyć się po jej rozpoczęciu."
 
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
@@ -13510,9 +13514,6 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
-
-#~ msgid "Enrollment must close after it opens."
-#~ msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
 #, python-format
 #~ msgid "Include %(name)s"

@@ -137,12 +137,13 @@ class EnrollmentWindowForm(forms.Form):
         required=False, label=_("Allow enrollment without an account")
     )
 
-    def clean(self) -> None:
-        super().clean()
-        start: datetime | None = self.cleaned_data.get("sales_start")
-        end: datetime | None = self.cleaned_data.get("sales_end")
-        if start is not None and end is not None and start >= end:
-            self.add_error("sales_end", _("Sales have to close after they open."))
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or {}
+        start_time = cleaned.get("start_time")
+        end_time = cleaned.get("end_time")
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError(_("Enrollment must close after it opens."))
+        return cleaned
 
 
 DISCOUNT_METHOD_LABELS = {
