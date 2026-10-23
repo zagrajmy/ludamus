@@ -63,8 +63,6 @@ class OrderStatus(StrEnum):
 SOLD_STATUSES = frozenset({OrderStatus.PAID})
 SETTLING_STATUSES = frozenset({OrderStatus.AWAITING_PAYMENT})
 CHECKOUT_STATUSES = frozenset({OrderStatus.PENDING})
-# Stripe has not said yet whether these were paid.
-UNSETTLED_STATUSES = CHECKOUT_STATUSES | SETTLING_STATUSES
 # Orders we gave up on: their seats are free again.
 ABANDONED_STATUSES = frozenset({OrderStatus.EXPIRED, OrderStatus.FAILED})
 # The orders the panel lists: abandoned checkouts are noise there.
@@ -225,7 +223,6 @@ class TicketDTO(BaseModel):
     pk: int
     code: str
     ticket_type_name: str
-    is_void: bool
 
 
 class OrderDTO(BaseModel):
@@ -255,16 +252,31 @@ class OrderDTO(BaseModel):
         return sum(line.quantity for line in self.lines)
 
 
-class BuyerOrderDTO(BaseModel):
-    """An order as its buyer's order page shows it."""
+class OrderPageState(StrEnum):
+    """What the buyer's order page tells them."""
 
+    PAID = "paid"
+    # Card or BLIK, settled within seconds: the page checks back on its own.
+    CONFIRMING = "confirming"
+    # A bank transfer, which can take days: the buyer comes back later.
+    AWAITING_TRANSFER = "awaiting_transfer"
+    # The hold passed with no word from Stripe: its webhook is late.
+    CONFIRMATION_LATE = "confirmation_late"
+    REFUNDED = "refunded"
+    NOT_COMPLETED = "not_completed"
+
+    @property
+    def awaiting_stripe(self) -> bool:
+        return self in {
+            OrderPageState.CONFIRMING,
+            OrderPageState.AWAITING_TRANSFER,
+            OrderPageState.CONFIRMATION_LATE,
+        }
+
+
+class BuyerOrderDTO(BaseModel):
     order: OrderDTO
-    # Stripe has not said yet whether it was paid.
-    confirming: bool
-    # Stripe is likely to say within seconds, so the page checks back. Card
-    # and BLIK settle that fast; a bank transfer can take days, and a hold
-    # past its end means the webhook is late, so neither is polled.
-    polling: bool
+    state: OrderPageState
 
 
 class OwnedTicketDTO(BaseModel):
@@ -272,11 +284,14 @@ class OwnedTicketDTO(BaseModel):
 
     code: str
     ticket_type_name: str
-    order_pk: int
     event_name: str
     event_slug: str
     event_start: datetime
-    event_end: datetime
+
+
+class NewTicketData(TypedDict):
+    ticket_type_id: int
+    code: str
 
 
 class OrderLineData(TypedDict):
@@ -463,9 +478,7 @@ class TicketOrderRepositoryProtocol(Protocol):
         """Write only if the order is still in one of `allowed_from`; say if it did."""
 
     @staticmethod
-    def issue_tickets(*, order: OrderDTO, codes: list[str]) -> None: ...
-    @staticmethod
-    def void_tickets(*, order_pk: int) -> None: ...
+    def issue_tickets(*, order: OrderDTO, tickets: list[NewTicketData]) -> None: ...
     @staticmethod
     def count_valid_tickets(*, event_id: int, holder_id: int) -> int: ...
     @staticmethod

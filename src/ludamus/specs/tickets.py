@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     FeeBreakdownDTO,
     OfferState,
+    OrderPageState,
     OrderStatus,
     PayoutStatus,
     TicketOfferDTO,
@@ -16,7 +17,7 @@ from ludamus.pacts.tickets import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from ludamus.pacts.tickets import PayoutAccountDTO, TicketTypeDTO
+    from ludamus.pacts.tickets import OrderDTO, PayoutAccountDTO, TicketTypeDTO
 
 _BPS = 10_000
 
@@ -136,6 +137,24 @@ def offer_for(
             else min(MAX_TICKETS_PER_ORDER, remaining or MAX_TICKETS_PER_ORDER)
         ),
     )
+
+
+def order_page_state(order: OrderDTO, *, now: datetime) -> OrderPageState:
+    match order.status:
+        case OrderStatus.PAID:
+            return OrderPageState.PAID
+        case OrderStatus.PENDING if order.hold_until > now:
+            return OrderPageState.CONFIRMING
+        case OrderStatus.PENDING:
+            return OrderPageState.CONFIRMATION_LATE
+        case OrderStatus.AWAITING_PAYMENT:
+            return OrderPageState.AWAITING_TRANSFER
+        case OrderStatus.REFUNDED:
+            return OrderPageState.REFUNDED
+        case OrderStatus.EXPIRED | OrderStatus.FAILED:
+            return OrderPageState.NOT_COMPLETED
+        case _:
+            assert_never(order.status)
 
 
 def payout_status(account: PayoutAccountDTO | None) -> PayoutStatus:

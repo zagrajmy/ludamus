@@ -287,9 +287,6 @@ class TestExpiredAndRefunded:
         refunded = TicketOrder.objects.get(pk=paid_setup.pk)
         assert refunded.status == OrderStatus.REFUNDED
         assert refunded.refunded_at is not None
-        assert set(
-            Ticket.objects.filter(order=refunded).values_list("is_void", flat=True)
-        ) == {True}
 
     def test_partial_refund_leaves_the_order_alone(self, client, paid_setup):
         _connect(client, "checkout.session.completed", _checkout())
@@ -320,7 +317,6 @@ class TestExpiredAndRefunded:
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PAID
-        assert not Ticket.objects.filter(is_void=True).exists()
 
 
 class TestAccountUpdated:

@@ -22,6 +22,7 @@ from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     EventShopDTO,
     OfferState,
+    OrderPageState,
     OrderStatus,
     TicketDTO,
     TicketOfferDTO,
@@ -150,11 +151,7 @@ class TestEventTicketsPageView:
             session_id="cs_2",
         )
         Ticket.objects.create(
-            order=refunded,
-            ticket_type=kind,
-            holder=active_user,
-            code="AAAAAAAA44",
-            is_void=True,
+            order=refunded, ticket_type=kind, holder=active_user, code="AAAAAAAA44"
         )
 
         response = authenticated_client.get(_tickets_url(event))
@@ -409,7 +406,7 @@ class TestEventTicketsBuyActionView:
         )
         assert not TicketOrder.objects.exists()
 
-    @pytest.mark.parametrize("quantity", ("0", "", "-1", "abc", "11"))
+    @pytest.mark.parametrize("quantity", ("0", "", "-1", "abc"))
     def test_unusable_quantity_starts_nothing(
         self, authenticated_client, event, stripe_api, quantity
     ):
@@ -480,46 +477,49 @@ class TestEventTicketOrderPages:
                             pk=first.pk,
                             code="AAAAAAAA22",
                             ticket_type_name="Weekend pass",
-                            is_void=False,
                         ),
                         TicketDTO(
                             pk=second.pk,
                             code="AAAAAAAA33",
                             ticket_type_name="Weekend pass",
-                            is_void=False,
                         ),
                     ],
                 ),
-                "confirming": False,
-                "polling": False,
+                "state": OrderPageState.PAID,
             },
         )
 
     @pytest.mark.parametrize(
-        ("status", "hold_minutes", "confirming", "polling"),
+        ("status", "hold_minutes", "state"),
         (
-            pytest.param(OrderStatus.PENDING, 30, True, True, id="paying-now"),
             pytest.param(
-                OrderStatus.PENDING, -1, True, False, id="hold-over-webhook-late"
+                OrderStatus.PENDING, 30, OrderPageState.CONFIRMING, id="paying-now"
             ),
             pytest.param(
-                OrderStatus.AWAITING_PAYMENT, 30, True, False, id="bank-transfer"
+                OrderStatus.PENDING,
+                -1,
+                OrderPageState.CONFIRMATION_LATE,
+                id="hold-over-webhook-late",
             ),
-            pytest.param(OrderStatus.REFUNDED, 30, False, False, id="refunded"),
-            pytest.param(OrderStatus.EXPIRED, 30, False, False, id="expired"),
-            pytest.param(OrderStatus.FAILED, 30, False, False, id="failed"),
+            pytest.param(
+                OrderStatus.AWAITING_PAYMENT,
+                30,
+                OrderPageState.AWAITING_TRANSFER,
+                id="bank-transfer",
+            ),
+            pytest.param(
+                OrderStatus.REFUNDED, 30, OrderPageState.REFUNDED, id="refunded"
+            ),
+            pytest.param(
+                OrderStatus.EXPIRED, 30, OrderPageState.NOT_COMPLETED, id="expired"
+            ),
+            pytest.param(
+                OrderStatus.FAILED, 30, OrderPageState.NOT_COMPLETED, id="failed"
+            ),
         ),
     )
     def test_unpaid_order_says_where_it_stands(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        *,
-        status,
-        hold_minutes,
-        confirming,
-        polling,
+        self, authenticated_client, event, active_user, *, status, hold_minutes, state
     ):
         mine = order(
             event,
@@ -538,8 +538,7 @@ class TestEventTicketOrderPages:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "order": AttributesMatcher(pk=mine.pk, status=status, tickets=[]),
-                "confirming": confirming,
-                "polling": polling,
+                "state": state,
             },
         )
 

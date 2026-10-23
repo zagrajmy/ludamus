@@ -90,7 +90,7 @@ TicketOrder      N:1 Event    buyer, email, status, currency, total,
                               stripe_checkout_session_id, stripe_payment_intent_id,
                               hold_until, paid_at, refunded_at
 TicketOrderLine  N:1 Order    ticket_type, quantity, unit_price
-Ticket           N:1 Order    ticket_type, holder, code (unique), is_void
+Ticket           N:1 Order    ticket_type, holder, code (unique)
 ```
 
 - Money is integer minor units everywhere. Currency is PLN in v1.

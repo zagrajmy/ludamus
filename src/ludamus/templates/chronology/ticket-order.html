@@ -10,14 +10,14 @@
     <div id="ticket-order"
          class="max-w-2xl mx-auto space-y-6"
          aria-live="polite"
-         {% if polling %}hx-get="{{ request.path }}" hx-trigger="every 3s" hx-select="#ticket-order" hx-swap="outerHTML"{% endif %}>
+         {% if state == "confirming" %}hx-get="{{ request.path }}" hx-trigger="every 3s" hx-select="#ticket-order" hx-swap="outerHTML"{% endif %}>
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-                {% if order.status == "paid" %}
+                {% if state == "paid" %}
                     {% translate "You're going!" %}
-                {% elif confirming %}
+                {% elif state.awaiting_stripe %}
                     {% translate "Confirming your payment" %}
-                {% elif order.status == "refunded" %}
+                {% elif state == "refunded" %}
                     {% translate "Order refunded" %}
                 {% else %}
                     {% translate "Order not completed" %}
@@ -29,7 +29,7 @@
                 · {% blocktranslate with pk=order.pk %}Order #{{ pk }}{% endblocktranslate %}
             </p>
         </div>
-        {% if order.status == "paid" %}
+        {% if state == "paid" %}
             <p class="text-foreground">{% translate "Show these codes at the entrance. They're also saved under My tickets." %}</p>
             <ul class="grid gap-2 sm:grid-cols-2">
                 {% for ticket in order.tickets %}
@@ -39,19 +39,19 @@
                     </li>
                 {% endfor %}
             </ul>
-        {% elif polling %}
+        {% elif state == "confirming" %}
             <p class="text-foreground">
                 {% translate "Stripe is confirming the payment. This page updates on its own; it usually takes a few seconds." %}
             </p>
-        {% elif order.status == "awaiting_payment" %}
+        {% elif state == "awaiting_transfer" %}
             <p class="text-foreground">
                 {% translate "Your bank is still processing the transfer. Your tickets are held until it's through; come back to this page to see them." %}
             </p>
-        {% elif confirming %}
+        {% elif state == "confirmation_late" %}
             <p class="text-foreground">
                 {% translate "Stripe hasn't confirmed this payment yet. Reload the page in a few minutes: if you were charged, your tickets appear here." %}
             </p>
-        {% elif order.status == "refunded" %}
+        {% elif state == "refunded" %}
             <p class="text-foreground">
                 {% translate "The organizer refunded this order. The money is on its way back to you; the tickets no longer admit anyone." %}
             </p>
@@ -79,7 +79,7 @@
                 </ul>
             </div>
         </section>
-        {% if order.status == "paid" %}
+        {% if state == "paid" %}
             {% translate "Show my tickets" as tickets_label %}
             {% url 'user:profile-tickets' as tickets_url %}
             {% tessera_button tickets_label href=tickets_url icon="ticket" %}

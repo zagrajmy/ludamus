@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.payment_api import AccountState
     from ludamus.pacts.tickets import (
+        NewTicketData,
         OrderChanges,
         OrderCreateData,
         TicketTypeCreateData,
@@ -216,10 +217,7 @@ def _order_dto(order: TicketOrder) -> OrderDTO:
         lines=_line_dtos(order),
         tickets=[
             TicketDTO(
-                pk=ticket.pk,
-                code=ticket.code,
-                ticket_type_name=ticket.ticket_type.name,
-                is_void=ticket.is_void,
+                pk=ticket.pk, code=ticket.code, ticket_type_name=ticket.ticket_type.name
             )
             for ticket in order.tickets.all()
         ],
@@ -327,22 +325,16 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         )
 
     @staticmethod
-    def issue_tickets(*, order: OrderDTO, codes: list[str]) -> None:
-        remaining = iter(codes)
+    def issue_tickets(*, order: OrderDTO, tickets: list[NewTicketData]) -> None:
         Ticket.objects.bulk_create(
             Ticket(
                 order_id=order.pk,
-                ticket_type_id=line.ticket_type_id,
+                ticket_type_id=ticket["ticket_type_id"],
                 holder_id=order.buyer_id,
-                code=next(remaining),
+                code=ticket["code"],
             )
-            for line in order.lines
-            for _ in range(line.quantity)
+            for ticket in tickets
         )
-
-    @staticmethod
-    def void_tickets(*, order_pk: int) -> None:
-        Ticket.objects.filter(order_id=order_pk).update(is_void=True)
 
     @staticmethod
     def count_valid_tickets(*, event_id: int, holder_id: int) -> int:
@@ -350,7 +342,6 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
             order__event_id=event_id,
             order__status=OrderStatus.PAID,
             holder_id=holder_id,
-            is_void=False,
         ).count()
 
     @staticmethod
@@ -360,7 +351,6 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
                 order__event__sphere_id=sphere_id,
                 order__status=OrderStatus.PAID,
                 holder_id=holder_id,
-                is_void=False,
             )
             .select_related("ticket_type", "order__event")
             .order_by("order__event__start_time", "order__event_id", "order_id", "pk")
@@ -369,11 +359,9 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
             OwnedTicketDTO(
                 code=ticket.code,
                 ticket_type_name=ticket.ticket_type.name,
-                order_pk=ticket.order_id,
                 event_name=ticket.order.event.name,
                 event_slug=ticket.order.event.slug,
                 event_start=ticket.order.event.start_time,
-                event_end=ticket.order.event.end_time,
             )
             for ticket in tickets
         ]

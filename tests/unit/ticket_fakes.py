@@ -266,28 +266,17 @@ class FakeOrders:
         self._update(pk, status=to, **changes)
         return True
 
-    def issue_tickets(self, *, order, codes):
-        remaining = iter(codes)
+    def issue_tickets(self, *, order, tickets):
+        names = {line.ticket_type_id: line.ticket_type_name for line in order.lines}
         self._update(
             order.pk,
             tickets=[
                 TicketDTO(
                     pk=next(self._ticket_pks),
-                    code=next(remaining),
-                    ticket_type_name=line.ticket_type_name,
-                    is_void=False,
+                    code=ticket["code"],
+                    ticket_type_name=names[ticket["ticket_type_id"]],
                 )
-                for line in order.lines
-                for _ in range(line.quantity)
-            ],
-        )
-
-    def void_tickets(self, *, order_pk):
-        self._update(
-            order_pk,
-            tickets=[
-                ticket.model_copy(update={"is_void": True})
-                for ticket in self._book.orders[order_pk].tickets
+                for ticket in tickets
             ],
         )
 
@@ -299,7 +288,6 @@ class FakeOrders:
             and order.buyer_id == holder_id
             and belongs(order)
             for ticket in order.tickets
-            if not ticket.is_void
         ]
 
     def count_valid_tickets(self, *, event_id, holder_id):

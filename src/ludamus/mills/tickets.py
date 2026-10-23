@@ -27,11 +27,9 @@ from ludamus.pacts.payment_api import (
 )
 from ludamus.pacts.tickets import (
     ABANDONED_STATUSES,
-    CHECKOUT_STATUSES,
     DEFAULT_CURRENCY,
     MAX_TICKETS_PER_ORDER,
     TICKET_CODE_LENGTH,
-    UNSETTLED_STATUSES,
     AbandonOutcome,
     BuyerOrderDTO,
     CheckoutLine,
@@ -59,6 +57,7 @@ from ludamus.specs.tickets import (
     estimated_stripe_fees,
     fee_breakdown,
     offer_for,
+    order_page_state,
     payout_status,
     platform_fee,
     platform_fee_percent,
@@ -122,7 +121,6 @@ def _record_refund(
         orders, pk=order.pk, to=OrderStatus.REFUNDED, changes={"refunded_at": now}
     ):
         return False
-    orders.void_tickets(order_pk=order.pk)
     logger.info("Ticket order refunded: event=%s order=%s", order.event_id, order.pk)
     return True
 
@@ -340,10 +338,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
     def order(self, *, buyer_id: int, event_id: int, pk: int) -> BuyerOrderDTO:
         order = self._owned(buyer_id=buyer_id, event_id=event_id, pk=pk)
         return BuyerOrderDTO(
-            order=order,
-            confirming=order.status in UNSETTLED_STATUSES,
-            polling=order.status in CHECKOUT_STATUSES
-            and order.hold_until > datetime.now(tz=UTC),
+            order=order, state=order_page_state(order, now=datetime.now(tz=UTC))
         )
 
     def _owned(self, *, buyer_id: int, event_id: int, pk: int) -> OrderDTO:
@@ -464,7 +459,12 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 return self._refund_late(order, payment_intent_id=payment_intent_id)
             return WebhookOutcome.STALE
         self._orders.issue_tickets(
-            order=order, codes=[_ticket_code() for _ in range(order.ticket_count)]
+            order=order,
+            tickets=[
+                {"ticket_type_id": line.ticket_type_id, "code": _ticket_code()}
+                for line in order.lines
+                for _ in range(line.quantity)
+            ],
         )
         logger.info(
             "Ticket order paid: event=%s order=%s tickets=%s total=%s fee=%s",

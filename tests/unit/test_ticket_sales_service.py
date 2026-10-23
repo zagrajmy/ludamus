@@ -68,6 +68,7 @@ from ludamus.pacts.tickets import (
     CheckoutOutcome,
     CheckoutStartDTO,
     CheckoutUrls,
+    OrderPageState,
     OrderStatus,
     PayoutPageDTO,
     PayoutStatus,
@@ -276,10 +277,21 @@ class TestShop:
         regular = types.add()
         codes = ["AAAA", "BBBB"]
         _order(orders, regular, status=OrderStatus.PAID)
-        orders.issue_tickets(order=book.orders[1], codes=codes)
+        orders.issue_tickets(
+            order=book.orders[1],
+            tickets=[{"ticket_type_id": regular.pk, "code": code} for code in codes],
+        )
         _order(orders, regular, quantity=1, status=OrderStatus.PAID)
-        orders.issue_tickets(order=book.orders[2], codes=["CCCC"])
-        orders.void_tickets(order_pk=2)
+        orders.issue_tickets(
+            order=book.orders[2],
+            tickets=[{"ticket_type_id": regular.pk, "code": "CCCC"}],
+        )
+        orders.move(
+            pk=2,
+            to=OrderStatus.REFUNDED,
+            allowed_from=frozenset({OrderStatus.PAID}),
+            changes={},
+        )
         _order(orders, regular, quantity=3, buyer_id=OTHER_BUYER_ID)
 
         shop = sales.shop(event=book.event, viewer_id=BUYER_ID)
@@ -449,22 +461,33 @@ class TestBuyerOrder:
         assert book.orders[order.pk] == order
 
     @pytest.mark.parametrize(
-        ("status", "hold", "confirming", "polling"),
+        ("status", "hold", "state"),
         (
-            (OrderStatus.PENDING, timedelta(minutes=30), True, True),
-            (OrderStatus.PENDING, -timedelta(minutes=1), True, False),
-            (OrderStatus.AWAITING_PAYMENT, timedelta(minutes=30), True, False),
-            (OrderStatus.PAID, timedelta(minutes=30), False, False),
+            (OrderStatus.PENDING, timedelta(minutes=30), OrderPageState.CONFIRMING),
+            (
+                OrderStatus.PENDING,
+                -timedelta(minutes=1),
+                OrderPageState.CONFIRMATION_LATE,
+            ),
+            (
+                OrderStatus.AWAITING_PAYMENT,
+                timedelta(minutes=30),
+                OrderPageState.AWAITING_TRANSFER,
+            ),
+            (OrderStatus.PAID, timedelta(minutes=30), OrderPageState.PAID),
+            (OrderStatus.REFUNDED, timedelta(minutes=30), OrderPageState.REFUNDED),
+            (OrderStatus.EXPIRED, timedelta(minutes=30), OrderPageState.NOT_COMPLETED),
+            (OrderStatus.FAILED, timedelta(minutes=30), OrderPageState.NOT_COMPLETED),
         ),
     )
-    def test_order_page_polls_only_while_stripe_will_answer_soon(
-        self, sales, types, orders, status, hold, confirming, polling
+    def test_order_page_says_where_the_order_stands(
+        self, sales, types, orders, status, hold, state
     ):
         order = _order(orders, types.add(), status=status, hold_until=NOW + hold)
 
         page = sales.order(buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk)
 
-        assert (page.confirming, page.polling) == (confirming, polling)
+        assert page.state is state
 
     @pytest.mark.parametrize("session_id", ("cs_1", ""))
     def test_abandoning_checkout_expires_the_pending_order(
@@ -720,7 +743,6 @@ class TestWebhook:
         assert (first, again) == (WebhookOutcome.REFUNDED, WebhookOutcome.STALE)
         assert refunded.status is OrderStatus.REFUNDED
         assert refunded.refunded_at is not None
-        assert all(ticket.is_void for ticket in refunded.tickets)
         assert book.orders[order.pk] == refunded
         assert sales.owned_tickets(sphere_id=SPHERE_ID, holder_id=BUYER_ID) == []
 
@@ -897,4 +919,4 @@ class TestPanel:
         assert payments.refunded == ["pi_1"]
         refunded = book.orders[order.pk]
         assert refunded.status is OrderStatus.REFUNDED
-        assert all(ticket.is_void for ticket in refunded.tickets)
+        assert sales.owned_tickets(sphere_id=SPHERE_ID, holder_id=BUYER_ID) == []

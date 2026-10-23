@@ -247,7 +247,6 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("code", models.CharField(max_length=16, unique=True)),
-                ("is_void", models.BooleanField(default=False)),
                 ("creation_time", models.DateTimeField(auto_now_add=True)),
                 (
                     "holder",

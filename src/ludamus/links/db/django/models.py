@@ -2488,9 +2488,8 @@ class Ticket(models.Model):
     holder = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="tickets"
     )
+    # Admits its holder while the order is paid; a refund ends that.
     code = models.CharField(max_length=16, unique=True)
-    # Set when the order is refunded; the code stops admitting anyone.
-    is_void = models.BooleanField(default=False)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:

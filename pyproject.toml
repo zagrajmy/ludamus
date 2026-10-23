@@ -556,6 +556,7 @@ ignore_names = [
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
+    "awaiting_stripe",
     "button_class",
     "cloud_overflow",
     "date_leaf",

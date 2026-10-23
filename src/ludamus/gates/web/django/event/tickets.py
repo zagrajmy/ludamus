@@ -69,8 +69,8 @@ def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
 
 
 def _quantities(request: RootRequest) -> dict[int, int] | None:
-    # Format only: ints in range. Whether the type exists, is on sale and has
-    # seats left is the service's call.
+    # Format only: whole numbers. How many may be bought, and whether the type
+    # exists, is on sale and has seats left, is the service's call.
     quantities: dict[int, int] = {}
     for key in request.POST:
         value = request.POST.get(key, "")
@@ -79,9 +79,7 @@ def _quantities(request: RootRequest) -> dict[int, int] | None:
         raw_pk = key.removeprefix(_QUANTITY_PREFIX)
         if not (raw_pk.isdecimal() and value.isdecimal()):
             return None
-        if (count := int(value)) > MAX_TICKETS_PER_ORDER:
-            return None
-        quantities[int(raw_pk)] = count
+        quantities[int(raw_pk)] = int(value)
     return quantities
 
 
@@ -192,12 +190,7 @@ class EventTicketOrderPageView(View):
         return TemplateResponse(
             request,
             "chronology/ticket-order.html",
-            {
-                "event": event,
-                "order": page.order,
-                "confirming": page.confirming,
-                "polling": page.polling,
-            },
+            {"event": event, "order": page.order, "state": page.state},
         )
 
 

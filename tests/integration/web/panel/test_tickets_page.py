@@ -465,7 +465,6 @@ class TestRefund:
         }
         paid.refresh_from_db()
         assert paid.status == "refunded"
-        assert not Ticket.objects.filter(order=paid, is_void=False).exists()
 
     def test_refused_refund_changes_nothing(
         self, panel_client, event, paid, stripe_api

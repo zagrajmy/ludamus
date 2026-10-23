@@ -112,14 +112,7 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
             slug=slug,
             form=TicketTypeForm(
                 initial=ticket_type.model_dump(
-                    include={
-                        "name",
-                        "description",
-                        "price",
-                        "quantity",
-                        "sales_start",
-                        "sales_end",
-                    }
+                    include=set(TicketTypeData.__required_keys__)
                 )
             ),
             ticket_type=ticket_type,

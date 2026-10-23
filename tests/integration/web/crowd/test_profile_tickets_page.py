@@ -17,7 +17,7 @@ from tests.integration.utils import assert_login_required, assert_response
 URL = reverse("user:profile-tickets")
 
 
-def _issued(event, *, holder, code, status="paid", session_id=None, is_void=False):
+def _issued(event, *, holder, code, status="paid", session_id=None):
     kind = ticket_type(event)
     placed = order(
         event,
@@ -26,9 +26,7 @@ def _issued(event, *, holder, code, status="paid", session_id=None, is_void=Fals
         status=status,
         session_id=session_id or f"cs_{code}",
     )
-    Ticket.objects.create(
-        order=placed, ticket_type=kind, holder=holder, code=code, is_void=is_void
-    )
+    Ticket.objects.create(order=placed, ticket_type=kind, holder=holder, code=code)
     return placed
 
 
@@ -51,14 +49,8 @@ class TestProfileTicketsPageView:
     def test_lists_only_the_viewers_valid_tickets_in_this_sphere(
         self, authenticated_client, event, active_user
     ):
-        mine = _issued(event, holder=active_user, code="MINE222222")
-        _issued(
-            event,
-            holder=active_user,
-            code="VOID222222",
-            status="refunded",
-            is_void=True,
-        )
+        _issued(event, holder=active_user, code="MINE222222")
+        _issued(event, holder=active_user, code="VOID222222", status="refunded")
         _issued(event, holder=UserFactory(), code="THEIRS2222")
         _issued(
             EventFactory(sphere=SphereFactory(name="Elsewhere")),
@@ -78,11 +70,9 @@ class TestProfileTicketsPageView:
                     OwnedTicketDTO(
                         code="MINE222222",
                         ticket_type_name="Weekend pass",
-                        order_pk=mine.pk,
                         event_name=event.name,
                         event_slug=event.slug,
                         event_start=event.start_time,
-                        event_end=event.end_time,
                     )
                 ],
             },
