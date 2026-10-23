@@ -15,14 +15,18 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     Notification,
+    PayoutAccount,
     ProposalCategory,
     Session,
     SessionFieldValue,
     Space,
     Sphere,
     SphereMembership,
+    SpherePlan,
     Tag,
     TagCategory,
+    TicketOrder,
+    TicketType,
     TimeSlot,
     User,
     UserEnrollmentConfig,
@@ -238,3 +242,52 @@ class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     search_fields = ("name", "search_key")
     autocomplete_fields = ("parent",)
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+
+# The yearly plan paid by bank transfer is recorded here: set kind to White
+# Glove, source to Manual and the date it is paid until. Stripe webhooks leave
+# a manual plan alone.
+admin.site.register(
+    SpherePlan,
+    list_display=("sphere", "kind", "source", "paid_until"),
+    list_filter=("kind", "source"),
+    search_fields=("sphere__name", "stripe_customer_id"),
+)
+admin.site.register(
+    PayoutAccount,
+    list_display=("sphere", "stripe_account_id", "charges_enabled", "payouts_enabled"),
+    readonly_fields=(
+        "stripe_account_id",
+        "details_submitted",
+        "charges_enabled",
+        "payouts_enabled",
+    ),
+    search_fields=("sphere__name", "stripe_account_id"),
+)
+admin.site.register(
+    TicketType,
+    list_display=("name", "event", "price", "quantity", "is_archived"),
+    list_filter=("is_archived",),
+    search_fields=("name", "event__name"),
+)
+admin.site.register(
+    TicketOrder,
+    list_display=("pk", "event", "email", "status", "total", "platform_fee"),
+    list_filter=("status",),
+    search_fields=("email", "stripe_checkout_session_id", "stripe_payment_intent_id"),
+    readonly_fields=(
+        "event",
+        "buyer",
+        "email",
+        "status",
+        "currency",
+        "total",
+        "platform_fee",
+        "stripe_account_id",
+        "stripe_checkout_session_id",
+        "stripe_payment_intent_id",
+        "hold_until",
+        "paid_at",
+        "refunded_at",
+    ),
+)
