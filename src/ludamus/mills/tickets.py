@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import (
@@ -430,6 +430,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 return self._settle(
                     order.pk, to=OrderStatus.EXPIRED, outcome=WebhookOutcome.EXPIRED
                 )
+            case _:
+                assert_never(event.stage)
 
     def _settle(
         self,
