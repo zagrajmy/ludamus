@@ -76,7 +76,7 @@ class ListingService(ListingServiceProtocol):
         tag_ids: list[int],
     ) -> None:
         with self._transaction.atomic():
-            listing = self._listings.read_authored(
+            listing = self._listings.lock_authored(
                 pk=pk, sphere_id=sphere_id, author_id=author_id
             )
             self._listings.update(pk, data)
@@ -97,11 +97,22 @@ class ListingService(ListingServiceProtocol):
             pk=pk, sphere_id=sphere_id, author_id=author_id
         )
 
-    def board(self, sphere_id: int) -> list[ListingDTO]:
-        return self._listings.list_open(sphere_id)
+    def count_open(self, sphere_id: int) -> int:
+        return self._listings.count_open(sphere_id)
 
-    def has_discord(self, user_id: int) -> bool:
-        return bool(self._users.read_by_id(user_id).discord_username)
+    def board(self, *, sphere_id: int, limit: int, offset: int) -> list[ListingDTO]:
+        return self._listings.list_open(sphere_id=sphere_id, limit=limit, offset=offset)
+
+    def contact_channels(self, user_id: int) -> list[ListingContact]:
+        user = self._users.read_by_id(user_id)
+        return [
+            contact
+            for contact, reachable_at in (
+                (ListingContact.DISCORD, user.discord_username),
+                (ListingContact.EMAIL, user.email),
+            )
+            if reachable_at
+        ]
 
     def authored(self, *, sphere_id: int, author_id: int) -> list[ListingDTO]:
         return self._listings.list_authored(sphere_id=sphere_id, author_id=author_id)
@@ -139,7 +150,7 @@ class ListingService(ListingServiceProtocol):
     def _read_in(
         self, status: ListingStatus, *, pk: int, sphere_id: int, author_id: int
     ) -> ListingDTO:
-        listing = self._listings.read_authored(
+        listing = self._listings.lock_authored(
             pk=pk, sphere_id=sphere_id, author_id=author_id
         )
         if listing.status is not status:
@@ -153,11 +164,5 @@ class ListingService(ListingServiceProtocol):
         self._listings.open(pk=pk, at=now)
 
     def _check_contact(self, author_id: int, contact: ListingContact) -> None:
-        author = self._users.read_by_id(author_id)
-        reachable_at = (
-            author.discord_username
-            if contact is ListingContact.DISCORD
-            else author.email
-        )
-        if not reachable_at:
-            raise ListingContactMissingError
+        if contact not in self.contact_channels(author_id):
+            raise ListingContactMissingError(contact)

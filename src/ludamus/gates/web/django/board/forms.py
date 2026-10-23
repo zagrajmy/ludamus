@@ -104,7 +104,7 @@ class ListingForm(forms.Form):
         self,
         *args: Any,
         tag_categories: list[TagCategoryOptionsDTO],
-        has_discord: bool,
+        contact_channels: list[ListingContact],
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -119,14 +119,24 @@ class ListingForm(forms.Form):
                 for option in category.options
             ],
         )
-        # NOTE: Discord comes from the profile; without it the account email
-        # is the one contact left, and a single choice renders as no picker.
+        # NOTE: only channels on the profile are offered, and a single choice
+        # renders as no picker. With none, both stay so a draft can still save.
+        choices = [
+            choice for choice in CONTACT_CHOICES if choice[0] in contact_channels
+        ] or list(CONTACT_CHOICES)
         self.fields["contact"] = forms.ChoiceField(
             label=_("Contact"),
-            choices=CONTACT_CHOICES if has_discord else CONTACT_CHOICES[1:],
-            initial=None if has_discord else ListingContact.EMAIL,
+            choices=choices,
+            initial=choices[0][0] if len(choices) == 1 else None,
             widget=forms.RadioSelect,
-            help_text=_("Shown only to the people in the party you form."),
+            help_text=(
+                _("Shown only to the people in the party you form.")
+                if contact_channels
+                else _(
+                    "Add your Discord username or an email address to your "
+                    "profile before you publish."
+                )
+            ),
         )
 
     def clean_header_image(self) -> object:

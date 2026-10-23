@@ -15,7 +15,7 @@ from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.board.forms import ListingForm, pair_value, split_pair
-from ludamus.gates.web.django.pagination import pagination_context
+from ludamus.gates.web.django.pagination import windowed_pagination_context
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.listing import (
@@ -36,10 +36,14 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts.listing import ListingDTO
 
-_CONTACT_MISSING = gettext_lazy(
-    "Your profile is missing this contact. Add it to your profile, or pick the "
-    "other contact."
-)
+_CONTACT_MISSING = {
+    ListingContact.DISCORD: gettext_lazy(
+        "Add your Discord username to your profile, or pick another contact."
+    ),
+    ListingContact.EMAIL: gettext_lazy(
+        "Add an email address to your profile, or pick another contact."
+    ),
+}
 
 
 class _BoardGate(View):
@@ -69,10 +73,16 @@ class BoardPageView(_BoardGate):
 
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        listings = request.services.listings.board(request.context.current_sphere_id)
-        return TemplateResponse(
-            request, "board/index.html", {**pagination_context(request, listings)}
+        sphere_id = request.context.current_sphere_id
+        listings = request.services.listings
+        pagination = windowed_pagination_context(
+            request,
+            total=listings.count_open(sphere_id),
+            window=lambda limit, offset: listings.board(
+                sphere_id=sphere_id, limit=limit, offset=offset
+            ),
         )
+        return TemplateResponse(request, "board/index.html", {**pagination})
 
 
 class MyListingsPageView(_BoardGate, LoginRequiredMixin, View):
@@ -130,7 +140,7 @@ class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
             files,
             initial=initial,
             tag_categories=self.request.services.tags.picker(),
-            has_discord=self.request.services.listings.has_discord(
+            contact_channels=self.request.services.listings.contact_channels(
                 self.request.context.current_user_id
             ),
         )
@@ -176,8 +186,8 @@ class ListingCreatePageView(_ListingFormPageView):
                 tag_ids=form.cleaned_data["tags"],
                 publish_at=_now() if publish else None,
             )
-        except ListingContactMissingError:
-            form.add_error("contact", _CONTACT_MISSING)
+        except ListingContactMissingError as exc:
+            form.add_error("contact", _CONTACT_MISSING[exc.contact])
             return TemplateResponse(request, "board/create.html", {"form": form})
         messages.success(
             request, _("Listing published.") if publish else _("Draft saved.")
@@ -240,8 +250,8 @@ class ListingEditPageView(_ListingFormPageView):
                 data=_write_data(form),
                 tag_ids=form.cleaned_data["tags"],
             )
-        except ListingContactMissingError:
-            form.add_error("contact", _CONTACT_MISSING)
+        except ListingContactMissingError as exc:
+            form.add_error("contact", _CONTACT_MISSING[exc.contact])
             return self._render(request, form, listing)
         messages.success(request, _("Listing updated."))
         return redirect("web:board:detail", pk=pk)
@@ -259,8 +269,8 @@ class _ListingActionView(_BoardGate, LoginRequiredMixin, View):
             self._apply(pk)
         except NotFoundError as exc:
             raise Http404 from exc
-        except ListingContactMissingError:
-            messages.error(request, _CONTACT_MISSING)
+        except ListingContactMissingError as exc:
+            messages.error(request, _CONTACT_MISSING[exc.contact])
         except ListingStatusError:
             messages.error(
                 request, _("This listing has already changed. Nothing was done.")

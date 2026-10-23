@@ -88,9 +88,25 @@ class ListingRepository(ListingRepositoryProtocol):
         return _get(_listings(), pk=pk, sphere_id=sphere_id, author_id=author_id)
 
     @staticmethod
-    def list_open(sphere_id: int) -> list[ListingDTO]:
+    def lock_authored(*, pk: int, sphere_id: int, author_id: int) -> ListingDTO:
+        return _get(
+            _listings().select_for_update(of=("self",)),
+            pk=pk,
+            sphere_id=sphere_id,
+            author_id=author_id,
+        )
+
+    @staticmethod
+    def count_open(sphere_id: int) -> int:
+        return Listing.objects.filter(
+            sphere_id=sphere_id, status=ListingStatus.OPEN
+        ).count()
+
+    @staticmethod
+    def list_open(*, sphere_id: int, limit: int, offset: int) -> list[ListingDTO]:
         listings = _listings().filter(sphere_id=sphere_id, status=ListingStatus.OPEN)
-        return [_dto(listing) for listing in listings.order_by("-opened_at", "-pk")]
+        window = listings.order_by("-opened_at", "-pk")[offset : offset + limit]
+        return [_dto(listing) for listing in window]
 
     @staticmethod
     def list_authored(*, sphere_id: int, author_id: int) -> list[ListingDTO]:

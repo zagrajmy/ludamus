@@ -154,6 +154,50 @@ class TestListingCreatePageView:
         )
         assert not Listing.objects.exists()
 
+    def test_email_contact_needs_email_on_the_profile(
+        self, authenticated_client, active_user
+    ):
+        active_user.discord_username = "gm#1"
+        active_user.email = ""
+        active_user.save()
+
+        response = authenticated_client.post(URL, _post(contact="email", publish=""))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormErrorsMatcher(
+                    contact=[
+                        (
+                            "Select a valid choice. email is not one of the "
+                            "available choices."
+                        )
+                    ]
+                )
+            },
+            template_name="board/create.html",
+        )
+        assert not Listing.objects.exists()
+
+    def test_without_any_contact_a_draft_still_saves(
+        self, authenticated_client, active_user
+    ):
+        active_user.discord_username = ""
+        active_user.email = ""
+        active_user.save()
+
+        response = authenticated_client.post(URL, _post(draft=""))
+
+        listing = Listing.objects.get()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "Draft saved."),),
+            url=reverse("web:board:detail", kwargs={"pk": listing.pk}),
+        )
+        assert listing.status == ListingStatus.DRAFT
+
     def test_discord_contact_needs_discord_on_the_profile(
         self, authenticated_client, active_user
     ):

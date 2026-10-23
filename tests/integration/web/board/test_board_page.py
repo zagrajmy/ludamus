@@ -36,6 +36,26 @@ class TestBoardPageView:
             listing_dto(older),
         ]
 
+    def test_second_page_holds_the_rest(self, client, sphere):
+        now = datetime.now(UTC)
+        listings = [
+            ListingFactory(sphere=sphere, opened_at=now - timedelta(hours=hours))
+            for hours in range(11)
+        ]
+
+        response = client.get(URL, {"page": 2, "page_size": 10})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "page_obj": PageMatcher(number=2, num_pages=2),
+                "page_sizes": [10, 20, 50, 100],
+            },
+            template_name="board/index.html",
+        )
+        assert list(response.context["page_obj"]) == [listing_dto(listings[-1])]
+
     def test_empty_board(self, client):
         response = client.get(URL)
 

@@ -66,9 +66,38 @@ class TestListingPublishActionView:
                 (
                     constants.ERROR,
                     (
-                        "Your profile is missing this contact. Add it to your "
-                        "profile, or pick the other contact."
+                        "Add your Discord username to your profile, or pick "
+                        "another contact."
                     ),
+                ),
+            ),
+            url=_detail(listing),
+        )
+        listing.refresh_from_db()
+        assert listing.status == ListingStatus.DRAFT
+
+    def test_email_contact_without_email_stays_a_draft(
+        self, authenticated_client, active_user, sphere
+    ):
+        active_user.email = ""
+        active_user.save()
+        listing = ListingFactory(
+            sphere=sphere,
+            author=active_user,
+            contact=ListingContact.EMAIL,
+            status=ListingStatus.DRAFT,
+            opened_at=None,
+        )
+
+        response = authenticated_client.post(_url("publish", listing))
+
+        assert_response(
+            response,
+            302,
+            messages=(
+                (
+                    constants.ERROR,
+                    "Add an email address to your profile, or pick another contact.",
                 ),
             ),
             url=_detail(listing),
