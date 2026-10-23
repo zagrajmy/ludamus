@@ -61,7 +61,7 @@ test.describe("Ticket sales", () => {
       },
     });
 
-    const delivered = await page.request.post("/hooks/stripe/connect/", {
+    const delivered = await page.request.post("/hooks/stripe/connect", {
       data: body,
       headers: { "Content-Type": "application/json", "Stripe-Signature": signed(body) },
     });
@@ -89,7 +89,7 @@ test.describe("Ticket sales", () => {
   test("a forged webhook is refused", async ({ page }) => {
     const body = JSON.stringify({ id: "evt_forged", type: "checkout.session.completed" });
 
-    const response = await page.request.post("/hooks/stripe/connect/", {
+    const response = await page.request.post("/hooks/stripe/connect", {
       data: body,
       headers: { "Content-Type": "application/json", "Stripe-Signature": "t=1,v1=00" },
     });

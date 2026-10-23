@@ -219,18 +219,14 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 event_id=event.pk, holder_id=viewer_id
             )
         )
-        if not types:
-            return EventShopDTO(
-                offers=[],
-                accepting_payments=False,
-                viewer_ticket_count=viewer_ticket_count,
-            )
         return EventShopDTO(
             offers=[
                 offer_for(ticket_type, now=now, closes_at=event.end_time)
                 for ticket_type in types
             ],
-            accepting_payments=self._accepting_payments(
+            # Most events are free: with no ticket types, the account is not read.
+            accepting_payments=bool(types)
+            and self._accepting_payments(
                 self._accounts.read(sphere_id=event.sphere_id)
             ),
             viewer_ticket_count=viewer_ticket_count,

@@ -90,8 +90,10 @@ def _quantities(request: RootRequest) -> dict[int, int] | None:
     return quantities
 
 
-def _outcome_message(outcome: CheckoutOutcome) -> str:
+def _refusal_message(outcome: CheckoutOutcome) -> str | None:
     match outcome:
+        case CheckoutOutcome.STARTED:
+            return None
         case CheckoutOutcome.NOTHING_SELECTED:
             return _("Choose how many tickets you want.")
         case CheckoutOutcome.TOO_MANY:
@@ -104,11 +106,13 @@ def _outcome_message(outcome: CheckoutOutcome) -> str:
             return _("That ticket isn't on sale right now.")
         case CheckoutOutcome.SALES_CLOSED:
             return _("Ticket sales for this event are paused. Try again later.")
-        case _:
+        case CheckoutOutcome.PROVIDER_ERROR:
             return _(
                 "We couldn't reach the payment provider. Nothing was charged; try"
                 " again in a moment."
             )
+        case _:
+            assert_never(outcome)
 
 
 class EventTicketsPageView(View):
@@ -167,9 +171,9 @@ class EventTicketsBuyActionView(View):
             buyer_id,
             started.outcome,
         )
-        if started.outcome is CheckoutOutcome.STARTED:
+        if (refusal := _refusal_message(started.outcome)) is None:
             return redirect(started.url)
-        messages.error(request, _outcome_message(started.outcome))
+        messages.error(request, refusal)
         return redirect(_tickets_url(event.slug))
 
 

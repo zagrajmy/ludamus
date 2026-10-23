@@ -2,6 +2,7 @@
 # crowd/urls.py shrinks as its pages move over.
 from django.urls import path
 
+from ludamus.gates.web.django.user.age_range import ProfileAgeRangePageView
 from ludamus.gates.web.django.user.privacy import ProfilePrivacyPageView
 from ludamus.gates.web.django.user.tickets import ProfileTicketsPageView
 
@@ -10,5 +11,10 @@ from ludamus.gates.web.django.user.tickets import ProfileTicketsPageView
 # lowercase "constant" pylint would otherwise flag.
 urlpatterns = [
     path("profile/privacy/", ProfilePrivacyPageView.as_view(), name="profile-privacy"),
+    path(
+        "profile/privacy/age/",
+        ProfileAgeRangePageView.as_view(),
+        name="profile-age-range",
+    ),
     path("profile/tickets/", ProfileTicketsPageView.as_view(), name="profile-tickets"),
 ]

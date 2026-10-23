@@ -78,12 +78,12 @@ urlpatterns: list[URLResolver | URLPattern] = [
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     path(
-        "hooks/stripe/connect/",
+        "hooks/stripe/connect",
         StripeConnectEndpointView.as_view(),
         name="stripe-connect-hook",
     ),
     path(
-        "hooks/stripe/billing/",
+        "hooks/stripe/billing",
         StripeBillingEndpointView.as_view(),
         name="stripe-billing-hook",
     ),
