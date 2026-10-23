@@ -278,7 +278,10 @@ URL — not through environment variables.
 
 **Other:**
 
-- `SUPPORT_EMAIL` — default `support@example.com` — L(opt) D(opt) P(opt)
+- `SUPPORT_EMAIL` — the mailbox a person answers. `/contact/` names it as the
+  DSA point of contact for users and for authorities (Arts. 11–12), so
+  production needs a real, monitored address — default
+  `support@example.com` — L(opt) D(opt) P(opt)
 
 ## 6. Useful Commands Reference
 
