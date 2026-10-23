@@ -152,6 +152,7 @@ class FakeSubscriptions:
 
     def unsubscribe_everywhere(self, user_id):
         self.dropped_for.append(user_id)
+        return 1
 
 
 class FakeSpheres:

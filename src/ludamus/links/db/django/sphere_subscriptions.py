@@ -56,8 +56,9 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
         SphereSubscription.objects.filter(sphere_id=sphere_id, user_id=user_id).delete()
 
     @staticmethod
-    def unsubscribe_everywhere(user_id: int) -> None:
-        SphereSubscription.objects.filter(user_id=user_id).delete()
+    def unsubscribe_everywhere(user_id: int) -> int:
+        deleted, _ = SphereSubscription.objects.filter(user_id=user_id).delete()
+        return deleted
 
     @staticmethod
     def list_recipients(sphere_id: int) -> list[SubscriptionRecipientDTO]:

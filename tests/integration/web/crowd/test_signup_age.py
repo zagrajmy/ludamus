@@ -51,8 +51,8 @@ def _answer(client, age_band):
     return client.post(GATE_URL, {"age_band": age_band, "confirmation_token": token})
 
 
-def _update(client, age_band):
-    return client.post(PROFILE_AGE_URL, {"age_band": age_band})
+def _update(client, age_band, **extra):
+    return client.post(PROFILE_AGE_URL, {"age_band": age_band, **extra})
 
 
 class TestSignupAgeGate:
@@ -241,7 +241,11 @@ class TestProfileAgeRange:
             response,
             HTTPStatus.OK,
             template_name="crowd/user/age_range.html",
-            context_data={"form": ANY, "profile_active_tab": "privacy"},
+            context_data={
+                "form": ANY,
+                "profile_active_tab": "privacy",
+                "confirm_disable": False,
+            },
         )
 
     def test_invalid_choice_changes_nothing(self, authenticated_client, active_user):
@@ -261,6 +265,7 @@ class TestProfileAgeRange:
                     ]
                 ),
                 "profile_active_tab": "privacy",
+                "confirm_disable": False,
             },
         )
         active_user.refresh_from_db()
@@ -272,7 +277,7 @@ class TestProfileAgeRange:
         sub = faker.uuid4()
         User.objects.filter(pk=active_user.pk).update(username=f"auth0|{sub}")
 
-        response = _update(authenticated_client, "under_13")
+        response = _update(authenticated_client, "under_13", confirm="disable")
 
         assert_response(
             response,
@@ -301,11 +306,45 @@ class TestProfileAgeRange:
     ):
         SphereSubscription.objects.create(user=active_user, sphere=non_root_sphere)
 
-        _update(authenticated_client, "16_plus")
+        response = _update(authenticated_client, "16_plus")
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("user:profile-privacy"),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Age range saved. Your bookings are unchanged. Sphere "
+                        "announcement subscriptions were cleared; subscribe again "
+                        "from your dashboard."
+                    ),
+                )
+            ],
+        )
         active_user.refresh_from_db()
         assert active_user.age_band == "16_plus"
         assert not SphereSubscription.objects.filter(user=active_user).exists()
+
+    def test_under_thirteen_asks_before_disabling(
+        self, authenticated_client, active_user
+    ):
+        response = _update(authenticated_client, "under_13")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/user/age_range.html",
+            context_data={
+                "form": ANY,
+                "profile_active_tab": "privacy",
+                "confirm_disable": True,
+            },
+        )
+        active_user.refresh_from_db()
+        assert active_user.is_active is True
+        assert "_auth_user_id" in authenticated_client.session
 
     def test_existing_account_can_confirm_age_without_losing_bookings(
         self, authenticated_client, active_user, non_root_sphere
@@ -320,7 +359,13 @@ class TestProfileAgeRange:
             HTTPStatus.FOUND,
             url=reverse("user:profile-privacy"),
             messages=[
-                (messages.SUCCESS, "Age range saved. Your bookings are unchanged.")
+                (
+                    messages.SUCCESS,
+                    (
+                        "Age range saved. Your bookings are unchanged. Sphere "
+                        "announcement subscriptions were cleared."
+                    ),
+                )
             ],
         )
         active_user.refresh_from_db()

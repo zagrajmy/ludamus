@@ -110,6 +110,9 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
                 self._subscriptions.mark_announced(announcement.event_pk, at=now)
                 recipients = self._subscriptions.list_recipients(announcement.sphere_id)
                 for recipient in recipients:
+                    # NOTE: subscriptions made before age ranges existed belong
+                    # to UNKNOWN accounts. They are kept, unsent, until the
+                    # account confirms a range, which drops them.
                     if not recipient.age_band.allows_optional_features:
                         continue
                     self._notifier.notify_sphere_event_published(

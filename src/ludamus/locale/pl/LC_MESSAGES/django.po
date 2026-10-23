@@ -4075,6 +4075,22 @@ msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
 msgid "Age range saved. Your bookings are unchanged."
 msgstr "Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian."
 
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid ""
+"Age range saved. Your bookings are unchanged. Sphere announcement "
+"subscriptions were cleared; subscribe again from your dashboard."
+msgstr ""
+"Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian. Subskrypcje "
+"ogłoszeń sfer zostały usunięte; możesz je ponownie włączyć na pulpicie."
+
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid ""
+"Age range saved. Your bookings are unchanged. Sphere announcement "
+"subscriptions were cleared."
+msgstr ""
+"Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian. Subskrypcje "
+"ogłoszeń sfer zostały usunięte."
+
 #: src/ludamus/links/db/django/encounter_invites.py
 #, python-format
 msgid "Invitation: %(title)s"
@@ -6997,6 +7013,26 @@ msgstr ""
 "Wybranie wieku poniżej 13 lat wyłącza samodzielne logowanie. Jeśli masz już "
 "zapisy, skontaktuj się z nami."
 
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Disable your account?"
+msgstr "Wyłączyć konto?"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid ""
+"You chose Under 13. Your account will be disabled and you will be signed "
+"out. Only support can turn it back on."
+msgstr ""
+"Wybrano „Poniżej 13 lat”. Konto zostanie wyłączone, a sesja zakończona. "
+"Ponownie włączyć je może tylko nasze wsparcie."
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Disable my account"
+msgstr "Wyłącz moje konto"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Choose again"
+msgstr "Wybierz ponownie"
+
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"
 msgstr "Awatar z konta"
@@ -7437,7 +7473,7 @@ msgstr ""
 "sesji i emaile promocyjne pozostają wyłączone. Twoje zapisy nadal działają."
 
 #: src/ludamus/templates/crowd/user/privacy.html
-#: src/ludamus/templates/dashboard/_sphere.html
+#: src/ludamus/templates/dashboard/index.html
 msgid "Update age range"
 msgstr "Zaktualizuj przedział wiekowy"
 
@@ -7660,12 +7696,6 @@ msgstr[3] ""
 "                    "
 
 #: src/ludamus/templates/dashboard/_sphere.html
-msgid "Promotional emails are off. You can still browse events and sign up."
-msgstr ""
-"Emaile promocyjne są wyłączone. Nadal możesz przeglądać wydarzenia i się "
-"zapisywać."
-
-#: src/ludamus/templates/dashboard/_sphere.html
 msgid "Subscribed"
 msgstr "Subskrybujesz"
 
@@ -7724,6 +7754,12 @@ msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tut
 #: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Promotional emails are off. You can still browse events and sign up."
+msgstr ""
+"Emaile promocyjne są wyłączone. Nadal możesz przeglądać wydarzenia i się "
+"zapisywać."
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "Past events"

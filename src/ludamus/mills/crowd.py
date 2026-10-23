@@ -170,20 +170,21 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             self._set_age_band(user_slug, AgeBand.UNKNOWN)
             self._users.update(user_slug, UserData(is_active=False))
 
-    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> None:
+    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool:
+        """Return whether the change dropped promotional subscriptions."""
         if not age_band.is_confirmed:
             raise AgeBandRequiredError
         with self._transaction.atomic():
-            self._set_age_band(user_slug, age_band)
+            return self._set_age_band(user_slug, age_band)
 
-    def _set_age_band(self, user_slug: str, age_band: AgeBand) -> None:
+    def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
         previous = self._users.set_age_band(user_slug, age_band)
         # A subscription made under one age range is no consent under another:
         # only an account that was and stays 16+ keeps its subscriptions.
-        if not (
-            previous.allows_optional_features and age_band.allows_optional_features
-        ):
-            self._subscriptions.unsubscribe_everywhere(self._users.read(user_slug).pk)
+        if previous.allows_optional_features and age_band.allows_optional_features:
+            return False
+        user_id = self._users.read(user_slug).pk
+        return self._subscriptions.unsubscribe_everywhere(user_id) > 0
 
     def has_account(self, username: str) -> bool:
         try:
