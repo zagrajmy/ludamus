@@ -391,9 +391,35 @@ class TestEventTicketOrderPages:
             status=HTTPStatus.BAD_REQUEST,
         )
 
-        authenticated_client.get(_cancel_url(event, mine.pk))
+        response = authenticated_client.get(_cancel_url(event, mine.pk))
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tickets_url(event),
+            messages=[
+                (
+                    messages.WARNING,
+                    (
+                        "Stripe didn't confirm the cancellation. If you didn't pay,"
+                        " the tickets go back on sale within the hour."
+                    ),
+                )
+            ],
+        )
         assert TicketOrder.objects.get().status == OrderStatus.PENDING
+
+    def test_cancel_of_a_paid_order_shows_the_order(
+        self, authenticated_client, event, active_user, stripe_api
+    ):
+        kind = ticket_type(event)
+        mine = order(event, buyer=active_user, lines=[(kind, 1)], status="paid")
+
+        response = authenticated_client.get(_cancel_url(event, mine.pk))
+
+        assert_response(response, HTTPStatus.FOUND, url=_order_url(event, mine.pk))
+        assert TicketOrder.objects.get().status == OrderStatus.PAID
+        assert not stripe_api.calls
 
     def test_cancel_link_not_from_stripe_cancels_nothing(
         self, authenticated_client, event, active_user, stripe_api

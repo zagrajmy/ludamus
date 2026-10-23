@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.db.models import Count, Max, Q, Sum
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Now
 
 from ludamus.links.db.django.models import (
     PayoutAccount,
@@ -20,6 +20,10 @@ from ludamus.links.db.django.models import (
     TicketType,
 )
 from ludamus.pacts.tickets import (
+    CHECKOUT_STATUSES,
+    LEDGER_STATUSES,
+    SETTLING_STATUSES,
+    SOLD_STATUSES,
     OrderDTO,
     OrderLineDTO,
     OrderRowDTO,
@@ -66,8 +70,8 @@ _TICKET_TYPE_FIELDS = (
 
 
 def _held(holds_after: datetime) -> Q:
-    return Q(order_lines__order__status=OrderStatus.AWAITING_PAYMENT) | Q(
-        order_lines__order__status=OrderStatus.PENDING,
+    return Q(order_lines__order__status__in=SETTLING_STATUSES) | Q(
+        order_lines__order__status__in=CHECKOUT_STATUSES,
         order_lines__order__hold_until__gt=holds_after,
     )
 
@@ -78,7 +82,7 @@ def _with_counts(
     return queryset.annotate(
         sold=Sum(
             "order_lines__quantity",
-            filter=Q(order_lines__order__status=OrderStatus.PAID),
+            filter=Q(order_lines__order__status__in=SOLD_STATUSES),
             default=0,
         ),
         held=Sum("order_lines__quantity", filter=_held(holds_after), default=0),
@@ -149,13 +153,17 @@ class TicketTypeRepository(TicketTypeRepositoryProtocol):
 
     @staticmethod
     def update(*, event_id: int, pk: int, data: TicketTypeData) -> bool:
-        return bool(TicketType.objects.filter(event_id=event_id, pk=pk).update(**data))
+        return bool(
+            TicketType.objects.filter(event_id=event_id, pk=pk).update(
+                **data, modification_time=Now()
+            )
+        )
 
     @staticmethod
     def set_archived(*, event_id: int, pk: int, archived: bool) -> bool:
         return bool(
             TicketType.objects.filter(event_id=event_id, pk=pk).update(
-                is_archived=archived
+                is_archived=archived, modification_time=Now()
             )
         )
 
@@ -171,9 +179,6 @@ def _orders() -> QuerySet[TicketOrder]:
     return TicketOrder.objects.select_related("event", "buyer").prefetch_related(
         "lines__ticket_type", "tickets__ticket_type"
     )
-
-
-_LEDGER = (OrderStatus.PAID, OrderStatus.REFUNDED, OrderStatus.AWAITING_PAYMENT)
 
 
 def _line_dtos(order: TicketOrder) -> list[OrderLineDTO]:
@@ -245,7 +250,9 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
 
     @staticmethod
     def attach_checkout(*, pk: int, session_id: str) -> None:
-        TicketOrder.objects.filter(pk=pk).update(stripe_checkout_session_id=session_id)
+        TicketOrder.objects.filter(pk=pk).update(
+            stripe_checkout_session_id=session_id, modification_time=Now()
+        )
 
     @staticmethod
     def read_for_buyer(*, buyer_id: int, pk: int) -> OrderDTO | None:
@@ -274,7 +281,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         # Abandoned checkouts are noise in the panel; what was paid, refunded
         # or is still being paid is the ledger.
         orders = (
-            TicketOrder.objects.filter(event_id=event_id, status__in=_LEDGER)
+            TicketOrder.objects.filter(event_id=event_id, status__in=LEDGER_STATUSES)
             .select_related("buyer")
             .prefetch_related("lines__ticket_type")[:limit]
         )
@@ -315,7 +322,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
     ) -> bool:
         return bool(
             TicketOrder.objects.filter(pk=pk, status__in=allowed_from).update(
-                status=to, **changes
+                status=to, modification_time=Now(), **changes
             )
         )
 
@@ -391,6 +398,6 @@ class PayoutAccountRepository(PayoutAccountRepositoryProtocol):
     def update_state(*, stripe_account_id: str, state: AccountState) -> bool:
         return bool(
             PayoutAccount.objects.filter(stripe_account_id=stripe_account_id).update(
-                **state.model_dump()
+                **state.model_dump(), modification_time=Now()
             )
         )

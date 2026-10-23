@@ -92,7 +92,7 @@ class TestBillingPage:
                     source=None,
                     paid_until=None,
                     can_subscribe=True,
-                    can_manage=False,
+                    has_billing_history=False,
                     ticket_fee_percent=Decimal("3.5"),
                 ),
                 "payouts": PayoutPageDTO(

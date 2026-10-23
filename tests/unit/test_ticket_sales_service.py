@@ -64,6 +64,7 @@ from ludamus.pacts.payment_api import (
 )
 from ludamus.pacts.tickets import (
     TICKET_CODE_LENGTH,
+    AbandonOutcome,
     CheckoutOutcome,
     CheckoutStartDTO,
     CheckoutUrls,
@@ -471,8 +472,11 @@ class TestBuyerOrder:
     ):
         order = _order(orders, types.add(), stripe_checkout_session_id=session_id)
 
-        sales.abandon_checkout(buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk)
+        outcome = sales.abandon_checkout(
+            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+        )
 
+        assert outcome is AbandonOutcome.CANCELLED
         assert _status(book, order) is OrderStatus.EXPIRED
 
     def test_abandoning_a_checkout_stripe_already_closed_leaves_it_to_the_webhook(
@@ -481,15 +485,43 @@ class TestBuyerOrder:
         order = _order(orders, types.add(), stripe_checkout_session_id="cs_1")
         payments.down.add("expire_checkout")
 
-        sales.abandon_checkout(buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk)
+        outcome = sales.abandon_checkout(
+            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+        )
 
+        assert outcome is AbandonOutcome.UNCONFIRMED
         assert _status(book, order) is OrderStatus.PENDING
 
     def test_abandoning_a_paid_order_changes_nothing(self, sales, book, types, orders):
         order = _order(orders, types.add(), status=OrderStatus.PAID)
 
-        sales.abandon_checkout(buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk)
+        outcome = sales.abandon_checkout(
+            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+        )
 
+        assert outcome is AbandonOutcome.SETTLED
+        assert _status(book, order) is OrderStatus.PAID
+
+    def test_order_paid_while_its_session_was_expired_stays_paid(
+        self, sales, book, types, orders, payments, monkeypatch
+    ):
+        order = _order(orders, types.add(), stripe_checkout_session_id="cs_1")
+
+        def paid_meanwhile(**_stripe_call):
+            orders.move(
+                pk=order.pk,
+                to=OrderStatus.PAID,
+                allowed_from=frozenset({OrderStatus.PENDING}),
+                changes={},
+            )
+
+        monkeypatch.setattr(payments, "expire_checkout", paid_meanwhile)
+
+        outcome = sales.abandon_checkout(
+            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+        )
+
+        assert outcome is AbandonOutcome.SETTLED
         assert _status(book, order) is OrderStatus.PAID
 
 
@@ -703,7 +735,7 @@ class TestWebhook:
             sales, payments, RefundEvent(payment_intent_id="pi_1", fully_refunded=False)
         )
 
-        assert outcome is WebhookOutcome.NOT_OURS
+        assert outcome is WebhookOutcome.PARTLY_REFUNDED
         assert book.orders[order.pk] == paid
         owned = sales.owned_tickets(sphere_id=SPHERE_ID, holder_id=BUYER_ID)
         assert [ticket.code for ticket in owned] == [

@@ -55,7 +55,7 @@ class PlanService(PlanServiceProtocol):
             source=yearly.source if yearly else None,
             paid_until=yearly.paid_until if yearly else None,
             can_subscribe=self._billing.enabled and yearly is None,
-            can_manage=self._billing.enabled
+            has_billing_history=self._billing.enabled
             and plan is not None
             and bool(plan.stripe_customer_id),
         )

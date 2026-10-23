@@ -301,7 +301,7 @@ class TestExpiredAndRefunded:
             event_id="evt_2",
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "partly_refunded"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PAID
 
 

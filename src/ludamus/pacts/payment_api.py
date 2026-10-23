@@ -37,6 +37,9 @@ class WebhookOutcome(StrEnum):
     FAILED = "failed"
     EXPIRED = "expired"
     REFUNDED = "refunded"
+    # One of our orders refunded in part from the Stripe dashboard: its
+    # tickets stay valid, the organizer decides the rest.
+    PARTLY_REFUNDED = "partly_refunded"
     ACCOUNT_UPDATED = "account_updated"
     SUBSCRIBED = "subscribed"
     RENEWED = "renewed"

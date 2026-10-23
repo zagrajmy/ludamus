@@ -3109,6 +3109,14 @@ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
 msgid "Checkout cancelled. Nothing was charged."
 msgstr "Płatność anulowana. Nic nie zostało pobrane."
 
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
+"Stripe didn't confirm the cancellation. If you didn't pay, the tickets go "
+"back on sale within the hour."
+msgstr ""
+"Stripe nie potwierdził anulowania. Jeśli nie zapłacono, bilety wrócą do "
+"sprzedaży w ciągu godziny."
+
 #: src/ludamus/gates/web/django/forms.py
 msgid ""
 "1920×1080 (16:9) works best. We crop the edges, so keep the subject in the "

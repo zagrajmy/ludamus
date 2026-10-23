@@ -66,7 +66,7 @@ class PlanPageDTO(BaseModel):
     can_subscribe: bool
     # The sphere has a Stripe customer, so the billing portal has something
     # to show: invoices, the card on file, cancelling.
-    can_manage: bool
+    has_billing_history: bool
     # Zagrajmy's share of each ticket order on this plan, in percent.
     ticket_fee_percent: Decimal
 

@@ -23,7 +23,12 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.helpers import account_email, read_public_event
 from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.tickets import MAX_TICKETS_PER_ORDER, CheckoutOutcome, CheckoutUrls
+from ludamus.pacts.tickets import (
+    MAX_TICKETS_PER_ORDER,
+    AbandonOutcome,
+    CheckoutOutcome,
+    CheckoutUrls,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -49,6 +54,12 @@ def _signed_for(token: str, *, pk: int) -> bool:
 
 def _tickets_url(slug: str) -> str:
     return reverse("web:event:event-tickets", kwargs={"event_slug": slug})
+
+
+def _order_url(slug: str, pk: int) -> str:
+    return reverse(
+        "web:event:event-ticket-order", kwargs={"event_slug": slug, "pk": pk}
+    )
 
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
@@ -207,17 +218,24 @@ class EventTicketOrderCancelActionView(View):
             return redirect(_tickets_url(event.slug))
         if not _signed_for(request.GET.get("token", ""), pk=pk):
             logger.warning("Ticket checkout cancel without a valid token: order=%s", pk)
-            return redirect(
-                reverse(
-                    "web:event:event-ticket-order",
-                    kwargs={"event_slug": event.slug, "pk": pk},
-                )
-            )
+            return redirect(_order_url(event.slug, pk))
         try:
-            request.services.ticket_sales.abandon_checkout(
+            outcome = request.services.ticket_sales.abandon_checkout(
                 buyer_id=buyer_id, event_id=event.pk, pk=pk
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        messages.info(request, _("Checkout cancelled. Nothing was charged."))
+        match outcome:
+            case AbandonOutcome.CANCELLED:
+                messages.info(request, _("Checkout cancelled. Nothing was charged."))
+            case AbandonOutcome.UNCONFIRMED:
+                messages.warning(
+                    request,
+                    _(
+                        "Stripe didn't confirm the cancellation. If you didn't pay,"
+                        " the tickets go back on sale within the hour."
+                    ),
+                )
+            case AbandonOutcome.SETTLED:
+                return redirect(_order_url(event.slug, pk))
         return redirect(_tickets_url(event.slug))

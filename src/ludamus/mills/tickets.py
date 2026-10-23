@@ -29,6 +29,7 @@ from ludamus.pacts.tickets import (
     DEFAULT_CURRENCY,
     MAX_TICKETS_PER_ORDER,
     TICKET_CODE_LENGTH,
+    AbandonOutcome,
     BuyerOrderDTO,
     CheckoutLine,
     CheckoutOutcome,
@@ -351,10 +352,12 @@ class TicketSalesService(TicketSalesServiceProtocol):
             raise NotFoundError
         return order
 
-    def abandon_checkout(self, *, buyer_id: int, event_id: int, pk: int) -> None:
+    def abandon_checkout(
+        self, *, buyer_id: int, event_id: int, pk: int
+    ) -> AbandonOutcome:
         order = self._owned(buyer_id=buyer_id, event_id=event_id, pk=pk)
         if order.status is not OrderStatus.PENDING:
-            return
+            return AbandonOutcome.SETTLED
         if order.stripe_checkout_session_id:
             try:
                 self._payments.expire_checkout(
@@ -362,12 +365,14 @@ class TicketSalesService(TicketSalesServiceProtocol):
                     session_id=order.stripe_checkout_session_id,
                 )
             except PaymentProviderError:
-                # Already completed or expired on Stripe's side: its webhook
-                # tells us which. Leave the order to it.
-                return
+                # Completed in another tab, or Stripe is down: its webhook
+                # settles the order, and the hold frees the seats meanwhile.
+                logger.warning("Ticket checkout not expired: order=%s", order.pk)
+                return AbandonOutcome.UNCONFIRMED
         with self._transaction.atomic():
             expired = _move(self._orders, pk=order.pk, to=OrderStatus.EXPIRED)
         logger.info("Ticket checkout abandoned: order=%s expired=%s", order.pk, expired)
+        return AbandonOutcome.CANCELLED if expired else AbandonOutcome.SETTLED
 
     def owned_tickets(self, *, sphere_id: int, holder_id: int) -> list[OwnedTicketDTO]:
         return self._orders.list_owned_tickets(sphere_id=sphere_id, holder_id=holder_id)
@@ -386,7 +391,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 return (
                     WebhookOutcome.ACCOUNT_UPDATED if known else WebhookOutcome.NOT_OURS
                 )
-            case RefundEvent(fully_refunded=True):
+            case RefundEvent():
                 return self._refunded(event)
             case CheckoutEvent():
                 return self._checkout(event)
@@ -398,6 +403,9 @@ class TicketSalesService(TicketSalesServiceProtocol):
         )
         if order is None:
             return WebhookOutcome.NOT_OURS
+        if not event.fully_refunded:
+            logger.info("Ticket order refunded in part: order=%s", order.pk)
+            return WebhookOutcome.PARTLY_REFUNDED
         if not _record_refund(self._orders, order=order, now=datetime.now(tz=UTC)):
             return WebhookOutcome.STALE
         return WebhookOutcome.REFUNDED

@@ -55,6 +55,27 @@ class OrderStatus(StrEnum):
     REFUNDED = "refunded"
 
 
+# Seats an order of these statuses takes: sold outright, or held however long
+# the money takes to settle. A PENDING order also holds its seats, but only
+# until its hold (and the webhook grace after it) passes.
+SOLD_STATUSES = frozenset({OrderStatus.PAID})
+SETTLING_STATUSES = frozenset({OrderStatus.AWAITING_PAYMENT})
+CHECKOUT_STATUSES = frozenset({OrderStatus.PENDING})
+# The orders the panel lists: abandoned checkouts are noise there.
+LEDGER_STATUSES = frozenset(
+    {OrderStatus.PAID, OrderStatus.REFUNDED, OrderStatus.AWAITING_PAYMENT}
+)
+
+
+class AbandonOutcome(StrEnum):
+    CANCELLED = "cancelled"
+    # Paid, expired or failed already: the order page says which.
+    SETTLED = "settled"
+    # Stripe would not expire the session, or could not be reached; its
+    # webhook will settle the order.
+    UNCONFIRMED = "unconfirmed"
+
+
 class PayoutStatus(StrEnum):
     NOT_CONNECTED = "not_connected"
     # An account exists but Stripe still wants details before it may charge.
@@ -502,7 +523,9 @@ class TicketSalesServiceProtocol(Protocol):
         urls: CheckoutUrls,
     ) -> CheckoutStartDTO: ...
     def order(self, *, buyer_id: int, event_id: int, pk: int) -> BuyerOrderDTO: ...
-    def abandon_checkout(self, *, buyer_id: int, event_id: int, pk: int) -> None: ...
+    def abandon_checkout(
+        self, *, buyer_id: int, event_id: int, pk: int
+    ) -> AbandonOutcome: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int
     ) -> list[OwnedTicketDTO]: ...

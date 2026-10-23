@@ -11,6 +11,10 @@ from itertools import count
 from ludamus.pacts.billing import PlanKind, PlanSource, SpherePlanDTO
 from ludamus.pacts.payment_api import AccountState, PaymentProviderError
 from ludamus.pacts.tickets import (
+    CHECKOUT_STATUSES,
+    LEDGER_STATUSES,
+    SETTLING_STATUSES,
+    SOLD_STATUSES,
     CheckoutSessionDTO,
     OrderDTO,
     OrderLineDTO,
@@ -31,10 +35,6 @@ BUYER_ID = 10
 OTHER_BUYER_ID = 11
 ACCOUNT_ID = "acct_sphere"
 NOW = datetime.now(tz=UTC)
-
-_LEDGER = frozenset(
-    {OrderStatus.PAID, OrderStatus.REFUNDED, OrderStatus.AWAITING_PAYMENT}
-)
 
 
 def shop_event():
@@ -95,13 +95,13 @@ class FakeTicketTypes:
             update={
                 "sold": self._book.seats(
                     ticket_type_id=row.pk,
-                    counts=lambda order: order.status is OrderStatus.PAID,
+                    counts=lambda order: order.status in SOLD_STATUSES,
                 ),
                 "held": self._book.seats(
                     ticket_type_id=row.pk,
-                    counts=lambda order: order.status is OrderStatus.AWAITING_PAYMENT
+                    counts=lambda order: order.status in SETTLING_STATUSES
                     or (
-                        order.status is OrderStatus.PENDING
+                        order.status in CHECKOUT_STATUSES
                         and order.hold_until > holds_after
                     ),
                 ),
@@ -244,7 +244,7 @@ class FakeOrders:
                 lines=order.lines,
             )
             for order in newest_first
-            if order.event_id == event_id and order.status in _LEDGER
+            if order.event_id == event_id and order.status in LEDGER_STATUSES
         ][:limit]
 
     def paid_totals(self, *, event_id):

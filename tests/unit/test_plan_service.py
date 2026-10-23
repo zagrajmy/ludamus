@@ -138,7 +138,7 @@ class TestPage:
             source=None,
             paid_until=None,
             can_subscribe=True,
-            can_manage=False,
+            has_billing_history=False,
             ticket_fee_percent=_FEE_PERCENT,
         )
 
@@ -150,7 +150,7 @@ class TestPage:
             source=PlanSource.STRIPE,
             paid_until=_PAID_UNTIL,
             can_subscribe=False,
-            can_manage=True,
+            has_billing_history=True,
             ticket_fee_percent=_FEE_PERCENT,
         )
 
@@ -162,7 +162,7 @@ class TestPage:
             source=None,
             paid_until=None,
             can_subscribe=True,
-            can_manage=True,
+            has_billing_history=True,
             ticket_fee_percent=_FEE_PERCENT,
         )
 
@@ -174,7 +174,7 @@ class TestPage:
 
         page = service.page(sphere_id=SPHERE_ID)
 
-        assert (page.can_subscribe, page.can_manage) == (False, False)
+        assert (page.can_subscribe, page.has_billing_history) == (False, False)
 
 
 class TestStartYearlyCheckout:

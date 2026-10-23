@@ -104,7 +104,7 @@
                         {% translate "Ask about the yearly plan" as ask_label %}
                         {% tessera_button ask_label href="mailto:"|add:SUPPORT_EMAIL variant="secondary" icon="envelope" %}
                     {% endif %}
-                    {% if plan.can_manage %}
+                    {% if plan.has_billing_history %}
                         <form method="post" action="{% url 'multiverse:panel:billing-portal' %}">
                             {% csrf_token %}
                             {% translate "Invoices and billing" as portal_label %}
