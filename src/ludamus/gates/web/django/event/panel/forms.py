@@ -201,7 +201,8 @@ class TicketTypeForm(forms.Form):
     )
     price = forms.DecimalField(
         label=_("Price (zł)"),
-        min_value=Decimal(MIN_TICKET_PRICE) / _GROSZE_PER_ZLOTY,
+        # scaleb keeps two places, so the error reads "2.00", not "2".
+        min_value=Decimal(MIN_TICKET_PRICE).scaleb(-2),
         max_digits=9,
         decimal_places=2,
         widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.01"}),
