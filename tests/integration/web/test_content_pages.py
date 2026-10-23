@@ -39,6 +39,22 @@ class TestContentPageView:
             content_page(request, slug="../../../etc/passwd")
 
 
+class TestContactPage:
+    def test_names_the_address_from_settings(self, *, client, settings):
+        # Staging and production name different mailboxes, so the address must
+        # follow the setting rather than sit in the template.
+        settings.SUPPORT_EMAIL = "dsa@staging.example"
+
+        response = client.get(reverse("contact"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="content/contact.html",
+            context_data={"contact_email": "dsa@staging.example"},
+        )
+
+
 class TestOldFlatpageUrls:
     @pytest.mark.parametrize(
         ("old", "new"),

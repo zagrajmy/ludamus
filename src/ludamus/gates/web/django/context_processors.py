@@ -56,10 +56,6 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     )
 
 
-def support(_request: HttpRequest) -> dict[str, str]:
-    return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
-
-
 class PosthogConfig(TypedDict):
     api_key: str
     environment: str

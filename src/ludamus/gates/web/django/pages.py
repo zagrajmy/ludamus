@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.http import Http404
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext_lazy as _
@@ -36,4 +37,12 @@ def content_page(request: HttpRequest, slug: str) -> HttpResponse:
             "title": title,
             "document": (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8"),
         },
+    )
+
+
+def contact_page(request: HttpRequest) -> HttpResponse:
+    # NOTE: DSA Art. 11 and 12 each require a point of contact. One mailbox
+    # serves both, and settings supply it so staging and production can differ.
+    return TemplateResponse(
+        request, "content/contact.html", {"contact_email": settings.SUPPORT_EMAIL}
     )

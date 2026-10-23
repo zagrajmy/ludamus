@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}
+    {% translate "Contact" %}
+{% endblock title %}
+{% block meta_description %}
+    {% translate "How to reach Zagrajmy: the point of contact for users and for authorities, where to report illegal content, and what to do in an emergency." %}
+{% endblock meta_description %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    {% comment %}
+        DSA Art. 11 and 12. The emergency line comes first: someone in danger
+        should not have to read past the mailbox to find it.
+    {% endcomment %}
+    <article class="prose dark:prose-invert max-w-3xl mx-auto w-full pt-4 prose-headings:text-foreground prose-headings:tracking-tight prose-h1:font-extrabold prose-h2:font-extrabold prose-p:text-foreground-secondary prose-a:text-primary prose-a:decoration-primary/40 prose-a:hover:decoration-primary">
+        <h1>{% translate "Contact" %}</h1>
+        <section aria-labelledby="contact-emergency">
+            <h2 id="contact-emergency">{% translate "In an emergency" %}</h2>
+            <p>
+                {% blocktranslate trimmed %}
+                    If someone's life or safety is in danger, call <a href="tel:112">112</a>. Don't wait for our reply.
+                {% endblocktranslate %}
+            </p>
+        </section>
+        <section aria-labelledby="contact-users">
+            <h2 id="contact-users">{% translate "For users" %}</h2>
+            <p>
+                {% blocktranslate trimmed with email=contact_email %}
+                    Write to <a href="mailto:{{ email }}">{{ email }}</a> about your account, an event or your data. A person, not a chatbot, reads and answers every message.
+                {% endblocktranslate %}
+            </p>
+            <p>{% translate "You can write to us in Polish or English." %}</p>
+        </section>
+        <section aria-labelledby="contact-report">
+            <h2 id="contact-report">{% translate "Report illegal content" %}</h2>
+            <p>
+                {% blocktranslate trimmed with email=contact_email %}
+                    Email <a href="mailto:{{ email }}">{{ email }}</a> with a link to the content and why you think it is illegal.
+                {% endblocktranslate %}
+            </p>
+        </section>
+        <section aria-labelledby="contact-authorities">
+            <h2 id="contact-authorities">{% translate "For authorities" %}</h2>
+            <p>
+                {% blocktranslate trimmed with email=contact_email %}
+                    The point of contact for Member State authorities, the European Commission and the European Board for Digital Services under Article 11 of the Digital Services Act (Regulation (EU) 2022/2065) is <a href="mailto:{{ email }}">{{ email }}</a>.
+                {% endblocktranslate %}
+            </p>
+            <p>{% translate "You can write to us in Polish or English." %}</p>
+        </section>
+    </article>
+{% endblock body %}

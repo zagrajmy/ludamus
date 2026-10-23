@@ -223,7 +223,6 @@ TEMPLATES = [
                 "django.template.context_processors.csp",
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
-                "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",

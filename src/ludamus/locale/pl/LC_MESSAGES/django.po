@@ -5146,7 +5146,7 @@ msgstr "Ustawienia ciasteczek"
 msgid "Brand"
 msgstr "Marka"
 
-#: src/ludamus/templates/base.html
+#: src/ludamus/templates/base.html src/ludamus/templates/content/contact.html
 msgid "Contact"
 msgstr "Kontakt"
 
@@ -6680,6 +6680,75 @@ msgstr "Wpisz wartość i naciśnij Enter, aby ją dodać."
 #: src/ludamus/templates/components/write-in-hint.html
 msgid "semicolon separated"
 msgstr "po średniku"
+
+#: src/ludamus/templates/content/contact.html
+msgid ""
+"How to reach Zagrajmy: the point of contact for users and for authorities, "
+"where to report illegal content, and what to do in an emergency."
+msgstr ""
+"Jak skontaktować się z Zagrajmy: punkt kontaktowy dla użytkowników i dla "
+"organów publicznych, gdzie zgłosić nielegalne treści i co zrobić w nagłym "
+"wypadku."
+
+#: src/ludamus/templates/content/contact.html
+msgid "In an emergency"
+msgstr "W nagłym wypadku"
+
+#: src/ludamus/templates/content/contact.html
+msgid ""
+"If someone's life or safety is in danger, call <a href=\"tel:112\">112</a>. "
+"Don't wait for our reply."
+msgstr ""
+"Jeśli czyjeś życie lub bezpieczeństwo jest zagrożone, zadzwoń pod <a "
+"href=\"tel:112\">112</a>. Nie czekaj na naszą odpowiedź."
+
+#: src/ludamus/templates/content/contact.html
+msgid "For users"
+msgstr "Dla użytkowników"
+
+#: src/ludamus/templates/content/contact.html
+#, python-format
+msgid ""
+"Write to <a href=\"mailto:%(email)s\">%(email)s</a> about your account, an "
+"event or your data. A person, not a chatbot, reads and answers every message."
+msgstr ""
+"Napisz na <a href=\"mailto:%(email)s\">%(email)s</a> w sprawie swojego "
+"konta, wydarzenia lub swoich danych. Każdą wiadomość czyta i odpowiada na "
+"nią człowiek, nie chatbot."
+
+#: src/ludamus/templates/content/contact.html
+msgid "You can write to us in Polish or English."
+msgstr "Możesz pisać do nas po polsku lub po angielsku."
+
+#: src/ludamus/templates/content/contact.html
+msgid "Report illegal content"
+msgstr "Zgłoś nielegalne treści"
+
+#: src/ludamus/templates/content/contact.html
+#, python-format
+msgid ""
+"Email <a href=\"mailto:%(email)s\">%(email)s</a> with a link to the content "
+"and why you think it is illegal."
+msgstr ""
+"Napisz na <a href=\"mailto:%(email)s\">%(email)s</a>, podając link do treści "
+"i powód, dla którego uważasz ją za nielegalną."
+
+#: src/ludamus/templates/content/contact.html
+msgid "For authorities"
+msgstr "Dla organów publicznych"
+
+#: src/ludamus/templates/content/contact.html
+#, python-format
+msgid ""
+"The point of contact for Member State authorities, the European Commission "
+"and the European Board for Digital Services under Article 11 of the Digital "
+"Services Act (Regulation (EU) 2022/2065) is <a href=\"mailto:"
+"%(email)s\">%(email)s</a>."
+msgstr ""
+"Punktem kontaktowym dla organów państw członkowskich, Komisji Europejskiej i "
+"Europejskiej Rady ds. Usług Cyfrowych zgodnie z art. 11 aktu o usługach "
+"cyfrowych (rozporządzenie (UE) 2022/2065) jest <a href=\"mailto:"
+"%(email)s\">%(email)s</a>."
 
 #: src/ludamus/templates/content/page.html
 #: src/ludamus/templates/crowd/auth_error.html
