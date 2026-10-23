@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 import stripe
 from pydantic import BaseModel, Field, JsonValue, ValidationError
 
-from ludamus.pacts.billing import PlanBillingProtocol
+from ludamus.pacts.billing import PlanBillingProtocol, SubscriptionState
 from ludamus.pacts.payment_api import (
     AccountEvent,
     AccountState,
@@ -28,32 +28,46 @@ from ludamus.pacts.payment_api import (
     CheckoutMode,
     CheckoutStage,
     InvalidWebhookError,
-    InvoicePaidEvent,
     PaymentProviderError,
     RefundEvent,
-    SubscriptionChangedEvent,
+    SubscriptionEvent,
     UnhandledEvent,
 )
 from ludamus.pacts.tickets import CheckoutSessionDTO, TicketPaymentsProtocol
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator
 
     from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.tickets import CheckoutRequest
 
 logger = logging.getLogger(__name__)
 
+# Under the SDK's 80 s: a refund holds its order's row lock while it waits,
+# and a webhook for that order waits on the lock.
+_TIMEOUT_SECONDS = 20
 # Stripe's own default: a signature older than this is a replay.
 _SIGNATURE_TOLERANCE_SECONDS = 300
 _PAID_STATUSES = frozenset({"paid", "no_payment_required"})
+# Subscription states Stripe still bills: a failed renewal is retried
+# (past_due) before the subscription ends.
+_LIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "past_due"})
+_SUBSCRIPTION_EVENTS = frozenset(
+    {
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }
+)
 
 
 def build_client(api_key: str) -> stripe.StripeClient | None:
     # requests rather than the SDK's pick: it honours the egress proxy and is
     # what the tests intercept.
     return (
-        stripe.StripeClient(api_key, http_client=stripe.RequestsClient())
+        stripe.StripeClient(
+            api_key, http_client=stripe.RequestsClient(timeout=_TIMEOUT_SECONDS)
+        )
         if api_key
         else None
     )
@@ -269,6 +283,33 @@ class StripeBilling(PlanBillingProtocol):
             )
         return portal.url
 
+    def has_live_subscription(self, *, customer_id: str) -> bool:
+        client = _require(self._client)
+        with _call("subscription list"):
+            subscriptions = client.v1.subscriptions.list(
+                params={"customer": customer_id, "limit": 100}
+            )
+        return any(
+            subscription.status in _LIVE_SUBSCRIPTION_STATUSES
+            for subscription in subscriptions.data
+        )
+
+    def read_subscription(self, *, subscription_id: str) -> SubscriptionState:
+        client = _require(self._client)
+        with _call("subscription read"):
+            subscription = client.v1.subscriptions.retrieve(subscription_id)
+        customer = subscription.customer
+        period_ends = [item.current_period_end for item in subscription.items.data]
+        return SubscriptionState(
+            customer_id=customer if isinstance(customer, str) else customer.id,
+            live=subscription.status in _LIVE_SUBSCRIPTION_STATUSES,
+            paid_until=(
+                datetime.fromtimestamp(max(period_ends), tz=UTC)
+                if period_ends
+                else None
+            ),
+        )
+
     def parse_webhook(self, *, payload: bytes, signature: str) -> StripeWebhookEvent:
         return parse_event(
             payload=payload, signature=signature, secret=self._webhook_secret
@@ -308,51 +349,8 @@ class _Account(BaseModel):
     payouts_enabled: bool = False
 
 
-class _Period(BaseModel):
-    end: int | None = None
-
-
-class _InvoiceLine(BaseModel):
-    period: _Period = _Period()
-
-
-class _InvoiceLines(BaseModel):
-    data: list[_InvoiceLine] = []
-
-
-class _SubscriptionDetails(BaseModel):
-    subscription: _IdOrResource = None
-
-
-class _InvoiceParent(BaseModel):
-    subscription_details: _SubscriptionDetails | None = None
-
-
-class _Invoice(BaseModel):
-    customer: _IdOrResource = None
-    # Pre-2025 API versions name the subscription here; later ones under
-    # parent.subscription_details.
-    subscription: _IdOrResource = None
-    parent: _InvoiceParent | None = None
-    lines: _InvoiceLines = _InvoiceLines()
-
-
-class _SubscriptionItem(BaseModel):
-    current_period_end: int | None = None
-
-
-class _SubscriptionItems(BaseModel):
-    data: list[_SubscriptionItem] = []
-
-
 class _Subscription(BaseModel):
     id: str
-    customer: _IdOrResource = None
-    status: str = ""
-    # The period moved onto subscription items in 2025 API versions; older
-    # payloads carry it on the subscription itself.
-    current_period_end: int | None = None
-    items: _SubscriptionItems = _SubscriptionItems()
 
 
 class _EnvelopeData(BaseModel):
@@ -383,6 +381,8 @@ def _event(envelope: _Envelope) -> StripeWebhookEvent:
     raw = envelope.data.resource
     if envelope.type in CheckoutStage:
         return _checkout_event(CheckoutStage(envelope.type), raw)
+    if envelope.type in _SUBSCRIPTION_EVENTS:
+        return SubscriptionEvent(subscription_id=_Subscription.model_validate(raw).id)
     match envelope.type:
         case "charge.refunded":
             charge = _Charge.model_validate(raw)
@@ -399,29 +399,6 @@ def _event(envelope: _Envelope) -> StripeWebhookEvent:
                     charges_enabled=account.charges_enabled,
                     payouts_enabled=account.payouts_enabled,
                 ),
-            )
-        case "invoice.paid":
-            invoice = _Invoice.model_validate(raw)
-            details = invoice.parent.subscription_details if invoice.parent else None
-            return InvoicePaidEvent(
-                customer_id=_id(invoice.customer),
-                subscription_id=_id(details.subscription if details else None)
-                or _id(invoice.subscription),
-                period_end=_latest(line.period.end for line in invoice.lines.data),
-            )
-        case "customer.subscription.updated" | "customer.subscription.deleted":
-            subscription = _Subscription.model_validate(raw)
-            return SubscriptionChangedEvent(
-                customer_id=_id(subscription.customer),
-                subscription_id=subscription.id,
-                status=subscription.status,
-                period_end=_latest(
-                    [
-                        *(item.current_period_end for item in subscription.items.data),
-                        subscription.current_period_end,
-                    ]
-                ),
-                deleted=envelope.type == "customer.subscription.deleted",
             )
     return UnhandledEvent(type=envelope.type)
 
@@ -442,8 +419,3 @@ def _checkout_event(
         customer_id=_id(session.customer),
         subscription_id=_id(session.subscription),
     )
-
-
-def _latest(timestamps: Iterable[int | None]) -> datetime | None:
-    values = [value for value in timestamps if value is not None]
-    return datetime.fromtimestamp(max(values), tz=UTC) if values else None

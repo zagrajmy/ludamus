@@ -18,6 +18,7 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
+from ludamus.gates.web.django.helpers import account_email
 from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
@@ -39,10 +40,6 @@ _BILLING_URL = "multiverse:panel:billing"
 
 def _absolute(request: MultiverseRequest, name: str) -> str:
     return request.build_absolute_uri(reverse(name))
-
-
-def _email(request: MultiverseRequest) -> str:
-    return request.user.email if request.user.is_authenticated else ""
 
 
 def _stripe_unreachable(request: MultiverseRequest, what: str) -> HttpResponse:
@@ -100,7 +97,7 @@ class BillingConnectActionView(SphereAccessMixin, View):
     http_method_names = ("post",)
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
-        if not (email := _email(self.request)):
+        if not (email := account_email(self.request)):
             messages.error(
                 self.request,
                 _("Add an email address to your profile first: Stripe needs one."),
@@ -182,7 +179,7 @@ class BillingSubscribeActionView(SphereAccessMixin, View):
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
-        if not (email := _email(self.request)):
+        if not (email := account_email(self.request)):
             messages.error(
                 self.request,
                 _("Add an email address to your profile first: invoices go there."),

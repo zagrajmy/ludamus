@@ -106,6 +106,7 @@ class TestTicketsPage:
                         estimated_stripe_fees=0,
                     ),
                     orders=[],
+                    more_orders=False,
                 ),
             },
         )
@@ -128,6 +129,30 @@ class TestTicketsPage:
             estimated_stripe_fees=465,
         )
         assert [row.ticket_type.held for row in page.rows] == [1]
+
+    def test_long_ledger_lists_the_newest_and_totals_them_all(
+        self, panel_client, event, active_user, monkeypatch
+    ):
+        monkeypatch.setattr("ludamus.mills.tickets.PANEL_ORDERS_SHOWN", 2)
+        connected_account(event.sphere)
+        kind = ticket_type(event, price=5000)
+        placed = [
+            order(
+                event,
+                buyer=active_user,
+                lines=[(kind, 1)],
+                status="paid",
+                session_id=f"cs_{number}",
+            )
+            for number in range(3)
+        ]
+
+        response = panel_client.get(_url("panel:tickets", event))
+
+        page = response.context_data["page"]
+        assert [row.pk for row in page.orders] == [placed[2].pk, placed[1].pk]
+        assert page.more_orders
+        assert (page.summary.orders, page.summary.gross) == (3, 15_000)
 
 
 class TestTicketTypeCreate:
@@ -157,6 +182,11 @@ class TestTicketTypeCreate:
                 {"price": "1.99"},
                 {"price": ["Ensure this value is greater than or equal to 2.00."]},
                 id="below-stripes-minimum",
+            ),
+            pytest.param(
+                {"price": "100000.00"},
+                {"price": ["Ensure this value is less than or equal to 99999.99."]},
+                id="a-full-order-over-stripes-maximum",
             ),
             pytest.param(
                 {"sales_start": "2026-11-02T10:00", "sales_end": "2026-11-01T10:00"},

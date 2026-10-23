@@ -9,17 +9,12 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.billing import SpherePlanDTO
 
-# Stripe states that still honour the yearly plan: a renewal that failed is
-# retried (past_due) before the subscription ends.
-ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "past_due"})
-
 
 def effective_plan(plan: SpherePlanDTO | None, *, now: datetime) -> PlanKind:
     """Say which plan a sphere is on right now; the only way to read one.
 
     A White Glove row counts while `paid_until` has not passed. No date means
-    held until someone says otherwise: a maintainer's open-ended deal, or a
-    Stripe subscription whose first invoice has not landed yet.
+    held until someone says otherwise: a maintainer's open-ended deal.
     """
     if (
         plan is not None

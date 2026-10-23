@@ -13032,6 +13032,15 @@ msgstr ""
 msgid "Refund order"
 msgstr "Zwróć zamówienie"
 
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid ""
+"These are the latest %(shown)s orders. Your Stripe dashboard has all of "
+"them, with search."
+msgstr ""
+"To %(shown)s najnowszych zamówień. Wszystkie, z wyszukiwarką, są w panelu "
+"Stripe."
+
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Edit Time Slot"
 msgstr "Edytuj przedział czasowy"

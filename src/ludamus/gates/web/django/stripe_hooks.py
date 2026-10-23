@@ -6,7 +6,8 @@ Mounted under `/hooks/`, which private spheres leave open: Stripe has no login,
 it signs every delivery instead, and the services refuse what it did not sign.
 
 A 2xx tells Stripe to stop retrying, so only a payload we could not verify is
-refused; an event we verified but do not act on is still acknowledged.
+refused, and only a failed read back from Stripe asks for a retry; an event we
+verified but do not act on is still acknowledged.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
-from ludamus.pacts.payment_api import InvalidWebhookError
+from ludamus.pacts.payment_api import InvalidWebhookError, PaymentProviderError
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
@@ -44,6 +45,12 @@ def _handle(
         logger.warning("Stripe %s webhook refused: %s", endpoint, exc)
         return JsonResponse(
             {"error": "Invalid signature or payload."}, status=HTTPStatus.BAD_REQUEST
+        )
+    except PaymentProviderError as exc:
+        logger.warning("Stripe %s webhook deferred: %s", endpoint, exc)
+        return JsonResponse(
+            {"error": "Stripe could not be reached; retry later."},
+            status=HTTPStatus.SERVICE_UNAVAILABLE,
         )
     logger.info("Stripe %s webhook: %s", endpoint, outcome)
     return JsonResponse({"outcome": outcome})

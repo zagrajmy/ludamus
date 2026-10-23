@@ -8,11 +8,12 @@ someone else's order is shown or cancelled.
 """
 
 from http import HTTPStatus
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlencode
 
 import pytest
 import responses
 from django.contrib import messages
+from django.core.signing import Signer
 from django.urls import reverse
 
 from ludamus.links.db.django.models import TicketOrder
@@ -177,6 +178,9 @@ class TestEventTicketsBuyActionView:
         assert sent["success_url"] == [
             f"http://testserver{_order_url(event, created.pk)}"
         ]
+        assert sent["cancel_url"] == [
+            f"http://testserver{_cancel_url(event, created.pk)}"
+        ]
 
     def test_type_from_another_event_is_not_sold(
         self, authenticated_client, event, stripe_api
@@ -333,6 +337,17 @@ class TestEventTicketsBuyActionView:
         assert not TicketOrder.objects.exists()
 
 
+_SIGNER = Signer(salt="ticket-checkout-cancel")
+
+
+def _cancel_url(event, pk, *, token=None):
+    path = reverse(
+        "web:event:event-ticket-order-cancel",
+        kwargs={"event_slug": event.slug, "pk": pk},
+    )
+    return f"{path}?{urlencode({'token': token or _SIGNER.sign(str(pk))})}"
+
+
 class TestEventTicketOrderPages:
     def test_someone_elses_order_is_not_found(self, authenticated_client, event):
         kind = ticket_type(event)
@@ -353,12 +368,7 @@ class TestEventTicketOrderPages:
             json={"id": "cs_test_1", "object": "checkout.session"},
         )
 
-        response = authenticated_client.get(
-            reverse(
-                "web:event:event-ticket-order-cancel",
-                kwargs={"event_slug": event.slug, "pk": mine.pk},
-            )
-        )
+        response = authenticated_client.get(_cancel_url(event, mine.pk))
 
         assert_response(
             response,
@@ -381,11 +391,21 @@ class TestEventTicketOrderPages:
             status=HTTPStatus.BAD_REQUEST,
         )
 
-        authenticated_client.get(
-            reverse(
-                "web:event:event-ticket-order-cancel",
-                kwargs={"event_slug": event.slug, "pk": mine.pk},
-            )
-        )
+        authenticated_client.get(_cancel_url(event, mine.pk))
 
         assert TicketOrder.objects.get().status == OrderStatus.PENDING
+
+    def test_cancel_link_not_from_stripe_cancels_nothing(
+        self, authenticated_client, event, active_user, stripe_api
+    ):
+        kind = ticket_type(event)
+        mine = order(event, buyer=active_user, lines=[(kind, 1)])
+        other = order(event, buyer=active_user, lines=[(kind, 1)], session_id="cs_2")
+
+        response = authenticated_client.get(
+            _cancel_url(event, mine.pk, token=_SIGNER.sign(str(other.pk)))
+        )
+
+        assert_response(response, HTTPStatus.FOUND, url=_order_url(event, mine.pk))
+        assert TicketOrder.objects.get(pk=mine.pk).status == OrderStatus.PENDING
+        assert not stripe_api.calls

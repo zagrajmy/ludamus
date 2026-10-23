@@ -7,9 +7,10 @@ Webhook reads go by Stripe's own ids, which only Stripe's signed payload names.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
-from django.db.models import Max, Q, Sum
+from django.db.models import Count, Max, Q, Sum
+from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
     PayoutAccount,
@@ -21,8 +22,10 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.tickets import (
     OrderDTO,
     OrderLineDTO,
+    OrderRowDTO,
     OrderStatus,
     OwnedTicketDTO,
+    PaidTotalsDTO,
     PayoutAccountDTO,
     PayoutAccountRepositoryProtocol,
     TicketDTO,
@@ -38,17 +41,11 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.payment_api import AccountState
     from ludamus.pacts.tickets import (
+        OrderChanges,
         OrderCreateData,
         TicketTypeCreateData,
         TicketTypeData,
     )
-
-
-class _OrderChanges(TypedDict, total=False):
-    status: OrderStatus
-    stripe_payment_intent_id: str
-    paid_at: datetime
-    refunded_at: datetime
 
 
 _TICKET_TYPE_FIELDS = (
@@ -176,6 +173,21 @@ def _orders() -> QuerySet[TicketOrder]:
     )
 
 
+_LEDGER = (OrderStatus.PAID, OrderStatus.REFUNDED, OrderStatus.AWAITING_PAYMENT)
+
+
+def _line_dtos(order: TicketOrder) -> list[OrderLineDTO]:
+    return [
+        OrderLineDTO(
+            ticket_type_id=line.ticket_type_id,
+            ticket_type_name=line.ticket_type.name,
+            quantity=line.quantity,
+            unit_price=line.unit_price,
+        )
+        for line in order.lines.all()
+    ]
+
+
 def _order_dto(order: TicketOrder) -> OrderDTO:
     return OrderDTO(
         pk=order.pk,
@@ -196,15 +208,7 @@ def _order_dto(order: TicketOrder) -> OrderDTO:
         paid_at=order.paid_at,
         refunded_at=order.refunded_at,
         creation_time=order.creation_time,
-        lines=[
-            OrderLineDTO(
-                ticket_type_id=line.ticket_type_id,
-                ticket_type_name=line.ticket_type.name,
-                quantity=line.quantity,
-                unit_price=line.unit_price,
-            )
-            for line in order.lines.all()
-        ],
+        lines=_line_dtos(order),
         tickets=[
             TicketDTO(
                 pk=ticket.pk,
@@ -227,14 +231,6 @@ def _lock(queryset: QuerySet[TicketOrder]) -> OrderDTO | None:
     # prefetches that build the DTO.
     pk = queryset.select_for_update().values_list("pk", flat=True).first()
     return None if pk is None else _read(_orders().filter(pk=pk))
-
-
-def _move(
-    *, pk: int, allowed_from: frozenset[OrderStatus], changes: _OrderChanges
-) -> bool:
-    return bool(
-        TicketOrder.objects.filter(pk=pk, status__in=allowed_from).update(**changes)
-    )
 
 
 class TicketOrderRepository(TicketOrderRepositoryProtocol):
@@ -274,66 +270,53 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         )
 
     @staticmethod
-    def list_for_event(*, event_id: int) -> list[OrderDTO]:
+    def list_for_event(*, event_id: int, limit: int) -> list[OrderRowDTO]:
         # Abandoned checkouts are noise in the panel; what was paid, refunded
         # or is still being paid is the ledger.
+        orders = (
+            TicketOrder.objects.filter(event_id=event_id, status__in=_LEDGER)
+            .select_related("buyer")
+            .prefetch_related("lines__ticket_type")[:limit]
+        )
         return [
-            _order_dto(order)
-            for order in _orders().filter(
-                event_id=event_id,
-                status__in=(
-                    OrderStatus.PAID,
-                    OrderStatus.REFUNDED,
-                    OrderStatus.AWAITING_PAYMENT,
-                ),
+            OrderRowDTO(
+                pk=order.pk,
+                buyer_name=order.buyer.name if order.buyer is not None else "",
+                email=order.email,
+                status=OrderStatus(order.status),
+                currency=order.currency,
+                total=order.total,
+                creation_time=order.creation_time,
+                lines=_line_dtos(order),
             )
+            for order in orders
         ]
 
     @staticmethod
-    def transition(
-        *, pk: int, to: OrderStatus, allowed_from: frozenset[OrderStatus]
-    ) -> bool:
-        return _move(pk=pk, allowed_from=allowed_from, changes={"status": to})
-
-    @staticmethod
-    def mark_awaiting_payment(
-        *, pk: int, payment_intent_id: str, allowed_from: frozenset[OrderStatus]
-    ) -> bool:
-        return _move(
-            pk=pk,
-            allowed_from=allowed_from,
-            changes={
-                "status": OrderStatus.AWAITING_PAYMENT,
-                "stripe_payment_intent_id": payment_intent_id,
-            },
+    def paid_totals(*, event_id: int) -> PaidTotalsDTO:
+        paid = TicketOrder.objects.filter(event_id=event_id, status=OrderStatus.PAID)
+        sums = paid.aggregate(
+            orders=Count("pk"),
+            gross=Coalesce(Sum("total"), 0),
+            platform_fees=Coalesce(Sum("platform_fee"), 0),
         )
+        tickets = TicketOrderLine.objects.filter(order__in=paid).aggregate(
+            tickets=Coalesce(Sum("quantity"), 0)
+        )
+        return PaidTotalsDTO.model_validate(sums | tickets)
 
     @staticmethod
-    def mark_paid(
+    def move(
         *,
         pk: int,
-        payment_intent_id: str,
-        paid_at: datetime,
+        to: OrderStatus,
         allowed_from: frozenset[OrderStatus],
+        changes: OrderChanges,
     ) -> bool:
-        return _move(
-            pk=pk,
-            allowed_from=allowed_from,
-            changes={
-                "status": OrderStatus.PAID,
-                "stripe_payment_intent_id": payment_intent_id,
-                "paid_at": paid_at,
-            },
-        )
-
-    @staticmethod
-    def mark_refunded(
-        *, pk: int, refunded_at: datetime, allowed_from: frozenset[OrderStatus]
-    ) -> bool:
-        return _move(
-            pk=pk,
-            allowed_from=allowed_from,
-            changes={"status": OrderStatus.REFUNDED, "refunded_at": refunded_at},
+        return bool(
+            TicketOrder.objects.filter(pk=pk, status__in=allowed_from).update(
+                status=to, **changes
+            )
         )
 
     @staticmethod
@@ -373,7 +356,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
                 is_void=False,
             )
             .select_related("ticket_type", "order__event")
-            .order_by("order__event__start_time", "order_id", "pk")
+            .order_by("order__event__start_time", "order__event_id", "order_id", "pk")
         )
         return [
             OwnedTicketDTO(

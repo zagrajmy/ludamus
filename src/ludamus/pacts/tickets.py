@@ -38,6 +38,8 @@ MIN_TICKET_PRICE = 200
 TICKET_TYPE_NAME_MAX_LENGTH = 120
 TICKET_TYPE_DESCRIPTION_MAX_LENGTH = 500
 MAX_TICKETS_PER_ORDER = 10
+# Stripe refuses a charge over 999 999,99 zł; a full order must stay under it.
+MAX_TICKET_PRICE = 99_999_999 // MAX_TICKETS_PER_ORDER
 TICKET_CODE_LENGTH = 10
 
 
@@ -226,6 +228,18 @@ class OrderDTO(BaseModel):
         return sum(line.quantity for line in self.lines)
 
 
+class BuyerOrderDTO(BaseModel):
+    """An order as its buyer's order page shows it."""
+
+    order: OrderDTO
+    # Stripe has not said yet whether it was paid.
+    confirming: bool
+    # Stripe is likely to say within seconds, so the page checks back. Card
+    # and BLIK settle that fast; a bank transfer can take days, and a hold
+    # past its end means the webhook is late, so neither is polled.
+    polling: bool
+
+
 class OwnedTicketDTO(BaseModel):
     """A ticket on its holder's "My tickets" page."""
 
@@ -244,6 +258,13 @@ class OrderLineData(TypedDict):
     unit_price: int
 
 
+class OrderChanges(TypedDict, total=False):
+    # What a move records besides the status.
+    stripe_payment_intent_id: str
+    paid_at: datetime
+    refunded_at: datetime
+
+
 class OrderCreateData(TypedDict):
     event_id: int
     buyer_id: int
@@ -254,6 +275,28 @@ class OrderCreateData(TypedDict):
     stripe_account_id: str
     hold_until: datetime
     lines: list[OrderLineData]
+
+
+class PaidTotalsDTO(BaseModel):
+    """What an event's paid orders add up to."""
+
+    orders: int
+    tickets: int
+    gross: int
+    platform_fees: int
+
+
+class OrderRowDTO(BaseModel):
+    """An order as the panel lists it."""
+
+    pk: int
+    buyer_name: str
+    email: str
+    status: OrderStatus
+    currency: str
+    total: int
+    creation_time: datetime
+    lines: list[OrderLineDTO]
 
 
 class TicketSalesSummaryDTO(BaseModel):
@@ -268,8 +311,12 @@ class TicketSalesSummaryDTO(BaseModel):
     estimated_stripe_fees: int
 
     @property
+    def estimated_fees(self) -> int:
+        return self.platform_fees + self.estimated_stripe_fees
+
+    @property
     def estimated_net(self) -> int:
-        return self.gross - self.platform_fees - self.estimated_stripe_fees
+        return self.gross - self.estimated_fees
 
 
 class FeeBreakdownDTO(BaseModel):
@@ -294,7 +341,9 @@ class TicketPanelDTO(BaseModel):
     rows: list[TicketTypeRowDTO]
     archived: list[TicketTypeDTO]
     summary: TicketSalesSummaryDTO
-    orders: list[OrderDTO]
+    # The newest orders; `more_orders` says older ones were left out.
+    orders: list[OrderRowDTO]
+    more_orders: bool
 
 
 class CheckoutLine(BaseModel):
@@ -372,30 +421,20 @@ class TicketOrderRepositoryProtocol(Protocol):
     @staticmethod
     def lock_by_payment_intent(*, payment_intent_id: str) -> OrderDTO | None: ...
     @staticmethod
-    def list_for_event(*, event_id: int) -> list[OrderDTO]: ...
+    def list_for_event(*, event_id: int, limit: int) -> list[OrderRowDTO]: ...
+    @staticmethod
+    def paid_totals(*, event_id: int) -> PaidTotalsDTO: ...
 
-    # Each move writes only if the order is still in one of `allowed_from`,
-    # and says whether it did.
     @staticmethod
-    def transition(
-        *, pk: int, to: OrderStatus, allowed_from: frozenset[OrderStatus]
-    ) -> bool: ...
-    @staticmethod
-    def mark_awaiting_payment(
-        *, pk: int, payment_intent_id: str, allowed_from: frozenset[OrderStatus]
-    ) -> bool: ...
-    @staticmethod
-    def mark_paid(
+    def move(
         *,
         pk: int,
-        payment_intent_id: str,
-        paid_at: datetime,
+        to: OrderStatus,
         allowed_from: frozenset[OrderStatus],
-    ) -> bool: ...
-    @staticmethod
-    def mark_refunded(
-        *, pk: int, refunded_at: datetime, allowed_from: frozenset[OrderStatus]
-    ) -> bool: ...
+        changes: OrderChanges,
+    ) -> bool:
+        """Write only if the order is still in one of `allowed_from`; say if it did."""
+
     @staticmethod
     def issue_tickets(*, order: OrderDTO, codes: list[str]) -> None: ...
     @staticmethod
@@ -459,7 +498,7 @@ class TicketSalesServiceProtocol(Protocol):
         quantities: dict[int, int],
         urls: CheckoutUrls,
     ) -> CheckoutStartDTO: ...
-    def order(self, *, buyer_id: int, event_id: int, pk: int) -> OrderDTO: ...
+    def order(self, *, buyer_id: int, event_id: int, pk: int) -> BuyerOrderDTO: ...
     def abandon_checkout(self, *, buyer_id: int, event_id: int, pk: int) -> None: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int

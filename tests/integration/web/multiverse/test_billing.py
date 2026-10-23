@@ -16,7 +16,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import PayoutAccount, SphereMembership, SpherePlan
-from ludamus.pacts.billing import PlanKind, PlanPageDTO
+from ludamus.pacts.billing import PlanKind, PlanPageDTO, PlanSource
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.tickets import PayoutPageDTO, PayoutStatus
 from tests.integration.stripe_helpers import ACCOUNT_ID, API, connected_account
@@ -35,6 +35,7 @@ RETURN_URL = reverse("multiverse:panel:billing-return")
 RESUME_URL = reverse("multiverse:panel:billing-resume")
 SUBSCRIBE_URL = reverse("multiverse:panel:billing-subscribe")
 ONBOARDING_URL = "https://connect.stripe.com/setup/e/acct_test/abc"
+PORTAL_URL = "https://billing.stripe.com/p/session/test_portal"
 
 
 @pytest.fixture(name="manager")
@@ -260,5 +261,78 @@ class TestSubscribe:
             HTTPStatus.FOUND,
             url="/",
             messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
+        )
+        assert not stripe_api.calls
+
+    def test_a_subscription_stripe_holds_goes_to_the_portal(
+        self, manager, sphere, stripe_api
+    ):
+        SpherePlan.objects.create(sphere=sphere, stripe_customer_id="cus_paid")
+        stripe_api.add(
+            responses.GET,
+            f"{API}/subscriptions",
+            json={
+                "object": "list",
+                "url": "/v1/subscriptions",
+                "has_more": False,
+                "data": [{"id": "sub_1", "object": "subscription", "status": "active"}],
+            },
+        )
+        stripe_api.add(
+            responses.POST,
+            f"{API}/billing_portal/sessions",
+            json={"object": "billing_portal.session", "url": PORTAL_URL},
+        )
+
+        response = manager.post(SUBSCRIBE_URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=PORTAL_URL)
+        assert [call.request.path_url.split("?")[0] for call in stripe_api.calls] == [
+            "/v1/subscriptions",
+            "/v1/billing_portal/sessions",
+        ]
+
+    def test_a_cancelled_subscription_lets_the_plan_be_bought_again(
+        self, manager, sphere, stripe_api
+    ):
+        SpherePlan.objects.create(sphere=sphere, stripe_customer_id="cus_lapsed")
+        stripe_api.add(
+            responses.GET,
+            f"{API}/subscriptions",
+            json={
+                "object": "list",
+                "url": "/v1/subscriptions",
+                "has_more": False,
+                "data": [
+                    {"id": "sub_old", "object": "subscription", "status": "unpaid"}
+                ],
+            },
+        )
+        stripe_api.add(
+            responses.POST,
+            f"{API}/checkout/sessions",
+            json={
+                "id": "cs_plan",
+                "object": "checkout.session",
+                "url": "https://checkout.stripe.com/c/pay/cs_plan",
+            },
+        )
+
+        response = manager.post(SUBSCRIBE_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="https://checkout.stripe.com/c/pay/cs_plan"
+        )
+        assert parse_qs(stripe_api.calls[1].request.body)["customer"] == ["cus_lapsed"]
+
+    def test_a_plan_held_by_hand_buys_nothing(self, manager, sphere, stripe_api):
+        SpherePlan.objects.create(
+            sphere=sphere, kind=PlanKind.WHITE_GLOVE, source=PlanSource.MANUAL
+        )
+
+        response = manager.post(SUBSCRIBE_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"http://testserver{BILLING_URL}"
         )
         assert not stripe_api.calls

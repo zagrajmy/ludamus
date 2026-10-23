@@ -138,12 +138,15 @@ Two endpoints, two signing secrets:
   payment), `checkout.session.async_payment_succeeded` / `…_failed`,
   `checkout.session.expired`, `charge.refunded`, `account.updated`.
 - `/hooks/stripe/billing` — Zagrajmy's own account (the yearly plan):
-  `checkout.session.completed` (subscription mode), `invoice.paid`,
-  `customer.subscription.updated` / `.deleted`.
+  `checkout.session.completed` (subscription mode),
+  `customer.subscription.created` / `.updated` / `.deleted`.
 
 Stripe does not deliver in order. Ticket orders are protected by the transition
-guards above; the yearly plan by checking each event's subscription against the
-one on record, so an event about an older subscription changes nothing.
+guards above. A yearly-plan event only names a subscription: its state (live or
+ended, paid until when) is read back from Stripe and written under the plan's
+row lock, so the last delivery writes the latest state whatever order they came
+in. An ended subscription other than the one on record changes nothing. If
+Stripe cannot be reached the endpoint answers 503 and Stripe retries.
 
 ### Refunds
 
@@ -154,8 +157,10 @@ arrives as `charge.refunded` and voids the tickets the same way.
 
 ## States
 
-`TicketOrder.status`: `pending` → `paid` | `expired` | `awaiting_payment`;
-`awaiting_payment` → `paid` | `failed`; `paid` → `refunded`.
+`TicketOrder.status`: `pending` → `paid` | `expired` | `awaiting_payment` |
+`failed`; `awaiting_payment` → `paid` | `failed`; `paid` → `refunded`. The table
+lives in `specs.tickets.ORDER_TRANSITIONS`, and every move derives the statuses
+it may leave from it.
 
 ## Failure modes, and what each does
 
@@ -165,6 +170,7 @@ arrives as `charge.refunded` and voids the tickets the same way.
 | Buyer abandons Checkout                     | Hold lapses at `hold_until`; `checkout.session.expired` marks it. |
 | Webhook arrives twice or out of order       | Transition guard; the late delivery is a 200 `stale` no-op.       |
 | Paid webhook arrives after the hold         | Seats stay held for `WEBHOOK_GRACE`; an oversell is logged.       |
+| Payment lands for an order we gave up on    | Refunded at once, our fee included; nothing is issued.            |
 | Webhook never arrives                       | Order page shows "confirming"; Stripe retries for 3 days.         |
 | Stripe API down when creating Checkout      | Order is cancelled, hold released, buyer sees a retry message.    |
 | Organizer's account loses `charges_enabled` | Tickets page stops selling, panel says why and links onboarding.  |

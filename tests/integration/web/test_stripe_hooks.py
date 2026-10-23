@@ -9,8 +9,10 @@ a maintainer recorded by hand.
 
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from urllib.parse import parse_qs
 
 import pytest
+import responses
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -23,6 +25,7 @@ from ludamus.pacts.billing import PlanKind, PlanSource
 from ludamus.pacts.tickets import OrderStatus
 from tests.integration.stripe_helpers import (
     ACCOUNT_ID,
+    API,
     BILLING_SECRET,
     CONNECT_SECRET,
     connected_account,
@@ -184,13 +187,56 @@ class TestCheckoutCompleted:
         assert_response(response, HTTPStatus.OK, json={"outcome": "failed"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.FAILED
 
-    def test_payment_for_an_abandoned_order_issues_nothing(self, client, paid_setup):
+    def test_failure_that_beats_its_completion_frees_the_seats(
+        self, client, paid_setup
+    ):
+        _connect(client, "checkout.session.async_payment_failed", _checkout(paid=False))
+
+        response = _connect(
+            client,
+            "checkout.session.completed",
+            _checkout(paid=False),
+            event_id="evt_2",
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.FAILED
+
+    def test_payment_for_an_abandoned_order_goes_straight_back(
+        self, client, paid_setup, stripe_api
+    ):
         TicketOrder.objects.filter(pk=paid_setup.pk).update(status=OrderStatus.EXPIRED)
+        stripe_api.add(
+            responses.POST, f"{API}/refunds", json={"id": "re_1", "object": "refund"}
+        )
+
+        response = _connect(client, "checkout.session.completed", _checkout())
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "refunded"})
+        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.EXPIRED
+        assert not Ticket.objects.exists()
+        sent = parse_qs(stripe_api.calls[0].request.body)
+        assert (sent["payment_intent"], sent["refund_application_fee"]) == (
+            ["pi_test_1"],
+            ["true"],
+        )
+        assert stripe_api.calls[0].request.headers["Stripe-Account"] == ACCOUNT_ID
+
+    def test_late_payment_stripe_will_not_refund_changes_nothing(
+        self, client, paid_setup, stripe_api
+    ):
+        TicketOrder.objects.filter(pk=paid_setup.pk).update(status=OrderStatus.FAILED)
+        stripe_api.add(
+            responses.POST,
+            f"{API}/refunds",
+            status=HTTPStatus.BAD_REQUEST,
+            json={"error": {"message": "nope", "type": "invalid_request_error"}},
+        )
 
         response = _connect(client, "checkout.session.completed", _checkout())
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.EXPIRED
+        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.FAILED
         assert not Ticket.objects.exists()
 
     def test_unknown_session_is_acknowledged(self, client, paid_setup):
@@ -292,17 +338,52 @@ def _billing(client, event_type, obj, *, event_id="evt_b1"):
     )
 
 
-def _invoice():
-    return {
-        "id": "in_1",
-        "object": "invoice",
-        "customer": CUSTOMER_ID,
-        "parent": {
-            "type": "subscription_details",
-            "subscription_details": {"subscription": "sub_1"},
+def _subscription_changed(client, subscription_id="sub_1"):
+    return _billing(
+        client,
+        "customer.subscription.updated",
+        {"id": subscription_id, "object": "subscription", "status": "whatever"},
+    )
+
+
+def _stripe_says(
+    stripe_api,
+    *,
+    subscription_id="sub_1",
+    status="active",
+    customer=CUSTOMER_ID,
+    period_end=PERIOD_END,
+):
+    stripe_api.add(
+        responses.GET,
+        f"{API}/subscriptions/{subscription_id}",
+        json={
+            "id": subscription_id,
+            "object": "subscription",
+            "customer": customer,
+            "status": status,
+            "items": {
+                "object": "list",
+                "data": [
+                    {
+                        "id": "si_1",
+                        "object": "subscription_item",
+                        "current_period_end": int(period_end.timestamp()),
+                    }
+                ],
+            },
         },
-        "lines": {"data": [{"period": {"end": int(PERIOD_END.timestamp())}}]},
-    }
+    )
+
+
+def _plan(customer):
+    customer.refresh_from_db()
+    return (
+        customer.kind,
+        customer.source,
+        customer.paid_until,
+        customer.stripe_subscription_id,
+    )
 
 
 class TestYearlyPlan:
@@ -310,96 +391,166 @@ class TestYearlyPlan:
     def customer_fixture(self, sphere):
         return SpherePlan.objects.create(sphere=sphere, stripe_customer_id=CUSTOMER_ID)
 
-    def test_paid_invoice_puts_the_sphere_on_the_yearly_plan(self, client, customer):
-        response = _billing(client, "invoice.paid", _invoice())
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "renewed"})
-        customer.refresh_from_db()
-        assert (
-            customer.kind,
-            customer.source,
-            customer.paid_until,
-            customer.stripe_subscription_id,
-        ) == (PlanKind.WHITE_GLOVE, PlanSource.STRIPE, PERIOD_END, "sub_1")
-
-    def test_cancelled_subscription_returns_to_the_standard_plan(
-        self, client, customer
+    def test_completed_checkout_puts_the_sphere_on_the_yearly_plan(
+        self, client, customer, stripe_api
     ):
-        _billing(client, "invoice.paid", _invoice())
-
-        response = _billing(
-            client,
-            "customer.subscription.deleted",
-            {"id": "sub_1", "customer": CUSTOMER_ID, "status": "canceled"},
-            event_id="evt_b2",
-        )
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "ended"})
-        customer.refresh_from_db()
-        assert customer.kind == PlanKind.STANDARD
-
-    def test_plan_recorded_by_hand_is_left_alone(self, client, customer):
-        paid_until = datetime.now(UTC) + timedelta(days=200)
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.WHITE_GLOVE, source=PlanSource.MANUAL, paid_until=paid_until
-        )
-
-        response = _billing(
-            client,
-            "customer.subscription.deleted",
-            {"id": "sub_1", "customer": CUSTOMER_ID, "status": "canceled"},
-        )
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        customer.refresh_from_db()
-        assert (customer.kind, customer.paid_until) == (
-            PlanKind.WHITE_GLOVE,
-            paid_until,
-        )
-
-    def test_unknown_customer_changes_nothing(self, client, customer):
-        response = _billing(
-            client, "invoice.paid", _invoice() | {"customer": "cus_stranger"}
-        )
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
-        customer.refresh_from_db()
-        assert customer.kind == PlanKind.STANDARD
-
-    def test_invoice_for_an_older_subscription_changes_nothing(self, client, customer):
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.STANDARD, stripe_subscription_id="sub_new"
-        )
-
-        response = _billing(client, "invoice.paid", _invoice())
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        customer.refresh_from_db()
-        assert customer.kind == PlanKind.STANDARD
-
-    def test_one_off_invoice_is_not_the_yearly_plan(self, client, customer):
-        response = _billing(client, "invoice.paid", _invoice() | {"parent": None})
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
-        customer.refresh_from_db()
-        assert customer.kind == PlanKind.STANDARD
-
-    def test_checkout_after_its_invoice_keeps_the_paid_date(self, client, customer):
-        _billing(client, "invoice.paid", _invoice())
+        _stripe_says(stripe_api)
 
         response = _billing(
             client,
             "checkout.session.completed",
             {
                 "id": "cs_plan",
+                "object": "checkout.session",
                 "mode": "subscription",
                 "payment_status": "paid",
                 "customer": CUSTOMER_ID,
                 "subscription": "sub_1",
             },
-            event_id="evt_b2",
         )
 
+        assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
+        assert _plan(customer) == (
+            PlanKind.WHITE_GLOVE,
+            PlanSource.STRIPE,
+            PERIOD_END,
+            "sub_1",
+        )
+
+    def test_renewal_moves_the_paid_date(self, client, customer, stripe_api):
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.WHITE_GLOVE,
+            paid_until=PERIOD_END,
+            stripe_subscription_id="sub_1",
+        )
+        next_year = PERIOD_END + timedelta(days=365)
+        _stripe_says(stripe_api, period_end=next_year)
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "renewed"})
+        assert _plan(customer) == (
+            PlanKind.WHITE_GLOVE,
+            PlanSource.STRIPE,
+            next_year,
+            "sub_1",
+        )
+
+    def test_cancelled_subscription_returns_to_the_standard_plan(
+        self, client, customer, stripe_api
+    ):
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.WHITE_GLOVE,
+            paid_until=PERIOD_END,
+            stripe_subscription_id="sub_1",
+        )
+        _stripe_says(stripe_api, status="canceled")
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "ended"})
+        assert _plan(customer)[0] == PlanKind.STANDARD
+
+    def test_late_event_for_a_live_subscription_still_records_what_stripe_says(
+        self, client, customer, stripe_api
+    ):
+        # Stripe's answer, not the event's, decides: a "created" event that
+        # arrives after the renewal writes the renewed date, not an older one.
+        _stripe_says(stripe_api)
+
+        response = _billing(
+            client,
+            "customer.subscription.created",
+            {"id": "sub_1", "object": "subscription", "status": "incomplete"},
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
+        assert _plan(customer)[2] == PERIOD_END
+
+    def test_buying_again_after_a_lapse_is_recorded_whatever_arrives_first(
+        self, client, customer, stripe_api
+    ):
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.STANDARD, stripe_subscription_id="sub_old"
+        )
+        _stripe_says(stripe_api, subscription_id="sub_new")
+
+        response = _subscription_changed(client, "sub_new")
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
+        assert _plan(customer) == (
+            PlanKind.WHITE_GLOVE,
+            PlanSource.STRIPE,
+            PERIOD_END,
+            "sub_new",
+        )
+
+    def test_an_older_subscription_ending_changes_nothing(
+        self, client, customer, stripe_api
+    ):
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.WHITE_GLOVE,
+            paid_until=PERIOD_END,
+            stripe_subscription_id="sub_new",
+        )
+        _stripe_says(stripe_api, subscription_id="sub_old", status="canceled")
+
+        response = _subscription_changed(client, "sub_old")
+
         assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        customer.refresh_from_db()
-        assert customer.paid_until == PERIOD_END
+        assert _plan(customer) == (
+            PlanKind.WHITE_GLOVE,
+            PlanSource.STRIPE,
+            PERIOD_END,
+            "sub_new",
+        )
+
+    def test_plan_recorded_by_hand_is_left_alone(self, client, customer, stripe_api):
+        paid_until = datetime.now(UTC) + timedelta(days=200)
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.WHITE_GLOVE, source=PlanSource.MANUAL, paid_until=paid_until
+        )
+        _stripe_says(stripe_api, status="canceled")
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert _plan(customer) == (
+            PlanKind.WHITE_GLOVE,
+            PlanSource.MANUAL,
+            paid_until,
+            "",
+        )
+
+    def test_unknown_customer_changes_nothing(self, client, customer, stripe_api):
+        _stripe_says(stripe_api, customer="cus_stranger")
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert _plan(customer)[0] == PlanKind.STANDARD
+
+    def test_stripe_unreachable_asks_for_a_retry(self, client, customer, stripe_api):
+        stripe_api.add(
+            responses.GET,
+            f"{API}/subscriptions/sub_1",
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            json={"error": {"message": "down", "type": "api_error"}},
+        )
+
+        response = _subscription_changed(client)
+
+        assert_response(
+            response,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            json={"error": "Stripe could not be reached; retry later."},
+        )
+        assert _plan(customer)[0] == PlanKind.STANDARD
+
+    def test_one_off_invoice_is_not_the_yearly_plan(self, client, customer, stripe_api):
+        response = _billing(
+            client, "invoice.paid", {"id": "in_1", "customer": CUSTOMER_ID}
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert not stripe_api.calls

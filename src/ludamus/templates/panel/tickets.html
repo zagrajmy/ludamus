@@ -61,7 +61,7 @@
                         {% translate "paid by buyers" as t_gross %}
                         {% include "components/stat_card.html" with value=page.summary.gross|money label=t_gross %}
                         {% blocktranslate asvar t_fees with percent=page.platform_fee_percent|floatformat:"-1" %}Zagrajmy {{ percent }}% and Stripe fees (est.){% endblocktranslate %}
-                        {% include "components/stat_card.html" with value=page.summary.platform_fees|add:page.summary.estimated_stripe_fees|money label=t_fees %}
+                        {% include "components/stat_card.html" with value=page.summary.estimated_fees|money label=t_fees %}
                         {% translate "you keep (est.)" as t_net %}
                         {% include "components/stat_card.html" with value=page.summary.estimated_net|money label=t_net %}
                     </div>
@@ -271,6 +271,11 @@
                             {% endfor %}
                         </tbody>
                     {% endtessera_table %}
+                    {% if page.more_orders %}
+                        <p class="text-sm text-foreground-muted">
+                            {% blocktranslate with shown=page.orders|length %}These are the latest {{ shown }} orders. Your Stripe dashboard has all of them, with search.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
                 </section>
             {% endif %}
         </div>

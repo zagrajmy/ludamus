@@ -15,6 +15,10 @@ const signed = (body: string): string => {
   return `t=${timestamp},v1=${digest}`;
 };
 
+// The tests buy from the same seeded ticket types, so their seat counts
+// interleave if run in parallel.
+test.describe.configure({ mode: "serial" });
+
 test.describe("Ticket sales", () => {
   test("the event page leads to the ticket shop", async ({ page }, testInfo) => {
     await page.goto(EVENT_URL);

@@ -9,6 +9,7 @@ from django.utils.translation import pgettext_lazy
 
 from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.tickets import (
+    MAX_TICKET_PRICE,
     MIN_TICKET_PRICE,
     MONEY_DECIMAL_PLACES,
     TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
@@ -136,13 +137,12 @@ class EnrollmentWindowForm(forms.Form):
         required=False, label=_("Allow enrollment without an account")
     )
 
-    def clean(self) -> dict[str, object]:
-        cleaned = super().clean() or {}
-        start_time = cleaned.get("start_time")
-        end_time = cleaned.get("end_time")
-        if start_time and end_time and start_time >= end_time:
-            raise forms.ValidationError(_("Enrollment must close after it opens."))
-        return cleaned
+    def clean(self) -> None:
+        super().clean()
+        start: datetime | None = self.cleaned_data.get("sales_start")
+        end: datetime | None = self.cleaned_data.get("sales_end")
+        if start is not None and end is not None and start >= end:
+            self.add_error("sales_end", _("Sales have to close after they open."))
 
 
 DISCOUNT_METHOD_LABELS = {
@@ -188,24 +188,27 @@ class DiscountRuleForm(forms.Form):
 class MoneyField(forms.DecimalField):
     """Złoty in the form, grosze (minor units) everywhere behind it."""
 
-    def __init__(self, *, label: str | _StrPromise, min_minor: int) -> None:
+    def __init__(
+        self, *, label: str | _StrPromise, min_minor: int, max_minor: int
+    ) -> None:
         super().__init__(
             label=label,
             # scaleb keeps the places, so an error reads "2.00", not "2".
             min_value=Decimal(min_minor).scaleb(-MONEY_DECIMAL_PLACES),
-            max_digits=9,
+            max_value=Decimal(max_minor).scaleb(-MONEY_DECIMAL_PLACES),
             decimal_places=MONEY_DECIMAL_PLACES,
             widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.01"}),
         )
 
-    def prepare_value(self, value: object) -> object:
+    def prepare_value(self, value: int | str | None) -> Decimal | str | None:
         # Initial data comes from a DTO in grosze; bound data is what the
         # organizer typed and is shown back as is.
-        if isinstance(value, int) and not isinstance(value, bool):
+        if isinstance(value, int):
             return Decimal(value).scaleb(-MONEY_DECIMAL_PLACES)
-        return super().prepare_value(value)
+        shown: str | None = super().prepare_value(value)
+        return shown
 
-    def clean(self, value: object) -> int | None:
+    def clean(self, value: str | None) -> int | None:
         amount: Decimal | None = super().clean(value)
         return None if amount is None else int(amount.scaleb(MONEY_DECIMAL_PLACES))
 
@@ -223,7 +226,9 @@ class TicketTypeForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text=_("Optional. What the ticket includes."),
     )
-    price = MoneyField(label=_("Price (zł)"), min_minor=MIN_TICKET_PRICE)
+    price = MoneyField(
+        label=_("Price (zł)"), min_minor=MIN_TICKET_PRICE, max_minor=MAX_TICKET_PRICE
+    )
     quantity = forms.IntegerField(
         label=_("Tickets available"),
         min_value=1,
@@ -241,10 +246,9 @@ class TicketTypeForm(forms.Form):
         help_text=_("Leave empty to sell until the event ends."),
     )
 
-    def clean_sales_end(self) -> datetime | None:
-        # Fields clean in declaration order, so sales_start is already parsed.
+    def clean(self) -> None:
+        super().clean()
         start: datetime | None = self.cleaned_data.get("sales_start")
         end: datetime | None = self.cleaned_data.get("sales_end")
         if start is not None and end is not None and start >= end:
-            raise forms.ValidationError(_("Sales have to close after they open."))
-        return end
+            self.add_error("sales_end", _("Sales have to close after they open."))

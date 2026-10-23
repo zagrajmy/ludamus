@@ -25,11 +25,12 @@ class SpherePlanRepository(SpherePlanRepositoryProtocol):
         return SpherePlanDTO.model_validate(plan)
 
     @staticmethod
-    def find_sphere_by_customer(*, customer_id: str) -> int | None:
+    def lock_by_customer(*, customer_id: str) -> SpherePlanDTO | None:
         if not customer_id:
             return None
-        return (
-            SpherePlan.objects.filter(stripe_customer_id=customer_id)
-            .values_list("sphere_id", flat=True)
+        plan = (
+            SpherePlan.objects.select_for_update()
+            .filter(stripe_customer_id=customer_id)
             .first()
         )
+        return None if plan is None else SpherePlanDTO.model_validate(plan)

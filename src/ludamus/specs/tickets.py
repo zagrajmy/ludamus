@@ -44,6 +44,8 @@ WEBHOOK_GRACE = timedelta(hours=1)
 
 # At or below this many left, the shop says how many.
 FEW_TICKETS_LEFT = 20
+# The panel lists this many of the newest orders; Stripe's dashboard has all.
+PANEL_ORDERS_SHOWN = 100
 
 # Every move an order may make; anything else is a stale or reordered webhook.
 ORDER_TRANSITIONS: Mapping[OrderStatus, frozenset[OrderStatus]] = MappingProxyType(
@@ -85,8 +87,13 @@ def platform_fee_percent(plan: PlanKind) -> Decimal:
     return Decimal(PLATFORM_FEE_BPS[plan]) / 100
 
 
+def estimated_stripe_fees(*, gross: int, orders: int) -> int:
+    """Stripe's likely take on `orders` charges worth `gross` together."""
+    return _share(gross, STRIPE_FEE_ESTIMATE_BPS) + STRIPE_FEE_ESTIMATE_FIXED * orders
+
+
 def estimated_stripe_fee(total: int) -> int:
-    return _share(total, STRIPE_FEE_ESTIMATE_BPS) + STRIPE_FEE_ESTIMATE_FIXED
+    return estimated_stripe_fees(gross=total, orders=1)
 
 
 def fee_breakdown(price: int, *, plan: PlanKind) -> FeeBreakdownDTO:

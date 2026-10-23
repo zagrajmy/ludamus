@@ -295,8 +295,8 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="tickettype",
             constraint=models.CheckConstraint(
-                condition=models.Q(("price__gte", 200)),
-                name="ticket_type_price_at_least_minimum",
+                condition=models.Q(("price__gte", 200), ("price__lte", 9999999)),
+                name="ticket_type_price_chargeable",
             ),
         ),
         migrations.AddConstraint(

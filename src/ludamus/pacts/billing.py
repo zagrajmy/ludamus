@@ -37,11 +37,22 @@ class PlanSource(StrEnum):
 class SpherePlanDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    sphere_id: int
     kind: PlanKind
     source: PlanSource
     paid_until: datetime | None
     stripe_customer_id: str
     stripe_subscription_id: str
+
+
+class SubscriptionState(BaseModel):
+    """A yearly-plan subscription as Stripe has it now."""
+
+    customer_id: str
+    # Stripe still bills it: paid up, or a failed renewal it is retrying.
+    live: bool
+    # The end of the period paid for; None if Stripe has no period on it.
+    paid_until: datetime | None
 
 
 class PlanPageDTO(BaseModel):
@@ -74,7 +85,7 @@ class SpherePlanRepositoryProtocol(Protocol):
     @staticmethod
     def save(*, sphere_id: int, data: SpherePlanData) -> SpherePlanDTO: ...
     @staticmethod
-    def find_sphere_by_customer(*, customer_id: str) -> int | None: ...
+    def lock_by_customer(*, customer_id: str) -> SpherePlanDTO | None: ...
 
 
 class PlanBillingProtocol(Protocol):
@@ -87,6 +98,8 @@ class PlanBillingProtocol(Protocol):
         self, *, sphere_id: int, customer_id: str, success_url: str, cancel_url: str
     ) -> str: ...
     def billing_portal_url(self, *, customer_id: str, return_url: str) -> str: ...
+    def has_live_subscription(self, *, customer_id: str) -> bool: ...
+    def read_subscription(self, *, subscription_id: str) -> SubscriptionState: ...
     def parse_webhook(
         self, *, payload: bytes, signature: str
     ) -> StripeWebhookEvent: ...

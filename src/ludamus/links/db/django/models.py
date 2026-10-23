@@ -43,6 +43,7 @@ from ludamus.pacts.tags import (
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 from ludamus.pacts.tickets import (
     DEFAULT_CURRENCY,
+    MAX_TICKET_PRICE,
     MIN_TICKET_PRICE,
     TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
     TICKET_TYPE_NAME_MAX_LENGTH,
@@ -2386,8 +2387,8 @@ class TicketType(models.Model):
         ordering = ("order", "pk")
         constraints = (
             models.CheckConstraint(
-                condition=Q(price__gte=MIN_TICKET_PRICE),
-                name="ticket_type_price_at_least_minimum",
+                condition=Q(price__gte=MIN_TICKET_PRICE, price__lte=MAX_TICKET_PRICE),
+                name="ticket_type_price_chargeable",
             ),
             models.CheckConstraint(
                 condition=Q(sales_start__isnull=True)

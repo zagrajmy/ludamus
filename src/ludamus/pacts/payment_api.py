@@ -9,7 +9,6 @@ JSON or checks which optional field happens to be set.
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel
@@ -83,19 +82,10 @@ class AccountEvent(BaseModel):
     state: AccountState
 
 
-class InvoicePaidEvent(BaseModel):
-    customer_id: str
+class SubscriptionEvent(BaseModel):
+    # Only which one: events arrive out of order, so what the subscription is
+    # now is read from Stripe, never from the event.
     subscription_id: str
-    period_end: datetime | None
-
-
-class SubscriptionChangedEvent(BaseModel):
-    customer_id: str
-    subscription_id: str
-    # Stripe's subscription status ("active", "past_due", "canceled", …).
-    status: str
-    period_end: datetime | None
-    deleted: bool
 
 
 class UnhandledEvent(BaseModel):
@@ -103,10 +93,5 @@ class UnhandledEvent(BaseModel):
 
 
 type StripeWebhookEvent = (
-    CheckoutEvent
-    | RefundEvent
-    | AccountEvent
-    | InvoicePaidEvent
-    | SubscriptionChangedEvent
-    | UnhandledEvent
+    CheckoutEvent | RefundEvent | AccountEvent | SubscriptionEvent | UnhandledEvent
 )
