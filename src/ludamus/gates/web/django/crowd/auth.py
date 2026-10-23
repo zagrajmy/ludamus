@@ -360,13 +360,13 @@ class Auth0LoginCallbackActionView(RedirectView):
         return userinfo
 
 
-def _valid_signup_confirmation(request: RootRequest, pending: dict[str, Any]) -> bool:
+def _valid_signup_confirmation(request: RootRequest, expected: str) -> bool:
     token = request.POST.get("confirmation_token", "")
     try:
         signing.loads(token, salt=AGE_CONFIRMATION_SALT, max_age=CACHE_TIMEOUT)
     except signing.BadSignature:
         return False
-    return constant_time_compare(token, pending.get("confirmation_token", ""))
+    return constant_time_compare(token, expected)
 
 
 def guardian_page(request: RootRequest) -> TemplateResponse:
@@ -410,7 +410,9 @@ class Auth0SignupAgePageView(View):
         pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
         if request.context.current_user_slug or not isinstance(pending, dict):
             return redirect("web:index")
-        if not _valid_signup_confirmation(request, pending):
+        if not _valid_signup_confirmation(
+            request, pending.get("confirmation_token", "")
+        ):
             messages.error(
                 request,
                 _("This age confirmation has expired. Choose your age range again."),

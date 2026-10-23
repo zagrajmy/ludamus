@@ -638,7 +638,7 @@ class TestAgeConfirmation:
             user_slug="auth0user", age_band=AgeBand.SIXTEEN_PLUS
         )
 
-        assert subscriptions.dropped_for == []
+        assert not subscriptions.dropped_for
 
 
 class TestHasAccount:
