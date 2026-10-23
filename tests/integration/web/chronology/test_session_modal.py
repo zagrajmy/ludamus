@@ -234,7 +234,7 @@ class TestSessionModalComponentView:
         )
 
     def test_unpublished_event_404_for_non_manager(self, agenda_item, client, event):
-        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = client.get(_url(event, agenda_item.session.pk))
@@ -244,7 +244,7 @@ class TestSessionModalComponentView:
     def test_unpublished_event_404_for_authenticated_non_manager(
         self, agenda_item, authenticated_client, event
     ):
-        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = authenticated_client.get(_url(event, agenda_item.session.pk))
@@ -254,7 +254,7 @@ class TestSessionModalComponentView:
     def test_unpublished_event_ok_for_manager_and_superuser(
         self, authenticated_client, panel_access_user, agenda_item, event
     ):
-        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = authenticated_client.get(_url(event, agenda_item.session.pk))

@@ -1812,7 +1812,7 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/details.html"
 
     def test_post_step_without_wizard_category_redirects(
-        self, authenticated_client, event, faker, time_zone
+        self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
 
