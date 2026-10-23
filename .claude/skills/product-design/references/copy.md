@@ -38,6 +38,7 @@ is a real translation bug, not a nuance.
 | track | **blok** / **blok programowy** | |
 | facilitator | **twórca programu** | |
 | time slot | **przedział czasowy** | do **not** use "blok czasowy" — collides with *track* |
+| report (of illegal content) | **zgłoszenie** | the reporter → **zgłaszający**; the verb → **zgłoś** |
 
 When you introduce a new domain term, add it here (and to CLAUDE.md if it's
 load-bearing) so the next agent translates it the same way.

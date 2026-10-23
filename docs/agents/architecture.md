@@ -522,6 +522,38 @@ RFC 0001. Already noun-named: `pacts/party.py`, `mills/party.py`,
 
 ---
 
+### report
+
+Notices that some user content is illegal (DSA Art. 16). Anyone, signed in
+or not, reports from a link beside the content; the reporter gets a receipt
+by email at once and the decision later. One `ContentReport` model names its
+content by content type and id, so a new kind (an LFG listing, #1529) is an
+enum value in `pacts/report.py`, a resolver plus a `_MODELS` entry in
+`links/db/django/report.py`, and a link on its page.
+
+#### Pages: Report form
+
+- **URLs:** `/report/<kind>/<id>/?from=<path>` (`report`); `from` becomes the
+  report's location, and only a path on the same host is kept
+- **Views:** `gates/web/django/report.py` — `ReportPageView`
+- **Templates:** `templates/report/form.html`; the entry point on a session
+  modal is `components/session_report_links.html`
+- **Service:** `ReportService` (`request.services.reports`) — resolves the
+  content where the current sphere shows it publicly, rate-limits by account
+  or by `get_client_ip` (`specs/report.py`), sends the receipt
+
+#### Pages: Report queue (root sphere)
+
+- **URLs:** `/multiverse/panel/reports/`, `…/reports/<pk>/`,
+  `…/reports/<pk>/do/decide` (`multiverse:panel:report*`)
+- **Views:** `gates/web/django/sphere/reports.py`
+- **Templates:** `templates/multiverse/panel/content_reports/`
+- **Service:** `ReportQueueService` (`request.services.report_queue`) — every
+  method 404s outside the root sphere; deciding locks the row, records who
+  decided and sends the decision email
+
+---
+
 ## Noun → Models
 
 ORM models — in `links/db/django/models.py` — mapped to the noun that
@@ -535,6 +567,7 @@ owns them.
 | sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| report    | `ContentReport`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation`                |
 
 <!-- markdownlint-enable MD013 -->

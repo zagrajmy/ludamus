@@ -2436,6 +2436,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
+#: src/ludamus/templates/report/form.html
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -3633,6 +3634,8 @@ msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
 msgid "Content"
 msgstr "Treść"
 
@@ -3803,6 +3806,108 @@ msgstr "Regulamin"
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
+#: src/ludamus/gates/web/django/report.py
+msgid "Child sexual abuse material"
+msgstr "Materiały przedstawiające seksualne wykorzystywanie dzieci"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Threats, harassment or incitement to violence"
+msgstr "Groźby, nękanie lub nawoływanie do przemocy"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Illegal hate speech"
+msgstr "Nielegalna mowa nienawiści"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Someone's personal data shared without consent"
+msgstr "Czyjeś dane osobowe udostępnione bez zgody"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Fraud or scam"
+msgstr "Oszustwo lub wyłudzenie"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Copyright or trademark infringement"
+msgstr "Naruszenie praw autorskich lub znaku towarowego"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Other illegal content"
+msgstr "Inne nielegalne treści"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "session"
+msgstr "punkt programu"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "user profile"
+msgstr "profil użytkownika"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Why is it illegal?"
+msgstr "Dlaczego to jest nielegalne?"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Explain what is illegal and why"
+msgstr "Wyjaśnij, co jest nielegalne i dlaczego"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Point to what in the content breaks the law, as precisely as you can."
+msgstr "Wskaż jak najdokładniej, co w tej treści narusza prawo."
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Your name"
+msgstr "Twoje imię i nazwisko"
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Your email"
+msgstr "Twój e-mail"
+
+#: src/ludamus/gates/web/django/report.py
+msgid ""
+"We send the receipt and our decision here. Name and email may be left out "
+"only for reports of child sexual abuse material."
+msgstr ""
+"Tu wyślemy potwierdzenie zgłoszenia i naszą decyzję. Imię, nazwisko i e-mail "
+"można pominąć tylko w zgłoszeniach materiałów przedstawiających seksualne "
+"wykorzystywanie dzieci."
+
+#: src/ludamus/gates/web/django/report.py
+msgid ""
+"I believe in good faith that the information in this report is accurate and "
+"complete."
+msgstr ""
+"Oświadczam w dobrej wierze, że informacje w tym zgłoszeniu są prawdziwe i "
+"kompletne."
+
+#: src/ludamus/gates/web/django/report.py
+msgid ""
+"Enter your name. Only reports of child sexual abuse material can be sent "
+"without it."
+msgstr ""
+"Podaj imię i nazwisko. Bez nich można wysłać tylko zgłoszenie materiałów "
+"przedstawiających seksualne wykorzystywanie dzieci."
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Enter your email, so we can send you the receipt and our decision."
+msgstr "Podaj e-mail, żebyśmy mogli wysłać Ci potwierdzenie i naszą decyzję."
+
+#: src/ludamus/gates/web/django/report.py
+#, python-format
+msgid ""
+"You have sent several reports in the last hour. Try again later, or write to "
+"%(support)s."
+msgstr ""
+"W ciągu ostatniej godziny wysłano stąd kilka zgłoszeń. Spróbuj ponownie "
+"później albo napisz na %(support)s."
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Report sent. We emailed you a receipt."
+msgstr "Zgłoszenie wysłane. Potwierdzenie przyszło na Twój e-mail."
+
+#: src/ludamus/gates/web/django/report.py
+msgid "Report sent. Thank you."
+msgstr "Zgłoszenie wysłane. Dziękujemy."
+
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
 msgstr "Nazwa gildii"
@@ -3842,6 +3947,18 @@ msgstr "Widzisz to tylko Ty i inni menedżerowie."
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "e.g. Kasia, programme"
 msgstr "np. Kasia, program"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Your decision"
+msgstr "Twoja decyzja"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid ""
+"Sent to the reporter as you write it. Say what you did about the content and "
+"why."
+msgstr ""
+"Trafi do zgłaszającego dokładnie tak, jak ją napiszesz. Napisz, co zrobiono "
+"z treścią i dlaczego."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
@@ -3891,6 +4008,20 @@ msgstr "Prowadzący usunięty."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
+
+#: src/ludamus/gates/web/django/sphere/reports.py
+msgid "Someone already decided this report. Their decision stands."
+msgstr "Ktoś już rozpatrzył to zgłoszenie. Jego decyzja pozostaje w mocy."
+
+#: src/ludamus/gates/web/django/sphere/reports.py
+msgid "Report decided. We emailed the reporter your decision."
+msgstr "Zgłoszenie rozpatrzone. Decyzja poszła e-mailem do zgłaszającego."
+
+#: src/ludamus/gates/web/django/sphere/reports.py
+msgid "Report decided. The reporter left no email to send it to."
+msgstr ""
+"Zgłoszenie rozpatrzone. Zgłaszający nie podał e-maila, więc decyzji nie "
+"wysłano."
 
 #: src/ludamus/gates/web/django/sphere/roles.py
 msgid "Manager"
@@ -4514,6 +4645,52 @@ msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s.
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "We received your report #%(number)d"
+msgstr "Otrzymaliśmy Twoje zgłoszenie nr %(number)d"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Thank you for your report about “%(content)s”. We will review it and email "
+"you our decision. To add anything, write to %(support)s and quote report "
+"#%(number)d."
+msgstr ""
+"Dziękujemy za zgłoszenie dotyczące „%(content)s”. Rozpatrzymy je i wyślemy "
+"Ci decyzję e-mailem. Jeśli chcesz coś dodać, napisz na %(support)s i podaj "
+"numer zgłoszenia %(number)d."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Decision on your report #%(number)d"
+msgstr "Decyzja w sprawie Twojego zgłoszenia nr %(number)d"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "This decision was made with automated means."
+msgstr "Tę decyzję podjęto przy użyciu zautomatyzowanych środków."
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "A person on our team made this decision, without automated means."
+msgstr ""
+"Tę decyzję podjęła osoba z naszego zespołu, bez zautomatyzowanych środków."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "We reviewed your report about “%(content)s”. Our decision: %(decision)s"
+msgstr ""
+"Rozpatrzyliśmy Twoje zgłoszenie dotyczące „%(content)s”. Nasza decyzja: "
+"%(decision)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"If you disagree, write to %(support)s and quote report #%(number)d. You can "
+"also take the matter to court."
+msgstr ""
+"Jeśli się nie zgadzasz, napisz na %(support)s i podaj numer zgłoszenia "
+"%(number)d. Możesz też skierować sprawę do sądu."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
@@ -6661,6 +6838,14 @@ msgstr "Brak powiadomień."
 #: src/ludamus/templates/components/notifications.html
 msgid "View all"
 msgstr "Zobacz wszystkie"
+
+#: src/ludamus/templates/components/session_report_links.html
+msgid "Report session"
+msgstr "Zgłoś punkt programu"
+
+#: src/ludamus/templates/components/session_report_links.html
+msgid "Report host"
+msgstr "Zgłoś twórcę programu"
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"
@@ -9188,6 +9373,107 @@ msgstr "Połączenia importu dla tej sfery"
 msgid "No connections yet."
 msgstr "Brak połączeń."
 
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#, python-format
+msgid "Report #%(number)s"
+msgstr "Zgłoszenie nr %(number)s"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Back to reports"
+msgstr "Wróć do zgłoszeń"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "What was reported"
+msgstr "Co zgłoszono"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Open where it was reported"
+msgstr "Otwórz miejsce zgłoszenia"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#: src/ludamus/templates/panel/base.html
+msgid "Sphere"
+msgstr "Sfera"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+#: src/ludamus/templates/panel/bans.html
+msgid "Reason"
+msgstr "Powód"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Explanation"
+msgstr "Uzasadnienie"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Reporter"
+msgstr "Zgłaszający"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Anonymous"
+msgstr "Anonimowo"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Signed in when reporting"
+msgstr "Zalogowany podczas zgłaszania"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+msgid "Reported"
+msgstr "Zgłoszono"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Decision"
+msgstr "Decyzja"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "The reporter gets your decision by email, with how to contest it."
+msgstr ""
+"Zgłaszający dostanie decyzję e-mailem, razem z informacją, jak ją "
+"zakwestionować."
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Send decision"
+msgstr "Wyślij decyzję"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "Decided with automated means."
+msgstr "Rozpatrzono przy użyciu zautomatyzowanych środków."
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+msgid "a former team member"
+msgstr "była osoba z zespołu"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/detail.html
+#, python-format
+msgid "Decided by %(name)s."
+msgstr "Rozpatrzył(a): %(name)s."
+
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+#: src/ludamus/templates/panel/base.html
+msgid "Reports"
+msgstr "Zgłoszenia"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+msgid "Content people reported as illegal, oldest first"
+msgstr "Treści zgłoszone jako nielegalne, od najstarszych"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+msgid "Open reports"
+msgstr "Otwarte zgłoszenia"
+
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+msgid "No open reports."
+msgstr "Brak otwartych zgłoszeń."
+
+#: src/ludamus/templates/multiverse/panel/content_reports/list.html
+msgid ""
+"When someone reports a session or a profile as illegal, it waits here for a "
+"decision."
+msgstr ""
+"Gdy ktoś zgłosi punkt programu lub profil jako nielegalny, zgłoszenie "
+"poczeka tu na decyzję."
+
 #: src/ludamus/templates/multiverse/panel/guilds/create.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
@@ -9913,10 +10199,6 @@ msgid "Person"
 msgstr "Osoba"
 
 #: src/ludamus/templates/panel/bans.html
-msgid "Reason"
-msgstr "Powód"
-
-#: src/ludamus/templates/panel/bans.html
 msgid "Banned on"
 msgstr "Zbanowano"
 
@@ -10015,10 +10297,6 @@ msgstr "Ustawienia"
 #: src/ludamus/templates/panel/settings.html
 msgid "Event Settings"
 msgstr "Ustawienia wydarzenia"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Sphere"
-msgstr "Sfera"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -12889,6 +13167,27 @@ msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
 
+#: src/ludamus/templates/report/form.html
+msgid "Report illegal content"
+msgstr "Zgłoś nielegalne treści"
+
+#: src/ludamus/templates/report/form.html
+#, python-format
+msgid "You are reporting the %(kind)s “%(label)s”."
+msgstr "Zgłaszasz %(kind)s „%(label)s”."
+
+#: src/ludamus/templates/report/form.html
+msgid ""
+"A person on our team reviews every report. We email you a receipt now and "
+"our decision once it is made."
+msgstr ""
+"Każde zgłoszenie rozpatruje osoba z naszego zespołu. Potwierdzenie wyślemy "
+"Ci od razu, a decyzję, gdy zapadnie."
+
+#: src/ludamus/templates/report/form.html
+msgid "Send report"
+msgstr "Wyślij zgłoszenie"
+
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Captured emails"
 msgstr "Przechwycone e-maile"
@@ -14478,9 +14777,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr[1] "Linki w tym e-mailu"
 #~ msgstr[2] "Linki w tym e-mailu"
 #~ msgstr[3] "Linki w tym e-mailu"
-
-#~ msgid "Copy email"
-#~ msgstr "Skopiuj e-mail"
 
 #~ msgid "You're already on this sphere's team as a manager."
 #~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
