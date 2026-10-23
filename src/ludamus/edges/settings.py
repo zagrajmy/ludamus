@@ -426,7 +426,7 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 # Sender's postal address, printed under every opt-in (non-transactional) email.
-MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS")
+MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only

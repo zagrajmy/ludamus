@@ -318,7 +318,9 @@ const clearTrackingStorage = async (): Promise<void> => {
     if (!name || !isTrackingKey(name)) continue;
     await globalThis.cookieStore.delete(name);
     for (const domain of cookieDomains()) {
-      await globalThis.cookieStore.delete({ domain, name, path: "/" });
+      // A public suffix such as org.pl can hold no cookie, so its delete
+      // rejects; that says nothing about the domains still to try.
+      await globalThis.cookieStore.delete({ domain, name, path: "/" }).catch(() => null);
     }
   }
 };
