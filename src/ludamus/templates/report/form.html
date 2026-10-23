@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Report illegal content" %}
+{% endblock title %}
+{% block extra_head %}
+    <meta name="robots" content="noindex">
+{% endblock extra_head %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    <div class="max-w-xl w-full mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8">
+                <h1 class="text-2xl font-bold text-foreground">{% translate "Report illegal content" %}</h1>
+                <p class="text-sm text-foreground-secondary mt-2">
+                    {% blocktranslate with kind=kind_label label=target.label %}You are reporting the {{ kind }} “{{ label }}”.{% endblocktranslate %}
+                </p>
+                <p class="text-sm text-foreground-muted mt-1">
+                    {% translate "A person on our team reviews every report. We email you a receipt now and our decision once it is made." %}
+                </p>
+                <form method="post" class="mt-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="from" value="{{ origin }}">
+                    {% tessera_form form %}
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                        {% translate "Send report" as t_send %}
+                        {% tessera_button t_send icon="flag" %}
+                        {% translate "Cancel" as t_cancel %}
+                        {% tessera_button t_cancel href=back_url variant="secondary" %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

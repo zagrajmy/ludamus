@@ -175,6 +175,8 @@
                         <p class="text-sm text-foreground-secondary">{% translate "You are on the waiting list" %}</p>
                     {% endif %}
                 {% endif %}
+                {% url 'web:chronology:event' slug=event.slug as event_path %}
+                {% include "components/session_report_links.html" with event_path=event_path session_pk=data.session.pk host_pk=data.presenter.pk %}
             </div>
             <!-- Participants Tab -->
             {% if show_roster %}

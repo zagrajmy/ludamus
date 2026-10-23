@@ -1,0 +1,21 @@
+{% load i18n tessera %}
+{% comment %}Where a visitor reports a session, or the account that presents it, as
+illegal (DSA Art. 16). Quiet on purpose: it is there for the few who need it
+and must not compete with signing up. `from` brings the reporter back to this
+modal and becomes the report's location.{% endcomment %}
+{% url 'report' kind='session' object_id=session_pk as report_session_url %}
+<p class="mt-6 flex flex-wrap gap-x-4 text-xs text-foreground-muted">
+    <a href="{{ report_session_url }}?from={{ event_path|urlencode }}%3Fsession%3D{{ session_pk }}"
+       class="inline-flex items-center gap-1 min-h-6 underline decoration-dotted underline-offset-4 hover:text-foreground">
+        {% icon "flag" class="size-3.5" variant="micro" %}
+        {% translate "Report session" %}
+    </a>
+    {% if host_pk %}
+        {% url 'report' kind='user' object_id=host_pk as report_host_url %}
+        <a href="{{ report_host_url }}?from={{ event_path|urlencode }}%3Fsession%3D{{ session_pk }}"
+           class="inline-flex items-center gap-1 min-h-6 underline decoration-dotted underline-offset-4 hover:text-foreground">
+            {% icon "flag" class="size-3.5" variant="micro" %}
+            {% translate "Report host" %}
+        </a>
+    {% endif %}
+</p>
