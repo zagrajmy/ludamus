@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _QUANTITY_PREFIX = "quantity-"
-# Long enough for any pk or count; short enough that int() never refuses it.
+# Far above any real ticket-type pk or quantity, far below int()'s 4300-digit cap.
 _MAX_DIGITS = 9
 _CANCEL_SIGNER = Signer(salt="ticket-checkout-cancel")
 

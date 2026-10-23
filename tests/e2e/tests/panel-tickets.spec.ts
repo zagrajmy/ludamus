@@ -12,11 +12,11 @@ test.describe("Panel tickets", () => {
   test("shows takings, ticket types and orders", async ({ page }, testInfo) => {
     await page.goto(TICKETS_URL);
 
-    await expect(page.getByRole("heading", { name: "Sales so far" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sales so far", exact: true })).toBeVisible();
     const types = page.getByRole("table").first();
     await expect(types.getByRole("row", { name: /Weekend pass/ })).toContainText("120.00 zł");
     await expect(types.getByRole("row", { name: /Supporter pass/ })).toContainText("1 / 1");
-    await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Refund order" }).first()).toBeVisible();
 
     await attachArtifacts(testInfo, {
@@ -37,7 +37,7 @@ test.describe("Panel tickets", () => {
     await page.getByRole("button", { name: "Save ticket type" }).click();
 
     await expect(page).toHaveURL(TICKETS_URL);
-    await expect(page.getByText("Ticket type added.")).toBeVisible();
+    await expect(page.getByText("Ticket type added.", { exact: true })).toBeVisible();
     await expect(page.getByRole("row", { name: new RegExp(name) })).toContainText("45.00 zł");
   });
 });
