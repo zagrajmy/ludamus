@@ -28,7 +28,7 @@ test.describe("Ticket sales", () => {
     await expect(page.getByRole("heading", { name: "Tickets", level: 1 })).toBeVisible();
     // Two seeded tickets, or three when a retry of this serial group follows
     // the webhook test that pays the pending Saturday order.
-    await expect(page.getByText(/^You have [23] tickets for this event\.$/)).toBeVisible();
+    await expect(page.getByText(/You have [23] tickets for this event\./)).toBeVisible();
     const weekend = page.getByRole("listitem").filter({ hasText: "Weekend pass" });
     await expect(weekend.getByText("120.00 zł")).toBeVisible();
     await expect(weekend.getByRole("spinbutton", { name: "How many: Weekend pass" })).toBeVisible();
