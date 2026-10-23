@@ -6,6 +6,9 @@
 {% block page_title %}
     {% translate "Plan & payouts" %}
 {% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
 {% block content %}
     <div class="panel-bleed grid grid-cols-1 gap-6 items-start lg:grid-cols-2">
         <section class="card p-6" aria-labelledby="payouts-heading">

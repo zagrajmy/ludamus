@@ -12,7 +12,7 @@
     · <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"j E Y" }}</time>
 {% endblock description_text %}
 {% block body %}
-    <div class="max-w-2xl space-y-6">
+    <div class="max-w-2xl mx-auto space-y-6">
         {% if shop.viewer_ticket_count %}
             <p class="flex items-center gap-2 text-sm text-foreground">
                 {% icon "check-circle" class="size-5 shrink-0 text-success-text" variant="mini" %}
@@ -55,7 +55,7 @@
                                 {% blocktranslate asvar quantity_label with name=ticket_type.name %}How many: {{ name }}{% endblocktranslate %}
                                 {% with pk_str=ticket_type.pk|stringformat:"s" %}
                                     {% with field_name="quantity-"|add:pk_str %}
-                                        {% include "components/stepper-field.html" with name=field_name id=field_name min="0" max=offer.max_quantity aria_label=quantity_label only %}
+                                        {% include "components/stepper-field.html" with name=field_name id=field_name value="0" min="0" max=offer.max_quantity aria_label=quantity_label only %}
                                     {% endwith %}
                                 {% endwith %}
                             {% endif %}

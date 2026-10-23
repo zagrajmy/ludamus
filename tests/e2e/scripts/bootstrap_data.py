@@ -39,6 +39,7 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     Notification,
+    PayoutAccount,
     PersonalDataField,
     ProposalCategory,
     Session,
@@ -50,6 +51,10 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
+    Ticket,
+    TicketOrder,
+    TicketOrderLine,
+    TicketType,
     TimeSlot,
     Track,
     User,
@@ -378,6 +383,118 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-invitee.json",
         also_on=(CREW_HOST,),
     )
+
+
+def _create_ticket_sales_scenario(sphere: Sphere, *, tester: User) -> None:
+    """Seed an event that sells tickets, for ticket-sales.auth.spec and panel.
+
+    The sphere's Stripe account is connected (charges on), so the event page
+    offers "Buy tickets". The tester holds one paid order (two tickets) and one
+    order still in Checkout, which the spec pays with a signed webhook.
+    """
+    now = timezone.now()
+    PayoutAccount.objects.create(
+        sphere=sphere,
+        stripe_account_id="acct_e2e_ticket_fair",
+        details_submitted=True,
+        charges_enabled=True,
+        payouts_enabled=True,
+    )
+    event = _create_event(
+        sphere,
+        name="Ticket Fair",
+        slug="ticket-fair",
+        description="A convention that sells its entry on Zagrajmy.",
+        start_offset=timedelta(days=21),
+        duration_hours=48,
+        publication_offset=timedelta(days=3),
+    )
+    weekend = TicketType.objects.create(
+        event=event,
+        name="Weekend pass",
+        description="Both days, every room.",
+        price=12_000,
+        quantity=200,
+        order=0,
+    )
+    saturday = TicketType.objects.create(
+        event=event, name="Saturday only", price=7_000, order=1
+    )
+    supporter = TicketType.objects.create(
+        event=event,
+        name="Supporter pass",
+        description="A weekend pass and our thanks on the wall.",
+        price=25_000,
+        quantity=1,
+        order=2,
+    )
+    TicketType.objects.create(
+        event=event,
+        name="Last-minute day pass",
+        price=8_000,
+        sales_start=now + timedelta(days=14),
+        order=3,
+    )
+    supporter_buyer = User.objects.create_user(
+        username="e2e-ticket-supporter",
+        email="supporter@test.local",
+        password=None,
+        name="Sam Supporter",
+        slug="e2e-ticket-supporter",
+    )
+
+    def order(
+        buyer: User,
+        lines: list[tuple[TicketType, int]],
+        *,
+        status: str,
+        session_id: str,
+        codes: tuple[str, ...] = (),
+    ) -> None:
+        total = sum(kind.price * quantity for kind, quantity in lines)
+        created = TicketOrder.objects.create(
+            event=event,
+            buyer=buyer,
+            email=buyer.email,
+            status=status,
+            currency="pln",
+            total=total,
+            platform_fee=(total * 350 + 5_000) // 10_000,
+            stripe_account_id="acct_e2e_ticket_fair",
+            stripe_checkout_session_id=session_id,
+            stripe_payment_intent_id=f"pi_{session_id}" if codes else "",
+            hold_until=now + timedelta(days=1),
+            paid_at=now if codes else None,
+        )
+        remaining = iter(codes)
+        for kind, quantity in lines:
+            TicketOrderLine.objects.create(
+                order=created,
+                ticket_type=kind,
+                quantity=quantity,
+                unit_price=kind.price,
+            )
+            for _ in range(quantity if codes else 0):
+                Ticket.objects.create(
+                    order=created, ticket_type=kind, holder=buyer, code=next(remaining)
+                )
+
+    order(
+        tester,
+        [(weekend, 2)],
+        status="paid",
+        session_id="cs_e2e_paid",
+        codes=("WKND2E2EAA", "WKND2E2EBB"),
+    )
+    order(
+        supporter_buyer,
+        [(supporter, 1)],
+        status="paid",
+        session_id="cs_e2e_supporter",
+        codes=("SUPP2E2ECC",),
+    )
+    # Held in Checkout for a day; the spec completes it through the webhook.
+    order(tester, [(saturday, 1)], status="pending", session_id="cs_e2e_pending")
 
 
 def _create_notifications_scenario() -> None:
@@ -1500,6 +1617,9 @@ def main() -> None:
         is_staff=True,
     )
     sphere.managers.add(manager)
+
+    # An event selling tickets on a connected Stripe account.
+    _create_ticket_sales_scenario(sphere, tester=tester)
 
     local_manager = User.objects.create_user(
         username="auth0|local-manager",

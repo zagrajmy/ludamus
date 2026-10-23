@@ -8,7 +8,7 @@
 {% block body %}
     {# While Stripe confirms, the block re-reads itself from this same URL; the answer without hx-get stops the polling. #}
     <div id="ticket-order"
-         class="max-w-2xl space-y-6"
+         class="max-w-2xl mx-auto space-y-6"
          aria-live="polite"
          {% if confirming %}hx-get="{{ request.path }}" hx-trigger="every 3s" hx-select="#ticket-order" hx-swap="outerHTML"{% endif %}>
         <div>
