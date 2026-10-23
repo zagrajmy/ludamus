@@ -1,0 +1,38 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Confirm age range" %}
+{% endblock title %}
+{% block profile_content %}
+    <h1 class="font-semibold text-sm mb-1">{% translate "Confirm your age range" %}</h1>
+    {% include "crowd/_age_range_intro.html" %}
+    <p class="text-sm text-foreground-secondary mt-3">
+        {% translate "Choosing Under 13 disables independent sign-in. Contact us if you already have bookings." %}
+    </p>
+    {% if confirm_disable %}
+        <div class="mt-6 rounded-xl border border-danger-light bg-danger-bg p-4"
+             role="alert">
+            <h2 class="font-semibold text-sm text-foreground">{% translate "Disable your account?" %}</h2>
+            <p class="text-sm text-foreground-secondary mt-2">
+                {% translate "You chose Under 13. Your account will be disabled and you will be signed out. Only support can turn it back on." %}
+            </p>
+            <form method="post" class="mt-4 flex flex-wrap gap-3" data-ph-no-capture>
+                {% csrf_token %}
+                <input type="hidden" name="age_band" value="{{ form.age_band.value }}">
+                <input type="hidden" name="confirm" value="disable">
+                {% translate "Disable my account" as disable_label %}
+                {% tessera_button disable_label variant="danger" %}
+                {% url "user:profile-age-range" as back_url %}
+                {% translate "Choose again" as back_label %}
+                {% tessera_button back_label href=back_url variant="secondary" %}
+            </form>
+        </div>
+    {% else %}
+        <form method="post" class="mt-6 space-y-4" data-ph-no-capture>
+            {% csrf_token %}
+            {% tessera_form form %}
+            {% translate "Continue" as continue_label %}
+            {% tessera_button continue_label %}
+        </form>
+    {% endif %}
+{% endblock profile_content %}
