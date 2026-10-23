@@ -81,6 +81,16 @@ class TestSignupAgeGate:
             context_data={"form": ANY},
         )
 
+    def test_malformed_pending_sign_in_goes_home(self, client):
+        session = client.session
+        session["pending_signup"] = {"redirect_to": "/"}
+        session.save()
+
+        response = client.get(GATE_URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+        assert not User.objects.exists()
+
     def test_gate_without_pending_sign_in_goes_home(self, client):
         assert_response(
             client.get(GATE_URL), HTTPStatus.FOUND, url=reverse("web:index")

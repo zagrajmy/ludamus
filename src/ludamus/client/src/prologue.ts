@@ -278,19 +278,47 @@ const applyChoice = async (
   else stopCapture();
 };
 
+const isTrackingKey = (name: string): boolean =>
+  name.startsWith("ph_") || name.startsWith("__ph_opt_in_out_");
+
+// posthog sets its cookie on the widest domain it can, so each parent domain
+// gets its own delete.
+const cookieDomains = (): string[] => {
+  const parts = location.hostname.split(".");
+  return parts.slice(0, -1).map((_, i) => parts.slice(i).join("."));
+};
+
+const expireCookie = (name: string, domain?: string): void => {
+  const scope = domain === undefined ? "" : `; domain=${domain}`;
+  // HACK: the Cookie Store API the rule points at is undefined on iOS Safari
+  // before 18.4 and outside secure contexts, where a tracking cookie would
+  // otherwise outlive the consent that set it.
+  // oxlint-disable-next-line unicorn/no-document-cookie
+  document.cookie = `${name}=; path=/; max-age=0${scope}`;
+};
+
+// NOTE: the stored choice goes too. A page without posthog-config is signed
+// out or ineligible, and on a shared device the next person to sign in must
+// be asked again rather than inherit the previous one's consent.
 const clearTrackingStorage = async (): Promise<void> => {
   localStorage.removeItem(STORAGE_KEY);
   for (const key of Object.keys(localStorage)) {
-    if (key.startsWith("ph_") || key.startsWith("__ph_opt_in_out_")) localStorage.removeItem(key);
+    if (isTrackingKey(key)) localStorage.removeItem(key);
   }
-  if (!("cookieStore" in globalThis)) return;
+  if (!("cookieStore" in globalThis)) {
+    for (const pair of document.cookie.split(";")) {
+      const name = pair.split("=")[0]?.trim() ?? "";
+      if (!isTrackingKey(name)) continue;
+      expireCookie(name);
+      for (const domain of cookieDomains()) expireCookie(name, domain);
+    }
+    return;
+  }
   for (const { name } of await globalThis.cookieStore.getAll()) {
-    if (!name || (!name.startsWith("ph_") && !name.startsWith("__ph_opt_in_out_"))) continue;
+    if (!name || !isTrackingKey(name)) continue;
     await globalThis.cookieStore.delete(name);
-    const parts = location.hostname.split(".");
-    while (parts.length > 1) {
-      await globalThis.cookieStore.delete({ domain: parts.join("."), name, path: "/" });
-      parts.shift();
+    for (const domain of cookieDomains()) {
+      await globalThis.cookieStore.delete({ domain, name, path: "/" });
     }
   }
 };

@@ -122,6 +122,24 @@ test.describe("Under thirteen", () => {
 
 test.describe("Existing account with no declared age", () => {
   test.use({ storageState: state("unknown"), consentSeed: "accepted" });
+  test("clears tracking cookies where cookieStore is missing", async ({ page }) => {
+    await page.addInitScript(() => {
+      for (let scope = globalThis; scope; scope = Object.getPrototypeOf(scope)) {
+        Reflect.deleteProperty(scope, "cookieStore");
+      }
+      document.cookie = "ph_old_posthog=old; Path=/";
+    });
+    await page.goto(PRIVACY_URL);
+    await expect(page.getByText(/Your age range is not confirmed/)).toBeVisible();
+    expect(await page.evaluate(() => "cookieStore" in globalThis)).toBe(false);
+    expect(
+      await page
+        .context()
+        .cookies()
+        .then((cookies) => cookies.filter((cookie) => cookie.name.startsWith("ph_"))),
+    ).toEqual([]);
+  });
+
   test("ignores inherited tracking consent and can confirm its age", async ({ page }, testInfo) => {
     const analyticsRequests: string[] = [];
     page.on("request", (request) => {

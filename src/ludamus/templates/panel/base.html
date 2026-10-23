@@ -46,9 +46,6 @@ floating UI for the same corner.{% endcomment %}
     panel-shell app-shell relative font-sans antialiased bg-background text-foreground
 {% endblock body_class %}
 {% block main_region %}
-    {% comment %}data-ph-mask masks every panel text node in session
-    recordings: these pages list other people's personal data, which the
-    organizer's own analytics consent does not cover.{% endcomment %}
     <div class="flex flex-1">
         <!-- Mobile Sidebar Overlay -->
         <button type="button"
@@ -176,6 +173,9 @@ floating UI for the same corner.{% endcomment %}
         Pages that run their cards to the viewport edge below sm mark their
         wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
         {% endcomment %}
+        {% comment %}data-ph-mask masks every panel text node in session
+        recordings: these pages list other people's personal data, which the
+        organizer's own analytics consent does not cover.{% endcomment %}
         <main data-ph-mask
               class="flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
             <!-- Top Bar -->

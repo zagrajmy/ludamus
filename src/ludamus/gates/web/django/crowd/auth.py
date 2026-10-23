@@ -283,10 +283,9 @@ class Auth0LoginCallbackActionView(RedirectView):
 
         userinfo = self._get_userinfo()
         if not self.request.services.crowd_auth.has_account(userinfo.username):
-            self.request.session[PENDING_SIGNUP_SESSION_KEY] = {
-                "userinfo": userinfo.model_dump(),
-                "redirect_to": redirect_to,
-            }
+            self.request.session[PENDING_SIGNUP_SESSION_KEY] = _PendingSignup(
+                userinfo=userinfo, redirect_to=redirect_to
+            ).model_dump()
             return self.request.build_absolute_uri(
                 reverse("web:crowd:auth0:signup-age")
             )
@@ -390,19 +389,34 @@ def sign_out_to_guardian_page(request: RootRequest) -> TemplateResponse:
     )
 
 
+class _PendingSignup(BaseModel):
+    userinfo: Auth0UserInfo
+    redirect_to: str = ""
+    confirmation_token: str = ""
+
+
+def _read_pending_signup(request: RootRequest) -> _PendingSignup | None:
+    if request.context.current_user_slug:
+        return None
+    try:
+        return _PendingSignup.model_validate(
+            request.session.get(PENDING_SIGNUP_SESSION_KEY)
+        )
+    except PydanticValidationError:
+        return None
+
+
 class Auth0SignupAgePageView(View):
     """A first Auth0 sign-in stops here before its account exists."""
 
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
-        if request.context.current_user_slug or not isinstance(pending, dict):
+        if (pending := _read_pending_signup(request)) is None:
             return redirect("web:index")
         token = signing.dumps({"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT)
-        request.session[PENDING_SIGNUP_SESSION_KEY] = {
-            **pending,
-            "confirmation_token": token,
-        }
+        request.session[PENDING_SIGNUP_SESSION_KEY] = pending.model_copy(
+            update={"confirmation_token": token}
+        ).model_dump()
         return TemplateResponse(
             request,
             "crowd/signup_age.html",
@@ -411,12 +425,9 @@ class Auth0SignupAgePageView(View):
 
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
-        pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
-        if request.context.current_user_slug or not isinstance(pending, dict):
+        if (pending := _read_pending_signup(request)) is None:
             return redirect("web:index")
-        if not _valid_signup_confirmation(
-            request, pending.get("confirmation_token", "")
-        ):
+        if not _valid_signup_confirmation(request, pending.confirmation_token):
             messages.error(
                 request,
                 _("This age confirmation has expired. Choose your age range again."),
@@ -431,8 +442,8 @@ class Auth0SignupAgePageView(View):
         logger.info("Signup age range confirmed")
         destination = _finish_login(
             request,
-            userinfo=Auth0UserInfo.model_validate(pending["userinfo"]),
-            redirect_to=pending.get("redirect_to") or "",
+            userinfo=pending.userinfo,
+            redirect_to=pending.redirect_to,
             age_band=age_band,
         )
         # NOTE: CSP form-action stops a form POST from redirecting to another
