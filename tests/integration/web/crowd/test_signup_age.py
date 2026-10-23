@@ -224,6 +224,38 @@ class TestProfileAgeRange:
     def test_requires_login(self, client):
         assert_login_required(client.get(PROFILE_AGE_URL), PROFILE_AGE_URL)
 
+    def test_asks_a_signed_in_account_for_its_range(self, authenticated_client):
+        response = authenticated_client.get(PROFILE_AGE_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/user/age_range.html",
+            context_data={"form": ANY, "profile_active_tab": "privacy"},
+        )
+
+    def test_invalid_choice_changes_nothing(self, authenticated_client, active_user):
+        response = _update(authenticated_client, "maybe")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/user/age_range.html",
+            context_data={
+                "form": FormErrorsMatcher(
+                    age_band=[
+                        (
+                            "Select a valid choice. "
+                            "maybe is not one of the available choices."
+                        )
+                    ]
+                ),
+                "profile_active_tab": "privacy",
+            },
+        )
+        active_user.refresh_from_db()
+        assert active_user.age_band == "unknown"
+
     def test_existing_under_thirteen_account_cannot_sign_back_in(
         self, authenticated_client, active_user, faker
     ):

@@ -44,7 +44,7 @@ class ProfileAgeRangePageView(LoginRequiredMixin, View):
         user_slug = request.context.current_user_slug
         if (age_band := form.cleaned_data["age_band"]) is None:
             request.services.crowd_auth.disable_underage_account(user_slug)
-            logger.info("Account disabled: declared below minimum age: %s", user_slug)
+            logger.info("Account disabled: declared below minimum age")
             return sign_out_to_guardian_page(request)
         request.services.crowd_auth.confirm_age(user_slug=user_slug, age_band=age_band)
         logger.info("Account age range updated")
