@@ -1,0 +1,59 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera report_tags %}
+{% block title %}
+    {% translate "Reports" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Reports" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% translate "Content people reported as illegal, oldest first" %}
+{% endblock page_subtitle %}
+{% block content %}
+    {% if reports %}
+        {% tessera_table flush=True %}
+            <caption class="sr-only">{% translate "Open reports" %}</caption>
+            <thead class="bg-bg-tertiary rounded-t-lg">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">
+                        {% translate "Content" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">
+                        {% translate "Reason" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">
+                        {% translate "Reported" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+                {% for report in reports %}
+                    <tr class="hover:bg-bg-tertiary">
+                        <td class="px-6 py-4 text-sm">
+                            <a href="{% url 'multiverse:panel:report-detail' pk=report.pk %}"
+                               data-row-action
+                               class="font-medium text-foreground hover:text-primary">{{ report.content_label }}</a>
+                            <span class="block text-xs text-foreground-muted">{{ report.kind|kind_label|capfirst }} · {{ report.sphere_name }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-foreground-secondary">{{ report.reason|reason_label }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
+                            <time datetime="{{ report.creation_time|date:'c' }}">{{ report.creation_time|date:"SHORT_DATETIME_FORMAT" }}</time>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% endtessera_table %}
+    {% else %}
+        <div class="panel-bleed">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-1">{% translate "No open reports." %}</p>
+                <p class="text-sm text-foreground-muted">
+                    {% translate "When someone reports a session or a profile as illegal, it waits here for a decision." %}
+                </p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock content %}

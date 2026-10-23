@@ -151,6 +151,11 @@ floating UI for the same corner.{% endcomment %}
                         {% sidebar_link url="multiverse:panel:team" icon="key" label=t_team key="team" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
+                        {# One queue for the whole platform, run from the root sphere. #}
+                        {% if is_root_sphere %}
+                            {% translate "Reports" as t_reports %}
+                            {% sidebar_link url="multiverse:panel:reports" icon="flag" label=t_reports key="reports" %}
+                        {% endif %}
                         {% translate "Sphere settings" as t_sphere_settings %}
                         {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
                     {% endsidebar_cat %}

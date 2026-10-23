@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from ludamus.gates.web.django.forms import logo_field
 from ludamus.gates.web.django.sphere.roles import ROLE_COPY
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.report import REPORT_DECISION_MAX_LENGTH
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 
@@ -49,4 +50,17 @@ class SphereInvitationForm(forms.Form):
         strip=True,
         help_text=_("Only you and other managers see this."),
         widget=forms.TextInput(attrs={"placeholder": _("e.g. Kasia, programme")}),
+    )
+
+
+class ReportDecisionForm(forms.Form):
+    decision = forms.CharField(
+        label=_("Your decision"),
+        help_text=_(
+            "Sent to the reporter as you write it. Say what you did about the "
+            "content and why."
+        ),
+        max_length=REPORT_DECISION_MAX_LENGTH,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 4}),
     )

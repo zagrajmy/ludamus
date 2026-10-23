@@ -1,0 +1,93 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera report_tags %}
+{% block title %}
+    {% blocktranslate with number=report.pk %}Report #{{ number }}{% endblocktranslate %}
+{% endblock title %}
+{% block page_title %}
+    {% blocktranslate with number=report.pk %}Report #{{ number }}{% endblocktranslate %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ report.content_label }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% translate "Back to reports" as t_back %}
+    {% url 'multiverse:panel:reports' as back_url %}
+    {% tessera_button t_back href=back_url variant="secondary" %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="panel-bleed grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section class="card p-6" aria-labelledby="report-heading">
+            <h2 id="report-heading"
+                class="text-lg font-semibold text-foreground mb-4">{% translate "What was reported" %}</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
+                <dt class="text-foreground-muted">{% translate "Content" %}</dt>
+                <dd class="text-foreground min-w-0 break-words">
+                    {{ report.kind|kind_label|capfirst }}: {{ report.content_label }}
+                    <a href="{{ report.location }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="block text-primary hover:text-primary/80 break-all">{% translate "Open where it was reported" %}</a>
+                </dd>
+                <dt class="text-foreground-muted">{% translate "Sphere" %}</dt>
+                <dd class="text-foreground">
+                    {{ report.sphere_name|default:"—" }}
+                </dd>
+                <dt class="text-foreground-muted">{% translate "Reason" %}</dt>
+                <dd class="text-foreground">
+                    {{ report.reason|reason_label }}
+                </dd>
+                <dt class="text-foreground-muted">{% translate "Explanation" %}</dt>
+                <dd class="text-foreground break-words" data-ph-no-capture>
+                    {{ report.explanation|linebreaksbr }}
+                </dd>
+                <dt class="text-foreground-muted">{% translate "Reporter" %}</dt>
+                <dd class="text-foreground break-words" data-ph-no-capture data-ph-block>
+                    {% if report.reporter_name or report.reporter_email %}
+                        {{ report.reporter_name }}
+                        {% if report.reporter_email %}
+                            <a href="mailto:{{ report.reporter_email }}"
+                               class="block text-primary hover:text-primary/80 break-all">{{ report.reporter_email }}</a>
+                        {% endif %}
+                    {% else %}
+                        {% translate "Anonymous" %}
+                    {% endif %}
+                    {% if report.reporter_user_id %}
+                        <span class="block text-xs text-foreground-muted">{% translate "Signed in when reporting" %}</span>
+                    {% endif %}
+                </dd>
+                <dt class="text-foreground-muted">{% translate "Reported" %}</dt>
+                <dd class="text-foreground">
+                    <time datetime="{{ report.creation_time|date:'c' }}">{{ report.creation_time|date:"SHORT_DATETIME_FORMAT" }}</time>
+                </dd>
+            </dl>
+        </section>
+        <section class="card p-6" aria-labelledby="decision-heading">
+            <h2 id="decision-heading"
+                class="text-lg font-semibold text-foreground mb-1">{% translate "Decision" %}</h2>
+            {% if form %}
+                <p class="text-sm text-foreground-muted mb-4">
+                    {% translate "The reporter gets your decision by email, with how to contest it." %}
+                </p>
+                <form method="post"
+                      action="{% url 'multiverse:panel:report-decide' pk=report.pk %}">
+                    {% csrf_token %}
+                    {% tessera_form form %}
+                    <div class="mt-4">
+                        {% translate "Send decision" as t_send %}
+                        {% tessera_button t_send icon="paper-airplane" full_width_mobile=False %}
+                    </div>
+                </form>
+            {% else %}
+                <p class="text-sm text-foreground break-words mt-3">{{ report.decision|linebreaksbr }}</p>
+                <p class="text-xs text-foreground-muted mt-3">
+                    {% if report.decided_automatically %}
+                        {% translate "Decided with automated means." %}
+                    {% else %}
+                        {% blocktranslate with name=report.decided_by_name|default:_("a former team member") %}Decided by {{ name }}.{% endblocktranslate %}
+                    {% endif %}
+                    <time datetime="{{ report.decided_at|date:'c' }}">{{ report.decided_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                </p>
+            {% endif %}
+        </section>
+    </div>
+{% endblock content %}
