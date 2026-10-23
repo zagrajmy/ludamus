@@ -222,7 +222,7 @@ class TestCheckoutCompleted:
         )
         assert stripe_api.calls[0].request.headers["Stripe-Account"] == ACCOUNT_ID
 
-    def test_late_payment_stripe_will_not_refund_changes_nothing(
+    def test_late_payment_stripe_will_not_refund_asks_for_a_retry(
         self, client, paid_setup, stripe_api
     ):
         TicketOrder.objects.filter(pk=paid_setup.pk).update(status=OrderStatus.FAILED)
@@ -235,9 +235,18 @@ class TestCheckoutCompleted:
 
         response = _connect(client, "checkout.session.completed", _checkout())
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert_response(
+            response,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            json={"error": "Stripe could not be reached; retry later."},
+        )
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.FAILED
         assert not Ticket.objects.exists()
+        assert (
+            stripe_api.calls[0]
+            .request.headers["Idempotency-Key"]
+            .endswith("-refund-pi_test_1")
+        )
 
     def test_unknown_session_is_acknowledged(self, client, paid_setup):
         response = _connect(

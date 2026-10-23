@@ -42,7 +42,6 @@ from ludamus.pacts.billing import (
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import (
     CheckoutEvent,
-    CheckoutMode,
     CheckoutStage,
     SubscriptionEvent,
     UnhandledEvent,
@@ -122,19 +121,6 @@ def _start(service):
         success_url=_SUCCESS_URL,
         cancel_url=_CANCEL_URL,
     )
-
-
-def _subscription_checkout(*, subscription_id=_SUBSCRIPTION, **overrides):
-    fields = {
-        "stage": CheckoutStage.COMPLETED,
-        "mode": CheckoutMode.SUBSCRIPTION,
-        "session_id": "cs_plan",
-        "paid": True,
-        "payment_intent_id": "",
-        "customer_id": _CUSTOMER,
-        "subscription_id": subscription_id,
-    }
-    return CheckoutEvent(**(fields | overrides))
 
 
 def _deliver(service, billing, event, *, live, customer_id=_CUSTOMER):
@@ -266,10 +252,12 @@ class TestWebhook:
         "event",
         (
             UnhandledEvent(type="invoice.created"),
-            _subscription_checkout(mode=CheckoutMode.PAYMENT),
-            _subscription_checkout(stage=CheckoutStage.EXPIRED),
-            _subscription_checkout(subscription_id=""),
-            SubscriptionEvent(subscription_id=""),
+            CheckoutEvent(
+                stage=CheckoutStage.COMPLETED,
+                session_id="cs_tickets",
+                paid=True,
+                payment_intent_id="pi_1",
+            ),
         ),
     )
     def test_event_not_about_a_plan_subscription_changes_nothing(
@@ -302,7 +290,12 @@ class TestWebhook:
     def test_paid_checkout_grants_the_yearly_plan(self, service, plans, billing):
         plans.add(stripe_customer_id=_CUSTOMER)
 
-        outcome = _deliver(service, billing, _subscription_checkout(), live=True)
+        outcome = _deliver(
+            service,
+            billing,
+            SubscriptionEvent(subscription_id=_SUBSCRIPTION),
+            live=True,
+        )
 
         assert outcome is WebhookOutcome.SUBSCRIBED
         assert plans.rows[SPHERE_ID] == SpherePlanDTO(

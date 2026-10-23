@@ -437,5 +437,9 @@ class FakeTicketPayments:
         self._answer("refund")
         self.refunded.append(payment_intent_id)
 
+    def refund_once(self, *, account_id, payment_intent_id):
+        self._answer("refund_once")
+        self.refunded.append(payment_intent_id)
+
     def parse_webhook(self, *, payload, signature):
         return self.event

@@ -25,7 +25,6 @@ from ludamus.pacts.payment_api import (
     AccountEvent,
     AccountState,
     CheckoutEvent,
-    CheckoutMode,
     CheckoutStage,
     InvalidWebhookError,
     PaymentProviderError,
@@ -198,6 +197,24 @@ class StripeConnect(TicketPaymentsProtocol):
             )
 
     def refund(self, *, account_id: str, payment_intent_id: str) -> None:
+        # No idempotency key: Stripe would replay a refused refund for a day;
+        # the order's status guard is what stops a double refund.
+        self._refund(payment_intent_id, options={"stripe_account": account_id})
+
+    def refund_once(self, *, account_id: str, payment_intent_id: str) -> None:
+        # No order guards this one: a refund that went through but timed out
+        # must replay as done when the webhook retries, not fail as a second.
+        self._refund(
+            payment_intent_id,
+            options={
+                "stripe_account": account_id,
+                "idempotency_key": f"{self._namespace}-refund-{payment_intent_id}",
+            },
+        )
+
+    def _refund(
+        self, payment_intent_id: str, *, options: stripe.RequestOptions
+    ) -> None:
         client = _require(self._client)
         with _call("refund"):
             client.v1.refunds.create(
@@ -207,9 +224,7 @@ class StripeConnect(TicketPaymentsProtocol):
                     # back to the organizer too.
                     "refund_application_fee": True,
                 },
-                # No idempotency key: Stripe would replay a refused refund for a
-                # day; the order's status guard is what stops a double refund.
-                options={"stripe_account": account_id},
+                options=options,
             )
 
     def parse_webhook(self, *, payload: bytes, signature: str) -> StripeWebhookEvent:
@@ -333,7 +348,6 @@ class _CheckoutSession(BaseModel):
     mode: str = ""
     payment_status: str = ""
     payment_intent: _IdOrResource = None
-    customer: _IdOrResource = None
     subscription: _IdOrResource = None
 
 
@@ -405,17 +419,20 @@ def _event(envelope: _Envelope) -> StripeWebhookEvent:
 
 def _checkout_event(
     stage: CheckoutStage, raw: dict[str, JsonValue]
-) -> CheckoutEvent | UnhandledEvent:
+) -> CheckoutEvent | SubscriptionEvent | UnhandledEvent:
     session = _CheckoutSession.model_validate(raw)
-    if session.mode not in CheckoutMode:
-        # A setup-mode session, say: nothing we create.
-        return UnhandledEvent(type=stage)
-    return CheckoutEvent(
-        stage=stage,
-        mode=CheckoutMode(session.mode),
-        session_id=session.id,
-        paid=session.payment_status in _PAID_STATUSES,
-        payment_intent_id=_id(session.payment_intent),
-        customer_id=_id(session.customer),
-        subscription_id=_id(session.subscription),
-    )
+    match session.mode:
+        case "payment":
+            return CheckoutEvent(
+                stage=stage,
+                session_id=session.id,
+                paid=session.payment_status in _PAID_STATUSES,
+                payment_intent_id=_id(session.payment_intent),
+            )
+        case "subscription" if stage is CheckoutStage.COMPLETED and (
+            subscription_id := _id(session.subscription)
+        ):
+            # The yearly plan bought: what it now is, Stripe is asked.
+            return SubscriptionEvent(subscription_id=subscription_id)
+    # A setup-mode session, say, or a subscription not yet made.
+    return UnhandledEvent(type=stage)

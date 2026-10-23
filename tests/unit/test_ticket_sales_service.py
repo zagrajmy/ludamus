@@ -55,8 +55,8 @@ from ludamus.pacts.payment_api import (
     AccountEvent,
     AccountState,
     CheckoutEvent,
-    CheckoutMode,
     CheckoutStage,
+    PaymentProviderError,
     RefundEvent,
     SubscriptionEvent,
     UnhandledEvent,
@@ -172,15 +172,9 @@ def _order(orders, ticket_type, *, quantity=2, **overrides):
     )
 
 
-def _checkout(stage, *, session_id="cs_1", paid=True, mode=CheckoutMode.PAYMENT):
+def _checkout(stage, *, session_id="cs_1", paid=True):
     return CheckoutEvent(
-        stage=stage,
-        mode=mode,
-        session_id=session_id,
-        paid=paid,
-        payment_intent_id="pi_1",
-        customer_id="",
-        subscription_id="",
+        stage=stage, session_id=session_id, paid=paid, payment_intent_id="pi_1"
     )
 
 
@@ -529,7 +523,6 @@ class TestWebhook:
     @pytest.mark.parametrize(
         "event",
         (
-            _checkout(CheckoutStage.COMPLETED, mode=CheckoutMode.SUBSCRIPTION),
             SubscriptionEvent(subscription_id="sub_1"),
             UnhandledEvent(type="customer.created"),
             _checkout(CheckoutStage.COMPLETED, session_id="cs_other"),
@@ -638,8 +631,8 @@ class TestWebhook:
         assert payments.refunded == ["pi_1"]
         assert book.orders[order.pk] == order
 
-    def test_late_payment_stripe_will_not_refund_is_left_for_a_human(
-        self, sales, book, types, orders, payments, caplog
+    def test_late_payment_stripe_will_not_refund_fails_the_delivery(
+        self, sales, book, types, orders, payments
     ):
         order = _order(
             orders,
@@ -647,20 +640,13 @@ class TestWebhook:
             stripe_checkout_session_id="cs_1",
             status=OrderStatus.EXPIRED,
         )
-        payments.down.add("refund")
+        payments.down.add("refund_once")
 
-        with caplog.at_level(logging.ERROR, logger=_TICKETS_LOGGER):
-            outcome = _deliver(sales, payments, _checkout(CheckoutStage.COMPLETED))
+        with pytest.raises(PaymentProviderError):
+            _deliver(sales, payments, _checkout(CheckoutStage.COMPLETED))
 
-        assert outcome is WebhookOutcome.STALE
         assert payments.refunded == []
         assert book.orders[order.pk] == order
-        assert caplog.messages == [
-            (
-                "Late ticket payment not refunded, refund it by hand: event=1 order=1"
-                " payment_intent=pi_1"
-            )
-        ]
 
     def test_payment_after_the_seats_were_resold_is_flagged_as_oversold(
         self, sales, book, types, orders, payments, caplog

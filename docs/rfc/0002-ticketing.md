@@ -170,7 +170,7 @@ it may leave from it.
 | Buyer abandons Checkout                     | Hold lapses at `hold_until`; `checkout.session.expired` marks it. |
 | Webhook arrives twice or out of order       | Transition guard; the late delivery is a 200 `stale` no-op.       |
 | Paid webhook arrives after the hold         | Seats stay held for `WEBHOOK_GRACE`; an oversell is logged.       |
-| Payment lands for an order we gave up on    | Refunded at once, our fee included; nothing is issued.            |
+| Payment lands for an order we gave up on    | Refunded at once (retried by Stripe if refused); nothing issued.  |
 | Webhook never arrives                       | Order page shows "confirming"; Stripe retries for 3 days.         |
 | Stripe API down when creating Checkout      | Order is cancelled, hold released, buyer sees a retry message.    |
 | Organizer's account loses `charges_enabled` | Tickets page stops selling, panel says why and links onboarding.  |

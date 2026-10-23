@@ -20,7 +20,6 @@ from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import (
     AccountEvent,
     CheckoutEvent,
-    CheckoutMode,
     CheckoutStage,
     PaymentProviderError,
     RefundEvent,
@@ -73,6 +72,7 @@ if TYPE_CHECKING:
         OrderDTO,
         OrderLineData,
         OwnedTicketDTO,
+        PayoutAccountDTO,
         PayoutAccountRepositoryProtocol,
         TicketOrderRepositoryProtocol,
         TicketPaymentsProtocol,
@@ -218,7 +218,9 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 offer_for(ticket_type, now=now, closes_at=event.end_time)
                 for ticket_type in types
             ],
-            accepting_payments=self._accepting_payments(sphere_id=event.sphere_id),
+            accepting_payments=self._accepting_payments(
+                self._accounts.read(sphere_id=event.sphere_id)
+            ),
             viewer_ticket_count=(
                 0
                 if viewer_id is None
@@ -228,12 +230,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
             ),
         )
 
-    def _accepting_payments(self, *, sphere_id: int) -> bool:
-        return (
-            self._payments.enabled
-            and payout_status(self._accounts.read(sphere_id=sphere_id))
-            is PayoutStatus.ACTIVE
-        )
+    def _accepting_payments(self, account: PayoutAccountDTO | None) -> bool:
+        return self._payments.enabled and payout_status(account) is PayoutStatus.ACTIVE
 
     def start_checkout(
         self,
@@ -250,7 +248,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
         if sum(wanted.values()) > MAX_TICKETS_PER_ORDER:
             return CheckoutStartDTO(outcome=CheckoutOutcome.TOO_MANY)
         account = self._accounts.read(sphere_id=event.sphere_id)
-        if not self._payments.enabled or account is None or not account.charges_enabled:
+        if account is None or not self._accepting_payments(account):
             return CheckoutStartDTO(outcome=CheckoutOutcome.SALES_CLOSED)
 
         with self._transaction.atomic():
@@ -390,7 +388,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 )
             case RefundEvent(fully_refunded=True):
                 return self._refunded(event)
-            case CheckoutEvent(mode=CheckoutMode.PAYMENT):
+            case CheckoutEvent():
                 return self._checkout(event)
         return WebhookOutcome.NOT_OURS
 
@@ -411,7 +409,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
         match event.stage:
             case CheckoutStage.COMPLETED if not event.paid:
                 return self._settle(
-                    order.pk,
+                    pk=order.pk,
                     to=OrderStatus.AWAITING_PAYMENT,
                     outcome=WebhookOutcome.AWAITING_PAYMENT,
                     changes={"stripe_payment_intent_id": event.payment_intent_id},
@@ -424,19 +422,19 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 # Final even if it beats the "completed" that preceded it:
                 # that one then finds the order failed and holds nothing.
                 return self._settle(
-                    order.pk, to=OrderStatus.FAILED, outcome=WebhookOutcome.FAILED
+                    pk=order.pk, to=OrderStatus.FAILED, outcome=WebhookOutcome.FAILED
                 )
             case CheckoutStage.EXPIRED:
                 return self._settle(
-                    order.pk, to=OrderStatus.EXPIRED, outcome=WebhookOutcome.EXPIRED
+                    pk=order.pk, to=OrderStatus.EXPIRED, outcome=WebhookOutcome.EXPIRED
                 )
             case _:
                 assert_never(event.stage)
 
     def _settle(
         self,
-        pk: int,
         *,
+        pk: int,
         to: OrderStatus,
         outcome: WebhookOutcome,
         changes: OrderChanges | None = None,
@@ -475,20 +473,11 @@ class TicketSalesService(TicketSalesServiceProtocol):
         self, order: OrderDTO, *, payment_intent_id: str
     ) -> WebhookOutcome:
         # Stripe took money for an order we gave up on. Its seats may be gone,
-        # so nothing is issued and the money goes straight back.
-        try:
-            self._payments.refund(
-                account_id=order.stripe_account_id, payment_intent_id=payment_intent_id
-            )
-        except PaymentProviderError:
-            logger.exception(
-                "Late ticket payment not refunded, refund it by hand: event=%s"
-                " order=%s payment_intent=%s",
-                order.event_id,
-                order.pk,
-                payment_intent_id,
-            )
-            return WebhookOutcome.STALE
+        # so nothing is issued and the money goes straight back; if Stripe
+        # refuses, the error answers the webhook and Stripe retries it.
+        self._payments.refund_once(
+            account_id=order.stripe_account_id, payment_intent_id=payment_intent_id
+        )
         logger.warning(
             "Ticket order paid after it %s, refunded: event=%s order=%s",
             order.status,

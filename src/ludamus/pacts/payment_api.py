@@ -22,13 +22,6 @@ class InvalidWebhookError(Exception):
     """The payload is not signed by Stripe with our secret, or is not JSON."""
 
 
-class CheckoutMode(StrEnum):
-    # A ticket order, on an organizer's account.
-    PAYMENT = "payment"
-    # The yearly plan, on Zagrajmy's account.
-    SUBSCRIPTION = "subscription"
-
-
 class CheckoutStage(StrEnum):
     COMPLETED = "checkout.session.completed"
     ASYNC_SUCCEEDED = "checkout.session.async_payment_succeeded"
@@ -63,13 +56,12 @@ class AccountState(BaseModel):
 
 
 class CheckoutEvent(BaseModel):
+    """A ticket order's Checkout Session; the yearly plan's is a SubscriptionEvent."""
+
     stage: CheckoutStage
-    mode: CheckoutMode
     session_id: str
     paid: bool
     payment_intent_id: str
-    customer_id: str
-    subscription_id: str
 
 
 class RefundEvent(BaseModel):

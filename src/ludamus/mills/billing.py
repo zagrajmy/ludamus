@@ -17,13 +17,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.billing import PlanKind, PlanPageDTO, PlanServiceProtocol, PlanSource
 from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.payment_api import (
-    CheckoutEvent,
-    CheckoutMode,
-    CheckoutStage,
-    SubscriptionEvent,
-    WebhookOutcome,
-)
+from ludamus.pacts.payment_api import SubscriptionEvent, WebhookOutcome
 from ludamus.specs.billing import effective_plan
 from ludamus.specs.tickets import platform_fee_percent
 
@@ -119,13 +113,8 @@ class PlanService(PlanServiceProtocol):
 
     def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome:
         match self._billing.parse_webhook(payload=payload, signature=signature):
-            case (
-                CheckoutEvent(
-                    mode=CheckoutMode.SUBSCRIPTION, stage=CheckoutStage.COMPLETED
-                )
-                | SubscriptionEvent()
-            ) as event if event.subscription_id:
-                return self._sync(event.subscription_id)
+            case SubscriptionEvent(subscription_id=subscription_id):
+                return self._sync(subscription_id)
         return WebhookOutcome.NOT_OURS
 
     def _sync(self, subscription_id: str) -> WebhookOutcome:
@@ -135,10 +124,10 @@ class PlanService(PlanServiceProtocol):
             plan = self._plans.lock_by_customer(customer_id=state.customer_id)
             if plan is None:
                 return WebhookOutcome.NOT_OURS
-            return self._record(plan, subscription_id=subscription_id, state=state)
+            return self._record(plan=plan, subscription_id=subscription_id, state=state)
 
     def _record(
-        self, plan: SpherePlanDTO, *, subscription_id: str, state: SubscriptionState
+        self, *, plan: SpherePlanDTO, subscription_id: str, state: SubscriptionState
     ) -> WebhookOutcome:
         if (
             plan.source is PlanSource.MANUAL
