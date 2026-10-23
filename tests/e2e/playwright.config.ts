@@ -122,6 +122,7 @@ export default defineConfig({
         /event-maps\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        /uncategorized-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
         /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,

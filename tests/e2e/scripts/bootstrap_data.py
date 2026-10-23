@@ -1443,6 +1443,7 @@ def _create_single_slot_event(sphere: Sphere) -> None:
         publication_offset=timedelta(days=2),
         enrollment_banner="Enrollment is open",
         proposals_open=True,
+        allow_anonymous_proposals=True,
     )
     venue = _create_venue(event, name="Lone Venue", slug="lone-venue")
     area = _create_area(venue, name="Lone Area", slug="lone-area")
