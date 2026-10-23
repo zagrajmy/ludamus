@@ -15,7 +15,7 @@
 //               pageload where it already runs opts out and stops recording.
 import type posthogClient from "posthog-js/dist/module.full.no-external";
 
-let posthog: typeof posthogClient;
+let posthog: typeof posthogClient | undefined;
 
 const STORAGE_KEY = "prologue.consent";
 
@@ -44,17 +44,17 @@ const readConsent = (): Consent => {
   return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
-const syncIdentity = (userId: string | null): void => {
+const syncIdentity = (client: typeof posthogClient, userId: string | null): void => {
   // PostHog persists distinct_id across pageloads, so a logout leaves the
   // previous user identified until we reset. Asking posthog rather than
   // tracking it ourselves keeps one source of truth: a mirror desyncs when
   // site data is cleared, and then nobody is ever identified again.
-  if (posthog.get_distinct_id() === userId) return;
+  if (client.get_distinct_id() === userId) return;
   // identify() on an already-identified instance silently re-registers the id
   // without emitting $identify or linking the anonymous history, so a switch
   // between accounts has to reset first.
-  if (posthog._isIdentified()) posthog.reset();
-  if (userId !== null) posthog.identify(userId);
+  if (client._isIdentified()) client.reset();
+  if (userId !== null) client.identify(userId);
 };
 
 // Claim links and session offers authenticate by bearing a token in the path —
@@ -231,7 +231,7 @@ const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
       slimDOMOptions: { headMetaSocial: true },
     },
   });
-  syncIdentity(config.user_id);
+  syncIdentity(posthog, config.user_id);
 };
 
 // The profile Privacy tab shows the stored choice: the server cannot know it
@@ -254,7 +254,7 @@ const startCapture = async (config: PosthogServerConfig): Promise<void> => {
   posthog.set_config({ persistence: "localStorage+cookie" });
   posthog.opt_in_capturing();
   posthog.startSessionRecording();
-  syncIdentity(config.user_id);
+  syncIdentity(posthog, config.user_id);
 };
 
 const stopCapture = (): void => {
@@ -265,7 +265,7 @@ const stopCapture = (): void => {
   // withdrawal. Dropping the identity matters too, or re-accepting later
   // resumes capture under the person who declined.
   posthog.stopSessionRecording();
-  syncIdentity(null);
+  syncIdentity(posthog, null);
   posthog.opt_out_capturing();
 };
 

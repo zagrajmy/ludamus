@@ -73,7 +73,8 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
 
     def subscribe(self, *, sphere_id: int, user_id: int) -> None:
         with self._transaction.atomic():
-            if not self._subscriptions.can_subscribe(user_id):
+            age_band = self._subscriptions.lock_subscriber_age_band(user_id)
+            if not age_band.allows_optional_features:
                 raise SubscriptionAgeRestrictedError
             self._subscriptions.subscribe(sphere_id=sphere_id, user_id=user_id)
 
@@ -103,10 +104,14 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
         for announcement in pending:
             # Stamped in the same transaction as the notifications, the way
             # the printables sweep does it, so a crash mid-batch never leaves
-            # an event marked-but-unannounced.
+            # an event marked-but-unannounced. Recipients are read in it too,
+            # so an age range changed since the listing is the one that counts.
             with self._transaction.atomic():
                 self._subscriptions.mark_announced(announcement.event_pk, at=now)
-                for recipient in announcement.recipients:
+                recipients = self._subscriptions.list_recipients(announcement.sphere_id)
+                for recipient in recipients:
+                    if not recipient.age_band.allows_optional_features:
+                        continue
                     self._notifier.notify_sphere_event_published(
                         SphereEventPublishedNotification(
                             recipient_user_id=recipient.user_id,

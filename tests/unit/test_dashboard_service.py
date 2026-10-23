@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
+from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
     DASHBOARD_PAST_EVENTS,
@@ -24,16 +25,21 @@ USER_ID = 5
 
 
 class FakeSubscriptionsRepo:
-    def __init__(self, pending=(), *, eligible=True):
-        self.eligible = eligible
+    def __init__(self, pending=(), *, recipients=(), age_band=AgeBand.SIXTEEN_PLUS):
+        self.age_band = age_band
         self.pending = list(pending)
+        self.recipients = list(recipients)
         self.announced: list[tuple[int, datetime]] = []
         self.subscribed: set[tuple[int, int]] = set()
         self.swept_at: list[datetime] = []
 
-    def can_subscribe(self, user_id):
+    def lock_subscriber_age_band(self, user_id):
         _ = user_id
-        return self.eligible
+        return self.age_band
+
+    def list_recipients(self, sphere_id):
+        _ = sphere_id
+        return self.recipients
 
     def subscribe(self, *, sphere_id, user_id):
         self.subscribed.add((sphere_id, user_id))
@@ -110,7 +116,7 @@ class FakeNotifier:
         self.sent.append(notification)
 
 
-def _announcement(*, recipients):
+def _announcement():
     return SphereEventAnnouncementDTO(
         event_pk=7,
         event_name="Kapitularz 2026",
@@ -118,8 +124,11 @@ def _announcement(*, recipients):
         sphere_id=3,
         sphere_name="Kapitularz",
         sphere_domain="kapitularz.example.test",
-        recipients=recipients,
     )
+
+
+def _recipient(user_id, email, age_band=AgeBand.SIXTEEN_PLUS):
+    return SubscriptionRecipientDTO(user_id=user_id, email=email, age_band=age_band)
 
 
 def _service(repo, notifier):
@@ -133,7 +142,7 @@ def _service(repo, notifier):
 
 class TestSphereSubscriptionService:
     def test_restricted_account_cannot_subscribe(self):
-        repo = FakeSubscriptionsRepo(eligible=False)
+        repo = FakeSubscriptionsRepo(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
 
         with pytest.raises(SubscriptionAgeRestrictedError):
             _service(repo, FakeNotifier()).subscribe(sphere_id=3, user_id=USER_ID)
@@ -143,7 +152,7 @@ class TestSphereSubscriptionService:
     def test_an_event_with_no_subscribers_is_stamped_and_never_revisited(self):
         # Otherwise the sweep would re-read it on every tick forever, and the
         # first person to subscribe would be told about an old announcement.
-        repo = FakeSubscriptionsRepo(pending=[_announcement(recipients=[])])
+        repo = FakeSubscriptionsRepo(pending=[_announcement()])
         notifier = FakeNotifier()
 
         announced = _service(repo, notifier).announce_published_events(now=NOW)
@@ -154,11 +163,8 @@ class TestSphereSubscriptionService:
         assert not notifier.sent
 
     def test_each_subscriber_is_told_once_and_the_event_is_stamped(self):
-        recipients = [
-            SubscriptionRecipientDTO(user_id=1, email="a@example.test"),
-            SubscriptionRecipientDTO(user_id=2, email="b@example.test"),
-        ]
-        repo = FakeSubscriptionsRepo(pending=[_announcement(recipients=recipients)])
+        recipients = [_recipient(1, "a@example.test"), _recipient(2, "b@example.test")]
+        repo = FakeSubscriptionsRepo(pending=[_announcement()], recipients=recipients)
         notifier = FakeNotifier()
 
         announced = _service(repo, notifier).announce_published_events(now=NOW)
@@ -173,6 +179,21 @@ class TestSphereSubscriptionService:
             ("kapitularz-2026", "kapitularz.example.test")
         }
 
+    @pytest.mark.parametrize("age_band", (AgeBand.UNKNOWN, AgeBand.THIRTEEN_TO_FIFTEEN))
+    def test_a_subscriber_without_a_16_plus_range_hears_nothing(self, age_band):
+        repo = FakeSubscriptionsRepo(
+            pending=[_announcement()],
+            recipients=[
+                _recipient(1, "a@example.test", age_band),
+                _recipient(2, "b@example.test"),
+            ],
+        )
+        notifier = FakeNotifier()
+
+        _service(repo, notifier).announce_published_events(now=NOW)
+
+        assert [n.recipient_user_id for n in notifier.sent] == [2]
+
     def test_subscribe_then_unsubscribe_leaves_no_subscription(self):
         repo = FakeSubscriptionsRepo()
         service = _service(repo, FakeNotifier())
@@ -184,11 +205,8 @@ class TestSphereSubscriptionService:
         assert not repo.subscribed
 
     def test_each_email_carries_its_recipients_own_way_out(self):
-        recipients = [
-            SubscriptionRecipientDTO(user_id=1, email="a@example.test"),
-            SubscriptionRecipientDTO(user_id=2, email="b@example.test"),
-        ]
-        repo = FakeSubscriptionsRepo(pending=[_announcement(recipients=recipients)])
+        recipients = [_recipient(1, "a@example.test"), _recipient(2, "b@example.test")]
+        repo = FakeSubscriptionsRepo(pending=[_announcement()], recipients=recipients)
         repo.subscribed = {(3, 1), (3, 2)}
         notifier = FakeNotifier()
         service = _service(repo, notifier)

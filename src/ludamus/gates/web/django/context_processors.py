@@ -81,7 +81,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
         not settings.POSTHOG_API_KEY
         or user is None
         or not user.is_authenticated
-        or user.age_band != AgeBand.SIXTEEN_PLUS
+        or not AgeBand(user.age_band).allows_optional_features
     ):
         return AnalyticsContextData(posthog_config=None)
     # Identify by pk, not slug: a slug follows a rename and would split one
@@ -89,16 +89,11 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
     # service — the auth middleware already resolved it, so this costs no
     # extra query. distinct_id namespaces it per deployment so staging and
     # production cannot land on the same person.
-    user = getattr(request, "user", None)
     return AnalyticsContextData(
         posthog_config=PosthogConfig(
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
-            user_id=(
-                identity.distinct_id(user.pk)
-                if user is not None and user.is_authenticated
-                else None
-            ),
+            user_id=identity.distinct_id(user.pk),
             environment=identity.environment(),
             redaction_rules=redaction.client_patterns(),
         )
@@ -133,7 +128,7 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
     user_dto = request.services.profile.read(request.context.current_user_slug)
     return CurrentUserContextData(
         current_user=user_dto,
-        optional_features_available=user_dto.age_band == AgeBand.SIXTEEN_PLUS,
+        optional_features_available=user_dto.age_band.allows_optional_features,
         current_user_info=UserInfo.from_user_dto(
             user_dto, gravatar_url=request.di.gravatar_url
         ),

@@ -13,6 +13,8 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.crowd import AgeBand
+
 # How much of each section a dashboard holds before it stops being a glance.
 # The agenda is uncapped: it is what this member already committed to, and
 # hiding part of that is worse than a long column.
@@ -88,6 +90,7 @@ class DashboardDTO(BaseModel):
 class SubscriptionRecipientDTO(BaseModel):
     user_id: int
     email: str
+    age_band: AgeBand
 
 
 class SphereEventAnnouncementDTO(BaseModel):
@@ -99,7 +102,6 @@ class SphereEventAnnouncementDTO(BaseModel):
     # Site domain of the owning sphere — the notifier composes the absolute
     # event link from it, the same as the printables reminder does.
     sphere_domain: str
-    recipients: list[SubscriptionRecipientDTO]
 
 
 class SphereEventPublishedNotification(BaseModel):
@@ -158,11 +160,15 @@ class SubscriptionAgeRestrictedError(Exception):
 
 class SphereSubscriptionRepositoryProtocol(Protocol):
     @staticmethod
-    def can_subscribe(user_id: int) -> bool: ...
+    def lock_subscriber_age_band(user_id: int) -> AgeBand: ...
     @staticmethod
     def subscribe(*, sphere_id: int, user_id: int) -> None: ...
     @staticmethod
     def unsubscribe(*, sphere_id: int, user_id: int) -> None: ...
+    @staticmethod
+    def unsubscribe_everywhere(user_id: int) -> None: ...
+    @staticmethod
+    def list_recipients(sphere_id: int) -> list[SubscriptionRecipientDTO]: ...
     @staticmethod
     def list_pending_announcements(
         *, now: datetime

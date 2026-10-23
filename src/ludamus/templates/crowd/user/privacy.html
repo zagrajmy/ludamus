@@ -15,7 +15,7 @@
         {% endif %}
     </p>
     <div class="mt-3 mb-6">
-        {% url "web:crowd:auth0:signup-age" as age_url %}
+        {% url "user:profile-age-range" as age_url %}
         {% translate "Update age range" as age_label %}
         {% tessera_button age_label href=age_url variant="secondary" %}
     </div>

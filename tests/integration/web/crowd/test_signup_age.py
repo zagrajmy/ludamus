@@ -11,10 +11,15 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription, User
 from tests.integration.conftest import SessionParticipationFactory
-from tests.integration.utils import FormErrorsMatcher, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 
 CALLBACK_URL = reverse("web:crowd:auth0:login-callback")
 GATE_URL = reverse("web:crowd:auth0:signup-age")
+PROFILE_AGE_URL = reverse("user:profile-age-range")
 GUARDIAN_CONTEXT = {
     "min_age": 13,
     "guardian_login_url": (
@@ -46,7 +51,18 @@ def _answer(client, age_band):
     return client.post(GATE_URL, {"age_band": age_band, "confirmation_token": token})
 
 
+def _update(client, age_band):
+    return client.post(PROFILE_AGE_URL, {"age_band": age_band})
+
+
 class TestSignupAgeGate:
+    def test_signed_in_account_does_not_reach_the_signup_gate(
+        self, authenticated_client
+    ):
+        response = authenticated_client.get(GATE_URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+
     def test_first_sign_in_stops_at_gate_without_an_account(self, client, faker):
         response = _reach_gate(client, faker.uuid4())
 
@@ -90,36 +106,6 @@ class TestSignupAgeGate:
         assert "pending_signup" not in client.session
         assert "pending_claim_token" not in client.session
 
-    def test_existing_under_thirteen_account_cannot_sign_back_in(
-        self, authenticated_client, active_user, faker
-    ):
-        sub = faker.uuid4()
-        User.objects.filter(pk=active_user.pk).update(username=f"auth0|{sub}")
-
-        response = _answer(authenticated_client, "under_13")
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="crowd/signup_guardian.html",
-            context_data=GUARDIAN_CONTEXT,
-        )
-        active_user.refresh_from_db()
-        assert active_user.is_active is False
-        assert "_auth_user_id" not in authenticated_client.session
-
-        response = _reach_gate(authenticated_client, sub)
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[
-                (messages.ERROR, "This account is inactive. Contact support for help.")
-            ],
-        )
-        assert "_auth_user_id" not in authenticated_client.session
-
     def test_expired_form_can_be_restarted(self, client, faker):
         _reach_gate(client, faker.uuid4())
         with patch("django.core.signing.time.time", return_value=1):
@@ -145,17 +131,6 @@ class TestSignupAgeGate:
         assert not User.objects.exists()
         _answer(client, "13_15")
         assert User.objects.get().age_band == "13_15"
-
-    def test_confirming_unknown_age_does_not_reactivate_old_marketing(
-        self, authenticated_client, active_user, non_root_sphere
-    ):
-        SphereSubscription.objects.create(user=active_user, sphere=non_root_sphere)
-
-        _answer(authenticated_client, "16_plus")
-
-        active_user.refresh_from_db()
-        assert active_user.age_band == "16_plus"
-        assert not SphereSubscription.objects.filter(user=active_user).exists()
 
     @pytest.mark.parametrize("age_band", ("13_15", "16_plus"))
     def test_confirmed_age_creates_one_independent_account(
@@ -244,13 +219,59 @@ class TestSignupAgeGate:
         assert User.objects.get().age_band == "unknown"
         assert "pending_signup" not in client.session
 
+
+class TestProfileAgeRange:
+    def test_requires_login(self, client):
+        assert_login_required(client.get(PROFILE_AGE_URL), PROFILE_AGE_URL)
+
+    def test_existing_under_thirteen_account_cannot_sign_back_in(
+        self, authenticated_client, active_user, faker
+    ):
+        sub = faker.uuid4()
+        User.objects.filter(pk=active_user.pk).update(username=f"auth0|{sub}")
+
+        response = _update(authenticated_client, "under_13")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/signup_guardian.html",
+            context_data=GUARDIAN_CONTEXT,
+        )
+        active_user.refresh_from_db()
+        assert active_user.is_active is False
+        assert "_auth_user_id" not in authenticated_client.session
+
+        response = _reach_gate(authenticated_client, sub)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/",
+            messages=[
+                (messages.ERROR, "This account is inactive. Contact support for help.")
+            ],
+        )
+        assert "_auth_user_id" not in authenticated_client.session
+
+    def test_confirming_unknown_age_does_not_reactivate_old_marketing(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        SphereSubscription.objects.create(user=active_user, sphere=non_root_sphere)
+
+        _update(authenticated_client, "16_plus")
+
+        active_user.refresh_from_db()
+        assert active_user.age_band == "16_plus"
+        assert not SphereSubscription.objects.filter(user=active_user).exists()
+
     def test_existing_account_can_confirm_age_without_losing_bookings(
         self, authenticated_client, active_user, non_root_sphere
     ):
         SphereSubscription.objects.create(user=active_user, sphere=non_root_sphere)
         booking = SessionParticipationFactory(user=active_user, status="confirmed")
 
-        response = _answer(authenticated_client, "13_15")
+        response = _update(authenticated_client, "13_15")
 
         assert_response(
             response,

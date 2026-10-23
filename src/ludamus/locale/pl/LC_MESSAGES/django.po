@@ -2026,10 +2026,6 @@ msgid "This age confirmation has expired. Choose your age range again."
 msgstr "Potwierdzenie wieku wygasło. Wybierz ponownie swój przedział wiekowy."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Age range saved. Your bookings are unchanged."
-msgstr "Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
 msgstr "Nieprawidłowy adres URL przekierowania."
 
@@ -4074,6 +4070,10 @@ msgstr[0] "Dodane do zakładek przez %(counter)s osobę"
 msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
 msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
+
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid "Age range saved. Your bookings are unchanged."
+msgstr "Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian."
 
 #: src/ludamus/links/db/django/encounter_invites.py
 #, python-format
@@ -6733,6 +6733,26 @@ msgstr "po średniku"
 msgid "Back to Home"
 msgstr "Powrót do strony głównej"
 
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid ""
+"You can have your own account from age 13. Younger children join as a "
+"parent's or guardian's companions."
+msgstr ""
+"Własne konto możesz mieć od 13. roku życia. Młodsze dzieci dołączają jako "
+"towarzysze rodzica lub opiekuna."
+
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid ""
+"If you are 13–15, you can manage your bookings yourself. Optional analytics, "
+"session recordings and promotional emails stay off."
+msgstr ""
+"Jeśli masz 13–15 lat, możesz samodzielnie zarządzać swoimi zapisami. "
+"Opcjonalna analityka, nagrania sesji i emaile promocyjne pozostają wyłączone."
+
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid "We save only your age range, not your date of birth."
+msgstr "Zapisujemy tylko Twój przedział wiekowy, nie datę urodzenia."
+
 # Auth error page
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Login failed"
@@ -6841,43 +6861,18 @@ msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
 
 #: src/ludamus/templates/crowd/signup_age.html
+#: src/ludamus/templates/crowd/user/age_range.html
 msgid "Confirm age range"
 msgstr "Potwierdź przedział wiekowy"
 
 #: src/ludamus/templates/crowd/signup_age.html
+#: src/ludamus/templates/crowd/user/age_range.html
 msgid "Confirm your age range"
 msgstr "Potwierdź swój przedział wiekowy"
 
 #: src/ludamus/templates/crowd/signup_age.html
-msgid ""
-"You can have your own account from age 13. Younger children join as a "
-"parent's or guardian's companions."
-msgstr ""
-"Własne konto możesz mieć od 13. roku życia. Młodsze dzieci dołączają jako "
-"towarzysze rodzica lub opiekuna."
-
-#: src/ludamus/templates/crowd/signup_age.html
-msgid ""
-"If you are 13–15, you can manage your bookings yourself. Optional analytics, "
-"session recordings and promotional emails stay off."
-msgstr ""
-"Jeśli masz 13–15 lat, możesz samodzielnie zarządzać swoimi zapisami. "
-"Opcjonalna analityka, nagrania sesji i emaile promocyjne pozostają wyłączone."
-
-#: src/ludamus/templates/crowd/signup_age.html
-msgid "We save only your age range, not your date of birth."
-msgstr "Zapisujemy tylko Twój przedział wiekowy, nie datę urodzenia."
-
-#: src/ludamus/templates/crowd/signup_age.html
-msgid ""
-"Choosing Under 13 disables independent sign-in. Contact us if you already "
-"have bookings."
-msgstr ""
-"Wybranie wieku poniżej 13 lat wyłącza samodzielne logowanie. Jeśli masz już "
-"zapisy, skontaktuj się z nami."
-
-#: src/ludamus/templates/crowd/signup_age.html
 #: src/ludamus/templates/crowd/signup_continue.html
+#: src/ludamus/templates/crowd/user/age_range.html
 #: src/ludamus/templates/event/propose/parts/_nav.html
 msgid "Continue"
 msgstr "Dalej"
@@ -6993,6 +6988,14 @@ msgstr "Bezpieczeństwo"
 #: src/ludamus/templates/crowd/user/privacy.html
 msgid "Privacy"
 msgstr "Prywatność"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid ""
+"Choosing Under 13 disables independent sign-in. Contact us if you already "
+"have bookings."
+msgstr ""
+"Wybranie wieku poniżej 13 lat wyłącza samodzielne logowanie. Jeśli masz już "
+"zapisy, skontaktuj się z nami."
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"

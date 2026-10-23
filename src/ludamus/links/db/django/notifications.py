@@ -29,7 +29,7 @@ from ludamus.links.db.django.models import (
     Session,
     User,
 )
-from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
+from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import (
     ClaimedAnnouncementDTO,
@@ -500,14 +500,6 @@ class DjangoUserNotifier:
         # seat change it announces). Only the email is deferred to after-commit,
         # best-effort: SMTP can't be un-sent, so it must wait for the real commit
         # and must not roll back a confirmed seat if it fails.
-        if (
-            opt_in is not None
-            and not User.objects.filter(
-                pk=notification.recipient_id, age_band=AgeBand.SIXTEEN_PLUS
-            ).exists()
-        ):
-            logger.info("Promotional notification skipped: account not eligible")
-            return
         notification.save()
         if not email:
             # No address, or none anyone proved — the bell row above still
@@ -526,16 +518,6 @@ class DjangoUserNotifier:
             headers = opt_in.headers()
 
         def _send_email() -> None:
-            if (
-                opt_in is not None
-                and not User.objects.filter(
-                    pk=notification.recipient_id, age_band=AgeBand.SIXTEEN_PLUS
-                ).exists()
-            ):
-                logger.info(
-                    "Queued promotional email skipped: account no longer eligible"
-                )
-                return
             EmailMessage(
                 subject=notification.title, body=body, to=[email], headers=headers
             ).send(fail_silently=True)

@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.oauth import oauth
-from ludamus.gates.web.django.crowd.forms import SignupAgeForm
+from ludamus.gates.web.django.crowd.forms import UNDER_MIN_AGE, SignupAgeForm
 from ludamus.pacts import RedirectError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
@@ -159,8 +159,11 @@ class Auth0UserInfo(BaseModel):
     def username(self) -> str:
         return f"auth0|{self.sub}"
 
-    def to_create_data(self, *, slug: str, password: str) -> UserData:
+    def to_create_data(
+        self, *, slug: str, password: str, age_band: AgeBand
+    ) -> UserData:
         return UserData(
+            age_band=age_band,
             slug=slug,
             username=self.username,
             password=password,
@@ -184,12 +187,16 @@ class Auth0UserInfo(BaseModel):
         return data
 
 
-def _provision_user(request: RootRequest, userinfo: Auth0UserInfo) -> UserDTO:
+def _provision_user(
+    request: RootRequest, *, userinfo: Auth0UserInfo, age_band: AgeBand
+) -> UserDTO:
     claim_token = request.session.pop("pending_claim_token", "")
     result = request.services.crowd_auth.provision_user(
         username=userinfo.username,
         create_data=userinfo.to_create_data(
-            slug=slugify(userinfo.username), password=make_password(None)
+            slug=slugify(userinfo.username),
+            password=make_password(None),
+            age_band=age_band,
         ),
         claim_token=claim_token,
     )
@@ -219,20 +226,17 @@ def _finish_login(
     *,
     userinfo: Auth0UserInfo,
     redirect_to: str,
-    age_band: AgeBand | None = None,
+    age_band: AgeBand = AgeBand.UNKNOWN,
 ) -> str:
+    """Provision and log in. `age_band` only reaches an account created here."""
     index_url = request.build_absolute_uri(reverse("web:index"))
     request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
-    user = _provision_user(request, userinfo)
+    user = _provision_user(request, userinfo=userinfo, age_band=age_band)
     if not user.is_active:
         messages.error(
             request, _("This account is inactive. Contact support for help.")
         )
         return index_url
-    if age_band is not None:
-        user = request.services.crowd_auth.confirm_age(
-            user_slug=user.slug, age_band=age_band
-        )
 
     _login_user(request, user.slug)
     if request.session.get("anonymous_enrollment_active"):
@@ -282,10 +286,6 @@ class Auth0LoginCallbackActionView(RedirectView):
             self.request.session[PENDING_SIGNUP_SESSION_KEY] = {
                 "userinfo": userinfo.model_dump(),
                 "redirect_to": redirect_to,
-                "confirmation_token": signing.dumps(
-                    {"username": userinfo.username, "nonce": token_urlsafe(16)},
-                    salt=AGE_CONFIRMATION_SALT,
-                ),
             }
             return self.request.build_absolute_uri(
                 reverse("web:crowd:auth0:signup-age")
@@ -360,40 +360,45 @@ class Auth0LoginCallbackActionView(RedirectView):
         return userinfo
 
 
-def _valid_age_confirmation(request: RootRequest) -> bool:
+def _valid_signup_confirmation(request: RootRequest, pending: dict[str, Any]) -> bool:
     token = request.POST.get("confirmation_token", "")
     try:
-        payload = signing.loads(
-            token, salt=AGE_CONFIRMATION_SALT, max_age=CACHE_TIMEOUT
-        )
+        signing.loads(token, salt=AGE_CONFIRMATION_SALT, max_age=CACHE_TIMEOUT)
     except signing.BadSignature:
         return False
-    if request.context.current_user_slug:
-        return bool(payload.get("user_slug") == request.context.current_user_slug)
-    pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
-    return isinstance(pending, dict) and constant_time_compare(
-        token, pending.get("confirmation_token", "")
+    return constant_time_compare(token, pending.get("confirmation_token", ""))
+
+
+def guardian_page(request: RootRequest) -> TemplateResponse:
+    """Sign out and point an under-13 to the guardian-managed route."""
+    request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+    request.session.pop("pending_claim_token", None)
+    django_logout(request)
+    return TemplateResponse(
+        request,
+        "crowd/signup_guardian.html",
+        {
+            "min_age": MIN_ACCOUNT_AGE,
+            "guardian_login_url": _auth0_logout_url(
+                request, redirect_to=reverse("web:crowd:auth0:login")
+            ),
+        },
     )
 
 
 class Auth0SignupAgePageView(View):
+    """A first Auth0 sign-in stops here before its account exists."""
+
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        if request.context.current_user_slug:
-            token = signing.dumps(
-                {"user_slug": request.context.current_user_slug},
-                salt=AGE_CONFIRMATION_SALT,
-            )
-        elif pending := request.session.get(PENDING_SIGNUP_SESSION_KEY):
-            token = signing.dumps(
-                {"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT
-            )
-            request.session[PENDING_SIGNUP_SESSION_KEY] = {
-                **pending,
-                "confirmation_token": token,
-            }
-        else:
+        pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
+        if request.context.current_user_slug or not isinstance(pending, dict):
             return redirect("web:index")
+        token = signing.dumps({"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT)
+        request.session[PENDING_SIGNUP_SESSION_KEY] = {
+            **pending,
+            "confirmation_token": token,
+        }
         return TemplateResponse(
             request,
             "crowd/signup_age.html",
@@ -403,11 +408,9 @@ class Auth0SignupAgePageView(View):
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
         pending = request.session.get(PENDING_SIGNUP_SESSION_KEY)
-        if not request.context.current_user_slug and not isinstance(pending, dict):
+        if request.context.current_user_slug or not isinstance(pending, dict):
             return redirect("web:index")
-        if not _valid_age_confirmation(request):
-            if request.context.current_user_slug:
-                return redirect("web:index")
+        if not _valid_signup_confirmation(request, pending):
             messages.error(
                 request,
                 _("This age confirmation has expired. Choose your age range again."),
@@ -416,45 +419,18 @@ class Auth0SignupAgePageView(View):
         form = SignupAgeForm(request.POST)
         if not form.is_valid():
             return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
-        if form.cleaned_data["age_band"] == "under_13":
-            if request.context.current_user_slug:
-                request.services.crowd_auth.disable_underage_account(
-                    request.context.current_user_slug
-                )
-            request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
-            request.session.pop("pending_claim_token", None)
-            django_logout(request)
+        if form.cleaned_data["age_band"] == UNDER_MIN_AGE:
             logger.info("Independent signup declined: below minimum age")
-            return TemplateResponse(
-                request,
-                "crowd/signup_guardian.html",
-                {
-                    "min_age": MIN_ACCOUNT_AGE,
-                    "guardian_login_url": _auth0_logout_url(
-                        request, redirect_to=reverse("web:crowd:auth0:login")
-                    ),
-                },
-            )
-        age_band = AgeBand(form.cleaned_data["age_band"])
-        if request.context.current_user_slug:
-            request.services.crowd_auth.confirm_age(
-                user_slug=request.context.current_user_slug, age_band=age_band
-            )
-            logger.info("Account age range updated")
-            messages.success(
-                request, _("Age range saved. Your bookings are unchanged.")
-            )
-            return redirect("user:profile-privacy")
-        if not isinstance(pending, dict):
-            return redirect("web:index")
-        userinfo = Auth0UserInfo.model_validate(pending["userinfo"])
+            return guardian_page(request)
         logger.info("Signup age range confirmed")
         destination = _finish_login(
             request,
-            userinfo=userinfo,
+            userinfo=Auth0UserInfo.model_validate(pending["userinfo"]),
             redirect_to=pending.get("redirect_to") or "",
-            age_band=age_band,
+            age_band=AgeBand(form.cleaned_data["age_band"]),
         )
+        # NOTE: CSP form-action stops a form POST from redirecting to another
+        # sphere's host, so a cross-host destination is reached from a page.
         if (host := urlparse(destination).netloc) and host != request.get_host():
             return TemplateResponse(
                 request, "crowd/signup_continue.html", {"redirect_to": destination}

@@ -5,18 +5,25 @@ from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts.crowd import AgeBand, UserData, UserType
 
+# Not an AgeBand: nobody under the minimum age holds an account, so this answer
+# is never stored, only acted on.
+UNDER_MIN_AGE = "under_13"
 
-class SignupAgeForm(forms.Form):
-    confirmation_token = forms.CharField(widget=forms.HiddenInput())
+
+class AgeRangeForm(forms.Form):
     age_band = forms.ChoiceField(
         label=_("Age range"),
         choices=[
             (AgeBand.SIXTEEN_PLUS, _("16 or older")),
             (AgeBand.THIRTEEN_TO_FIFTEEN, _("13–15")),
-            ("under_13", _("Under 13")),
+            (UNDER_MIN_AGE, _("Under 13")),
         ],
         widget=forms.RadioSelect,
     )
+
+
+class SignupAgeForm(AgeRangeForm):
+    confirmation_token = forms.CharField(widget=forms.HiddenInput())
 
 
 class BaseUserForm(forms.Form):

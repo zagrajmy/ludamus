@@ -29,6 +29,15 @@ class AgeBand(StrEnum):
     THIRTEEN_TO_FIFTEEN = "13_15"
     SIXTEEN_PLUS = "16_plus"
 
+    @property
+    def allows_optional_features(self) -> bool:
+        """Analytics, session recordings and promotional email: 16+ only."""
+        return self is AgeBand.SIXTEEN_PLUS
+
+
+class AgeBandRequiredError(ValueError):
+    """An age range was confirmed as UNKNOWN, which is no answer at all."""
+
 
 class UserType(StrEnum):
     ACTIVE = "active"
@@ -39,7 +48,7 @@ class UserType(StrEnum):
 class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    age_band: AgeBand = AgeBand.UNKNOWN
+    age_band: AgeBand
     avatar_url: str
     date_joined: datetime
     discord_username: str
@@ -102,7 +111,7 @@ class UserRepositoryProtocol(Protocol):
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None: ...
     @staticmethod
-    def set_age_band(user_slug: str, age_band: AgeBand) -> None: ...
+    def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand: ...
     @staticmethod
     def email_unavailable(
         *, email: str, now: datetime, exclude_slug: str | None = None

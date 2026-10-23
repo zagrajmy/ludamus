@@ -29,9 +29,12 @@ if TYPE_CHECKING:
 
 class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
     @staticmethod
-    def can_subscribe(user_id: int) -> bool:
-        user = User.objects.select_for_update().get(pk=user_id)
-        return user.age_band == AgeBand.SIXTEEN_PLUS
+    def lock_subscriber_age_band(user_id: int) -> AgeBand:
+        return AgeBand(
+            User.objects.select_for_update()
+            .values_list("age_band", flat=True)
+            .get(pk=user_id)
+        )
 
     @staticmethod
     def subscribe(*, sphere_id: int, user_id: int) -> None:
@@ -53,15 +56,29 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
         SphereSubscription.objects.filter(sphere_id=sphere_id, user_id=user_id).delete()
 
     @staticmethod
+    def unsubscribe_everywhere(user_id: int) -> None:
+        SphereSubscription.objects.filter(user_id=user_id).delete()
+
+    @staticmethod
+    def list_recipients(sphere_id: int) -> list[SubscriptionRecipientDTO]:
+        return [
+            SubscriptionRecipientDTO(
+                user_id=user_id, email=email, age_band=AgeBand(age_band)
+            )
+            for user_id, email, age_band in SphereSubscription.objects.filter(
+                sphere_id=sphere_id
+            ).values_list("user_id", "user__email", "user__age_band")
+        ]
+
+    @staticmethod
     def list_pending_announcements(
         *, now: datetime
     ) -> list[SphereEventAnnouncementDTO]:
         """List the published events whose subscribers have not heard yet.
 
         Returns:
-            One entry per event, carrying every subscriber of its sphere.
-            Events whose sphere has no subscribers are included, so the sweep
-            still stamps them and never revisits them.
+            One entry per event, whether or not its sphere has subscribers, so
+            the sweep still stamps each one and never revisits it.
         """
         events = list(
             Event.objects.filter(
@@ -73,14 +90,6 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
             .select_related("sphere__site")
             .order_by("publication_time")
         )
-        subscribers: dict[int, list[SubscriptionRecipientDTO]] = {}
-        for sphere_id, user_id, email in SphereSubscription.objects.filter(
-            sphere_id__in={event.sphere_id for event in events},
-            user__age_band=AgeBand.SIXTEEN_PLUS,
-        ).values_list("sphere_id", "user_id", "user__email"):
-            subscribers.setdefault(sphere_id, []).append(
-                SubscriptionRecipientDTO(user_id=user_id, email=email)
-            )
         return [
             SphereEventAnnouncementDTO(
                 event_pk=event.pk,
@@ -89,7 +98,6 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
                 sphere_id=event.sphere_id,
                 sphere_name=event.sphere.name,
                 sphere_domain=event.sphere.site.domain,
-                recipients=subscribers.get(event.sphere_id, []),
             )
             for event in events
         ]

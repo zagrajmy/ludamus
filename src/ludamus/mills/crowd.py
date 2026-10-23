@@ -15,6 +15,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AgeBand,
+    AgeBandRequiredError,
     AuthProvisionDTO,
     AvatarPageDTO,
     ChangeRequestOutcome,
@@ -56,6 +57,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 type _Effect = Literal["cancel", "promote", "verify"]
@@ -121,23 +123,32 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         users: UserRepositoryProtocol,
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
+        subscriptions: SphereSubscriptionRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
+        self._subscriptions = subscriptions
 
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO:
         claim_outcome: ClaimOutcome | None = None
         if claim_token:
-            result = self._claims.redeem(token=claim_token, username=username)
-            claim_outcome = result.outcome
-            if result.outcome == ClaimOutcome.CONVERTED:
-                return AuthProvisionDTO(
-                    user=self._users.read(result.user_slug), claim_outcome=claim_outcome
-                )
+            with self._transaction.atomic():
+                result = self._claims.redeem(token=claim_token, username=username)
+                claim_outcome = result.outcome
+                if result.outcome == ClaimOutcome.CONVERTED:
+                    # The converted row keeps its own fields, so the age range
+                    # the new owner declared is written onto it here.
+                    self._set_age_band(
+                        result.user_slug, create_data.get("age_band", AgeBand.UNKNOWN)
+                    )
+                    return AuthProvisionDTO(
+                        user=self._users.read(result.user_slug),
+                        claim_outcome=claim_outcome,
+                    )
         with suppress(NotFoundError):
             return AuthProvisionDTO(
                 user=self._users.read_by_username(username), claim_outcome=claim_outcome
@@ -156,15 +167,24 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def disable_underage_account(self, user_slug: str) -> None:
         with self._transaction.atomic():
-            self._users.set_age_band(user_slug, AgeBand.UNKNOWN)
+            self._set_age_band(user_slug, AgeBand.UNKNOWN)
             self._users.update(user_slug, UserData(is_active=False))
 
     def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> UserDTO:
-        if age_band == AgeBand.UNKNOWN:
-            raise ValueError("Choose an account age range")
+        if age_band is AgeBand.UNKNOWN:
+            raise AgeBandRequiredError
         with self._transaction.atomic():
-            self._users.set_age_band(user_slug, age_band)
+            self._set_age_band(user_slug, age_band)
             return self._users.read(user_slug)
+
+    def _set_age_band(self, user_slug: str, age_band: AgeBand) -> None:
+        previous = self._users.set_age_band(user_slug, age_band)
+        # A subscription made under one age range is no consent under another:
+        # only an account that was and stays 16+ keeps its subscriptions.
+        if not (
+            previous.allows_optional_features and age_band.allows_optional_features
+        ):
+            self._subscriptions.unsubscribe_everywhere(self._users.read(user_slug).pk)
 
     def has_account(self, username: str) -> bool:
         try:

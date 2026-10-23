@@ -143,3 +143,20 @@ class TestAnnouncePublishedEvents:
 
         assert mailoutbox == []
         assert not Notification.objects.exists()
+
+
+@pytest.mark.parametrize("age_band", ("unknown", "13_15"))
+def test_a_subscriber_without_a_16_plus_range_hears_nothing(
+    non_root_sphere, mailoutbox, django_capture_on_commit_callbacks, age_band
+):
+    young = UserFactory(username="young", age_band=age_band)
+    SphereSubscription.objects.create(sphere=non_root_sphere, user=young)
+    event = _published_event(non_root_sphere)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("announce_published_events")
+
+    assert mailoutbox == []
+    assert not Notification.objects.filter(recipient=young).exists()
+    event.refresh_from_db()
+    assert event.subscribers_announced_at is not None
