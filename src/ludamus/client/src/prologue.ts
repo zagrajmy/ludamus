@@ -246,30 +246,36 @@ const renderConsentState = (): void => {
   }
 };
 
+const startCapture = async (config: PosthogServerConfig): Promise<void> => {
+  if (!posthog?.__loaded) {
+    await initPosthog(config);
+    return;
+  }
+  posthog.set_config({ persistence: "localStorage+cookie" });
+  posthog.opt_in_capturing();
+  posthog.startSessionRecording();
+  syncIdentity(config.user_id);
+};
+
+const stopCapture = (): void => {
+  if (!posthog?.__loaded) return;
+  // reset() before opt_out_capturing(), never after: reset() calls
+  // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
+  // reverse order withdraws consent and then immediately clears the
+  // withdrawal. Dropping the identity matters too, or re-accepting later
+  // resumes capture under the person who declined.
+  posthog.stopSessionRecording();
+  syncIdentity(null);
+  posthog.opt_out_capturing();
+};
+
 const applyChoice = async (
   config: PosthogServerConfig,
   choice: "accepted" | "declined",
 ): Promise<void> => {
   localStorage.setItem(STORAGE_KEY, choice);
-  if (choice === "accepted") {
-    if (posthog?.__loaded) {
-      posthog.set_config({ persistence: "localStorage+cookie" });
-      posthog.opt_in_capturing();
-      posthog.startSessionRecording();
-      syncIdentity(config.user_id);
-    } else {
-      await initPosthog(config);
-    }
-  } else if (posthog?.__loaded) {
-    // reset() before opt_out_capturing(), never after: reset() calls
-    // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
-    // reverse order withdraws consent and then immediately clears the
-    // withdrawal. Dropping the identity matters too, or re-accepting later
-    // resumes capture under the person who declined.
-    posthog.stopSessionRecording();
-    syncIdentity(null);
-    posthog.opt_out_capturing();
-  }
+  if (choice === "accepted") await startCapture(config);
+  else stopCapture();
 };
 
 const clearTrackingStorage = async (): Promise<void> => {
@@ -296,11 +302,20 @@ const init = async (): Promise<void> => {
     return;
   }
 
+  // Another tab answered or reset the banner. Follow its choice without writing
+  // one back: a cleared choice must stay cleared so the reload asks again.
   globalThis.addEventListener("storage", async (event) => {
-    if (event.key !== STORAGE_KEY || event.newValue === "accepted") return;
-    if (posthog?.__loaded) await applyChoice(config, "declined");
+    if (event.key !== STORAGE_KEY) return;
+    if (event.newValue === null) {
+      stopCapture();
+      globalThis.location.reload();
+      return;
+    }
+    if (event.newValue === "accepted") await startCapture(config);
+    else stopCapture();
     renderConsentState();
-    if (event.newValue === null) globalThis.location.reload();
+    const banner = document.getElementById("consent-banner");
+    if (banner) banner.hidden = true;
   });
 
   const consent = readConsent();

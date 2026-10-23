@@ -74,3 +74,45 @@ test.describe("Cookie consent banner", () => {
     await expect.poll(() => posthogStarted(page)).toBe(true);
   });
 });
+
+// The fake key rides in the URL of the remote-config fetch posthog-js makes as
+// it starts, so a request carrying it proves this tab started PostHog — the
+// ph_ storage keys are shared with the tab that accepted.
+const startsPosthog = (page: Page) =>
+  page.waitForRequest((request) => request.url().includes("phc_e2e_fake_key"));
+
+test.describe("Cookie consent across tabs", () => {
+  test("a choice made in one tab reaches the other open tab", async ({ context, page }) => {
+    await page.goto("/");
+    const banner = page.getByRole("region", { name: "Cookie consent" });
+    await expect(banner).toBeVisible();
+    const other = await context.newPage();
+    await other.goto("/");
+
+    const started = startsPosthog(page);
+    await other
+      .getByRole("region", { name: "Cookie consent" })
+      .getByRole("button", { name: "Cool" })
+      .click();
+
+    await expect(banner).toBeHidden();
+    await started;
+  });
+
+  test("clearing the choice in one tab asks again in the other", async ({ context, page }) => {
+    await page.goto("/");
+    await page
+      .getByRole("region", { name: "Cookie consent" })
+      .getByRole("button", { name: "No cookies!" })
+      .click();
+    const other = await context.newPage();
+    await other.goto("/");
+
+    const reloaded = page.waitForEvent("load");
+    await other.evaluate(() => window.localStorage.removeItem("prologue.consent"));
+    await reloaded;
+
+    await expect(page.getByRole("region", { name: "Cookie consent" })).toBeVisible();
+    expect(await storedConsent(page)).toBeNull();
+  });
+});

@@ -135,6 +135,7 @@ class UnsubscribePageView(View):
 
 
 # NOTE: mail clients send the RFC 8058 one-click POST without a CSRF token;
+# the signed token in the URL is the proof the request came from the mail.
 @method_decorator(csrf_exempt, name="dispatch")
 class UnsubscribeActionView(View):
     @staticmethod
