@@ -838,6 +838,45 @@ def _create_markdown_sanitising_scenario(sphere: Sphere) -> None:
     )
 
 
+def _create_content_report_scenario(sphere: Sphere) -> None:
+    """Seed one session on an event of its own, for content-report.spec.
+
+    The spec reports it as illegal while signed out and has the manager decide
+    the report; nothing else reads this event. Its presenter has an account,
+    so the modal offers to report the host too.
+    """
+    event = _create_event(
+        sphere,
+        name="Content Report Lab",
+        slug="content-report",
+        description="One session for reporting illegal content.",
+        start_offset=timedelta(days=27),
+        duration_hours=4,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Report Venue", slug="report-venue")
+    area = _create_area(venue, name="Report Area", slug="report-area")
+    space = _create_space(area, name="Report Room", slug="report-room", capacity=4)
+    session = _scheduled_session(
+        event,
+        space,
+        title="Cursed Scroll Swap",
+        slug="cursed-scroll-swap",
+        presenter="Rhea Reported",
+        description="Bring scrolls to trade.",
+        seats=4,
+        hour=0,
+    )
+    session.presenter = User.objects.create_user(
+        username="e2e-reported-host",
+        email="e2e-reported-host@test.local",
+        password=None,
+        name="Rhea Reported",
+        slug="e2e-reported-host",
+    )
+    session.save(update_fields=["presenter"])
+
+
 # A public select field that allows custom answers, for the event-filter e2e:
 # two of its three choices are picked, one is picked by nobody, and one session
 # writes in a value of its own. The filter must offer the two picked choices
@@ -1534,6 +1573,9 @@ def main() -> None:
 
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
+
+    # A session to report as illegal, for the notice-and-action e2e.
+    _create_content_report_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
