@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _QUANTITY_PREFIX = "quantity-"
+# Long enough for any pk or count; short enough that int() never refuses it.
+_MAX_DIGITS = 9
 _CANCEL_SIGNER = Signer(salt="ticket-checkout-cancel")
 
 
@@ -75,6 +77,10 @@ def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
     )
 
 
+def _is_whole_number(text: str) -> bool:
+    return text.isascii() and text.isdecimal() and len(text) <= _MAX_DIGITS
+
+
 def _quantities(request: RootRequest) -> dict[int, int] | None:
     # Format only: whole numbers. How many may be bought, and whether the type
     # exists, is on sale and has seats left, is the service's call.
@@ -84,7 +90,7 @@ def _quantities(request: RootRequest) -> dict[int, int] | None:
         if not key.startswith(_QUANTITY_PREFIX) or not value:
             continue
         raw_pk = key.removeprefix(_QUANTITY_PREFIX)
-        if not (raw_pk.isdecimal() and value.isdecimal()):
+        if not (_is_whole_number(raw_pk) and _is_whole_number(value)):
             return None
         quantities[int(raw_pk)] = int(value)
     return quantities

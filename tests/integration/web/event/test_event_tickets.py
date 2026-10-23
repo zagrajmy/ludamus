@@ -422,7 +422,7 @@ class TestEventTicketsBuyActionView:
         )
         assert not TicketOrder.objects.exists()
 
-    @pytest.mark.parametrize("quantity", ("0", "", "-1", "abc"))
+    @pytest.mark.parametrize("quantity", ("0", "", "-1", "abc", "\u0661", "9" * 5000))
     def test_unusable_quantity_starts_nothing(
         self, authenticated_client, event, stripe_api, quantity
     ):
