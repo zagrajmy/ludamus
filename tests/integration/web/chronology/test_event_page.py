@@ -30,6 +30,7 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
+    Session,
     SessionBookmark,
     SessionField,
     SessionFieldOption,
@@ -1322,6 +1323,10 @@ class TestEventPageView:
         allow_custom=False,
         filterable=True,
     ):
+        loaded = Session.objects.select_related(
+            "agenda_item__space__parent", "presenter", "category"
+        ).in_bulk([session.pk for session in sessions])
+        sessions = [loaded[session.pk] for session in sessions]
         cards = [
             cls._tagged_card(
                 session,
