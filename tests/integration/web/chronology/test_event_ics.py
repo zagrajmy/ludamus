@@ -1,9 +1,8 @@
-from datetime import UTC, timedelta
+from datetime import UTC
 from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
-from django.utils import timezone
 
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -48,7 +47,7 @@ class TestEventICSView:
         assert_response(response, HTTPStatus.OK, not_contains="LOCATION:")
 
     def test_unpublished_event_is_not_found_for_anonymous(self, client, event):
-        event.publication_time = timezone.now() + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = client.get(self._url(event.slug))
@@ -72,7 +71,7 @@ class TestEventICSView:
         )
 
     def test_unpublished_event_is_served_to_a_manager(self, manager_client, event):
-        event.publication_time = timezone.now() + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = manager_client.get(self._url(event.slug))

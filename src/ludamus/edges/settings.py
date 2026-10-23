@@ -177,19 +177,6 @@ if DEBUG:
 # server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
 # the UI shows up in server output without failing unrelated UI tests.
 if DEBUG or IN_TESTS:
-    import zeal.patch
-
-    def _skip_zeal_generic_fk_patch() -> None:
-        # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
-        # so django-zeal 2.2.2 patching the field class raises AttributeError and
-        # takes app startup down with it. No model here declares a generic relation
-        # (tests/integration/test_no_generic_foreign_keys.py holds that line), so
-        # dropping this one patch costs no detection.
-        # ponytail: delete once django-zeal patches the descriptor; a model with a
-        # GenericForeignKey would need it back.
-        pass
-
-    zeal.patch.patch_generic_foreign_key = _skip_zeal_generic_fk_patch
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
     ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
