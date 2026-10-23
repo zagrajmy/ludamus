@@ -41,7 +41,7 @@ class TestListingCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"form": ANY},
+            context_data={"form": ANY, "open_for_days": 30},
             template_name="board/create.html",
         )
 
@@ -68,7 +68,8 @@ class TestListingCreatePageView:
                             (horror.pk, "Horror"),
                         ]
                     }
-                )
+                ),
+                "open_for_days": 30,
             },
             template_name="board/create.html",
         )
@@ -128,7 +129,8 @@ class TestListingCreatePageView:
             context_data={
                 "form": FormErrorsMatcher(
                     when_text=["Give a date and time, or describe when."]
-                )
+                ),
+                "open_for_days": 30,
             },
             template_name="board/create.html",
         )
@@ -148,7 +150,8 @@ class TestListingCreatePageView:
                             "available choices."
                         )
                     ]
-                )
+                ),
+                "open_for_days": 30,
             },
             template_name="board/create.html",
         )
@@ -174,7 +177,8 @@ class TestListingCreatePageView:
                             "available choices."
                         )
                     ]
-                )
+                ),
+                "open_for_days": 30,
             },
             template_name="board/create.html",
         )
@@ -217,7 +221,8 @@ class TestListingCreatePageView:
                             "available choices."
                         )
                     ]
-                )
+                ),
+                "open_for_days": 30,
             },
             template_name="board/create.html",
         )

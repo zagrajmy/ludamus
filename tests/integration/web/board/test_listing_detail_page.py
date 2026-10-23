@@ -21,7 +21,11 @@ class TestListingDetailPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"listing": listing_dto(listing), "is_author": False},
+            context_data={
+                "listing": listing_dto(listing),
+                "is_author": False,
+                "open_for_days": 30,
+            },
             template_name="board/detail.html",
         )
 
@@ -38,7 +42,11 @@ class TestListingDetailPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"listing": listing_dto(listing), "is_author": True},
+            context_data={
+                "listing": listing_dto(listing),
+                "is_author": True,
+                "open_for_days": 30,
+            },
             template_name="board/detail.html",
         )
 

@@ -1,5 +1,17 @@
 {% load i18n tessera %}
-{% translate "Save draft" as t_save_draft %}
-{% tessera_button text=t_save_draft variant="secondary" name="draft" %}
-{% translate "Publish listing" as t_publish %}
-{% tessera_button text=t_publish name="publish" %}
+<p class="text-xs text-foreground-muted">
+    {% blocktranslate count days=open_for_days trimmed %}
+        Drafts stay private. A published listing closes after {{ days }} day; you can reopen it.
+    {% plural %}
+        Drafts stay private. A published listing closes after {{ days }} days; you can reopen it.
+    {% endblocktranslate %}
+</p>
+<div class="flex max-md:flex-col gap-2 md:justify-end">
+    {% url 'web:board:index' as cancel_url %}
+    {% translate "Cancel" as t_cancel %}
+    {% tessera_button t_cancel href=cancel_url button_type="button" variant="secondary" %}
+    {% translate "Save draft" as t_save_draft %}
+    {% tessera_button text=t_save_draft variant="secondary" name="draft" %}
+    {% translate "Publish listing" as t_publish %}
+    {% tessera_button text=t_publish name="publish" %}
+</div>

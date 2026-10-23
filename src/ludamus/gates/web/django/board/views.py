@@ -121,6 +121,7 @@ class ListingDetailPageView(_BoardGate):
             {
                 "listing": listing,
                 "is_author": listing.author_id == request.context.current_user_id,
+                "open_for_days": request.services.listings.open_for_days(),
             },
         )
 
@@ -168,13 +169,21 @@ def _write_data(form: ListingForm) -> ListingWriteDict:
 
 
 class ListingCreatePageView(_ListingFormPageView):
+    @staticmethod
+    def _render(request: AuthenticatedRootRequest, form: ListingForm) -> HttpResponse:
+        return TemplateResponse(
+            request,
+            "board/create.html",
+            {"form": form, "open_for_days": request.services.listings.open_for_days()},
+        )
+
     def get(self, request: AuthenticatedRootRequest) -> HttpResponse:
-        return TemplateResponse(request, "board/create.html", {"form": self._form()})
+        return self._render(request, self._form())
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
         form = self._form(request.POST, request.FILES)
         if not form.is_valid():
-            return TemplateResponse(request, "board/create.html", {"form": form})
+            return self._render(request, form)
         publish = "publish" in request.POST
         try:
             pk = request.services.listings.create(
@@ -188,7 +197,7 @@ class ListingCreatePageView(_ListingFormPageView):
             )
         except ListingContactMissingError as exc:
             form.add_error("contact", _CONTACT_MISSING[exc.contact])
-            return TemplateResponse(request, "board/create.html", {"form": form})
+            return self._render(request, form)
         messages.success(
             request, _("Listing published.") if publish else _("Draft saved.")
         )

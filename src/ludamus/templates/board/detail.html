@@ -12,6 +12,7 @@
 {% block header %}
 {% endblock header %}
 {% block body %}
+    <div class="max-w-5xl mx-auto">{% include "board/_back_link.html" %}</div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         <article class="lg:col-span-2 card card-body flex min-w-0 flex-col gap-4 self-start">
             {% if listing.header_image_url %}
@@ -40,8 +41,8 @@
                 <div class="prose prose-sm max-w-none dark:prose-invert">{{ listing.description|render_markdown }}</div>
             {% endif %}
         </article>
-        <aside class="card card-body flex flex-col gap-4 self-start">
-            <dl class="grid gap-3 text-sm">
+        <aside class="card card-body flex min-w-0 flex-col gap-4 self-start">
+            <dl class="grid gap-3 text-sm break-words">
                 <div>
                     <dt class="text-foreground-muted">{% translate "When" %}</dt>
                     <dd class="text-foreground-primary">
@@ -97,6 +98,13 @@
                             {% translate "Close listing" as t_close %}
                             {% tessera_button text=t_close variant="secondary" extra_class="w-full" %}
                         </form>
+                        <p class="text-xs text-foreground-muted">
+                            {% blocktranslate count days=open_for_days trimmed %}
+                                Open listings close {{ days }} day after publishing; you can reopen yours.
+                            {% plural %}
+                                Open listings close {{ days }} days after publishing; you can reopen yours.
+                            {% endblocktranslate %}
+                        </p>
                     {% else %}
                         <form method="post" action="{% url 'web:board:reopen' pk=listing.pk %}">
                             {% csrf_token %}

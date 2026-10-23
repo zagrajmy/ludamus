@@ -1,3 +1,8 @@
 {% load i18n tessera %}
-{% translate "Save changes" as t_save %}
-{% tessera_button text=t_save %}
+<div class="flex max-md:flex-col gap-2 md:ml-auto">
+    {% url 'web:board:detail' pk=listing.pk as cancel_url %}
+    {% translate "Cancel" as t_cancel %}
+    {% tessera_button t_cancel href=cancel_url button_type="button" variant="secondary" %}
+    {% translate "Save changes" as t_save %}
+    {% tessera_button text=t_save %}
+</div>

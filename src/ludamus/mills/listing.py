@@ -147,6 +147,10 @@ class ListingService(ListingServiceProtocol):
         with self._transaction.atomic():
             return self._listings.close_opened_before(now - LISTING_OPEN_FOR)
 
+    @staticmethod
+    def open_for_days() -> int:
+        return LISTING_OPEN_FOR.days
+
     def _read_in(
         self, status: ListingStatus, *, pk: int, sphere_id: int, author_id: int
     ) -> ListingDTO:

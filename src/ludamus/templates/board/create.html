@@ -4,10 +4,11 @@
     {% translate "Add listing" %}
 {% endblock title %}
 {% block header %}
+    {% include "board/_back_link.html" %}
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Add listing" %}</h1>
 {% endblock header %}
 {% block body %}
-    <div class="w-full max-w-5xl mx-auto">
+    <div class="w-full max-w-3xl mx-auto">
         <div class="card">
             <div class="card-body">
                 <form method="post" enctype="multipart/form-data">

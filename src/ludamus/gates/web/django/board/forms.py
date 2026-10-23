@@ -77,19 +77,19 @@ class ListingForm(forms.Form):
         label=_("When, in your words"),
         max_length=LISTING_TEXT_MAX_LENGTH,
         required=False,
-        help_text=_(
-            "Required without a date and time. For example: every other Friday "
-            "evening, or to be agreed."
-        ),
+        help_text=_("For example: every other Friday evening, or to be agreed."),
     )
     medium = forms.CharField(
-        label=_("Online or offline"),
+        label=_("Format"),
         max_length=LISTING_TEXT_MAX_LENGTH,
         required=False,
-        help_text=_("For example: online on Discord, or at my place."),
+        help_text=_("For example: online, or in person."),
     )
     place = forms.CharField(
-        label=_("Where"), max_length=LISTING_TEXT_MAX_LENGTH, required=False
+        label=_("Where"),
+        max_length=LISTING_TEXT_MAX_LENGTH,
+        required=False,
+        help_text=_("For example: our Discord server, a café in Kraków, or my place."),
     )
     seats = forms.IntegerField(
         label=_("Seats"),
