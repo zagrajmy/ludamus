@@ -72,8 +72,10 @@ test.describe("Contact page", () => {
       await expect(authorities).toContainText(copy.languages);
 
       // The document itself never scrolls (#app-scroll does), so a full-page
-      // shot would stop at the viewport; the article is the whole page.
-      await page.getByRole("article").screenshot({
+      // shot would stop at the viewport. A viewport taller than the page keeps
+      // the sticky navbar from covering the heading in the shot.
+      await page.setViewportSize({ width: 1280, height: 1400 });
+      await page.screenshot({
         path: testInfo.outputPath(`contact-${language}.png`),
       });
     });
