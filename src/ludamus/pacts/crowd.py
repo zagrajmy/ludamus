@@ -16,6 +16,8 @@ from ludamus.pacts.ids import UserId
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
+# Terms of Service §2.2: younger people take part as an adult's companions.
+MIN_ACCOUNT_AGE = 16
 
 # Signed verification links live this long. Shared contract: the token codec
 # enforces it on read, and the repository's pending-address reservation
@@ -172,6 +174,7 @@ class CrowdAuthServiceProtocol(Protocol):
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO: ...
+    def has_account(self, username: str) -> bool: ...
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO: ...
     def is_known_sphere_domain(self, domain: str) -> bool: ...
 
