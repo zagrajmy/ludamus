@@ -14,6 +14,10 @@ project 251811 (Zagrajmy), pass the Zagrajmy `account_id`
 (`add2b427b034a6073f63a849af7de160`) to Cloudflare, and make read-only calls
 only on both.
 
+A threat to someone's life or safety is not an outage. Follow
+[POLICE_ESCALATION.md](../POLICE_ESCALATION.md) instead: it says what to
+preserve from these same surfaces before anyone acts.
+
 ## Coolify CLI
 
 Install the [Coolify CLI][coolify-cli]. An instance administrator must enable
