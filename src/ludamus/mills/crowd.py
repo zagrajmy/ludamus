@@ -171,7 +171,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             self._users.update(user_slug, UserData(is_active=False))
 
     def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> None:
-        if age_band is AgeBand.UNKNOWN:
+        if not age_band.is_confirmed:
             raise AgeBandRequiredError
         with self._transaction.atomic():
             self._set_age_band(user_slug, age_band)
