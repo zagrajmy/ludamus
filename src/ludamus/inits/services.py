@@ -730,15 +730,17 @@ class Services:
             orders=self._repos.ticket_orders,
             accounts=self._repos.payout_accounts,
             plans=self._repos.sphere_plans,
-            event_log=self._repos.stripe_events,
         )
 
     @cached_property
     def _stripe_connect(self) -> StripeConnect:
         api_key: str = settings.STRIPE_SECRET_KEY
         webhook_secret: str = settings.STRIPE_CONNECT_WEBHOOK_SECRET
+        root_domain: str = settings.ROOT_DOMAIN
         return StripeConnect(
-            client=_stripe_client(api_key), webhook_secret=webhook_secret
+            client=_stripe_client(api_key),
+            webhook_secret=webhook_secret,
+            idempotency_namespace=root_domain,
         )
 
     @cached_property
@@ -770,13 +772,15 @@ class Services:
         api_key: str = settings.STRIPE_SECRET_KEY
         webhook_secret: str = settings.STRIPE_BILLING_WEBHOOK_SECRET
         yearly_price_id: str = settings.STRIPE_YEARLY_PRICE_ID
+        root_domain: str = settings.ROOT_DOMAIN
         return PlanService(
             transaction=self._transaction,
             plans=self._repos.sphere_plans,
-            event_log=self._repos.stripe_events,
             billing=StripeBilling(
                 client=_stripe_client(api_key),
                 webhook_secret=webhook_secret,
                 yearly_price_id=yearly_price_id,
+                # Keys stay apart when deployments share a Stripe test account.
+                idempotency_namespace=root_domain,
             ),
         )

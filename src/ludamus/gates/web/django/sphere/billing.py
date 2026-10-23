@@ -93,22 +93,13 @@ class _ManagerOnlyMixin(SphereAccessMixin):
         return panel_access(self.request).allows(Capability.PANEL_WRITE)
 
 
-class BillingConnectActionView(_ManagerOnlyMixin, View):
-    """Send a manager to Stripe's onboarding, creating the account if need be.
-
-    Also where Stripe sends them back when an onboarding link went stale, which
-    is a GET; it never creates a second account, only a fresh link.
-    """
+class BillingConnectActionView(SphereAccessMixin, View):
+    """Create the sphere's Stripe account if it has none, then onboard it."""
 
     request: MultiverseRequest
-
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
-        return self._onboard()
+    http_method_names = ("post",)
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
-        return self._onboard()
-
-    def _onboard(self) -> HttpResponse:
         if not (email := _email(self.request)):
             messages.error(
                 self.request,
@@ -119,7 +110,7 @@ class BillingConnectActionView(_ManagerOnlyMixin, View):
             url = self.request.services.payouts.onboarding_url(
                 sphere_id=self.request.context.current_sphere_id,
                 email=email,
-                refresh_url=_absolute(self.request, "multiverse:panel:billing-connect"),
+                refresh_url=_absolute(self.request, "multiverse:panel:billing-resume"),
                 return_url=_absolute(self.request, "multiverse:panel:billing-return"),
             )
         except PaymentProviderError:
@@ -130,6 +121,27 @@ class BillingConnectActionView(_ManagerOnlyMixin, View):
             self.request.context.current_user_id,
         )
         return redirect(url)
+
+
+class BillingResumeActionView(_ManagerOnlyMixin, View):
+    """Where Stripe sends a manager whose onboarding link went stale.
+
+    A GET, because Stripe can only redirect, so it creates nothing: a sphere
+    with an account gets a fresh link to it, one without goes back to the page.
+    """
+
+    request: MultiverseRequest
+
+    def get(self, _request: MultiverseRequest) -> HttpResponse:
+        try:
+            url = self.request.services.payouts.resume_onboarding_url(
+                sphere_id=self.request.context.current_sphere_id,
+                refresh_url=_absolute(self.request, "multiverse:panel:billing-resume"),
+                return_url=_absolute(self.request, "multiverse:panel:billing-return"),
+            )
+        except PaymentProviderError:
+            return _stripe_unreachable(self.request, "onboarding")
+        return redirect(url or _BILLING_URL)
 
 
 class BillingReturnActionView(_ManagerOnlyMixin, View):

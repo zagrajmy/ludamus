@@ -2498,17 +2498,3 @@ class Ticket(models.Model):
 
     def __str__(self) -> str:
         return self.code
-
-
-class StripeEvent(models.Model):
-    """Every Stripe webhook we acted on, so a redelivery is a no-op."""
-
-    event_id = models.CharField(max_length=255, unique=True)
-    type = models.CharField(max_length=100)
-    received_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "stripe_event"
-
-    def __str__(self) -> str:
-        return f"{self.event_id} {self.type}"

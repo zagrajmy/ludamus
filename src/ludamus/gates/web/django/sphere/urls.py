@@ -14,6 +14,11 @@ urlpatterns = [
         name="billing-connect",
     ),
     path(
+        "billing/do/resume",
+        billing.BillingResumeActionView.as_view(),
+        name="billing-resume",
+    ),
+    path(
         "billing/do/return",
         billing.BillingReturnActionView.as_view(),
         name="billing-return",

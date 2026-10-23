@@ -14,13 +14,14 @@ Stripe subscription; a maintainer may also record one paid by bank transfer
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from ludamus.pacts.payment_api import StripeWebhookEvent
+    from ludamus.pacts.payment_api import StripeWebhookEvent, WebhookOutcome
 
 
 class PlanKind(StrEnum):
@@ -55,8 +56,8 @@ class PlanPageDTO(BaseModel):
     # The sphere has a Stripe customer, so the billing portal has something
     # to show: invoices, the card on file, cancelling.
     can_manage: bool
-    # Zagrajmy's share of each ticket order on this plan, for display: "3.5".
-    ticket_fee_percent: str
+    # Zagrajmy's share of each ticket order on this plan, in percent.
+    ticket_fee_percent: Decimal
 
 
 class SpherePlanData(TypedDict, total=False):
@@ -83,13 +84,7 @@ class PlanBillingProtocol(Protocol):
     def enabled(self) -> bool: ...
     def create_customer(self, *, sphere_id: int, name: str, email: str) -> str: ...
     def create_plan_checkout(
-        self,
-        *,
-        sphere_id: int,
-        customer_id: str,
-        email: str,
-        success_url: str,
-        cancel_url: str,
+        self, *, sphere_id: int, customer_id: str, success_url: str, cancel_url: str
     ) -> str: ...
     def billing_portal_url(self, *, customer_id: str, return_url: str) -> str: ...
     def parse_webhook(
@@ -109,4 +104,4 @@ class PlanServiceProtocol(Protocol):
         cancel_url: str,
     ) -> str: ...
     def billing_portal_url(self, *, sphere_id: int, return_url: str) -> str: ...
-    def handle_webhook(self, *, payload: bytes, signature: str) -> str: ...
+    def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome: ...

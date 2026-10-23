@@ -1,5 +1,5 @@
 {% extends "crowd/user/profile_base.html" %}
-{% load i18n tessera %}
+{% load i18n tessera ticket_tags %}
 {% block title %}
     {% translate "Tickets" %}
 {% endblock title %}
@@ -25,7 +25,7 @@
                             {% for ticket in group.list %}
                                 <li class="card card-body flex items-center gap-4">
                                     {# The QR carries only the code shown beside it. #}
-                                    <img src="{{ ticket.qr_image_url }}"
+                                    <img src="{{ ticket.code|qr_data_url }}"
                                          alt="{% blocktranslate with code=ticket.code %}QR code for ticket {{ code }}{% endblocktranslate %}"
                                          class="size-24 shrink-0 rounded-lg bg-white p-1.5"
                                          width="96"

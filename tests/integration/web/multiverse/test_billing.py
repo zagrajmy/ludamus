@@ -6,6 +6,7 @@ account is created with the platform paying Stripe's fees or carrying the
 losses; the yearly plan is bought without a customer the webhooks can find.
 """
 
+from decimal import Decimal
 from http import HTTPStatus
 from urllib.parse import parse_qs
 
@@ -31,6 +32,7 @@ pytestmark = pytest.mark.usefixtures("stripe_settings")
 BILLING_URL = reverse("multiverse:panel:billing")
 CONNECT_URL = reverse("multiverse:panel:billing-connect")
 RETURN_URL = reverse("multiverse:panel:billing-return")
+RESUME_URL = reverse("multiverse:panel:billing-resume")
 SUBSCRIBE_URL = reverse("multiverse:panel:billing-subscribe")
 ONBOARDING_URL = "https://connect.stripe.com/setup/e/acct_test/abc"
 
@@ -90,7 +92,7 @@ class TestBillingPage:
                     paid_until=None,
                     can_subscribe=True,
                     can_manage=False,
-                    ticket_fee_percent="3.5",
+                    ticket_fee_percent=Decimal("3.5"),
                 ),
                 "payouts": PayoutPageDTO(
                     status=PayoutStatus.NOT_CONNECTED,
@@ -131,13 +133,13 @@ class TestConnect:
         }
         link = parse_qs(stripe_api.calls[1].request.body)
         assert link["return_url"] == [f"http://testserver{RETURN_URL}"]
-        assert link["refresh_url"] == [f"http://testserver{CONNECT_URL}"]
+        assert link["refresh_url"] == [f"http://testserver{RESUME_URL}"]
 
     def test_stale_link_reuses_the_account(self, manager, sphere, stripe_api):
         connected_account(sphere, charges_enabled=False)
         _mock_onboarding(stripe_api)
 
-        response = manager.get(CONNECT_URL)
+        response = manager.get(RESUME_URL)
 
         assert_response(response, HTTPStatus.FOUND, url=ONBOARDING_URL)
         assert [call.request.url for call in stripe_api.calls] == [
@@ -145,8 +147,17 @@ class TestConnect:
         ]
         assert PayoutAccount.objects.count() == 1
 
-    def test_comms_member_cannot_connect_even_by_get(self, comms, stripe_api):
-        response = comms.get(CONNECT_URL)
+    def test_stale_link_creates_no_account(self, manager, stripe_api):
+        response = manager.get(RESUME_URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=BILLING_URL)
+        assert not stripe_api.calls
+        assert not PayoutAccount.objects.exists()
+
+    def test_comms_member_cannot_resume_even_by_get(self, comms, sphere, stripe_api):
+        connected_account(sphere, charges_enabled=False)
+
+        response = comms.get(RESUME_URL)
 
         assert_response(
             response,
@@ -155,7 +166,6 @@ class TestConnect:
             messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
         )
         assert not stripe_api.calls
-        assert not PayoutAccount.objects.exists()
 
     def test_stripe_down_changes_nothing(self, manager, stripe_api):
         stripe_api.add(

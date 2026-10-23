@@ -21,7 +21,7 @@
                 {% endif %}
             </div>
             <p class="mt-2 text-sm text-foreground-muted">
-                {% blocktranslate trimmed with percent=plan.ticket_fee_percent %}
+                {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
                     Ticket money goes straight to your sphere's own Stripe account. Zagrajmy keeps {{ percent }}% of each order;
                     Stripe charges its processing fee from the same payment.
                 {% endblocktranslate %}
@@ -84,7 +84,7 @@
                 </p>
             {% else %}
                 <p class="mt-2 text-sm text-foreground-muted">
-                    {% blocktranslate trimmed with percent=plan.ticket_fee_percent %}
+                    {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
                         Zagrajmy costs nothing up front. When you sell tickets here, we keep {{ percent }}% of each order. Free events stay free.
                     {% endblocktranslate %}
                 </p>

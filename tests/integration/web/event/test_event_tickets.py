@@ -113,6 +113,7 @@ class TestEventTicketsPageView:
                             ticket_type=_type_dto(capped, held=2),
                             state=OfferState.ON_SALE,
                             remaining=3,
+                            few_left=True,
                             max_quantity=3,
                         )
                     ],
@@ -222,10 +223,38 @@ class TestEventTicketsBuyActionView:
         assert TicketOrder.objects.count() == 1
         assert not stripe_api.calls
 
-    def test_lapsed_hold_frees_its_seats(self, authenticated_client, event, stripe_api):
+    def test_seats_stay_held_while_a_late_webhook_may_still_pay(
+        self, authenticated_client, event, stripe_api
+    ):
+        # The other buyer may have paid at the last minute of their hold;
+        # Stripe's word on it can arrive after the hold ends.
         connected_account(event.sphere)
         kind = ticket_type(event, quantity=2)
         order(event, buyer=UserFactory(), lines=[(kind, 2)], hold_minutes=-1)
+
+        response = authenticated_client.post(
+            _buy_url(event), {f"quantity-{kind.pk}": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tickets_url(event),
+            messages=[
+                (
+                    messages.ERROR,
+                    "Not enough tickets left. Pick fewer, or another ticket type.",
+                )
+            ],
+        )
+        assert not stripe_api.calls
+
+    def test_hold_long_past_its_grace_frees_its_seats(
+        self, authenticated_client, event, stripe_api
+    ):
+        connected_account(event.sphere)
+        kind = ticket_type(event, quantity=2)
+        order(event, buyer=UserFactory(), lines=[(kind, 2)], hold_minutes=-61)
         _mock_checkout(stripe_api)
 
         response = authenticated_client.post(

@@ -25,10 +25,6 @@ from ludamus.gates.web.django.notice_board.urls import (
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
-from ludamus.gates.web.django.stripe_hooks import (
-    StripeBillingEndpointView,
-    StripeConnectEndpointView,
-)
 
 from . import views
 
@@ -155,16 +151,6 @@ urlpatterns = [
         "hooks/calendar-replies",
         EncounterCalendarReplyView.as_view(),
         name="calendar-replies",
-    ),
-    path(
-        "hooks/stripe/connect/",
-        StripeConnectEndpointView.as_view(),
-        name="stripe-connect-hook",
-    ),
-    path(
-        "hooks/stripe/billing/",
-        StripeBillingEndpointView.as_view(),
-        name="stripe-billing-hook",
     ),
     path(
         "",

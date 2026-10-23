@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
@@ -22,13 +23,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
+    from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.payment_api import (
         AccountState,
-        StripeEventLogProtocol,
         StripeWebhookEvent,
+        WebhookOutcome,
     )
 
 DEFAULT_CURRENCY = "pln"
+# Minor units per unit, as a power of ten: grosze to złoty is scaleb(-2).
+MONEY_DECIMAL_PLACES = 2
 # Stripe's smallest PLN charge is 2,00 zł; a cheaper ticket could never be paid.
 MIN_TICKET_PRICE = 200
 TICKET_TYPE_NAME_MAX_LENGTH = 120
@@ -102,7 +106,9 @@ class PayoutAccountRepositoryProtocol(Protocol):
     @staticmethod
     def read(*, sphere_id: int) -> PayoutAccountDTO | None: ...
     @staticmethod
-    def create(*, sphere_id: int, stripe_account_id: str) -> PayoutAccountDTO: ...
+    def create_or_read(*, sphere_id: int, stripe_account_id: str) -> PayoutAccountDTO:
+        """Store the account; if a concurrent request stored one, return that."""
+
     @staticmethod
     def update_state(*, stripe_account_id: str, state: AccountState) -> bool: ...
 
@@ -111,8 +117,6 @@ class PayoutAccountRepositoryProtocol(Protocol):
 
 
 class TicketTypeDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     pk: int
     event_id: int
     name: str
@@ -152,6 +156,8 @@ class TicketOfferDTO(BaseModel):
     state: OfferState
     # None when the type has no cap; never negative.
     remaining: int | None
+    # Few enough left that the shop says how many.
+    few_left: bool
     max_quantity: int
 
 
@@ -176,8 +182,6 @@ class EventShopDTO(BaseModel):
 
 
 class OrderLineDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     ticket_type_id: int
     ticket_type_name: str
     quantity: int
@@ -189,8 +193,6 @@ class OrderLineDTO(BaseModel):
 
 
 class TicketDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     pk: int
     code: str
     ticket_type_name: str
@@ -198,8 +200,6 @@ class TicketDTO(BaseModel):
 
 
 class OrderDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     pk: int
     event_id: int
     event_name: str
@@ -230,8 +230,6 @@ class OwnedTicketDTO(BaseModel):
     """A ticket on its holder's "My tickets" page."""
 
     code: str
-    # The code as a QR image (an SVG data URL), for whoever checks tickets.
-    qr_image_url: str = ""
     ticket_type_name: str
     order_pk: int
     event_name: str
@@ -292,7 +290,7 @@ class TicketTypeRowDTO(BaseModel):
 class TicketPanelDTO(BaseModel):
     payout_status: PayoutStatus
     payments_available: bool
-    platform_fee_percent: str
+    platform_fee_percent: Decimal
     rows: list[TicketTypeRowDTO]
     archived: list[TicketTypeDTO]
     summary: TicketSalesSummaryDTO
@@ -336,14 +334,20 @@ class CheckoutUrls:
 
 
 class TicketTypeRepositoryProtocol(Protocol):
+    # `holds_after`: a pending order's seats count as held while its
+    # `hold_until` is later than this.
     @staticmethod
     def list_for_event(
-        *, event_id: int, now: datetime, include_archived: bool = False
+        *, event_id: int, holds_after: datetime, include_archived: bool = False
     ) -> list[TicketTypeDTO]: ...
     @staticmethod
-    def lock_for_event(*, event_id: int, now: datetime) -> list[TicketTypeDTO]: ...
+    def lock_for_event(
+        *, event_id: int, holds_after: datetime
+    ) -> list[TicketTypeDTO]: ...
     @staticmethod
-    def read(*, event_id: int, pk: int, now: datetime) -> TicketTypeDTO | None: ...
+    def read(
+        *, event_id: int, pk: int, holds_after: datetime
+    ) -> TicketTypeDTO | None: ...
     @staticmethod
     def create(data: TicketTypeCreateData) -> TicketTypeDTO: ...
     @staticmethod
@@ -362,21 +366,36 @@ class TicketOrderRepositoryProtocol(Protocol):
     @staticmethod
     def read_for_buyer(*, buyer_id: int, pk: int) -> OrderDTO | None: ...
     @staticmethod
-    def read_for_event(*, event_id: int, pk: int) -> OrderDTO | None: ...
+    def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None: ...
     @staticmethod
     def lock_by_checkout(*, session_id: str) -> OrderDTO | None: ...
     @staticmethod
     def lock_by_payment_intent(*, payment_intent_id: str) -> OrderDTO | None: ...
     @staticmethod
     def list_for_event(*, event_id: int) -> list[OrderDTO]: ...
+
+    # Each move writes only if the order is still in one of `allowed_from`,
+    # and says whether it did.
     @staticmethod
-    def mark(
+    def transition(
+        *, pk: int, to: OrderStatus, allowed_from: frozenset[OrderStatus]
+    ) -> bool: ...
+    @staticmethod
+    def mark_awaiting_payment(
+        *, pk: int, payment_intent_id: str, allowed_from: frozenset[OrderStatus]
+    ) -> bool: ...
+    @staticmethod
+    def mark_paid(
         *,
         pk: int,
-        status: OrderStatus,
-        payment_intent_id: str = "",
-        when: datetime | None = None,
-    ) -> None: ...
+        payment_intent_id: str,
+        paid_at: datetime,
+        allowed_from: frozenset[OrderStatus],
+    ) -> bool: ...
+    @staticmethod
+    def mark_refunded(
+        *, pk: int, refunded_at: datetime, allowed_from: frozenset[OrderStatus]
+    ) -> bool: ...
     @staticmethod
     def issue_tickets(*, order: OrderDTO, codes: list[str]) -> None: ...
     @staticmethod
@@ -416,7 +435,6 @@ class TicketRepos:
     orders: TicketOrderRepositoryProtocol
     accounts: PayoutAccountRepositoryProtocol
     plans: SpherePlanRepositoryProtocol
-    event_log: StripeEventLogProtocol
 
 
 class PayoutServiceProtocol(Protocol):
@@ -424,41 +442,34 @@ class PayoutServiceProtocol(Protocol):
     def onboarding_url(
         self, *, sphere_id: int, email: str, refresh_url: str, return_url: str
     ) -> str: ...
+    def resume_onboarding_url(
+        self, *, sphere_id: int, refresh_url: str, return_url: str
+    ) -> str | None: ...
     def refresh(self, *, sphere_id: int) -> PayoutPageDTO: ...
 
 
 class TicketSalesServiceProtocol(Protocol):
-    def shop(
-        self,
-        *,
-        sphere_id: int,
-        event_id: int,
-        viewer_id: int | None,
-        closes_at: datetime | None = None,
-    ) -> EventShopDTO: ...
+    def shop(self, *, event: EventDTO, viewer_id: int | None) -> EventShopDTO: ...
     def start_checkout(
         self,
         *,
-        sphere_id: int,
-        event_id: int,
+        event: EventDTO,
         buyer_id: int,
         email: str,
         quantities: dict[int, int],
         urls: CheckoutUrls,
-        closes_at: datetime | None = None,
     ) -> CheckoutStartDTO: ...
     def order(self, *, buyer_id: int, event_id: int, pk: int) -> OrderDTO: ...
     def abandon_checkout(self, *, buyer_id: int, event_id: int, pk: int) -> None: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int
     ) -> list[OwnedTicketDTO]: ...
-    def handle_webhook(self, *, payload: bytes, signature: str) -> str: ...
+    def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome: ...
 
 
 class TicketPanelServiceProtocol(Protocol):
     def page(self, *, sphere_id: int, event_id: int) -> TicketPanelDTO: ...
     def read_type(self, *, event_id: int, pk: int) -> TicketTypeDTO: ...
-    def fees_for(self, *, sphere_id: int, price: int) -> FeeBreakdownDTO: ...
     def create_type(self, *, event_id: int, data: TicketTypeData) -> TicketTypeDTO: ...
     def update_type(self, *, event_id: int, pk: int, data: TicketTypeData) -> None: ...
     def set_archived(self, *, event_id: int, pk: int, archived: bool) -> None: ...

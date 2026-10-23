@@ -36,7 +36,6 @@ from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.links.db.django.tickets import (
     PayoutAccountRepository,
-    StripeEventLog,
     TicketOrderRepository,
     TicketTypeRepository,
 )
@@ -284,7 +283,3 @@ class Repositories:
     @cached_property
     def sphere_plans(self) -> SpherePlanRepository:
         return SpherePlanRepository()
-
-    @cached_property
-    def stripe_events(self) -> StripeEventLog:
-        return StripeEventLog()

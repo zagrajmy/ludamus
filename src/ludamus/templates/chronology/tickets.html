@@ -46,7 +46,7 @@
                                         · <span class="text-foreground-muted">{% blocktranslate with when=ticket_type.sales_start|date:"j E, G:i" %}On sale from {{ when }}{% endblocktranslate %}</span>
                                     {% elif offer.state == "ended" %}
                                         · <span class="text-foreground-muted">{% translate "Sales closed" %}</span>
-                                    {% elif offer.remaining is not None and offer.remaining <= 20 %}
+                                    {% elif offer.few_left %}
                                         · <span class="text-warning-text">{% blocktranslate count counter=offer.remaining %}{{ counter }} left{% plural %}{{ counter }} left{% endblocktranslate %}</span>
                                     {% endif %}
                                 </p>

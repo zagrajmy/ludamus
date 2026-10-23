@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
@@ -23,15 +23,18 @@ from django.views.generic.base import View
 from ludamus.pacts.payment_api import InvalidWebhookError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts.payment_api import WebhookOutcome
 
 logger = logging.getLogger(__name__)
 
 
+class _WebhookHandler(Protocol):
+    def __call__(self, *, payload: bytes, signature: str) -> WebhookOutcome: ...
+
+
 def _handle(
-    request: RootRequest, *, endpoint: str, handler: Callable[..., str]
+    request: RootRequest, *, endpoint: str, handler: _WebhookHandler
 ) -> JsonResponse:
     try:
         outcome = handler(

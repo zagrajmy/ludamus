@@ -2,15 +2,15 @@
 
 Two Stripe surfaces talk to us. Organizers' connected accounts sell tickets
 (`pacts.tickets`), Zagrajmy's own account bills the yearly plan
-(`pacts.billing`). Both deliver webhooks; the adapter verifies and flattens
-each one into a `StripeWebhookEvent` so no mill ever reads Stripe's JSON.
+(`pacts.billing`). Both deliver webhooks; the adapter verifies each one and
+turns it into exactly one of the event types below, so no mill reads Stripe's
+JSON or checks which optional field happens to be set.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
 
 from pydantic import BaseModel
 
@@ -23,16 +23,38 @@ class InvalidWebhookError(Exception):
     """The payload is not signed by Stripe with our secret, or is not JSON."""
 
 
-class WebhookEventKind(StrEnum):
-    CHECKOUT_COMPLETED = "checkout.session.completed"
-    CHECKOUT_ASYNC_SUCCEEDED = "checkout.session.async_payment_succeeded"
-    CHECKOUT_ASYNC_FAILED = "checkout.session.async_payment_failed"
-    CHECKOUT_EXPIRED = "checkout.session.expired"
-    CHARGE_REFUNDED = "charge.refunded"
-    ACCOUNT_UPDATED = "account.updated"
-    INVOICE_PAID = "invoice.paid"
-    SUBSCRIPTION_UPDATED = "customer.subscription.updated"
-    SUBSCRIPTION_DELETED = "customer.subscription.deleted"
+class CheckoutMode(StrEnum):
+    # A ticket order, on an organizer's account.
+    PAYMENT = "payment"
+    # The yearly plan, on Zagrajmy's account.
+    SUBSCRIPTION = "subscription"
+
+
+class CheckoutStage(StrEnum):
+    COMPLETED = "checkout.session.completed"
+    ASYNC_SUCCEEDED = "checkout.session.async_payment_succeeded"
+    ASYNC_FAILED = "checkout.session.async_payment_failed"
+    EXPIRED = "checkout.session.expired"
+
+
+class WebhookOutcome(StrEnum):
+    """What a delivery did; logged and returned to Stripe as the response body."""
+
+    PAID = "paid"
+    AWAITING_PAYMENT = "awaiting_payment"
+    FAILED = "failed"
+    EXPIRED = "expired"
+    REFUNDED = "refunded"
+    ACCOUNT_UPDATED = "account_updated"
+    SUBSCRIBED = "subscribed"
+    RENEWED = "renewed"
+    ENDED = "ended"
+    # The order or plan is already past this step: a redelivery, or events
+    # arriving out of order.
+    STALE = "stale"
+    # Nothing of ours: another product on the organizer's account, an account
+    # or customer we never created, an event type we do not act on.
+    NOT_OURS = "not_ours"
 
 
 class AccountState(BaseModel):
@@ -41,48 +63,50 @@ class AccountState(BaseModel):
     payouts_enabled: bool
 
 
-class CheckoutSessionFacts(BaseModel):
+class CheckoutEvent(BaseModel):
+    stage: CheckoutStage
+    mode: CheckoutMode
     session_id: str
-    # "payment" for a ticket order, "subscription" for the yearly plan.
-    mode: str
     paid: bool
-    payment_intent_id: str = ""
-    customer_id: str = ""
+    payment_intent_id: str
+    customer_id: str
+    subscription_id: str
 
 
-class RefundFacts(BaseModel):
+class RefundEvent(BaseModel):
     payment_intent_id: str
     fully_refunded: bool
 
 
-class SubscriptionFacts(BaseModel):
+class AccountEvent(BaseModel):
+    account_id: str
+    state: AccountState
+
+
+class InvoicePaidEvent(BaseModel):
     customer_id: str
     subscription_id: str
-    # Stripe's subscription status ("active", "past_due", "canceled", …);
-    # "active" for a paid invoice, which proves the period it covers.
-    status: str
     period_end: datetime | None
 
 
-class StripeWebhookEvent(BaseModel):
-    """One verified webhook, with the facts its kind carries and nothing else.
+class SubscriptionChangedEvent(BaseModel):
+    customer_id: str
+    subscription_id: str
+    # Stripe's subscription status ("active", "past_due", "canceled", …).
+    status: str
+    period_end: datetime | None
+    deleted: bool
 
-    `kind` is None for an event type we subscribe to by accident or Stripe
-    adds later: acknowledged, recorded, ignored.
-    """
 
-    id: str
+class UnhandledEvent(BaseModel):
     type: str
-    kind: WebhookEventKind | None
-    # The connected account the event happened on; empty on our own account.
-    account_id: str = ""
-    checkout: CheckoutSessionFacts | None = None
-    refund: RefundFacts | None = None
-    account: AccountState | None = None
-    subscription: SubscriptionFacts | None = None
 
 
-class StripeEventLogProtocol(Protocol):
-    @staticmethod
-    def record(*, event_id: str, event_type: str) -> bool:
-        """Remember a delivered event; False when it was already seen."""
+type StripeWebhookEvent = (
+    CheckoutEvent
+    | RefundEvent
+    | AccountEvent
+    | InvoicePaidEvent
+    | SubscriptionChangedEvent
+    | UnhandledEvent
+)

@@ -22,20 +22,24 @@ from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from ludamus.pacts.billing import PlanBillingProtocol
 from ludamus.pacts.payment_api import (
+    AccountEvent,
     AccountState,
-    CheckoutSessionFacts,
+    CheckoutEvent,
+    CheckoutMode,
+    CheckoutStage,
     InvalidWebhookError,
+    InvoicePaidEvent,
     PaymentProviderError,
-    RefundFacts,
-    StripeWebhookEvent,
-    SubscriptionFacts,
-    WebhookEventKind,
+    RefundEvent,
+    SubscriptionChangedEvent,
+    UnhandledEvent,
 )
 from ludamus.pacts.tickets import CheckoutSessionDTO, TicketPaymentsProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
 
+    from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.tickets import CheckoutRequest
 
 logger = logging.getLogger(__name__)
@@ -74,10 +78,15 @@ def _call(what: str) -> Generator[None]:
 
 class StripeConnect(TicketPaymentsProtocol):
     def __init__(
-        self, *, client: stripe.StripeClient | None, webhook_secret: str
+        self,
+        *,
+        client: stripe.StripeClient | None,
+        webhook_secret: str,
+        idempotency_namespace: str,
     ) -> None:
         self._client = client
         self._webhook_secret = webhook_secret
+        self._namespace = idempotency_namespace
 
     @property
     def enabled(self) -> bool:
@@ -99,7 +108,10 @@ class StripeConnect(TicketPaymentsProtocol):
                     },
                     "metadata": {"sphere_id": str(sphere_id)},
                 },
-                options={"idempotency_key": f"payout-account-{sphere_id}-{email}"},
+                # Two managers clicking at once get one account, not two.
+                options={
+                    "idempotency_key": f"{self._namespace}-payout-account-{sphere_id}"
+                },
             )
         return account.id
 
@@ -157,11 +169,7 @@ class StripeConnect(TicketPaymentsProtocol):
                     "cancel_url": request.cancel_url,
                     "expires_at": int(request.expires_at.timestamp()),
                 },
-                options={
-                    "stripe_account": request.account_id,
-                    # A retried request for the same order reuses its session.
-                    "idempotency_key": f"ticket-order-{reference}",
-                },
+                options={"stripe_account": request.account_id},
             )
         if not session.url:
             message = "Stripe returned a Checkout Session without a URL."
@@ -185,10 +193,9 @@ class StripeConnect(TicketPaymentsProtocol):
                     # back to the organizer too.
                     "refund_application_fee": True,
                 },
-                options={
-                    "stripe_account": account_id,
-                    "idempotency_key": f"refund-{payment_intent_id}",
-                },
+                # No idempotency key: Stripe would replay a refused refund for a
+                # day; the order's status guard is what stops a double refund.
+                options={"stripe_account": account_id},
             )
 
     def parse_webhook(self, *, payload: bytes, signature: str) -> StripeWebhookEvent:
@@ -204,10 +211,12 @@ class StripeBilling(PlanBillingProtocol):
         client: stripe.StripeClient | None,
         webhook_secret: str,
         yearly_price_id: str,
+        idempotency_namespace: str,
     ) -> None:
         self._client = client
         self._webhook_secret = webhook_secret
         self._yearly_price_id = yearly_price_id
+        self._namespace = idempotency_namespace
 
     @property
     def enabled(self) -> bool:
@@ -222,21 +231,16 @@ class StripeBilling(PlanBillingProtocol):
                     "email": email,
                     "metadata": {"sphere_id": str(sphere_id)},
                 },
-                options={"idempotency_key": f"sphere-customer-{sphere_id}"},
+                options={
+                    "idempotency_key": f"{self._namespace}-sphere-customer-{sphere_id}"
+                },
             )
         return customer.id
 
     def create_plan_checkout(
-        self,
-        *,
-        sphere_id: int,
-        customer_id: str,
-        email: str,
-        success_url: str,
-        cancel_url: str,
+        self, *, sphere_id: int, customer_id: str, success_url: str, cancel_url: str
     ) -> str:
         client = _require(self._client)
-        logger.info("Yearly plan checkout for sphere %s (%s)", sphere_id, email)
         with _call("plan checkout"):
             session = client.v1.checkout.sessions.create(
                 params={
@@ -276,27 +280,28 @@ class _Ref(BaseModel):
     id: str = ""
 
 
-type _IdOrObject = str | _Ref | None
+type _IdOrResource = str | _Ref | None
 
 
-def _id(value: _IdOrObject) -> str:
+def _id(value: _IdOrResource) -> str:
     return value if isinstance(value, str) else "" if value is None else value.id
 
 
-class _CheckoutObject(BaseModel):
+class _CheckoutSession(BaseModel):
     id: str
     mode: str = ""
     payment_status: str = ""
-    payment_intent: _IdOrObject = None
-    customer: _IdOrObject = None
+    payment_intent: _IdOrResource = None
+    customer: _IdOrResource = None
+    subscription: _IdOrResource = None
 
 
-class _ChargeObject(BaseModel):
-    payment_intent: _IdOrObject = None
+class _Charge(BaseModel):
+    payment_intent: _IdOrResource = None
     refunded: bool = False
 
 
-class _AccountObject(BaseModel):
+class _Account(BaseModel):
     id: str
     details_submitted: bool = False
     charges_enabled: bool = False
@@ -316,18 +321,18 @@ class _InvoiceLines(BaseModel):
 
 
 class _SubscriptionDetails(BaseModel):
-    subscription: _IdOrObject = None
+    subscription: _IdOrResource = None
 
 
 class _InvoiceParent(BaseModel):
     subscription_details: _SubscriptionDetails | None = None
 
 
-class _InvoiceObject(BaseModel):
-    customer: _IdOrObject = None
+class _Invoice(BaseModel):
+    customer: _IdOrResource = None
     # Pre-2025 API versions name the subscription here; later ones under
     # parent.subscription_details.
-    subscription: _IdOrObject = None
+    subscription: _IdOrResource = None
     parent: _InvoiceParent | None = None
     lines: _InvoiceLines = _InvoiceLines()
 
@@ -340,9 +345,9 @@ class _SubscriptionItems(BaseModel):
     data: list[_SubscriptionItem] = []
 
 
-class _SubscriptionObject(BaseModel):
+class _Subscription(BaseModel):
     id: str
-    customer: _IdOrObject = None
+    customer: _IdOrResource = None
     status: str = ""
     # The period moved onto subscription items in 2025 API versions; older
     # payloads carry it on the subscription itself.
@@ -355,7 +360,6 @@ class _EnvelopeData(BaseModel):
 
 
 class _Envelope(BaseModel):
-    id: str
     type: str
     account: str | None = None
     data: _EnvelopeData
@@ -369,66 +373,45 @@ def parse_event(*, payload: bytes, signature: str, secret: str) -> StripeWebhook
         stripe.WebhookSignature.verify_header(
             payload.decode(), signature, secret, _SIGNATURE_TOLERANCE_SECONDS
         )
-        return _flatten(_Envelope.model_validate_json(payload))
+        return _event(_Envelope.model_validate_json(payload))
     # SignatureVerificationError is a StripeError; its own class is untyped.
     except (stripe.StripeError, UnicodeDecodeError, ValidationError) as exc:
         raise InvalidWebhookError(str(exc)) from exc
 
 
-def _flatten(envelope: _Envelope) -> StripeWebhookEvent:
-    try:
-        kind: WebhookEventKind | None = WebhookEventKind(envelope.type)
-    except ValueError:
-        kind = None
-    event = StripeWebhookEvent(
-        id=envelope.id, type=envelope.type, kind=kind, account_id=envelope.account or ""
-    )
+def _event(envelope: _Envelope) -> StripeWebhookEvent:
     raw = envelope.data.resource
-    match kind:
-        case (
-            WebhookEventKind.CHECKOUT_COMPLETED
-            | WebhookEventKind.CHECKOUT_ASYNC_SUCCEEDED
-            | WebhookEventKind.CHECKOUT_ASYNC_FAILED
-            | WebhookEventKind.CHECKOUT_EXPIRED
-        ):
-            session = _CheckoutObject.model_validate(raw)
-            event.checkout = CheckoutSessionFacts(
-                session_id=session.id,
-                mode=session.mode,
-                paid=session.payment_status in _PAID_STATUSES,
-                payment_intent_id=_id(session.payment_intent),
-                customer_id=_id(session.customer),
-            )
-        case WebhookEventKind.CHARGE_REFUNDED:
-            charge = _ChargeObject.model_validate(raw)
-            event.refund = RefundFacts(
+    if envelope.type in CheckoutStage:
+        return _checkout_event(CheckoutStage(envelope.type), raw)
+    match envelope.type:
+        case "charge.refunded":
+            charge = _Charge.model_validate(raw)
+            return RefundEvent(
                 payment_intent_id=_id(charge.payment_intent),
                 fully_refunded=charge.refunded,
             )
-        case WebhookEventKind.ACCOUNT_UPDATED:
-            account = _AccountObject.model_validate(raw)
-            event.account_id = event.account_id or account.id
-            event.account = AccountState(
-                details_submitted=account.details_submitted,
-                charges_enabled=account.charges_enabled,
-                payouts_enabled=account.payouts_enabled,
+        case "account.updated":
+            account = _Account.model_validate(raw)
+            return AccountEvent(
+                account_id=envelope.account or account.id,
+                state=AccountState(
+                    details_submitted=account.details_submitted,
+                    charges_enabled=account.charges_enabled,
+                    payouts_enabled=account.payouts_enabled,
+                ),
             )
-        case WebhookEventKind.INVOICE_PAID:
-            invoice = _InvoiceObject.model_validate(raw)
+        case "invoice.paid":
+            invoice = _Invoice.model_validate(raw)
             details = invoice.parent.subscription_details if invoice.parent else None
-            event.subscription = SubscriptionFacts(
+            return InvoicePaidEvent(
                 customer_id=_id(invoice.customer),
                 subscription_id=_id(details.subscription if details else None)
                 or _id(invoice.subscription),
-                status="active",
                 period_end=_latest(line.period.end for line in invoice.lines.data),
             )
-        case (
-            WebhookEventKind.SUBSCRIPTION_UPDATED
-            | WebhookEventKind.SUBSCRIPTION_DELETED
-        ):
-            subscription = _SubscriptionObject.model_validate(raw)
-            event.subscription = SubscriptionFacts(
+        case "customer.subscription.updated" | "customer.subscription.deleted":
+            subscription = _Subscription.model_validate(raw)
+            return SubscriptionChangedEvent(
                 customer_id=_id(subscription.customer),
                 subscription_id=subscription.id,
                 status=subscription.status,
@@ -438,10 +421,27 @@ def _flatten(envelope: _Envelope) -> StripeWebhookEvent:
                         subscription.current_period_end,
                     ]
                 ),
+                deleted=envelope.type == "customer.subscription.deleted",
             )
-        case None:
-            pass
-    return event
+    return UnhandledEvent(type=envelope.type)
+
+
+def _checkout_event(
+    stage: CheckoutStage, raw: dict[str, JsonValue]
+) -> CheckoutEvent | UnhandledEvent:
+    session = _CheckoutSession.model_validate(raw)
+    if session.mode not in CheckoutMode:
+        # A setup-mode session, say: nothing we create.
+        return UnhandledEvent(type=stage)
+    return CheckoutEvent(
+        stage=stage,
+        mode=CheckoutMode(session.mode),
+        session_id=session.id,
+        paid=session.payment_status in _PAID_STATUSES,
+        payment_intent_id=_id(session.payment_intent),
+        customer_id=_id(session.customer),
+        subscription_id=_id(session.subscription),
+    )
 
 
 def _latest(timestamps: Iterable[int | None]) -> datetime | None:

@@ -91,7 +91,6 @@ TicketOrder      N:1 Event    buyer, email, status, currency, total,
                               hold_until, paid_at, refunded_at
 TicketOrderLine  N:1 Order    ticket_type, quantity, unit_price
 Ticket           N:1 Order    ticket_type, holder, code (unique), is_void
-StripeEvent                   stripe event id (unique), type, received_at
 ```
 
 - Money is integer minor units everywhere. Currency is PLN in v1.
@@ -99,8 +98,10 @@ StripeEvent                   stripe event id (unique), type, received_at
   `PayoutAccount` row as "not connected". No backfill migration.
 - Ticket types are archived, never deleted, once anything was sold — orders
   point at them.
-- `StripeEvent` makes webhook handling idempotent: Stripe retries, and an event
-  id seen once is acknowledged and skipped.
+- Orders move only along `specs.tickets.ORDER_TRANSITIONS`, and every write is
+  guarded by the status it moves from (`UPDATE … WHERE status IN …`). That is
+  what makes webhooks idempotent: a redelivered or reordered event finds the
+  order already past it, changes nothing and is acknowledged as `stale`.
 
 ## Flows
 
@@ -112,17 +113,20 @@ StripeEvent                   stripe event id (unique), type, received_at
    first: a ticket belongs to an account, it is what "My tickets" lists.
 3. The service locks the event's ticket types, checks availability and the
    sales window, and creates a `pending` order that **holds** its seats until
-   `hold_until` (now + 30 min, Stripe's minimum Checkout lifetime). It then
-   creates the Checkout Session with the same `expires_at`, so the hold and
-   the session die together.
+   `hold_until` (now + 31 min, just over Stripe's minimum Checkout lifetime).
+   It then creates the Checkout Session with the same `expires_at`, so the hold
+   and the session die together.
 4. Stripe redirects back to the order page. It shows "paid" once the webhook
    landed and "confirming payment" until then (it refreshes itself).
 5. Coming back through Stripe's "back" link expires the Checkout Session at once
    and releases the hold.
 
-Availability = `quantity − sold − held`, where held counts `pending` orders whose
-hold has not run out and `awaiting_payment` orders (delayed methods). An order
-past its hold stops counting the moment the clock passes it: no sweep is needed
+Availability = `quantity − sold − held`, where held counts `awaiting_payment`
+orders (delayed methods) and `pending` orders until an hour past their hold
+(`WEBHOOK_GRACE`). A buyer may pay in the last minute of the hold and Stripe may
+report it late; the grace keeps those seats from being sold to someone else
+meanwhile. Stripe's `checkout.session.expired` releases an abandoned hold at
+once, so the grace only matters when webhooks are delayed. No sweep is needed
 for correctness.
 
 ### Webhooks
@@ -137,8 +141,9 @@ Two endpoints, two signing secrets:
   `checkout.session.completed` (subscription mode), `invoice.paid`,
   `customer.subscription.updated` / `.deleted`.
 
-Every handler is idempotent on its own as well (a paid order is not paid twice),
-the `StripeEvent` log is the first line, not the only one.
+Stripe does not deliver in order. Ticket orders are protected by the transition
+guards above; the yearly plan by checking each event's subscription against the
+one on record, so an event about an older subscription changes nothing.
 
 ### Refunds
 
@@ -158,7 +163,8 @@ arrives as `charge.refunded` and voids the tickets the same way.
 | ------------------------------------------- | ----------------------------------------------------------------- |
 | Two buyers race for the last ticket         | Ticket types are row-locked; the second gets "sold out".          |
 | Buyer abandons Checkout                     | Hold lapses at `hold_until`; `checkout.session.expired` marks it. |
-| Webhook arrives twice                       | `StripeEvent` unique id; second delivery is a 200 no-op.          |
+| Webhook arrives twice or out of order       | Transition guard; the late delivery is a 200 `stale` no-op.       |
+| Paid webhook arrives after the hold         | Seats stay held for `WEBHOOK_GRACE`; an oversell is logged.       |
 | Webhook never arrives                       | Order page shows "confirming"; Stripe retries for 3 days.         |
 | Stripe API down when creating Checkout      | Order is cancelled, hold released, buyer sees a retry message.    |
 | Organizer's account loses `charges_enabled` | Tickets page stops selling, panel says why and links onboarding.  |

@@ -60,7 +60,7 @@
                         {% include "components/stat_card.html" with value=page.summary.tickets label=t_sold %}
                         {% translate "paid by buyers" as t_gross %}
                         {% include "components/stat_card.html" with value=page.summary.gross|money label=t_gross %}
-                        {% blocktranslate asvar t_fees with percent=page.platform_fee_percent %}Zagrajmy {{ percent }}% and Stripe fees (est.){% endblocktranslate %}
+                        {% blocktranslate asvar t_fees with percent=page.platform_fee_percent|floatformat:"-1" %}Zagrajmy {{ percent }}% and Stripe fees (est.){% endblocktranslate %}
                         {% include "components/stat_card.html" with value=page.summary.platform_fees|add:page.summary.estimated_stripe_fees|money label=t_fees %}
                         {% translate "you keep (est.)" as t_net %}
                         {% include "components/stat_card.html" with value=page.summary.estimated_net|money label=t_net %}
@@ -157,9 +157,15 @@
                 {% else %}
                     <div class="card">
                         <div class="card-body max-w-2xl">
-                            <h3 class="text-lg font-semibold text-foreground">{% translate "This event is free to attend" %}</h3>
+                            <h3 class="text-lg font-semibold text-foreground">
+                                {% if page.archived %}
+                                    {% translate "Nothing is on sale now" %}
+                                {% else %}
+                                    {% translate "This event is free to attend" %}
+                                {% endif %}
+                            </h3>
                             <p class="mt-2 text-sm text-foreground-muted">
-                                {% blocktranslate trimmed with percent=page.platform_fee_percent %}
+                                {% blocktranslate trimmed with percent=page.platform_fee_percent|floatformat:"-1" %}
                                     Add a ticket type to sell entry on Zagrajmy. Buyers pay by card, BLIK or bank transfer through Stripe;
                                     Zagrajmy keeps {{ percent }}% of each order and Stripe charges its own processing fee.
                                 {% endblocktranslate %}

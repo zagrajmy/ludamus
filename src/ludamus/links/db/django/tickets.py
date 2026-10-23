@@ -13,13 +13,11 @@ from django.db.models import Max, Q, Sum
 
 from ludamus.links.db.django.models import (
     PayoutAccount,
-    StripeEvent,
     Ticket,
     TicketOrder,
     TicketOrderLine,
     TicketType,
 )
-from ludamus.pacts.payment_api import StripeEventLogProtocol
 from ludamus.pacts.tickets import (
     OrderDTO,
     OrderLineDTO,
@@ -49,29 +47,57 @@ if TYPE_CHECKING:
 class _OrderChanges(TypedDict, total=False):
     status: OrderStatus
     stripe_payment_intent_id: str
-    paid_at: datetime | None
-    refunded_at: datetime | None
+    paid_at: datetime
+    refunded_at: datetime
 
 
-def _held(now: datetime) -> Q:
+_TICKET_TYPE_FIELDS = (
+    "pk",
+    "event_id",
+    "name",
+    "description",
+    "price",
+    "currency",
+    "quantity",
+    "sales_start",
+    "sales_end",
+    "is_archived",
+    "order",
+    "sold",
+    "held",
+)
+
+
+def _held(holds_after: datetime) -> Q:
     return Q(order_lines__order__status=OrderStatus.AWAITING_PAYMENT) | Q(
         order_lines__order__status=OrderStatus.PENDING,
-        order_lines__order__hold_until__gt=now,
+        order_lines__order__hold_until__gt=holds_after,
     )
 
 
-def _with_counts(queryset: QuerySet[TicketType], now: datetime) -> QuerySet[TicketType]:
+def _with_counts(
+    queryset: QuerySet[TicketType], holds_after: datetime
+) -> QuerySet[TicketType]:
     return queryset.annotate(
-        sold_count=Sum(
+        sold=Sum(
             "order_lines__quantity",
             filter=Q(order_lines__order__status=OrderStatus.PAID),
             default=0,
         ),
-        held_count=Sum("order_lines__quantity", filter=_held(now), default=0),
+        held=Sum("order_lines__quantity", filter=_held(holds_after), default=0),
     )
 
 
-def _ticket_type_dto(ticket_type: TicketType) -> TicketTypeDTO:
+def _counted(
+    queryset: QuerySet[TicketType], holds_after: datetime
+) -> list[TicketTypeDTO]:
+    return [
+        TicketTypeDTO.model_validate(row)
+        for row in _with_counts(queryset, holds_after).values(*_TICKET_TYPE_FIELDS)
+    ]
+
+
+def _new_ticket_type_dto(ticket_type: TicketType) -> TicketTypeDTO:
     return TicketTypeDTO(
         pk=ticket_type.pk,
         event_id=ticket_type.event_id,
@@ -84,26 +110,23 @@ def _ticket_type_dto(ticket_type: TicketType) -> TicketTypeDTO:
         sales_end=ticket_type.sales_end,
         is_archived=ticket_type.is_archived,
         order=ticket_type.order,
-        sold=getattr(ticket_type, "sold_count", 0),
-        held=getattr(ticket_type, "held_count", 0),
+        sold=0,
+        held=0,
     )
 
 
 class TicketTypeRepository(TicketTypeRepositoryProtocol):
     @staticmethod
     def list_for_event(
-        *, event_id: int, now: datetime, include_archived: bool = False
+        *, event_id: int, holds_after: datetime, include_archived: bool = False
     ) -> list[TicketTypeDTO]:
         queryset = TicketType.objects.filter(event_id=event_id)
         if not include_archived:
             queryset = queryset.filter(is_archived=False)
-        return [
-            _ticket_type_dto(ticket_type)
-            for ticket_type in _with_counts(queryset, now).order_by("order", "pk")
-        ]
+        return _counted(queryset.order_by("order", "pk"), holds_after)
 
     @staticmethod
-    def lock_for_event(*, event_id: int, now: datetime) -> list[TicketTypeDTO]:
+    def lock_for_event(*, event_id: int, holds_after: datetime) -> list[TicketTypeDTO]:
         # Locked apart from the counting query: Postgres refuses FOR UPDATE on
         # an aggregate. Two buyers of the same event queue here, so the second
         # counts the first one's hold.
@@ -112,18 +135,20 @@ class TicketTypeRepository(TicketTypeRepositoryProtocol):
             .filter(event_id=event_id)
             .values_list("pk", flat=True)
         )
-        return TicketTypeRepository.list_for_event(event_id=event_id, now=now)
+        return TicketTypeRepository.list_for_event(
+            event_id=event_id, holds_after=holds_after
+        )
 
     @staticmethod
-    def read(*, event_id: int, pk: int, now: datetime) -> TicketTypeDTO | None:
-        ticket_type = _with_counts(
-            TicketType.objects.filter(event_id=event_id, pk=pk), now
-        ).first()
-        return None if ticket_type is None else _ticket_type_dto(ticket_type)
+    def read(*, event_id: int, pk: int, holds_after: datetime) -> TicketTypeDTO | None:
+        found = _counted(
+            TicketType.objects.filter(event_id=event_id, pk=pk), holds_after
+        )
+        return found[0] if found else None
 
     @staticmethod
     def create(data: TicketTypeCreateData) -> TicketTypeDTO:
-        return _ticket_type_dto(TicketType.objects.create(**data))
+        return _new_ticket_type_dto(TicketType.objects.create(**data))
 
     @staticmethod
     def update(*, event_id: int, pk: int, data: TicketTypeData) -> bool:
@@ -197,6 +222,21 @@ def _read(queryset: QuerySet[TicketOrder]) -> OrderDTO | None:
     return None if order is None else _order_dto(order)
 
 
+def _lock(queryset: QuerySet[TicketOrder]) -> OrderDTO | None:
+    # The row lock first, on its own: FOR UPDATE does not mix with the
+    # prefetches that build the DTO.
+    pk = queryset.select_for_update().values_list("pk", flat=True).first()
+    return None if pk is None else _read(_orders().filter(pk=pk))
+
+
+def _move(
+    *, pk: int, allowed_from: frozenset[OrderStatus], changes: _OrderChanges
+) -> bool:
+    return bool(
+        TicketOrder.objects.filter(pk=pk, status__in=allowed_from).update(**changes)
+    )
+
+
 class TicketOrderRepository(TicketOrderRepositoryProtocol):
     @staticmethod
     def create(data: OrderCreateData) -> OrderDTO:
@@ -216,32 +256,22 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         return _read(_orders().filter(buyer_id=buyer_id, pk=pk))
 
     @staticmethod
-    def read_for_event(*, event_id: int, pk: int) -> OrderDTO | None:
-        return _read(_orders().filter(event_id=event_id, pk=pk))
+    def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None:
+        return _lock(TicketOrder.objects.filter(event_id=event_id, pk=pk))
 
     @staticmethod
     def lock_by_checkout(*, session_id: str) -> OrderDTO | None:
         if not session_id:
             return None
-        pk = (
-            TicketOrder.objects.select_for_update()
-            .filter(stripe_checkout_session_id=session_id)
-            .values_list("pk", flat=True)
-            .first()
-        )
-        return None if pk is None else _read(_orders().filter(pk=pk))
+        return _lock(TicketOrder.objects.filter(stripe_checkout_session_id=session_id))
 
     @staticmethod
     def lock_by_payment_intent(*, payment_intent_id: str) -> OrderDTO | None:
         if not payment_intent_id:
             return None
-        pk = (
-            TicketOrder.objects.select_for_update()
-            .filter(stripe_payment_intent_id=payment_intent_id)
-            .values_list("pk", flat=True)
-            .first()
+        return _lock(
+            TicketOrder.objects.filter(stripe_payment_intent_id=payment_intent_id)
         )
-        return None if pk is None else _read(_orders().filter(pk=pk))
 
     @staticmethod
     def list_for_event(*, event_id: int) -> list[OrderDTO]:
@@ -260,21 +290,51 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         ]
 
     @staticmethod
-    def mark(
+    def transition(
+        *, pk: int, to: OrderStatus, allowed_from: frozenset[OrderStatus]
+    ) -> bool:
+        return _move(pk=pk, allowed_from=allowed_from, changes={"status": to})
+
+    @staticmethod
+    def mark_awaiting_payment(
+        *, pk: int, payment_intent_id: str, allowed_from: frozenset[OrderStatus]
+    ) -> bool:
+        return _move(
+            pk=pk,
+            allowed_from=allowed_from,
+            changes={
+                "status": OrderStatus.AWAITING_PAYMENT,
+                "stripe_payment_intent_id": payment_intent_id,
+            },
+        )
+
+    @staticmethod
+    def mark_paid(
         *,
         pk: int,
-        status: OrderStatus,
-        payment_intent_id: str = "",
-        when: datetime | None = None,
-    ) -> None:
-        changes: _OrderChanges = {"status": status}
-        if payment_intent_id:
-            changes["stripe_payment_intent_id"] = payment_intent_id
-        if status is OrderStatus.PAID:
-            changes["paid_at"] = when
-        if status is OrderStatus.REFUNDED:
-            changes["refunded_at"] = when
-        TicketOrder.objects.filter(pk=pk).update(**changes)
+        payment_intent_id: str,
+        paid_at: datetime,
+        allowed_from: frozenset[OrderStatus],
+    ) -> bool:
+        return _move(
+            pk=pk,
+            allowed_from=allowed_from,
+            changes={
+                "status": OrderStatus.PAID,
+                "stripe_payment_intent_id": payment_intent_id,
+                "paid_at": paid_at,
+            },
+        )
+
+    @staticmethod
+    def mark_refunded(
+        *, pk: int, refunded_at: datetime, allowed_from: frozenset[OrderStatus]
+    ) -> bool:
+        return _move(
+            pk=pk,
+            allowed_from=allowed_from,
+            changes={"status": OrderStatus.REFUNDED, "refunded_at": refunded_at},
+        )
 
     @staticmethod
     def issue_tickets(*, order: OrderDTO, codes: list[str]) -> None:
@@ -336,12 +396,13 @@ class PayoutAccountRepository(PayoutAccountRepositoryProtocol):
         return None if account is None else PayoutAccountDTO.model_validate(account)
 
     @staticmethod
-    def create(*, sphere_id: int, stripe_account_id: str) -> PayoutAccountDTO:
-        return PayoutAccountDTO.model_validate(
-            PayoutAccount.objects.create(
-                sphere_id=sphere_id, stripe_account_id=stripe_account_id
-            )
+    def create_or_read(*, sphere_id: int, stripe_account_id: str) -> PayoutAccountDTO:
+        # get_or_create absorbs the one-per-sphere race: of two managers
+        # connecting at once, the second gets the first one's account.
+        account, _ = PayoutAccount.objects.get_or_create(
+            sphere_id=sphere_id, defaults={"stripe_account_id": stripe_account_id}
         )
+        return PayoutAccountDTO.model_validate(account)
 
     @staticmethod
     def update_state(*, stripe_account_id: str, state: AccountState) -> bool:
@@ -350,15 +411,3 @@ class PayoutAccountRepository(PayoutAccountRepositoryProtocol):
                 **state.model_dump()
             )
         )
-
-
-class StripeEventLog(StripeEventLogProtocol):
-    @staticmethod
-    def record(*, event_id: str, event_type: str) -> bool:
-        # get_or_create inserts under its own savepoint, so a redelivery racing
-        # the first one loses cleanly instead of breaking the caller's
-        # transaction.
-        _, created = StripeEvent.objects.get_or_create(
-            event_id=event_id, defaults={"type": event_type}
-        )
-        return created

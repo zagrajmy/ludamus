@@ -6,6 +6,7 @@ stored in złoty instead of grosze; a refund leaves Zagrajmy's fee behind or
 the tickets valid; a refund Stripe refused is shown as done.
 """
 
+from decimal import Decimal
 from http import HTTPStatus
 from urllib.parse import parse_qs
 
@@ -94,7 +95,7 @@ class TestTicketsPage:
                 "page": TicketPanelDTO(
                     payout_status=PayoutStatus.NOT_CONNECTED,
                     payments_available=True,
-                    platform_fee_percent="3.5",
+                    platform_fee_percent=Decimal("3.5"),
                     rows=[],
                     archived=[],
                     summary=TicketSalesSummaryDTO(
@@ -228,7 +229,7 @@ class TestTicketTypeEditAndArchive:
             template_name="panel/ticket-type-form.html",
             context_data={
                 **panel_context(event, active_nav="tickets"),
-                "form": FormInitialMatcher(price="49.99"),
+                "form": FormInitialMatcher(price=4999),
                 "ticket_type": TicketTypeDTO(
                     pk=kind.pk,
                     event_id=event.pk,

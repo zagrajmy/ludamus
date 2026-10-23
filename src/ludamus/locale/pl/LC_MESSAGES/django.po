@@ -6515,6 +6515,14 @@ msgstr ""
 
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid ""
+"Stripe hasn't confirmed this payment yet. Reload the page in a few minutes: "
+"if you were charged, your tickets appear here."
+msgstr ""
+"Stripe nie potwierdził jeszcze tej płatności. Odśwież stronę za kilka minut: "
+"jeśli pobrano pieniądze, bilety pojawią się tutaj."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
 "The organizer refunded this order. The money is on its way back to you; the "
 "tickets no longer admit anyone."
 msgstr ""
@@ -12961,6 +12969,10 @@ msgstr "do końca wydarzenia"
 #: src/ludamus/templates/panel/tickets.html
 msgid "Take off sale"
 msgstr "Wycofaj ze sprzedaży"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Nothing is on sale now"
+msgstr "Teraz nic nie jest w sprzedaży"
 
 #: src/ludamus/templates/panel/tickets.html
 msgid "This event is free to attend"

@@ -8,6 +8,7 @@ and Stripe sends it back to the order page (paid) or through the cancel action
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
@@ -29,6 +30,8 @@ from ludamus.pacts.tickets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
@@ -46,10 +49,7 @@ def _tickets_url(slug: str) -> str:
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
     return request.services.ticket_sales.shop(
-        sphere_id=request.context.current_sphere_id,
-        event_id=event.pk,
-        viewer_id=request.context.current_user_id,
-        closes_at=event.end_time,
+        event=event, viewer_id=request.context.current_user_id
     )
 
 
@@ -131,25 +131,20 @@ class EventTicketsBuyActionView(View):
             messages.error(request, _("Choose how many tickets you want."))
             return redirect(_tickets_url(event.slug))
 
+        def order_url(name: str) -> Callable[[int], str]:
+            return lambda pk: request.build_absolute_uri(
+                reverse(name, kwargs={"event_slug": event.slug, "pk": pk})
+            )
+
         started = request.services.ticket_sales.start_checkout(
-            sphere_id=request.context.current_sphere_id,
-            event_id=event.pk,
+            event=event,
             buyer_id=buyer_id,
             email=email,
             quantities=quantities,
             urls=CheckoutUrls(
-                success=_OrderUrl(
-                    request=request,
-                    name="web:event:event-ticket-order",
-                    slug=event.slug,
-                ),
-                cancel=_OrderUrl(
-                    request=request,
-                    name="web:event:event-ticket-order-cancel",
-                    slug=event.slug,
-                ),
+                success=order_url("web:event:event-ticket-order"),
+                cancel=order_url("web:event:event-ticket-order-cancel"),
             ),
-            closes_at=event.end_time,
         )
         logger.info(
             "Ticket checkout: event=%s buyer=%s outcome=%s",
@@ -161,20 +156,6 @@ class EventTicketsBuyActionView(View):
             return redirect(started.url)
         messages.error(request, _outcome_message(started.outcome))
         return redirect(_tickets_url(event.slug))
-
-
-class _OrderUrl:
-    """An order's absolute URL on this sphere's domain, built once its pk exists."""
-
-    def __init__(self, *, request: RootRequest, name: str, slug: str) -> None:
-        self._request = request
-        self._name = name
-        self._slug = slug
-
-    def __call__(self, order_pk: int) -> str:
-        return self._request.build_absolute_uri(
-            reverse(self._name, kwargs={"event_slug": self._slug, "pk": order_pk})
-        )
 
 
 class EventTicketOrderPageView(View):
@@ -203,6 +184,13 @@ class EventTicketOrderPageView(View):
                 # redirect; until then the page checks back on its own.
                 "confirming": (
                     order.status in {OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT}
+                ),
+                # Card and BLIK settle within seconds of the redirect; a bank
+                # transfer can take days, and a hold past its end means the
+                # webhook is late, so neither is worth a request every 3 s.
+                "polling": (
+                    order.status is OrderStatus.PENDING
+                    and order.hold_until > datetime.now(tz=UTC)
                 ),
             },
         )

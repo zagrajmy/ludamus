@@ -62,7 +62,7 @@ test.describe("Ticket sales", () => {
       headers: { "Content-Type": "application/json", "Stripe-Signature": signed(body) },
     });
     expect(delivered.status()).toBe(200);
-    expect(["paid", "already_paid"]).toContain((await delivered.json()).outcome);
+    expect(["paid", "stale"]).toContain((await delivered.json()).outcome);
 
     await page.goto("/crowd/profile/tickets/");
     await expect(page.getByRole("tab", { name: /Tickets/ })).toHaveAttribute(

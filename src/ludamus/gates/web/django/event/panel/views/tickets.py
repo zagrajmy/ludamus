@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 _TICKETS_URL = "panel:tickets"
 _FORM_TEMPLATE = "panel/ticket-type-form.html"
-_GROSZE_PER_ZLOTY = 100
 
 
 def _not_found(slug: str) -> RedirectError:
@@ -45,7 +44,7 @@ def _data(form: TicketTypeForm) -> TicketTypeData:
     return {
         "name": form.cleaned_data["name"],
         "description": form.cleaned_data["description"],
-        "price": form.price_in_grosze(),
+        "price": form.cleaned_data["price"],
         "quantity": form.cleaned_data["quantity"],
         "sales_start": form.cleaned_data["sales_start"],
         "sales_end": form.cleaned_data["sales_end"],
@@ -116,13 +115,12 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
                     include={
                         "name",
                         "description",
+                        "price",
                         "quantity",
                         "sales_start",
                         "sales_end",
                     }
                 )
-                # The form speaks złoty; the DTO, grosze.
-                | {"price": f"{ticket_type.price / _GROSZE_PER_ZLOTY:.2f}"}
             ),
             ticket_type=ticket_type,
         )

@@ -1,9 +1,12 @@
 """The sphere's plan: which one it is on, buying the yearly one, and Stripe's word.
 
-A sphere holds the yearly plan while its `SpherePlan` row says White Glove and
-`paid_until` has not passed (no date: held until a maintainer says otherwise).
-Stripe webhooks keep a Stripe-billed plan current; a plan a maintainer recorded
-by hand (`PlanSource.MANUAL`) is theirs to change, and webhooks leave it be.
+`specs.billing.effective_plan` says which plan a sphere holds. Stripe webhooks
+keep a Stripe-billed plan current; a plan a maintainer recorded by hand
+(`PlanSource.MANUAL`) is theirs to change, and webhooks leave it be.
+
+Stripe does not deliver events in order, so each one is checked against the
+subscription the sphere has on record: an event about another (an older,
+cancelled) subscription changes nothing.
 """
 
 from __future__ import annotations
@@ -14,8 +17,16 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.billing import PlanKind, PlanPageDTO, PlanServiceProtocol, PlanSource
 from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.payment_api import WebhookEventKind
-from ludamus.specs.tickets import ACTIVE_SUBSCRIPTION_STATUSES, PLATFORM_FEE_BPS
+from ludamus.pacts.payment_api import (
+    CheckoutEvent,
+    CheckoutMode,
+    CheckoutStage,
+    InvoicePaidEvent,
+    SubscriptionChangedEvent,
+    WebhookOutcome,
+)
+from ludamus.specs.billing import ACTIVE_SUBSCRIPTION_STATUSES, effective_plan
+from ludamus.specs.tickets import platform_fee_percent
 
 if TYPE_CHECKING:
     from ludamus.pacts.billing import (
@@ -24,18 +35,10 @@ if TYPE_CHECKING:
         SpherePlanDTO,
         SpherePlanRepositoryProtocol,
     )
-    from ludamus.pacts.payment_api import StripeEventLogProtocol, StripeWebhookEvent
+    from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.services import TransactionProtocol
 
 logger = logging.getLogger(__name__)
-
-
-def holds_yearly_plan(plan: SpherePlanDTO | None, *, now: datetime) -> bool:
-    return (
-        plan is not None
-        and plan.kind is PlanKind.WHITE_GLOVE
-        and (plan.paid_until is None or plan.paid_until > now)
-    )
 
 
 class PlanService(PlanServiceProtocol):
@@ -44,24 +47,22 @@ class PlanService(PlanServiceProtocol):
         *,
         transaction: TransactionProtocol,
         plans: SpherePlanRepositoryProtocol,
-        event_log: StripeEventLogProtocol,
         billing: PlanBillingProtocol,
     ) -> None:
         self._transaction = transaction
         self._plans = plans
-        self._event_log = event_log
         self._billing = billing
 
     def page(self, *, sphere_id: int) -> PlanPageDTO:
         plan = self._plans.read(sphere_id=sphere_id)
-        yearly = holds_yearly_plan(plan, now=datetime.now(tz=UTC))
-        kind = PlanKind.WHITE_GLOVE if yearly else PlanKind.STANDARD
+        kind = effective_plan(plan, now=datetime.now(tz=UTC))
+        yearly = plan if kind is PlanKind.WHITE_GLOVE else None
         return PlanPageDTO(
             kind=kind,
-            ticket_fee_percent=f"{PLATFORM_FEE_BPS[kind] / 100:g}",
-            source=plan.source if plan is not None and yearly else None,
-            paid_until=plan.paid_until if plan is not None and yearly else None,
-            can_subscribe=self._billing.enabled and not yearly,
+            ticket_fee_percent=platform_fee_percent(kind),
+            source=yearly.source if yearly else None,
+            paid_until=yearly.paid_until if yearly else None,
+            can_subscribe=self._billing.enabled and yearly is None,
             can_manage=self._billing.enabled
             and plan is not None
             and bool(plan.stripe_customer_id),
@@ -90,7 +91,6 @@ class PlanService(PlanServiceProtocol):
         return self._billing.create_plan_checkout(
             sphere_id=sphere_id,
             customer_id=customer_id,
-            email=email,
             success_url=success_url,
             cancel_url=cancel_url,
         )
@@ -103,60 +103,90 @@ class PlanService(PlanServiceProtocol):
             customer_id=plan.stripe_customer_id, return_url=return_url
         )
 
-    def handle_webhook(self, *, payload: bytes, signature: str) -> str:
+    def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome:
         event = self._billing.parse_webhook(payload=payload, signature=signature)
         with self._transaction.atomic():
-            if not self._event_log.record(event_id=event.id, event_type=event.type):
-                return "duplicate"
             return self._apply(event)
 
-    def _apply(self, event: StripeWebhookEvent) -> str:
-        customer_id = (
-            event.subscription.customer_id
-            if event.subscription is not None
-            else event.checkout.customer_id if event.checkout is not None else ""
-        )
+    def _apply(self, event: StripeWebhookEvent) -> WebhookOutcome:
+        match event:
+            case CheckoutEvent(
+                mode=CheckoutMode.SUBSCRIPTION, stage=CheckoutStage.COMPLETED, paid=True
+            ):
+                return self._subscribed(event)
+            case InvoicePaidEvent():
+                return self._invoice_paid(event)
+            case SubscriptionChangedEvent():
+                return self._subscription_changed(event)
+        return WebhookOutcome.NOT_OURS
+
+    def _find(self, customer_id: str) -> tuple[int, SpherePlanDTO] | None:
         sphere_id = self._plans.find_sphere_by_customer(customer_id=customer_id)
-        if sphere_id is None:
-            return "unknown_customer"
-        plan = self._plans.read(sphere_id=sphere_id)
+        if sphere_id is None or (plan := self._plans.read(sphere_id=sphere_id)) is None:
+            return None
+        return sphere_id, plan
 
-        if (
-            event.kind is WebhookEventKind.CHECKOUT_COMPLETED
-            and event.checkout is not None
-            and event.checkout.mode == "subscription"
-        ):
-            if not event.checkout.paid:
-                return "ignored"
-            # The invoice carries the period; until it lands, the plan is held
-            # with no end date rather than shown as not bought.
-            self._plans.save(
-                sphere_id=sphere_id,
-                data={"kind": PlanKind.WHITE_GLOVE, "source": PlanSource.STRIPE},
-            )
-            logger.info("Yearly plan bought: sphere=%s", sphere_id)
-            return "subscribed"
-
-        facts = event.subscription
-        if facts is None or (plan is not None and plan.source is PlanSource.MANUAL):
-            return "ignored"
-        if event.kind is WebhookEventKind.INVOICE_PAID or (
-            facts.status in ACTIVE_SUBSCRIPTION_STATUSES
-            and event.kind is not WebhookEventKind.SUBSCRIPTION_DELETED
-        ):
-            data: SpherePlanData = {
+    def _subscribed(self, event: CheckoutEvent) -> WebhookOutcome:
+        if (found := self._find(event.customer_id)) is None:
+            return WebhookOutcome.NOT_OURS
+        sphere_id, plan = found
+        if plan.stripe_subscription_id == event.subscription_id:
+            # The invoice landed first and already recorded this subscription.
+            return WebhookOutcome.STALE
+        # A new subscription replaces whatever was on record, a lapsed manual
+        # deal included. Held with no end date until its first invoice says.
+        self._plans.save(
+            sphere_id=sphere_id,
+            data={
                 "kind": PlanKind.WHITE_GLOVE,
                 "source": PlanSource.STRIPE,
-                "stripe_subscription_id": facts.subscription_id,
-            }
-            # A payload without a period keeps the date we have.
-            if facts.period_end is not None:
-                data["paid_until"] = facts.period_end
-            self._plans.save(sphere_id=sphere_id, data=data)
-            logger.info(
-                "Yearly plan paid: sphere=%s until=%s", sphere_id, facts.period_end
-            )
-            return "renewed"
+                "paid_until": None,
+                "stripe_subscription_id": event.subscription_id,
+            },
+        )
+        logger.info("Yearly plan bought: sphere=%s", sphere_id)
+        return WebhookOutcome.SUBSCRIBED
+
+    def _invoice_paid(self, event: InvoicePaidEvent) -> WebhookOutcome:
+        if (
+            not event.subscription_id
+            or (found := self._find(event.customer_id)) is None
+        ):
+            # A one-off invoice is not the yearly plan.
+            return WebhookOutcome.NOT_OURS
+        sphere_id, plan = found
+        if not _is_current(plan, subscription_id=event.subscription_id):
+            return WebhookOutcome.STALE
+        data: SpherePlanData = {
+            "kind": PlanKind.WHITE_GLOVE,
+            "source": PlanSource.STRIPE,
+            "stripe_subscription_id": event.subscription_id,
+        }
+        # A payload without a period keeps the date we have.
+        if event.period_end is not None:
+            data["paid_until"] = event.period_end
+        self._plans.save(sphere_id=sphere_id, data=data)
+        logger.info("Yearly plan paid: sphere=%s until=%s", sphere_id, event.period_end)
+        return WebhookOutcome.RENEWED
+
+    def _subscription_changed(self, event: SubscriptionChangedEvent) -> WebhookOutcome:
+        if (found := self._find(event.customer_id)) is None:
+            return WebhookOutcome.NOT_OURS
+        sphere_id, plan = found
+        if not _is_current(plan, subscription_id=event.subscription_id):
+            return WebhookOutcome.STALE
+        if not event.deleted and event.status in ACTIVE_SUBSCRIPTION_STATUSES:
+            # Renewal dates come with the invoice; nothing else to record.
+            return WebhookOutcome.STALE
         self._plans.save(sphere_id=sphere_id, data={"kind": PlanKind.STANDARD})
-        logger.info("Yearly plan ended: sphere=%s status=%s", sphere_id, facts.status)
-        return "ended"
+        logger.info("Yearly plan ended: sphere=%s status=%s", sphere_id, event.status)
+        return WebhookOutcome.ENDED
+
+
+def _is_current(plan: SpherePlanDTO, *, subscription_id: str) -> bool:
+    # A maintainer's deal is theirs; a subscription other than the one on
+    # record is an old one, reported late.
+    return plan.source is not PlanSource.MANUAL and plan.stripe_subscription_id in {
+        "",
+        subscription_id,
+    }

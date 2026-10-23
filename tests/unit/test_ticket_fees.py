@@ -17,7 +17,6 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from ludamus.mills.tickets import estimated_stripe_fee, offer_for, platform_fee
 from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
@@ -25,8 +24,10 @@ from ludamus.pacts.tickets import (
     OfferState,
     TicketTypeDTO,
 )
+from ludamus.specs.tickets import estimated_stripe_fee, offer_for, platform_fee
 
 NOW = datetime(2026, 10, 23, 12, tzinfo=UTC)
+LATER = NOW + timedelta(days=30)
 
 
 def _ticket_type(**overrides: object) -> TicketTypeDTO:
@@ -100,35 +101,42 @@ class TestEstimatedStripeFee:
 
 class TestOfferFor:
     def test_uncapped_type_on_sale_has_no_remaining_count(self) -> None:
-        offer = offer_for(_ticket_type(), now=NOW)
+        offer = offer_for(_ticket_type(), now=NOW, closes_at=LATER)
 
         assert offer.state is OfferState.ON_SALE
         assert offer.remaining is None
         assert offer.max_quantity == MAX_TICKETS_PER_ORDER
 
     def test_capped_type_counts_sold_and_held(self) -> None:
-        offer = offer_for(_ticket_type(quantity=10, sold=4, held=3), now=NOW)
+        offer = offer_for(
+            _ticket_type(quantity=10, sold=4, held=3), now=NOW, closes_at=LATER
+        )
         left = 10 - 4 - 3
 
         assert offer.remaining == left
         assert offer.max_quantity == left
+        assert offer.few_left
 
     def test_oversold_type_reads_sold_out_not_negative(self) -> None:
         # An organizer may lower the cap below what is already sold.
-        offer = offer_for(_ticket_type(quantity=5, sold=7), now=NOW)
+        offer = offer_for(_ticket_type(quantity=5, sold=7), now=NOW, closes_at=LATER)
 
         assert offer.state is OfferState.SOLD_OUT
         assert offer.remaining == 0
         assert offer.max_quantity == 0
 
     def test_before_sales_open(self) -> None:
-        offer = offer_for(_ticket_type(sales_start=NOW + timedelta(minutes=1)), now=NOW)
+        offer = offer_for(
+            _ticket_type(sales_start=NOW + timedelta(minutes=1)),
+            now=NOW,
+            closes_at=LATER,
+        )
 
         assert offer.state is OfferState.NOT_YET
         assert offer.max_quantity == 0
 
     def test_after_sales_close(self) -> None:
-        offer = offer_for(_ticket_type(sales_end=NOW), now=NOW)
+        offer = offer_for(_ticket_type(sales_end=NOW), now=NOW, closes_at=LATER)
 
         assert offer.state is OfferState.ENDED
         assert offer.max_quantity == 0
@@ -137,7 +145,9 @@ class TestOfferFor:
         # Once sales are over, nothing a buyer can do changes that; "sold out"
         # would hint that waiting for a returned ticket might help.
         offer = offer_for(
-            _ticket_type(quantity=1, sold=1, sales_end=NOW - timedelta(days=1)), now=NOW
+            _ticket_type(quantity=1, sold=1, sales_end=NOW - timedelta(days=1)),
+            now=NOW,
+            closes_at=LATER,
         )
 
         assert offer.state is OfferState.ENDED

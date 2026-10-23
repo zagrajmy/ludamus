@@ -10,6 +10,7 @@ from django.utils.translation import pgettext_lazy
 from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.tickets import (
     MIN_TICKET_PRICE,
+    MONEY_DECIMAL_PLACES,
     TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
     TICKET_TYPE_NAME_MAX_LENGTH,
 )
@@ -184,7 +185,29 @@ class DiscountRuleForm(forms.Form):
     )
 
 
-_GROSZE_PER_ZLOTY = 100
+class MoneyField(forms.DecimalField):
+    """Złoty in the form, grosze (minor units) everywhere behind it."""
+
+    def __init__(self, *, label: str | _StrPromise, min_minor: int) -> None:
+        super().__init__(
+            label=label,
+            # scaleb keeps the places, so an error reads "2.00", not "2".
+            min_value=Decimal(min_minor).scaleb(-MONEY_DECIMAL_PLACES),
+            max_digits=9,
+            decimal_places=MONEY_DECIMAL_PLACES,
+            widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.01"}),
+        )
+
+    def prepare_value(self, value: object) -> object:
+        # Initial data comes from a DTO in grosze; bound data is what the
+        # organizer typed and is shown back as is.
+        if isinstance(value, int) and not isinstance(value, bool):
+            return Decimal(value).scaleb(-MONEY_DECIMAL_PLACES)
+        return super().prepare_value(value)
+
+    def clean(self, value: object) -> int | None:
+        amount: Decimal | None = super().clean(value)
+        return None if amount is None else int(amount.scaleb(MONEY_DECIMAL_PLACES))
 
 
 class TicketTypeForm(forms.Form):
@@ -200,14 +223,7 @@ class TicketTypeForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text=_("Optional. What the ticket includes."),
     )
-    price = forms.DecimalField(
-        label=_("Price (zł)"),
-        # scaleb keeps two places, so the error reads "2.00", not "2".
-        min_value=Decimal(MIN_TICKET_PRICE).scaleb(-2),
-        max_digits=9,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.01"}),
-    )
+    price = MoneyField(label=_("Price (zł)"), min_minor=MIN_TICKET_PRICE)
     quantity = forms.IntegerField(
         label=_("Tickets available"),
         min_value=1,
@@ -232,7 +248,3 @@ class TicketTypeForm(forms.Form):
         if start is not None and end is not None and start >= end:
             raise forms.ValidationError(_("Sales have to close after they open."))
         return end
-
-    def price_in_grosze(self) -> int:
-        price: Decimal = self.cleaned_data["price"]
-        return int(price * _GROSZE_PER_ZLOTY)

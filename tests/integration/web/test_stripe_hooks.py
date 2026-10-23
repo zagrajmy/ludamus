@@ -16,7 +16,6 @@ from django.urls import reverse
 from ludamus.links.db.django.models import (
     PayoutAccount,
     SpherePlan,
-    StripeEvent,
     Ticket,
     TicketOrder,
 )
@@ -36,8 +35,8 @@ from tests.integration.utils import assert_response
 
 pytestmark = pytest.mark.usefixtures("stripe_settings")
 
-CONNECT_URL = reverse("web:stripe-connect-hook")
-BILLING_URL = reverse("web:stripe-billing-hook")
+CONNECT_URL = reverse("stripe-connect-hook")
+BILLING_URL = reverse("stripe-billing-hook")
 CUSTOMER_ID = "cus_test_sphere"
 PERIOD_END = datetime(2027, 10, 23, 12, tzinfo=UTC)
 
@@ -85,7 +84,6 @@ class TestSignature:
             json={"error": "Invalid signature or payload."},
         )
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PENDING
-        assert not StripeEvent.objects.exists()
 
     def test_refuses_everything_when_no_secret_is_configured(
         self, client, paid_setup, settings
@@ -138,12 +136,14 @@ class TestCheckoutCompleted:
         assert {ticket.holder_id for ticket in tickets} == {active_user.pk}
         assert len({ticket.code for ticket in tickets}) == 1 + 1 + 1
 
-    def test_redelivery_is_acknowledged_and_changes_nothing(self, client, paid_setup):
+    def test_redelivery_finds_the_order_paid_and_changes_nothing(
+        self, client, paid_setup
+    ):
         _connect(client, "checkout.session.completed", _checkout())
 
         response = _connect(client, "checkout.session.completed", _checkout())
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "duplicate"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
         assert Ticket.objects.filter(order=paid_setup).count() == 1 + 1 + 1
 
     def test_second_event_for_a_paid_order_issues_nothing_more(
@@ -158,7 +158,7 @@ class TestCheckoutCompleted:
             event_id="evt_2",
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "already_paid"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
         assert Ticket.objects.filter(order=paid_setup).count() == 1 + 1 + 1
 
     def test_delayed_payment_holds_seats_without_tickets(self, client, paid_setup):
@@ -184,12 +184,21 @@ class TestCheckoutCompleted:
         assert_response(response, HTTPStatus.OK, json={"outcome": "failed"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.FAILED
 
+    def test_payment_for_an_abandoned_order_issues_nothing(self, client, paid_setup):
+        TicketOrder.objects.filter(pk=paid_setup.pk).update(status=OrderStatus.EXPIRED)
+
+        response = _connect(client, "checkout.session.completed", _checkout())
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.EXPIRED
+        assert not Ticket.objects.exists()
+
     def test_unknown_session_is_acknowledged(self, client, paid_setup):
         response = _connect(
             client, "checkout.session.completed", _checkout("cs_not_ours")
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "unknown_order"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         assert not Ticket.objects.exists()
 
 
@@ -237,7 +246,7 @@ class TestExpiredAndRefunded:
             event_id="evt_2",
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "ignored"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PAID
 
 
@@ -270,7 +279,7 @@ class TestAccountUpdated:
             client, "account.updated", {"id": "acct_stranger", "charges_enabled": True}
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "unknown_account"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         assert not PayoutAccount.objects.exists()
 
 
@@ -341,7 +350,7 @@ class TestYearlyPlan:
             {"id": "sub_1", "customer": CUSTOMER_ID, "status": "canceled"},
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "ignored"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
         customer.refresh_from_db()
         assert (customer.kind, customer.paid_until) == (
             PlanKind.WHITE_GLOVE,
@@ -353,6 +362,44 @@ class TestYearlyPlan:
             client, "invoice.paid", _invoice() | {"customer": "cus_stranger"}
         )
 
-        assert_response(response, HTTPStatus.OK, json={"outcome": "unknown_customer"})
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         customer.refresh_from_db()
         assert customer.kind == PlanKind.STANDARD
+
+    def test_invoice_for_an_older_subscription_changes_nothing(self, client, customer):
+        SpherePlan.objects.filter(pk=customer.pk).update(
+            kind=PlanKind.STANDARD, stripe_subscription_id="sub_new"
+        )
+
+        response = _billing(client, "invoice.paid", _invoice())
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        customer.refresh_from_db()
+        assert customer.kind == PlanKind.STANDARD
+
+    def test_one_off_invoice_is_not_the_yearly_plan(self, client, customer):
+        response = _billing(client, "invoice.paid", _invoice() | {"parent": None})
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        customer.refresh_from_db()
+        assert customer.kind == PlanKind.STANDARD
+
+    def test_checkout_after_its_invoice_keeps_the_paid_date(self, client, customer):
+        _billing(client, "invoice.paid", _invoice())
+
+        response = _billing(
+            client,
+            "checkout.session.completed",
+            {
+                "id": "cs_plan",
+                "mode": "subscription",
+                "payment_status": "paid",
+                "customer": CUSTOMER_ID,
+                "subscription": "sub_1",
+            },
+            event_id="evt_b2",
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        customer.refresh_from_db()
+        assert customer.paid_until == PERIOD_END
