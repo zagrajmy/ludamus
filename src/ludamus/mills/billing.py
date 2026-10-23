@@ -5,8 +5,9 @@ keep a Stripe-billed plan current; a plan a maintainer recorded by hand
 (`PlanSource.MANUAL`) is theirs while it lasts, and webhooks leave it be.
 
 Stripe does not deliver events in order, so an event only says which
-subscription changed. What it is now is read back from Stripe and written under
-the plan's row lock: whichever delivery comes last writes the latest state.
+subscription changed. What it is now is read back from Stripe while the plan's
+row is locked, so concurrent deliveries write in the order they read and the
+last one writes the latest state.
 """
 
 from __future__ import annotations
@@ -113,18 +114,23 @@ class PlanService(PlanServiceProtocol):
 
     def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome:
         match self._billing.parse_webhook(payload=payload, signature=signature):
-            case SubscriptionEvent(subscription_id=subscription_id):
-                return self._sync(subscription_id)
+            case SubscriptionEvent() as event:
+                return self._sync(event)
         return WebhookOutcome.NOT_OURS
 
-    def _sync(self, subscription_id: str) -> WebhookOutcome:
-        # Read before locking: no row lock waits on Stripe.
-        state = self._billing.read_subscription(subscription_id=subscription_id)
+    def _sync(self, event: SubscriptionEvent) -> WebhookOutcome:
         with self._transaction.atomic():
-            plan = self._plans.lock_by_customer(customer_id=state.customer_id)
+            plan = self._plans.lock_by_customer(customer_id=event.customer_id)
             if plan is None:
                 return WebhookOutcome.NOT_OURS
-            return self._record(plan=plan, subscription_id=subscription_id, state=state)
+            # SAFETY: read under the lock, so a delivery that read an older
+            # state cannot commit after one that read a newer state.
+            state = self._billing.read_subscription(
+                subscription_id=event.subscription_id
+            )
+            return self._record(
+                plan=plan, subscription_id=event.subscription_id, state=state
+            )
 
     def _record(
         self, *, plan: SpherePlanDTO, subscription_id: str, state: SubscriptionState

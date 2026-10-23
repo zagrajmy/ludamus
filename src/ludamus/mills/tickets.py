@@ -26,9 +26,12 @@ from ludamus.pacts.payment_api import (
     WebhookOutcome,
 )
 from ludamus.pacts.tickets import (
+    ABANDONED_STATUSES,
+    CHECKOUT_STATUSES,
     DEFAULT_CURRENCY,
     MAX_TICKETS_PER_ORDER,
     TICKET_CODE_LENGTH,
+    UNSETTLED_STATUSES,
     AbandonOutcome,
     BuyerOrderDTO,
     CheckoutLine,
@@ -338,11 +341,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
         order = self._owned(buyer_id=buyer_id, event_id=event_id, pk=pk)
         return BuyerOrderDTO(
             order=order,
-            confirming=order.status in {
-                OrderStatus.PENDING,
-                OrderStatus.AWAITING_PAYMENT,
-            },
-            polling=order.status is OrderStatus.PENDING
+            confirming=order.status in UNSETTLED_STATUSES,
+            polling=order.status in CHECKOUT_STATUSES
             and order.hold_until > datetime.now(tz=UTC),
         )
 
@@ -460,7 +460,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 "paid_at": datetime.now(tz=UTC),
             },
         ):
-            if order.status in {OrderStatus.EXPIRED, OrderStatus.FAILED}:
+            if order.status in ABANDONED_STATUSES:
                 return self._refund_late(order, payment_intent_id=payment_intent_id)
             return WebhookOutcome.STALE
         self._orders.issue_tickets(

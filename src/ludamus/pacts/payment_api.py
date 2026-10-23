@@ -78,9 +78,10 @@ class AccountEvent(BaseModel):
 
 
 class SubscriptionEvent(BaseModel):
-    # Only which one: events arrive out of order, so what the subscription is
-    # now is read from Stripe, never from the event.
+    # Only which one, and whose: events arrive out of order, so what the
+    # subscription is now is read from Stripe, never from the event.
     subscription_id: str
+    customer_id: str
 
 
 class UnhandledEvent(BaseModel):

@@ -313,10 +313,8 @@ class StripeBilling(PlanBillingProtocol):
         client = _require(self._client)
         with _call("subscription read"):
             subscription = client.v1.subscriptions.retrieve(subscription_id)
-        customer = subscription.customer
         period_ends = [item.current_period_end for item in subscription.items.data]
         return SubscriptionState(
-            customer_id=customer if isinstance(customer, str) else customer.id,
             live=subscription.status in _LIVE_SUBSCRIPTION_STATUSES,
             paid_until=(
                 datetime.fromtimestamp(max(period_ends), tz=UTC)
@@ -348,6 +346,7 @@ class _CheckoutSession(BaseModel):
     mode: str = ""
     payment_status: str = ""
     payment_intent: _IdOrResource = None
+    customer: _IdOrResource = None
     subscription: _IdOrResource = None
 
 
@@ -365,6 +364,7 @@ class _Account(BaseModel):
 
 class _Subscription(BaseModel):
     id: str
+    customer: _IdOrResource = None
 
 
 class _EnvelopeData(BaseModel):
@@ -396,7 +396,10 @@ def _event(envelope: _Envelope) -> StripeWebhookEvent:
     if envelope.type in CheckoutStage:
         return _checkout_event(CheckoutStage(envelope.type), raw)
     if envelope.type in _SUBSCRIPTION_EVENTS:
-        return SubscriptionEvent(subscription_id=_Subscription.model_validate(raw).id)
+        subscription = _Subscription.model_validate(raw)
+        return SubscriptionEvent(
+            subscription_id=subscription.id, customer_id=_id(subscription.customer)
+        )
     match envelope.type:
         case "charge.refunded":
             charge = _Charge.model_validate(raw)
@@ -433,6 +436,8 @@ def _checkout_event(
             subscription_id := _id(session.subscription)
         ):
             # The yearly plan bought: what it now is, Stripe is asked.
-            return SubscriptionEvent(subscription_id=subscription_id)
+            return SubscriptionEvent(
+                subscription_id=subscription_id, customer_id=_id(session.customer)
+            )
     # A setup-mode session, say, or a subscription not yet made.
     return UnhandledEvent(type=stage)

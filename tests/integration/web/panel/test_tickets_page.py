@@ -8,6 +8,7 @@ the tickets valid; a refund Stripe refused is shown as done.
 
 from decimal import Decimal
 from http import HTTPStatus
+from unittest.mock import ANY
 from urllib.parse import parse_qs
 
 import pytest
@@ -156,6 +157,20 @@ class TestTicketsPage:
 
 
 class TestTicketTypeCreate:
+    def test_offers_an_empty_form(self, panel_client, event):
+        response = panel_client.get(_url("panel:ticket-type-create", event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/ticket-type-form.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "form": ANY,
+                "ticket_type": None,
+            },
+        )
+
     def test_stores_the_price_in_grosze(self, panel_client, event):
         response = panel_client.post(
             _url("panel:ticket-type-create", event), _form_data(quantity="300")
@@ -187,6 +202,11 @@ class TestTicketTypeCreate:
                 {"price": "100000.00"},
                 {"price": ["Ensure this value is less than or equal to 99999.99."]},
                 id="a-full-order-over-stripes-maximum",
+            ),
+            pytest.param(
+                {"quantity": "1000001"},
+                {"quantity": ["Ensure this value is less than or equal to 1000000."]},
+                id="more-tickets-than-the-column-holds",
             ),
             pytest.param(
                 {"sales_start": "2026-11-02T10:00", "sales_end": "2026-11-01T10:00"},
@@ -248,6 +268,71 @@ class TestTicketTypeEditAndArchive:
         theirs.refresh_from_db()
         assert theirs.price == unchanged
 
+    def test_edit_of_another_events_type_is_not_found(self, panel_client, event):
+        theirs = ticket_type(_foreign_event())
+
+        response = panel_client.get(_url("panel:ticket-type-edit", event, pk=theirs.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url("panel:tickets", event),
+            messages=[(messages.ERROR, "Ticket type not found.")],
+        )
+
+    def test_edit_saves_the_new_price_in_grosze(self, panel_client, event):
+        kind = ticket_type(event, price=4999)
+
+        response = panel_client.post(
+            _url("panel:ticket-type-edit", event, pk=kind.pk),
+            _form_data(name="Sunday", price="25.50", quantity="40"),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url("panel:tickets", event),
+            messages=[(messages.SUCCESS, "Ticket type saved.")],
+        )
+        kind.refresh_from_db()
+        assert (kind.name, kind.price, kind.quantity) == ("Sunday", 2550, 40)
+
+    def test_edit_below_stripes_minimum_keeps_the_old_price(self, panel_client, event):
+        kind = ticket_type(event, price=4999)
+
+        response = panel_client.post(
+            _url("panel:ticket-type-edit", event, pk=kind.pk), _form_data(price="1.99")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/ticket-type-form.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "form": FormErrorsMatcher(
+                    price=["Ensure this value is greater than or equal to 2.00."]
+                ),
+                "ticket_type": TicketTypeDTO(
+                    pk=kind.pk,
+                    event_id=event.pk,
+                    name=kind.name,
+                    description="",
+                    price=4999,
+                    currency="pln",
+                    quantity=None,
+                    sales_start=None,
+                    sales_end=None,
+                    is_archived=False,
+                    order=0,
+                    sold=0,
+                    held=0,
+                ),
+            },
+        )
+        kind.refresh_from_db()
+        assert (kind.name, kind.price) == ("Weekend pass", 4999)
+
     def test_edit_shows_the_price_in_zloty(self, panel_client, event):
         kind = ticket_type(event, price=4999)
 
@@ -298,6 +383,38 @@ class TestTicketTypeEditAndArchive:
         )
         kind.refresh_from_db()
         assert kind.is_archived
+
+    def test_restore_puts_it_back_on_sale(self, panel_client, event):
+        kind = ticket_type(event, is_archived=True)
+
+        response = panel_client.post(
+            _url("panel:ticket-type-restore", event, pk=kind.pk)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url("panel:tickets", event),
+            messages=[(messages.SUCCESS, "Ticket type is back on sale.")],
+        )
+        kind.refresh_from_db()
+        assert not kind.is_archived
+
+    def test_archive_of_another_events_type_is_not_found(self, panel_client, event):
+        theirs = ticket_type(_foreign_event())
+
+        response = panel_client.post(
+            _url("panel:ticket-type-archive", event, pk=theirs.pk)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url("panel:tickets", event),
+            messages=[(messages.ERROR, "Ticket type not found.")],
+        )
+        theirs.refresh_from_db()
+        assert not theirs.is_archived
 
 
 class TestRefund:
@@ -380,6 +497,26 @@ class TestRefund:
         )
         paid.refresh_from_db()
         assert paid.status == "paid"
+
+    def test_unpaid_order_is_not_refunded(
+        self, panel_client, event, active_user, stripe_api
+    ):
+        connected_account(event.sphere)
+        pending = order(event, buyer=active_user, lines=[(ticket_type(event), 1)])
+
+        response = panel_client.post(
+            _url("panel:ticket-order-refund", event, pk=pending.pk)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url("panel:tickets", event),
+            messages=[(messages.ERROR, "Only a paid order can be refunded.")],
+        )
+        assert not stripe_api.calls
+        pending.refresh_from_db()
+        assert pending.status == "pending"
 
     def test_order_of_another_event_is_not_found(
         self, panel_client, event, active_user, stripe_api

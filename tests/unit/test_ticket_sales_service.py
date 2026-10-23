@@ -555,7 +555,7 @@ class TestWebhook:
     @pytest.mark.parametrize(
         "event",
         (
-            SubscriptionEvent(subscription_id="sub_1"),
+            SubscriptionEvent(subscription_id="sub_1", customer_id="cus_1"),
             UnhandledEvent(type="customer.created"),
             _checkout(CheckoutStage.COMPLETED, session_id="cs_other"),
             RefundEvent(payment_intent_id="pi_other", fully_refunded=True),

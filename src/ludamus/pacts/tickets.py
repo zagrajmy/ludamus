@@ -40,6 +40,8 @@ TICKET_TYPE_DESCRIPTION_MAX_LENGTH = 500
 MAX_TICKETS_PER_ORDER = 10
 # Stripe refuses a charge over 999 999,99 zł; a full order must stay under it.
 MAX_TICKET_PRICE = 99_999_999 // MAX_TICKETS_PER_ORDER
+# Well under the integer column's limit, and over any convention's attendance.
+MAX_TICKET_QUANTITY = 1_000_000
 TICKET_CODE_LENGTH = 10
 
 
@@ -61,6 +63,10 @@ class OrderStatus(StrEnum):
 SOLD_STATUSES = frozenset({OrderStatus.PAID})
 SETTLING_STATUSES = frozenset({OrderStatus.AWAITING_PAYMENT})
 CHECKOUT_STATUSES = frozenset({OrderStatus.PENDING})
+# Stripe has not said yet whether these were paid.
+UNSETTLED_STATUSES = CHECKOUT_STATUSES | SETTLING_STATUSES
+# Orders we gave up on: their seats are free again.
+ABANDONED_STATUSES = frozenset({OrderStatus.EXPIRED, OrderStatus.FAILED})
 # The orders the panel lists: abandoned checkouts are noise there.
 LEDGER_STATUSES = frozenset(
     {OrderStatus.PAID, OrderStatus.REFUNDED, OrderStatus.AWAITING_PAYMENT}

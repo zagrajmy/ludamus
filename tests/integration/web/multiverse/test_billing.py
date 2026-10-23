@@ -6,6 +6,7 @@ account is created with the platform paying Stripe's fees or carrying the
 losses; the yearly plan is bought without a customer the webhooks can find.
 """
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from http import HTTPStatus
 from urllib.parse import parse_qs
@@ -34,8 +35,14 @@ CONNECT_URL = reverse("multiverse:panel:billing-connect")
 RETURN_URL = reverse("multiverse:panel:billing-return")
 RESUME_URL = reverse("multiverse:panel:billing-resume")
 SUBSCRIBE_URL = reverse("multiverse:panel:billing-subscribe")
+PORTAL_ACTION_URL = reverse("multiverse:panel:billing-portal")
 ONBOARDING_URL = "https://connect.stripe.com/setup/e/acct_test/abc"
 PORTAL_URL = "https://billing.stripe.com/p/session/test_portal"
+PAID_UNTIL = datetime(2099, 1, 1, tzinfo=UTC)
+STRIPE_DOWN = (
+    messages.ERROR,
+    "Stripe didn't respond. Nothing was changed; try again in a moment.",
+)
 
 
 @pytest.fixture(name="manager")
@@ -54,6 +61,20 @@ def comms_fixture(client, active_user, sphere):
     )
     client.force_login(active_user)
     return client
+
+
+def _stripe_down(stripe_api, method, path):
+    stripe_api.add(
+        method,
+        f"{API}{path}",
+        json={"error": {"type": "api_error", "message": "down"}},
+        status=HTTPStatus.INTERNAL_SERVER_ERROR,
+    )
+
+
+def _without_email(user):
+    user.email = ""
+    user.save()
 
 
 def _mock_onboarding(stripe_api):
@@ -104,6 +125,77 @@ class TestBillingPage:
             },
         )
 
+    def test_back_from_checkout_before_the_webhook_says_it_is_on_its_way(self, manager):
+        response = manager.get(f"{BILLING_URL}?subscribed=1")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/billing.html",
+            context_data={
+                **sphere_sidebar_context(active_nav="billing"),
+                "plan": PlanPageDTO(
+                    kind=PlanKind.STANDARD,
+                    source=None,
+                    paid_until=None,
+                    can_subscribe=True,
+                    has_billing_history=False,
+                    ticket_fee_percent=Decimal("3.5"),
+                ),
+                "payouts": PayoutPageDTO(
+                    status=PayoutStatus.NOT_CONNECTED,
+                    available=True,
+                    payouts_enabled=False,
+                ),
+                "can_manage": True,
+            },
+            messages=[
+                (
+                    messages.INFO,
+                    (
+                        "Thank you! Stripe is confirming the payment; the plan"
+                        " switches over within a minute."
+                    ),
+                )
+            ],
+        )
+
+    def test_back_from_checkout_after_the_webhook_says_nothing_more(
+        self, manager, sphere
+    ):
+        SpherePlan.objects.create(
+            sphere=sphere,
+            kind=PlanKind.WHITE_GLOVE,
+            source=PlanSource.STRIPE,
+            paid_until=PAID_UNTIL,
+            stripe_customer_id="cus_paid",
+        )
+
+        response = manager.get(f"{BILLING_URL}?subscribed=1")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/billing.html",
+            context_data={
+                **sphere_sidebar_context(active_nav="billing"),
+                "plan": PlanPageDTO(
+                    kind=PlanKind.WHITE_GLOVE,
+                    source=PlanSource.STRIPE,
+                    paid_until=PAID_UNTIL,
+                    can_subscribe=False,
+                    has_billing_history=True,
+                    ticket_fee_percent=Decimal("3.5"),
+                ),
+                "payouts": PayoutPageDTO(
+                    status=PayoutStatus.NOT_CONNECTED,
+                    available=True,
+                    payouts_enabled=False,
+                ),
+                "can_manage": True,
+            },
+        )
+
     def test_without_stripe_nothing_can_be_bought(self, manager, settings):
         settings.STRIPE_SECRET_KEY = ""
 
@@ -136,6 +228,37 @@ class TestConnect:
         assert link["return_url"] == [f"http://testserver{RETURN_URL}"]
         assert link["refresh_url"] == [f"http://testserver{RESUME_URL}"]
 
+    def test_without_an_email_nothing_is_created(
+        self, manager, active_user, stripe_api
+    ):
+        _without_email(active_user)
+
+        response = manager.post(CONNECT_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=BILLING_URL,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Add an email address to your profile first: Stripe needs one.",
+                )
+            ],
+        )
+        assert not stripe_api.calls
+        assert not PayoutAccount.objects.exists()
+
+    def test_deployment_without_stripe_creates_nothing(self, manager, settings):
+        settings.STRIPE_SECRET_KEY = ""
+
+        response = manager.post(CONNECT_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+        )
+        assert not PayoutAccount.objects.exists()
+
     def test_stale_link_reuses_the_account(self, manager, sphere, stripe_api):
         connected_account(sphere, charges_enabled=False)
         _mock_onboarding(stripe_api)
@@ -154,6 +277,19 @@ class TestConnect:
         assert_response(response, HTTPStatus.FOUND, url=BILLING_URL)
         assert not stripe_api.calls
         assert not PayoutAccount.objects.exists()
+
+    def test_stale_link_while_stripe_is_down_goes_back_to_the_page(
+        self, manager, sphere, stripe_api
+    ):
+        connected_account(sphere, charges_enabled=False)
+        _stripe_down(stripe_api, responses.POST, "/account_links")
+
+        response = manager.get(RESUME_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+        )
+        assert PayoutAccount.objects.count() == 1
 
     def test_comms_member_cannot_resume_even_by_get(self, comms, sphere, stripe_api):
         connected_account(sphere, charges_enabled=False)
@@ -221,6 +357,55 @@ class TestConnect:
         account.refresh_from_db()
         assert account.charges_enabled
 
+    def test_return_with_details_missing_asks_to_continue_later(
+        self, manager, sphere, stripe_api
+    ):
+        account = connected_account(sphere, charges_enabled=False)
+        stripe_api.add(
+            responses.GET,
+            f"{API}/accounts/{ACCOUNT_ID}",
+            json={
+                "id": ACCOUNT_ID,
+                "object": "account",
+                "details_submitted": True,
+                "charges_enabled": False,
+                "payouts_enabled": False,
+            },
+        )
+
+        response = manager.get(RETURN_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=BILLING_URL,
+            messages=[
+                (
+                    messages.INFO,
+                    (
+                        "Stripe still needs a few details. Continue the setup"
+                        " whenever you have them at hand."
+                    ),
+                )
+            ],
+        )
+        account.refresh_from_db()
+        assert (account.details_submitted, account.charges_enabled) == (True, False)
+
+    def test_return_while_stripe_is_down_keeps_what_was_known(
+        self, manager, sphere, stripe_api
+    ):
+        account = connected_account(sphere, charges_enabled=False)
+        _stripe_down(stripe_api, responses.GET, f"/accounts/{ACCOUNT_ID}")
+
+        response = manager.get(RETURN_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+        )
+        account.refresh_from_db()
+        assert (account.details_submitted, account.charges_enabled) == (False, False)
+
 
 class TestSubscribe:
     def test_creates_the_customer_before_checkout(self, manager, sphere, stripe_api):
@@ -252,6 +437,35 @@ class TestSubscribe:
             ["price_yearly_test"],
         )
         assert "Stripe-Account" not in stripe_api.calls[1].request.headers
+
+    def test_without_an_email_nothing_is_bought(self, manager, active_user, stripe_api):
+        _without_email(active_user)
+
+        response = manager.post(SUBSCRIBE_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=BILLING_URL,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Add an email address to your profile first: invoices go there.",
+                )
+            ],
+        )
+        assert not stripe_api.calls
+        assert not SpherePlan.objects.exists()
+
+    def test_stripe_down_creates_no_customer(self, manager, stripe_api):
+        _stripe_down(stripe_api, responses.POST, "/customers")
+
+        response = manager.post(SUBSCRIBE_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+        )
+        assert not SpherePlan.objects.exists()
 
     def test_comms_member_cannot_buy_the_plan(self, comms, stripe_api):
         response = comms.post(SUBSCRIBE_URL)
@@ -334,5 +548,59 @@ class TestSubscribe:
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"http://testserver{BILLING_URL}"
+        )
+        assert not stripe_api.calls
+
+
+class TestBillingPortal:
+    def test_opens_stripes_portal_for_the_spheres_customer(
+        self, manager, sphere, stripe_api
+    ):
+        SpherePlan.objects.create(sphere=sphere, stripe_customer_id="cus_paid")
+        stripe_api.add(
+            responses.POST,
+            f"{API}/billing_portal/sessions",
+            json={"object": "billing_portal.session", "url": PORTAL_URL},
+        )
+
+        response = manager.post(PORTAL_ACTION_URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=PORTAL_URL)
+        assert parse_qs(stripe_api.calls[0].request.body) == {
+            "customer": ["cus_paid"],
+            "return_url": [f"http://testserver{BILLING_URL}"],
+        }
+
+    def test_sphere_that_never_paid_has_no_portal(self, manager, stripe_api):
+        response = manager.post(PORTAL_ACTION_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=BILLING_URL,
+            messages=[(messages.ERROR, "This sphere has no billing history yet.")],
+        )
+        assert not stripe_api.calls
+
+    def test_stripe_down_says_so(self, manager, sphere, stripe_api):
+        SpherePlan.objects.create(sphere=sphere, stripe_customer_id="cus_paid")
+        _stripe_down(stripe_api, responses.POST, "/billing_portal/sessions")
+
+        response = manager.post(PORTAL_ACTION_URL)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+        )
+
+    def test_comms_member_cannot_open_it(self, comms, sphere, stripe_api):
+        SpherePlan.objects.create(sphere=sphere, stripe_customer_id="cus_paid")
+
+        response = comms.post(PORTAL_ACTION_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
         )
         assert not stripe_api.calls

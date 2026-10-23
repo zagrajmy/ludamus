@@ -8,7 +8,7 @@ and Stripe sends it back to the order page (paid) or through the cancel action
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -238,4 +238,6 @@ class EventTicketOrderCancelActionView(View):
                 )
             case AbandonOutcome.SETTLED:
                 return redirect(_order_url(event.slug, pk))
+            case _:
+                assert_never(outcome)
         return redirect(_tickets_url(event.slug))

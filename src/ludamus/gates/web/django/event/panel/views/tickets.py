@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -237,4 +237,6 @@ class TicketOrderRefundActionView(EventPanelAccessMixin, TicketsViewMixin, View)
                         " payment from your Stripe dashboard."
                     ),
                 )
+            case _:
+                assert_never(outcome)
         return redirect(_TICKETS_URL, slug=slug)

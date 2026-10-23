@@ -142,11 +142,12 @@ Two endpoints, two signing secrets:
   `customer.subscription.created` / `.updated` / `.deleted`.
 
 Stripe does not deliver in order. Ticket orders are protected by the transition
-guards above. A yearly-plan event only names a subscription: its state (live or
-ended, paid until when) is read back from Stripe and written under the plan's
-row lock, so the last delivery writes the latest state whatever order they came
-in. An ended subscription other than the one on record changes nothing. If
-Stripe cannot be reached the endpoint answers 503 and Stripe retries.
+guards above. A yearly-plan event only names a subscription and its customer:
+the plan's row is locked, then the subscription's state (live or ended, paid
+until when) is read back from Stripe and written, so the last delivery writes
+the latest state whatever order they came in. An ended subscription other than
+the one on record changes nothing. If Stripe cannot be reached the endpoint
+answers 503 and Stripe retries.
 
 ### Refunds
 

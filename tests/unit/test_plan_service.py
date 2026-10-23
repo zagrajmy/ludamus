@@ -123,9 +123,9 @@ def _start(service):
     )
 
 
-def _deliver(service, billing, event, *, live, customer_id=_CUSTOMER):
+def _deliver(service, billing, event, *, live):
     billing.subscriptions[event.subscription_id] = SubscriptionState(
-        customer_id=customer_id, live=live, paid_until=_PAID_UNTIL
+        live=live, paid_until=_PAID_UNTIL
     )
     billing.event = event
     return service.handle_webhook(payload=b"{}", signature="sig")
@@ -279,9 +279,8 @@ class TestWebhook:
         outcome = _deliver(
             service,
             billing,
-            SubscriptionEvent(subscription_id="sub_other"),
+            SubscriptionEvent(subscription_id="sub_other", customer_id="cus_other"),
             live=True,
-            customer_id="cus_other",
         )
 
         assert outcome is WebhookOutcome.NOT_OURS
@@ -293,7 +292,7 @@ class TestWebhook:
         outcome = _deliver(
             service,
             billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION),
+            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
             live=True,
         )
 
@@ -313,7 +312,7 @@ class TestWebhook:
         outcome = _deliver(
             service,
             billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION),
+            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
             live=True,
         )
 
@@ -326,7 +325,7 @@ class TestWebhook:
         outcome = _deliver(
             service,
             billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION),
+            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
             live=False,
         )
 
@@ -341,7 +340,7 @@ class TestWebhook:
         outcome = _deliver(
             service,
             billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION),
+            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
             live=False,
         )
 
@@ -354,7 +353,10 @@ class TestWebhook:
         current = _yearly(plans)
 
         outcome = _deliver(
-            service, billing, SubscriptionEvent(subscription_id="sub_old"), live=False
+            service,
+            billing,
+            SubscriptionEvent(subscription_id="sub_old", customer_id=_CUSTOMER),
+            live=False,
         )
 
         assert outcome is WebhookOutcome.STALE
@@ -366,7 +368,10 @@ class TestWebhook:
         manual = _yearly(plans, source=PlanSource.MANUAL, paid_until=None)
 
         outcome = _deliver(
-            service, billing, SubscriptionEvent(subscription_id="sub_new"), live=True
+            service,
+            billing,
+            SubscriptionEvent(subscription_id="sub_new", customer_id=_CUSTOMER),
+            live=True,
         )
 
         assert outcome is WebhookOutcome.STALE
@@ -378,7 +383,10 @@ class TestWebhook:
         _yearly(plans, source=PlanSource.MANUAL, paid_until=_LAPSED)
 
         outcome = _deliver(
-            service, billing, SubscriptionEvent(subscription_id="sub_new"), live=True
+            service,
+            billing,
+            SubscriptionEvent(subscription_id="sub_new", customer_id=_CUSTOMER),
+            live=True,
         )
 
         assert outcome is WebhookOutcome.SUBSCRIBED

@@ -10,6 +10,7 @@ from django.utils.translation import pgettext_lazy
 from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.tickets import (
     MAX_TICKET_PRICE,
+    MAX_TICKET_QUANTITY,
     MIN_TICKET_PRICE,
     MONEY_DECIMAL_PLACES,
     TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
@@ -232,6 +233,7 @@ class TicketTypeForm(forms.Form):
     quantity = forms.IntegerField(
         label=_("Tickets available"),
         min_value=1,
+        max_value=MAX_TICKET_QUANTITY,
         required=False,
         help_text=_("Leave empty to sell without a limit."),
     )

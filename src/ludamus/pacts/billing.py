@@ -48,7 +48,6 @@ class SpherePlanDTO(BaseModel):
 class SubscriptionState(BaseModel):
     """A yearly-plan subscription as Stripe has it now."""
 
-    customer_id: str
     # Stripe still bills it: paid up, or a failed renewal it is retrying.
     live: bool
     # The end of the period paid for; None if Stripe has no period on it.

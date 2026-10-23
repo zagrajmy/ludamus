@@ -304,6 +304,24 @@ class TestExpiredAndRefunded:
         assert_response(response, HTTPStatus.OK, json={"outcome": "partly_refunded"})
         assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PAID
 
+    def test_refund_of_a_charge_without_a_payment_intent_is_not_ours(
+        self, client, paid_setup
+    ):
+        # NOTE: the organizer's own Stripe account can refund charges it made
+        # outside Zagrajmy, through the older Charges API.
+        _connect(client, "checkout.session.completed", _checkout())
+
+        response = _connect(
+            client,
+            "charge.refunded",
+            {"id": "ch_legacy", "payment_intent": None, "refunded": True},
+            event_id="evt_2",
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert TicketOrder.objects.get(pk=paid_setup.pk).status == OrderStatus.PAID
+        assert not Ticket.objects.filter(is_void=True).exists()
+
 
 class TestAccountUpdated:
     def test_records_what_stripe_now_allows(self, client, sphere):
@@ -347,11 +365,16 @@ def _billing(client, event_type, obj, *, event_id="evt_b1"):
     )
 
 
-def _subscription_changed(client, subscription_id="sub_1"):
+def _subscription_changed(client, subscription_id="sub_1", *, customer=CUSTOMER_ID):
     return _billing(
         client,
         "customer.subscription.updated",
-        {"id": subscription_id, "object": "subscription", "status": "whatever"},
+        {
+            "id": subscription_id,
+            "object": "subscription",
+            "customer": customer,
+            "status": "whatever",
+        },
     )
 
 
@@ -470,7 +493,12 @@ class TestYearlyPlan:
         response = _billing(
             client,
             "customer.subscription.created",
-            {"id": "sub_1", "object": "subscription", "status": "incomplete"},
+            {
+                "id": "sub_1",
+                "object": "subscription",
+                "customer": CUSTOMER_ID,
+                "status": "incomplete",
+            },
         )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
@@ -534,7 +562,7 @@ class TestYearlyPlan:
     def test_unknown_customer_changes_nothing(self, client, customer, stripe_api):
         _stripe_says(stripe_api, customer="cus_stranger")
 
-        response = _subscription_changed(client)
+        response = _subscription_changed(client, customer="cus_stranger")
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
         assert _plan(customer)[0] == PlanKind.STANDARD
@@ -562,4 +590,24 @@ class TestYearlyPlan:
         )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert not stripe_api.calls
+
+    def test_plan_checkout_left_to_expire_changes_nothing(
+        self, client, customer, stripe_api
+    ):
+        response = _billing(
+            client,
+            "checkout.session.expired",
+            {
+                "id": "cs_plan",
+                "object": "checkout.session",
+                "mode": "subscription",
+                "payment_status": "unpaid",
+                "customer": CUSTOMER_ID,
+                "subscription": None,
+            },
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert _plan(customer)[0] == PlanKind.STANDARD
         assert not stripe_api.calls
