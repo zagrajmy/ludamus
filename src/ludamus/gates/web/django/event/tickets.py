@@ -31,7 +31,6 @@ from ludamus.pacts.tickets import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
 
     from django.http import HttpResponse
 
@@ -60,6 +59,14 @@ def _order_url(slug: str, pk: int) -> str:
     return reverse(
         "web:event:event-ticket-order", kwargs={"event_slug": slug, "pk": pk}
     )
+
+
+def _cancel_url(slug: str, pk: int) -> str:
+    # Signed: only the link handed to Stripe cancels a checkout.
+    path = reverse(
+        "web:event:event-ticket-order-cancel", kwargs={"event_slug": slug, "pk": pk}
+    )
+    return f"{path}?{urlencode({'token': _CANCEL_SIGNER.sign(str(pk))})}"
 
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
@@ -140,23 +147,18 @@ class EventTicketsBuyActionView(View):
             messages.error(request, _("Choose how many tickets you want."))
             return redirect(_tickets_url(event.slug))
 
-        def order_url(name: str, *, signed: bool = False) -> Callable[[int], str]:
-            def url(pk: int) -> str:
-                path = reverse(name, kwargs={"event_slug": event.slug, "pk": pk})
-                if signed:
-                    path += "?" + urlencode({"token": _CANCEL_SIGNER.sign(str(pk))})
-                return request.build_absolute_uri(path)
-
-            return url
-
         started = request.services.ticket_sales.start_checkout(
             event=event,
             buyer_id=buyer_id,
             email=email,
             quantities=quantities,
             urls=CheckoutUrls(
-                success=order_url("web:event:event-ticket-order"),
-                cancel=order_url("web:event:event-ticket-order-cancel", signed=True),
+                success=lambda pk: request.build_absolute_uri(
+                    _order_url(event.slug, pk)
+                ),
+                cancel=lambda pk: request.build_absolute_uri(
+                    _cancel_url(event.slug, pk)
+                ),
             ),
         )
         logger.info(

@@ -251,7 +251,7 @@ class FakeOrders:
         paid = [
             order
             for order in self._book.orders.values()
-            if order.event_id == event_id and order.status is OrderStatus.PAID
+            if order.event_id == event_id and order.status in SOLD_STATUSES
         ]
         return PaidTotalsDTO(
             orders=len(paid),
@@ -284,7 +284,7 @@ class FakeOrders:
         return [
             (order, ticket)
             for order in self._book.orders.values()
-            if order.status is OrderStatus.PAID
+            if order.status in SOLD_STATUSES
             and order.buyer_id == holder_id
             and belongs(order)
             for ticket in order.tickets

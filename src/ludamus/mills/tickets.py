@@ -37,7 +37,6 @@ from ludamus.pacts.tickets import (
     CheckoutRequest,
     CheckoutStartDTO,
     EventShopDTO,
-    OfferState,
     OrderStatus,
     PayoutPageDTO,
     PayoutServiceProtocol,
@@ -54,6 +53,7 @@ from ludamus.specs.tickets import (
     CHECKOUT_HOLD,
     PANEL_ORDERS_SHOWN,
     WEBHOOK_GRACE,
+    checkout_refusal,
     estimated_stripe_fees,
     fee_breakdown,
     offer_for,
@@ -210,10 +210,20 @@ class TicketSalesService(TicketSalesServiceProtocol):
         types = self._ticket_types.list_for_event(
             event_id=event.pk, holds_after=_holds_after(now)
         )
-        # Most events are free: one query says so, and the event page asks.
+        # Counted even with nothing on sale: tickets sold before every type
+        # was taken off sale still admit their holders.
+        viewer_ticket_count = (
+            0
+            if viewer_id is None
+            else self._orders.count_valid_tickets(
+                event_id=event.pk, holder_id=viewer_id
+            )
+        )
         if not types:
             return EventShopDTO(
-                offers=[], accepting_payments=False, viewer_ticket_count=0
+                offers=[],
+                accepting_payments=False,
+                viewer_ticket_count=viewer_ticket_count,
             )
         return EventShopDTO(
             offers=[
@@ -223,13 +233,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
             accepting_payments=self._accepting_payments(
                 self._accounts.read(sphere_id=event.sphere_id)
             ),
-            viewer_ticket_count=(
-                0
-                if viewer_id is None
-                else self._orders.count_valid_tickets(
-                    event_id=event.pk, holder_id=viewer_id
-                )
-            ),
+            viewer_ticket_count=viewer_ticket_count,
         )
 
     def _accepting_payments(self, account: PayoutAccountDTO | None) -> bool:
@@ -267,12 +271,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 if (ticket_type := types.get(pk)) is None:
                     return CheckoutStartDTO(outcome=CheckoutOutcome.NOT_ON_SALE)
                 offer = offer_for(ticket_type, now=now, closes_at=event.end_time)
-                if offer.state is OfferState.SOLD_OUT or (
-                    offer.state is OfferState.ON_SALE and count > offer.max_quantity
-                ):
-                    return CheckoutStartDTO(outcome=CheckoutOutcome.SOLD_OUT)
-                if offer.state is not OfferState.ON_SALE:
-                    return CheckoutStartDTO(outcome=CheckoutOutcome.NOT_ON_SALE)
+                if (refused := checkout_refusal(offer, count=count)) is not None:
+                    return CheckoutStartDTO(outcome=refused)
                 lines.append(
                     {
                         "ticket_type_id": pk,

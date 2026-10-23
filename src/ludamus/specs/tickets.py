@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, assert_never
 from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
+    CheckoutOutcome,
     FeeBreakdownDTO,
     OfferState,
     OrderPageState,
@@ -137,6 +138,17 @@ def offer_for(
             else min(MAX_TICKETS_PER_ORDER, remaining or MAX_TICKETS_PER_ORDER)
         ),
     )
+
+
+def checkout_refusal(offer: TicketOfferDTO, *, count: int) -> CheckoutOutcome | None:
+    """Say why `count` seats of this offer cannot be bought now, if they cannot."""
+    if offer.state is OfferState.SOLD_OUT or (
+        offer.state is OfferState.ON_SALE and count > offer.max_quantity
+    ):
+        return CheckoutOutcome.SOLD_OUT
+    if offer.state is not OfferState.ON_SALE:
+        return CheckoutOutcome.NOT_ON_SALE
+    return None
 
 
 def order_page_state(order: OrderDTO, *, now: datetime) -> OrderPageState:

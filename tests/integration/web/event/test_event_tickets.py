@@ -131,6 +131,22 @@ class TestEventTicketsPageView:
             },
         )
 
+    def test_event_page_keeps_a_holders_count_once_sales_are_over(
+        self, authenticated_client, event, active_user
+    ):
+        kind = ticket_type(event, is_archived=True)
+        paid = order(event, buyer=active_user, lines=[(kind, 1)], status="paid")
+        Ticket.objects.create(
+            order=paid, ticket_type=kind, holder=active_user, code="AAAAAAAA55"
+        )
+
+        response = authenticated_client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        shop = response.context_data["ticket_shop"]
+        assert (shop.has_tickets, shop.viewer_ticket_count) == (False, 1)
+
     def test_signed_in_buyer_sees_how_many_valid_tickets_they_hold(
         self, authenticated_client, event, active_user
     ):

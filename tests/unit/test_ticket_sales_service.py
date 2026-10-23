@@ -270,6 +270,20 @@ class TestShop:
         assert not shop.has_tickets
         assert not shop.on_sale
 
+    def test_holder_keeps_their_count_once_every_type_is_off_sale(
+        self, sales, book, types, orders
+    ):
+        retired = types.add(is_archived=True)
+        _order(orders, retired, quantity=1, status=OrderStatus.PAID)
+        orders.issue_tickets(
+            order=book.orders[1],
+            tickets=[{"ticket_type_id": retired.pk, "code": "KEEP"}],
+        )
+
+        shop = sales.shop(event=book.event, viewer_id=BUYER_ID)
+
+        assert (shop.has_tickets, shop.viewer_ticket_count) == (False, 1)
+
     def test_shop_counts_only_the_viewers_valid_tickets(
         self, sales, book, types, orders, accounts
     ):

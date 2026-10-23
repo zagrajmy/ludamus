@@ -299,7 +299,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
 
     @staticmethod
     def paid_totals(*, event_id: int) -> PaidTotalsDTO:
-        paid = TicketOrder.objects.filter(event_id=event_id, status=OrderStatus.PAID)
+        paid = TicketOrder.objects.filter(event_id=event_id, status__in=SOLD_STATUSES)
         sums = paid.aggregate(
             orders=Count("pk"),
             gross=Coalesce(Sum("total"), 0),
@@ -340,7 +340,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
     def count_valid_tickets(*, event_id: int, holder_id: int) -> int:
         return Ticket.objects.filter(
             order__event_id=event_id,
-            order__status=OrderStatus.PAID,
+            order__status__in=SOLD_STATUSES,
             holder_id=holder_id,
         ).count()
 
@@ -349,7 +349,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         tickets = (
             Ticket.objects.filter(
                 order__event__sphere_id=sphere_id,
-                order__status=OrderStatus.PAID,
+                order__status__in=SOLD_STATUSES,
                 holder_id=holder_id,
             )
             .select_related("ticket_type", "order__event")
