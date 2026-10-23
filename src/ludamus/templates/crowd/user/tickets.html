@@ -25,11 +25,11 @@
                             {% for ticket in group.list %}
                                 <li class="card card-body flex items-center gap-4">
                                     {# The QR carries only the code shown beside it. #}
-                                    <div class="shrink-0 rounded-lg bg-white p-1.5 [&>svg]:size-24"
-                                         role="img"
-                                         aria-label="{% blocktranslate with code=ticket.code %}QR code for ticket {{ code }}{% endblocktranslate %}">
-                                        {{ ticket.qr_svg|safe }}
-                                    </div>
+                                    <img src="{{ ticket.qr_image_url }}"
+                                         alt="{% blocktranslate with code=ticket.code %}QR code for ticket {{ code }}{% endblocktranslate %}"
+                                         class="size-24 shrink-0 rounded-lg bg-white p-1.5"
+                                         width="96"
+                                         height="96">
                                     <div class="min-w-0">
                                         <div class="text-sm text-foreground-muted wrap-anywhere">{{ ticket.ticket_type_name }}</div>
                                         <div class="font-mono text-lg font-semibold tracking-widest text-foreground">{{ ticket.code }}</div>

@@ -230,8 +230,8 @@ class OwnedTicketDTO(BaseModel):
     """A ticket on its holder's "My tickets" page."""
 
     code: str
-    # The code as an inline SVG QR, for whoever checks tickets at the door.
-    qr_svg: str = ""
+    # The code as a QR image (an SVG data URL), for whoever checks tickets.
+    qr_image_url: str = ""
     ticket_type_name: str
     order_pk: int
     event_name: str

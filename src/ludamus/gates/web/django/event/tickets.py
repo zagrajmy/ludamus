@@ -53,18 +53,22 @@ def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
     )
 
 
+def _email(request: RootRequest) -> str:
+    return request.user.email if request.user.is_authenticated else ""
+
+
 def _quantities(request: RootRequest) -> dict[int, int] | None:
     # Format only: ints in range. Whether the type exists, is on sale and has
     # seats left is the service's call.
     quantities: dict[int, int] = {}
-    for key, value in request.POST.items():
+    for key in request.POST:
+        value = request.POST.get(key, "")
         if not key.startswith(_QUANTITY_PREFIX) or not value:
             continue
         raw_pk = key.removeprefix(_QUANTITY_PREFIX)
         if not (raw_pk.isdecimal() and value.isdecimal()):
             return None
-        count = int(value)
-        if count > MAX_TICKETS_PER_ORDER:
+        if (count := int(value)) > MAX_TICKETS_PER_ORDER:
             return None
         quantities[int(raw_pk)] = count
     return quantities
@@ -117,7 +121,7 @@ class EventTicketsBuyActionView(View):
         event = read_public_event(request, event_slug)
         if (buyer_id := request.context.current_user_id) is None:
             return redirect_to_login(_tickets_url(event.slug))
-        if not request.user.email:
+        if not (email := _email(request)):
             messages.error(
                 request,
                 _("Add an email address to your profile first: tickets go there."),
@@ -131,7 +135,7 @@ class EventTicketsBuyActionView(View):
             sphere_id=request.context.current_sphere_id,
             event_id=event.pk,
             buyer_id=buyer_id,
-            email=request.user.email,
+            email=email,
             quantities=quantities,
             urls=CheckoutUrls(
                 success=_OrderUrl(

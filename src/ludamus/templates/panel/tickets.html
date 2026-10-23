@@ -18,7 +18,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="max-w-5xl space-y-8">
+        <div class="panel-bleed max-w-5xl space-y-8">
             {% if page.payout_status != "active" %}
                 {# Where the money goes comes first: without it, nothing on this page can be bought. #}
                 <section class="card" aria-labelledby="payouts-heading">
@@ -228,7 +228,7 @@
                         <tbody class="divide-y divide-border bg-bg-primary">
                             {% for order in page.orders %}
                                 <tr>
-                                    <td class="px-4 py-4 text-sm text-foreground">
+                                    <td class="px-4 py-4 text-sm text-foreground" data-ph-mask>
                                         <div class="font-medium wrap-anywhere">{{ order.buyer_name|default:order.email }}</div>
                                         {% if order.buyer_name %}<div class="text-foreground-muted wrap-anywhere">{{ order.email }}</div>{% endif %}
                                         <div class="text-xs text-foreground-muted">

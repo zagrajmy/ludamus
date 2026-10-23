@@ -77,8 +77,7 @@ class PlanService(PlanServiceProtocol):
         cancel_url: str,
     ) -> str:
         plan = self._plans.read(sphere_id=sphere_id)
-        customer_id = plan.stripe_customer_id if plan is not None else ""
-        if not customer_id:
+        if not (customer_id := plan.stripe_customer_id if plan is not None else ""):
             # Created before Checkout, so every webhook that follows (the
             # invoice may beat the session) finds the sphere by customer.
             customer_id = self._billing.create_customer(

@@ -7,7 +7,7 @@ Webhook reads go by Stripe's own ids, which only Stripe's signed payload names.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from django.db.models import Max, Q, Sum
 
@@ -44,6 +44,13 @@ if TYPE_CHECKING:
         TicketTypeCreateData,
         TicketTypeData,
     )
+
+
+class _OrderChanges(TypedDict, total=False):
+    status: OrderStatus
+    stripe_payment_intent_id: str
+    paid_at: datetime | None
+    refunded_at: datetime | None
 
 
 def _held(now: datetime) -> Q:
@@ -260,7 +267,7 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         payment_intent_id: str = "",
         when: datetime | None = None,
     ) -> None:
-        changes: dict[str, object] = {"status": status}
+        changes: _OrderChanges = {"status": status}
         if payment_intent_id:
             changes["stripe_payment_intent_id"] = payment_intent_id
         if status is OrderStatus.PAID:

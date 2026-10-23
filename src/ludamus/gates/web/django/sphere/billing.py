@@ -41,6 +41,10 @@ def _absolute(request: MultiverseRequest, name: str) -> str:
     return request.build_absolute_uri(reverse(name))
 
 
+def _email(request: MultiverseRequest) -> str:
+    return request.user.email if request.user.is_authenticated else ""
+
+
 def _stripe_unreachable(request: MultiverseRequest, what: str) -> HttpResponse:
     logger.warning(
         "Billing: Stripe %s failed for sphere=%s",
@@ -105,7 +109,7 @@ class BillingConnectActionView(_ManagerOnlyMixin, View):
         return self._onboard()
 
     def _onboard(self) -> HttpResponse:
-        if not self.request.user.email:
+        if not (email := _email(self.request)):
             messages.error(
                 self.request,
                 _("Add an email address to your profile first: Stripe needs one."),
@@ -114,7 +118,7 @@ class BillingConnectActionView(_ManagerOnlyMixin, View):
         try:
             url = self.request.services.payouts.onboarding_url(
                 sphere_id=self.request.context.current_sphere_id,
-                email=self.request.user.email,
+                email=email,
                 refresh_url=_absolute(self.request, "multiverse:panel:billing-connect"),
                 return_url=_absolute(self.request, "multiverse:panel:billing-return"),
             )
@@ -166,7 +170,7 @@ class BillingSubscribeActionView(SphereAccessMixin, View):
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
-        if not self.request.user.email:
+        if not (email := _email(self.request)):
             messages.error(
                 self.request,
                 _("Add an email address to your profile first: invoices go there."),
@@ -176,7 +180,7 @@ class BillingSubscribeActionView(SphereAccessMixin, View):
             url = self.request.services.plan.start_yearly_checkout(
                 sphere_id=sphere_id,
                 sphere_name=self.request.services.sphere_panel.read(sphere_id).name,
-                email=self.request.user.email,
+                email=email,
                 success_url=_absolute(self.request, _BILLING_URL) + "?subscribed=1",
                 cancel_url=_absolute(self.request, _BILLING_URL),
             )

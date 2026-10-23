@@ -7,7 +7,6 @@ the tickets valid; a refund Stripe refused is shown as done.
 """
 
 from http import HTTPStatus
-from unittest.mock import ANY
 from urllib.parse import parse_qs
 
 import pytest
@@ -22,7 +21,12 @@ from ludamus.links.db.django.models import (
     TicketType,
 )
 from ludamus.pacts.multiverse import SphereRole
-from ludamus.pacts.tickets import PayoutStatus, TicketPanelDTO, TicketSalesSummaryDTO
+from ludamus.pacts.tickets import (
+    PayoutStatus,
+    TicketPanelDTO,
+    TicketSalesSummaryDTO,
+    TicketTypeDTO,
+)
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.stripe_helpers import (
     ACCOUNT_ID,
@@ -33,6 +37,7 @@ from tests.integration.stripe_helpers import (
 )
 from tests.integration.utils import (
     FormErrorsMatcher,
+    FormInitialMatcher,
     assert_login_required,
     assert_response,
 )
@@ -217,7 +222,30 @@ class TestTicketTypeEditAndArchive:
 
         response = panel_client.get(_url("panel:ticket-type-edit", event, pk=kind.pk))
 
-        assert response.context_data["form"].initial["price"] == "49.99"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/ticket-type-form.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "form": FormInitialMatcher(price="49.99"),
+                "ticket_type": TicketTypeDTO(
+                    pk=kind.pk,
+                    event_id=event.pk,
+                    name=kind.name,
+                    description="",
+                    price=4999,
+                    currency="pln",
+                    quantity=None,
+                    sales_start=None,
+                    sales_end=None,
+                    is_archived=False,
+                    order=0,
+                    sold=0,
+                    held=0,
+                ),
+            },
+        )
 
     def test_archive_takes_it_off_sale(self, panel_client, event):
         kind = ticket_type(event)
@@ -271,7 +299,15 @@ class TestRefund:
             response,
             HTTPStatus.FOUND,
             url=_url("panel:tickets", event),
-            messages=[(messages.SUCCESS, ANY)],
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Order refunded. The buyer gets the money back in 5–10 days"
+                        " and the tickets no longer admit anyone."
+                    ),
+                )
+            ],
         )
         request = stripe_api.calls[0].request
         assert request.headers["Stripe-Account"] == ACCOUNT_ID

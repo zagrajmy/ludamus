@@ -31,7 +31,7 @@
         <form id="ticket-type-form"
               method="post"
               {% if ticket_type %}action="{% url 'panel:ticket-type-edit' slug=current_event.slug pk=ticket_type.pk %}"{% else %}action="{% url 'panel:ticket-type-create' slug=current_event.slug %}"{% endif %}
-              class="max-w-2xl space-y-6">
+              class="panel-bleed max-w-2xl space-y-6">
             {% csrf_token %}
             {% tessera_errors form %}
             <div class="card">

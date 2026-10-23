@@ -16,6 +16,7 @@ from ludamus.pacts.tickets import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from datetime import datetime
 
     from django.utils.functional import _StrPromise
 
@@ -224,13 +225,13 @@ class TicketTypeForm(forms.Form):
         help_text=_("Leave empty to sell until the event ends."),
     )
 
-    def clean(self) -> dict[str, object] | None:
-        cleaned = super().clean()
-        start = self.cleaned_data.get("sales_start")
-        end = self.cleaned_data.get("sales_end")
+    def clean_sales_end(self) -> datetime | None:
+        # Fields clean in declaration order, so sales_start is already parsed.
+        start: datetime | None = self.cleaned_data.get("sales_start")
+        end: datetime | None = self.cleaned_data.get("sales_end")
         if start is not None and end is not None and start >= end:
-            self.add_error("sales_end", _("Sales have to close after they open."))
-        return cleaned
+            raise forms.ValidationError(_("Sales have to close after they open."))
+        return end
 
     def price_in_grosze(self) -> int:
         price: Decimal = self.cleaned_data["price"]

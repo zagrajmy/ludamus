@@ -7,6 +7,7 @@ event. Stripe's ids arrive only in signed webhooks.
 
 from __future__ import annotations
 
+import base64
 import logging
 import secrets
 from datetime import UTC, datetime
@@ -163,8 +164,7 @@ class PayoutService(PayoutServiceProtocol):
     def onboarding_url(
         self, *, sphere_id: int, email: str, refresh_url: str, return_url: str
     ) -> str:
-        account = self._accounts.read(sphere_id=sphere_id)
-        if account is None:
+        if (account := self._accounts.read(sphere_id=sphere_id)) is None:
             account_id = self._payments.create_account(sphere_id=sphere_id, email=email)
             with self._transaction.atomic():
                 account = self._accounts.create(
@@ -216,9 +216,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
         closes_at: datetime | None = None,
     ) -> EventShopDTO:
         now = datetime.now(tz=UTC)
-        types = self._ticket_types.list_for_event(event_id=event_id, now=now)
         # Most events are free: one query says so, and the event page asks.
-        if not types:
+        if not (types := self._ticket_types.list_for_event(event_id=event_id, now=now)):
             return EventShopDTO(
                 offers=[], accepting_payments=False, viewer_ticket_count=0
             )
@@ -371,14 +370,15 @@ class TicketSalesService(TicketSalesServiceProtocol):
         logger.info("Ticket checkout abandoned: order=%s", order.pk)
 
     def owned_tickets(self, *, sphere_id: int, holder_id: int) -> list[OwnedTicketDTO]:
-        return [
-            ticket.model_copy(
-                update={"qr_svg": qr_svg(ticket.code, scale=5, xmldecl=False)}
+        tickets = self._orders.list_owned_tickets(
+            sphere_id=sphere_id, holder_id=holder_id
+        )
+        for ticket in tickets:
+            svg = qr_svg(ticket.code, scale=5, xmldecl=False)
+            ticket.qr_image_url = (
+                f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
             )
-            for ticket in self._orders.list_owned_tickets(
-                sphere_id=sphere_id, holder_id=holder_id
-            )
-        ]
+        return tickets
 
     def handle_webhook(self, *, payload: bytes, signature: str) -> str:
         event = self._payments.parse_webhook(payload=payload, signature=signature)

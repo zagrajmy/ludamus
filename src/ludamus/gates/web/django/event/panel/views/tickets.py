@@ -52,17 +52,6 @@ def _data(form: TicketTypeForm) -> TicketTypeData:
     }
 
 
-def _initial(ticket_type: TicketTypeDTO) -> dict[str, object]:
-    return {
-        "name": ticket_type.name,
-        "description": ticket_type.description,
-        "price": f"{ticket_type.price / _GROSZE_PER_ZLOTY:.2f}",
-        "quantity": ticket_type.quantity,
-        "sales_start": ticket_type.sales_start,
-        "sales_end": ticket_type.sales_end,
-    }
-
-
 class TicketsViewMixin(EventContextMixin):
     request: EventPanelRequest
 
@@ -122,7 +111,19 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
         ticket_type = self._read(slug=slug, pk=pk)
         return self.render_form(
             slug=slug,
-            form=TicketTypeForm(initial=_initial(ticket_type)),
+            form=TicketTypeForm(
+                initial=ticket_type.model_dump(
+                    include={
+                        "name",
+                        "description",
+                        "quantity",
+                        "sales_start",
+                        "sales_end",
+                    }
+                )
+                # The form speaks złoty; the DTO, grosze.
+                | {"price": f"{ticket_type.price / _GROSZE_PER_ZLOTY:.2f}"}
+            ),
             ticket_type=ticket_type,
         )
 

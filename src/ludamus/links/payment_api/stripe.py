@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import stripe
-from pydantic import BaseModel, JsonValue, ValidationError
+from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from ludamus.pacts.billing import PlanBillingProtocol
 from ludamus.pacts.payment_api import (
@@ -272,7 +272,7 @@ class StripeBilling(PlanBillingProtocol):
 
 
 class _Ref(BaseModel):
-    # An expandable field Stripe sent expanded: the object, carrying its id.
+    # An expandable field Stripe sent expanded: the resource, carrying its id.
     id: str = ""
 
 
@@ -351,7 +351,7 @@ class _SubscriptionObject(BaseModel):
 
 
 class _EnvelopeData(BaseModel):
-    object: dict[str, JsonValue]
+    resource: dict[str, JsonValue] = Field(alias="object")
 
 
 class _Envelope(BaseModel):
@@ -383,7 +383,7 @@ def _flatten(envelope: _Envelope) -> StripeWebhookEvent:
     event = StripeWebhookEvent(
         id=envelope.id, type=envelope.type, kind=kind, account_id=envelope.account or ""
     )
-    raw = envelope.data.object
+    raw = envelope.data.resource
     match kind:
         case (
             WebhookEventKind.CHECKOUT_COMPLETED
