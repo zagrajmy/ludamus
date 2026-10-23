@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
     from ludamus.pacts.payment_api import (
         AccountState,
@@ -228,6 +230,8 @@ class OwnedTicketDTO(BaseModel):
     """A ticket on its holder's "My tickets" page."""
 
     code: str
+    # The code as an inline SVG QR, for whoever checks tickets at the door.
+    qr_svg: str = ""
     ticket_type_name: str
     order_pk: int
     event_name: str
@@ -323,11 +327,12 @@ class CheckoutStartDTO(BaseModel):
     url: str = ""
 
 
-class CheckoutUrls(BaseModel):
-    """Where Stripe sends the buyer back; `{order}` becomes the order pk."""
+@dataclass(frozen=True)
+class CheckoutUrls:
+    """Where Stripe sends the buyer back, given the order's pk."""
 
-    success: str
-    cancel: str
+    success: Callable[[int], str]
+    cancel: Callable[[int], str]
 
 
 class TicketTypeRepositoryProtocol(Protocol):

@@ -12,6 +12,7 @@ import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from ludamus.mills.qr import qr_svg
 from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import PaymentProviderError, WebhookEventKind
@@ -321,8 +322,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
                     ],
                     application_fee=order.platform_fee,
                     customer_email=email,
-                    success_url=urls.success.format(order=order.pk),
-                    cancel_url=urls.cancel.format(order=order.pk),
+                    success_url=urls.success(order.pk),
+                    cancel_url=urls.cancel(order.pk),
                     expires_at=hold_until,
                 )
             )
@@ -366,7 +367,14 @@ class TicketSalesService(TicketSalesServiceProtocol):
         logger.info("Ticket checkout abandoned: order=%s", order.pk)
 
     def owned_tickets(self, *, sphere_id: int, holder_id: int) -> list[OwnedTicketDTO]:
-        return self._orders.list_owned_tickets(sphere_id=sphere_id, holder_id=holder_id)
+        return [
+            ticket.model_copy(
+                update={"qr_svg": qr_svg(ticket.code, scale=5, xmldecl=False)}
+            )
+            for ticket in self._orders.list_owned_tickets(
+                sphere_id=sphere_id, holder_id=holder_id
+            )
+        ]
 
     def handle_webhook(self, *, payload: bytes, signature: str) -> str:
         event = self._payments.parse_webhook(payload=payload, signature=signature)

@@ -1,0 +1,115 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Plan & payouts" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Plan & payouts" %}
+{% endblock page_title %}
+{% block content %}
+    <div class="panel-bleed grid grid-cols-1 gap-6 items-start lg:grid-cols-2">
+        <section class="card p-6" aria-labelledby="payouts-heading">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="payouts-heading" class="text-lg font-semibold text-foreground">{% translate "Payouts" %}</h2>
+                {% if payouts.status == "active" %}
+                    <span class="shrink-0 rounded-full bg-success-bg px-2.5 py-1 text-xs font-medium text-success-text">{% translate "Stripe connected" %}</span>
+                {% elif payouts.status == "incomplete" %}
+                    <span class="shrink-0 rounded-full bg-warning-bg px-2.5 py-1 text-xs font-medium text-warning-text">{% translate "Setup unfinished" %}</span>
+                {% endif %}
+            </div>
+            <p class="mt-2 text-sm text-foreground-muted">
+                {% blocktranslate trimmed with percent=plan.ticket_fee_percent %}
+                    Ticket money goes straight to your sphere's own Stripe account. Zagrajmy keeps {{ percent }}% of each order;
+                    Stripe charges its processing fee from the same payment.
+                {% endblocktranslate %}
+            </p>
+            <div class="mt-4 text-sm text-foreground">
+                {% if not payouts.available %}
+                    <p>{% translate "This Zagrajmy installation has no Stripe account configured, so tickets can't be sold here yet." %}</p>
+                {% elif payouts.status == "not_connected" %}
+                    <p>{% translate "Connect Stripe to sell tickets. Stripe asks for your organization's details and a bank account for payouts; it takes about ten minutes." %}</p>
+                {% elif payouts.status == "incomplete" %}
+                    <p>{% translate "Stripe needs a few more details before it can take payments for you. Ticket sales stay paused until then." %}</p>
+                {% elif payouts.payouts_enabled %}
+                    <p>{% translate "Payments and payouts are on. Refunds, disputes and payout dates are in your Stripe dashboard." %}</p>
+                {% else %}
+                    <p>{% translate "You can sell tickets. Stripe hasn't switched payouts on yet, so the money waits in your Stripe balance until it does." %}</p>
+                {% endif %}
+            </div>
+            {% if payouts.available and can_manage %}
+                <div class="mt-5 flex flex-wrap gap-3">
+                    {% if payouts.status == "active" %}
+                        {% translate "Open Stripe dashboard" as dashboard_label %}
+                        {% tessera_button dashboard_label href="https://dashboard.stripe.com/" variant="secondary" icon="arrow-top-right-on-square" target="_blank" rel="noopener" %}
+                    {% else %}
+                        <form method="post" action="{% url 'multiverse:panel:billing-connect' %}">
+                            {% csrf_token %}
+                            {% if payouts.status == "incomplete" %}
+                                {% translate "Continue Stripe setup" as connect_label %}
+                            {% else %}
+                                {% translate "Connect Stripe" as connect_label %}
+                            {% endif %}
+                            {% tessera_button connect_label icon="banknotes" %}
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+        <section class="card p-6" aria-labelledby="plan-heading">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="plan-heading" class="text-lg font-semibold text-foreground">{% translate "Plan" %}</h2>
+                <span class="shrink-0 rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-foreground-secondary">
+                    {% if plan.kind == "white_glove" %}
+                        {% translate "Yearly" context "plan" %}
+                    {% else %}
+                        {% translate "Pay per ticket" context "plan" %}
+                    {% endif %}
+                </span>
+            </div>
+            {% if plan.kind == "white_glove" %}
+                <p class="mt-2 text-sm text-foreground-muted">
+                    {% translate "Your sphere is on the yearly plan: the programme, sign-ups and the panel for a flat yearly fee, with the Zagrajmy team helping you set up." %}
+                </p>
+                <p class="mt-4 text-sm text-foreground">
+                    {% if plan.paid_until %}
+                        {% blocktranslate with date=plan.paid_until|date:"j E Y" %}Paid until {{ date }}.{% endblocktranslate %}
+                    {% elif plan.source == "manual" %}
+                        {% translate "Arranged with the Zagrajmy team." %}
+                    {% else %}
+                        {% translate "Stripe is confirming the first payment." %}
+                    {% endif %}
+                </p>
+            {% else %}
+                <p class="mt-2 text-sm text-foreground-muted">
+                    {% blocktranslate trimmed with percent=plan.ticket_fee_percent %}
+                        Zagrajmy costs nothing up front. When you sell tickets here, we keep {{ percent }}% of each order. Free events stay free.
+                    {% endblocktranslate %}
+                </p>
+                <p class="mt-4 text-sm text-foreground">
+                    {% translate "Selling tickets somewhere else? The yearly plan is for conventions that run their programme on Zagrajmy but sell entry through their own shop. It comes with onboarding help from the Zagrajmy team." %}
+                </p>
+            {% endif %}
+            {% if can_manage %}
+                <div class="mt-5 flex flex-wrap gap-3">
+                    {% if plan.can_subscribe %}
+                        <form method="post" action="{% url 'multiverse:panel:billing-subscribe' %}">
+                            {% csrf_token %}
+                            {% translate "Switch to the yearly plan" as subscribe_label %}
+                            {% tessera_button subscribe_label variant="secondary" icon="arrow-path-rounded-square" %}
+                        </form>
+                    {% elif plan.kind == "standard" %}
+                        {% translate "Ask about the yearly plan" as ask_label %}
+                        {% tessera_button ask_label href="mailto:"|add:SUPPORT_EMAIL variant="secondary" icon="envelope" %}
+                    {% endif %}
+                    {% if plan.can_manage %}
+                        <form method="post" action="{% url 'multiverse:panel:billing-portal' %}">
+                            {% csrf_token %}
+                            {% translate "Invoices and billing" as portal_label %}
+                            {% tessera_button portal_label variant="secondary" icon="document-text" %}
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+    </div>
+{% endblock content %}

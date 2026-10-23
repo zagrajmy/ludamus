@@ -1,0 +1,63 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% if ticket_type %}
+        {% translate "Edit ticket type" %}
+    {% else %}
+        {% translate "Add ticket type" %}
+    {% endif %}
+{% endblock title %}
+{% block page_title %}
+    {% if ticket_type %}
+        {% translate "Edit ticket type" %}
+    {% else %}
+        {% translate "Add ticket type" %}
+    {% endif %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }} · {% translate "Tickets" %}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        {% translate "Cancel" as cancel_label %}
+        {% url 'panel:tickets' slug=current_event.slug as cancel_url %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save ticket type" as save_label %}
+        {% tessera_button save_label form="ticket-type-form" icon="check" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        <form id="ticket-type-form"
+              method="post"
+              {% if ticket_type %}action="{% url 'panel:ticket-type-edit' slug=current_event.slug pk=ticket_type.pk %}"{% else %}action="{% url 'panel:ticket-type-create' slug=current_event.slug %}"{% endif %}
+              class="max-w-2xl space-y-6">
+            {% csrf_token %}
+            {% tessera_errors form %}
+            <div class="card">
+                <div class="card-body space-y-6">
+                    {% tessera_field form.name %}
+                    {% tessera_field form.description %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {% tessera_field form.price %}
+                        {% tessera_field form.quantity %}
+                    </div>
+                    {% if ticket_type and ticket_type.sold %}
+                        <p class="text-sm text-foreground-muted">
+                            {% blocktranslate count counter=ticket_type.sold %}{{ counter }} ticket of this type is already sold. A new price applies only to tickets bought from now on.{% plural %}{{ counter }} tickets of this type are already sold. A new price applies only to tickets bought from now on.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="text-lg font-semibold text-foreground mb-6">{% translate "When it's on sale" %}</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {% tessera_field form.sales_start %}
+                        {% tessera_field form.sales_end %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    {% endif %}
+{% endblock content %}

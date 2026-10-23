@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django import forms
@@ -7,6 +8,11 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 
 from ludamus.pacts.discounts import DiscountMethod
+from ludamus.pacts.tickets import (
+    MIN_TICKET_PRICE,
+    TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
+    TICKET_TYPE_NAME_MAX_LENGTH,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -18,9 +24,16 @@ if TYPE_CHECKING:
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
 
 
-def _datetime_local_field(label: str | _StrPromise) -> forms.DateTimeField:
+def _datetime_local_field(
+    label: str | _StrPromise,
+    *,
+    required: bool = True,
+    help_text: str | _StrPromise = "",
+) -> forms.DateTimeField:
     return forms.DateTimeField(
         label=label,
+        required=required,
+        help_text=help_text,
         widget=forms.DateTimeInput(
             attrs={"type": "datetime-local"}, format=_DATETIME_LOCAL_FORMAT
         ),
@@ -168,3 +181,56 @@ class DiscountRuleForm(forms.Form):
         initial=0,
         help_text=_("Rules are checked from the lowest number; the first match wins."),
     )
+
+
+_GROSZE_PER_ZLOTY = 100
+
+
+class TicketTypeForm(forms.Form):
+    name = forms.CharField(
+        label=pgettext_lazy("ticket type", "Name"),
+        max_length=TICKET_TYPE_NAME_MAX_LENGTH,
+        help_text=_("What the buyer picks, e.g. “Weekend pass” or “Saturday only”."),
+    )
+    description = forms.CharField(
+        label=_("Description"),
+        max_length=TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Optional. What the ticket includes."),
+    )
+    price = forms.DecimalField(
+        label=_("Price (zł)"),
+        min_value=Decimal(MIN_TICKET_PRICE) / _GROSZE_PER_ZLOTY,
+        max_digits=9,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "0.01"}),
+    )
+    quantity = forms.IntegerField(
+        label=_("Tickets available"),
+        min_value=1,
+        required=False,
+        help_text=_("Leave empty to sell without a limit."),
+    )
+    sales_start = _datetime_local_field(
+        _("Sales open"),
+        required=False,
+        help_text=_("Leave empty to start selling right away."),
+    )
+    sales_end = _datetime_local_field(
+        _("Sales close"),
+        required=False,
+        help_text=_("Leave empty to sell until the event ends."),
+    )
+
+    def clean(self) -> dict[str, object] | None:
+        cleaned = super().clean()
+        start = self.cleaned_data.get("sales_start")
+        end = self.cleaned_data.get("sales_end")
+        if start is not None and end is not None and start >= end:
+            self.add_error("sales_end", _("Sales have to close after they open."))
+        return cleaned
+
+    def price_in_grosze(self) -> int:
+        price: Decimal = self.cleaned_data["price"]
+        return int(price * _GROSZE_PER_ZLOTY)

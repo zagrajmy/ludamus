@@ -1,6 +1,6 @@
 from django.urls import URLPattern, path
 
-from ludamus.gates.web.django.event import propose
+from ludamus.gates.web.django.event import propose, tickets
 
 urlpatterns: list[URLPattern] = [
     path(
@@ -37,5 +37,25 @@ urlpatterns: list[URLPattern] = [
         "event/<str:event_slug>/session/propose/do/submit",
         propose.ProposeSessionSubmitActionView.as_view(),
         name="session-propose-submit",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/",
+        tickets.EventTicketsPageView.as_view(),
+        name="event-tickets",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/do/buy",
+        tickets.EventTicketsBuyActionView.as_view(),
+        name="event-tickets-buy",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<int:pk>/",
+        tickets.EventTicketOrderPageView.as_view(),
+        name="event-ticket-order",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<int:pk>/do/cancel",
+        tickets.EventTicketOrderCancelActionView.as_view(),
+        name="event-ticket-order-cancel",
     ),
 ]

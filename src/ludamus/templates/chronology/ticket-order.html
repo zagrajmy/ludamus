@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load i18n tessera ticket_tags %}
+{% block title %}
+    {% translate "Your order" %} • {{ event.name }}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    {# While Stripe confirms, the block re-reads itself from this same URL; the answer without hx-get stops the polling. #}
+    <div id="ticket-order"
+         class="max-w-2xl space-y-6"
+         aria-live="polite"
+         {% if confirming %}hx-get="{{ request.path }}" hx-trigger="every 3s" hx-select="#ticket-order" hx-swap="outerHTML"{% endif %}>
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
+                {% if order.status == "paid" %}
+                    {% translate "You're going!" %}
+                {% elif confirming %}
+                    {% translate "Confirming your payment" %}
+                {% elif order.status == "refunded" %}
+                    {% translate "Order refunded" %}
+                {% else %}
+                    {% translate "Order not completed" %}
+                {% endif %}
+            </h1>
+            <p class="mt-1 text-foreground-muted">
+                <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                   class="underline decoration-dotted underline-offset-4 hover:decoration-solid">{{ event.name }}</a>
+                · {% blocktranslate with pk=order.pk %}Order #{{ pk }}{% endblocktranslate %}
+            </p>
+        </div>
+        {% if order.status == "paid" %}
+            <p class="text-foreground">{% translate "Show these codes at the entrance. They're also saved under My tickets." %}</p>
+            <ul class="grid gap-2 sm:grid-cols-2">
+                {% for ticket in order.tickets %}
+                    <li class="card card-body">
+                        <div class="text-sm text-foreground-muted wrap-anywhere">{{ ticket.ticket_type_name }}</div>
+                        <div class="font-mono text-lg font-semibold tracking-widest text-foreground">{{ ticket.code }}</div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% elif confirming %}
+            <p class="text-foreground">
+                {% translate "Stripe is confirming the payment. This page updates on its own; it usually takes a few seconds." %}
+            </p>
+            {% if order.status == "awaiting_payment" %}
+                <p class="text-sm text-foreground-muted">
+                    {% translate "Your bank is still processing the transfer. Your tickets are held until it's through; come back to this page to see them." %}
+                </p>
+            {% endif %}
+        {% elif order.status == "refunded" %}
+            <p class="text-foreground">
+                {% translate "The organizer refunded this order. The money is on its way back to you; the tickets no longer admit anyone." %}
+            </p>
+        {% else %}
+            <p class="text-foreground">{% translate "Nothing was charged and the tickets went back on sale." %}</p>
+            {% translate "Choose tickets again" as again_label %}
+            {% url 'web:event:event-tickets' event_slug=event.slug as again_url %}
+            {% tessera_button again_label href=again_url %}
+        {% endif %}
+        <section class="card" aria-labelledby="order-summary-heading">
+            <div class="card-body">
+                <h2 id="order-summary-heading"
+                    class="font-semibold text-foreground mb-3">{% translate "Order summary" %}</h2>
+                <ul class="divide-y divide-border text-sm">
+                    {% for line in order.lines %}
+                        <li class="flex justify-between gap-4 py-2">
+                            <span class="text-foreground wrap-anywhere"><span class="tabular-nums">{{ line.quantity }}×</span> {{ line.ticket_type_name }}</span>
+                            <span class="tabular-nums whitespace-nowrap text-foreground">{{ line.subtotal|money:order.currency }}</span>
+                        </li>
+                    {% endfor %}
+                    <li class="flex justify-between gap-4 py-2 font-semibold">
+                        <span>{% translate "Total" %}</span>
+                        <span class="tabular-nums whitespace-nowrap">{{ order.total|money:order.currency }}</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+        {% if order.status == "paid" %}
+            {% translate "Show my tickets" as tickets_label %}
+            {% url 'user:profile-tickets' as tickets_url %}
+            {% tessera_button tickets_label href=tickets_url icon="ticket" %}
+        {% endif %}
+    </div>
+{% endblock body %}

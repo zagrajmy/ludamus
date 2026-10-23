@@ -55,6 +55,8 @@ class PlanPageDTO(BaseModel):
     # The sphere has a Stripe customer, so the billing portal has something
     # to show: invoices, the card on file, cancelling.
     can_manage: bool
+    # Zagrajmy's share of each ticket order on this plan, for display: "3.5".
+    ticket_fee_percent: str
 
 
 class SpherePlanData(TypedDict, total=False):

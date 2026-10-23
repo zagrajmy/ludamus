@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.billing import PlanKind, PlanPageDTO, PlanServiceProtocol, PlanSource
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import WebhookEventKind
-from ludamus.specs.tickets import ACTIVE_SUBSCRIPTION_STATUSES
+from ludamus.specs.tickets import ACTIVE_SUBSCRIPTION_STATUSES, PLATFORM_FEE_BPS
 
 if TYPE_CHECKING:
     from ludamus.pacts.billing import (
@@ -55,8 +55,10 @@ class PlanService(PlanServiceProtocol):
     def page(self, *, sphere_id: int) -> PlanPageDTO:
         plan = self._plans.read(sphere_id=sphere_id)
         yearly = holds_yearly_plan(plan, now=datetime.now(tz=UTC))
+        kind = PlanKind.WHITE_GLOVE if yearly else PlanKind.STANDARD
         return PlanPageDTO(
-            kind=PlanKind.WHITE_GLOVE if yearly else PlanKind.STANDARD,
+            kind=kind,
+            ticket_fee_percent=f"{PLATFORM_FEE_BPS[kind] / 100:g}",
             source=plan.source if plan is not None and yearly else None,
             paid_until=plan.paid_until if plan is not None and yearly else None,
             can_subscribe=self._billing.enabled and not yearly,

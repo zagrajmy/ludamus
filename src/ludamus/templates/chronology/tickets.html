@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load i18n tessera ticket_tags %}
+{% block title %}
+    {% translate "Tickets" %} • {{ event.name }}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2 wrap-anywhere">{% translate "Tickets" %}</h1>
+{% endblock header %}
+{% block description_text %}
+    <a href="{% url 'web:chronology:event' slug=event.slug %}"
+       class="underline decoration-dotted underline-offset-4 hover:decoration-solid">{{ event.name }}</a>
+    · <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"j E Y" }}</time>
+{% endblock description_text %}
+{% block body %}
+    <div class="max-w-2xl space-y-6">
+        {% if shop.viewer_ticket_count %}
+            <p class="flex items-center gap-2 text-sm text-foreground">
+                {% icon "check-circle" class="size-5 shrink-0 text-success-text" variant="mini" %}
+                <span>
+                    {% blocktranslate count counter=shop.viewer_ticket_count %}You have {{ counter }} ticket for this event.{% plural %}You have {{ counter }} tickets for this event.{% endblocktranslate %}
+                    <a href="{% url 'user:profile-tickets' %}"
+                       class="font-medium underline underline-offset-4">{% translate "Show my tickets" %}</a>
+                </span>
+            </p>
+        {% endif %}
+        <form method="post"
+              action="{% url 'web:event:event-tickets-buy' event_slug=event.slug %}"
+              class="space-y-6">
+            {% csrf_token %}
+            <ul class="card divide-y divide-border">
+                {% for offer in shop.offers %}
+                    {% with ticket_type=offer.ticket_type %}
+                        <li class="card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0">
+                                <h2 class="font-semibold text-foreground wrap-anywhere">
+                                    <label {% if offer.state == "on_sale" and shop.accepting_payments %}for="quantity-{{ ticket_type.pk }}"{% endif %}>{{ ticket_type.name }}</label>
+                                </h2>
+                                {% if ticket_type.description %}
+                                    <p class="mt-0.5 text-sm text-foreground-muted">{{ ticket_type.description|linebreaksbr }}</p>
+                                {% endif %}
+                                <p class="mt-1 text-sm">
+                                    <span class="font-medium tabular-nums text-foreground">{{ ticket_type.price|money:ticket_type.currency }}</span>
+                                    {% if offer.state == "sold_out" %}
+                                        · <span class="text-danger-text">{% translate "Sold out" %}</span>
+                                    {% elif offer.state == "not_yet" %}
+                                        · <span class="text-foreground-muted">{% blocktranslate with when=ticket_type.sales_start|date:"j E, G:i" %}On sale from {{ when }}{% endblocktranslate %}</span>
+                                    {% elif offer.state == "ended" %}
+                                        · <span class="text-foreground-muted">{% translate "Sales closed" %}</span>
+                                    {% elif offer.remaining is not None and offer.remaining <= 20 %}
+                                        · <span class="text-warning-text">{% blocktranslate count counter=offer.remaining %}{{ counter }} left{% plural %}{{ counter }} left{% endblocktranslate %}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% if offer.state == "on_sale" and shop.accepting_payments %}
+                                {% blocktranslate asvar quantity_label with name=ticket_type.name %}How many: {{ name }}{% endblocktranslate %}
+                                {% with pk_str=ticket_type.pk|stringformat:"s" %}
+                                    {% with field_name="quantity-"|add:pk_str %}
+                                        {% include "components/stepper-field.html" with name=field_name id=field_name min="0" max=offer.max_quantity aria_label=quantity_label only %}
+                                    {% endwith %}
+                                {% endwith %}
+                            {% endif %}
+                        </li>
+                    {% endwith %}
+                {% endfor %}
+            </ul>
+            {% if shop.on_sale %}
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    {% if current_user %}
+                        {% translate "Continue to payment" as pay_label %}
+                        {% tessera_button pay_label icon="lock-closed" size="lg" %}
+                    {% else %}
+                        {% translate "Log in to buy tickets" as login_label %}
+                        {% include "components/login_button.html" with next=request.build_absolute_uri text=login_label show_icon=True extra_class="" %}
+                    {% endif %}
+                    <p class="text-sm text-foreground-muted">
+                        {% blocktranslate trimmed with limit=max_per_order %}
+                            Payment by card, BLIK or bank transfer on Stripe's secure page. Up to {{ limit }} tickets per order.
+                        {% endblocktranslate %}
+                    </p>
+                </div>
+            {% elif not shop.accepting_payments %}
+                <p class="text-sm text-foreground-muted">{% translate "Ticket sales for this event haven't opened yet. Check back soon." %}</p>
+            {% endif %}
+        </form>
+    </div>
+{% endblock body %}

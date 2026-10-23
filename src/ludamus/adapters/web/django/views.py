@@ -225,6 +225,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             for sid, data in sessions_data.items()
         }
         has_maps = self.request.services.event_maps.has_maps(self.object.pk)
+        ticket_shop = self.request.services.ticket_sales.shop(
+            sphere_id=self.request.context.current_sphere_id,
+            event_id=self.object.pk,
+            viewer_id=current_user_id,
+            closes_at=self.object.end_time,
+        )
 
         hour_data = self._get_hour_data(sessions_data)
 
@@ -283,6 +289,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "event_banned": event_banned,
+                "ticket_shop": ticket_shop,
             }
         )
 
