@@ -3943,14 +3943,14 @@ files = [
 
 [[package]]
 name = "posthog"
-version = "7.71.0"
+version = "7.75.0"
 description = "Integrate PostHog into any python application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "posthog-7.71.0-py3-none-any.whl", hash = "sha256:52cb1320b7e178b36ef7594cf15b4a8c492c24d4d1c46700f5bee0089ba5c6ac"},
-    {file = "posthog-7.71.0.tar.gz", hash = "sha256:00950999edf7f613a90015126bacc431d3ab3964a70d91c2f792e6a0dc81f358"},
+    {file = "posthog-7.75.0-py3-none-any.whl", hash = "sha256:0bdf1de16b3a6e1bdfaa8d9b77746e06be21fca30bcbd9dac5d9d24bd0df8c1e"},
+    {file = "posthog-7.75.0.tar.gz", hash = "sha256:068e179f6591546146a886e51719559833349145363588e93fd7bb9f04a046a6"},
 ]
 
 [package.dependencies]
@@ -3964,7 +3964,7 @@ async = ["httpx (>=0.27.0,<1.0)"]
 dev = ["django-stubs", "griffe", "lxml", "mypy", "mypy-baseline", "packaging", "pre-commit", "pydantic (>=2.12.0)", "ruff", "setuptools", "tomli", "tomli_w", "twine", "types-requests", "types-setuptools", "wheel"]
 langchain = ["langchain (>=1.3.9)"]
 otel = ["opentelemetry-exporter-otlp-proto-http (>=1.20.0)", "opentelemetry-sdk (>=1.20.0)"]
-test = ["anthropic (>=0.72)", "claude-agent-sdk", "coverage", "django (>=5.2.15,<6.0)", "djangorestframework (>=3.15,<4)", "fastmcp (>=2.0)", "flask (>=2.2)", "freezegun (==1.5.1)", "gevent (>=25.4.1) ; implementation_name == \"cpython\"", "google-genai", "jsonschema (>=4.0)", "langchain (>=1.3.9)", "langchain-anthropic (>=1.0)", "langchain-community (>=0.4)", "langchain-core (>=1.0)", "langchain-openai (>=1.1.14)", "langgraph (>=1.0)", "langgraph-checkpoint (>=4.1.1)", "mcp (>=1.28.1,<2)", "openai-agents (>=0.18)", "opentelemetry-exporter-otlp-proto-http (>=1.20.0)", "opentelemetry-sdk (>=1.20.0)", "parameterized (>=0.8.1)", "pydantic (>=2.12.0)", "pytest", "pytest-asyncio", "pytest-bdd (>=8.1.0)", "pytest-timeout", "python-dateutil (>=2.9.0.post0)", "tiktoken (>=0.12.0)", "tzdata", "zstandard (>=0.23.0)"]
+test = ["anthropic (>=0.72)", "celery (>=5.3,<6)", "claude-agent-sdk", "coverage", "django (>=5.2.15,<6.0)", "djangorestframework (>=3.15,<4)", "fastapi (>=0.115,<1)", "fastmcp (>=2.0)", "flask (>=2.2)", "freezegun (==1.5.1)", "gevent (>=25.4.1) ; implementation_name == \"cpython\"", "google-genai", "jsonschema (>=4.0)", "langchain (>=1.3.9)", "langchain-anthropic (>=1.0)", "langchain-community (>=0.4)", "langchain-core (>=1.0)", "langchain-openai (>=1.1.14)", "langgraph (>=1.0)", "langgraph-checkpoint (>=4.1.1)", "mcp (>=1.28.1,<2)", "openai-agents (>=0.18)", "opentelemetry-exporter-otlp-proto-http (>=1.20.0)", "opentelemetry-instrumentation-celery (>=0.41b0)", "opentelemetry-sdk (>=1.20.0)", "parameterized (>=0.8.1)", "pydantic (>=2.12.0)", "pytest", "pytest-asyncio", "pytest-bdd (>=8.1.0)", "pytest-timeout", "python-dateutil (>=2.9.0.post0)", "tiktoken (>=0.12.0)", "tzdata", "zstandard (>=0.23.0)"]
 zstd = ["zstandard (>=0.23.0)"]
 
 [[package]]
@@ -6094,4 +6094,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "062db096f21173a6bc3d8627c145f82bd998fab328b44e19f51d4ecf404fae21"
+content-hash = "7129e2ec185f416a4111452c97148709c2b0e964b4c5a38226bc64f980be8fd2"
