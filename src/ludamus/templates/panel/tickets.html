@@ -153,7 +153,7 @@
                                 {% endwith %}
                             {% endfor %}
                         </tbody>
-                    {% endtessera_table %}
+                    {% end_tessera_table %}
                 {% else %}
                     <div class="card">
                         <div class="card-body max-w-2xl">
@@ -270,7 +270,7 @@
                                 </tr>
                             {% endfor %}
                         </tbody>
-                    {% endtessera_table %}
+                    {% end_tessera_table %}
                     {% if page.more_orders %}
                         <p class="text-sm text-foreground-muted">
                             {% blocktranslate with shown=page.orders|length %}These are the latest {{ shown }} orders. Your Stripe dashboard has all of them, with search.{% endblocktranslate %}
