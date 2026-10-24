@@ -50,10 +50,8 @@ def _wait_for_blocked_identity(*, pid, future):
     deadline = monotonic() + 5
     while monotonic() < deadline:
         with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT wait_event FROM pg_stat_activity WHERE pid = %s", [pid]
-            )
-            if cursor.fetchone() == ("advisory",):
+            cursor.execute("SELECT pg_backend_pid() = ANY(pg_blocking_pids(%s))", [pid])
+            if cursor.fetchone() == (True,):
                 return
         if future.done():
             future.result()
