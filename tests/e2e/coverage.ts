@@ -10,9 +10,16 @@ export const coverageOptions: CoverageReportOptions = {
   name: "Client TypeScript",
   outputDir: path.join(repoRoot, "coverage-client"),
   reports: [["lcovonly", { file: "lcov.info" }], "console-summary"],
+  // Vite's own auto-named `chunk-*.js` output (shared code it factors out
+  // across entry points, e.g. a CJS/ESM interop helper) carries no sourcemap
+  // back to a first-party file — there is no TS source to map to by design.
+  // Parley's dependencies are the first to pull one in; excluding it here
+  // keeps the real signal in global-teardown.ts's unmapped-sources check,
+  // which otherwise cannot tell that gap apart from a stale/reused server.
   entryFilter: (entry) => {
     const isImportStub = /^(?:import\s*["']\.\/[^"'\n]+["'];\s*)+$/u.test(entry.source ?? "");
-    return entry.url.includes("/static/vite/") && !isImportStub;
+    const isViteChunk = /\/static\/vite\/assets\/chunk-[^/]*\.js$/u.test(entry.url);
+    return entry.url.includes("/static/vite/") && !isImportStub && !isViteChunk;
   },
   sourceFilter: "**/client/src/**",
   sourcePath: (filePath) => {
