@@ -268,8 +268,9 @@ const openModal = async (
           card.style.transition = "";
         },
         swap: () => {
-          suppressSessionCard(id);
           setMorph(card, false);
+          if (!dialog.isConnected) return;
+          suppressSessionCard(id);
           card.style.transition = "none";
           presentDialog(dialog);
           setMorph(dialog, true);
