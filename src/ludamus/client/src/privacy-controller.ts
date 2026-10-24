@@ -75,12 +75,11 @@ export class PrivacyController {
     if (this.revoked) return;
     const state = this.eligible() ? this.readChoice() : "ineligible";
     const newerAcceptance =
-      state === "ineligible" &&
-      this.options.revision !== null &&
-      this.readChoice(readPrivacyRevision() ?? null) === "accepted";
+      state === "ineligible" && this.readChoice(readPrivacyRevision() ?? null) === "accepted";
     if (newerAcceptance) {
       this.revoked = true;
-      globalThis.location.reload();
+      this.options.render("ineligible");
+      if (this.options.revision !== null) globalThis.location.reload();
       return;
     }
     if (state === "ineligible" || state === null) localStorage.removeItem(STORAGE_KEY);

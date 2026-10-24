@@ -144,6 +144,10 @@ test.describe("Cookie consent banner", () => {
       .getByRole("button", { name: "Cool" })
       .click();
     await expect.poll(() => storedConsent(page)).toBe("accepted");
+    const sdkRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/module\.full\.no-external/u.test(request.url())) sdkRequests.push(request.url());
+    });
     let documentRequests = 0;
     await page.route("**/crowd/profile/privacy/", async (route) => {
       documentRequests++;
@@ -161,9 +165,9 @@ test.describe("Cookie consent banner", () => {
 
     await page.goto("/crowd/profile/privacy/");
 
-    await expect.poll(() => storedConsent(page)).toBeNull();
+    await expect.poll(() => storedConsent(page)).toBe("accepted");
     expect(documentRequests).toBe(1);
-    expect(await posthogStarted(page)).toBe(false);
+    expect(sdkRequests).toEqual([]);
     await attachArtifacts(testInfo, {
       name: "analytics-unconfigured-after-consent",
       region: page.getByRole("main"),
