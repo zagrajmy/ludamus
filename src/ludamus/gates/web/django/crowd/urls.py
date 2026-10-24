@@ -12,6 +12,7 @@ auth0_urlpatterns = [
         auth.Auth0LoginCallbackActionView.as_view(),
         name="login-callback",
     ),
+    path("signup/age", auth.Auth0SignupAgePageView.as_view(), name="signup-age"),
     path("do/logout", auth.Auth0LogoutActionView.as_view(), name="logout"),
     path(
         "do/logout/redirect",

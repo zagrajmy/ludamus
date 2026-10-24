@@ -182,8 +182,9 @@ def _facilitator(pk, slug, user_id=None, guild_id=None, organizer_id=None):
 
 def _merge_service(facilitators, *, fields=(), membership=None):
     facilitators_repo = MagicMock()
-    facilitators_repo.lock_by_event_and_slugs.side_effect = lambda _event_id, slugs: [
-        f for f in facilitators if f.slug in slugs
+    # Every merge test runs in event 1; another event holds none of them.
+    facilitators_repo.lock_by_event_and_slugs.side_effect = lambda event_id, slugs: [
+        f for f in facilitators if event_id == 1 and f.slug in slugs
     ]
     values_repo = MagicMock()
     values_repo.read_for_facilitator_event.return_value = {}

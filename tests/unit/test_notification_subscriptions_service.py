@@ -22,8 +22,8 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, *, subscriptions=(), known_pks=()):
-        self._subscriptions = list(subscriptions)
+    def __init__(self, *, subscriptions_by_user=None, known_pks=()):
+        self._subscriptions_by_user = subscriptions_by_user or {}
         self._known_pks = set(known_pks)
         self.ensured_spheres = []
         self.muted = []
@@ -32,7 +32,7 @@ class FakeRepo:
         self.ensured_spheres.append((user_id, sphere_id, source))
 
     def list_for_user(self, user_id):
-        return list(self._subscriptions)
+        return list(self._subscriptions_by_user.get(user_id, ()))
 
     def set_muted(self, *, user_id, pk, muted):
         if pk not in self._known_pks:
@@ -56,7 +56,7 @@ class TestSubscribe:
 class TestListForUser:
     def test_returns_the_repository_rows(self):
         subscription = SubscriptionDTO(pk=1, muted=False, sphere_name="Alpha")
-        repo = FakeRepo(subscriptions=[subscription])
+        repo = FakeRepo(subscriptions_by_user={7: [subscription]})
         service = NotificationSubscriptionsService(FakeTransaction(), repo)
 
         assert service.list_for_user(7) == [subscription]

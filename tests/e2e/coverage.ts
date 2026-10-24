@@ -16,9 +16,10 @@ export const coverageOptions: CoverageReportOptions = {
   // Parley's dependencies are the first to pull one in; excluding it here
   // keeps the real signal in global-teardown.ts's unmapped-sources check,
   // which otherwise cannot tell that gap apart from a stale/reused server.
-  entryFilter: {
-    "**/static/vite/assets/chunk-*.js": false,
-    "**/static/vite/**": true,
+  entryFilter: (entry) => {
+    const isImportStub = /^(?:import\s*["']\.\/[^"'\n]+["'];\s*)+$/u.test(entry.source ?? "");
+    const isViteChunk = /\/static\/vite\/assets\/chunk-[^/]*\.js$/u.test(entry.url);
+    return entry.url.includes("/static/vite/") && !isImportStub && !isViteChunk;
   },
   sourceFilter: "**/client/src/**",
   sourcePath: (filePath) => {
