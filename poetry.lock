@@ -3912,14 +3912,14 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "posthog"
-version = "7.67.1"
+version = "7.73.2"
 description = "Integrate PostHog into any python application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "posthog-7.67.1-py3-none-any.whl", hash = "sha256:4cb25725bce61375cf834263616df18edf1ac92aff57cabbe82a2dc63565fcad"},
-    {file = "posthog-7.67.1.tar.gz", hash = "sha256:26def73839e5beb443409aa784f71528ef1f31d6c94aa1c1046ecac1dba59cb5"},
+    {file = "posthog-7.73.2-py3-none-any.whl", hash = "sha256:d843e9d22f22dc396d1877d4f85ffeac39e7a3cd8548b9b896a762969e9e3290"},
+    {file = "posthog-7.73.2.tar.gz", hash = "sha256:84f89f29cae8ac30381a69a5487b2ea8ce3054d49203d8004fb8dd67ef8f8eba"},
 ]
 
 [package.dependencies]
@@ -6221,4 +6221,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "4c0d58b429ac93882fabe77181540d822bb9cafecd1de8434e6f473e1ff0ea9d"
+content-hash = "c5a0e8d44450d64fcf1426a94507c8676450f115300b3001094fb1865ce57576"
