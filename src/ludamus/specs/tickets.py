@@ -4,6 +4,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, assert_never
 
 from ludamus.pacts.tickets import (
+    ABANDONED_STATUSES,
     MAX_TICKETS_PER_ORDER,
     CheckoutOutcome,
     FeeBreakdownDTO,
@@ -40,9 +41,6 @@ WEBHOOK_GRACE = timedelta(hours=1)
 # transfer can hold them for days. One network may hold this many orders per
 # event at once, so a script cannot sit on a sell-out.
 GUEST_HOLDS_PER_CLIENT = 3
-# NOTE: a confirmation goes to an address a guest typed into Checkout, so
-# each order mails at most one per this long, however often it is asked for.
-CLAIM_MAIL_INTERVAL = timedelta(minutes=10)
 
 # At or below this many left, the shop says how many.
 FEW_TICKETS_LEFT = 20
@@ -183,7 +181,7 @@ def owns_order_email(*, order_email: str, verified_email: str) -> bool:
     return bool(verified_email) and order_email.casefold() == verified_email.casefold()
 
 
-def claimable(order: OrderDTO, *, state: OrderPageState) -> bool:
+def claimable(order: OrderDTO) -> bool:
     """Say if signing in on the order's page may keep it in an account.
 
     A guest's order with tickets coming, once Checkout reported the email the
@@ -192,5 +190,5 @@ def claimable(order: OrderDTO, *, state: OrderPageState) -> bool:
     return (
         order.is_guest
         and bool(order.email)
-        and state not in {OrderPageState.REFUNDED, OrderPageState.NOT_COMPLETED}
+        and order.status not in ABANDONED_STATUSES | {OrderStatus.REFUNDED}
     )

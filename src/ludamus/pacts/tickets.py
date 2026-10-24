@@ -54,6 +54,9 @@ ORDER_REFERENCE_MAX_LENGTH = 32
 # A guest's network, keyed (`TicketOrder.guest_client`): HMAC-SHA256, in hex.
 GUEST_CLIENT_LENGTH = 64
 ORDER_CLAIM_LINK_MAX_AGE = timedelta(days=1)
+# NOTE: a confirmation goes to an address a guest typed into Checkout, so
+# each order mails at most one per this long, however often it is asked for.
+CLAIM_MAIL_INTERVAL = timedelta(minutes=10)
 
 
 class OrderStatus(StrEnum):
@@ -74,8 +77,8 @@ class OrderStatus(StrEnum):
 SOLD_STATUSES = frozenset({OrderStatus.PAID})
 SETTLING_STATUSES = frozenset({OrderStatus.AWAITING_PAYMENT})
 CHECKOUT_STATUSES = frozenset({OrderStatus.PENDING})
-# Orders whose seats are still taken, one way or the other.
-HOLDING_STATUSES = CHECKOUT_STATUSES | SETTLING_STATUSES
+# Orders holding seats they have not paid for yet.
+UNPAID_HOLD_STATUSES = CHECKOUT_STATUSES | SETTLING_STATUSES
 # Orders we gave up on: their seats are free again.
 ABANDONED_STATUSES = frozenset({OrderStatus.EXPIRED, OrderStatus.FAILED})
 # The orders the panel lists: abandoned checkouts are noise there.
@@ -124,9 +127,19 @@ class ClaimOutcome(StrEnum):
     ALREADY_YOURS = "already_yours"
     # The account is not verified for the order's email: a link went there.
     CONFIRMATION_SENT = "confirmation_sent"
-    # A link went there a few minutes ago, for this account or another; no
-    # second one until `CLAIM_MAIL_INTERVAL` passes.
+    # A link went there recently, for this account or another; no second one
+    # until `CLAIM_MAIL_INTERVAL` passes.
     CONFIRMATION_HELD = "confirmation_held"
+    # The mail server refused the link; nothing was recorded, so ask again.
+    MAIL_FAILED = "mail_failed"
+
+
+class ConfirmLinkState(StrEnum):
+    """What the mailed link's page offers, before anything is claimed."""
+
+    READY = "ready"
+    ALREADY_YOURS = "already_yours"
+    LINK_INVALID = "link_invalid"
 
 
 class ConfirmOutcome(StrEnum):
@@ -276,7 +289,6 @@ class OrderDTO(BaseModel):
     hold_until: datetime
     paid_at: datetime | None
     refunded_at: datetime | None
-    claim_mailed_at: datetime | None
     creation_time: datetime
     lines: list[OrderLineDTO]
     tickets: list[TicketDTO]
@@ -344,7 +356,6 @@ class OrderLineData(TypedDict):
 class OrderChanges(TypedDict, total=False):
     # What a move records besides the status.
     email: str
-    guest_client: str
     stripe_payment_intent_id: str
     paid_at: datetime
     refunded_at: datetime
@@ -513,12 +524,18 @@ class ClaimConfirmationMail(BaseModel):
     token: str
 
 
+class OrderMailError(Exception):
+    """The mail server refused a mail the buyer is waiting for."""
+
+
 class TicketMailerProtocol(Protocol):
-    # Both send after the surrounding transaction commits, and never raise.
     @staticmethod
-    def send_order_link(mail: OrderLinkMail) -> None: ...
+    def send_order_link(mail: OrderLinkMail) -> None:
+        """Send once the surrounding transaction commits; never raise."""
+
     @staticmethod
-    def send_claim_confirmation(mail: ClaimConfirmationMail) -> None: ...
+    def send_claim_confirmation(mail: ClaimConfirmationMail) -> None:
+        """Send now; raise `OrderMailError` if the server refuses it."""
 
 
 class OrderClaimPayload(BaseModel):
@@ -579,7 +596,8 @@ class TicketOrderRepositoryProtocol(Protocol):
         """Give the order, and every ticket it issued, to `buyer_id`."""
 
     @staticmethod
-    def mark_claim_mailed(*, pk: int, at: datetime) -> None: ...
+    def take_claim_mail_slot(*, pk: int, now: datetime, interval: timedelta) -> bool:
+        """Stamp `now` unless a claim mail went out within `interval`; say if it did."""
 
     @staticmethod
     def count_guest_holds(
@@ -605,6 +623,7 @@ class TicketOrderRepositoryProtocol(Protocol):
         to: OrderStatus,
         allowed_from: frozenset[OrderStatus],
         changes: OrderChanges,
+        forget_guest_client: bool,
     ) -> bool:
         """Write only if the order is still in one of `allowed_from`; say if it did."""
 
@@ -686,6 +705,9 @@ class TicketSalesServiceProtocol(Protocol):
     def claim_order(
         self, *, event_id: int, reference: str, user_id: int
     ) -> ClaimResultDTO: ...
+    def confirm_link_state(
+        self, *, event_id: int, reference: str, token: str, user_id: int
+    ) -> ConfirmLinkState: ...
     def confirm_claim(
         self, *, event_id: int, reference: str, token: str, user_id: int
     ) -> ConfirmOutcome: ...

@@ -2,18 +2,22 @@
 
 How it could go wrong: a claimed order is shown to someone with its link, or
 claimed away from its holder; a forwarded order link hands the order to an
-account that never proved it reads the order's address; a mailed confirmation
-link works for another account, after it expired, or tampered with; a refunded
+account that never proved it reads the order's address; a mail server refusing
+the confirmation reads as sent, or holds the next ask back; a mailed
+confirmation link works for another account, after it expired, or tampered
+with; a refunded
 or abandoned order offers to be kept; an order reference from another event is
 shown or claimed.
 """
 
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from smtplib import SMTPServerDisconnected
 from urllib.parse import urlencode, urlparse
 
 import pytest
 from django.contrib import messages
+from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import resolve, reverse
 from freezegun import freeze_time
@@ -22,13 +26,13 @@ from ludamus.links.db.django.models import Ticket
 from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
 from ludamus.pacts import EventDTO
 from ludamus.pacts.tickets import (
+    CLAIM_MAIL_INTERVAL,
     ORDER_CLAIM_LINK_MAX_AGE,
     OrderClaimPayload,
     OrderPageState,
     OrderStatus,
     TicketDTO,
 )
-from ludamus.specs.tickets import CLAIM_MAIL_INTERVAL
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.stripe_helpers import GUEST_CLIENT, order, order_url, ticket_type
 from tests.integration.utils import (
@@ -522,9 +526,8 @@ class TestEventTicketOrderClaimActionView:
                 (
                     messages.INFO,
                     (
-                        "A confirmation link went to g…@example.com a few minutes ago."
-                        " If it doesn't work for this account, ask again in ten"
-                        " minutes."
+                        "A confirmation link went to g…@example.com recently. If it"
+                        " doesn't work for this account, ask again in 10 minutes."
                     ),
                 )
             ],
@@ -557,6 +560,46 @@ class TestEventTicketOrderClaimActionView:
             messages=[_link_sent("g…@example.com")],
         )
         assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL], [GUEST_EMAIL]]
+
+    def test_mail_server_refusing_the_link_says_so_and_lets_you_ask_again(
+        self, authenticated_client, event, mailoutbox, monkeypatch
+    ):
+        guests = _guest_order_with_tickets(event)
+        url = _claim_url(event, guests)
+        send = EmailMessage.send
+
+        def refused(_message, *_args, **_kwargs):
+            raise SMTPServerDisconnected
+
+        monkeypatch.setattr(EmailMessage, "send", refused)
+        refused_response = authenticated_client.post(url)
+        assert_response(
+            refused_response,
+            HTTPStatus.FOUND,
+            url=order_url(event, guests),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "We couldn't send the confirmation link to g…@example.com."
+                        " Try again in a moment."
+                    ),
+                )
+            ],
+        )
+        # The order page shows, and spends, the message.
+        authenticated_client.get(order_url(event, guests))
+        monkeypatch.setattr(EmailMessage, "send", send)
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=order_url(event, guests),
+            messages=[_link_sent("g…@example.com")],
+        )
+        assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL]]
 
     @pytest.mark.parametrize("status", SPENT)
     @pytest.mark.parametrize(
@@ -755,13 +798,16 @@ class TestEventTicketOrderClaimConfirmPageView:
         assert_response(response, HTTPStatus.FOUND, url=_login_redirect(url))
         assert _holders(guests) == (None, {None})
 
+    @pytest.mark.parametrize("method", ("get", "post"))
     def test_link_made_for_another_account_claims_nothing(
-        self, authenticated_client, event
+        self, authenticated_client, event, method
     ):
         guests = _guest_order_with_tickets(event)
         token = _token(guests, UserFactory())
 
-        response = authenticated_client.post(_confirm_url(event, guests, token))
+        response = getattr(authenticated_client, method)(
+            _confirm_url(event, guests, token)
+        )
 
         assert_response(
             response,
@@ -771,15 +817,16 @@ class TestEventTicketOrderClaimConfirmPageView:
         )
         assert _holders(guests) == (None, {None})
 
+    @pytest.mark.parametrize("method", ("get", "post"))
     def test_link_made_for_another_order_claims_nothing(
-        self, authenticated_client, event, active_user
+        self, authenticated_client, event, active_user, method
     ):
         guests = _guest_order_with_tickets(event)
         other = order(
             event, buyer=None, lines=[(ticket_type(event), 1)], session_id="cs_2"
         )
 
-        response = authenticated_client.post(
+        response = getattr(authenticated_client, method)(
             _confirm_url(event, guests, _token(other, active_user))
         )
 
@@ -791,15 +838,18 @@ class TestEventTicketOrderClaimConfirmPageView:
         )
         assert _holders(guests) == (None, {None})
 
+    @pytest.mark.parametrize("method", ("get", "post"))
     def test_expired_link_claims_nothing(
-        self, authenticated_client, event, active_user
+        self, authenticated_client, event, active_user, method
     ):
         guests = _guest_order_with_tickets(event)
         token = _token(guests, active_user)
 
         a_second_too_late = ORDER_CLAIM_LINK_MAX_AGE + timedelta(seconds=1)
         with freeze_time(datetime.now(UTC) + a_second_too_late):
-            response = authenticated_client.post(_confirm_url(event, guests, token))
+            response = getattr(authenticated_client, method)(
+                _confirm_url(event, guests, token)
+            )
 
         assert_response(
             response,
@@ -819,13 +869,16 @@ class TestEventTicketOrderClaimConfirmPageView:
             pytest.param(lambda _token: "not-a-token", id="garbage"),
         ),
     )
+    @pytest.mark.parametrize("method", ("get", "post"))
     def test_tampered_link_claims_nothing(
-        self, authenticated_client, event, active_user, tamper
+        self, authenticated_client, event, active_user, tamper, method
     ):
         guests = _guest_order_with_tickets(event)
         token = tamper(_token(guests, active_user))
 
-        response = authenticated_client.post(_confirm_url(event, guests, token))
+        response = getattr(authenticated_client, method)(
+            _confirm_url(event, guests, token)
+        )
 
         assert_response(
             response,

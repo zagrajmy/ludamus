@@ -38,6 +38,7 @@ from ludamus.pacts.tickets import (
     SOLD_STATUSES,
     OrderDTO,
     OrderLineDTO,
+    OrderMailError,
     OrderRowDTO,
     OrderStatus,
     OwnedTicketDTO,
@@ -231,7 +232,6 @@ def _order_dto(order: TicketOrder) -> OrderDTO:
         hold_until=order.hold_until,
         paid_at=order.paid_at,
         refunded_at=order.refunded_at,
-        claim_mailed_at=order.claim_mailed_at,
         creation_time=order.creation_time,
         lines=_line_dtos(order),
         tickets=[
@@ -289,9 +289,13 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         Ticket.objects.filter(order_id=pk).update(holder_id=buyer_id)
 
     @staticmethod
-    def mark_claim_mailed(*, pk: int, at: datetime) -> None:
-        TicketOrder.objects.filter(pk=pk).update(
-            claim_mailed_at=at, modification_time=Now()
+    def take_claim_mail_slot(*, pk: int, now: datetime, interval: timedelta) -> bool:
+        return bool(
+            TicketOrder.objects.filter(
+                Q(claim_mailed_at__isnull=True)
+                | Q(claim_mailed_at__lte=now - interval),
+                pk=pk,
+            ).update(claim_mailed_at=now, modification_time=Now())
         )
 
     @staticmethod
@@ -370,10 +374,12 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         to: OrderStatus,
         allowed_from: frozenset[OrderStatus],
         changes: OrderChanges,
+        forget_guest_client: bool,
     ) -> bool:
+        forgotten = {"guest_client": ""} if forget_guest_client else {}
         return bool(
             TicketOrder.objects.filter(pk=pk, status__in=allowed_from).update(
-                status=to, modification_time=Now(), **changes
+                status=to, modification_time=Now(), **changes, **forgotten
             )
         )
 
@@ -458,7 +464,7 @@ def _order_url(event: OrderMailEvent, *, name: str, **kwargs: str) -> str:
 
 def _send_after_commit(*, order_pk: int, subject: str, body: str, to: str) -> None:
     def _send() -> None:
-        # SMTPException is an OSError; a header Django refuses, a ValueError.
+        # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
         try:
             EmailMessage(subject=subject, body=body, to=[to]).send()
         except OSError, ValueError:
@@ -528,11 +534,15 @@ class DjangoTicketMailer(TicketMailerProtocol):
             url,
             _("If it wasn't, ignore this email. Your tickets stay as they are."),
         ]
-        _send_after_commit(
-            order_pk=mail.order_pk,
-            subject=_("Add your tickets for %(event)s to an account?") % {
-                "event": mail.event.name
-            },
-            body="\n\n".join(lines),
-            to=mail.email,
-        )
+        try:
+            EmailMessage(
+                subject=_("Add your tickets for %(event)s to an account?") % {
+                    "event": mail.event.name
+                },
+                body="\n\n".join(lines),
+                to=[mail.email],
+            ).send()
+        # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
+        except (OSError, ValueError) as error:
+            raise OrderMailError from error
+        logger.info("Ticket order mail sent: order=%s", mail.order_pk)

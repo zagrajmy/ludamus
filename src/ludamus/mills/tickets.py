@@ -28,10 +28,11 @@ from ludamus.pacts.payment_api import (
 )
 from ludamus.pacts.tickets import (
     ABANDONED_STATUSES,
+    CLAIM_MAIL_INTERVAL,
     DEFAULT_CURRENCY,
-    HOLDING_STATUSES,
     MAX_TICKETS_PER_ORDER,
     TICKET_CODE_LENGTH,
+    UNPAID_HOLD_STATUSES,
     AbandonOutcome,
     BuyerOrderDTO,
     CheckoutLine,
@@ -41,10 +42,12 @@ from ludamus.pacts.tickets import (
     ClaimConfirmationMail,
     ClaimOutcome,
     ClaimResultDTO,
+    ConfirmLinkState,
     ConfirmOutcome,
     EventShopDTO,
     OrderClaimPayload,
     OrderLinkMail,
+    OrderMailError,
     OrderMailEvent,
     OrderStatus,
     PayoutPageDTO,
@@ -60,7 +63,6 @@ from ludamus.pacts.tickets import (
 from ludamus.specs.billing import current_terms
 from ludamus.specs.tickets import (
     CHECKOUT_HOLD,
-    CLAIM_MAIL_INTERVAL,
     GUEST_HOLDS_PER_CLIENT,
     PANEL_ORDERS_SHOWN,
     WEBHOOK_GRACE,
@@ -140,6 +142,20 @@ def _scoped(
     return order
 
 
+def _for_claim(order: OrderDTO | None, *, event_id: int, user_id: int) -> OrderDTO:
+    """Return the order if this account may claim it, or already holds it."""
+    order = _scoped(order, event_id=event_id, viewer_id=user_id)
+    if order.buyer_id != user_id and not claimable(order):
+        raise NotFoundError
+    return order
+
+
+def _made_for(
+    payload: OrderClaimPayload | None, *, order: OrderDTO, user_id: int
+) -> bool:
+    return payload == OrderClaimPayload(order_pk=order.pk, user_id=user_id)
+
+
 def _mail_event(order: OrderDTO) -> OrderMailEvent:
     return OrderMailEvent(
         pk=order.event_id, name=order.event_name, slug=order.event_slug
@@ -154,14 +170,14 @@ def _move(
     changes: OrderChanges | None = None,
 ) -> bool:
     # The only way an order changes status: from wherever ORDER_TRANSITIONS
-    # allows, and not at all if it has moved on since it was read. An order
-    # that holds no seats any more forgets the guest's network.
-    released: OrderChanges = {} if to in HOLDING_STATUSES else {"guest_client": ""}
+    # allows, and not at all if it has moved on since it was read. An order no
+    # longer holding unpaid seats forgets the guest's network.
     return orders.move(
         pk=pk,
         to=to,
         allowed_from=sources_of(to),
-        changes={**released, **(changes or {})},
+        changes=changes or {},
+        forget_guest_client=to not in UNPAID_HOLD_STATUSES,
     )
 
 
@@ -427,83 +443,91 @@ class TicketSalesService(TicketSalesServiceProtocol):
             event_id=event_id,
             viewer_id=viewer_id,
         )
-        state = order_page_state(order, now=datetime.now(tz=UTC))
         return BuyerOrderDTO(
-            order=order, state=state, claimable=claimable(order, state=state)
+            order=order,
+            state=order_page_state(order, now=datetime.now(tz=UTC)),
+            claimable=claimable(order),
         )
-
-    def _claimable(self, *, event_id: int, reference: str, user_id: int) -> OrderDTO:
-        # Under the order's lock, so two claims queue and the second sees the
-        # first's outcome.
-        order = _scoped(
-            self._repos.orders.lock_by_reference(reference=reference),
-            event_id=event_id,
-            viewer_id=user_id,
-        )
-        state = order_page_state(order, now=datetime.now(tz=UTC))
-        if order.buyer_id != user_id and not claimable(order, state=state):
-            raise NotFoundError
-        return order
 
     def claim_order(
         self, *, event_id: int, reference: str, user_id: int
     ) -> ClaimResultDTO:
         verified_email = self._repos.users.read_by_id(user_id).deliverable_email
-        now = datetime.now(tz=UTC)
         with self._transaction.atomic():
-            order = self._claimable(
-                event_id=event_id, reference=reference, user_id=user_id
-            )
-            result = ClaimResultDTO(
-                outcome=ClaimOutcome.CONFIRMATION_SENT, order_email=order.email
+            order = _for_claim(
+                self._repos.orders.lock_by_reference(reference=reference),
+                event_id=event_id,
+                user_id=user_id,
             )
             if order.buyer_id == user_id:
-                return ClaimResultDTO(
-                    outcome=ClaimOutcome.ALREADY_YOURS, order_email=order.email
-                )
-            if owns_order_email(order_email=order.email, verified_email=verified_email):
-                self._claim(order, user_id=user_id)
-                return ClaimResultDTO(
-                    outcome=ClaimOutcome.CLAIMED, order_email=order.email
-                )
-            if (
-                order.claim_mailed_at is not None
-                and now - order.claim_mailed_at < CLAIM_MAIL_INTERVAL
+                outcome = ClaimOutcome.ALREADY_YOURS
+            elif owns_order_email(
+                order_email=order.email, verified_email=verified_email
             ):
-                logger.info("Ticket order claim mail held back: order=%s", order.pk)
-                return ClaimResultDTO(
-                    outcome=ClaimOutcome.CONFIRMATION_HELD, order_email=order.email
-                )
-            self._repos.orders.mark_claim_mailed(pk=order.pk, at=now)
+                self._claim(order, user_id=user_id)
+                outcome = ClaimOutcome.CLAIMED
+            else:
+                outcome = self._ask_order_email(order, user_id=user_id)
+        return ClaimResultDTO(outcome=outcome, order_email=order.email)
+
+    def _ask_order_email(self, order: OrderDTO, *, user_id: int) -> ClaimOutcome:
         # SAFETY: the link alone may be a forwarded mail, so only the order's
         # address may hand the order to an account it has not been proven for.
-        self._mailer.send_claim_confirmation(
-            ClaimConfirmationMail(
-                order_pk=order.pk,
-                email=order.email,
-                event=_mail_event(order),
-                reference=order.reference,
-                token=self._claims.dumps(
-                    OrderClaimPayload(order_pk=order.pk, user_id=user_id)
-                ),
-            )
-        )
+        try:
+            # SAFETY: a savepoint, so a refused mail rolls its throttle stamp
+            # back and asking again sends anew.
+            with self._transaction.atomic():
+                if not self._repos.orders.take_claim_mail_slot(
+                    pk=order.pk, now=datetime.now(tz=UTC), interval=CLAIM_MAIL_INTERVAL
+                ):
+                    logger.info("Ticket order claim mail held back: order=%s", order.pk)
+                    return ClaimOutcome.CONFIRMATION_HELD
+                self._mailer.send_claim_confirmation(
+                    ClaimConfirmationMail(
+                        order_pk=order.pk,
+                        email=order.email,
+                        event=_mail_event(order),
+                        reference=order.reference,
+                        token=self._claims.dumps(
+                            OrderClaimPayload(order_pk=order.pk, user_id=user_id)
+                        ),
+                    )
+                )
+        except OrderMailError:
+            logger.exception("Ticket order claim mail failed: order=%s", order.pk)
+            return ClaimOutcome.MAIL_FAILED
         logger.info(
             "Ticket order claim confirmation sent: order=%s user=%s", order.pk, user_id
         )
-        return result
+        return ClaimOutcome.CONFIRMATION_SENT
+
+    def confirm_link_state(
+        self, *, event_id: int, reference: str, token: str, user_id: int
+    ) -> ConfirmLinkState:
+        order = _for_claim(
+            self._repos.orders.read_by_reference(reference=reference),
+            event_id=event_id,
+            user_id=user_id,
+        )
+        if order.buyer_id == user_id:
+            return ConfirmLinkState.ALREADY_YOURS
+        if not _made_for(self._claims.loads(token), order=order, user_id=user_id):
+            return ConfirmLinkState.LINK_INVALID
+        return ConfirmLinkState.READY
 
     def confirm_claim(
         self, *, event_id: int, reference: str, token: str, user_id: int
     ) -> ConfirmOutcome:
         payload = self._claims.loads(token)
         with self._transaction.atomic():
-            order = self._claimable(
-                event_id=event_id, reference=reference, user_id=user_id
+            order = _for_claim(
+                self._repos.orders.lock_by_reference(reference=reference),
+                event_id=event_id,
+                user_id=user_id,
             )
             if order.buyer_id == user_id:
                 return ConfirmOutcome.ALREADY_YOURS
-            if payload != OrderClaimPayload(order_pk=order.pk, user_id=user_id):
+            if not _made_for(payload, order=order, user_id=user_id):
                 return ConfirmOutcome.LINK_INVALID
             self._claim(order, user_id=user_id)
         return ConfirmOutcome.CLAIMED
@@ -805,8 +829,8 @@ class TicketPanelService(TicketPanelServiceProtocol):
                 raise NotFoundError
 
     def refund(self, *, event_id: int, order_pk: int) -> RefundOutcome:
-        # Under the order's lock, so the charge.refunded webhook for this very
-        # refund waits and then finds it done.
+        # SAFETY: under the order's lock, so the charge.refunded webhook for this
+        # very refund waits and then finds it done.
         with self._transaction.atomic():
             order = self._orders.lock_for_event(event_id=event_id, pk=order_pk)
             if order is None:

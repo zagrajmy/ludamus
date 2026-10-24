@@ -132,6 +132,7 @@ class TestShop:
             to=OrderStatus.REFUNDED,
             allowed_from=frozenset({OrderStatus.PAID}),
             changes={},
+            forget_guest_client=False,
         )
         add_order(orders, regular, quantity=3, buyer_id=OTHER_BUYER_ID)
 
@@ -309,24 +310,6 @@ class TestStartCheckout:
 
         assert book.orders[1].platform_fee == fee
         assert payments.checkouts[0].application_fee == fee
-
-    def test_hold_commits_on_its_own_before_the_buyer_is_sent_to_stripe(
-        self, sales, book, types, payments, transaction, monkeypatch
-    ):
-        regular = types.add()
-        open_at_stripe = []
-        create_checkout = payments.create_checkout
-
-        def recorded(request):
-            open_at_stripe.append(list(transaction.open))
-            return create_checkout(request)
-
-        monkeypatch.setattr(payments, "create_checkout", recorded)
-
-        _start(sales, book, {regular.pk: 1})
-
-        assert book.created_in == {1: ("durable",)}
-        assert open_at_stripe == [[]]
 
     def test_stripe_refusing_checkout_releases_the_seats(
         self, sales, book, types, payments

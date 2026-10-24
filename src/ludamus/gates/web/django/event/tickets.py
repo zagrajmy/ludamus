@@ -13,6 +13,7 @@ verified for the order's email claims through a link mailed to that address.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from ipaddress import IPv6Address, ip_address, ip_network
 from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlencode
@@ -25,6 +26,7 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.crypto import salted_hmac
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.helpers import (
@@ -34,12 +36,14 @@ from ludamus.gates.web.django.helpers import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tickets import (
+    CLAIM_MAIL_INTERVAL,
     MAX_TICKETS_PER_ORDER,
     AbandonOutcome,
     CheckoutBuyer,
     CheckoutOutcome,
     CheckoutUrls,
     ClaimOutcome,
+    ConfirmLinkState,
     ConfirmOutcome,
 )
 
@@ -256,6 +260,16 @@ def _claimed(request: RootRequest) -> None:
     )
 
 
+def _link_invalid(request: RootRequest) -> None:
+    messages.error(
+        request,
+        _(
+            "This link has expired or was sent for another account. Ask"
+            " for a new one from the order page."
+        ),
+    )
+
+
 class EventTicketOrderClaimActionView(View):
     """Keep a guest's order: it and its tickets move into the signed-in account."""
 
@@ -286,11 +300,26 @@ class EventTicketOrderClaimActionView(View):
                     % {"email": _masked(result.order_email)},
                 )
             case ClaimOutcome.CONFIRMATION_HELD:
+                minutes = CLAIM_MAIL_INTERVAL // timedelta(minutes=1)
                 messages.info(
                     request,
+                    ngettext(
+                        "A confirmation link went to %(email)s recently. If it"
+                        " doesn't work for this account, ask again in %(minutes)d"
+                        " minute.",
+                        "A confirmation link went to %(email)s recently. If it"
+                        " doesn't work for this account, ask again in %(minutes)d"
+                        " minutes.",
+                        minutes,
+                    )
+                    % {"email": _masked(result.order_email), "minutes": minutes},
+                )
+            case ClaimOutcome.MAIL_FAILED:
+                messages.error(
+                    request,
                     _(
-                        "A confirmation link went to %(email)s a few minutes ago. If"
-                        " it doesn't work for this account, ask again in ten minutes."
+                        "We couldn't send the confirmation link to %(email)s. Try"
+                        " again in a moment."
                     )
                     % {"email": _masked(result.order_email)},
                 )
@@ -314,20 +343,25 @@ class EventTicketOrderClaimConfirmPageView(View):
         if (user_id := request.context.current_user_id) is None:
             return redirect_to_login(request.get_full_path())
         try:
-            page = request.services.ticket_sales.order(
-                event_id=event.pk, reference=reference, viewer_id=user_id
+            state = request.services.ticket_sales.confirm_link_state(
+                event_id=event.pk, reference=reference, token=token, user_id=user_id
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        if page.order.buyer_id == user_id:
-            return redirect(_order_url(event.slug, reference))
-        if not page.claimable:
-            raise Http404
-        return TemplateResponse(
-            request,
-            "chronology/ticket-order-claim.html",
-            {"event": event, "reference": reference, "token": token},
-        )
+        match state:
+            case ConfirmLinkState.READY:
+                return TemplateResponse(
+                    request,
+                    "chronology/ticket-order-claim.html",
+                    {"event": event, "reference": reference, "token": token},
+                )
+            case ConfirmLinkState.LINK_INVALID:
+                _link_invalid(request)
+            case ConfirmLinkState.ALREADY_YOURS:
+                pass
+            case _:
+                assert_never(state)
+        return redirect(_order_url(event.slug, reference))
 
     @staticmethod
     def post(
@@ -346,13 +380,7 @@ class EventTicketOrderClaimConfirmPageView(View):
             case ConfirmOutcome.CLAIMED:
                 _claimed(request)
             case ConfirmOutcome.LINK_INVALID:
-                messages.error(
-                    request,
-                    _(
-                        "This link has expired or was sent for another account. Ask"
-                        " for a new one from the order page."
-                    ),
-                )
+                _link_invalid(request)
             case ConfirmOutcome.ALREADY_YOURS:
                 pass
             case _:

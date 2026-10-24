@@ -117,9 +117,10 @@ class DatabaseConstraintError(Exception):
 class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+
+    # NOTE: commits on exit, and refuses to open inside another transaction.
     @staticmethod
-    def durable() -> AbstractContextManager[None]:
-        """Commit on exit; refuse to open inside another transaction."""
+    def durable() -> AbstractContextManager[None]: ...
 
     @staticmethod
     def savepoint() -> AbstractContextManager[None]: ...

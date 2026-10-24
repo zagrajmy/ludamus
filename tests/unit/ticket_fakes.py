@@ -2,13 +2,11 @@
 
 The ticket type and order fakes share one `TicketBook`, so seats sold and held
 are counted from the orders the way the real repository's query counts them,
-and an order moves only from a status its `allowed_from` names. The book also
-notes which transactions were open as each order was created.
+and an order moves only from a status its `allowed_from` names.
 
 `tests.unit.ticket_fixtures` wires them into the ticket services.
 """
 
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
@@ -26,6 +24,7 @@ from ludamus.pacts.tickets import (
     OrderDTO,
     OrderLineDTO,
     OrderLinkMail,
+    OrderMailError,
     OrderRowDTO,
     OrderStatus,
     OwnedTicketDTO,
@@ -34,7 +33,7 @@ from ludamus.pacts.tickets import (
     TicketDTO,
     TicketTypeDTO,
 )
-from tests.unit.factories import FakeTransaction, event_dto, user_dto
+from tests.unit.factories import event_dto, user_dto
 
 SPHERE_ID = 1
 EVENT_ID = 1
@@ -67,8 +66,8 @@ class TicketBook:
         self.orders: dict[int, OrderDTO] = {}
         # Not on `OrderDTO`: only the guest hold count reads it.
         self.guest_clients: dict[int, str] = {}
-        # The transactions open, outermost first, as each order was created.
-        self.created_in: dict[int, tuple[str, ...]] = {}
+        # Not on `OrderDTO`: only the claim mail throttle reads it.
+        self.claim_mailed_at: dict[int, datetime] = {}
 
     @staticmethod
     def holds_seats(order, *, holds_after):
@@ -84,29 +83,6 @@ class TicketBook:
             for line in order.lines
             if line.ticket_type_id == ticket_type_id
         )
-
-
-class FakeTicketTransaction:
-    """`FakeTransaction`, with `open` naming the ones in progress, outermost first."""
-
-    def __init__(self):
-        self._plain = FakeTransaction()
-        self.open: list[str] = []
-
-    @contextmanager
-    def _opened(self, kind, context):
-        self.open.append(kind)
-        try:
-            with context:
-                yield
-        finally:
-            self.open.pop()
-
-    def atomic(self):
-        return self._opened("atomic", self._plain.atomic())
-
-    def durable(self):
-        return self._opened("durable", self._plain.durable())
 
 
 class FakeTicketTypes:
@@ -201,9 +177,8 @@ class FakeTicketTypes:
 
 
 class FakeOrders:
-    def __init__(self, book, *, transaction):
+    def __init__(self, book):
         self._book = book
-        self._transaction = transaction
         self._pks = count(1)
         self._ticket_pks = count(1)
 
@@ -227,7 +202,6 @@ class FakeOrders:
             "hold_until": NOW + timedelta(minutes=31),
             "paid_at": None,
             "refunded_at": None,
-            "claim_mailed_at": None,
             "creation_time": NOW,
             "tickets": [],
         }
@@ -256,9 +230,7 @@ class FakeOrders:
 
     def create(self, data):
         fields = {key: value for key, value in data.items() if key != "lines"}
-        order = self.add(lines=data["lines"], **fields)
-        self._book.created_in[order.pk] = tuple(self._transaction.open)
-        return order
+        return self.add(lines=data["lines"], **fields)
 
     def attach_checkout(self, *, pk, session_id):
         self._update(pk, stripe_checkout_session_id=session_id)
@@ -273,8 +245,12 @@ class FakeOrders:
         self._update(pk, buyer_id=buyer_id)
         self._book.guest_clients[pk] = ""
 
-    def mark_claim_mailed(self, *, pk, at):
-        self._update(pk, claim_mailed_at=at)
+    def take_claim_mail_slot(self, *, pk, now, interval):
+        mailed_at = self._book.claim_mailed_at.get(pk)
+        if mailed_at is not None and mailed_at > now - interval:
+            return False
+        self._book.claim_mailed_at[pk] = now
+        return True
 
     def count_guest_holds(self, *, event_id, guest_client, holds_after):
         return sum(
@@ -329,13 +305,12 @@ class FakeOrders:
             platform_fees=sum(order.platform_fee for order in paid),
         )
 
-    def move(self, *, pk, to, allowed_from, changes):
+    def move(self, *, pk, to, allowed_from, changes, forget_guest_client):
         if self._book.orders[pk].status not in allowed_from:
             return False
-        fields = dict(changes)
-        if "guest_client" in fields:
-            self._book.guest_clients[pk] = fields.pop("guest_client")
-        self._update(pk, status=to, **fields)
+        if forget_guest_client:
+            self._book.guest_clients[pk] = ""
+        self._update(pk, status=to, **changes)
         return True
 
     def issue_tickets(self, *, order, tickets):
@@ -525,7 +500,10 @@ class FakeTicketPayments:
 
 
 class FakeMailer:
+    """`down`: the mail server refuses claim confirmations."""
+
     def __init__(self):
+        self.down = False
         self.sent: list[OrderLinkMail] = []
         self.confirmations: list[ClaimConfirmationMail] = []
 
@@ -533,6 +511,8 @@ class FakeMailer:
         self.sent.append(mail)
 
     def send_claim_confirmation(self, mail):
+        if self.down:
+            raise OrderMailError
         self.confirmations.append(mail)
 
 

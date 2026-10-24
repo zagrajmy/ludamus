@@ -3152,6 +3152,14 @@ msgstr ""
 "Bilety są już na twoim koncie. Znajdziesz je w zakładce Bilety w profilu."
 
 #: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
+"This link has expired or was sent for another account. Ask for a new one "
+"from the order page."
+msgstr ""
+"Ten link wygasł albo był wysłany dla innego konta. Poproś o nowy na stronie "
+"zamówienia."
+
+#: src/ludamus/gates/web/django/event/tickets.py
 #, python-format
 msgid ""
 "These tickets were bought with %(email)s. We've sent a link there: open it "
@@ -3163,19 +3171,31 @@ msgstr ""
 #: src/ludamus/gates/web/django/event/tickets.py
 #, python-format
 msgid ""
-"A confirmation link went to %(email)s a few minutes ago. If it doesn't work "
-"for this account, ask again in ten minutes."
-msgstr ""
-"Link potwierdzający wysłaliśmy na adres %(email)s kilka minut temu. Jeśli "
-"nie działa dla tego konta, poproś ponownie za dziesięć minut."
+"A confirmation link went to %(email)s recently. If it doesn't work for this "
+"account, ask again in %(minutes)d minute."
+msgid_plural ""
+"A confirmation link went to %(email)s recently. If it doesn't work for this "
+"account, ask again in %(minutes)d minutes."
+msgstr[0] ""
+"Link potwierdzający wysłaliśmy niedawno na adres %(email)s. Jeśli nie działa "
+"dla tego konta, poproś ponownie za %(minutes)d minutę."
+msgstr[1] ""
+"Link potwierdzający wysłaliśmy niedawno na adres %(email)s. Jeśli nie działa "
+"dla tego konta, poproś ponownie za %(minutes)d minuty."
+msgstr[2] ""
+"Link potwierdzający wysłaliśmy niedawno na adres %(email)s. Jeśli nie działa "
+"dla tego konta, poproś ponownie za %(minutes)d minut."
+msgstr[3] ""
+"Link potwierdzający wysłaliśmy niedawno na adres %(email)s. Jeśli nie działa "
+"dla tego konta, poproś ponownie za %(minutes)d minuty."
 
 #: src/ludamus/gates/web/django/event/tickets.py
+#, python-format
 msgid ""
-"This link has expired or was sent for another account. Ask for a new one "
-"from the order page."
+"We couldn't send the confirmation link to %(email)s. Try again in a moment."
 msgstr ""
-"Ten link wygasł albo był wysłany dla innego konta. Poproś o nowy na stronie "
-"zamówienia."
+"Nie udało się wysłać linku potwierdzającego na adres %(email)s. Spróbuj za "
+"chwilę."
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid "Checkout cancelled. Nothing was charged."

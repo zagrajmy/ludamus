@@ -23,11 +23,14 @@ Claiming
   an account holding that address unverified is not asked to prove it.
 - Asking again and again floods the order's address with confirmations, or a
   later ask, once the interval has passed, sends none.
+- A mail server refusing the link reads as a link sent.
 - A claimed order leaves its tickets out of the new holder's count, or keeps
   the guest's network on it.
 - A confirmation link takes the order for an account it was not made for, or
   takes an order it was not made for, or works once expired or forged.
 - A link followed twice, or for an order already yours, claims it again.
+- Opening a link, before confirming it, claims the order or misreports what
+  confirming it would do.
 - An address differing only in case is not the order's, or an account with no
   verified address owns an order bought without one.
 """
@@ -39,17 +42,19 @@ import pytest
 
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tickets import (
+    CLAIM_MAIL_INTERVAL,
     AbandonOutcome,
     ClaimConfirmationMail,
     ClaimOutcome,
     ClaimResultDTO,
+    ConfirmLinkState,
     ConfirmOutcome,
     OrderClaimPayload,
     OrderMailEvent,
     OrderPageState,
     OrderStatus,
 )
-from ludamus.specs.tickets import CLAIM_MAIL_INTERVAL, owns_order_email
+from ludamus.specs.tickets import owns_order_email
 from tests.unit.ticket_fakes import (
     BUYER_ID,
     EVENT_ID,
@@ -245,6 +250,7 @@ class TestAbandonCheckout:
                 to=OrderStatus.PAID,
                 allowed_from=frozenset({OrderStatus.PENDING}),
                 changes={},
+                forget_guest_client=False,
             )
 
         monkeypatch.setattr(payments, "expire_checkout", paid_meanwhile)
@@ -358,8 +364,8 @@ class TestClaimOrder:
         self, sales, book, orders, mailer, claims, paid_guest_order
     ):
         order = paid_guest_order
-        orders.mark_claim_mailed(
-            pk=order.pk, at=NOW - CLAIM_MAIL_INTERVAL - timedelta(seconds=1)
+        book.claim_mailed_at[order.pk] = (
+            NOW - CLAIM_MAIL_INTERVAL - timedelta(seconds=1)
         )
 
         result = _claim(sales, order, user_id=OTHER_BUYER_ID)
@@ -369,7 +375,23 @@ class TestClaimOrder:
         assert claims.loads(mail.token) == OrderClaimPayload(
             order_pk=order.pk, user_id=OTHER_BUYER_ID
         )
-        assert book.orders[order.pk].claim_mailed_at > NOW
+        assert book.claim_mailed_at[order.pk] > NOW
+
+    def test_mail_server_refusing_the_link_says_so(
+        self, sales, book, mailer, paid_guest_order, caplog
+    ):
+        order = paid_guest_order
+        mailer.down = True
+
+        with caplog.at_level(logging.INFO, logger=TICKETS_LOGGER):
+            result = _claim(sales, order, user_id=OTHER_BUYER_ID)
+
+        assert result == ClaimResultDTO(
+            outcome=ClaimOutcome.MAIL_FAILED, order_email=GUEST_EMAIL
+        )
+        assert book.orders[order.pk].buyer_id is None
+        assert mailer.confirmations == []
+        assert caplog.messages == [f"Ticket order claim mail failed: order={order.pk}"]
 
     @pytest.mark.parametrize("status", (OrderStatus.PAID, OrderStatus.REFUNDED))
     def test_claiming_your_own_order_again_changes_nothing(
@@ -533,13 +555,56 @@ class TestConfirmClaim:
         order = add_guest_order(orders, regular, email=GUEST_EMAIL)
         token = self._ask(sales, mailer, order)
         orders.move(
-            pk=order.pk, to=given_up, allowed_from=frozenset(OrderStatus), changes={}
+            pk=order.pk,
+            to=given_up,
+            allowed_from=frozenset(OrderStatus),
+            changes={},
+            forget_guest_client=True,
         )
         moved = book.orders[order.pk]
 
         with pytest.raises(NotFoundError):
             self._confirm(sales, order, token=token)
         assert book.orders[order.pk] == moved
+
+    @pytest.mark.parametrize(
+        ("follow", "state"),
+        (
+            pytest.param(lambda token: token, ConfirmLinkState.READY, id="fresh"),
+            pytest.param(
+                lambda _token: "forged", ConfirmLinkState.LINK_INVALID, id="forged"
+            ),
+        ),
+    )
+    def test_opening_a_link_says_what_confirming_it_would_do(
+        self, sales, book, orders, mailer, regular, follow, state
+    ):
+        order = add_guest_order(orders, regular, email=GUEST_EMAIL)
+        token = self._ask(sales, mailer, order)
+        asked = book.orders[order.pk]
+
+        opened = sales.confirm_link_state(
+            event_id=EVENT_ID,
+            reference=order.reference,
+            token=follow(token),
+            user_id=BUYER_ID,
+        )
+
+        assert opened is state
+        assert book.orders[order.pk] == asked
+
+    def test_opening_a_link_to_an_order_already_yours_says_so(
+        self, sales, orders, mailer, regular
+    ):
+        order = add_guest_order(orders, regular, email=GUEST_EMAIL)
+        token = self._ask(sales, mailer, order)
+        self._confirm(sales, order, token=token)
+
+        opened = sales.confirm_link_state(
+            event_id=EVENT_ID, reference=order.reference, token=token, user_id=BUYER_ID
+        )
+
+        assert opened is ConfirmLinkState.ALREADY_YOURS
 
     def test_link_followed_on_another_events_page_is_not_found(
         self, sales, book, orders, mailer, regular
