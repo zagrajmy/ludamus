@@ -247,6 +247,17 @@ done
 '''
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
+[tasks."test:e2e:serve:privacy"]
+description = "Serve shared-parent privacy browser regressions on localhost:8001"
+run = '''
+set -eu
+while ! curl --fail --silent "${E2E_BASE_URL:-http://localhost:8000}" >/dev/null; do
+  sleep 1
+done
+exec coverage run --source=src -m django runserver --insecure --noreload localhost:8001
+'''
+env = { _.file = '.env.e2e', ROOT_DOMAIN = "ludamus.localhost:8001", SESSION_COOKIE_DOMAIN = ".ludamus.localhost", POSTHOG_HOST = "https://eu.i.posthog.com", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e.privacy" }
+
 [tasks."test:e2e:boot"]
 description = "Run bootstrap script"
 run = "python"

@@ -579,6 +579,32 @@ class TestIsKnownSphereDomain:
 
 
 class TestAgeConfirmation:
+    @pytest.mark.parametrize(
+        ("previous", "declared"),
+        (
+            (AgeBand.UNKNOWN, AgeBand.SIXTEEN_PLUS),
+            (AgeBand.SIXTEEN_PLUS, AgeBand.THIRTEEN_TO_FIFTEEN),
+            (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS),
+        ),
+    )
+    def test_an_age_change_invalidates_browser_consent(self, previous, declared):
+        user = _user_dto(age_band=previous)
+        users = FakeUsers(users=[user])
+
+        _service(users=users).confirm_age(user_slug=user.slug, age_band=declared)
+
+        assert users.read(user.slug).privacy_revision != user.privacy_revision
+
+    def test_reconfirming_the_same_age_preserves_browser_consent(self):
+        user = _user_dto(age_band=AgeBand.SIXTEEN_PLUS)
+        users = FakeUsers(users=[user])
+
+        _service(users=users).confirm_age(
+            user_slug=user.slug, age_band=AgeBand.SIXTEEN_PLUS
+        )
+
+        assert users.read(user.slug).privacy_revision == user.privacy_revision
+
     def test_underage_account_cannot_keep_independent_access(self):
         users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
 

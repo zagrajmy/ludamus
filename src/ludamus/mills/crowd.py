@@ -10,6 +10,7 @@ import secrets
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, assert_never
+from uuid import uuid4
 
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
@@ -179,6 +180,8 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
         previous = self._users.set_age_band(user_slug, age_band)
+        if previous != age_band:
+            self._users.update(user_slug, UserData(privacy_revision=uuid4()))
         # A subscription made under one age range is no consent under another:
         # only an account that was and stays 16+ keeps its subscriptions.
         if previous.allows_optional_features and age_band.allows_optional_features:
