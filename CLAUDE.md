@@ -33,6 +33,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
   of main's leaf, in order, and re-point the first one's `dependencies` to
   that leaf. Drop the branch's merge migrations. Never rename, renumber, or
   edit a migration already on `main`.
+- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
+  flags.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;

@@ -1,8 +1,5 @@
 # Translation conventions (Polish)
 
-- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
-  flags.
-
 - **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
   event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
 - **track** → "blok" or "blok programowy"
