@@ -268,6 +268,23 @@ const openModal = async (
           card.style.transition = "";
         },
         swap: () => {
+          // NOTE: a DOM swap can detach the dialog while the transition is queued.
+          if (!dialog.isConnected) {
+            setMorph(card, false);
+            const replacement = document.getElementById(id);
+            if (!(replacement instanceof HTMLDialogElement && replacement.open)) {
+              releaseSessionCard(id);
+              const linkable = getLinkableByModalId(id);
+              if (
+                linkable &&
+                new URLSearchParams(globalThis.location.search).get(linkable.paramName) ===
+                  linkable.paramValue
+              ) {
+                updateQueryParam(linkable.paramName, null, { replaceHistory: true });
+              }
+            }
+            return;
+          }
           suppressSessionCard(id);
           setMorph(card, false);
           card.style.transition = "none";
