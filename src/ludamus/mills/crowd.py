@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    AgeBand,
+    AgeBandRequiredError,
     AuthProvisionDTO,
     AvatarPageDTO,
     ChangeRequestOutcome,
@@ -55,6 +57,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 type _Effect = Literal["cancel", "promote", "verify"]
@@ -120,23 +123,32 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         users: UserRepositoryProtocol,
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
+        subscriptions: SphereSubscriptionRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
+        self._subscriptions = subscriptions
 
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO:
         claim_outcome: ClaimOutcome | None = None
         if claim_token:
-            result = self._claims.redeem(token=claim_token, username=username)
-            claim_outcome = result.outcome
-            if result.outcome == ClaimOutcome.CONVERTED:
-                return AuthProvisionDTO(
-                    user=self._users.read(result.user_slug), claim_outcome=claim_outcome
-                )
+            with self._transaction.atomic():
+                result = self._claims.redeem(token=claim_token, username=username)
+                claim_outcome = result.outcome
+                if result.outcome == ClaimOutcome.CONVERTED:
+                    # The converted row keeps its own fields, so the age range
+                    # the new owner declared is written onto it here.
+                    self._set_age_band(
+                        result.user_slug, create_data.get("age_band", AgeBand.UNKNOWN)
+                    )
+                    return AuthProvisionDTO(
+                        user=self._users.read(result.user_slug),
+                        claim_outcome=claim_outcome,
+                    )
         with suppress(NotFoundError):
             return AuthProvisionDTO(
                 user=self._users.read_by_username(username), claim_outcome=claim_outcome
@@ -152,6 +164,34 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             claim_outcome=claim_outcome,
             email_conflict=email_conflict,
         )
+
+    def disable_underage_account(self, user_slug: str) -> None:
+        with self._transaction.atomic():
+            self._set_age_band(user_slug, AgeBand.UNKNOWN)
+            self._users.update(user_slug, UserData(is_active=False))
+
+    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool:
+        """Return whether the change dropped promotional subscriptions."""
+        if not age_band.is_confirmed:
+            raise AgeBandRequiredError
+        with self._transaction.atomic():
+            return self._set_age_band(user_slug, age_band)
+
+    def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
+        previous = self._users.set_age_band(user_slug, age_band)
+        # A subscription made under one age range is no consent under another:
+        # only an account that was and stays 16+ keeps its subscriptions.
+        if previous.allows_optional_features and age_band.allows_optional_features:
+            return False
+        user_id = self._users.read(user_slug).pk
+        return self._subscriptions.unsubscribe_everywhere(user_id) > 0
+
+    def has_account(self, username: str) -> bool:
+        try:
+            self._users.read_by_username(username)
+        except NotFoundError:
+            return False
+        return True
 
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()
@@ -184,10 +224,11 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def _identity_updates(self, *, user: UserDTO, data: UserData) -> UserData:
         updates = data.copy()
-        claim_email = updates.pop("email", "")
+        # NOTE: a None default would read the same as "" in _email_updates.
+        claim_email = updates.pop("email", "")  # pragma: no mutate
         claim_verified = updates.pop("email_verified", False)
         if updates.get("avatar_url") == user.avatar_url:
-            updates.pop("avatar_url", None)
+            del updates["avatar_url"]
         if "name" in updates and (user.name or "").strip():
             del updates["name"]
         updates.update(
