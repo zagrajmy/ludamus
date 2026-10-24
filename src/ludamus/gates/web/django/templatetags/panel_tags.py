@@ -19,7 +19,7 @@ register = template.Library()
 
 
 # One collapsible category of the panel sidebar, wrapping its links.
-@register.simple_block_tag
+@register.simple_block_tag(end_name="end_sidebar_cat")
 def sidebar_cat(
     content: SafeString, *, key: str, label: str, extra_class: str = ""
 ) -> SafeString:
