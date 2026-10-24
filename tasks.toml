@@ -189,6 +189,14 @@ description = "Drive the local ludamus instance for agent verification (doctor, 
 run = "aubr varlock python -m scripts.control_ludamus"
 raw_args = true
 
+["dep:audit:image"]
+description = "Scan a container image for fixable HIGH/CRITICAL CVEs (OS, Python, node_modules)"
+# NOTE: aqua backend, not aquasecurity/trivy-action: that action's tags were
+# rewritten to malicious commits in 2026; aqua verifies the release signature.
+# Task-scoped so a host that can't reach sigstore keeps the rest of mise working.
+tools = { trivy = "0.76.1" }
+run ="trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1"
+
 [env-show]
 description = "Print resolved env with secrets redacted (agent-safe JSON)"
 run = "aube exec varlock load --agent"
