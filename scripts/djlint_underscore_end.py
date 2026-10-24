@@ -13,7 +13,7 @@ mypyc-compiled extension modules: `djlint.rules.T038` resolves to a `.so` whose
 the module attribute from here does nothing. Delegation is not available and
 the logic has to be copied.
 
-The logic below is upstream's, re-synced to djlint 1.46.2. What changed: the
+The logic below is upstream's, re-synced to djlint 1.46.6. What changed: the
 regex marked EDITED, which is the point of the copy; keyword-only signatures,
 which this repo requires past two parameters; and `run`'s closer branch
 lifted into `_close` and two helpers, because upstream's single function is
@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING
 
 import regex as re
 from djlint.helpers import (
+    compile_pattern,
     inside_ignored_linter_block,
     inside_ignored_rule,
     overlaps_ignored_block,
@@ -57,32 +58,31 @@ __all__ = ("run",)
 ORPHAN_END_MESSAGE: Final = "End tag has no matching block tag."
 MISMATCH_MESSAGE: Final = "Endblock name should match opening block name."
 
-_TEMPLATE_TAG_PATTERN: Final = re.compile(
-    # a handlebars raw block ({{{{raw}}}}...{{{{/raw}}}}) and handlebars
-    # comments ({{!-- --}}, {{! }}) are matched whole so the block/comment
-    # tags nested inside them are not scanned as real tags.
-    r"\{\{\{\{#?\s*([\w.-]+)(?:(?!\}\}\}\}).)*\}\}\}\}(?:(?!\{\{\{\{/).)*?\{\{\{\{/\s*\1\s*\}\}\}\}"
-    r"|\{\{!--(?:(?!--\}\}).)*--\}\}"
-    r"|\{\{!(?:(?!\}\}).)*\}\}"
-    r"|\{%(?:(?!%\}).)*%\}"
-    r"|\{\{[#^/](?:(?!\}\}).)*\}\}",
-    re.S,
-    cache_pattern=False,
+# a handlebars raw block ({{{{raw}}}}...{{{{/raw}}}}) and handlebars comments
+# ({{!-- --}}, {{! }}) are matched whole so the block/comment tags nested
+# inside them are not scanned as real tags.
+_HANDLEBARS_RAW_BLOCK = (
+    r"\{\{\{\{#?\s*([\w.-]+)(?:(?!\}\}\}\}).)*\}\}\}\}"
+    r"(?:(?!\{\{\{\{/).)*?\{\{\{\{/\s*\1\s*\}\}\}\}"
+)
+_HANDLEBARS_COMMENT = r"\{\{!--(?:(?!--\}\}).)*--\}\}|\{\{!(?:(?!\}\}).)*\}\}"
+_BLOCK_TAG = r"\{%(?:(?!%\}).)*%\}|\{\{[#^/](?:(?!\}\}).)*\}\}"
+
+_TEMPLATE_TAG_PATTERN: Final = compile_pattern(
+    f"{_HANDLEBARS_RAW_BLOCK}|{_HANDLEBARS_COMMENT}|{_BLOCK_TAG}", re.S
 )
 # {% name %}, {{#name}}, {{^name}} (inverted section), {{#> name}}
 # (handlebars partial block), {{#*name}} (handlebars decorator)
-_OPEN_NAME_PATTERN: Final = re.compile(
-    r"(?:\{%[-+]?|\{\{[#^][*>]?)\s*([\w.-]+)", cache_pattern=False
-)
+_OPEN_NAME_PATTERN: Final = compile_pattern(r"(?:\{%[-+]?|\{\{[#^][*>]?)\s*([\w.-]+)")
 # EDITED: upstream matches `end([\w.-]*)`. The `_?` lets one underscore follow
 # `end` without joining the captured name, so `{% end_tab %}` and
 # `{% endtab %}` both close `{% tab %}` and neither spelling is an orphan.
-_END_NAME_PATTERN: Final = re.compile(
-    r"\{%[-+]?\s*end_?([\w.-]*)|\{\{/\s*([\w.-]+)", cache_pattern=False
+_END_NAME_PATTERN: Final = compile_pattern(
+    r"\{%[-+]?\s*end_?([\w.-]*)|\{\{/\s*([\w.-]+)"
 )
 # the label naming a {% block %} or {% endblock %}
-_BLOCK_LABEL_PATTERN: Final = re.compile(
-    r"\{%[-+]?\s*(?:end)?block\s+([^\s%+-](?:[^\s%]*[^\s%+-])?)", cache_pattern=False
+_BLOCK_LABEL_PATTERN: Final = compile_pattern(
+    r"\{%[-+]?\s*(?:end)?block\s+([^\s%+-](?:[^\s%]*[^\s%+-])?)"
 )
 
 
