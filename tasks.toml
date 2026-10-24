@@ -192,3 +192,18 @@ raw_args = true
 [env-show]
 description = "Print resolved env with secrets redacted (agent-safe JSON)"
 run = "aube exec varlock load --agent"
+
+[formal]
+description = "Check every Bend proof and finding under formal/ (or the directories given)"
+run = "formal/check.sh"
+raw_args = true
+
+["test:bombadil"]
+description = "Explore the seeded e2e app with Bombadil and check the enrollment UI properties"
+run = "tests/bombadil/run.sh"
+env = { _.file = '.env.e2e' }
+
+["test:props:crosshair"]
+description = "Run the window-policy properties through CrossHair's solver instead of random examples"
+run = "pytest -n 0 -q tests/unit/test_enrollment_policy_properties.py"
+env = { _.file = '.env.test', HYPOTHESIS_PROFILE = "crosshair" }

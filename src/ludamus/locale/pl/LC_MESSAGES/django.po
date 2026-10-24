@@ -592,6 +592,7 @@ msgstr "Pokaż opcje"
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/multiverse/panel/team.html
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Copied!"
 msgstr "Skopiowano!"
@@ -1977,22 +1978,6 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Please complete your profile."
-msgstr "Proszę uzupełnić profil."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication request: missing state parameter"
-msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication session expired. Please try again."
-msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication state"
-msgstr "Nieprawidłowy stan uwierzytelnienia"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -2013,8 +1998,36 @@ msgstr ""
 "inny w swoim profilu."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "This account is inactive. Contact support for help."
+msgstr "To konto jest nieaktywne. Skontaktuj się z pomocą techniczną."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Please complete your profile."
+msgstr "Proszę uzupełnić profil."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication request: missing state parameter"
+msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication session expired. Please try again."
+msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication state"
+msgstr "Nieprawidłowy stan uwierzytelnienia"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Your sign-in timed out. Sign in again."
+msgstr "Logowanie wygasło. Zaloguj się ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "This age confirmation has expired. Choose your age range again."
+msgstr "Potwierdzenie wieku wygasło. Wybierz ponownie swój przedział wiekowy."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
@@ -2023,6 +2036,23 @@ msgstr "Nieprawidłowy adres URL przekierowania."
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid domain for redirect."
 msgstr "Nieprawidłowa domena do przekierowania."
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Age range"
+msgstr "Przedział wiekowy"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+msgid "16 or older"
+msgstr "16 lat lub więcej"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+msgid "13–15"
+msgstr "13–15 lat"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+msgid "Under 13"
+msgstr "Poniżej 13 lat"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
@@ -2259,8 +2289,9 @@ msgid "Invitation declined."
 msgstr "Zaproszenie zostało odrzucone."
 
 #: src/ludamus/gates/web/django/crowd/views.py
+#: src/ludamus/gates/web/django/sphere/team.py
 msgid "Invitation withdrawn."
-msgstr "Zaproszenie zostało wycofane."
+msgstr "Zaproszenie wycofane."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Member removed."
@@ -2290,6 +2321,13 @@ msgstr "Opuszczasz drużynę."
 msgid "Could not leave this party."
 msgstr "Nie udało się opuścić tej drużyny."
 
+#: src/ludamus/gates/web/django/dashboard.py
+msgid ""
+"Promotional emails are available only after confirming you are 16 or older."
+msgstr ""
+"Emaile promocyjne są dostępne dopiero po potwierdzeniu, że masz co najmniej "
+"16 lat."
+
 #: src/ludamus/gates/web/django/dynamic_fields.py
 msgid "Pick an option or type your own."
 msgstr "Wybierz opcję lub wpisz własną."
@@ -2300,7 +2338,6 @@ msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/email_verification.py
-#: src/ludamus/templates/crowd/user/edit.html
 msgid "Your email address is verified."
 msgstr "Twój adres email jest zweryfikowany."
 
@@ -3047,6 +3084,34 @@ msgid "End time is required."
 msgstr "Czas zakończenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Public: listed and announced to followers from its publication time"
+msgstr ""
+"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Link only: anyone with the link can open it now; never listed or announced"
+msgstr ""
+"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+"się na listach ani w powiadomieniach"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Who can see the event"
+msgstr "Kto widzi wydarzenie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Publication time"
+msgstr "Czas publikacji"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"For a public event: when it appears in event lists and followers are "
+"notified. Leave empty to keep it hidden."
+msgstr ""
+"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Use sphere default"
 msgstr "Użyj domyślnego ustawienia sfery"
 
@@ -3762,6 +3827,22 @@ msgid ""
 msgstr ""
 "Zaimportowani prowadzący nie mają konta — wybierz ich po nazwie z programu."
 
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Role"
+msgstr "Rola"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Who is it for?"
+msgstr "Dla kogo?"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Only you and other managers see this."
+msgstr "Widzisz to tylko Ty i inni menedżerowie."
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "e.g. Kasia, programme"
+msgstr "np. Kasia, program"
+
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
 msgstr "Gildia utworzona."
@@ -3810,6 +3891,72 @@ msgstr "Prowadzący usunięty."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Manager"
+msgstr "Menedżer"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Manager: runs the panel and everything in it"
+msgstr "Menedżer: prowadzi panel i wszystko, co w nim jest"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid ""
+"Managers run the sphere's panel: events, programme, settings and the team "
+"itself."
+msgstr ""
+"Menedżerowie prowadzą panel sfery: wydarzenia, program, ustawienia i sam "
+"zespół."
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Comms"
+msgstr "Komunikacja"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid "Comms: sees the whole panel, changes only the Errata checklist"
+msgstr "Komunikacja: widzi cały panel, zmienia tylko listę errat"
+
+#: src/ludamus/gates/web/django/sphere/roles.py
+msgid ""
+"Comms people see the sphere's panel and tick off schedule changes on the "
+"Errata page once they've announced them. They change nothing else."
+msgstr ""
+"Osoby od komunikacji widzą panel sfery i odhaczają w Erratach zmiany w "
+"programie, które już ogłosiły. Niczego więcej nie zmieniają."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+#, python-format
+msgid "Keep the note to %(limit)d characters."
+msgstr "Notatka może mieć najwyżej %(limit)d znaków."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "Pick a role for the invitation."
+msgstr "Wybierz rolę dla zaproszenia."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+#, python-format
+msgid "Invitation link ready. Copy it below and send it to %(name)s."
+msgstr "Link zaproszenia gotowy. Skopiuj go poniżej i wyślij osobie: %(name)s."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid ""
+"Invitation link ready. Copy it below and send it to the person you're "
+"inviting."
+msgstr ""
+"Link zaproszenia gotowy. Skopiuj go poniżej i wyślij osobie, którą "
+"zapraszasz."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "That invitation was already used or has expired."
+msgstr "To zaproszenie zostało już użyte albo wygasło."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "New link ready. Copy it below: the old one no longer works."
+msgstr "Nowy link gotowy. Skopiuj go poniżej: poprzedni już nie działa."
+
+#: src/ludamus/gates/web/django/sphere/team.py
+msgid "You joined the sphere's team."
+msgstr "Dołączasz do zespołu sfery."
 
 #: src/ludamus/gates/web/django/staging_inbox.py
 msgid "No date"
@@ -3866,6 +4013,14 @@ msgstr "Scalono z"
 msgid "track"
 msgstr "blok"
 
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "ongoing"
+msgstr "trwa"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "today"
+msgstr "dziś"
+
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/event.html
@@ -3880,6 +4035,7 @@ msgstr "W Trakcie"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/components/encounter_card.html
 msgid "Full"
 msgstr "Pełne"
 
@@ -3901,6 +4057,7 @@ msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/components/encounter_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -3917,6 +4074,26 @@ msgstr[0] "Dodane do zakładek przez %(counter)s osobę"
 msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
 msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
+
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid "Age range saved. Your bookings are unchanged."
+msgstr "Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian."
+
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid ""
+"Age range saved. Your bookings are unchanged. Sphere announcement "
+"subscriptions were cleared; subscribe again from your dashboard."
+msgstr ""
+"Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian. Subskrypcje "
+"ogłoszeń sfer zostały usunięte; możesz je ponownie włączyć na pulpicie."
+
+#: src/ludamus/gates/web/django/user/age_range.py
+msgid ""
+"Age range saved. Your bookings are unchanged. Sphere announcement "
+"subscriptions were cleared."
+msgstr ""
+"Przedział wiekowy zapisany. Twoje zapisy pozostają bez zmian. Subskrypcje "
+"ogłoszeń sfer zostały usunięte."
 
 #: src/ludamus/links/db/django/encounter_invites.py
 #, python-format
@@ -4069,6 +4246,18 @@ msgid "users"
 msgstr "użytkownicy"
 
 #: src/ludamus/links/db/django/models.py
+msgid "A tag with children cannot change its category."
+msgstr "Nie można zmienić kategorii tagu, który ma tagi podrzędne."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A tag must belong to its parent's category."
+msgstr "Tag musi należeć do tej samej kategorii co jego rodzic."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A tag cannot be its own ancestor."
+msgstr "Tag nie może być swoim własnym przodkiem."
+
+#: src/ludamus/links/db/django/models.py
 msgid "A space must belong to its parent's event."
 msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
 
@@ -4111,6 +4300,16 @@ msgstr "Odmowa"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Removed"
 msgstr "Usunięto"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "You get this email because you subscribe to %(sphere)s."
+msgstr "Dostajesz tę wiadomość, bo subskrybujesz %(sphere)s."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Unsubscribe: %(url)s"
+msgstr "Wypisz się: %(url)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -4195,6 +4394,7 @@ msgstr ""
 "zostanie zwolnione."
 
 #: src/ludamus/links/db/django/notifications.py
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 msgid "Confirm your email address"
 msgstr "Potwierdź swój adres email"
 
@@ -5520,9 +5720,8 @@ msgid "needs their approval"
 msgstr "wymaga ich zgody"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Include %(name)s"
-msgstr "Uwzględnij: %(name)s"
+msgid "Include"
+msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -5632,6 +5831,7 @@ msgstr "Zakończ"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
 #: src/ludamus/templates/notifications/parts/modal.html
 msgid "Close"
@@ -6212,21 +6412,21 @@ msgid "Cookie consent"
 msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Cookies help us see what to fix."
-msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#: src/ludamus/templates/components/consent-banner.html
-#, python-format
-msgid "More in the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
-msgstr "Więcej w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#: src/ludamus/templates/components/consent-banner.html
 msgid "No cookies!"
 msgstr "Żadnych ciastek!"
 
 #: src/ludamus/templates/components/consent-banner.html
 msgid "Cool"
 msgstr "Spoko"
+
+#: src/ludamus/templates/components/consent-copy.html
+msgid "Cookies and session recordings help us see what to fix."
+msgstr "Ciasteczka i nagrania sesji pomagają nam zobaczyć, co poprawić."
+
+#: src/ludamus/templates/components/consent-copy.html
+#, python-format
+msgid "More in the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr "Więcej w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #: src/ludamus/templates/components/contact_cta.html
 msgid "Copy the address"
@@ -6318,27 +6518,32 @@ msgid "You organize"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/detail.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Public"
-msgstr "Publiczny"
+#, python-format
+msgid "Hosted by %(name)s"
+msgstr "Prowadzi %(name)s"
 
 #: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/notice_board/detail.html
 msgid "attending"
 msgstr "uczestników"
 
-#: src/ludamus/templates/components/event_card.html
-msgid "LIVE"
-msgstr "W TRAKCIE"
+#: src/ludamus/templates/components/encounter_card.html
+#, python-format
+msgid "%(count)s of %(max)s signed up"
+msgstr "%(count)s z %(max)s zapisanych"
 
+#: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/components/event_card.html
-msgid "Proposals open"
-msgstr "Zgłoszenia otwarte"
+msgid "Link only"
+msgstr "Tylko przez link"
 
 #: src/ludamus/templates/components/event_card.html
 msgid "Unpublished"
 msgstr "Nieopublikowane"
+
+#: src/ludamus/templates/components/event_card.html
+msgid "Proposals open"
+msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/components/event_card.html
 #, python-format
@@ -6548,6 +6753,26 @@ msgstr "po średniku"
 msgid "Back to Home"
 msgstr "Powrót do strony głównej"
 
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid ""
+"You can have your own account from age 13. Younger children join as a "
+"parent's or guardian's companions."
+msgstr ""
+"Własne konto możesz mieć od 13. roku życia. Młodsze dzieci dołączają jako "
+"towarzysze rodzica lub opiekuna."
+
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid ""
+"If you are 13–15, you can manage your bookings yourself. Optional analytics, "
+"session recordings and promotional emails stay off."
+msgstr ""
+"Jeśli masz 13–15 lat, możesz samodzielnie zarządzać swoimi zapisami. "
+"Opcjonalna analityka, nagrania sesji i emaile promocyjne pozostają wyłączone."
+
+#: src/ludamus/templates/crowd/_age_range_intro.html
+msgid "We save only your age range, not your date of birth."
+msgstr "Zapisujemy tylko Twój przedział wiekowy, nie datę urodzenia."
+
 # Auth error page
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Login failed"
@@ -6655,6 +6880,109 @@ msgstr "Wymagane logowanie"
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
 
+#: src/ludamus/templates/crowd/signup_age.html
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Confirm age range"
+msgstr "Potwierdź przedział wiekowy"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Confirm your age range"
+msgstr "Potwierdź swój przedział wiekowy"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#: src/ludamus/templates/crowd/signup_continue.html
+#: src/ludamus/templates/crowd/user/age_range.html
+#: src/ludamus/templates/event/propose/parts/_nav.html
+msgid "Continue"
+msgstr "Dalej"
+
+#: src/ludamus/templates/crowd/signup_age.html
+#, python-format
+msgid ""
+"By creating an account you accept the <a href=\"%(terms_url)s\">Terms of "
+"Service</a>. The <a href=\"%(privacy_url)s\">Privacy Policy</a> explains how "
+"we use your data."
+msgstr ""
+"Zakładając konto, akceptujesz <a href=\"%(terms_url)s\">Regulamin</a>. <a "
+"href=\"%(privacy_url)s\">Polityka prywatności</a> wyjaśnia, jak "
+"wykorzystujemy Twoje dane."
+
+#: src/ludamus/templates/crowd/signup_continue.html
+msgid "Your account is ready."
+msgstr "Twoje konto jest gotowe."
+
+#: src/ludamus/templates/crowd/signup_guardian.html
+msgid "Join with a parent or guardian"
+msgstr "Dołącz z rodzicem lub opiekunem"
+
+#: src/ludamus/templates/crowd/signup_guardian.html
+#, python-format
+msgid ""
+"You need to be %(min_age)s or older to have your own account. A parent or "
+"guardian can add you as a companion and sign you up for sessions."
+msgstr ""
+"Aby mieć własne konto, musisz mieć co najmniej %(min_age)s lat. Rodzic lub "
+"opiekun może dodać Cię jako towarzysza i zapisać Cię na punkty programu."
+
+#: src/ludamus/templates/crowd/signup_guardian.html
+msgid "Continue with a parent or guardian"
+msgstr "Kontynuuj z rodzicem lub opiekunem"
+
+#: src/ludamus/templates/crowd/signup_guardian.html
+#, python-format
+msgid ""
+"Already have bookings? <a href=\"mailto:%(support_email)s\">Contact us</a> "
+"for help with guardian-managed participation."
+msgstr ""
+"Masz już zapisy? <a href=\"mailto:%(support_email)s\">Skontaktuj się z nami</"
+"a>, aby uzyskać pomoc w zarządzaniu udziałem przez opiekuna."
+
+#: src/ludamus/templates/crowd/user/_email_verify_action.html
+msgid "Verify"
+msgstr "Zweryfikuj"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Verify email address"
+msgstr "Zweryfikuj adres email"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Click the link in your verification email."
+msgstr "Kliknij link w wiadomości weryfikacyjnej."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send a verification email, then click the link inside."
+msgstr "Wyślij wiadomość weryfikacyjną, a potem kliknij zawarty w niej link."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"Search for \"%(subject)s\" from <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Check spam too."
+msgstr ""
+"Wyszukaj „%(subject)s” od <span class=\"inline-block max-w-full break-"
+"all\">%(sender)s</span>. Sprawdź też spam."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+#, python-format
+msgid ""
+"<span class=\"break-all\">%(current)s</span> stays active until you confirm."
+msgstr ""
+"<span class=\"break-all\">%(current)s</span> pozostaje aktywny do "
+"potwierdzenia."
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Open Gmail"
+msgstr "Otwórz Gmail"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Resend email"
+msgstr "Wyślij email ponownie"
+
+#: src/ludamus/templates/crowd/user/_email_verify_modal.html
+msgid "Send email"
+msgstr "Wyślij email"
+
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -6675,6 +7003,39 @@ msgstr "Awatar"
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
+
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Privacy"
+msgstr "Prywatność"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid ""
+"Choosing Under 13 disables independent sign-in. Contact us if you already "
+"have bookings."
+msgstr ""
+"Wybranie wieku poniżej 13 lat wyłącza samodzielne logowanie. Jeśli masz już "
+"zapisy, skontaktuj się z nami."
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Disable your account?"
+msgstr "Wyłączyć konto?"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid ""
+"You chose Under 13. Your account will be disabled and you will be signed "
+"out. Only support can turn it back on."
+msgstr ""
+"Wybrano „Poniżej 13 lat”. Konto zostanie wyłączone, a sesja zakończona. "
+"Ponownie włączyć je może tylko nasze wsparcie."
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Disable my account"
+msgstr "Wyłącz moje konto"
+
+#: src/ludamus/templates/crowd/user/age_range.html
+msgid "Choose again"
+msgstr "Wybierz ponownie"
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"
@@ -6711,60 +7072,6 @@ msgid ""
 msgstr ""
 "Brak awatara z konta. Zaloguj się kontem obsługującym awatary, aby uzyskać "
 "więcej opcji."
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participation.\n"
-"                            "
-msgid_plural ""
-"\n"
-"                                You have %(counter)s confirmed session "
-"participations.\n"
-"                            "
-msgstr[0] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwo w "
-"punkcie programu.\n"
-"                            "
-msgstr[1] ""
-"\n"
-"                                Masz %(counter)s potwierdzone uczestnictwa w "
-"punktach programu.\n"
-"                            "
-msgstr[2] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-msgstr[3] ""
-"\n"
-"                                Masz %(counter)s potwierdzonych uczestnictw "
-"w punktach programu.\n"
-"                            "
-
-#: src/ludamus/templates/crowd/user/edit.html
-#, python-format
-msgid ""
-"We sent a confirmation link to <strong>%(pending)s</strong>. The change "
-"takes effect once you confirm it."
-msgstr ""
-"Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
-"zacznie obowiązywać po jego potwierdzeniu."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Resend"
-msgstr "Wyślij ponownie"
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Your email address is not verified yet."
-msgstr "Twój adres email nie jest jeszcze zweryfikowany."
-
-#: src/ludamus/templates/crowd/user/edit.html
-msgid "Send verification email"
-msgstr "Wyślij email weryfikacyjny"
 
 #: src/ludamus/templates/crowd/user/notifications.html
 msgid "Mute"
@@ -7078,6 +7385,7 @@ msgid "Withdraw the invitation for %(name)s?"
 msgstr "Wycofać zaproszenie dla %(name)s?"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/multiverse/panel/team.html
 msgid "Withdraw invitation"
 msgstr "Wycofaj zaproszenie"
 
@@ -7143,6 +7451,83 @@ msgid ""
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
 "oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Your age range is 16 or older. Optional features still need your separate "
+"opt-in."
+msgstr ""
+"Twój przedział wiekowy to 16 lat lub więcej. Funkcje opcjonalne nadal "
+"wymagają Twojej osobnej zgody."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Your age range is 13–15. Optional analytics, recordings and promotional "
+"emails are off."
+msgstr ""
+"Twój przedział wiekowy to 13–15 lat. Opcjonalna analityka, nagrania sesji i "
+"emaile promocyjne są wyłączone."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Your age range is not confirmed. Optional analytics, recordings and "
+"promotional emails stay off; your bookings still work."
+msgstr ""
+"Twój przedział wiekowy nie jest potwierdzony. Opcjonalna analityka, nagrania "
+"sesji i emaile promocyjne pozostają wyłączone. Twoje zapisy nadal działają."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Update age range"
+msgstr "Zaktualizuj przedział wiekowy"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Analytics"
+msgstr "Analityka"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Your current choice:"
+msgstr "Twój obecny wybór:"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics allowed"
+msgstr "analityka włączona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics declined"
+msgstr "analityka odrzucona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "not decided yet"
+msgstr "jeszcze nie zdecydowano"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"The choice is stored only in this browser — on another device or after "
+"clearing site data you will be asked again."
+msgstr ""
+"Wybór jest zapisany tylko w tej przeglądarce — na innym urządzeniu lub po "
+"wyczyszczeniu danych strony zapytamy ponownie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Change your choice"
+msgstr "Zmień swój wybór"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Analytics and session recordings are available only to people aged 16 or "
+"older who choose to enable them."
+msgstr ""
+"Analityka i nagrania sesji są dostępne tylko dla osób w wieku co najmniej 16 "
+"lat, które zdecydują się je włączyć."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Analytics are not configured on this server. Nothing is collected, so there "
+"is nothing to decide here."
+msgstr ""
+"Analityka nie jest skonfigurowana na tym serwerze. Nic nie jest zbierane, "
+"więc nie ma tu nic do decydowania."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
@@ -7352,15 +7737,15 @@ msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid ""
-"Nothing yet. Sign up for or bookmark a session, or join an encounter, and it "
-"will wait for you here."
+"No upcoming plans. Sign up for or bookmark a session, or join an encounter, "
+"to see it here."
 msgstr ""
-"Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
-"programu do zakładek, a poczeka tu na Ciebie."
+"Brak nadchodzących planów. Tutaj zobaczysz punkty programu, na które się "
+"zapiszesz lub które dodasz do zakładek, oraz spotkania, do których dołączysz."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "Past events"
-msgstr "Minione wydarzenia"
+msgid "In your spheres"
+msgstr "W Twoich sferach"
 
 #: src/ludamus/templates/dashboard/index.html
 msgid "For you"
@@ -7371,12 +7756,68 @@ msgid "No open encounters right now. Start one and people will find it here."
 msgstr "Nie ma teraz otwartych spotkań. Załóż własne, a inni znajdą je tutaj."
 
 #: src/ludamus/templates/dashboard/index.html
-msgid "In your spheres"
-msgstr "W Twoich sferach"
-
-#: src/ludamus/templates/dashboard/index.html
 msgid "Spheres to discover"
 msgstr "Sfery do odkrycia"
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Promotional emails are off. You can still browse events and sign up."
+msgstr ""
+"Emaile promocyjne są wyłączone. Nadal możesz przeglądać wydarzenia i się "
+"zapisywać."
+
+#: src/ludamus/templates/dashboard/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Email subscription"
+msgstr "Subskrypcja e-mail"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "This link doesn't work"
+msgstr "Ten link nie działa"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid ""
+"It may have been cut off when the email was copied. You can manage what you "
+"follow on your dashboard."
+msgstr ""
+"Mógł zostać ucięty przy kopiowaniu z wiadomości. Subskrypcjami możesz "
+"zarządzać na swoim pulpicie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Go to dashboard"
+msgstr "Przejdź do pulpitu"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "You're unsubscribed"
+msgstr "Wypisano Cię"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+#, python-format
+msgid ""
+"We won't email you when <strong>%(sphere_name)s</strong> announces an event. "
+"You can subscribe again from your dashboard."
+msgstr ""
+"Nie wyślemy Ci już wiadomości, gdy <strong>%(sphere_name)s</strong> ogłosi "
+"wydarzenie. Subskrypcję możesz wznowić na swoim pulpicie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Stop these emails?"
+msgstr "Wypisać się z tych wiadomości?"
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+#, python-format
+msgid ""
+"You'll no longer get an email when <strong>%(sphere_name)s</strong> "
+"announces an event."
+msgstr ""
+"Nie dostaniesz już wiadomości, gdy <strong>%(sphere_name)s</strong> ogłosi "
+"wydarzenie."
+
+#: src/ludamus/templates/dashboard/unsubscribe.html
+msgid "Unsubscribe"
+msgstr "Wypisz się"
 
 #: src/ludamus/templates/design.html
 msgid ""
@@ -7512,10 +7953,6 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
-
-#: src/ludamus/templates/event/propose/parts/_nav.html
-msgid "Continue"
-msgstr "Dalej"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
@@ -8619,6 +9056,54 @@ msgstr ""
 msgid "Generate token"
 msgstr "Wygeneruj token"
 
+#: src/ludamus/templates/multiverse/join.html
+msgid "Join the team"
+msgstr "Dołącz do zespołu"
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "You're already on this sphere's team (%(role)s)."
+msgstr "Jesteś już w zespole tej sfery (%(role)s)."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "This link still works. Send it to the person you're inviting."
+msgstr "Ten link nadal działa – wyślij go osobie, którą zapraszasz."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "Go to the team"
+msgstr "Przejdź do zespołu"
+
+#: src/ludamus/templates/multiverse/join.html
+msgid ""
+"This invitation link no longer works. It was used, withdrawn, or has "
+"expired. Ask the person who sent it for a new one."
+msgstr ""
+"Ten link zaproszenia już nie działa: został użyty, wycofany albo wygasł. "
+"Poproś osobę, która go wysłała, o nowy."
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "%(name)s invited you to this sphere's team."
+msgstr "%(name)s zaprasza Cię do zespołu tej sfery."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "You're invited to this sphere's team."
+msgstr "Masz zaproszenie do zespołu tej sfery."
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "You'll join as %(name)s (%(email)s)."
+msgstr "Dołączysz jako %(name)s (%(email)s)."
+
+#: src/ludamus/templates/multiverse/join.html
+#, python-format
+msgid "You'll join as %(email)s."
+msgstr "Dołączysz jako %(email)s."
+
+#: src/ludamus/templates/multiverse/join.html
+msgid "Log in to join"
+msgstr "Zaloguj się, aby dołączyć"
+
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 msgid "Sphere settings sections"
 msgstr "Sekcje ustawień sfery"
@@ -8832,6 +9317,109 @@ msgstr "Zapisz mimo to"
 msgid "Save Settings"
 msgstr "Zapisz ustawienia"
 
+#: src/ludamus/templates/multiverse/panel/team.html
+#: src/ludamus/templates/panel/base.html
+msgid "Team"
+msgstr "Zespół"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Members"
+msgstr "Członkowie"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "(you)"
+msgstr "(Ty)"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Nobody is on this sphere's team yet."
+msgstr "W zespole tej sfery nie ma jeszcze nikogo."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Invite someone"
+msgstr "Zaproś kogoś"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid ""
+"Each link works once, until it expires. Whoever opens it while signed in can "
+"join with the role you pick."
+msgstr ""
+"Każdy link działa raz, dopóki nie wygaśnie. Kto otworzy go po zalogowaniu, "
+"może dołączyć z wybraną przez Ciebie rolą."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Create invitation link"
+msgstr "Utwórz link zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Open invitations"
+msgstr "Aktywne zaproszenia"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid ""
+"A link is shown once, right after it's created. Lost one? Get a new link for "
+"the same person."
+msgstr ""
+"Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Utwórz nowy link dla "
+"tej samej osoby."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Invitation link for %(label)s"
+msgstr "Link zaproszenia: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Copy the invitation link for %(label)s"
+msgstr "Kopiuj link zaproszenia: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Copy it now: it won't be shown again."
+msgstr "Skopiuj go teraz: więcej się nie pokaże."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Expires in %(expires)s"
+msgstr "Wygasa za %(expires)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr "Utworzone przez: %(name)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Get a new link for %(label)s"
+msgstr "Nowy link dla: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link? The current one stops working right away."
+msgstr "Utworzyć nowy link? Obecny od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Get a new link"
+msgstr "Utwórz nowy link"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "New link"
+msgstr "Nowy link"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+#, python-format
+msgid "Withdraw the invitation for %(label)s"
+msgstr "Wycofaj zaproszenie: %(label)s"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Withdraw this invitation? The link stops working right away."
+msgstr "Wycofać to zaproszenie? Link od razu przestanie działać."
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "Withdraw"
+msgstr "Wycofaj"
+
+#: src/ludamus/templates/multiverse/panel/team.html
+msgid "No open invitations."
+msgstr "Brak aktywnych zaproszeń."
+
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 msgid "Download .ics"
 msgstr "Pobierz .ics"
@@ -8907,6 +9495,11 @@ msgstr "Bierzesz udział w tym spotkaniu"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "invites you to an encounter"
 msgstr "zaprasza Cię na spotkanie"
+
+#: src/ludamus/templates/notice_board/detail.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Public"
+msgstr "Publiczny"
 
 #: src/ludamus/templates/notice_board/detail.html
 msgid "Spots"
@@ -9348,6 +9941,11 @@ msgid "Choose an event"
 msgstr "Wybierz wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/event-create.html
+msgid "New event"
+msgstr "Nowe wydarzenie"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
@@ -9421,11 +10019,6 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
-
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/event-create.html
-msgid "New event"
-msgstr "Nowe wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -9537,6 +10130,10 @@ msgid "No durations configured yet."
 msgstr "Nie skonfigurowano jeszcze czasów trwania."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+msgid "Select which session fields hosts must provide."
+msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
+
+#: src/ludamus/templates/panel/cfp-edit.html
 #, python-format
 msgid "There is %(count)s existing proposal for this category."
 msgid_plural "There are %(count)s existing proposals for this category."
@@ -9552,10 +10149,6 @@ msgid ""
 msgstr ""
 "Zmiany w wymaganiach pól nie wpłyną na istniejące zgłoszenia. Nowe pola nie "
 "zostaną do nich dodane, a usunięte pola zachowają swoje dane."
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which session fields hosts must provide."
-msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
@@ -11852,20 +12445,13 @@ msgid "URL identifier for this event. Must be unique."
 msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
 
 #: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Visibility"
+msgstr "Widoczność"
+
+#: src/ludamus/templates/panel/settings.html
 msgid "Event Dates"
 msgstr "Daty wydarzenia"
-
-#: src/ludamus/templates/panel/settings.html
-msgid "Publication Time"
-msgstr "Czas publikacji"
-
-#: src/ludamus/templates/panel/settings.html
-msgid ""
-"When the event becomes publicly visible. Leave empty for immediate "
-"visibility."
-msgstr ""
-"Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
-"widoczne natychmiast."
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Facilitator permissions"
@@ -12217,6 +12803,18 @@ msgstr ""
 msgid "Move"
 msgstr "Przenieś"
 
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room taken"
+msgstr "Sala zajęta"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Room too small"
+msgstr "Sala za mała"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Extends the day"
+msgstr "Wydłuża dzień"
+
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "New Track"
@@ -12273,10 +12871,6 @@ msgstr ""
 "są widoczne dla zgłaszających w kreatorze propozycji, a ich punkty programu "
 "pojawiają się w harmonogramie wydarzenia; punkty programu z prywatnych "
 "bloków się w nim nie pojawiają."
-
-#: src/ludamus/templates/panel/tracks.html
-msgid "Visibility"
-msgstr "Widoczność"
 
 #: src/ludamus/templates/panel/tracks.html
 msgid "Organizers"
@@ -12434,41 +13028,176 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
-#~ msgid "Copy email"
-#~ msgstr "Skopiuj e-mail"
+#~ msgid ""
+#~ "No account was created. A parent or guardian can sign up and add you as a "
+#~ "companion to sign you up for sessions."
+#~ msgstr ""
+#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
+#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
+
+#~ msgid "Choose one of the two answers."
+#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
+
+#~ msgid "Cookies help us see what to fix."
+#~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
+
+#~ msgid "How old are you?"
+#~ msgstr "Ile masz lat?"
+
+#, python-format
+#~ msgid "I'm %(min_age)s or older"
+#~ msgstr "Mam %(min_age)s lat lub więcej"
+
+#, python-format
+#~ msgid "I'm under %(min_age)s"
+#~ msgstr "Mam mniej niż %(min_age)s lat"
+
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participation.\n"
+#~ "                            "
+#~ msgid_plural ""
+#~ "\n"
+#~ "                                You have %(counter)s confirmed session "
+#~ "participations.\n"
+#~ "                            "
+#~ msgstr[0] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwo w punkcie programu.\n"
+#~ "                            "
+#~ msgstr[1] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzone "
+#~ "uczestnictwa w punktach programu.\n"
+#~ "                            "
+#~ msgstr[2] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+#~ msgstr[3] ""
+#~ "\n"
+#~ "                                Masz %(counter)s potwierdzonych "
+#~ "uczestnictw w punktach programu.\n"
+#~ "                            "
+
+#, python-format
+#~ msgid ""
+#~ "We sent a confirmation link to <strong>%(pending)s</strong>. The change "
+#~ "takes effect once you confirm it."
+#~ msgstr ""
+#~ "Wysłaliśmy link potwierdzający na <strong>%(pending)s</strong>. Zmiana "
+#~ "zacznie obowiązywać po jego potwierdzeniu."
+
+#~ msgid "Resend"
+#~ msgstr "Wyślij ponownie"
+
+#~ msgid "Your email address is not verified yet."
+#~ msgstr "Twój adres email nie jest jeszcze zweryfikowany."
+
+#~ msgid "Send verification email"
+#~ msgstr "Wyślij email weryfikacyjny"
 
 #~ msgid ""
-#~ "Everything the app sends from this server lands here. None of it reaches "
-#~ "a real inbox."
+#~ "Nothing yet. Sign up for or bookmark a session, or join an encounter, and "
+#~ "it will wait for you here."
 #~ msgstr ""
-#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
-#~ "do prawdziwych skrzynek."
+#~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
+#~ "programu do zakładek, a poczeka tu na Ciebie."
 
-#~ msgid "Live: new emails show up on their own"
-#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
 
-#~ msgid "Link in this email"
-#~ msgid_plural "Links in this email"
-#~ msgstr[0] "Link w tym e-mailu"
-#~ msgstr[1] "Linki w tym e-mailu"
-#~ msgstr[2] "Linki w tym e-mailu"
-#~ msgstr[3] "Linki w tym e-mailu"
-
-#~ msgid "Staging inbox"
-#~ msgstr "Skrzynka staging"
-
-#~ msgid "Received"
-#~ msgstr "Otrzymano"
-
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
 
 #~ msgid ""
-#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
-#~ "you here."
+#~ "When the event becomes publicly visible. Leave empty for immediate "
+#~ "visibility."
 #~ msgstr ""
-#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-#~ "Ciebie."
+#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
+#~ "widoczne natychmiast."
+
+#, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+
+#~ msgid ""
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
+#~ msgstr ""
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
+
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
+
+#~ msgid ""
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
 
 #~ msgid "Shown columns"
 #~ msgstr "Wyświetlane kolumny"
@@ -12480,8 +13209,49 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Available columns"
 #~ msgstr "Dostępne kolumny"
 
-#~ msgid "Bookmarks"
-#~ msgstr "Zakładki"
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+
+#, python-format
+#~ msgid ""
+#~ "Radek has been running tabletop RPGs for more than twenty years. He "
+#~ "writes his own games, like the narrative RPG <a "
+#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
+#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
+#~ "and sings RPG songs on YouTube as Radek MG."
+#~ msgstr ""
+#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
+#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
+#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
+
+#
+#~ msgid ""
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ msgstr ""
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+
+#, python-format
+#~ msgid ""
+#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
+#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+#~ "sacrifice."
+#~ msgstr ""
+#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
+#~ "poświęceniu."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
 
 #, python-format
 #~ msgid ""
@@ -12512,6 +13282,15 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Configure host data fields"
 #~ msgstr "Skonfiguruj pola danych twórcy"
+
+#~ msgid "Filterable Session Fields"
+#~ msgstr "Pola filtrowania punktów programu"
+
+#~ msgid ""
+#~ "Select which session fields appear as filters on the public session list."
+#~ msgstr ""
+#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
+#~ "publicznej liście punktów programu."
 
 #~ msgid "Program item confirmed"
 #~ msgstr "Punkt programu potwierdzony"
@@ -12544,28 +13323,33 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr ""
 #~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
 
-#~ msgid "Not Yet Available"
-#~ msgstr "Jeszcze Niedostępne"
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
 
-#~ msgid "Filterable Session Fields"
-#~ msgstr "Pola filtrowania punktów programu"
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
 
-#~ msgid ""
-#~ "Select which session fields appear as filters on the public session list."
-#~ msgstr ""
-#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
-#~ "publicznej liście punktów programu."
+#~ msgid "Subject"
+#~ msgstr "Temat"
 
-#
-#~ msgid ""
-#~ "Piotrek cares about the small details of how software feels to use, which "
-#~ "is most of the reason Zagrajmy's interface looks the way it does."
-#~ msgstr ""
-#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
-#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
+
+#~ msgid "Attach venue"
+#~ msgstr "Dołącz lokalizację"
+
+#~ msgid ""
+#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
+#~ "from loose proposals to a printout on the room door. Pick an act."
+#~ msgstr ""
+#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
+#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
 
 #~ msgid "Poland"
 #~ msgstr "Polska"
@@ -13095,9 +13879,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Search sessions..."
 #~ msgstr "Szukaj punktów programu..."
-
-#~ msgid "Age range"
-#~ msgstr "Przedział wiekowy"
 
 #~ msgid "Min"
 #~ msgstr "Min"
@@ -13660,3 +14441,112 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "This event is not in this sphere."
 #~ msgstr "To wydarzenie nie należy do tej sfery."
+
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid ""
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
+#~ msgstr ""
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
+
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid "Copy email"
+#~ msgstr "Skopiuj e-mail"
+
+#~ msgid "You're already on this sphere's team as a manager."
+#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
+
+#, python-format
+#~ msgid "%(name)s invited you to manage this sphere."
+#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+
+#~ msgid "You're invited to manage this sphere."
+#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
+
+#~ msgid ""
+#~ "An unlisted event is never listed and never announced to the sphere's "
+#~ "followers."
+#~ msgstr ""
+#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
+#~ "obserwujące sferę nie dostają o nim powiadomienia."
+
+#~ msgid "Comms: reads the panel and posts schedule updates"
+#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+
+#~ msgid "Invitation revoked."
+#~ msgstr "Zaproszenie wycofane."
+
+#~ msgid "Unlisted"
+#~ msgstr "Niepubliczne"
+
+#~ msgid "Copy invitation link"
+#~ msgstr "Kopiuj link zaproszenia"
+
+#~ msgid "Revoke invitation"
+#~ msgstr "Wycofaj zaproszenie"
+
+#~ msgid "Different address? Save your profile first."
+#~ msgstr "Inny adres? Najpierw zapisz profil."
+
+#, python-format
+#~ msgid ""
+#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
+#~ "changing your email address."
+#~ msgstr ""
+#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
+#~ "zmianę adresu email."
+
+#, python-format
+#~ msgid ""
+#~ "Open the confirmation email sent to <strong class=\"break-"
+#~ "all\">%(address)s</strong> and follow its link."
+#~ msgstr ""
+#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
+#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
+
+#, python-format
+#~ msgid ""
+#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
+#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
+#~ msgstr ""
+#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
+#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
+
+#~ msgid "To verify a different address, save your changes first."
+#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
+
+#~ msgid "Resend verification email"
+#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
+
+#, python-format
+#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
+#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"

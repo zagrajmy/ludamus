@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.admin import helpers
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Notification
+from ludamus.links.db.django.models import Notification, Tag, TagCategory
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
@@ -97,3 +97,30 @@ class TestSendNotificationAction:
 
         assert_response(response, HTTPStatus.OK)
         assert not Notification.objects.exists()
+
+
+class TestTagAdmin:
+    def test_add_sets_search_key(self, superuser_client):
+        category = TagCategory.objects.create(name="Gra", slug="activity")
+
+        response = superuser_client.post(
+            reverse("admin:db_main_tag_add"),
+            {"category": category.pk, "name": "Mörk Borg", "slug": "mork-borg"},
+        )
+
+        tag = Tag.objects.get(slug="mork-borg")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("admin:db_main_tag_changelist"),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f'The tag “<a href="/admin/db_main/tag/{tag.pk}/change/">'
+                        "Mörk Borg</a>” was added successfully."
+                    ),
+                )
+            ],
+        )
+        assert tag.search_key == "mork borg"

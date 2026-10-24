@@ -11,7 +11,7 @@ from django.utils.text import slugify
 
 from ludamus.links.db.django.models import User
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, confirm_signup_age
 
 EMAIL_CONFLICT_WARNING = (
     "That email address already belongs to another account, so it was not "
@@ -38,7 +38,8 @@ class TestAuth0LoginCallbackActionView:
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -62,7 +63,8 @@ class TestAuth0LoginCallbackActionView:
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -83,12 +85,16 @@ class TestAuth0LoginCallbackActionView:
         redirect_to = "https://www.testserver/a/b/c"
         state_token = self._setup_valid_state(redirect_to)
 
-        response = client.get(self.URL, data={"state": state_token})
+        client.get(self.URL, data={"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            url="https://www.testserver/crowd/profile/?next=%2F",
+            HTTPStatus.OK,
+            template_name="crowd/signup_continue.html",
+            context_data={
+                "redirect_to": "https://www.testserver/crowd/profile/?next=%2F"
+            },
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -131,7 +137,8 @@ class TestAuth0LoginCallbackActionView:
         authorize_access_token_mock.return_value = {"userinfo": {"sub": faker.uuid4()}}
         state_token = self._setup_valid_state("https://evil.example.com/a/b/c")
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -165,7 +172,8 @@ class TestAuth0LoginCallbackActionView:
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -188,7 +196,8 @@ class TestAuth0LoginCallbackActionView:
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -362,7 +371,8 @@ class TestAuth0LoginCallbackActionView:
         }
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -412,7 +422,8 @@ class TestAuth0LoginCallbackActionView:
         }
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -460,7 +471,8 @@ class TestAuth0LoginCallbackActionView:
         userinfo_mock.return_value = {"sub": sub}
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -500,7 +512,8 @@ class TestAuth0LoginCallbackActionView:
         }
         state_token = self._setup_valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,

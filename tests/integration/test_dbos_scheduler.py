@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 
 import pytest
 from dbos import DBOS
+from django.db import DEFAULT_DB_ALIAS, connections
 
 from ludamus.inits import dbos_scheduler as scheduler_module
 from ludamus.links.db.django.models import (
@@ -102,6 +103,9 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     # launch_scheduler starts the launch on a background thread (fail-soft).
     scheduler_module.launch_scheduler()
     assert launched.wait(timeout=_LAUNCH_TIMEOUT_SECONDS)
+    assert {s["schedule_name"] for s in DBOS.list_schedules()} == {
+        workflow.__name__ for workflow, _cron in scheduler_module.CRON_WORKFLOWS
+    }
 
     # The fanout sweep is the one workflow given real work: its step branches on
     # having notified somebody, and the worker thread reads on its own
@@ -176,3 +180,21 @@ def test_launch_race_loser_rechecks_under_the_lock(settings, monkeypatch):
             thread.join(timeout=10)
 
     assert not constructed
+
+
+@pytest.mark.postgres
+@pytest.mark.django_db(transaction=True)
+def test_step_releases_its_thread_db_connection():
+    used = []
+
+    @scheduler_module._releases_db_connection
+    def step():
+        Announcement.objects.exists()
+        used.append(connections[DEFAULT_DB_ALIAS])
+
+    # DBOS steps run on long-lived threads that never see a request signal.
+    thread = threading.Thread(target=step)
+    thread.start()
+    thread.join()
+
+    assert [wrapper.connection for wrapper in used] == [None]

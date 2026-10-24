@@ -9,7 +9,7 @@ from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Facilitator, Space, Track
 from ludamus.pacts import EventDTO, ProposalCategoryDTO, TrackDTO
-from ludamus.pacts.chronology import MultiselectOptionDTO, SpaceGroupDTO
+from ludamus.pacts.chronology import ClosedRangeDTO, MultiselectOptionDTO, SpaceGroupDTO
 from ludamus.pacts.legacy import SpaceDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
@@ -485,7 +485,9 @@ class TestTimetablePageView:
     ):
         sphere.managers.add(active_user)
         ours = SpaceFactory(event=event, name="Ours")
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign_space = SpaceFactory(event=other_event, name="Theirs")
 
         response = authenticated_client.get(
@@ -621,7 +623,9 @@ class TestTimetablePageView:
             start_time=start,
             end_time=start + timedelta(hours=1),
         )
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign = Facilitator.objects.create(
             event=other_event, display_name="Alice", slug="alice", user=None
         )
@@ -769,6 +773,13 @@ class TestTimetablePageView:
                     spaces=[space],
                     day_start=event_day_start(event),
                     total_minutes=6 * HOUR_MINUTES,
+                    # Between `time_slot` and the preferred slot, nothing is open.
+                    closed_ranges=[
+                        ClosedRangeDTO(
+                            start_minutes=2 * HOUR_MINUTES,
+                            duration_minutes=2 * HOUR_MINUTES,
+                        )
+                    ],
                     sessions_by_space={
                         space.pk: [
                             session_position(

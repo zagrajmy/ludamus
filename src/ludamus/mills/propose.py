@@ -173,7 +173,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         description = str(session_data.get("description", ""))
         raw_limit = session_data.get("participants_limit") or 0
         participants_limit = int(str(raw_limit))
-        category_id = wizard_data["category_id"]
+        category_id = wizard_data.get("category_id")
         time_slot_ids = wizard_data.get("time_slot_ids", [])
 
         current_user = (

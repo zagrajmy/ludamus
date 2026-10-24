@@ -8,7 +8,7 @@ from ludamus.pacts import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
@@ -27,6 +27,7 @@ class FakeTransaction:
 
 def user_dto(**overrides) -> UserDTO:
     defaults = {
+        "age_band": AgeBand.UNKNOWN,
         "avatar_url": "",
         "date_joined": DEFAULT_JOINED,
         "discord_username": "",

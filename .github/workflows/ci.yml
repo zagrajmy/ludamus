@@ -262,6 +262,49 @@ jobs:
           flags: python
           disable_search: true
 
+  # Bend proofs and known findings under formal/; check.sh pins and verifies
+  # the Bend release itself.
+  formal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ludamus
+          key: bend-${{ runner.os }}-${{ hashFiles('formal/check.sh') }}
+      - run: formal/check.sh
+
+  # advisory: CrossHair's solver over the window-policy properties is minutes
+  # per property, too slow to gate a merge on; it reports what it finds.
+  properties-crosshair:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/toolchain
+      - run: mise run test:props:crosshair
+
+  # advisory: Bombadil explores the seeded app at random, so a run is a sample,
+  # not a gate. A violation leaves its trace and screenshots as an artifact;
+  # `bombadil browser test --reproduce` replays it.
+  bombadil:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/toolchain
+      - run: mise bootstrap packages apply --yes
+      - run: mise run test:bombadil
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: bombadil-output
+          path: bombadil-output/
+          retention-days: 14
+
   # advisory: reports the branch's debt without blocking the merge
   tingle:
     runs-on: ubuntu-latest

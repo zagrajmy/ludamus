@@ -8,10 +8,12 @@
         <h2 class="text-lg font-semibold mb-1">{% translate "Review & Submit" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">{% translate "Please review your proposal before submitting." %}</p>
         <div class="space-y-4 break-words">
-            <div class="border border-border rounded-2xl p-5">
-                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Category" %}</h3>
-                <p class="text-foreground">{{ review.category_name }}</p>
-            </div>
+            {% if review.category_name %}
+                <div class="border border-border rounded-2xl p-5">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Category" %}</h3>
+                    <p class="text-foreground">{{ review.category_name }}</p>
+                </div>
+            {% endif %}
             <div class="border border-border rounded-2xl p-5">
                 <h3 class="text-sm font-medium text-foreground-muted mb-2">
                     {% translate "Session" context "proposal review heading" %}
@@ -125,7 +127,7 @@
                     {% if review.contact_email %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
-                            <dd class="text-foreground">
+                            <dd class="text-foreground" data-ph-mask>
                                 {{ review.contact_email }}
                             </dd>
                         </div>

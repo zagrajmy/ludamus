@@ -180,4 +180,6 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
+- [Verification](docs/VERIFICATION.md) — Hypothesis/CrossHair properties, Bend
+  models, the differential test and Bombadil: which layer each covers
 - [Testing strategy](docs/TESTING_STRATEGY.md)

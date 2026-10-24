@@ -14,7 +14,7 @@ from ludamus.links.db.django.models import User, UserType
 from ludamus.pacts.crowd import ClaimableProfileDTO
 from ludamus.pacts.party import PartyConsentMode
 from tests.integration.conftest import UserFactory, sponsor_user
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, confirm_signup_age
 
 
 def _companion(
@@ -206,7 +206,8 @@ class TestClaimRedemptionOnLogin:
         self._arm_claim(client, "claimtok")
         state_token = self._valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         kid.refresh_from_db()
         assert kid.user_type == UserType.ACTIVE
@@ -231,7 +232,8 @@ class TestClaimRedemptionOnLogin:
         self._arm_claim(client, "spent-or-bogus")
         state_token = self._valid_state()
 
-        response = client.get(self.URL, {"state": state_token})
+        client.get(self.URL, {"state": state_token})
+        response = confirm_signup_age(client)
 
         assert User.objects.filter(
             username=f"auth0|{sub}", user_type=UserType.ACTIVE

@@ -13,15 +13,10 @@
 {% block body %}
     <div class="max-w-3xl mx-auto">
         {# Anonymous Code Display #}
-        <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
-            {% icon "key" class="w-5 h-5 shrink-0" %}
-            <div>
-                <h6 class="font-semibold mb-1">{% translate "Your Anonymous Code" %}</h6>
-                <p class="mb-0">
-                    <strong class="text-2xl">{{ anonymous_code }}</strong>
-                </p>
-                <small class="text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</small>
-            </div>
+        <div class="mb-4">
+            <h2 class="font-semibold mb-1">{% translate "Your Anonymous Code" %}</h2>
+            <p class="text-2xl font-semibold">{{ anonymous_code }}</p>
+            <p class="text-sm text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</p>
         </div>
         {# Session Details Card #}
         <div class="card mb-4">
@@ -84,21 +79,14 @@
                 <form method="post">
                     {% csrf_token %}
                     {% if is_enrolled %}
-                        <div class="alert backdrop-blur-lg alert-success flex items-center gap-3">
-                            {% icon "check-circle" class="w-5 h-5 shrink-0" %}
-                            <div>
-                                <strong>{{ user_name }}</strong> {% translate "is already enrolled in this session." %}
-                                {% if enrollment_status == "waiting" %}
-                                    <br>
-                                    <small class="text-foreground-muted">{% translate "Status: On waiting list" %}</small>
-                                {% endif %}
-                            </div>
-                        </div>
+                        <p class="text-sm">
+                            <strong>{{ user_name }}</strong> {% translate "is already enrolled in this session." %}
+                            {% if enrollment_status == "waiting" %}
+                                <span class="block mt-1 text-foreground-muted">{% translate "Status: On waiting list" %}</span>
+                            {% endif %}
+                        </p>
                     {% elif needs_user_data %}
-                        <div class="alert backdrop-blur-lg alert-warning flex items-center gap-3">
-                            {% icon "exclamation-triangle" class="w-5 h-5 shrink-0" %}
-                            <div>{% translate "Please provide your name to complete the enrollment." %}</div>
-                        </div>
+                        <p class="text-sm text-foreground-muted mb-3">{% translate "Please provide your name to complete the enrollment." %}</p>
                         <div class="max-w-md mb-4">
                             <label for="name" class="block text-sm font-medium mb-1">
                                 {% translate "Name" %} <span class="text-danger">*</span>

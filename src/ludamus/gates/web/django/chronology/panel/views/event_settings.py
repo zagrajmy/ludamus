@@ -22,6 +22,7 @@ from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.legacy import EventVisibility
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -50,6 +51,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
         "publication_time": cd.get("publication_time"),
+        "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
@@ -115,6 +117,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     if current_event.publication_time
                     else None
                 ),
+                "visibility": current_event.visibility.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
                 "auto_confirm_sessions": current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (

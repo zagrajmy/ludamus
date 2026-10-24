@@ -261,7 +261,7 @@ class TestTimeSlotsPageView:
     ):
         event.end_time = event.start_time + timedelta(days=4)
         event.save()
-        hidden_day = localtime(event.start_time) + timedelta(days=4)
+        hidden_day = event.start_time + timedelta(days=4)
         slot = TimeSlot.objects.create(
             event=event, start_time=hidden_day, end_time=hidden_day + timedelta(hours=1)
         )

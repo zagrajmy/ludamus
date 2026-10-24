@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     AnonymousCancelResultDTO,
     AnonymousEnrollmentError,
@@ -51,6 +51,7 @@ def _seating(**overrides) -> AnonymousSeatingDTO:
 
 def _user(name="Ala") -> UserDTO:
     return UserDTO(
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",

@@ -231,8 +231,9 @@ class TestKonwencikMatrix:
 
         assert outcome == KonwencikExportOutcome(rows_written=1, skipped={})
         assert (
-            env.integrations.get_for_update.call_args_list
-            == [call(EVENT_PK, INTEGRATION_PK)] * 2
+            env.integrations.get_for_update.call_args_list == [
+                call(EVENT_PK, INTEGRATION_PK)
+            ] * 2
         )
         locked, released = env.integrations.update_settings.call_args_list
         assert locked.kwargs["event_id"] == EVENT_PK

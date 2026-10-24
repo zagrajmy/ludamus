@@ -65,8 +65,9 @@ class EventCreatePageView(EventPanelAccessMixin, View):
             return self._render(form, events=events)
         messages.success(
             self.request,
-            _("Created %(name)s. It stays hidden until you publish it.")
-            % {"name": event.name},
+            _("Created %(name)s. It stays hidden until you publish it.") % {
+                "name": event.name
+            },
         )
         return redirect("panel:event-index", slug=event.slug)
 

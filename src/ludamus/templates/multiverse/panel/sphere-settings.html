@@ -48,19 +48,14 @@
                     <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Encounters" %}</h2>
                     <div class="mt-4">{% tessera_field form.encounters_policy %}</div>
                     {% if needs_disable_confirmation %}
-                        <div class="alert backdrop-blur-lg alert-warning mt-6" role="alert">
-                            <div class="flex items-start gap-3">
-                                <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
-                                <div>
-                                    <p class="text-sm font-medium">{% translate "This sphere already has encounters." %}</p>
-                                    <p class="text-sm opacity-80 mt-1">
-                                        {% translate "Turning them off hides them from everyone. Save again to confirm." %}
-                                    </p>
-                                    {% if lost_logo_change %}
-                                        <p class="text-sm opacity-80 mt-1">{% translate "Nothing was saved, so set the logo again." %}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
+                        <div class="mt-6 text-sm" role="alert">
+                            <p class="font-medium">{% translate "This sphere already has encounters." %}</p>
+                            <p class="text-foreground-muted mt-1">
+                                {% translate "Turning them off hides them from everyone. Save again to confirm." %}
+                            </p>
+                            {% if lost_logo_change %}
+                                <p class="text-foreground-muted mt-1">{% translate "Nothing was saved, so set the logo again." %}</p>
+                            {% endif %}
                         </div>
                         {% comment %}
                             Literal "1", not the bound value: the POST that raised

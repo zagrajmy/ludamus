@@ -50,9 +50,6 @@ class ProfilePageView(
         profile = self.request.services.profile
         kwargs["user"] = profile.read(self.request.context.current_user_slug)
         kwargs["object"] = profile.read(self.request.context.current_user_slug)
-        kwargs["confirmed_participations_count"] = (
-            profile.confirmed_participations_count(self.request.context.current_user_id)
-        )
         kwargs["profile_active_tab"] = "profile"
         return super().get_context_data(**kwargs)
 
@@ -143,8 +140,9 @@ class ProfileCompanionsPageView(
         if companion_count >= MAX_COMPANIONS:
             messages.error(
                 self.request,
-                _("You can only have up to %(max)s companions.")
-                % {"max": MAX_COMPANIONS},
+                _("You can only have up to %(max)s companions.") % {
+                    "max": MAX_COMPANIONS
+                },
             )
             return self.form_invalid(form)
 

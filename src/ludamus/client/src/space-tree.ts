@@ -77,6 +77,7 @@ const wireDrag = (list: HTMLElement): void => {
       dragged = li;
       suppressDisclosureClick = false;
       li.style.opacity = "0.5";
+      if (rootDropTarget && list !== root) rootDropTarget.dataset.armed = "";
     }
   });
   list.addEventListener("dragend", (event) => {
@@ -120,6 +121,7 @@ if (root) {
   rootDropTarget?.addEventListener("drop", (event) => {
     event.preventDefault();
     rootDropTarget.classList.remove("border-primary", "bg-primary/5", "text-primary");
+    delete rootDropTarget.dataset.armed;
     const moved = dragged;
     dragged = null;
     if (moved) {
@@ -129,6 +131,7 @@ if (root) {
   });
   root.addEventListener("dragend", () => {
     rootDropTarget?.classList.remove("border-primary", "bg-primary/5", "text-primary");
+    if (rootDropTarget) delete rootDropTarget.dataset.armed;
   });
   root.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;

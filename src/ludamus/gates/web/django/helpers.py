@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from ipaddress import ip_address
 from typing import TYPE_CHECKING
 
@@ -17,23 +16,16 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
 
 
-def is_event_published(event: EventDTO) -> bool:
-    return (
-        event.publication_time is not None
-        and event.publication_time <= datetime.now(tz=UTC)
-    )
-
-
 def read_public_event(request: RootRequest, slug: str) -> EventDTO:
-    # The event as a public page sees it: absent until published, except to
-    # someone who manages the sphere and previews it.
+    # The event as a public page sees it: absent until published or unlisted,
+    # except to someone who manages the sphere and previews it.
     try:
         event = request.services.events.read_by_slug(
             request.context.current_sphere_id, slug
         )
     except NotFoundError as exc:
         raise Http404 from exc
-    if not is_event_published(event) and not panel_access(request).granted:
+    if not event.is_open and not panel_access(request).granted:
         raise Http404
     return event
 

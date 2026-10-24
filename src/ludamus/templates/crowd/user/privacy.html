@@ -1,0 +1,52 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Privacy" %}
+{% endblock title %}
+{% block profile_content %}
+    <h6 class="font-semibold text-sm mb-1">{% translate "Age range" %}</h6>
+    <p class="text-sm text-foreground-secondary">
+        {% if optional_features_available %}
+            {% translate "Your age range is 16 or older. Optional features still need your separate opt-in." %}
+        {% elif current_user.age_band.is_confirmed %}
+            {% translate "Your age range is 13–15. Optional analytics, recordings and promotional emails are off." %}
+        {% else %}
+            {% translate "Your age range is not confirmed. Optional analytics, recordings and promotional emails stay off; your bookings still work." %}
+        {% endif %}
+    </p>
+    <div class="mt-3 mb-6">
+        {% url "user:profile-age-range" as age_url %}
+        {% translate "Update age range" as age_label %}
+        {% tessera_button age_label href=age_url variant="secondary" %}
+    </div>
+    <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-1">
+        {% icon "chart-bar" class="w-4 h-4" %}
+        {% translate "Analytics" %}
+    </h6>
+    {% if posthog_config %}
+        {% include "components/consent-copy.html" %}
+        {# prologue.ts fills [data-consent-state] from localStorage — the choice lives in this browser, not on the server. #}
+        <p class="text-sm mt-3">
+            {% translate "Your current choice:" %}
+            <strong data-consent-state
+                    data-label-accepted="{% translate "analytics allowed" %}"
+                    data-label-declined="{% translate "analytics declined" %}"
+                    data-label-unset="{% translate "not decided yet" %}"></strong>
+        </p>
+        <p class="text-xs text-foreground-muted mt-1">
+            {% translate "The choice is stored only in this browser — on another device or after clearing site data you will be asked again." %}
+        </p>
+        <div class="mt-4">
+            {% translate "Change your choice" as t_change %}
+            {% tessera_button t_change button_type="button" variant="secondary" data_consent_reopen="true" %}
+        </div>
+    {% elif not optional_features_available %}
+        <p class="text-sm text-foreground-muted">
+            {% translate "Analytics and session recordings are available only to people aged 16 or older who choose to enable them." %}
+        </p>
+    {% else %}
+        <p class="text-sm text-foreground-muted">
+            {% translate "Analytics are not configured on this server. Nothing is collected, so there is nothing to decide here." %}
+        </p>
+    {% endif %}
+{% endblock profile_content %}

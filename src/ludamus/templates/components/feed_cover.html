@@ -1,0 +1,17 @@
+{% load date_tags %}
+{% comment %}
+    A feed card's cover with its calendar page pinned over the bottom edge.
+
+    The page hangs 28px (bottom-7) below the photo; the card's tag row is
+    exactly that tall, so the tags sit level with the page's foot. left-4 puts
+    the page on the card's 16px gutter, the same line as the title.
+
+    Variables:
+      url    the cover image
+      start  when it begins
+      end    when it ends, if known
+{% endcomment %}
+<div class="relative">
+    {% include "components/cover_tint.html" with url=url extra_class="aspect-[2/1]" only %}
+    <div class="absolute left-4 -bottom-7 z-10">{% date_leaf start end %}</div>
+</div>

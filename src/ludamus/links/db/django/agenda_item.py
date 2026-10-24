@@ -72,6 +72,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         session_description=item.session.description,
         presenter_name=item.session.facilitator_name,
         session_duration_minutes=duration_minutes,
+        session_participants_limit=item.session.participants_limit,
         session_status=SessionStatus(item.session.status),
         category_name=(
             item.session.category.name if item.session.category is not None else None

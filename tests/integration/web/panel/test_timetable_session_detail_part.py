@@ -64,6 +64,7 @@ class TestTimetableSessionDetailPartView:
             session_description=session.description,
             presenter_name=session.facilitator_name,
             session_duration_minutes=60,
+            session_participants_limit=session.participants_limit,
             session_status=session.status,
             category_name=session.category.name,
             category_id=session.category_id,

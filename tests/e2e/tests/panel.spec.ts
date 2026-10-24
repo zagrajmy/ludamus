@@ -384,7 +384,14 @@ test.describe("Backoffice Panel", () => {
 
   test("edits a space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    const originalVenue = page.getByRole("listitem").filter({
+      has: page.getByText("Aurora Convention Hall", { exact: true }),
+    });
+    const galleryEdit = originalVenue.getByRole("link", {
+      name: "Edit Frost Gallery",
+      exact: true,
+    });
+    await galleryEdit.click();
 
     await expect(page.locator("#id_name")).toHaveValue("Frost Gallery");
 
@@ -392,8 +399,8 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
 
-    // Restore original capacity
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    await galleryEdit.click();
+    await expect(page.locator("#id_capacity")).toHaveValue("40");
     await page.locator("#id_capacity").fill("30");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
@@ -674,7 +681,7 @@ test.describe("Backoffice Panel", () => {
   test("shows time slots page", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
 
-    await expect(page.getByRole("heading", { name: "Time Slots" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Time Slots", exact: true })).toBeVisible();
   });
 
   test("creates, edits, and deletes a time slot", async ({ page }) => {

@@ -4,9 +4,21 @@
 # sit next to the views they route to.
 from django.urls import path
 
-from ludamus.gates.web.django.sphere import guilds
+from ludamus.gates.web.django.sphere import guilds, team
 
 urlpatterns = [
+    path("team/", team.TeamPageView.as_view(), name="team"),
+    path("team/do/invite", team.TeamInviteActionView.as_view(), name="team-invite"),
+    path(
+        "team/invitations/<int:pk>/do/reissue",
+        team.TeamInviteReissueActionView.as_view(),
+        name="team-invite-reissue",
+    ),
+    path(
+        "team/invitations/<int:pk>/do/revoke",
+        team.TeamInviteRevokeActionView.as_view(),
+        name="team-invite-revoke",
+    ),
     path("guilds/", guilds.GuildsPageView.as_view(), name="guilds"),
     path("guilds/create/", guilds.GuildCreatePageView.as_view(), name="guild-create"),
     path(

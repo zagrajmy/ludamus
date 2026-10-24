@@ -81,7 +81,7 @@
                                             <div class="text-xs text-foreground-muted mt-1">
                                                 {% translate "Track:" %} {{ violation.track_name }}
                                                 {% if violation.manager_names %}
-                                                    ({% translate "managed by:" %} {{ violation.manager_names|join:", " }})
+                                                    ({% translate "managed by:" %} <span data-ph-mask>{{ violation.manager_names|join:", " }}</span>)
                                                 {% endif %}
                                             </div>
                                         {% endif %}

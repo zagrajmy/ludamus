@@ -1,8 +1,19 @@
+import os
 import zoneinfo
 
 import pytest
 from django.conf import settings as django_settings
 from django.db import connection
+from hypothesis import settings as hypothesis_settings
+
+# CI machines vary in speed, so a slow example is not a failure. `crosshair`
+# swaps random examples for CrossHair's solver; select it with
+# HYPOTHESIS_PROFILE=crosshair (`mise run test:props:crosshair`).
+hypothesis_settings.register_profile("default", deadline=None)
+hypothesis_settings.register_profile(
+    "crosshair", backend="crosshair", deadline=None, max_examples=25
+)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 
 def pytest_configure(config):

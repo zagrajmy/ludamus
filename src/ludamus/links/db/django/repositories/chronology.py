@@ -7,6 +7,7 @@ from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
+from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     DomainEnrollmentConfig,
@@ -266,7 +267,7 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def list_for_events_page(
-        sphere_id: int, *, include_unpublished: bool
+        sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]:
         session_count = Coalesce(
             Subquery(
@@ -282,8 +283,8 @@ class EventRepository(EventRepositoryProtocol):
         events = Event.objects.filter(sphere_id=sphere_id).annotate(
             session_count=session_count
         )
-        if not include_unpublished:
-            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+        if not include_hidden:
+            events = events.filter(listed_events(now=datetime.now(tz=UTC)))
         return [
             EventListItemDTO.model_validate(event)
             for event in events.order_by("start_time")

@@ -14,7 +14,7 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Need | Use | Notes |
 | --- | --- | --- |
 | A whole form | `{% tessera_form form %}` | Renders labels, fields, help text, and errors. `layout="horizontal"` available. Use this before composing fields by hand. |
-| One field | `{% tessera_field form.name %}` | Dispatches to the right renderer (input/textarea/select/checkbox/file) by field type. |
+| One field | `{% tessera_field form.name %}` | Dispatches to the right renderer (input/textarea/select/checkbox/file) by field type. `label_action_template=` places a small action beside the label. |
 | Hex color | `{% tessera_field form.color %}` with `TextInput(attrs={"type": "color"})` | Text value plus synchronized native picker. Empty stays unset; the text field works without JavaScript. |
 | Form-level errors | `{% tessera_errors form %}` | Non-field errors as an alert. |
 | Action / link button | `{% tessera_button "Save" %}` | `href=` makes it a link; `variant="primary"/"secondary"/"danger"`, `size=`, `icon=`, `disabled`, `full_width_mobile`. The raw classes are `.btn .btn-primary` etc. |
@@ -27,8 +27,15 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Avatar | `{% include "components/avatar.html" with user=.. size="size-12" %}` | Size via Tailwind `size-*`. |
 
 Other ready-made component templates live in
-`src/ludamus/templates/components/` (alert, card, file-dropzone, choice-group,
+`src/ludamus/templates/components/` (card, file-dropzone, choice-group,
 visibility badges, …). Prefer including those over re-creating their markup.
+
+Static message banners are banned in page templates (`rules/no-static-alerts.yml`).
+Put status beside the relevant item, guidance beside the field, and plans on the
+dashboard with a title, time, and link. Do not recreate colored banner boxes with
+utilities. Form errors use `tessera_errors`; action feedback uses Django messages
+in the shared, dismissible toaster. Only the flash renderer and design gallery
+may use the alert component directly.
 
 ## Which component — the decisions
 

@@ -15,6 +15,7 @@
                  draggable="true"
                  data-session-pk="{{ session.pk }}"
                  data-duration="{{ session.duration_minutes }}"
+                 data-participants-limit="{{ session.participants_limit }}"
                  hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}{% querystring %}"
                  hx-target="#left-pane"
                  hx-swap="outerHTML">

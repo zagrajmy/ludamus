@@ -64,13 +64,28 @@ logger = logging.getLogger(__name__)
 
 # Panel access only proves you manage an event; every id the request names has
 # to be scoped to it before it is read or written, or it is cross-event
-# tampering. Both guards live on the event noun because that is what they
-# assert membership of, and every panel service needs one or the other.
+# tampering. The guards live on the event noun because that is what they
+# assert membership of, and every panel service needs one of them.
 def require_session_in_event(
     *, sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
 ) -> None:
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
+
+
+def require_session_in_sphere(
+    *, sessions: SessionRepositoryProtocol, session_pk: int, sphere_id: int
+) -> EventDTO:
+    event = sessions.read_event(session_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused session %s of sphere %s to a request from sphere %s",
+            session_pk,
+            event.sphere_id,
+            sphere_id,
+        )
+        raise NotFoundError
+    return event
 
 
 def widen_event_dates(
@@ -523,10 +538,10 @@ class EventsService(EventsServiceProtocol):
         self._setup = setup
 
     def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
+        self, sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]:
         return self._events.list_for_events_page(
-            sphere_id, include_unpublished=include_unpublished
+            sphere_id, include_hidden=include_hidden
         )
 
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
