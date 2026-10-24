@@ -6,12 +6,14 @@ on:
     paths:
       - poetry.lock
       - pyproject.toml
+      - aube-lock.yaml
       - .github/workflows/audit.yml
   push:
     branches: ["master", "main"]
     paths:
       - poetry.lock
       - pyproject.toml
+      - aube-lock.yaml
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
@@ -28,6 +30,7 @@ jobs:
       - run: mise install
       - run: mise exec -- poetry install
       - run: mise run dep:audit:py
+      - run: mise run dep:audit:locks
 
   # A published image picks up new CVEs without changing; rescan it weekly.
   image:
