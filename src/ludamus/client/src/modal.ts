@@ -268,9 +268,9 @@ const openModal = async (
           card.style.transition = "";
         },
         swap: () => {
+          setMorph(card, false);
           // NOTE: a DOM swap can detach the dialog while the transition is queued.
           if (!dialog.isConnected) {
-            setMorph(card, false);
             const replacement = document.getElementById(id);
             if (!(replacement instanceof HTMLDialogElement && replacement.open)) {
               releaseSessionCard(id);
@@ -286,7 +286,6 @@ const openModal = async (
             return;
           }
           suppressSessionCard(id);
-          setMorph(card, false);
           card.style.transition = "none";
           presentDialog(dialog);
           setMorph(dialog, true);

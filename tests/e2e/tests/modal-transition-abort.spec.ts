@@ -1,3 +1,4 @@
+import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 import { settleViewTransitions, supportsViewTransitions } from "./helpers/view-transitions";
 
@@ -176,4 +177,55 @@ test("closing a modal mid-open leaves no unhandled rejection", async ({ page }) 
   await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeHidden();
   await settleViewTransitions(page);
   expect(errors).toEqual([]);
+});
+
+test("removing a dialog during its opening morph cancels cleanly", async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(`${error.name}: ${error.message}`));
+  await page.goto("/event/autumn-open/");
+  test.skip(!(await supportsViewTransitions(page)), "Requires view transitions");
+
+  const trigger = page.getByRole("link", { name: "Open details for Mega Strategy Lab" });
+  const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab", includeHidden: true });
+  await trigger.press("Enter");
+  await expect(dialog).toBeVisible();
+  await settleViewTransitions(page);
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toBeHidden();
+  await settleViewTransitions(page);
+
+  const removedMidOpen = await dialog.evaluateHandle((element) => ({
+    done: new Promise<void>((resolve) => {
+      const observer = new MutationObserver((records) => {
+        const morphStarted = records.some(
+          ({ target }) =>
+            target instanceof HTMLElement &&
+            !(target instanceof HTMLDialogElement) &&
+            target.style.viewTransitionName === "session-morph",
+        );
+        if (!morphStarted) return;
+        observer.disconnect();
+        element.remove();
+        resolve();
+      });
+      observer.observe(document.documentElement, { attributeFilter: ["style"], subtree: true });
+    }),
+  }));
+  await trigger.press("Enter");
+  await removedMidOpen.evaluate(({ done }) => done);
+  await settleViewTransitions(page);
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Mega Strategy Lab" })).toBeVisible();
+  expect(errors).toEqual([]);
+
+  await trigger.press("Enter");
+  await expect(dialog).toBeVisible();
+  await settleViewTransitions(page);
+  expect(errors).toEqual([]);
+  await attachArtifacts(testInfo, {
+    name: "modal-after-cancelled-opening",
+    region: dialog,
+    facts: { uncaughtErrors: errors },
+  });
 });
