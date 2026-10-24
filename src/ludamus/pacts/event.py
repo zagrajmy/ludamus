@@ -71,8 +71,8 @@ class FacilitatorListItemDTO(BaseModel):
     # Attached by the panel view, not the ORM. Null means no guild.
     guild: GuildMarkDTO | None = None
     organizer_id: int | None
-    # Annotated by `list_by_event`; null when nobody took the facilitator on.
-    organizer_name: str | None = None
+    # Annotated by the list queries; null when nobody took the facilitator on.
+    organizer_name: str | None
     pk: int
     session_count: int
     slug: str

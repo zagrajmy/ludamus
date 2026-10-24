@@ -37,7 +37,6 @@ from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FieldAnswer,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
@@ -1166,15 +1165,7 @@ class TestProposalEditPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        organizer_id=None,
-                        pk=facilitator.pk,
-                        session_count=1,
-                        slug="alice",
-                        user_id=None,
-                    )
+                    facilitator_list_item_dto(facilitator, session_count=1)
                 ],
                 "assigned_facilitator_pks": {facilitator.pk},
                 "field_descriptors": [],
@@ -2274,17 +2265,7 @@ class TestProposalEditPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
-                "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        organizer_id=None,
-                        pk=facilitator.pk,
-                        session_count=0,
-                        slug="alice",
-                        user_id=None,
-                    )
-                ],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
                 "field_descriptors": [],
                 "orphan_values": [],

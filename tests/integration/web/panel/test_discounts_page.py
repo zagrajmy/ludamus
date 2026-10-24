@@ -21,7 +21,7 @@ from ludamus.links.db.django.models import (
     DiscountRule,
     Facilitator,
 )
-from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO
+from ludamus.pacts import FacilitatorDTO
 from ludamus.pacts.discounts import DiscountDTO
 from ludamus.pacts.submissions import AccreditationType
 from tests.integration.conftest import EventFactory, SessionFactory, SpaceFactory
@@ -29,6 +29,7 @@ from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    facilitator_list_item_dto,
     panel_context,
 )
 
@@ -43,18 +44,6 @@ def _make_discount(event, facilitator, **kwargs):
     defaults = {"kind": "percent", "value": Decimal("10.00"), "note": ""}
     defaults.update(kwargs)
     return Discount.objects.create(event=event, facilitator=facilitator, **defaults)
-
-
-def _facilitator_list_dto(facilitator):
-    return FacilitatorListItemDTO(
-        accreditation_type=facilitator.accreditation_type,
-        display_name=facilitator.display_name,
-        organizer_id=None,
-        pk=facilitator.pk,
-        session_count=0,
-        slug=facilitator.slug,
-        user_id=None,
-    )
 
 
 def _discounts_url(event):
@@ -140,7 +129,7 @@ class TestDiscountsPageView:
                 "assignments": [],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "Guest",
                         "discount": DiscountDTO.model_validate(discount),
                     }
@@ -163,11 +152,11 @@ class TestDiscountsPageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(guest), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(guest), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(guest),
+                        "facilitator": facilitator_list_item_dto(guest),
                         "accreditation_type_display": "Guest",
                         "discount": None,
                     }
@@ -193,11 +182,11 @@ class TestDiscountsPageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(facilitator), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
@@ -230,7 +219,7 @@ class TestDiscountsPageView:
                 "assignments": [],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": DiscountDTO.model_validate(discount),
                     }
@@ -255,7 +244,7 @@ class TestDiscountsPageView:
                 "assignments": [],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "Program creator",
                         "discount": DiscountDTO.model_validate(discount),
                     }
@@ -366,11 +355,11 @@ class TestDiscountCreatePageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(facilitator), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
@@ -397,11 +386,11 @@ class TestDiscountCreatePageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(facilitator), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
@@ -425,11 +414,11 @@ class TestDiscountCreatePageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(facilitator), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
@@ -453,11 +442,11 @@ class TestDiscountCreatePageView:
                 **panel_context(event, active_nav="discounts"),
                 **_filter_context(event),
                 "assignments": [
-                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                    {"facilitator": facilitator_list_item_dto(facilitator), "form": ANY}
                 ],
                 "rows": [
                     {
-                        "facilitator": _facilitator_list_dto(facilitator),
+                        "facilitator": facilitator_list_item_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
