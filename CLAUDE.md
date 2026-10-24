@@ -145,31 +145,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
   name the proxy; the helper reads `CF-Connecting-IP`. Never read those
   headers directly. Topology in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-## Translation conventions (Polish)
-
-- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
-  flags.
-
-- **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
-  event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
-- **track** → "blok" or "blok programowy"
-- **facilitator** → "twórca programu"
-- **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides
-  with the "track" translation)
-- **proposal category** (prelekcja, sesja RPG, warsztaty, …) →
-  "rodzaj atrakcji" on participant-facing pages (do **not** use "kategoria" —
-  counterintuitive there); "kategoria" stays OK in the organizer panel
-
 ## Details
 
-- [Architecture](docs/agents/architecture.md) — codebase map: nouns, pages,
-  models, service wiring
-- [GLIMPSE skill](https://github.com/fancysnake/glimpse-architecture) — layer,
-  layout, and slicing rules (plugin `glimpse@glimpse`)
-- [Services migration](docs/agents/services-migration.md) — per-file recipe for
-  moving views from `request.di.uow` to `request.services`
-- [Testing assertions](docs/agents/testing-assertions.md) — patterns for
-  integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
 - [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
@@ -182,4 +159,3 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - [URL conventions](docs/CODE_LAYOUT.md)
 - [Verification](docs/VERIFICATION.md) — Hypothesis/CrossHair properties, Bend
   models, the differential test and Bombadil: which layer each covers
-- [Testing strategy](docs/TESTING_STRATEGY.md)
