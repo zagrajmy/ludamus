@@ -1169,6 +1169,7 @@ class TestProposalEditPageView:
                     FacilitatorListItemDTO(
                         accreditation_type="none",
                         display_name="Alice",
+                        organizer_id=None,
                         pk=facilitator.pk,
                         session_count=1,
                         slug="alice",
@@ -2277,6 +2278,7 @@ class TestProposalEditPageView:
                     FacilitatorListItemDTO(
                         accreditation_type="none",
                         display_name="Alice",
+                        organizer_id=None,
                         pk=facilitator.pk,
                         session_count=0,
                         slug="alice",

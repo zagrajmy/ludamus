@@ -49,6 +49,7 @@ def _facilitator_list_dto(facilitator):
     return FacilitatorListItemDTO(
         accreditation_type=facilitator.accreditation_type,
         display_name=facilitator.display_name,
+        organizer_id=None,
         pk=facilitator.pk,
         session_count=0,
         slug=facilitator.slug,
