@@ -10,7 +10,7 @@ import ludamus.pacts.listing
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0181_tags")]
+    dependencies = [("db_main", "0182_user_age_band")]
 
     operations = [
         migrations.CreateModel(
