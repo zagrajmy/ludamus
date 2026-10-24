@@ -47,6 +47,7 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     SelectedEnrollmentPartyDTO,
 )
+from ludamus.pacts.tickets import EventShopDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
@@ -180,6 +181,9 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "ticket_shop": EventShopDTO(
+            offers=[], accepting_payments=False, viewer_ticket_count=0
+        ),
         "link_preview": LinkPreview(),
         "google_calendar_url": google_calendar_url(
             event, page_url=f"http://testserver{url}"

@@ -10,6 +10,8 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
     ScheduleChangeLog,
     Session,
+    TicketOrder,
+    TicketType,
 )
 from ludamus.links.db.django.repositories.event_setup import (
     COPIED_FIELDS,
@@ -27,6 +29,9 @@ SKIPPED_RELATIONS = {
     PersonalDataFieldValue,
     ScheduleChangeLog,
     Session,
+    # Sales are per edition: dates and takings belong to the old event.
+    TicketOrder,
+    TicketType,
 }
 SKIPPED_FIELDS = {
     "cover_image",

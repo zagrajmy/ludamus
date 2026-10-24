@@ -1102,6 +1102,7 @@ msgstr "Kategoria"
 #: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/tickets.html
 msgid "Status"
 msgstr "Status"
 
@@ -2432,6 +2433,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-copy.html
 #: src/ludamus/templates/panel/space-form.html
+#: src/ludamus/templates/panel/ticket-type-form.html
 #: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
@@ -2652,6 +2654,65 @@ msgstr "Kolejność"
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Rules are checked from the lowest number; the first match wins."
 msgstr "Reguły sprawdzamy od najniższej liczby; wygrywa pierwsza pasująca."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgctxt "ticket type"
+msgid "Name"
+msgstr "Nazwa"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "What the buyer picks, e.g. “Weekend pass” or “Saturday only”."
+msgstr "To, co wybiera kupujący, np. „Karnet weekendowy” albo „Tylko sobota”."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Description"
+msgstr "Opis"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Optional. What the ticket includes."
+msgstr "Opcjonalnie. Co obejmuje bilet."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Price (zł)"
+msgstr "Cena (zł)"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Tickets available"
+msgstr "Dostępne bilety"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Leave empty to sell without a limit."
+msgstr "Zostaw puste, by sprzedawać bez limitu."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Sales open"
+msgstr "Początek sprzedaży"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Leave empty to start selling right away."
+msgstr "Zostaw puste, by zacząć sprzedaż od razu."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Sales close"
+msgstr "Koniec sprzedaży"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Leave empty to sell until the event ends."
+msgstr "Zostaw puste, by sprzedawać do końca wydarzenia."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Sales have to close after they open."
+msgstr "Sprzedaż musi kończyć się po jej rozpoczęciu."
 
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
@@ -2882,6 +2943,50 @@ msgstr[3] "Wyeksportowano %(count)d punkty programu."
 msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
 
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Ticket type not found."
+msgstr "Nie znaleziono rodzaju biletu."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Ticket type added."
+msgstr "Dodano rodzaj biletu."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Ticket type saved."
+msgstr "Zapisano rodzaj biletu."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Ticket type taken off sale. Tickets already sold stay valid."
+msgstr "Rodzaj biletu wycofany ze sprzedaży. Sprzedane bilety pozostają ważne."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Ticket type is back on sale."
+msgstr "Rodzaj biletu wrócił do sprzedaży."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Order not found."
+msgstr "Nie znaleziono zamówienia."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid ""
+"Order refunded. The buyer gets the money back in 5–10 days and the tickets "
+"no longer admit anyone."
+msgstr ""
+"Zwrócono pieniądze za zamówienie. Kupujący dostanie je w ciągu 5–10 dni, a "
+"bilety przestają być ważne."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid "Only a paid order can be refunded."
+msgstr "Zwrot jest możliwy tylko dla opłaconego zamówienia."
+
+#: src/ludamus/gates/web/django/event/panel/views/tickets.py
+msgid ""
+"Stripe didn't accept the refund. Try again, or refund the payment from your "
+"Stripe dashboard."
+msgstr ""
+"Stripe nie przyjął zwrotu. Spróbuj ponownie albo zwróć płatność w panelu "
+"Stripe."
+
 #: src/ludamus/gates/web/django/event/print.py
 msgid "Program for participants"
 msgstr "Program dla uczestników"
@@ -2953,19 +3058,6 @@ msgid "Empty or 0 = no enrollment"
 msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Description"
-msgstr "Opis"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/session_tags_cloud.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -3015,6 +3107,51 @@ msgstr "Zapisy otwarte"
 #, python-format
 msgid "Your enrollment opens %(day)s at %(time)s"
 msgstr "Twoje zapisy ruszają %(day)s o %(time)s"
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "Choose how many tickets you want."
+msgstr "Wybierz, ile biletów chcesz kupić."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+#, python-format
+msgid "You can buy up to %(limit)d tickets in one order."
+msgstr "W jednym zamówieniu możesz kupić najwyżej %(limit)d biletów."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "Not enough tickets left. Pick fewer, or another ticket type."
+msgstr "Nie ma już tylu biletów. Wybierz mniej albo inny rodzaj biletu."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "That ticket isn't on sale right now."
+msgstr "Ten bilet nie jest teraz w sprzedaży."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "Ticket sales for this event are paused. Try again later."
+msgstr "Sprzedaż biletów na to wydarzenie jest wstrzymana. Spróbuj później."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
+"We couldn't reach the payment provider. Nothing was charged; try again in a "
+"moment."
+msgstr ""
+"Nie udało się połączyć z operatorem płatności. Nic nie zostało pobrane; "
+"spróbuj za chwilę."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "Add an email address to your profile first: tickets go there."
+msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "Checkout cancelled. Nothing was charged."
+msgstr "Płatność anulowana. Nic nie zostało pobrane."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
+"Stripe didn't confirm the cancellation. If you didn't pay, the tickets go "
+"back on sale within the hour."
+msgstr ""
+"Stripe nie potwierdził anulowania. Jeśli nie zapłacono, bilety wrócą do "
+"sprzedaży w ciągu godziny."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid ""
@@ -3802,6 +3939,41 @@ msgstr "Regulamin"
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid "Stripe didn't respond. Nothing was changed; try again in a moment."
+msgstr "Stripe nie odpowiedział. Nic się nie zmieniło; spróbuj za chwilę."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid ""
+"Thank you! Stripe is confirming the payment; the plan switches over within a "
+"minute."
+msgstr ""
+"Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid "Add an email address to your profile first: Stripe needs one."
+msgstr "Najpierw dodaj adres e-mail do profilu: Stripe go wymaga."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid "Stripe is connected. You can sell tickets now."
+msgstr "Stripe jest połączony. Możesz już sprzedawać bilety."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid ""
+"Stripe still needs a few details. Continue the setup whenever you have them "
+"at hand."
+msgstr ""
+"Stripe potrzebuje jeszcze kilku informacji. Dokończ konfigurację, gdy "
+"będziesz je mieć pod ręką."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid "Add an email address to your profile first: invoices go there."
+msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
+
+#: src/ludamus/gates/web/django/sphere/billing.py
+msgid "This sphere has no billing history yet."
+msgstr "Ta sfera nie ma jeszcze historii płatności."
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
@@ -5779,8 +5951,31 @@ msgid "View on map ↗"
 msgstr "Zobacz na mapie ↗"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Buy tickets"
+msgstr "Kup bilety"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "View the program"
 msgstr "Zobacz program"
+
+#: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "Your ticket"
+msgid_plural "Your tickets (%(counter)s)"
+msgstr[0] "Twój bilet"
+msgstr[1] "Twoje bilety (%(counter)s)"
+msgstr[2] "Twoje bilety (%(counter)s)"
+msgstr[3] "Twoje bilety (%(counter)s)"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/tickets.html
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/tickets.html
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/ticket-type-form.html
+#: src/ludamus/templates/panel/tickets.html
+msgid "Tickets"
+msgstr "Bilety"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Sign up for sessions"
@@ -6345,6 +6540,149 @@ msgstr "Program"
 #: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Your order"
+msgstr "Twoje zamówienie"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "You're going!"
+msgstr "Do zobaczenia!"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Confirming your payment"
+msgstr "Potwierdzamy płatność"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Order refunded"
+msgstr "Zamówienie zwrócone"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Order not completed"
+msgstr "Zamówienie niedokończone"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+#, python-format
+msgid "Order #%(pk)s"
+msgstr "Zamówienie nr %(pk)s"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Show these codes at the entrance. They're also saved under My tickets."
+msgstr ""
+"Pokaż te kody przy wejściu. Znajdziesz je też w zakładce Bilety w profilu."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"Stripe is confirming the payment. This page updates on its own; it usually "
+"takes a few seconds."
+msgstr ""
+"Stripe potwierdza płatność. Ta strona odświeży się sama; zwykle trwa to "
+"kilka sekund."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"Your bank is still processing the transfer. Your tickets are held until it's "
+"through; come back to this page to see them."
+msgstr ""
+"Bank wciąż przetwarza przelew. Bilety czekają na ciebie do jego "
+"zaksięgowania; wróć na tę stronę, by je zobaczyć."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"Stripe hasn't confirmed this payment yet. Reload the page in a few minutes: "
+"if you were charged, your tickets appear here."
+msgstr ""
+"Stripe nie potwierdził jeszcze tej płatności. Odśwież stronę za kilka minut: "
+"jeśli pobrano pieniądze, bilety pojawią się tutaj."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"The organizer refunded this order. The money is on its way back to you; the "
+"tickets no longer admit anyone."
+msgstr ""
+"Organizator zwrócił pieniądze za to zamówienie. Są już w drodze do ciebie; "
+"bilety przestały być ważne."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Nothing was charged and the tickets went back on sale."
+msgstr "Nic nie zostało pobrane, a bilety wróciły do sprzedaży."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Choose tickets again"
+msgstr "Wybierz bilety ponownie"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Order summary"
+msgstr "Podsumowanie zamówienia"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+#: src/ludamus/templates/panel/tickets.html
+msgid "Total"
+msgstr "Razem"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Show my tickets"
+msgstr "Pokaż moje bilety"
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid "You have %(counter)s ticket for this event."
+msgid_plural "You have %(counter)s tickets for this event."
+msgstr[0] "Masz %(counter)s bilet na to wydarzenie."
+msgstr[1] "Masz %(counter)s bilety na to wydarzenie."
+msgstr[2] "Masz %(counter)s biletów na to wydarzenie."
+msgstr[3] "Masz %(counter)s biletów na to wydarzenie."
+
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Sold out"
+msgstr "Wyprzedane"
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid "On sale from %(when)s"
+msgstr "W sprzedaży od %(when)s"
+
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Sales closed"
+msgstr "Sprzedaż zakończona"
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid "%(counter)s left"
+msgid_plural "%(counter)s left"
+msgstr[0] "Został %(counter)s"
+msgstr[1] "Zostały %(counter)s"
+msgstr[2] "Zostało %(counter)s"
+msgstr[3] "Zostało %(counter)s"
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid "How many: %(name)s"
+msgstr "Ile sztuk: %(name)s"
+
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Continue to payment"
+msgstr "Przejdź do płatności"
+
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Log in to buy tickets"
+msgstr "Zaloguj się, by kupić bilety"
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid ""
+"Payment by card, BLIK or bank transfer on Stripe's secure page. Up to "
+"%(limit)s tickets per order."
+msgstr ""
+"Płatność kartą, BLIKIEM lub przelewem na bezpiecznej stronie Stripe. Do "
+"%(limit)s biletów w jednym zamówieniu."
+
+#: src/ludamus/templates/chronology/tickets.html
+msgid "Ticket sales for this event haven't opened yet. Check back soon."
+msgstr ""
+"Sprzedaż biletów na to wydarzenie jeszcze się nie zaczęła. Zajrzyj tu "
+"wkrótce."
 
 #: src/ludamus/templates/components/_checkbox-tree-node.html
 msgid "all"
@@ -7279,6 +7617,7 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/proposal-actions.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/tickets.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Edit"
 msgstr "Edycja"
@@ -7609,6 +7948,32 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#: src/ludamus/templates/crowd/user/tickets.html
+msgid "Show a code, or its QR, at the entrance. Each one admits one person."
+msgstr "Przy wejściu pokaż kod albo jego kod QR. Każdy wpuszcza jedną osobę."
+
+#: src/ludamus/templates/crowd/user/tickets.html
+#, python-format
+msgid "QR code for ticket %(code)s"
+msgstr "Kod QR biletu %(code)s"
+
+#: src/ludamus/templates/crowd/user/tickets.html
+msgid "No tickets yet"
+msgstr "Nie masz jeszcze biletów"
+
+#: src/ludamus/templates/crowd/user/tickets.html
+msgid ""
+"Tickets you buy for events in this sphere show up here, ready to show at the "
+"entrance."
+msgstr ""
+"Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
+"pokazania przy wejściu."
+
+#: src/ludamus/templates/crowd/user/tickets.html
+#: src/ludamus/templates/landing/gracz.html
+msgid "Browse events"
+msgstr "Zobacz wydarzenia"
+
 #: src/ludamus/templates/dashboard/_role.html
 msgid "You're signed up"
 msgstr "Jesteś zapisany/a"
@@ -7849,6 +8214,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/tickets.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Actions"
 msgstr "Akcje"
@@ -8223,10 +8589,6 @@ msgstr ""
 #: src/ludamus/templates/landing/gracz.html
 msgid "Run an Encounter"
 msgstr "Zorganizuj Spotkanie"
-
-#: src/ludamus/templates/landing/gracz.html
-msgid "Browse events"
-msgstr "Zobacz wydarzenia"
 
 #: src/ludamus/templates/landing/gracz.html
 msgid "Open Encounters"
@@ -9154,6 +9516,152 @@ msgstr "Akcje wiersza"
 msgid "No announcements yet."
 msgstr "Brak ogłoszeń."
 
+#: src/ludamus/templates/multiverse/panel/billing.html
+#: src/ludamus/templates/panel/base.html
+msgid "Plan & payouts"
+msgstr "Plan i wypłaty"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Payouts"
+msgstr "Wypłaty"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Stripe connected"
+msgstr "Stripe połączony"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Setup unfinished"
+msgstr "Konfiguracja niedokończona"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+#, python-format
+msgid ""
+"Ticket money goes straight to your sphere's own Stripe account. Zagrajmy "
+"keeps %(percent)s%% of each order; Stripe charges its processing fee from "
+"the same payment."
+msgstr ""
+"Pieniądze za bilety trafiają prosto na konto Stripe twojej sfery. Zagrajmy "
+"pobiera %(percent)s%% z każdego zamówienia; Stripe pobiera swoją prowizję z "
+"tej samej płatności."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"This Zagrajmy installation has no Stripe account configured, so tickets "
+"can't be sold here yet."
+msgstr ""
+"Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da się "
+"tu jeszcze sprzedawać biletów."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"Connect Stripe to sell tickets. Stripe asks for your organization's details "
+"and a bank account for payouts; it takes about ten minutes."
+msgstr ""
+"Połącz Stripe, by sprzedawać bilety. Stripe poprosi o dane organizacji i "
+"konto bankowe do wypłat; zajmuje to około dziesięciu minut."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"Stripe needs a few more details before it can take payments for you. Ticket "
+"sales stay paused until then."
+msgstr ""
+"Stripe potrzebuje jeszcze kilku informacji, zanim zacznie przyjmować "
+"płatności. Do tego czasu sprzedaż biletów jest wstrzymana."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"Payments and payouts are on. Refunds, disputes and payout dates are in your "
+"Stripe dashboard."
+msgstr ""
+"Płatności i wypłaty działają. Zwroty, spory i terminy wypłat znajdziesz w "
+"panelu Stripe."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"You can sell tickets. Stripe hasn't switched payouts on yet, so the money "
+"waits in your Stripe balance until it does."
+msgstr ""
+"Możesz sprzedawać bilety. Stripe nie włączył jeszcze wypłat, więc pieniądze "
+"czekają na saldzie Stripe, aż to zrobi."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Open Stripe dashboard"
+msgstr "Otwórz panel Stripe"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Continue Stripe setup"
+msgstr "Dokończ konfigurację Stripe"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Connect Stripe"
+msgstr "Połącz Stripe"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Plan"
+msgstr "Plan"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgctxt "plan"
+msgid "Yearly"
+msgstr "Roczny"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgctxt "plan"
+msgid "Pay per ticket"
+msgstr "Opłata od biletu"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"Your sphere is on the yearly plan: the programme, sign-ups and the panel for "
+"a flat yearly fee, with the Zagrajmy team helping you set up."
+msgstr ""
+"Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną opłatą, "
+"z pomocą zespołu Zagrajmy przy konfiguracji."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+#, python-format
+msgid "Paid until %(date)s."
+msgstr "Opłacony do %(date)s."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Arranged with the Zagrajmy team."
+msgstr "Uzgodniony z zespołem Zagrajmy."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Stripe is confirming the first payment."
+msgstr "Stripe potwierdza pierwszą płatność."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+#, python-format
+msgid ""
+"Zagrajmy costs nothing up front. When you sell tickets here, we keep "
+"%(percent)s%% of each order. Free events stay free."
+msgstr ""
+"Zagrajmy nic nie kosztuje z góry. Gdy sprzedajesz tu bilety, pobieramy "
+"%(percent)s%% z każdego zamówienia. Darmowe wydarzenia pozostają darmowe."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid ""
+"Selling tickets somewhere else? The yearly plan is for conventions that run "
+"their programme on Zagrajmy but sell entry through their own shop. It comes "
+"with onboarding help from the Zagrajmy team."
+msgstr ""
+"Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
+"prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. W "
+"cenie jest pomoc zespołu Zagrajmy przy starcie."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Switch to the yearly plan"
+msgstr "Przejdź na plan roczny"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Ask about the yearly plan"
+msgstr "Zapytaj o plan roczny"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Invoices and billing"
+msgstr "Faktury i płatności"
+
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "New connection"
@@ -9750,6 +10258,20 @@ msgstr "Kopiuj do wydarzenia"
 msgid "Delete this space and everything inside it?"
 msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
 
+#: src/ludamus/templates/panel/_ticket_order_status_badge.html
+msgctxt "ticket order"
+msgid "Paid"
+msgstr "Opłacone"
+
+#: src/ludamus/templates/panel/_ticket_order_status_badge.html
+msgid "Awaiting payment"
+msgstr "Czeka na płatność"
+
+#
+#: src/ludamus/templates/panel/_ticket_order_status_badge.html
+msgid "Refunded"
+msgstr "Zwrócone"
+
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
 msgid "New Time Slot"
 msgstr "Nowy przedział czasowy"
@@ -10001,6 +10523,11 @@ msgstr "W trakcie"
 #: src/ludamus/templates/panel/errata.html
 msgid "Errata"
 msgstr "Errata"
+
+#: src/ludamus/templates/panel/base.html
+msgctxt "Sidebar category"
+msgid "Sales"
+msgstr "Sprzedaż"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Settings"
@@ -12554,6 +13081,235 @@ msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
 "odwzorować większy obiekt."
 
+#: src/ludamus/templates/panel/ticket-type-form.html
+msgid "Edit ticket type"
+msgstr "Edytuj rodzaj biletu"
+
+#: src/ludamus/templates/panel/ticket-type-form.html
+#: src/ludamus/templates/panel/tickets.html
+msgid "Add ticket type"
+msgstr "Dodaj rodzaj biletu"
+
+#: src/ludamus/templates/panel/ticket-type-form.html
+msgid "Save ticket type"
+msgstr "Zapisz rodzaj biletu"
+
+#: src/ludamus/templates/panel/ticket-type-form.html
+#, python-format
+msgid ""
+"%(counter)s ticket of this type is already sold. A new price applies only to "
+"tickets bought from now on."
+msgid_plural ""
+"%(counter)s tickets of this type are already sold. A new price applies only "
+"to tickets bought from now on."
+msgstr[0] ""
+"Sprzedano już %(counter)s bilet tego rodzaju. Nowa cena obowiązuje tylko "
+"przy kolejnych zakupach."
+msgstr[1] ""
+"Sprzedano już %(counter)s bilety tego rodzaju. Nowa cena obowiązuje tylko "
+"przy kolejnych zakupach."
+msgstr[2] ""
+"Sprzedano już %(counter)s biletów tego rodzaju. Nowa cena obowiązuje tylko "
+"przy kolejnych zakupach."
+msgstr[3] ""
+"Sprzedano już %(counter)s biletów tego rodzaju. Nowa cena obowiązuje tylko "
+"przy kolejnych zakupach."
+
+#: src/ludamus/templates/panel/ticket-type-form.html
+msgid "When it's on sale"
+msgstr "Kiedy jest w sprzedaży"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Payments are not available here"
+msgstr "Płatności nie są tu dostępne"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Finish setting up payouts"
+msgstr "Dokończ konfigurację wypłat"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Connect Stripe to sell tickets"
+msgstr "Połącz Stripe, by sprzedawać bilety"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid ""
+"This Zagrajmy installation has no Stripe account configured, so tickets can "
+"be prepared but not sold."
+msgstr ""
+"Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
+"można przygotować, ale nie sprzedać."
+
+#: src/ludamus/templates/panel/tickets.html
+msgid ""
+"Stripe still needs a few details before it can take payments for you. Ticket "
+"types stay off sale until then."
+msgstr ""
+"Stripe potrzebuje jeszcze kilku informacji, zanim zacznie przyjmować "
+"płatności. Do tego czasu bilety nie są w sprzedaży."
+
+#: src/ludamus/templates/panel/tickets.html
+msgid ""
+"Ticket money goes straight to your sphere's own Stripe account. Until it is "
+"connected, ticket types stay off sale."
+msgstr ""
+"Pieniądze za bilety trafiają prosto na konto Stripe twojej sfery. Dopóki nie "
+"jest połączone, bilety nie są w sprzedaży."
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Set up payouts"
+msgstr "Skonfiguruj wypłaty"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Sales so far"
+msgstr "Dotychczasowa sprzedaż"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "tickets sold"
+msgstr "sprzedanych biletów"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "paid by buyers"
+msgstr "zapłacili kupujący"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "Zagrajmy %(percent)s%% and Stripe fees (est.)"
+msgstr "Zagrajmy %(percent)s%% i prowizja Stripe (szac.)"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "you keep (est.)"
+msgstr "zostaje dla ciebie (szac.)"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid ""
+"Stripe's fee depends on the card and payment method; the exact amount for "
+"every payment is in your Stripe dashboard."
+msgstr ""
+"Prowizja Stripe zależy od karty i metody płatności; dokładna kwota każdej "
+"płatności jest w panelu Stripe."
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Ticket types"
+msgstr "Rodzaje biletów"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Ticket"
+msgstr "Bilet"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Price"
+msgstr "Cena"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "You keep (est.)"
+msgstr "Dla ciebie (szac.)"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Sold"
+msgstr "Sprzedane"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "On sale"
+msgstr "Sprzedaż"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "%(counter)s in checkout"
+msgid_plural "%(counter)s in checkout"
+msgstr[0] "%(counter)s w trakcie płatności"
+msgstr[1] "%(counter)s w trakcie płatności"
+msgstr[2] "%(counter)s w trakcie płatności"
+msgstr[3] "%(counter)s w trakcie płatności"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "from %(when)s"
+msgstr "od %(when)s"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "until %(when)s"
+msgstr "do %(when)s"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "until the event ends"
+msgstr "do końca wydarzenia"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Take off sale"
+msgstr "Wycofaj ze sprzedaży"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Nothing is on sale now"
+msgstr "Teraz nic nie jest w sprzedaży"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "This event is free to attend"
+msgstr "Udział w tym wydarzeniu jest darmowy"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid ""
+"Add a ticket type to sell entry on Zagrajmy. Buyers pay by card, BLIK or "
+"bank transfer through Stripe; Zagrajmy keeps %(percent)s%% of each order and "
+"Stripe charges its own processing fee."
+msgstr ""
+"Dodaj rodzaj biletu, by sprzedawać wejściówki na Zagrajmy. Kupujący płacą "
+"kartą, BLIKIEM lub przelewem przez Stripe; Zagrajmy pobiera %(percent)s%% z "
+"każdego zamówienia, a Stripe swoją prowizję."
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "%(counter)s ticket type off sale"
+msgid_plural "%(counter)s ticket types off sale"
+msgstr[0] "%(counter)s rodzaj biletu poza sprzedażą"
+msgstr[1] "%(counter)s rodzaje biletów poza sprzedażą"
+msgstr[2] "%(counter)s rodzajów biletów poza sprzedażą"
+msgstr[3] "%(counter)s rodzajów biletów poza sprzedażą"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid "%(counter)s sold"
+msgid_plural "%(counter)s sold"
+msgstr[0] "%(counter)s sprzedany"
+msgstr[1] "%(counter)s sprzedane"
+msgstr[2] "%(counter)s sprzedanych"
+msgstr[3] "%(counter)s sprzedanych"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Put back on sale"
+msgstr "Przywróć do sprzedaży"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Orders"
+msgstr "Zamówienia"
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Buyer"
+msgstr "Kupujący"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid ""
+"Refund %(total)s to the buyer? Their tickets stop being valid. Stripe keeps "
+"its processing fee."
+msgstr ""
+"Zwrócić kupującemu %(total)s? Jego bilety przestaną być ważne. Stripe "
+"zatrzymuje swoją prowizję."
+
+#: src/ludamus/templates/panel/tickets.html
+msgid "Refund order"
+msgstr "Zwróć zamówienie"
+
+#: src/ludamus/templates/panel/tickets.html
+#, python-format
+msgid ""
+"These are the latest %(shown)s orders. Your Stripe dashboard has all of "
+"them, with search."
+msgstr ""
+"To %(shown)s najnowszych zamówień. Wszystkie, z wyszukiwarką, są w panelu "
+"Stripe."
+
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Edit Time Slot"
 msgstr "Edytuj przedział czasowy"
@@ -13360,9 +14116,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Place the session inside one of the event's time slots."
 #~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
 
-#~ msgid "total"
-#~ msgstr "łącznie"
-
 #~ msgid ""
 #~ "Friends who enroll together wait together and move up together, and "
 #~ "nobody skips past them. RSVP tools that count seats one by one split such "
@@ -13572,9 +14325,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
-
-#~ msgid "No events available"
-#~ msgstr "Brak dostępnych wydarzeń"
 
 #~ msgid "There are currently no events scheduled. Please check back later!"
 #~ msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
@@ -13938,9 +14688,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
-
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"

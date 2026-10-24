@@ -199,9 +199,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # A window restricted to pass holders is not open to everyone, so the
         # cards, the pill and the modal all read enrollment off this one
         # viewer-scoped answer.
+        event = EventDTO.model_validate(self.object)
         access = self.request.services.enrollment.access(
-            event=EventDTO.model_validate(self.object),
-            viewer_slug=self.request.context.current_user_slug,
+            event=event, viewer_slug=self.request.context.current_user_slug
         )
 
         # Get session data objects that include enrollment status; the
@@ -225,6 +225,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             for sid, data in sessions_data.items()
         }
         has_maps = self.request.services.event_maps.has_maps(self.object.pk)
+        ticket_shop = self.request.services.ticket_sales.shop(
+            event=event, viewer_id=current_user_id
+        )
 
         hour_data = self._get_hour_data(sessions_data)
 
@@ -283,6 +286,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "event_banned": event_banned,
+                "ticket_shop": ticket_shop,
             }
         )
 

@@ -4,9 +4,35 @@
 # sit next to the views they route to.
 from django.urls import path
 
-from ludamus.gates.web.django.sphere import guilds, team
+from ludamus.gates.web.django.sphere import billing, guilds, team
 
 urlpatterns = [
+    path("billing/", billing.BillingPageView.as_view(), name="billing"),
+    path(
+        "billing/do/connect",
+        billing.BillingConnectActionView.as_view(),
+        name="billing-connect",
+    ),
+    path(
+        "billing/do/resume",
+        billing.BillingResumeActionView.as_view(),
+        name="billing-resume",
+    ),
+    path(
+        "billing/do/return",
+        billing.BillingReturnActionView.as_view(),
+        name="billing-return",
+    ),
+    path(
+        "billing/do/subscribe",
+        billing.BillingSubscribeActionView.as_view(),
+        name="billing-subscribe",
+    ),
+    path(
+        "billing/do/portal",
+        billing.BillingPortalActionView.as_view(),
+        name="billing-portal",
+    ),
     path("team/", team.TeamPageView.as_view(), name="team"),
     path("team/do/invite", team.TeamInviteActionView.as_view(), name="team-invite"),
     path(

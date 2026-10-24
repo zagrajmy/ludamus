@@ -107,6 +107,7 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /panel-tickets\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
         /guilds\.spec\.ts/,
         /panel-tracks\.spec\.ts/,

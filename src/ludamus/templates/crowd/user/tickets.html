@@ -1,0 +1,55 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera ticket_tags %}
+{% block title %}
+    {% translate "Tickets" %}
+{% endblock title %}
+{% block profile_content %}
+    {% if tickets %}
+        <p class="text-sm text-foreground-muted mb-4">
+            {% translate "Show a code, or its QR, at the entrance. Each one admits one person." %}
+        </p>
+        {% regroup tickets by event_slug as events %}
+        <div class="space-y-8">
+            {% for group in events %}
+                {% with first=group.list.0 %}
+                    <section aria-labelledby="tickets-{{ group.grouper }}">
+                        <h2 id="tickets-{{ group.grouper }}"
+                            class="font-semibold text-foreground wrap-anywhere">
+                            <a href="{% url 'web:chronology:event' slug=first.event_slug %}"
+                               class="hover:underline underline-offset-4">{{ first.event_name }}</a>
+                        </h2>
+                        <p class="text-sm text-foreground-muted mb-3">
+                            <time datetime="{{ first.event_start|date:'c' }}">{{ first.event_start|date:"j E Y, G:i" }}</time>
+                        </p>
+                        <ul class="grid gap-3 sm:grid-cols-2">
+                            {% for ticket in group.list %}
+                                <li class="card card-body flex items-center gap-4">
+                                    {# The QR carries only the code shown beside it. #}
+                                    <img src="{{ ticket.code|qr_data_url }}"
+                                         alt="{% blocktranslate with code=ticket.code %}QR code for ticket {{ code }}{% endblocktranslate %}"
+                                         class="size-24 shrink-0 rounded-lg bg-white p-1.5"
+                                         width="96"
+                                         height="96">
+                                    <div class="min-w-0">
+                                        <div class="text-sm text-foreground-muted wrap-anywhere">{{ ticket.ticket_type_name }}</div>
+                                        <div class="font-mono text-lg font-semibold tracking-widest text-foreground">{{ ticket.code }}</div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                {% endwith %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <h2 class="font-semibold text-foreground">{% translate "No tickets yet" %}</h2>
+        <p class="mt-1 text-sm text-foreground-muted">
+            {% translate "Tickets you buy for events in this sphere show up here, ready to show at the entrance." %}
+        </p>
+        <div class="mt-4">
+            {% translate "Browse events" as browse_label %}
+            {% url 'web:index' as browse_url %}
+            {% tessera_button browse_label href=browse_url variant="secondary" %}
+        </div>
+    {% endif %}
+{% endblock profile_content %}

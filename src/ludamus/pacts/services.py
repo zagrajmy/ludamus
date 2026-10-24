@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.billing import PlanServiceProtocol
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
@@ -90,6 +91,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
+    from ludamus.pacts.tickets import (
+        PayoutServiceProtocol,
+        TicketPanelServiceProtocol,
+        TicketSalesServiceProtocol,
+    )
     from ludamus.pacts.timetable import (
         ConflictDetectionServiceProtocol,
         TimetableOverviewServiceProtocol,
@@ -248,3 +254,11 @@ class ServicesProtocol(Protocol):
     def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+    @property
+    def payouts(self) -> PayoutServiceProtocol: ...
+    @property
+    def ticket_sales(self) -> TicketSalesServiceProtocol: ...
+    @property
+    def ticket_panel(self) -> TicketPanelServiceProtocol: ...
+    @property
+    def plan(self) -> PlanServiceProtocol: ...

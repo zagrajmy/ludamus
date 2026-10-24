@@ -30,8 +30,10 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
+from ludamus.links.payment_api.stripe import StripeBilling, StripeConnect, build_client
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.mills.billing import PlanService
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     ProposalAcceptanceService,
@@ -105,6 +107,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
+from ludamus.mills.tickets import PayoutService, TicketPanelService, TicketSalesService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -118,9 +121,12 @@ from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.tickets import TicketRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
+    import stripe
+
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.pacts.chronology import (
@@ -130,6 +136,17 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+
+
+_STRIPE_CLIENTS: dict[str, stripe.StripeClient | None] = {}
+
+
+def _stripe_client(api_key: str) -> stripe.StripeClient | None:
+    # One pooled client per process; keyed by key, so a test overriding the
+    # setting gets its own.
+    if api_key not in _STRIPE_CLIENTS:
+        _STRIPE_CLIENTS[api_key] = build_client(api_key)
+    return _STRIPE_CLIENTS[api_key]
 
 
 class Services:
@@ -705,4 +722,66 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def _ticket_repos(self) -> TicketRepos:
+        return TicketRepos(
+            ticket_types=self._repos.ticket_types,
+            orders=self._repos.ticket_orders,
+            accounts=self._repos.payout_accounts,
+            plans=self._repos.sphere_plans,
+        )
+
+    @cached_property
+    def _stripe_connect(self) -> StripeConnect:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_CONNECT_WEBHOOK_SECRET
+        root_domain: str = settings.ROOT_DOMAIN
+        return StripeConnect(
+            client=_stripe_client(api_key),
+            webhook_secret=webhook_secret,
+            idempotency_namespace=root_domain,
+        )
+
+    @cached_property
+    def payouts(self) -> PayoutService:
+        return PayoutService(
+            transaction=self._transaction,
+            accounts=self._repos.payout_accounts,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def ticket_sales(self) -> TicketSalesService:
+        return TicketSalesService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def ticket_panel(self) -> TicketPanelService:
+        return TicketPanelService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def plan(self) -> PlanService:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_BILLING_WEBHOOK_SECRET
+        yearly_price_id: str = settings.STRIPE_YEARLY_PRICE_ID
+        root_domain: str = settings.ROOT_DOMAIN
+        return PlanService(
+            transaction=self._transaction,
+            plans=self._repos.sphere_plans,
+            billing=StripeBilling(
+                client=_stripe_client(api_key),
+                webhook_secret=webhook_secret,
+                yearly_price_id=yearly_price_id,
+                # Keys stay apart when deployments share a Stripe test account.
+                idempotency_namespace=root_domain,
+            ),
         )

@@ -8,5 +8,6 @@ want a written argument and a decision trail before code. Distinct from
 | # | RFC | Status |
 | - | --- | ------ |
 | [0001](0001-party.md) | Party (drużyna) — replace "Connected users" with a membership model (claim flow landed) | 🟡 draft |
+| [0002](0002-ticketing.md) | Ticket sales on Stripe Connect, and the yearly (White Glove) plan | 🟡 draft |
 
 Legend: 🟢 accepted/active · 🟡 draft, under discussion · 🔴 rejected/superseded.
