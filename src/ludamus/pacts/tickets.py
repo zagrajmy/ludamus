@@ -8,8 +8,9 @@ docs/rfc/0002-ticketing.md.
 
 Buying needs no account. An order's page lives at a secret `reference`, which
 Stripe sends the buyer back to and the order mail repeats; whoever has it sees
-the order until someone claims it into their account, and from then on only
-that account does.
+the order until it is claimed into an account, and from then on only that
+account does. Claiming needs the order's email: an account verified for it
+claims at once, any other account through a link mailed to that address.
 
 Money is integer minor units (grosze) everywhere.
 """
@@ -17,7 +18,7 @@ Money is integer minor units (grosze) everywhere.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, TypedDict
@@ -49,6 +50,9 @@ MAX_TICKET_PRICE = 99_999_999 // MAX_TICKETS_PER_ORDER
 MAX_TICKET_QUANTITY = 1_000_000
 TICKET_CODE_LENGTH = 10
 ORDER_REFERENCE_MAX_LENGTH = 32
+# A guest's network, keyed (`TicketOrder.guest_client`): HMAC-SHA256, in hex.
+GUEST_CLIENT_LENGTH = 64
+ORDER_CLAIM_LINK_MAX_AGE = timedelta(days=1)
 
 
 class OrderStatus(StrEnum):
@@ -107,12 +111,18 @@ class CheckoutOutcome(StrEnum):
     NOT_ON_SALE = "not_on_sale"
     SOLD_OUT = "sold_out"
     SALES_CLOSED = "sales_closed"
+    # A guest's network holds as many unpaid orders as one may.
+    TOO_MANY_HOLDS = "too_many_holds"
     PROVIDER_ERROR = "provider_error"
 
 
 class ClaimOutcome(StrEnum):
     CLAIMED = "claimed"
     ALREADY_YOURS = "already_yours"
+    # The account is not verified for the order's email: a link went there.
+    CONFIRMATION_SENT = "confirmation_sent"
+    # A mailed link that expired, or that was made for another account.
+    LINK_INVALID = "link_invalid"
 
 
 class RefundOutcome(StrEnum):
@@ -263,6 +273,11 @@ class OrderDTO(BaseModel):
     def ticket_count(self) -> int:
         return sum(line.quantity for line in self.lines)
 
+    @property
+    def is_guest(self) -> bool:
+        """No account holds it: its link is all there is to it."""
+        return self.buyer_id is None
+
 
 class OrderPageState(StrEnum):
     """What the buyer's order page tells them."""
@@ -292,8 +307,18 @@ class BuyerOrderDTO(BaseModel):
 
     @property
     def claimable(self) -> bool:
-        """No account holds it yet: signing in on its page keeps it."""
-        return self.order.buyer_id is None
+        """A guest's order with tickets coming: signing in on its page keeps it.
+
+        Not before Checkout reports the buyer's email: claiming may need it.
+        """
+        return (
+            self.order.is_guest
+            and bool(self.order.email)
+            and self.state not in {
+                OrderPageState.REFUNDED,
+                OrderPageState.NOT_COMPLETED,
+            }
+        )
 
 
 class OwnedTicketDTO(BaseModel):
@@ -330,6 +355,8 @@ class OrderCreateData(TypedDict):
     event_id: int
     # None: a guest, until they claim it.
     buyer_id: int | None
+    # The guest's network, keyed; empty for an account's order.
+    guest_client: str
     # Empty for a guest: Checkout asks for it.
     email: str
     currency: str
@@ -439,6 +466,25 @@ class CheckoutStartDTO(BaseModel):
 
 
 @dataclass(frozen=True)
+class CheckoutBuyer:
+    """Who is buying: an account, or a guest known only by their network."""
+
+    user_id: int | None
+    # The account's address, or empty: Checkout asks the buyer.
+    email: str
+    # Empty for an account; for a guest, their keyed network.
+    guest_client: str
+
+
+@dataclass(frozen=True)
+class Claimant:
+    user_id: int
+    name: str
+    # The account's address if it is verified, else empty.
+    verified_email: str
+
+
+@dataclass(frozen=True)
 class CheckoutUrls:
     """Where Stripe sends the buyer back, given the order's reference."""
 
@@ -446,22 +492,61 @@ class CheckoutUrls:
     cancel: Callable[[str], str]
 
 
+class OrderMailEvent(BaseModel):
+    pk: int
+    name: str
+    slug: str
+
+
 class OrderLinkMail(BaseModel):
     """The mail that hands a buyer their order page, so a guest can find it."""
 
+    order_pk: int
     email: str
-    event_id: int
-    event_name: str
-    event_slug: str
+    event: OrderMailEvent
     reference: str
+    # Paid: the tickets are on the page; else the money is still on its way.
+    paid: bool
     # No account holds the order: the mail says how to keep it in one.
-    claimable: bool
+    is_guest: bool
+
+
+class ClaimConfirmationMail(BaseModel):
+    """Asks the order's email to let an account take the order."""
+
+    order_pk: int
+    email: str
+    event: OrderMailEvent
+    reference: str
+    token: str
+    account_name: str
 
 
 class TicketMailerProtocol(Protocol):
+    # Both send after the surrounding transaction commits, and never raise.
     @staticmethod
-    def send_order_link(mail: OrderLinkMail) -> None:
-        """Send after the surrounding transaction commits; never raise."""
+    def send_order_link(mail: OrderLinkMail) -> None: ...
+    @staticmethod
+    def send_claim_confirmation(mail: ClaimConfirmationMail) -> None: ...
+
+
+class OrderClaimPayload(BaseModel):
+    order_pk: int
+    user_id: int
+
+
+class OrderClaimCodecProtocol(Protocol):
+    @staticmethod
+    def dumps(payload: OrderClaimPayload) -> str: ...
+    @staticmethod
+    def loads(token: str) -> OrderClaimPayload | None:
+        """None for a forged or expired (`ORDER_CLAIM_LINK_MAX_AGE`) token."""
+
+
+class ClaimResultDTO(BaseModel):
+    outcome: ClaimOutcome
+    # Where a confirmation link went, for CONFIRMATION_SENT.
+    sent_to: str = ""
 
 
 class TicketTypeRepositoryProtocol(Protocol):
@@ -501,6 +586,12 @@ class TicketOrderRepositoryProtocol(Protocol):
     @staticmethod
     def claim(*, pk: int, buyer_id: int) -> None:
         """Give the order, and every ticket it issued, to `buyer_id`."""
+
+    @staticmethod
+    def count_guest_holds(
+        *, event_id: int, guest_client: str, holds_after: datetime
+    ) -> int:
+        """Count a guest network's orders on the event that still hold seats."""
 
     @staticmethod
     def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None: ...
@@ -578,15 +669,13 @@ class PayoutServiceProtocol(Protocol):
 
 class TicketSalesServiceProtocol(Protocol):
     def shop(self, *, event: EventDTO, viewer_id: int | None) -> EventShopDTO: ...
-    def guest_checkout_allowed(self, *, ip: str, event_id: int) -> bool:
-        """Count a guest's checkout from `ip`; say if it is within the limit."""
 
+    # `buyer`: the account buying, or None and the guest's keyed network.
     def start_checkout(
         self,
         *,
         event: EventDTO,
-        buyer_id: int | None,
-        email: str,
+        buyer: CheckoutBuyer,
         quantities: dict[int, int],
         urls: CheckoutUrls,
     ) -> CheckoutStartDTO: ...
@@ -600,7 +689,10 @@ class TicketSalesServiceProtocol(Protocol):
         self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> AbandonOutcome: ...
     def claim_order(
-        self, *, event_id: int, reference: str, user_id: int
+        self, *, event_id: int, reference: str, claimant: Claimant
+    ) -> ClaimResultDTO: ...
+    def confirm_claim(
+        self, *, event_id: int, reference: str, token: str, user_id: int
     ) -> ClaimOutcome: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int

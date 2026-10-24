@@ -1,8 +1,8 @@
 """Which URL segments may never reach the analytics project.
 
-Claim links and session offers authenticate by bearing a token in the path —
-that is what lets those flows work without a login — so such a path is a
-credential, not a location.
+Claim links, session offers and ticket orders authenticate by bearing a token
+in the path — that is what lets those flows work without a login — so such a
+path is a credential, not a location.
 
 The rules are not written here. `gates` derives them from the URLconf, which is
 the only place that knows which segments are parameters, and registers them at
@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-SECRET_URL_KWARGS = frozenset({"token"})
+SECRET_URL_KWARGS = frozenset({"token", "reference"})
 
 
 class Rule(NamedTuple):

@@ -3,13 +3,15 @@
 The ticket type and order fakes share one `TicketBook`, so seats sold and held
 are counted from the orders the way the real repository's query counts them,
 and an order moves only from a status its `allowed_from` names.
+
+`tests.unit.ticket_fixtures` wires them into the ticket services.
 """
 
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
 from ludamus.pacts.billing import PlanSource, SpherePlanDTO
-from ludamus.pacts.payment_api import AccountState, PaymentProviderError
+from ludamus.pacts.payment_api import AccountState, CheckoutEvent, PaymentProviderError
 from ludamus.pacts.tickets import (
     CHECKOUT_STATUSES,
     LEDGER_STATUSES,
@@ -17,6 +19,8 @@ from ludamus.pacts.tickets import (
     SOLD_STATUSES,
     CheckoutRequest,
     CheckoutSessionDTO,
+    ClaimConfirmationMail,
+    OrderClaimPayload,
     OrderDTO,
     OrderLineDTO,
     OrderLinkMail,
@@ -36,6 +40,10 @@ OTHER_EVENT_ID = 2
 BUYER_ID = 10
 OTHER_BUYER_ID = 11
 ACCOUNT_ID = "acct_sphere"
+BUYER_EMAIL = "buyer@example.com"
+GUEST_EMAIL = "guest@example.com"
+PRICE = 5000
+TICKETS_LOGGER = "ludamus.mills.tickets"
 NOW = datetime.now(tz=UTC)
 
 
@@ -55,6 +63,14 @@ class TicketBook:
         self.event = shop_event()
         self.types: dict[int, TicketTypeDTO] = {}
         self.orders: dict[int, OrderDTO] = {}
+        # Not on `OrderDTO`: only the guest hold count reads it.
+        self.guest_clients: dict[int, str] = {}
+
+    @staticmethod
+    def holds_seats(order, *, holds_after):
+        return order.status in SETTLING_STATUSES or (
+            order.status in CHECKOUT_STATUSES and order.hold_until > holds_after
+        )
 
     def seats(self, *, ticket_type_id, counts):
         return sum(
@@ -78,7 +94,7 @@ class FakeTicketTypes:
             "event_id": EVENT_ID,
             "name": f"Ticket {pk}",
             "description": "",
-            "price": 5000,
+            "price": PRICE,
             "currency": "pln",
             "quantity": None,
             "sales_start": None,
@@ -101,10 +117,8 @@ class FakeTicketTypes:
                 ),
                 "held": self._book.seats(
                     ticket_type_id=row.pk,
-                    counts=lambda order: order.status in SETTLING_STATUSES
-                    or (
-                        order.status in CHECKOUT_STATUSES
-                        and order.hold_until > holds_after
+                    counts=lambda order: self._book.holds_seats(
+                        order, holds_after=holds_after
                     ),
                 ),
             }
@@ -165,7 +179,7 @@ class FakeOrders:
         self._pks = count(1)
         self._ticket_pks = count(1)
 
-    def add(self, *, lines, **overrides):
+    def add(self, *, lines, guest_client="", **overrides):
         pk = next(self._pks)
         defaults = {
             "pk": pk,
@@ -175,7 +189,7 @@ class FakeOrders:
             "event_slug": self._book.event.slug,
             "buyer_id": BUYER_ID,
             "buyer_name": "Buyer",
-            "email": "buyer@example.com",
+            "email": BUYER_EMAIL,
             "status": OrderStatus.PENDING,
             "currency": "pln",
             "platform_fee": 0,
@@ -200,6 +214,7 @@ class FakeOrders:
         total = sum(line.subtotal for line in order_lines)
         order = OrderDTO(**(defaults | {"total": total} | overrides), lines=order_lines)
         self._book.orders[pk] = order
+        self._book.guest_clients[pk] = guest_client
         return order
 
     def _update(self, pk, **changes):
@@ -225,6 +240,16 @@ class FakeOrders:
 
     def claim(self, *, pk, buyer_id):
         self._update(pk, buyer_id=buyer_id)
+
+    def count_guest_holds(self, *, event_id, guest_client, holds_after):
+        return sum(
+            1
+            for order in self._book.orders.values()
+            if order.event_id == event_id
+            and order.is_guest
+            and self._book.guest_clients[order.pk] == guest_client
+            and self._book.holds_seats(order, holds_after=holds_after)
+        )
 
     def lock_for_event(self, *, event_id, pk):
         return self._find(lambda order: order.pk == pk and order.event_id == event_id)
@@ -365,12 +390,13 @@ class FakePlans:
         self.rows: dict[int, SpherePlanDTO] = {}
 
     def add(self, *, sphere_id=SPHERE_ID, **data):
-        return self.save(sphere_id=sphere_id, data=data)
+        self.update(sphere_id=sphere_id, data=data)
+        return self.rows[sphere_id]
 
     def read(self, *, sphere_id):
         return self.rows.get(sphere_id)
 
-    def save(self, *, sphere_id, data):
+    def update(self, *, sphere_id, data):
         current = self.rows.get(sphere_id) or SpherePlanDTO(
             sphere_id=sphere_id,
             technical_partner=False,
@@ -382,7 +408,6 @@ class FakePlans:
             stripe_subscription_id="",
         )
         self.rows[sphere_id] = current.model_copy(update=dict(data))
-        return self.rows[sphere_id]
 
     def lock_by_customer(self, *, customer_id):
         return next(
@@ -447,21 +472,67 @@ class FakeTicketPayments:
 class FakeMailer:
     def __init__(self):
         self.sent: list[OrderLinkMail] = []
+        self.confirmations: list[ClaimConfirmationMail] = []
 
     def send_order_link(self, mail):
         self.sent.append(mail)
 
+    def send_claim_confirmation(self, mail):
+        self.confirmations.append(mail)
 
-class FakeCache:
-    """Django's cache as far as a counter needs: no expiry, only its timeout."""
+
+class FakeClaimCodec:
+    """Signed claim links: a token reads back as its payload until it expires."""
 
     def __init__(self):
-        self.entries: dict[str, object] = {}
-        self.timeouts: dict[str, int | None] = {}
+        self._issued: dict[str, OrderClaimPayload] = {}
 
-    def get(self, key):
-        return self.entries.get(key)
+    def dumps(self, payload):
+        token = f"claim-{len(self._issued) + 1}"
+        self._issued[token] = payload
+        return token
 
-    def set(self, key, value, timeout=None):
-        self.entries[key] = value
-        self.timeouts[key] = timeout
+    def loads(self, token):
+        return self._issued.get(token)
+
+    def expire(self, token):
+        del self._issued[token]
+
+
+def add_order(orders, ticket_type, *, quantity=2, **overrides):
+    return orders.add(
+        lines=[
+            {
+                "ticket_type_id": ticket_type.pk,
+                "quantity": quantity,
+                "unit_price": ticket_type.price,
+            }
+        ],
+        **overrides,
+    )
+
+
+def add_guest_order(orders, ticket_type, **overrides):
+    # A guest's address comes from Checkout: until then the order has none.
+    return add_order(
+        orders, ticket_type, **({"buyer_id": None, "email": ""} | overrides)
+    )
+
+
+def checkout_event(stage, *, session_id="cs_1", paid=True, email=""):
+    return CheckoutEvent(
+        stage=stage,
+        session_id=session_id,
+        paid=paid,
+        payment_intent_id="pi_1",
+        email=email,
+    )
+
+
+def deliver(sales, payments, event):
+    payments.event = event
+    return sales.handle_webhook(payload=b"{}", signature="sig")
+
+
+def status_of(book, order):
+    return book.orders[order.pk].status

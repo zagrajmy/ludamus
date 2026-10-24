@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
@@ -6,6 +8,21 @@ import { expect, test } from "./helpers/fixtures";
 // bootstrap_data.py: ticket-fair sells four ticket types on a connected Stripe
 // account; the tester holds a paid order and one still in Checkout.
 const EVENT_URL = "/event/ticket-fair/";
+const UNCLAIMED_URL = "/event/ticket-fair/tickets/orders/e2e-unclaimed/";
+// Mail lands in files (EMAIL_URL=filemail:// in .env.e2e), shared with other
+// specs: only files that appear after a step started are read.
+const mailDir = path.resolve(__dirname, "..", ".e2e-mail");
+const mailFiles = (): string[] => (fs.existsSync(mailDir) ? fs.readdirSync(mailDir) : []);
+const readMailSince = (before: Set<string>): string[] =>
+  mailFiles()
+    .filter((file) => !before.has(file))
+    .map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"))
+    // Django sends long lines quoted-printable: undo the soft breaks and escapes.
+    .map((body) =>
+      body
+        .replace(/=\r?\n/g, "")
+        .replace(/=([0-9A-F]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16))),
+    );
 const TICKETS_URL = "/event/ticket-fair/tickets/";
 const WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET ?? "";
 
@@ -88,13 +105,31 @@ test.describe("Ticket sales", () => {
     });
   });
 
-  test("a guest's order can be kept in the account", async ({ page }, testInfo) => {
-    await page.goto("/event/ticket-fair/tickets/orders/e2e-unclaimed/");
+  test("a guest's order is kept in the account through its email", async ({ page }, testInfo) => {
+    await page.goto(UNCLAIMED_URL);
     await expect(page.getByRole("heading", { name: "You're going!" })).toBeVisible();
     const keep = page.getByRole("region", { name: "Add these tickets to your account" });
     // A retry of this serial group finds the order claimed already.
     if (await keep.isVisible()) {
+      const mailBefore = new Set(mailFiles());
       await keep.getByRole("button", { name: "Add to my account" }).click();
+      // The tester's account isn't verified for the guest's address, so the
+      // order's email has to hand it over.
+      await expect(page.getByText(/These tickets were bought with g…@test\.local\./)).toBeVisible();
+
+      let confirmPath = "";
+      await expect(async () => {
+        const mail = readMailSince(mailBefore).find((body) =>
+          body.includes("Add your tickets for Ticket Fair to an account?"),
+        );
+        confirmPath =
+          mail?.match(
+            /\/event\/ticket-fair\/tickets\/orders\/e2e-unclaimed\/claim\/[^/\s]+\//,
+          )?.[0] ?? "";
+        expect(confirmPath).not.toBe("");
+      }).toPass();
+      await page.goto(confirmPath);
+      await page.getByRole("button", { name: "Add to my account" }).click();
       await expect(
         page.getByText("The tickets are in your account. They're under My tickets."),
       ).toBeVisible();

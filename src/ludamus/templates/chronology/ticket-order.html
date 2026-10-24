@@ -64,7 +64,7 @@
             {% url 'web:event:event-tickets' event_slug=event.slug as again_url %}
             {% tessera_button again_label href=again_url %}
         {% endif %}
-        {% if claimable and state != "not_completed" %}
+        {% if claimable %}
             <section class="card" aria-labelledby="keep-tickets-heading">
                 <div class="card-body space-y-3">
                     {% if current_user %}
@@ -72,7 +72,7 @@
                             {% translate "Add these tickets to your account" %}
                         </h2>
                         <p class="text-sm text-foreground-muted">
-                            {% translate "They'll wait for you under My tickets, next to your sign-ups, and this link stops working for anyone else." %}
+                            {% translate "They'll wait for you under My tickets, next to your sign-ups, and this link stops working for anyone else. If you bought them with another email address, we'll send a confirmation link there first." %}
                         </p>
                         <form method="post"
                               action="{% url 'web:event:event-ticket-order-claim' event_slug=event.slug reference=order.reference %}">

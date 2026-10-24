@@ -23,6 +23,14 @@ SLUG_MAX_LENGTH = 50
 # models.Party.invite_token: a bare token_urlsafe is 32 bytes.
 PARTY_TOKEN_LENGTH = 43
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
+# A ticket order's reference is token_urlsafe(16): 22 characters, below the floor.
+REFERENCE = "c-cLbhSWaBmVPVGH_k8joQ"
+ORDERS = "/event/con-2026/tickets/orders"
+# What links.order_claim_tokens signs: payload, timestamp and signature.
+CLAIM_TOKEN = (
+    "eyJvcmRlcl9wayI6MSwidXNlcl9pZCI6MX0:1xKcjA:"
+    "GO0-USbBaA7GBzHOaEKgIAWVZDjkaXYapMVnKZO1HvE"
+)
 
 
 pytestmark = pytest.mark.usefixtures("_rules")
@@ -47,6 +55,31 @@ class TestSafePath:
         ),
     )
     def test_bearer_token_is_replaced(self, path: str, expected: str) -> None:
+        assert redaction.safe_path(path) == expected
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        (
+            pytest.param(f"{ORDERS}/{REFERENCE}/", f"{ORDERS}/:reference/", id="order"),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/do/cancel",
+                f"{ORDERS}/:reference/do/cancel",
+                id="cancel",
+            ),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/do/claim",
+                f"{ORDERS}/:reference/do/claim",
+                id="claim",
+            ),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/claim/{CLAIM_TOKEN}/",
+                f"{ORDERS}/:reference/claim/:token/",
+                id="claim-confirm",
+            ),
+        ),
+    )
+    def test_ticket_order_reference_is_replaced(self, path: str, expected: str) -> None:
+        # A guest's order page has no other lock than its reference.
         assert redaction.safe_path(path) == expected
 
     def test_redacts_a_link_whose_trailing_slash_was_eaten(self) -> None:

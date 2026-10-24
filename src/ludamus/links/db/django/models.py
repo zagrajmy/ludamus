@@ -43,6 +43,7 @@ from ludamus.pacts.tags import (
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 from ludamus.pacts.tickets import (
     DEFAULT_CURRENCY,
+    GUEST_CLIENT_LENGTH,
     MAX_TICKET_PRICE,
     MIN_TICKET_PRICE,
     ORDER_REFERENCE_MAX_LENGTH,
@@ -2438,6 +2439,11 @@ class TicketOrder(models.Model):
     reference = models.CharField(max_length=ORDER_REFERENCE_MAX_LENGTH, unique=True)
     # Empty while a guest is still in Checkout: Stripe asks them for it.
     email = models.EmailField(blank=True, default="")
+    # A guest's network, keyed (never the address itself): how many unpaid
+    # orders one network holds is limited. Empty for an account's order.
+    guest_client = models.CharField(
+        max_length=GUEST_CLIENT_LENGTH, blank=True, default=""
+    )
     status = models.CharField(
         max_length=20,
         choices=[(s.value, s.name.title()) for s in OrderStatus],

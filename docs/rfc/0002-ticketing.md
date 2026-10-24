@@ -121,14 +121,18 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
 1. The event page shows **Buy tickets** (primary) when at least one ticket type
    is on sale. The tickets page lists types with price and what is left.
 2. The buyer picks quantities and submits, signed in or not. A signed-in buyer's
-   email goes to Checkout; a guest types it there. Guests are limited to five
-   checkouts per address per event in half an hour, so a script cannot hold
-   a sell-out.
+   email goes to Checkout; a guest types it there. One guest network (an IPv4
+   address, or an IPv6 /64, stored only as an HMAC) may hold three unpaid
+   orders per event at once; the count runs under the event's lock, so
+   parallel requests cannot slip past it. A bank transfer can hold seats for
+   days, so this is what stops a script sitting on a sell-out.
 3. The service locks the event's ticket types, checks availability and the
    sales window, and creates a `pending` order that **holds** its seats until
    `hold_until` (now + 31 min, just over Stripe's minimum Checkout lifetime).
    It then creates the Checkout Session with the same `expires_at`, so the hold
    and the session die together.
+   The buy view runs outside the request transaction, so the hold commits,
+   and the event's lock is released, before the Stripe call.
 4. Stripe redirects back to the order page, at `/tickets/orders/<reference>/`.
    It shows "paid" once the webhook landed and "confirming payment" until then
    (it refreshes itself). The webhook that completes Checkout stores the email
@@ -136,9 +140,12 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
 5. A guest's order page offers **Create an account** and **Log in** (Auth0, back
    to the same page). Signed in, **Add to my account** claims the order: it and
    its tickets move to that account — a new one or an existing one, so this is
-   also how a guest merges a purchase into the account they already had. From
-   then on only that account sees the order; anyone else with the link is
-   asked to sign in.
+   also how a guest merges a purchase into the account they already had.
+   The link alone is not enough: buyers forward the order mail to friends. An
+   account verified for the order's email claims at once; any other account
+   gets a confirmation link mailed to the order's email (signed, bound to the
+   order and the account, valid a day). From then on only that account sees
+   the order; anyone else with the link is asked to sign in.
 6. Coming back through Stripe's "back" link expires the Checkout Session at once
    and releases the hold.
 
@@ -198,8 +205,8 @@ it may leave from it.
 | Organizer's account loses `charges_enabled` | Tickets page stops selling, panel says why and links onboarding.  |
 | Forged webhook                              | Signature check fails → 400, logged, nothing changes.             |
 | Order id from another sphere/event          | Scoped to the panel's event, or the link's event → 404.           |
-| Guest order link forwarded or leaked        | Anyone with it sees the order until claimed; then its holder.     |
-| A script starts guest checkouts in bulk     | Five per address per event per half hour, then refused.           |
+| Guest order link forwarded or leaked        | Seen by its holders; claimed only via the order's email.          |
+| A script starts guest checkouts in bulk     | Three unpaid orders per network per event, counted under lock.    |
 
 ## Out of scope (v1)
 

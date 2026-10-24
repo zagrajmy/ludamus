@@ -100,7 +100,7 @@ class PlanService(PlanServiceProtocol):
             # would read as an open-ended deal, so the one on record stays.
             if state.paid_until is not None:
                 data["paid_until"] = state.paid_until
-            self._plans.save(sphere_id=plan.sphere_id, data=data)
+            self._plans.update(sphere_id=plan.sphere_id, data=data)
             logger.info(
                 "Deal paid: sphere=%s until=%s", plan.sphere_id, state.paid_until
             )
@@ -109,7 +109,7 @@ class PlanService(PlanServiceProtocol):
             # The deal lapses now; its terms stay on record for a renewal.
             now = datetime.now(tz=UTC)
             ended = now if state.paid_until is None else min(state.paid_until, now)
-            self._plans.save(sphere_id=plan.sphere_id, data={"paid_until": ended})
+            self._plans.update(sphere_id=plan.sphere_id, data={"paid_until": ended})
             logger.info("Deal ended: sphere=%s", plan.sphere_id)
             return WebhookOutcome.ENDED
         # An ended subscription other than the one on record: an old one.

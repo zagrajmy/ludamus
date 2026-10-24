@@ -3131,6 +3131,14 @@ msgstr "Sprzedaż biletów na to wydarzenie jest wstrzymana. Spróbuj później.
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid ""
+"Your connection already has unpaid orders for this event. Finish or cancel "
+"one, or sign in to buy now."
+msgstr ""
+"Z twojego połączenia są już nieopłacone zamówienia na to wydarzenie. Dokończ "
+"albo anuluj któreś z nich lub zaloguj się, żeby kupić od razu."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
 "We couldn't reach the payment provider. Nothing was charged; try again in a "
 "moment."
 msgstr ""
@@ -3138,17 +3146,26 @@ msgstr ""
 "spróbuj za chwilę."
 
 #: src/ludamus/gates/web/django/event/tickets.py
-msgid ""
-"Too many checkouts from your connection. Wait a few minutes, or sign in to "
-"buy now."
-msgstr ""
-"Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka minut "
-"albo zaloguj się, żeby kupić od razu."
-
-#: src/ludamus/gates/web/django/event/tickets.py
 msgid "The tickets are in your account. They're under My tickets."
 msgstr ""
 "Bilety są już na twoim koncie. Znajdziesz je w zakładce Bilety w profilu."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+#, python-format
+msgid ""
+"These tickets were bought with %(email)s. We've sent a link there: open it "
+"while signed in to this account to add them."
+msgstr ""
+"Te bilety kupiono z adresu %(email)s. Wysłaliśmy tam link: otwórz go, będąc "
+"zalogowanym na to konto, żeby je dodać."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid ""
+"This link has expired or was sent for another account. Ask for a new one "
+"from the order page."
+msgstr ""
+"Ten link wygasł albo był wysłany dla innego konta. Poproś o nowy na stronie "
+"zamówienia."
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid "Checkout cancelled. Nothing was charged."
@@ -4686,13 +4703,16 @@ msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
 
 #: src/ludamus/links/db/django/tickets.py
-#, python-format
-msgid "Your tickets for %(event)s"
-msgstr "Twoje bilety na %(event)s"
-
-#: src/ludamus/links/db/django/tickets.py
 msgid "Thank you for your order. Your tickets and their QR codes are here:"
 msgstr "Dziękujemy za zamówienie. Twoje bilety z kodami QR znajdziesz tutaj:"
+
+#: src/ludamus/links/db/django/tickets.py
+msgid ""
+"Thank you for your order. Your tickets appear on this page as soon as the "
+"payment reaches us:"
+msgstr ""
+"Dziękujemy za zamówienie. Twoje bilety pojawią się na tej stronie, gdy tylko "
+"dotrze do nas płatność:"
 
 #: src/ludamus/links/db/django/tickets.py
 msgid "Anyone with this link can see the tickets, so keep it to yourself."
@@ -4705,6 +4725,33 @@ msgid ""
 msgstr ""
 "Aby zachować je na swoim koncie w Zagrajmy, otwórz link i zaloguj się albo "
 "załóż tam konto."
+
+#: src/ludamus/links/db/django/tickets.py
+#, python-format
+msgid "Your tickets for %(event)s"
+msgstr "Twoje bilety na %(event)s"
+
+#: src/ludamus/links/db/django/tickets.py
+#, python-format
+msgid ""
+"Someone signed in to Zagrajmy as %(account)s wants to add your tickets for "
+"%(event)s to their account."
+msgstr ""
+"Ktoś zalogowany w Zagrajmy jako %(account)s chce dodać twoje bilety na "
+"%(event)s do swojego konta."
+
+#: src/ludamus/links/db/django/tickets.py
+msgid "If that was you, confirm it here within a day:"
+msgstr "Jeśli to ty, potwierdź to tutaj w ciągu doby:"
+
+#: src/ludamus/links/db/django/tickets.py
+msgid "If it wasn't, ignore this email. Your tickets stay as they are."
+msgstr "Jeśli nie, zignoruj tę wiadomość. Twoje bilety zostaną bez zmian."
+
+#: src/ludamus/links/db/django/tickets.py
+#, python-format
+msgid "Add your tickets for %(event)s to an account?"
+msgstr "Dodać twoje bilety na %(event)s do konta?"
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
@@ -6560,6 +6607,24 @@ msgstr "Program"
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 
+#: src/ludamus/templates/chronology/ticket-order-claim.html
+msgid "Add tickets to your account"
+msgstr "Dodaj bilety do swojego konta"
+
+#: src/ludamus/templates/chronology/ticket-order-claim.html
+#, python-format
+msgid ""
+"The tickets will move to %(account)s: they'll be under My tickets, and their "
+"order link stops working for anyone else."
+msgstr ""
+"Bilety trafią na konto %(account)s: będą w zakładce Bilety w profilu, a link "
+"do zamówienia przestanie działać dla innych."
+
+#: src/ludamus/templates/chronology/ticket-order-claim.html
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Add to my account"
+msgstr "Dodaj do mojego konta"
+
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid "Your order"
 msgstr "Twoje zamówienie"
@@ -6641,14 +6706,12 @@ msgstr "Dodaj te bilety do swojego konta"
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid ""
 "They'll wait for you under My tickets, next to your sign-ups, and this link "
-"stops working for anyone else."
+"stops working for anyone else. If you bought them with another email "
+"address, we'll send a confirmation link there first."
 msgstr ""
 "Będą czekać w zakładce Bilety w profilu, obok twoich zapisów, a ten link "
-"przestanie działać dla innych."
-
-#: src/ludamus/templates/chronology/ticket-order.html
-msgid "Add to my account"
-msgstr "Dodaj do mojego konta"
+"przestanie działać dla innych. Jeśli kupiono je z innego adresu e-mail, "
+"najpierw wyślemy tam link potwierdzający."
 
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid "Keep your tickets safe"
@@ -13865,6 +13928,13 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid ""
+#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
+#~ "to buy now."
+#~ msgstr ""
+#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
+#~ "minut albo zaloguj się, żeby kupić od razu."
 
 #~ msgid "Add an email address to your profile first: tickets go there."
 #~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."

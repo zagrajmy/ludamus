@@ -3,17 +3,21 @@
 How it could go wrong: a forged or replayed delivery is acted on; a redelivery
 issues tickets twice; a paid order issues the wrong number of tickets or none;
 a refund leaves tickets valid; an unpaid (delayed) checkout issues tickets; an
-expiry kills a paid order; the order link is mailed twice, to nobody, or not
-at all; a deal paid by transfer is ended by a webhook, or a subscription
+expiry kills a paid order; the order link is mailed twice, to nobody, not at
+all, or says the tickets are there before the money is; a refused mail fails
+the webhook Stripe then retries; a buyer's overlong address fails the payment
+it came with; a deal paid by transfer is ended by a webhook, or a subscription
 checkout is taken for a ticket order.
 """
 
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from smtplib import SMTPException
 from urllib.parse import parse_qs
 
 import pytest
 import responses
+from django.core.mail import EmailMessage
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -270,6 +274,24 @@ def _buyer(email):
     return {"customer_details": {"email": email}}
 
 
+PAID_LINE = "Thank you for your order. Your tickets and their QR codes are here:"
+AWAITING_LINE = (
+    "Thank you for your order. Your tickets appear on this page as soon as the"
+    " payment reaches us:"
+)
+GUEST_LINES = [
+    "Anyone with this link can see the tickets, so keep it to yourself.",
+    (
+        "To keep them in your Zagrajmy account, open the link and sign in or"
+        " create an account there."
+    ),
+]
+
+
+def _paragraphs(mail):
+    return mail.body.split("\n\n")
+
+
 class TestOrderMail:
     @pytest.fixture(name="guest_order")
     def guest_order_fixture(self, event):
@@ -288,11 +310,12 @@ class TestOrderMail:
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
         assert TicketOrder.objects.get().email == "guest@example.com"
-        assert [
-            (mail.to, mail.subject, _order_link(guest_order) in mail.body)
-            for mail in mailoutbox
-        ] == [
-            (["guest@example.com"], f"Your tickets for {guest_order.event.name}", True)
+        assert [(mail.to, mail.subject, _paragraphs(mail)) for mail in mailoutbox] == [
+            (
+                ["guest@example.com"],
+                f"Your tickets for {guest_order.event.name}",
+                [PAID_LINE, _order_link(guest_order), *GUEST_LINES],
+            )
         ]
 
     def test_redelivery_mails_nothing_more(
@@ -330,7 +353,34 @@ class TestOrderMail:
             )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
-        assert [mail.to for mail in mailoutbox] == [["guest@example.com"]]
+        assert [(mail.to, _paragraphs(mail)) for mail in mailoutbox] == [
+            (
+                ["guest@example.com"],
+                [AWAITING_LINE, _order_link(guest_order), *GUEST_LINES],
+            )
+        ]
+
+    def test_success_that_beats_its_completion_mails_once(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            _connect(
+                client,
+                "checkout.session.async_payment_succeeded",
+                _checkout(**_buyer("guest@example.com")),
+            )
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+                event_id="evt_2",
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert TicketOrder.objects.get(pk=guest_order.pk).status == OrderStatus.PAID
+        assert [(mail.to, _paragraphs(mail)) for mail in mailoutbox] == [
+            (["guest@example.com"], [PAID_LINE, _order_link(guest_order), *GUEST_LINES])
+        ]
 
     def test_signed_in_buyer_gets_it_at_their_account_address(
         self,
@@ -343,7 +393,10 @@ class TestOrderMail:
         with django_capture_on_commit_callbacks(execute=True):
             _connect(client, "checkout.session.completed", _checkout())
 
-        assert [mail.to for mail in mailoutbox] == [[active_user.email]]
+        # The order is the account's already: no keep-it-secret, no sign-in.
+        assert [(mail.to, _paragraphs(mail)) for mail in mailoutbox] == [
+            ([active_user.email], [PAID_LINE, _order_link(paid_setup)])
+        ]
         assert TicketOrder.objects.get(pk=paid_setup.pk).email == active_user.email
 
     def test_order_without_any_address_is_paid_and_mails_nothing(
@@ -355,6 +408,40 @@ class TestOrderMail:
         assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
         assert not TicketOrder.objects.get(pk=guest_order.pk).email
         assert not mailoutbox
+
+    def test_address_too_long_to_keep_is_dropped_and_the_payment_kept(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        # One past the 254 characters an EmailField holds.
+        overlong = f"{'a' * 64}@{'b' * 63}.{'c' * 63}.{'d' * 54}.example"
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(
+                client, "checkout.session.completed", _checkout(**_buyer(overlong))
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        paid = TicketOrder.objects.get(pk=guest_order.pk)
+        assert (paid.status, paid.email) == (OrderStatus.PAID, "")
+        assert Ticket.objects.filter(order=paid).count() == 1
+        assert not mailoutbox
+
+    def test_mail_server_refusing_does_not_fail_the_webhook(
+        self, client, guest_order, monkeypatch, django_capture_on_commit_callbacks
+    ):
+        def _refuse(*_args, **_kwargs):
+            raise SMTPException
+
+        monkeypatch.setattr(EmailMessage, "send", _refuse)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert TicketOrder.objects.get(pk=guest_order.pk).status == OrderStatus.PAID
 
     def test_payment_for_an_abandoned_order_mails_nothing(
         self,

@@ -37,9 +37,13 @@ from ludamus.pacts.tickets import (
     CheckoutOutcome,
     CheckoutRequest,
     CheckoutStartDTO,
+    ClaimConfirmationMail,
     ClaimOutcome,
+    ClaimResultDTO,
     EventShopDTO,
+    OrderClaimPayload,
     OrderLinkMail,
+    OrderMailEvent,
     OrderStatus,
     PayoutPageDTO,
     PayoutServiceProtocol,
@@ -54,8 +58,7 @@ from ludamus.pacts.tickets import (
 from ludamus.specs.billing import current_terms
 from ludamus.specs.tickets import (
     CHECKOUT_HOLD,
-    GUEST_CHECKOUT_WINDOW_SECONDS,
-    GUEST_CHECKOUTS_PER_WINDOW,
+    GUEST_HOLDS_PER_CLIENT,
     PANEL_ORDERS_SHOWN,
     WEBHOOK_GRACE,
     checkout_refusal,
@@ -63,6 +66,7 @@ from ludamus.specs.tickets import (
     fee_breakdown,
     offer_for,
     order_page_state,
+    owns_order_email,
     payout_status,
     platform_fee,
     platform_fee_percent,
@@ -72,12 +76,14 @@ from ludamus.specs.tickets import (
 if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
-    from ludamus.pacts.legacy import CacheProtocol
     from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tickets import (
+        CheckoutBuyer,
         CheckoutUrls,
+        Claimant,
         OrderChanges,
+        OrderClaimCodecProtocol,
         OrderDTO,
         OrderLineData,
         OwnedTicketDTO,
@@ -106,7 +112,6 @@ def _holds_after(now: datetime) -> datetime:
 
 
 def _order_reference() -> str:
-    # The order page's only key for a guest: unguessable, and short in a URL.
     return secrets.token_urlsafe(16)
 
 
@@ -116,9 +121,26 @@ def _fee_bps(plans: SpherePlanRepositoryProtocol, *, sphere_id: int) -> int:
     ).ticket_fee_bps
 
 
-def _viewable(order: OrderDTO, *, viewer_id: int | None) -> bool:
-    # A guest's order is its link's; a claimed one is its holder's alone.
-    return order.buyer_id is None or order.buyer_id == viewer_id
+def _scoped(
+    order: OrderDTO | None, *, event_id: int, viewer_id: int | None
+) -> OrderDTO:
+    """Return the order if its link is for this event and the viewer may follow it.
+
+    A guest's order is its link's; a claimed one is its holder's alone.
+    """
+    if (
+        order is None
+        or order.event_id != event_id
+        or not (order.is_guest or order.buyer_id == viewer_id)
+    ):
+        raise NotFoundError
+    return order
+
+
+def _mail_event(order: OrderDTO) -> OrderMailEvent:
+    return OrderMailEvent(
+        pk=order.event_id, name=order.event_name, slug=order.event_slug
+    )
 
 
 def _move(
@@ -134,7 +156,6 @@ def _move(
 
 
 def _buyer_email(event: CheckoutEvent) -> OrderChanges:
-    # What the buyer typed into Checkout: a guest's only address.
     return {"email": event.email} if event.email else {}
 
 
@@ -147,6 +168,28 @@ def _record_refund(
         return False
     logger.info("Ticket order refunded: event=%s order=%s", order.event_id, order.pk)
     return True
+
+
+def _order_lines(
+    types: dict[int, TicketTypeDTO],
+    *,
+    wanted: dict[int, int],
+    now: datetime,
+    closes_at: datetime,
+) -> list[OrderLineData] | CheckoutOutcome:
+    """Price the order's lines today, or say why one cannot be bought."""
+    lines: list[OrderLineData] = []
+    for pk, count in sorted(wanted.items()):
+        # An id from another event, or archived, is simply not here.
+        if (ticket_type := types.get(pk)) is None:
+            return CheckoutOutcome.NOT_ON_SALE
+        offer = offer_for(ticket_type, now=now, closes_at=closes_at)
+        if (refused := checkout_refusal(offer, count=count)) is not None:
+            return refused
+        lines.append(
+            {"ticket_type_id": pk, "quantity": count, "unit_price": ticket_type.price}
+        )
+    return lines
 
 
 class PayoutService(PayoutServiceProtocol):
@@ -222,13 +265,13 @@ class TicketSalesService(TicketSalesServiceProtocol):
         repos: TicketRepos,
         payments: TicketPaymentsProtocol,
         mailer: TicketMailerProtocol,
-        cache: CacheProtocol,
+        claims: OrderClaimCodecProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
         self._payments = payments
         self._mailer = mailer
-        self._cache = cache
+        self._claims = claims
 
     def shop(self, *, event: EventDTO, viewer_id: int | None) -> EventShopDTO:
         now = datetime.now(tz=UTC)
@@ -260,24 +303,11 @@ class TicketSalesService(TicketSalesServiceProtocol):
     def _accepting_payments(self, account: PayoutAccountDTO | None) -> bool:
         return self._payments.enabled and payout_status(account) is PayoutStatus.ACTIVE
 
-    def guest_checkout_allowed(self, *, ip: str, event_id: int) -> bool:
-        # NOTE: get-then-set races, so a burst may get a checkout or two past
-        # the limit; it bounds a script, not a person double-clicking.
-        key = f"guest_checkout:{event_id}:{ip}"
-        started = self._cache.get(key)
-        count = started if isinstance(started, int) else 0
-        if count >= GUEST_CHECKOUTS_PER_WINDOW:
-            logger.warning("Guest checkouts over the limit: event=%s", event_id)
-            return False
-        self._cache.set(key, count + 1, timeout=GUEST_CHECKOUT_WINDOW_SECONDS)
-        return True
-
     def start_checkout(
         self,
         *,
         event: EventDTO,
-        buyer_id: int | None,
-        email: str,
+        buyer: CheckoutBuyer,
         quantities: dict[int, int],
         urls: CheckoutUrls,
     ) -> CheckoutStartDTO:
@@ -297,29 +327,34 @@ class TicketSalesService(TicketSalesServiceProtocol):
             # Read the clock after the lock: a queue of buyers in a ticket drop
             # must not eat into the margin over Stripe's 30-minute minimum.
             now = datetime.now(tz=UTC)
-            types = {ticket_type.pk: ticket_type for ticket_type in locked}
-            lines: list[OrderLineData] = []
-            for pk, count in sorted(wanted.items()):
-                # An id from another event, or archived, is simply not here.
-                if (ticket_type := types.get(pk)) is None:
-                    return CheckoutStartDTO(outcome=CheckoutOutcome.NOT_ON_SALE)
-                offer = offer_for(ticket_type, now=now, closes_at=event.end_time)
-                if (refused := checkout_refusal(offer, count=count)) is not None:
-                    return CheckoutStartDTO(outcome=refused)
-                lines.append(
-                    {
-                        "ticket_type_id": pk,
-                        "quantity": count,
-                        "unit_price": ticket_type.price,
-                    }
+            # SAFETY: counted under the event's lock, so parallel requests from
+            # one network queue here and each sees the others' orders.
+            if buyer.user_id is None and (
+                self._repos.orders.count_guest_holds(
+                    event_id=event.pk,
+                    guest_client=buyer.guest_client,
+                    holds_after=_holds_after(now),
                 )
+                >= GUEST_HOLDS_PER_CLIENT
+            ):
+                logger.warning("Guest holds at the limit: event=%s", event.pk)
+                return CheckoutStartDTO(outcome=CheckoutOutcome.TOO_MANY_HOLDS)
+            lines = _order_lines(
+                {ticket_type.pk: ticket_type for ticket_type in locked},
+                wanted=wanted,
+                now=now,
+                closes_at=event.end_time,
+            )
+            if isinstance(lines, CheckoutOutcome):
+                return CheckoutStartDTO(outcome=lines)
             total = sum(line["quantity"] * line["unit_price"] for line in lines)
             order = self._repos.orders.create(
                 {
                     "reference": _order_reference(),
                     "event_id": event.pk,
-                    "buyer_id": buyer_id,
-                    "email": email,
+                    "buyer_id": buyer.user_id,
+                    "guest_client": buyer.guest_client,
+                    "email": buyer.email,
                     "currency": DEFAULT_CURRENCY,
                     "total": total,
                     "platform_fee": platform_fee(
@@ -349,7 +384,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
                         for line in order.lines
                     ],
                     application_fee=order.platform_fee,
-                    customer_email=email,
+                    customer_email=buyer.email,
                     success_url=urls.success(order.reference),
                     cancel_url=urls.cancel(order.reference),
                     expires_at=order.hold_until,
@@ -367,54 +402,92 @@ class TicketSalesService(TicketSalesServiceProtocol):
             order.pk,
             order.ticket_count,
             order.total,
-            buyer_id is None,
+            order.is_guest,
         )
         return CheckoutStartDTO(outcome=CheckoutOutcome.STARTED, url=session.url)
 
     def order(
         self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> BuyerOrderDTO:
-        order = self._visible(
-            event_id=event_id, reference=reference, viewer_id=viewer_id
+        order = _scoped(
+            self._repos.orders.read_by_reference(reference=reference),
+            event_id=event_id,
+            viewer_id=viewer_id,
         )
         return BuyerOrderDTO(
             order=order, state=order_page_state(order, now=datetime.now(tz=UTC))
         )
 
-    def _visible(
-        self, *, event_id: int, reference: str, viewer_id: int | None
-    ) -> OrderDTO:
-        order = self._repos.orders.read_by_reference(reference=reference)
-        if (
-            order is None
-            or order.event_id != event_id
-            or not _viewable(order, viewer_id=viewer_id)
-        ):
-            raise NotFoundError
-        return order
-
     def claim_order(
-        self, *, event_id: int, reference: str, user_id: int
+        self, *, event_id: int, reference: str, claimant: Claimant
+    ) -> ClaimResultDTO:
+        with self._transaction.atomic():
+            order = _scoped(
+                self._repos.orders.lock_by_reference(reference=reference),
+                event_id=event_id,
+                viewer_id=claimant.user_id,
+            )
+            if order.buyer_id == claimant.user_id:
+                return ClaimResultDTO(outcome=ClaimOutcome.ALREADY_YOURS)
+            if not order.email:
+                # Still in Checkout: no address to prove the order by yet.
+                raise NotFoundError
+            if owns_order_email(
+                order_email=order.email, verified_email=claimant.verified_email
+            ):
+                self._claim(order, user_id=claimant.user_id)
+                return ClaimResultDTO(outcome=ClaimOutcome.CLAIMED)
+        # SAFETY: the link alone may be a forwarded mail, so only the order's
+        # address may hand the order to an account it has not been proven for.
+        self._mailer.send_claim_confirmation(
+            ClaimConfirmationMail(
+                order_pk=order.pk,
+                email=order.email,
+                event=_mail_event(order),
+                reference=order.reference,
+                token=self._claims.dumps(
+                    OrderClaimPayload(order_pk=order.pk, user_id=claimant.user_id)
+                ),
+                account_name=claimant.name,
+            )
+        )
+        logger.info(
+            "Ticket order claim confirmation sent: order=%s user=%s",
+            order.pk,
+            claimant.user_id,
+        )
+        return ClaimResultDTO(
+            outcome=ClaimOutcome.CONFIRMATION_SENT, sent_to=order.email
+        )
+
+    def confirm_claim(
+        self, *, event_id: int, reference: str, token: str, user_id: int
     ) -> ClaimOutcome:
         with self._transaction.atomic():
-            order = self._repos.orders.lock_by_reference(reference=reference)
-            if (
-                order is None
-                or order.event_id != event_id
-                or not _viewable(order, viewer_id=user_id)
-            ):
-                raise NotFoundError
+            order = _scoped(
+                self._repos.orders.lock_by_reference(reference=reference),
+                event_id=event_id,
+                viewer_id=user_id,
+            )
             if order.buyer_id == user_id:
                 return ClaimOutcome.ALREADY_YOURS
-            self._repos.orders.claim(pk=order.pk, buyer_id=user_id)
-        logger.info("Ticket order claimed: order=%s user=%s", order.pk, user_id)
+            payload = self._claims.loads(token)
+            if payload != OrderClaimPayload(order_pk=order.pk, user_id=user_id):
+                return ClaimOutcome.LINK_INVALID
+            self._claim(order, user_id=user_id)
         return ClaimOutcome.CLAIMED
+
+    def _claim(self, order: OrderDTO, *, user_id: int) -> None:
+        self._repos.orders.claim(pk=order.pk, buyer_id=user_id)
+        logger.info("Ticket order claimed: order=%s user=%s", order.pk, user_id)
 
     def abandon_checkout(
         self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> AbandonOutcome:
-        order = self._visible(
-            event_id=event_id, reference=reference, viewer_id=viewer_id
+        order = _scoped(
+            self._repos.orders.read_by_reference(reference=reference),
+            event_id=event_id,
+            viewer_id=viewer_id,
         )
         if order.status is not OrderStatus.PENDING:
             return AbandonOutcome.SETTLED
@@ -478,9 +551,24 @@ class TicketSalesService(TicketSalesServiceProtocol):
         order = self._repos.orders.lock_by_checkout(session_id=event.session_id)
         if order is None:
             return WebhookOutcome.NOT_OURS
+        outcome = self._checkout_stage(order, event=event)
+        # NOTE: mailed once, as the order leaves Checkout, whichever event
+        # moved it: Stripe may deliver a delayed payment's success first.
+        if order.status is OrderStatus.PENDING and outcome in {
+            WebhookOutcome.PAID,
+            WebhookOutcome.AWAITING_PAYMENT,
+        }:
+            self._send_link(
+                order, email=event.email, paid=outcome is WebhookOutcome.PAID
+            )
+        return outcome
+
+    def _checkout_stage(
+        self, order: OrderDTO, *, event: CheckoutEvent
+    ) -> WebhookOutcome:
         match event.stage:
             case CheckoutStage.COMPLETED if not event.paid:
-                outcome = self._settle(
+                return self._settle(
                     pk=order.pk,
                     to=OrderStatus.AWAITING_PAYMENT,
                     outcome=WebhookOutcome.AWAITING_PAYMENT,
@@ -489,17 +577,8 @@ class TicketSalesService(TicketSalesServiceProtocol):
                         **_buyer_email(event),
                     },
                 )
-                if outcome is WebhookOutcome.AWAITING_PAYMENT:
-                    self._send_link(order, event=event)
-                return outcome
             case CheckoutStage.COMPLETED | CheckoutStage.ASYNC_SUCCEEDED:
-                outcome = self._paid(order=order, event=event)
-                if (
-                    outcome is WebhookOutcome.PAID
-                    and event.stage is CheckoutStage.COMPLETED
-                ):
-                    self._send_link(order, event=event)
-                return outcome
+                return self._paid(order=order, event=event)
             case CheckoutStage.ASYNC_FAILED:
                 # Final even if it beats the "completed" that preceded it:
                 # that one then finds the order failed and holds nothing.
@@ -524,20 +603,18 @@ class TicketSalesService(TicketSalesServiceProtocol):
         moved = _move(self._repos.orders, pk=pk, to=to, changes=changes)
         return outcome if moved else WebhookOutcome.STALE
 
-    def _send_link(self, order: OrderDTO, *, event: CheckoutEvent) -> None:
-        # Once per order, when Checkout completes: a bank transfer's page is
-        # worth having while the money is on its way, too.
-        if not (email := event.email or order.email):
+    def _send_link(self, order: OrderDTO, *, email: str, paid: bool) -> None:
+        if not (email := email or order.email):
             logger.warning("Ticket order has no email to send it to: %s", order.pk)
             return
         self._mailer.send_order_link(
             OrderLinkMail(
+                order_pk=order.pk,
                 email=email,
-                event_id=order.event_id,
-                event_name=order.event_name,
-                event_slug=order.event_slug,
+                event=_mail_event(order),
                 reference=order.reference,
-                claimable=order.buyer_id is None,
+                paid=paid,
+                is_guest=order.is_guest,
             )
         )
 

@@ -1,3 +1,4 @@
+from django.db.transaction import non_atomic_requests
 from django.urls import URLPattern, path
 
 from ludamus.gates.web.django.event import propose, tickets
@@ -43,9 +44,11 @@ urlpatterns: list[URLPattern] = [
         tickets.EventTicketsPageView.as_view(),
         name="event-tickets",
     ),
+    # SAFETY: non-atomic, so Checkout's seat hold commits, and releases the
+    # event's lock, before the Stripe call it waits on.
     path(
         "event/<str:event_slug>/tickets/do/buy",
-        tickets.EventTicketsBuyActionView.as_view(),
+        non_atomic_requests(tickets.EventTicketsBuyActionView.as_view()),
         name="event-tickets-buy",
     ),
     path(
@@ -55,12 +58,17 @@ urlpatterns: list[URLPattern] = [
     ),
     path(
         "event/<str:event_slug>/tickets/orders/<slug:reference>/do/cancel",
-        tickets.EventTicketOrderCancelActionView.as_view(),
+        non_atomic_requests(tickets.EventTicketOrderCancelActionView.as_view()),
         name="event-ticket-order-cancel",
     ),
     path(
         "event/<str:event_slug>/tickets/orders/<slug:reference>/do/claim",
         tickets.EventTicketOrderClaimActionView.as_view(),
         name="event-ticket-order-claim",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/claim/<str:token>/",
+        tickets.EventTicketOrderClaimConfirmPageView.as_view(),
+        name="event-ticket-order-claim-confirm",
     ),
 ]

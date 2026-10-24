@@ -3,7 +3,8 @@
 How it could go wrong: a comms member (or a stranger) connects a Stripe
 account or opens the billing portal; a second click creates a second connected
 account; the account is created with the platform paying Stripe's fees or
-carrying the losses; a lapsed deal still reads as in force.
+carrying the losses; a lapsed deal, or a Stripe one not paid yet, reads as
+in force.
 """
 
 from datetime import UTC, datetime
@@ -201,6 +202,27 @@ class TestBillingPage:
             source=PlanSource.STRIPE,
             paid_until=datetime(2020, 1, 1, tzinfo=UTC),
             stripe_customer_id="cus_lapsed",
+        )
+
+        response = manager.get(BILLING_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/billing.html",
+            context_data=_billing_context(_no_deal_page(has_billing_history=True)),
+        )
+
+    def test_stripe_deal_reads_as_no_deal_until_its_first_paid_invoice(
+        self, manager, sphere
+    ):
+        SpherePlan.objects.create(
+            sphere=sphere,
+            technical_partner=True,
+            ticket_fee_bps=0,
+            yearly_price=500_000,
+            source=PlanSource.STRIPE,
+            stripe_customer_id="cus_new",
         )
 
         response = manager.get(BILLING_URL)

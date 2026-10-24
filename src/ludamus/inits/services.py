@@ -31,6 +31,7 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
+from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
 from ludamus.links.payment_api.stripe import StripeBilling, StripeConnect, build_client
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
@@ -760,7 +761,7 @@ class Services:
             repos=self._ticket_repos,
             payments=self._stripe_connect,
             mailer=DjangoTicketMailer(),
-            cache=DjangoCache(),
+            claims=DjangoOrderClaimCodec(),
         )
 
     @cached_property

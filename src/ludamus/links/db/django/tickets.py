@@ -55,10 +55,12 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.payment_api import AccountState
     from ludamus.pacts.tickets import (
+        ClaimConfirmationMail,
         NewTicketData,
         OrderChanges,
         OrderCreateData,
         OrderLinkMail,
+        OrderMailEvent,
         TicketTypeCreateData,
         TicketTypeData,
     )
@@ -283,6 +285,21 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         Ticket.objects.filter(order_id=pk).update(holder_id=buyer_id)
 
     @staticmethod
+    def count_guest_holds(
+        *, event_id: int, guest_client: str, holds_after: datetime
+    ) -> int:
+        return (
+            TicketOrder.objects.filter(
+                event_id=event_id, buyer__isnull=True, guest_client=guest_client
+            )
+            .filter(
+                Q(status__in=SETTLING_STATUSES)
+                | Q(status__in=CHECKOUT_STATUSES, hold_until__gt=holds_after)
+            )
+            .count()
+        )
+
+    @staticmethod
     def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None:
         return _lock(TicketOrder.objects.filter(event_id=event_id, pk=pk))
 
@@ -417,43 +434,84 @@ class PayoutAccountRepository(PayoutAccountRepositoryProtocol):
         )
 
 
+def _order_url(event: OrderMailEvent, *, name: str, **kwargs: str) -> str:
+    # The sphere's own host: the order page lives on the event's site.
+    domain = (
+        Event.objects.filter(pk=event.pk)
+        .values_list("sphere__site__domain", flat=True)
+        .first()
+    ) or str(settings.ROOT_DOMAIN)
+    return absolute_url(
+        reverse(name, kwargs={"event_slug": event.slug, **kwargs}), domain=domain
+    )
+
+
+def _send_after_commit(*, order_pk: int, subject: str, body: str, to: str) -> None:
+    def _send() -> None:
+        EmailMessage(subject=subject, body=body, to=[to]).send()
+        logger.info("Ticket order mail sent: order=%s", order_pk)
+
+    # SAFETY: after commit, so a rolled-back webhook never mails a page that
+    # still says pending; robust, so a refused mail cannot fail the webhook
+    # Stripe would then retry. The order page works without it.
+    transaction.on_commit(_send, robust=True)
+
+
 class DjangoTicketMailer(TicketMailerProtocol):
     @staticmethod
     def send_order_link(mail: OrderLinkMail) -> None:
-        domain = (
-            Event.objects.filter(pk=mail.event_id)
-            .values_list("sphere__site__domain", flat=True)
-            .first()
-        ) or str(settings.ROOT_DOMAIN)
-        url = absolute_url(
-            reverse(
-                "web:event:event-ticket-order",
-                kwargs={"event_slug": mail.event_slug, "reference": mail.reference},
-            ),
-            domain=domain,
+        url = _order_url(
+            mail.event, name="web:event:event-ticket-order", reference=mail.reference
         )
-        subject = _("Your tickets for %(event)s") % {"event": mail.event_name}
         lines = [
-            _("Thank you for your order. Your tickets and their QR codes are here:"),
+            (
+                _("Thank you for your order. Your tickets and their QR codes are here:")
+                if mail.paid
+                else _(
+                    "Thank you for your order. Your tickets appear on this page as"
+                    " soon as the payment reaches us:"
+                )
+            ),
             url,
-            _("Anyone with this link can see the tickets, so keep it to yourself."),
         ]
-        if mail.claimable:
-            lines.append(
+        if mail.is_guest:
+            lines += [
+                _("Anyone with this link can see the tickets, so keep it to yourself."),
                 _(
                     "To keep them in your Zagrajmy account, open the link and sign"
                     " in or create an account there."
-                )
+                ),
+            ]
+        _send_after_commit(
+            order_pk=mail.order_pk,
+            subject=_("Your tickets for %(event)s") % {"event": mail.event.name},
+            body="\n\n".join(lines),
+            to=mail.email,
+        )
+
+    @staticmethod
+    def send_claim_confirmation(mail: ClaimConfirmationMail) -> None:
+        url = _order_url(
+            mail.event,
+            name="web:event:event-ticket-order-claim-confirm",
+            reference=mail.reference,
+            token=mail.token,
+        )
+        lines = [
+            _(
+                "Someone signed in to Zagrajmy as %(account)s wants to add your"
+                " tickets for %(event)s to their account."
             )
-        body = "\n\n".join(lines)
-
-        def _send() -> None:
-            try:
-                EmailMessage(subject=subject, body=body, to=[mail.email]).send()
-            except OSError:
-                # The order page still works; the buyer has it open already.
-                logger.exception("Order mail not sent: order=%s", mail.reference)
-
-        # After commit: a rolled-back webhook must not mail a page that says
-        # the order is still pending.
-        transaction.on_commit(_send)
+            % {"account": mail.account_name, "event": mail.event.name},
+            _("If that was you, confirm it here within a day:"),
+            url,
+            _("If it wasn't, ignore this email. Your tickets stay as they are."),
+        ]
+        _send_after_commit(
+            order_pk=mail.order_pk,
+            subject=_("Add your tickets for %(event)s to an account?") % {
+                "event": mail.event.name
+            },
+            body="\n\n".join(lines),
+            to=mail.email,
+        )

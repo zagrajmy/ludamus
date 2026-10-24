@@ -49,6 +49,8 @@ _TIMEOUT_SECONDS = 20
 # Stripe's own default: a signature older than this is a replay.
 _SIGNATURE_TOLERANCE_SECONDS = 300
 _PAID_STATUSES = frozenset({"paid", "no_payment_required"})
+# Django's EmailField, which `TicketOrder.email` is.
+_EMAIL_MAX_LENGTH = 254
 # Subscription states Stripe still bills: a failed renewal is retried
 # (past_due) before the subscription ends.
 _LIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "past_due"})
@@ -173,7 +175,6 @@ class StripeConnect(TicketPaymentsProtocol):
                         for line in request.lines
                     ],
                     "payment_intent_data": {
-                        # A deal may waive the fee; Stripe wants none, not 0.
                         **(
                             {"application_fee_amount": request.application_fee}
                             if request.application_fee
@@ -181,8 +182,7 @@ class StripeConnect(TicketPaymentsProtocol):
                         ),
                         "metadata": {"ticket_order": reference},
                     },
-                    # A guest has none yet: Checkout asks, and the webhook
-                    # brings it back.
+                    # NOTE: without one, Checkout asks the buyer.
                     **(
                         {"customer_email": request.customer_email}
                         if request.customer_email
@@ -301,6 +301,13 @@ class _CustomerDetails(BaseModel):
     email: str | None = None
 
 
+def _deliverable(details: _CustomerDetails | None) -> str:
+    # SAFETY: buyer-typed, and written in the same UPDATE that marks the order
+    # paid: an address too long for the column must not fail the payment.
+    email = (details.email or "") if details is not None else ""
+    return email if len(email) <= _EMAIL_MAX_LENGTH else ""
+
+
 class _CheckoutSession(BaseModel):
     id: str
     mode: str = ""
@@ -391,5 +398,5 @@ def _checkout_event(
         session_id=session.id,
         paid=session.payment_status in _PAID_STATUSES,
         payment_intent_id=_id(session.payment_intent),
-        email=(session.customer_details and session.customer_details.email) or "",
+        email=_deliverable(session.customer_details),
     )

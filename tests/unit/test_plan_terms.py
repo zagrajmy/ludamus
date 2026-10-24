@@ -7,6 +7,8 @@ How it could go wrong, and the test that holds each line:
 - a deal still applies once `paid_until` has passed, or on the very moment it
   passes;
 - an open-ended deal (no `paid_until`) reads as lapsed;
+- a Stripe-billed deal reads as held before its first invoice is paid, when it
+  has no date yet, and so never lapses if that invoice is never paid;
 - a deal that sets no fee charges nothing instead of the standard rate, or a
   deal's own fee is overridden by the standard one;
 - a deal of only a yearly price or only Technical Partner reads as no deal.
@@ -53,8 +55,15 @@ class TestCurrentTerms:
     def test_sphere_without_a_plan_pays_the_standard_rate(self) -> None:
         assert current_terms(None, now=NOW) == _NO_DEAL
 
-    def test_row_naming_only_a_stripe_customer_is_no_deal(self) -> None:
-        plan = _plan(source=PlanSource.STRIPE, stripe_customer_id="cus_1")
+    @pytest.mark.parametrize("source", PlanSource)
+    def test_row_naming_only_a_stripe_customer_is_no_deal(
+        self, source: PlanSource
+    ) -> None:
+        plan = _plan(
+            source=source,
+            stripe_customer_id="cus_1",
+            paid_until=NOW + timedelta(days=1),
+        )
 
         assert current_terms(plan, now=NOW) == _NO_DEAL
 
@@ -94,6 +103,26 @@ class TestCurrentTerms:
             paid_until=paid_until,
             has_deal=True,
         )
+
+    def test_stripe_deal_awaiting_its_first_paid_invoice_is_no_deal(self) -> None:
+        plan = _plan(
+            source=PlanSource.STRIPE,
+            technical_partner=True,
+            ticket_fee_bps=100,
+            stripe_customer_id="cus_1",
+        )
+
+        assert current_terms(plan, now=NOW) == _NO_DEAL
+
+    def test_stripe_deal_holds_once_an_invoice_dates_it(self) -> None:
+        paid_until = NOW + timedelta(days=365)
+        plan = _plan(
+            source=PlanSource.STRIPE, ticket_fee_bps=100, paid_until=paid_until
+        )
+
+        terms = current_terms(plan, now=NOW)
+
+        assert (terms.has_deal, terms.ticket_fee_bps) == (True, 100)
 
     @pytest.mark.parametrize(
         "terms",

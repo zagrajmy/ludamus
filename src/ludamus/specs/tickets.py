@@ -36,10 +36,10 @@ CHECKOUT_HOLD = timedelta(minutes=31)
 # webhook never finds them sold to someone else.
 WEBHOOK_GRACE = timedelta(hours=1)
 
-# A guest's checkout holds seats with no account behind it: this many from one
-# address per event in the window, and a script cannot hold a sell-out.
-GUEST_CHECKOUTS_PER_WINDOW = 5
-GUEST_CHECKOUT_WINDOW_SECONDS = 30 * 60
+# A guest's unpaid order holds seats with no account behind it; a bank
+# transfer can hold them for days. One network may hold this many orders per
+# event at once, so a script cannot sit on a sell-out.
+GUEST_HOLDS_PER_CLIENT = 3
 
 # At or below this many left, the shop says how many.
 FEW_TICKETS_LEFT = 20
@@ -173,3 +173,8 @@ def payout_status(account: PayoutAccountDTO | None) -> PayoutStatus:
     if account.charges_enabled:
         return PayoutStatus.ACTIVE
     return PayoutStatus.INCOMPLETE
+
+
+def owns_order_email(*, order_email: str, verified_email: str) -> bool:
+    """Say if an account proved it reads the address the order was bought with."""
+    return bool(verified_email) and order_email.casefold() == verified_email.casefold()

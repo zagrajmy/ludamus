@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.billing import STANDARD_TICKET_FEE_BPS, PlanTermsDTO
+from ludamus.pacts.billing import STANDARD_TICKET_FEE_BPS, PlanSource, PlanTermsDTO
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -22,10 +22,15 @@ def current_terms(plan: SpherePlanDTO | None, *, now: datetime) -> PlanTermsDTO:
     """Say what a sphere's deal gives it right now; the only way to read one.
 
     A deal holds while `paid_until` has not passed. No date means held until
-    someone says otherwise: a maintainer's open-ended deal. A row that only
-    names a Stripe customer, with no terms on it, is no deal.
+    someone says otherwise: a maintainer's open-ended deal paid by transfer.
+    A Stripe-billed deal starts with its first paid invoice, which dates it. A
+    row that only names a Stripe customer, with no terms on it, is no deal.
     """
-    if plan is None or (plan.paid_until is not None and plan.paid_until <= now):
+    if plan is None:
+        return _NO_DEAL
+    if plan.paid_until is None and plan.source is PlanSource.STRIPE:
+        return _NO_DEAL
+    if plan.paid_until is not None and plan.paid_until <= now:
         return _NO_DEAL
     if (
         not plan.technical_partner

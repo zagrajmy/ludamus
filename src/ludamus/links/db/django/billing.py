@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.db.models.functions import Now
+
 from ludamus.links.db.django.models import SpherePlan
 from ludamus.pacts.billing import SpherePlanDTO, SpherePlanRepositoryProtocol
 
@@ -18,11 +20,10 @@ class SpherePlanRepository(SpherePlanRepositoryProtocol):
         return None if plan is None else SpherePlanDTO.model_validate(plan)
 
     @staticmethod
-    def save(*, sphere_id: int, data: SpherePlanData) -> SpherePlanDTO:
-        plan, _ = SpherePlan.objects.update_or_create(
-            sphere_id=sphere_id, defaults=dict(data)
+    def update(*, sphere_id: int, data: SpherePlanData) -> None:
+        SpherePlan.objects.filter(sphere_id=sphere_id).update(
+            **data, modification_time=Now()
         )
-        return SpherePlanDTO.model_validate(plan)
 
     @staticmethod
     def lock_by_customer(*, customer_id: str) -> SpherePlanDTO | None:

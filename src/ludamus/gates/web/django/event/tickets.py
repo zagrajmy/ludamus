@@ -6,15 +6,20 @@ and Stripe sends it back to the order page (paid) or through the cancel action
 
 Nobody needs an account to buy. The order page's address carries the order's
 secret reference; a guest who signs in there can claim the order, and its
-tickets, into the account they signed in to, new or old.
+tickets, into the account they signed in to, new or old. An account not
+verified for the order's email claims through a link mailed to that address.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
+from ipaddress import IPv6Address, ip_address, ip_network
 from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.http import Http404
@@ -33,8 +38,10 @@ from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     AbandonOutcome,
+    CheckoutBuyer,
     CheckoutOutcome,
     CheckoutUrls,
+    Claimant,
     ClaimOutcome,
 )
 
@@ -69,6 +76,26 @@ def _cancel_url(slug: str, reference: str) -> str:
         "web:event:event-ticket-order-cancel",
         kwargs={"event_slug": slug, "reference": reference},
     )
+
+
+def _guest_client(request: RootRequest) -> str:
+    """Key the guest's network: one IPv4 address, or one IPv6 /64.
+
+    Keyed, so the order row never holds the address; a /64, because one IPv6
+    client can pick any address in it.
+    """
+    network = "unknown"
+    if address := get_client_ip(request):
+        parsed = ip_address(address)
+        prefix = 64 if isinstance(parsed, IPv6Address) else 32
+        network = str(ip_network(f"{parsed}/{prefix}", strict=False))
+    secret: str = settings.SECRET_KEY
+    return hmac.new(secret.encode(), network.encode(), hashlib.sha256).hexdigest()
+
+
+def _masked(email: str) -> str:
+    name, _at, domain = email.partition("@")
+    return f"{name[:1]}…@{domain}"
 
 
 def _sign_in_url(next_path: str, *, signup: bool) -> str:
@@ -119,6 +146,11 @@ def _refusal_message(outcome: CheckoutOutcome) -> str | None:
             return _("That ticket isn't on sale right now.")
         case CheckoutOutcome.SALES_CLOSED:
             return _("Ticket sales for this event are paused. Try again later.")
+        case CheckoutOutcome.TOO_MANY_HOLDS:
+            return _(
+                "Your connection already has unpaid orders for this event. Finish"
+                " or cancel one, or sign in to buy now."
+            )
         case CheckoutOutcome.PROVIDER_ERROR:
             return _(
                 "We couldn't reach the payment provider. Nothing was charged; try"
@@ -156,26 +188,13 @@ class EventTicketsBuyActionView(View):
             messages.error(request, _("Choose how many tickets you want."))
             return redirect(_tickets_url(event.slug))
         buyer_id = request.context.current_user_id
-        if (
-            buyer_id is None
-            and not request.services.ticket_sales.guest_checkout_allowed(
-                ip=get_client_ip(request), event_id=event.pk
-            )
-        ):
-            messages.error(
-                request,
-                _(
-                    "Too many checkouts from your connection. Wait a few minutes,"
-                    " or sign in to buy now."
-                ),
-            )
-            return redirect(_tickets_url(event.slug))
-
         started = request.services.ticket_sales.start_checkout(
             event=event,
-            buyer_id=buyer_id,
-            # Empty for a guest, or an account without one: Checkout asks.
-            email=account_email(request),
+            buyer=CheckoutBuyer(
+                user_id=buyer_id,
+                email=account_email(request),
+                guest_client=_guest_client(request) if buyer_id is None else "",
+            ),
             quantities=quantities,
             urls=CheckoutUrls(
                 success=lambda reference: request.build_absolute_uri(
@@ -231,6 +250,21 @@ class EventTicketOrderPageView(View):
         )
 
 
+def _claimant(request: RootRequest, user_slug: str) -> Claimant:
+    user = request.services.profile.read(user_slug)
+    return Claimant(
+        user_id=user.pk,
+        name=user.name or user.username,
+        verified_email=user.email if user.email_verified else "",
+    )
+
+
+def _claimed(request: RootRequest) -> None:
+    messages.success(
+        request, _("The tickets are in your account. They're under My tickets.")
+    )
+
+
 class EventTicketOrderClaimActionView(View):
     """Keep a guest's order: it and its tickets move into the signed-in account."""
 
@@ -240,21 +274,84 @@ class EventTicketOrderClaimActionView(View):
     @staticmethod
     def post(request: RootRequest, event_slug: str, reference: str) -> HttpResponse:
         event = read_public_event(request, event_slug)
-        if (user_id := request.context.current_user_id) is None:
+        if (user_slug := request.context.current_user_slug) is None:
             return redirect_to_login(_order_url(event.slug, reference))
         try:
-            outcome = request.services.ticket_sales.claim_order(
-                event_id=event.pk, reference=reference, user_id=user_id
+            result = request.services.ticket_sales.claim_order(
+                event_id=event.pk,
+                reference=reference,
+                claimant=_claimant(request, user_slug),
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        match result.outcome:
+            case ClaimOutcome.CLAIMED:
+                _claimed(request)
+            case ClaimOutcome.CONFIRMATION_SENT:
+                messages.info(
+                    request,
+                    _(
+                        "These tickets were bought with %(email)s. We've sent a link"
+                        " there: open it while signed in to this account to add them."
+                    )
+                    % {"email": _masked(result.sent_to)},
+                )
+            case ClaimOutcome.ALREADY_YOURS | ClaimOutcome.LINK_INVALID:
+                pass
+            case _:
+                assert_never(result.outcome)
+        return redirect(_order_url(event.slug, reference))
+
+
+class EventTicketOrderClaimConfirmPageView(View):
+    """The link mailed to the order's email: hand the order to this account."""
+
+    request: RootRequest
+
+    @staticmethod
+    def get(
+        request: RootRequest, event_slug: str, reference: str, token: str
+    ) -> HttpResponse:
+        event = read_public_event(request, event_slug)
+        if (user_id := request.context.current_user_id) is None:
+            return redirect_to_login(request.get_full_path())
+        try:
+            request.services.ticket_sales.order(
+                event_id=event.pk, reference=reference, viewer_id=user_id
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        return TemplateResponse(
+            request,
+            "chronology/ticket-order-claim.html",
+            {"event": event, "reference": reference, "token": token},
+        )
+
+    @staticmethod
+    def post(
+        request: RootRequest, event_slug: str, reference: str, token: str
+    ) -> HttpResponse:
+        event = read_public_event(request, event_slug)
+        if (user_id := request.context.current_user_id) is None:
+            return redirect_to_login(request.get_full_path())
+        try:
+            outcome = request.services.ticket_sales.confirm_claim(
+                event_id=event.pk, reference=reference, token=token, user_id=user_id
             )
         except NotFoundError as exc:
             raise Http404 from exc
         match outcome:
             case ClaimOutcome.CLAIMED:
-                messages.success(
+                _claimed(request)
+            case ClaimOutcome.LINK_INVALID:
+                messages.error(
                     request,
-                    _("The tickets are in your account. They're under My tickets."),
+                    _(
+                        "This link has expired or was sent for another account. Ask"
+                        " for a new one from the order page."
+                    ),
                 )
-            case ClaimOutcome.ALREADY_YOURS:
+            case ClaimOutcome.ALREADY_YOURS | ClaimOutcome.CONFIRMATION_SENT:
                 pass
             case _:
                 assert_never(outcome)

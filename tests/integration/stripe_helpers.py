@@ -1,8 +1,9 @@
 """Stripe stand-ins for integration tests: settings, signed webhooks, HTTP mocks.
 
-Nothing here fakes our own code. Stripe's API is answered at the HTTP layer
-with `responses`, and webhooks are signed the way Stripe signs them, so the
-real adapter, services, repositories and views all run.
+Also the ticket rows and pages they act on. Nothing here fakes our own code.
+Stripe's API is answered at the HTTP layer with `responses`, and webhooks are
+signed the way Stripe signs them, so the real adapter, services, repositories
+and views all run.
 """
 
 import hashlib
@@ -11,6 +12,8 @@ import json
 import secrets
 import time
 from datetime import UTC, datetime, timedelta
+
+from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     PayoutAccount,
@@ -106,3 +109,22 @@ def order(
             order=created, ticket_type=kind, quantity=quantity, unit_price=kind.price
         )
     return created
+
+
+def tickets_url(event) -> str:
+    return reverse("web:event:event-tickets", kwargs={"event_slug": event.slug})
+
+
+def order_url(event, placed: TicketOrder) -> str:
+    # `event` may be another than the order's: its reference tried elsewhere.
+    return reverse(
+        "web:event:event-ticket-order",
+        kwargs={"event_slug": event.slug, "reference": placed.reference},
+    )
+
+
+def cancel_url(event, placed: TicketOrder) -> str:
+    return reverse(
+        "web:event:event-ticket-order-cancel",
+        kwargs={"event_slug": event.slug, "reference": placed.reference},
+    )
