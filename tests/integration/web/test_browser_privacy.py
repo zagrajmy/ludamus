@@ -14,7 +14,9 @@ from tests.integration.utils import NonEmptyStringMatcher, assert_response
 
 
 @pytest.mark.parametrize("age_band", ("unknown", "13_15", "16_plus"))
-def test_cookie_exposes_only_current_eligible_revision(active_user, settings, age_band):
+def test_cookie_exposes_only_current_eligible_revision(
+    *, active_user, settings, age_band
+):
     settings.ROOT_DOMAIN = "localhost:8000"
     settings.SESSION_COOKIE_DOMAIN = None
     User.objects.filter(pk=active_user.pk).update(age_band=age_band)
@@ -37,7 +39,7 @@ def test_cookie_exposes_only_current_eligible_revision(active_user, settings, ag
 
 @pytest.mark.parametrize("age_band", ("13_15", "16_plus"))
 def test_cookie_uses_response_time_state_not_the_authenticated_user_cache(
-    active_user, authenticated_client, age_band
+    *, active_user, authenticated_client, age_band
 ):
     User.objects.filter(pk=active_user.pk).update(age_band="16_plus")
     active_user.refresh_from_db()
