@@ -6,12 +6,16 @@ on:
     paths:
       - poetry.lock
       - pyproject.toml
+      - aube-lock.yaml
+      - tests/e2e/package-lock.json
       - .github/workflows/audit.yml
   push:
     branches: ["master", "main"]
     paths:
       - poetry.lock
       - pyproject.toml
+      - aube-lock.yaml
+      - tests/e2e/package-lock.json
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
@@ -24,7 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: mise install
       - run: mise exec -- poetry install
-      - run: mise run dep:audit:py
+      - run: mise run dep:audit
+
+  # A published image picks up new CVEs without changing; rescan it weekly.
+  image:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - run: mise run dep:audit:image -- ghcr.io/${{ github.repository }}:latest
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

@@ -69,6 +69,13 @@ jobs:
         continue-on-error: true
         run: mise run fallow
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/toolchain
+      - run: mise run dep:audit
+
   test-postgres:
     runs-on: ubuntu-latest
     services:

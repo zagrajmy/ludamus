@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   build:
@@ -54,3 +55,32 @@ jobs:
             DJANGO_SETTINGS_MODULE=ludamus.edges.settings
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+
+      # advisory until the base-image baseline is triaged into .trivyignore
+      - name: Scan image for CVEs
+        continue-on-error: true
+        run: >-
+          mise run dep:audit:image --
+          --format sarif --output trivy.sarif
+          ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+      - name: Upload scan to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+
+      # CycloneDX output lists packages only (no vuln scan), so exit-code never fires
+      - name: Generate SBOM
+        run: >-
+          mise run dep:audit:image --
+          --format cyclonedx --output sbom.cdx.json
+          ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
