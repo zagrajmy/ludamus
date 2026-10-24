@@ -28,8 +28,9 @@ from ludamus.pacts.tickets import (
     OrderStatus,
     TicketDTO,
 )
+from ludamus.specs.tickets import CLAIM_MAIL_INTERVAL
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.stripe_helpers import order, order_url, ticket_type
+from tests.integration.stripe_helpers import GUEST_CLIENT, order, order_url, ticket_type
 from tests.integration.utils import (
     AttributesMatcher,
     assert_response,
@@ -42,6 +43,12 @@ GUEST_EMAIL = "guest@example.com"
 CLAIMED = (
     messages.SUCCESS,
     "The tickets are in your account. They're under My tickets.",
+)
+# Orders that bring no tickets: nothing in them is worth keeping.
+SPENT = (
+    pytest.param(OrderStatus.REFUNDED, id="refunded"),
+    pytest.param(OrderStatus.FAILED, id="failed"),
+    pytest.param(OrderStatus.EXPIRED, id="expired"),
 )
 LINK_INVALID = (
     messages.ERROR,
@@ -82,7 +89,8 @@ def _login_redirect(next_path):
 
 
 def _sign_in_url(next_path, **extra):
-    query = urlencode({"next": next_path, **extra})
+    # Slashes kept, so analytics redaction finds the reference inside `next`.
+    query = urlencode({"next": next_path, **extra}, safe="/")
     return f"{reverse('web:crowd:auth0:login')}?{query}"
 
 
@@ -101,6 +109,28 @@ def _order_page_context(event, placed, *, order_matcher, state, claimable):
 def _confirm_link(mail):
     url = next(part for part in mail.body.split("\n\n") if part.startswith("https://"))
     return resolve(urlparse(url).path)
+
+
+def _link_sent(shown):
+    return (
+        messages.INFO,
+        (
+            f"These tickets were bought with {shown}. We've sent a link there:"
+            " open it while signed in to this account to add them."
+        ),
+    )
+
+
+def _awaiting_transfer(event, *, email=GUEST_EMAIL):
+    # Still holding seats, so it still holds the guest's network too.
+    return order(
+        event,
+        buyer=None,
+        lines=[(ticket_type(event), 1)],
+        status=OrderStatus.AWAITING_PAYMENT,
+        email=email,
+        guest_client=GUEST_CLIENT,
+    )
 
 
 def _holders(placed):
@@ -386,6 +416,19 @@ class TestEventTicketOrderClaimActionView:
         assert _holders(guests) == (active_user.pk, {active_user.pk})
         assert not mailoutbox
 
+    def test_claimed_order_forgets_the_guests_network(
+        self, authenticated_client, event, active_user
+    ):
+        guests = _awaiting_transfer(event, email=active_user.email)
+
+        response = authenticated_client.post(_claim_url(event, guests))
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=order_url(event, guests), messages=[CLAIMED]
+        )
+        guests.refresh_from_db()
+        assert (guests.buyer_id, guests.guest_client) == (active_user.pk, "")
+
     @pytest.mark.parametrize(
         ("verified", "order_email", "shown"),
         (
@@ -423,21 +466,22 @@ class TestEventTicketOrderClaimActionView:
             response,
             HTTPStatus.FOUND,
             url=order_url(event, guests),
-            messages=[
-                (
-                    messages.INFO,
-                    (
-                        f"These tickets were bought with {shown}. We've sent a link"
-                        " there: open it while signed in to this account to add"
-                        " them."
-                    ),
-                )
-            ],
+            messages=[_link_sent(shown)],
         )
         assert _holders(guests) == (None, {None})
         assert [(mail.to, mail.subject) for mail in mailoutbox] == [
             ([order_email], f"Add your tickets for {event.name} to an account?")
         ]
+        intro, ask, _url, ignore = mailoutbox[0].body.split("\n\n")
+        # Neutral: whoever asked, the mail names no account to the address.
+        assert (intro, ask, ignore) == (
+            (
+                "Someone signed in to Zagrajmy wants to add your tickets for"
+                f" {event.name} to their account."
+            ),
+            "If that was you, confirm it here within 24 hours:",
+            "If it wasn't, ignore this email. Your tickets stay as they are.",
+        )
         link = _confirm_link(mailoutbox[0])
         assert (
             link.view_name,
@@ -451,6 +495,105 @@ class TestEventTicketOrderClaimActionView:
         assert DjangoOrderClaimCodec.loads(link.kwargs["token"]) == OrderClaimPayload(
             order_pk=guests.pk, user_id=active_user.pk
         )
+
+    def test_asking_again_soon_mails_nothing_more(
+        self,
+        authenticated_client,
+        event,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        guests = _guest_order_with_tickets(event)
+        url = _claim_url(event, guests)
+        with (
+            freeze_time(datetime.now(UTC)) as clock,
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            # Followed, so the order page shows, and spends, its message.
+            authenticated_client.post(url, follow=True)
+            clock.tick(CLAIM_MAIL_INTERVAL - timedelta(seconds=1))
+            response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=order_url(event, guests),
+            messages=[
+                (
+                    messages.INFO,
+                    (
+                        "A confirmation link went to g…@example.com a few minutes ago."
+                        " If it doesn't work for this account, ask again in ten"
+                        " minutes."
+                    ),
+                )
+            ],
+        )
+        assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL]]
+        assert _holders(guests) == (None, {None})
+
+    def test_asking_again_after_the_interval_mails_again(
+        self,
+        authenticated_client,
+        event,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        guests = _guest_order_with_tickets(event)
+        url = _claim_url(event, guests)
+        with (
+            freeze_time(datetime.now(UTC)) as clock,
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            # Followed, so the order page shows, and spends, its message.
+            authenticated_client.post(url, follow=True)
+            clock.tick(CLAIM_MAIL_INTERVAL)
+            response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=order_url(event, guests),
+            messages=[_link_sent("g…@example.com")],
+        )
+        assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL], [GUEST_EMAIL]]
+
+    @pytest.mark.parametrize("status", SPENT)
+    @pytest.mark.parametrize(
+        "verified", (True, False), ids=("verified-account", "unverified-account")
+    )
+    def test_order_that_brings_no_tickets_is_not_found_and_stays_as_it_is(
+        self,
+        authenticated_client,
+        event,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+        *,
+        status,
+        verified,
+    ):
+        active_user.email_verified = verified
+        active_user.save()
+        guests = order(
+            event,
+            buyer=None,
+            lines=[(ticket_type(event), 1)],
+            status=status,
+            email=active_user.email,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(_claim_url(event, guests))
+
+        assert_response_404(response)
+        guests.refresh_from_db()
+        assert (guests.buyer_id, guests.status, guests.claim_mailed_at) == (
+            None,
+            status,
+            None,
+        )
+        assert not mailoutbox
 
     def test_claimed_order_is_closed_to_its_link_from_then_on(
         self, authenticated_client, event, active_user
@@ -567,6 +710,21 @@ class TestEventTicketOrderClaimConfirmPageView:
         )
         assert _holders(guests) == (active_user.pk, {active_user.pk})
 
+    def test_confirmed_order_forgets_the_guests_network(
+        self, authenticated_client, event, active_user
+    ):
+        guests = _awaiting_transfer(event)
+
+        response = authenticated_client.post(
+            _confirm_url(event, guests, _token(guests, active_user))
+        )
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=order_url(event, guests), messages=[CLAIMED]
+        )
+        guests.refresh_from_db()
+        assert (guests.buyer_id, guests.guest_client) == (active_user.pk, "")
+
     def test_page_asks_before_it_claims(self, authenticated_client, event, active_user):
         guests = _guest_order_with_tickets(event)
         token = _token(guests, active_user)
@@ -677,14 +835,40 @@ class TestEventTicketOrderClaimConfirmPageView:
         )
         assert _holders(guests) == (None, {None})
 
-    def test_own_order_stays_as_it_is(self, authenticated_client, event, active_user):
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_own_order_goes_back_to_its_page(
+        self, authenticated_client, event, active_user, method
+    ):
         mine = order(event, buyer=active_user, lines=[(ticket_type(event), 1)])
 
-        response = authenticated_client.post(
+        response = getattr(authenticated_client, method)(
             _confirm_url(event, mine, _token(mine, active_user))
         )
 
         assert_response(response, HTTPStatus.FOUND, url=order_url(event, mine))
+        mine.refresh_from_db()
+        assert mine.buyer_id == active_user.pk
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    @pytest.mark.parametrize("status", SPENT)
+    def test_order_that_brings_no_tickets_is_not_found_and_stays_unclaimed(
+        self, authenticated_client, event, active_user, *, status, method
+    ):
+        guests = order(
+            event,
+            buyer=None,
+            lines=[(ticket_type(event), 1)],
+            status=status,
+            email=GUEST_EMAIL,
+        )
+
+        response = getattr(authenticated_client, method)(
+            _confirm_url(event, guests, _token(guests, active_user))
+        )
+
+        assert_response_404(response)
+        guests.refresh_from_db()
+        assert (guests.buyer_id, guests.status) == (None, status)
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_order_of_another_event_is_not_found_and_stays_unclaimed(

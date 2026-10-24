@@ -733,6 +733,7 @@ class Services:
             orders=self._repos.ticket_orders,
             accounts=self._repos.payout_accounts,
             plans=self._repos.sphere_plans,
+            users=self._repos.active_users,
         )
 
     @cached_property

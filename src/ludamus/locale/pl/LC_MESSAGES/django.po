@@ -3131,11 +3131,12 @@ msgstr "Sprzedaż biletów na to wydarzenie jest wstrzymana. Spróbuj później.
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid ""
-"Your connection already has unpaid orders for this event. Finish or cancel "
-"one, or sign in to buy now."
+"Your connection already has several unpaid orders for this event. Try again "
+"in about an hour, or sign in to buy now."
 msgstr ""
-"Z twojego połączenia są już nieopłacone zamówienia na to wydarzenie. Dokończ "
-"albo anuluj któreś z nich lub zaloguj się, żeby kupić od razu."
+"Z twojego połączenia jest już kilka nieopłaconych zamówień na to wydarzenie. "
+"Spróbuj ponownie za mniej więcej godzinę albo zaloguj się, żeby kupić od "
+"razu."
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid ""
@@ -3158,6 +3159,15 @@ msgid ""
 msgstr ""
 "Te bilety kupiono z adresu %(email)s. Wysłaliśmy tam link: otwórz go, będąc "
 "zalogowanym na to konto, żeby je dodać."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+#, python-format
+msgid ""
+"A confirmation link went to %(email)s a few minutes ago. If it doesn't work "
+"for this account, ask again in ten minutes."
+msgstr ""
+"Link potwierdzający wysłaliśmy na adres %(email)s kilka minut temu. Jeśli "
+"nie działa dla tego konta, poproś ponownie za dziesięć minut."
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid ""
@@ -4734,15 +4744,20 @@ msgstr "Twoje bilety na %(event)s"
 #: src/ludamus/links/db/django/tickets.py
 #, python-format
 msgid ""
-"Someone signed in to Zagrajmy as %(account)s wants to add your tickets for "
-"%(event)s to their account."
+"Someone signed in to Zagrajmy wants to add your tickets for %(event)s to "
+"their account."
 msgstr ""
-"Ktoś zalogowany w Zagrajmy jako %(account)s chce dodać twoje bilety na "
-"%(event)s do swojego konta."
+"Ktoś zalogowany w Zagrajmy chce dodać twoje bilety na %(event)s do swojego "
+"konta."
 
 #: src/ludamus/links/db/django/tickets.py
-msgid "If that was you, confirm it here within a day:"
-msgstr "Jeśli to ty, potwierdź to tutaj w ciągu doby:"
+#, python-format
+msgid "If that was you, confirm it here within %(hours)d hour:"
+msgid_plural "If that was you, confirm it here within %(hours)d hours:"
+msgstr[0] "Jeśli to ty, potwierdź to tutaj w ciągu %(hours)d godziny:"
+msgstr[1] "Jeśli to ty, potwierdź to tutaj w ciągu %(hours)d godzin:"
+msgstr[2] "Jeśli to ty, potwierdź to tutaj w ciągu %(hours)d godzin:"
+msgstr[3] "Jeśli to ty, potwierdź to tutaj w ciągu %(hours)d godziny:"
 
 #: src/ludamus/links/db/django/tickets.py
 msgid "If it wasn't, ignore this email. Your tickets stay as they are."

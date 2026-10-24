@@ -12,20 +12,18 @@ verified for the order's email claims through a link mailed to that address.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 from ipaddress import IPv6Address, ip_address, ip_network
 from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlencode
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.crypto import salted_hmac
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -41,8 +39,8 @@ from ludamus.pacts.tickets import (
     CheckoutBuyer,
     CheckoutOutcome,
     CheckoutUrls,
-    Claimant,
     ClaimOutcome,
+    ConfirmOutcome,
 )
 
 if TYPE_CHECKING:
@@ -58,6 +56,7 @@ logger = logging.getLogger(__name__)
 _QUANTITY_PREFIX = "quantity-"
 # Far above any real ticket-type pk or quantity, far below int()'s 4300-digit cap.
 _MAX_DIGITS = 9
+_GUEST_CLIENT_SALT = "ludamus.ticket-guest-client"
 
 
 def _tickets_url(slug: str) -> str:
@@ -89,8 +88,7 @@ def _guest_client(request: RootRequest) -> str:
         parsed = ip_address(address)
         prefix = 64 if isinstance(parsed, IPv6Address) else 32
         network = str(ip_network(f"{parsed}/{prefix}", strict=False))
-    secret: str = settings.SECRET_KEY
-    return hmac.new(secret.encode(), network.encode(), hashlib.sha256).hexdigest()
+    return salted_hmac(_GUEST_CLIENT_SALT, network, algorithm="sha256").hexdigest()
 
 
 def _masked(email: str) -> str:
@@ -102,7 +100,9 @@ def _sign_in_url(next_path: str, *, signup: bool) -> str:
     # Auth0 opens its signup screen when asked; either way the buyer comes
     # back to the order page, signed in, to claim it.
     params = {"next": next_path} | ({"screen_hint": "signup"} if signup else {})
-    return f"{reverse('web:crowd:auth0:login')}?{urlencode(params)}"
+    # SAFETY: slashes left as they are, so analytics redaction, which matches
+    # the order route, also finds the reference inside this parameter.
+    return f"{reverse('web:crowd:auth0:login')}?{urlencode(params, safe='/')}"
 
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
@@ -148,8 +148,8 @@ def _refusal_message(outcome: CheckoutOutcome) -> str | None:
             return _("Ticket sales for this event are paused. Try again later.")
         case CheckoutOutcome.TOO_MANY_HOLDS:
             return _(
-                "Your connection already has unpaid orders for this event. Finish"
-                " or cancel one, or sign in to buy now."
+                "Your connection already has several unpaid orders for this event."
+                " Try again in about an hour, or sign in to buy now."
             )
         case CheckoutOutcome.PROVIDER_ERROR:
             return _(
@@ -250,15 +250,6 @@ class EventTicketOrderPageView(View):
         )
 
 
-def _claimant(request: RootRequest, user_slug: str) -> Claimant:
-    user = request.services.profile.read(user_slug)
-    return Claimant(
-        user_id=user.pk,
-        name=user.name or user.username,
-        verified_email=user.email if user.email_verified else "",
-    )
-
-
 def _claimed(request: RootRequest) -> None:
     messages.success(
         request, _("The tickets are in your account. They're under My tickets.")
@@ -274,13 +265,11 @@ class EventTicketOrderClaimActionView(View):
     @staticmethod
     def post(request: RootRequest, event_slug: str, reference: str) -> HttpResponse:
         event = read_public_event(request, event_slug)
-        if (user_slug := request.context.current_user_slug) is None:
+        if (user_id := request.context.current_user_id) is None:
             return redirect_to_login(_order_url(event.slug, reference))
         try:
             result = request.services.ticket_sales.claim_order(
-                event_id=event.pk,
-                reference=reference,
-                claimant=_claimant(request, user_slug),
+                event_id=event.pk, reference=reference, user_id=user_id
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -294,9 +283,18 @@ class EventTicketOrderClaimActionView(View):
                         "These tickets were bought with %(email)s. We've sent a link"
                         " there: open it while signed in to this account to add them."
                     )
-                    % {"email": _masked(result.sent_to)},
+                    % {"email": _masked(result.order_email)},
                 )
-            case ClaimOutcome.ALREADY_YOURS | ClaimOutcome.LINK_INVALID:
+            case ClaimOutcome.CONFIRMATION_HELD:
+                messages.info(
+                    request,
+                    _(
+                        "A confirmation link went to %(email)s a few minutes ago. If"
+                        " it doesn't work for this account, ask again in ten minutes."
+                    )
+                    % {"email": _masked(result.order_email)},
+                )
+            case ClaimOutcome.ALREADY_YOURS:
                 pass
             case _:
                 assert_never(result.outcome)
@@ -316,11 +314,15 @@ class EventTicketOrderClaimConfirmPageView(View):
         if (user_id := request.context.current_user_id) is None:
             return redirect_to_login(request.get_full_path())
         try:
-            request.services.ticket_sales.order(
+            page = request.services.ticket_sales.order(
                 event_id=event.pk, reference=reference, viewer_id=user_id
             )
         except NotFoundError as exc:
             raise Http404 from exc
+        if page.order.buyer_id == user_id:
+            return redirect(_order_url(event.slug, reference))
+        if not page.claimable:
+            raise Http404
         return TemplateResponse(
             request,
             "chronology/ticket-order-claim.html",
@@ -341,9 +343,9 @@ class EventTicketOrderClaimConfirmPageView(View):
         except NotFoundError as exc:
             raise Http404 from exc
         match outcome:
-            case ClaimOutcome.CLAIMED:
+            case ConfirmOutcome.CLAIMED:
                 _claimed(request)
-            case ClaimOutcome.LINK_INVALID:
+            case ConfirmOutcome.LINK_INVALID:
                 messages.error(
                     request,
                     _(
@@ -351,7 +353,7 @@ class EventTicketOrderClaimConfirmPageView(View):
                         " for a new one from the order page."
                     ),
                 )
-            case ClaimOutcome.ALREADY_YOURS | ClaimOutcome.CONFIRMATION_SENT:
+            case ConfirmOutcome.ALREADY_YOURS:
                 pass
             case _:
                 assert_never(outcome)

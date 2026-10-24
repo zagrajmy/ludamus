@@ -18,6 +18,8 @@ Checkout
 - The fee ignores the sphere's deal, or keeps a deal's rate after it lapsed.
 - A guest's order is tied to an account, gets a guessable or overlong
   reference, or Stripe sends the guest back to a page keyed by anything else.
+- The hold is still uncommitted, the event's lock still held, while Stripe
+  is asked to open Checkout, so a slow Stripe call stalls every other buyer.
 - Stripe refusing to open Checkout leaves the seats held by a dead order.
 
 Guest holds
@@ -27,7 +29,8 @@ Guest holds
   still held through the webhook grace stops counting when the hold lapses.
 - The limit reached by one network or on one event locks out another, or
   limits an account at all.
-- A guest's order does not record its network, so it never counts.
+- A guest's order does not record its network, so it never counts; or keeps
+  it once Stripe refused to open Checkout and the order holds nothing.
 """
 
 import logging
@@ -307,6 +310,24 @@ class TestStartCheckout:
         assert book.orders[1].platform_fee == fee
         assert payments.checkouts[0].application_fee == fee
 
+    def test_hold_commits_on_its_own_before_the_buyer_is_sent_to_stripe(
+        self, sales, book, types, payments, transaction, monkeypatch
+    ):
+        regular = types.add()
+        open_at_stripe = []
+        create_checkout = payments.create_checkout
+
+        def recorded(request):
+            open_at_stripe.append(list(transaction.open))
+            return create_checkout(request)
+
+        monkeypatch.setattr(payments, "create_checkout", recorded)
+
+        _start(sales, book, {regular.pk: 1})
+
+        assert book.created_in == {1: ("durable",)}
+        assert open_at_stripe == [[]]
+
     def test_stripe_refusing_checkout_releases_the_seats(
         self, sales, book, types, payments
     ):
@@ -351,6 +372,16 @@ class TestGuestHoldLimit:
             CheckoutOutcome.TOO_MANY_HOLDS,
         )
         assert book.guest_clients == dict.fromkeys(book.orders, _CLIENT)
+
+    def test_guest_order_stripe_refused_forgets_the_network(
+        self, sales, book, payments, regular
+    ):
+        payments.down.add("create_checkout")
+
+        started = _start(sales, book, {regular.pk: 1}, buyer=_GUEST)
+
+        assert started.outcome is CheckoutOutcome.PROVIDER_ERROR
+        assert book.guest_clients == {1: ""}
 
     def test_guest_at_the_limit_is_refused_and_it_is_logged(
         self, sales, book, orders, regular, payments, caplog

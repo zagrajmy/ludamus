@@ -31,6 +31,20 @@ CLAIM_TOKEN = (
     "eyJvcmRlcl9wayI6MSwidXNlcl9pZCI6MX0:1xKcjA:"
     "GO0-USbBaA7GBzHOaEKgIAWVZDjkaXYapMVnKZO1HvE"
 )
+# The order page's sign-in and sign-up links, as the browser records them.
+SIGN_IN = "https://zagrajmy.net/crowd/auth0/do/login?next="
+ORDER_SIGN_IN_URLS = (
+    pytest.param(
+        f"{SIGN_IN}{ORDERS}/{REFERENCE}/",
+        f"{SIGN_IN}{ORDERS}/:reference/",
+        id="sign-in",
+    ),
+    pytest.param(
+        f"{SIGN_IN}{ORDERS}/{REFERENCE}/&screen_hint=signup",
+        f"{SIGN_IN}{ORDERS}/:reference/&screen_hint=signup",
+        id="sign-up",
+    ),
+)
 
 
 pytestmark = pytest.mark.usefixtures("_rules")
@@ -81,6 +95,13 @@ class TestSafePath:
     def test_ticket_order_reference_is_replaced(self, path: str, expected: str) -> None:
         # A guest's order page has no other lock than its reference.
         assert redaction.safe_path(path) == expected
+
+    @pytest.mark.parametrize(("url", "expected"), ORDER_SIGN_IN_URLS)
+    def test_order_reference_in_a_sign_in_links_next_is_replaced(
+        self, url: str, expected: str
+    ) -> None:
+        # Its `next` keeps its slashes, so the order route's rule finds it.
+        assert redaction.safe_path(url) == expected
 
     def test_redacts_a_link_whose_trailing_slash_was_eaten(self) -> None:
         # Matching by prefix rather than resolving is what makes this work:
@@ -179,6 +200,25 @@ class TestClientPatterns:
                 check=True,
                 capture_output=True,
             )
+
+    @pytest.mark.parametrize(("url", "expected"), ORDER_SIGN_IN_URLS)
+    def test_browser_replaces_the_order_reference_in_a_sign_in_links_next(
+        self, url: str, expected: str
+    ) -> None:
+        # What prologue.ts does with the patterns: each, in order, globally.
+        script = (
+            "const [rules, url] = JSON.parse(process.argv[1]);"
+            "process.stdout.write(rules.reduce("
+            "(text, [source, replacement]) =>"
+            " text.replace(new RegExp(source, 'g'), replacement), url));"
+        )
+        redacted = subprocess.run(
+            [NODE, "-e", script, json.dumps([redaction.client_patterns(), url])],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert redacted == expected
 
     def test_a_kept_parameter_uses_javascript_group_syntax(self) -> None:
         rule = rule_for("event/<slug:slug>/offer/<str:token>/claim/")

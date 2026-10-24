@@ -27,6 +27,8 @@ API = "https://api.stripe.com/v1"
 CONNECT_SECRET = "whsec_connect_test"
 BILLING_SECRET = "whsec_billing_test"
 ACCOUNT_ID = "acct_test_organizer"
+# Stands in for a guest's keyed network, the way the buy view stores one.
+GUEST_CLIENT = "9" * 64
 
 
 def signed(payload: dict, secret: str) -> tuple[bytes, str]:
@@ -87,6 +89,7 @@ def order(
     payment_intent_id: str = "",
     hold_minutes: int = 30,
     email: str | None = None,
+    guest_client: str = "",
 ) -> TicketOrder:
     # `buyer=None` is a guest's order: its reference is all that finds it.
     total = sum(kind.price * quantity for kind, quantity in lines)
@@ -95,6 +98,7 @@ def order(
         buyer=buyer,
         reference=secrets.token_urlsafe(16),
         email=(buyer.email if buyer is not None else "") if email is None else email,
+        guest_client=guest_client,
         status=status,
         currency="pln",
         total=total,

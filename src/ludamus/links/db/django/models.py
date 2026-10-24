@@ -2439,8 +2439,8 @@ class TicketOrder(models.Model):
     reference = models.CharField(max_length=ORDER_REFERENCE_MAX_LENGTH, unique=True)
     # Empty while a guest is still in Checkout: Stripe asks them for it.
     email = models.EmailField(blank=True, default="")
-    # A guest's network, keyed (never the address itself): how many unpaid
-    # orders one network holds is limited. Empty for an account's order.
+    # NOTE: a guest's network, keyed, never the address itself; kept only
+    # while the order holds seats, to limit how many one network holds.
     guest_client = models.CharField(
         max_length=GUEST_CLIENT_LENGTH, blank=True, default=""
     )
@@ -2463,6 +2463,8 @@ class TicketOrder(models.Model):
     hold_until = models.DateTimeField()
     paid_at = models.DateTimeField(blank=True, null=True)
     refunded_at = models.DateTimeField(blank=True, null=True)
+    # When a claim confirmation last went to `email` (`CLAIM_MAIL_INTERVAL`).
+    claim_mailed_at = models.DateTimeField(blank=True, null=True)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

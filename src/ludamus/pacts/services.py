@@ -118,6 +118,10 @@ class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @staticmethod
+    def durable() -> AbstractContextManager[None]:
+        """Commit on exit; refuse to open inside another transaction."""
+
+    @staticmethod
     def savepoint() -> AbstractContextManager[None]: ...
 
 

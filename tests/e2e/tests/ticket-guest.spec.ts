@@ -55,7 +55,8 @@ test.describe("Buying tickets as a guest", () => {
     await expect(page.getByRole("img", { name: /^QR code for ticket / })).toBeVisible();
     const keep = page.getByRole("region", { name: "Keep your tickets safe" });
     await expect(keep.getByText(GUEST_EMAIL)).toBeVisible();
-    const next = encodeURIComponent(ORDER_URL);
+    // Slashes stay unescaped, so analytics redaction finds the reference here too.
+    const next = ORDER_URL;
     await expect(keep.getByRole("link", { name: "Create an account" })).toHaveAttribute(
       "href",
       new RegExp(`next=${next}.*screen_hint=signup`),

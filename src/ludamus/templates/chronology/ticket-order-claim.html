@@ -15,7 +15,7 @@
             </p>
         </div>
         <p class="text-foreground">
-            {% blocktranslate trimmed with account=current_user.name %}
+            {% blocktranslate trimmed with account=current_user.name|default:current_user.username %}
                 The tickets will move to {{ account }}: they'll be under My tickets, and their order link stops working for anyone else.
             {% endblocktranslate %}
         </p>

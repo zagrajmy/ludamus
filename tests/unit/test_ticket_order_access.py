@@ -16,9 +16,15 @@ Abandoning Checkout
 Claiming
 - Claiming takes an order another account holds, or one of another event, or
   mails a confirmation for a guest's order before Checkout reported its email.
+- A refunded or failed guest order, which no ticket will come of, is claimed
+  or confirmed.
 - Whoever holds a forwarded link takes the order without the order's email
-  agreeing, or an account verified for that email is sent a link anyway.
-- A claimed order leaves its tickets out of the new holder's count.
+  agreeing, or an account verified for that email is sent a link anyway, or
+  an account holding that address unverified is not asked to prove it.
+- Asking again and again floods the order's address with confirmations, or a
+  later ask, once the interval has passed, sends none.
+- A claimed order leaves its tickets out of the new holder's count, or keeps
+  the guest's network on it.
 - A confirmation link takes the order for an account it was not made for, or
   takes an order it was not made for, or works once expired or forged.
 - A link followed twice, or for an order already yours, claims it again.
@@ -26,6 +32,7 @@ Claiming
   verified address owns an order bought without one.
 """
 
+import logging
 from datetime import timedelta
 
 import pytest
@@ -33,16 +40,16 @@ import pytest
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tickets import (
     AbandonOutcome,
-    Claimant,
     ClaimConfirmationMail,
     ClaimOutcome,
     ClaimResultDTO,
+    ConfirmOutcome,
     OrderClaimPayload,
     OrderMailEvent,
     OrderPageState,
     OrderStatus,
 )
-from ludamus.specs.tickets import owns_order_email
+from ludamus.specs.tickets import CLAIM_MAIL_INTERVAL, owns_order_email
 from tests.unit.ticket_fakes import (
     BUYER_ID,
     EVENT_ID,
@@ -51,6 +58,7 @@ from tests.unit.ticket_fakes import (
     OTHER_BUYER_ID,
     OTHER_EVENT_ID,
     SPHERE_ID,
+    TICKETS_LOGGER,
     add_guest_order,
     add_order,
     status_of,
@@ -58,11 +66,14 @@ from tests.unit.ticket_fakes import (
 
 pytest_plugins = ("tests.unit.ticket_fixtures",)
 
-_ACCOUNT_NAME = "Ada"
+_GUEST_CLIENT = "client-a"
+_NO_TICKETS_COMING = (OrderStatus.REFUNDED, OrderStatus.FAILED, OrderStatus.EXPIRED)
 
 
-def _claimant(*, user_id=BUYER_ID, verified_email=""):
-    return Claimant(user_id=user_id, name=_ACCOUNT_NAME, verified_email=verified_email)
+def _claim(sales, order, *, user_id=BUYER_ID):
+    return sales.claim_order(
+        event_id=EVENT_ID, reference=order.reference, user_id=user_id
+    )
 
 
 def _claimed_codes(sales, *, holder_id=BUYER_ID):
@@ -251,7 +262,11 @@ class TestClaimOrder:
     def paid_guest_order_fixture(self, book, types, orders):
         regular = types.add()
         order = add_guest_order(
-            orders, regular, status=OrderStatus.PAID, email=GUEST_EMAIL
+            orders,
+            regular,
+            status=OrderStatus.PAID,
+            email=GUEST_EMAIL,
+            guest_client=_GUEST_CLIENT,
         )
         orders.issue_tickets(
             order=order, tickets=[{"ticket_type_id": regular.pk, "code": "AAAA"}]
@@ -259,18 +274,18 @@ class TestClaimOrder:
         return book.orders[order.pk]
 
     def test_account_verified_for_the_orders_email_claims_it_at_once(
-        self, sales, book, mailer, paid_guest_order
+        self, sales, book, users, mailer, paid_guest_order
     ):
         order = paid_guest_order
+        users.add(pk=BUYER_ID, email=GUEST_EMAIL.upper(), email_verified=True)
 
-        result = sales.claim_order(
-            event_id=EVENT_ID,
-            reference=order.reference,
-            claimant=_claimant(verified_email=GUEST_EMAIL.upper()),
+        result = _claim(sales, order)
+
+        assert result == ClaimResultDTO(
+            outcome=ClaimOutcome.CLAIMED, order_email=GUEST_EMAIL
         )
-
-        assert result == ClaimResultDTO(outcome=ClaimOutcome.CLAIMED)
         assert book.orders[order.pk].buyer_id == BUYER_ID
+        assert not book.guest_clients[order.pk]
         assert mailer.confirmations == []
         assert _claimed_codes(sales) == ["AAAA"]
         assert sales.shop(event=book.event, viewer_id=BUYER_ID).viewer_ticket_count == 1
@@ -281,27 +296,23 @@ class TestClaimOrder:
                 )
 
     @pytest.mark.parametrize(
-        "verified_email",
+        "user_id",
         (
-            pytest.param("", id="unverified"),
-            pytest.param("someone@example.com", id="another-address"),
+            pytest.param(OTHER_BUYER_ID, id="the-address-unverified"),
+            pytest.param(BUYER_ID, id="another-verified-address"),
         ),
     )
     def test_any_other_account_is_sent_to_ask_the_orders_email(
-        self, sales, book, mailer, claims, paid_guest_order, verified_email
+        self, sales, book, mailer, claims, paid_guest_order, user_id
     ):
         order = paid_guest_order
 
-        result = sales.claim_order(
-            event_id=EVENT_ID,
-            reference=order.reference,
-            claimant=_claimant(verified_email=verified_email),
-        )
+        result = _claim(sales, order, user_id=user_id)
 
         assert result == ClaimResultDTO(
-            outcome=ClaimOutcome.CONFIRMATION_SENT, sent_to=GUEST_EMAIL
+            outcome=ClaimOutcome.CONFIRMATION_SENT, order_email=GUEST_EMAIL
         )
-        assert book.orders[order.pk] == order
+        assert book.orders[order.pk].buyer_id is None
         [mail] = mailer.confirmations
         assert mail == ClaimConfirmationMail(
             order_pk=order.pk,
@@ -311,22 +322,66 @@ class TestClaimOrder:
             ),
             reference=order.reference,
             token=mail.token,
-            account_name=_ACCOUNT_NAME,
         )
         assert claims.loads(mail.token) == OrderClaimPayload(
-            order_pk=order.pk, user_id=BUYER_ID
+            order_pk=order.pk, user_id=user_id
         )
 
-    def test_claiming_your_own_order_again_changes_nothing(
-        self, sales, book, types, orders, mailer
+    def test_asking_again_within_the_interval_mails_nothing_more(
+        self, sales, mailer, paid_guest_order, caplog
     ):
-        order = add_order(orders, types.add())
+        order = paid_guest_order
 
-        result = sales.claim_order(
-            event_id=EVENT_ID, reference=order.reference, claimant=_claimant()
+        with caplog.at_level(logging.INFO, logger=TICKETS_LOGGER):
+            first = _claim(sales, order)
+            again = _claim(sales, order)
+            by_another = _claim(sales, order, user_id=OTHER_BUYER_ID)
+
+        assert first == ClaimResultDTO(
+            outcome=ClaimOutcome.CONFIRMATION_SENT, order_email=GUEST_EMAIL
+        )
+        assert (
+            again
+            == by_another
+            == ClaimResultDTO(
+                outcome=ClaimOutcome.CONFIRMATION_HELD, order_email=GUEST_EMAIL
+            )
+        )
+        assert len(mailer.confirmations) == 1
+        assert caplog.messages == [
+            f"Ticket order claim confirmation sent: order={order.pk} user={BUYER_ID}",
+            f"Ticket order claim mail held back: order={order.pk}",
+            f"Ticket order claim mail held back: order={order.pk}",
+        ]
+
+    def test_asking_again_once_the_interval_passed_mails_a_new_link(
+        self, sales, book, orders, mailer, claims, paid_guest_order
+    ):
+        order = paid_guest_order
+        orders.mark_claim_mailed(
+            pk=order.pk, at=NOW - CLAIM_MAIL_INTERVAL - timedelta(seconds=1)
         )
 
-        assert result == ClaimResultDTO(outcome=ClaimOutcome.ALREADY_YOURS)
+        result = _claim(sales, order, user_id=OTHER_BUYER_ID)
+
+        assert result.outcome is ClaimOutcome.CONFIRMATION_SENT
+        [mail] = mailer.confirmations
+        assert claims.loads(mail.token) == OrderClaimPayload(
+            order_pk=order.pk, user_id=OTHER_BUYER_ID
+        )
+        assert book.orders[order.pk].claim_mailed_at > NOW
+
+    @pytest.mark.parametrize("status", (OrderStatus.PAID, OrderStatus.REFUNDED))
+    def test_claiming_your_own_order_again_changes_nothing(
+        self, sales, book, types, orders, mailer, status
+    ):
+        order = add_order(orders, types.add(), status=status)
+
+        result = _claim(sales, order)
+
+        assert result == ClaimResultDTO(
+            outcome=ClaimOutcome.ALREADY_YOURS, order_email=order.email
+        )
         assert book.orders[order.pk] == order
         assert mailer.confirmations == []
 
@@ -339,28 +394,32 @@ class TestClaimOrder:
         ),
     )
     def test_order_out_of_reach_is_not_claimed(
-        self, sales, book, types, orders, mailer, event_id, reference, holder
+        self, sales, book, types, orders, users, mailer, event_id, reference, holder
     ):
         order = add_order(orders, types.add(), buyer_id=holder)
+        users.add(pk=BUYER_ID, email=order.email, email_verified=True)
 
         with pytest.raises(NotFoundError):
-            sales.claim_order(
-                event_id=event_id,
-                reference=reference,
-                claimant=_claimant(verified_email=order.email),
-            )
+            sales.claim_order(event_id=event_id, reference=reference, user_id=BUYER_ID)
         assert book.orders[order.pk] == order
         assert mailer.confirmations == []
 
-    def test_guest_order_without_an_email_yet_is_not_claimed(
-        self, sales, book, types, orders, mailer
+    @pytest.mark.parametrize(
+        ("email", "status"),
+        (
+            pytest.param("", OrderStatus.PAID, id="no-email-yet"),
+            *((GUEST_EMAIL, status) for status in _NO_TICKETS_COMING),
+        ),
+    )
+    def test_guest_order_no_ticket_may_come_of_is_not_claimed(
+        self, sales, book, types, orders, users, mailer, email, status
     ):
-        order = add_guest_order(orders, types.add())
+        order = add_guest_order(orders, types.add(), email=email, status=status)
+        users.add(pk=BUYER_ID, email=GUEST_EMAIL, email_verified=True)
 
-        with pytest.raises(NotFoundError):
-            sales.claim_order(
-                event_id=EVENT_ID, reference=order.reference, claimant=_claimant()
-            )
+        for user_id in (BUYER_ID, OTHER_BUYER_ID):
+            with pytest.raises(NotFoundError):
+                _claim(sales, order, user_id=user_id)
         assert book.orders[order.pk] == order
         assert mailer.confirmations == []
 
@@ -372,11 +431,7 @@ class TestConfirmClaim:
 
     @staticmethod
     def _ask(sales, mailer, order, *, user_id=BUYER_ID):
-        sales.claim_order(
-            event_id=EVENT_ID,
-            reference=order.reference,
-            claimant=_claimant(user_id=user_id),
-        )
+        _claim(sales, order, user_id=user_id)
         return mailer.confirmations[-1].token
 
     @staticmethod
@@ -389,7 +444,11 @@ class TestConfirmClaim:
         self, sales, book, orders, mailer, regular
     ):
         order = add_guest_order(
-            orders, regular, status=OrderStatus.PAID, email=GUEST_EMAIL
+            orders,
+            regular,
+            status=OrderStatus.PAID,
+            email=GUEST_EMAIL,
+            guest_client=_GUEST_CLIENT,
         )
         orders.issue_tickets(
             order=order, tickets=[{"ticket_type_id": regular.pk, "code": "AAAA"}]
@@ -398,8 +457,9 @@ class TestConfirmClaim:
 
         outcome = self._confirm(sales, order, token=token)
 
-        assert outcome is ClaimOutcome.CLAIMED
+        assert outcome is ConfirmOutcome.CLAIMED
         assert book.orders[order.pk].buyer_id == BUYER_ID
+        assert not book.guest_clients[order.pk]
         assert _claimed_codes(sales) == ["AAAA"]
 
     def test_link_made_for_another_account_claims_nothing(
@@ -407,11 +467,12 @@ class TestConfirmClaim:
     ):
         order = add_guest_order(orders, regular, email=GUEST_EMAIL)
         token = self._ask(sales, mailer, order, user_id=OTHER_BUYER_ID)
+        asked = book.orders[order.pk]
 
         outcome = self._confirm(sales, order, token=token)
 
-        assert outcome is ClaimOutcome.LINK_INVALID
-        assert book.orders[order.pk] == order
+        assert outcome is ConfirmOutcome.LINK_INVALID
+        assert book.orders[order.pk] == asked
 
     def test_link_made_for_another_order_claims_nothing(
         self, sales, book, orders, mailer, regular
@@ -422,7 +483,7 @@ class TestConfirmClaim:
 
         outcome = self._confirm(sales, other, token=token)
 
-        assert outcome is ClaimOutcome.LINK_INVALID
+        assert outcome is ConfirmOutcome.LINK_INVALID
         assert book.orders[other.pk] == other
 
     @pytest.mark.parametrize("expired", (True, False), ids=("expired", "forged"))
@@ -431,13 +492,14 @@ class TestConfirmClaim:
     ):
         order = add_guest_order(orders, regular, email=GUEST_EMAIL)
         token = self._ask(sales, mailer, order)
+        asked = book.orders[order.pk]
         if expired:
             claims.expire(token)
 
         outcome = self._confirm(sales, order, token=token if expired else "forged")
 
-        assert outcome is ClaimOutcome.LINK_INVALID
-        assert book.orders[order.pk] == order
+        assert outcome is ConfirmOutcome.LINK_INVALID
+        assert book.orders[order.pk] == asked
 
     def test_link_followed_again_finds_the_order_already_yours(
         self, sales, book, orders, mailer, regular
@@ -449,7 +511,7 @@ class TestConfirmClaim:
 
         outcome = self._confirm(sales, order, token=token)
 
-        assert outcome is ClaimOutcome.ALREADY_YOURS
+        assert outcome is ConfirmOutcome.ALREADY_YOURS
         assert book.orders[order.pk] == claimed
 
     def test_link_for_an_order_another_account_took_meanwhile_is_not_found(
@@ -464,11 +526,27 @@ class TestConfirmClaim:
             self._confirm(sales, order, token=token)
         assert book.orders[order.pk] == taken
 
+    @pytest.mark.parametrize("given_up", _NO_TICKETS_COMING)
+    def test_link_for_an_order_no_ticket_will_come_of_any_more_is_not_found(
+        self, sales, book, orders, mailer, regular, given_up
+    ):
+        order = add_guest_order(orders, regular, email=GUEST_EMAIL)
+        token = self._ask(sales, mailer, order)
+        orders.move(
+            pk=order.pk, to=given_up, allowed_from=frozenset(OrderStatus), changes={}
+        )
+        moved = book.orders[order.pk]
+
+        with pytest.raises(NotFoundError):
+            self._confirm(sales, order, token=token)
+        assert book.orders[order.pk] == moved
+
     def test_link_followed_on_another_events_page_is_not_found(
         self, sales, book, orders, mailer, regular
     ):
         order = add_guest_order(orders, regular, email=GUEST_EMAIL)
         token = self._ask(sales, mailer, order)
+        asked = book.orders[order.pk]
 
         with pytest.raises(NotFoundError):
             sales.confirm_claim(
@@ -477,7 +555,7 @@ class TestConfirmClaim:
                 token=token,
                 user_id=BUYER_ID,
             )
-        assert book.orders[order.pk] == order
+        assert book.orders[order.pk] == asked
 
 
 class TestOwnsOrderEmail:

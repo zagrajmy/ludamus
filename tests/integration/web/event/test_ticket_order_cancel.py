@@ -18,6 +18,7 @@ from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.stripe_helpers import (
     ACCOUNT_ID,
     API,
+    GUEST_CLIENT,
     cancel_url,
     order,
     order_url,
@@ -58,7 +59,12 @@ class TestEventTicketOrderCancelActionView:
     def test_guest_cancels_by_the_link_stripe_was_given(
         self, client, event, stripe_api
     ):
-        guests = order(event, buyer=None, lines=[(ticket_type(event), 1)])
+        guests = order(
+            event,
+            buyer=None,
+            lines=[(ticket_type(event), 1)],
+            guest_client=GUEST_CLIENT,
+        )
         _mock_expire(stripe_api)
 
         response = client.get(cancel_url(event, guests))
@@ -69,7 +75,9 @@ class TestEventTicketOrderCancelActionView:
             url=tickets_url(event),
             messages=[(messages.INFO, "Checkout cancelled. Nothing was charged.")],
         )
-        assert TicketOrder.objects.get().status == OrderStatus.EXPIRED
+        # Its seats are free, so the guest's network no longer counts it.
+        cancelled = TicketOrder.objects.get()
+        assert (cancelled.status, cancelled.guest_client) == (OrderStatus.EXPIRED, "")
 
     def test_cancel_after_stripe_completed_leaves_the_order_to_the_webhook(
         self, authenticated_client, event, active_user, stripe_api

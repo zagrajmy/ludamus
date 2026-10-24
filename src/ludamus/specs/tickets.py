@@ -36,10 +36,13 @@ CHECKOUT_HOLD = timedelta(minutes=31)
 # webhook never finds them sold to someone else.
 WEBHOOK_GRACE = timedelta(hours=1)
 
-# A guest's unpaid order holds seats with no account behind it; a bank
+# NOTE: a guest's unpaid order holds seats with no account behind it; a bank
 # transfer can hold them for days. One network may hold this many orders per
 # event at once, so a script cannot sit on a sell-out.
 GUEST_HOLDS_PER_CLIENT = 3
+# NOTE: a confirmation goes to an address a guest typed into Checkout, so
+# each order mails at most one per this long, however often it is asked for.
+CLAIM_MAIL_INTERVAL = timedelta(minutes=10)
 
 # At or below this many left, the shop says how many.
 FEW_TICKETS_LEFT = 20
@@ -178,3 +181,16 @@ def payout_status(account: PayoutAccountDTO | None) -> PayoutStatus:
 def owns_order_email(*, order_email: str, verified_email: str) -> bool:
     """Say if an account proved it reads the address the order was bought with."""
     return bool(verified_email) and order_email.casefold() == verified_email.casefold()
+
+
+def claimable(order: OrderDTO, *, state: OrderPageState) -> bool:
+    """Say if signing in on the order's page may keep it in an account.
+
+    A guest's order with tickets coming, once Checkout reported the email the
+    claim may have to be proven through.
+    """
+    return (
+        order.is_guest
+        and bool(order.email)
+        and state not in {OrderPageState.REFUNDED, OrderPageState.NOT_COMPLETED}
+    )

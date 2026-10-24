@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.payment_api import (
         AccountState,
@@ -73,6 +74,8 @@ class OrderStatus(StrEnum):
 SOLD_STATUSES = frozenset({OrderStatus.PAID})
 SETTLING_STATUSES = frozenset({OrderStatus.AWAITING_PAYMENT})
 CHECKOUT_STATUSES = frozenset({OrderStatus.PENDING})
+# Orders whose seats are still taken, one way or the other.
+HOLDING_STATUSES = CHECKOUT_STATUSES | SETTLING_STATUSES
 # Orders we gave up on: their seats are free again.
 ABANDONED_STATUSES = frozenset({OrderStatus.EXPIRED, OrderStatus.FAILED})
 # The orders the panel lists: abandoned checkouts are noise there.
@@ -121,7 +124,15 @@ class ClaimOutcome(StrEnum):
     ALREADY_YOURS = "already_yours"
     # The account is not verified for the order's email: a link went there.
     CONFIRMATION_SENT = "confirmation_sent"
-    # A mailed link that expired, or that was made for another account.
+    # A link went there a few minutes ago, for this account or another; no
+    # second one until `CLAIM_MAIL_INTERVAL` passes.
+    CONFIRMATION_HELD = "confirmation_held"
+
+
+class ConfirmOutcome(StrEnum):
+    CLAIMED = "claimed"
+    ALREADY_YOURS = "already_yours"
+    # Expired, tampered with, or made for another account or order.
     LINK_INVALID = "link_invalid"
 
 
@@ -265,6 +276,7 @@ class OrderDTO(BaseModel):
     hold_until: datetime
     paid_at: datetime | None
     refunded_at: datetime | None
+    claim_mailed_at: datetime | None
     creation_time: datetime
     lines: list[OrderLineDTO]
     tickets: list[TicketDTO]
@@ -304,21 +316,8 @@ class OrderPageState(StrEnum):
 class BuyerOrderDTO(BaseModel):
     order: OrderDTO
     state: OrderPageState
-
-    @property
-    def claimable(self) -> bool:
-        """A guest's order with tickets coming: signing in on its page keeps it.
-
-        Not before Checkout reports the buyer's email: claiming may need it.
-        """
-        return (
-            self.order.is_guest
-            and bool(self.order.email)
-            and self.state not in {
-                OrderPageState.REFUNDED,
-                OrderPageState.NOT_COMPLETED,
-            }
-        )
+    # Signing in on the page may keep it (`specs.tickets.claimable`).
+    claimable: bool
 
 
 class OwnedTicketDTO(BaseModel):
@@ -345,6 +344,7 @@ class OrderLineData(TypedDict):
 class OrderChanges(TypedDict, total=False):
     # What a move records besides the status.
     email: str
+    guest_client: str
     stripe_payment_intent_id: str
     paid_at: datetime
     refunded_at: datetime
@@ -477,14 +477,6 @@ class CheckoutBuyer:
 
 
 @dataclass(frozen=True)
-class Claimant:
-    user_id: int
-    name: str
-    # The account's address if it is verified, else empty.
-    verified_email: str
-
-
-@dataclass(frozen=True)
 class CheckoutUrls:
     """Where Stripe sends the buyer back, given the order's reference."""
 
@@ -519,7 +511,6 @@ class ClaimConfirmationMail(BaseModel):
     event: OrderMailEvent
     reference: str
     token: str
-    account_name: str
 
 
 class TicketMailerProtocol(Protocol):
@@ -545,8 +536,8 @@ class OrderClaimCodecProtocol(Protocol):
 
 class ClaimResultDTO(BaseModel):
     outcome: ClaimOutcome
-    # Where a confirmation link went, for CONFIRMATION_SENT.
-    sent_to: str = ""
+    # The order's email: where a confirmation link went, if one did.
+    order_email: str
 
 
 class TicketTypeRepositoryProtocol(Protocol):
@@ -586,6 +577,9 @@ class TicketOrderRepositoryProtocol(Protocol):
     @staticmethod
     def claim(*, pk: int, buyer_id: int) -> None:
         """Give the order, and every ticket it issued, to `buyer_id`."""
+
+    @staticmethod
+    def mark_claim_mailed(*, pk: int, at: datetime) -> None: ...
 
     @staticmethod
     def count_guest_holds(
@@ -654,6 +648,7 @@ class TicketRepos:
     orders: TicketOrderRepositoryProtocol
     accounts: PayoutAccountRepositoryProtocol
     plans: SpherePlanRepositoryProtocol
+    users: UserRepositoryProtocol
 
 
 class PayoutServiceProtocol(Protocol):
@@ -689,11 +684,11 @@ class TicketSalesServiceProtocol(Protocol):
         self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> AbandonOutcome: ...
     def claim_order(
-        self, *, event_id: int, reference: str, claimant: Claimant
+        self, *, event_id: int, reference: str, user_id: int
     ) -> ClaimResultDTO: ...
     def confirm_claim(
         self, *, event_id: int, reference: str, token: str, user_id: int
-    ) -> ClaimOutcome: ...
+    ) -> ConfirmOutcome: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int
     ) -> list[OwnedTicketDTO]: ...

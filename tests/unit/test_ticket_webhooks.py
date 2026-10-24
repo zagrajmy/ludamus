@@ -10,6 +10,8 @@ Webhook
 - Money taken for an order we gave up on is kept, or tickets are issued for it.
 - A late payment that cannot be refunded is reported as refunded.
 - Seats resold while a payment was late go unnoticed.
+- A guest's order keeps its network once it holds no seats, or forgets it
+  while a bank transfer still holds them, so the guest hold limit misses it.
 
 Order mail
 - A guest's email from Checkout is not kept on the order.
@@ -63,6 +65,7 @@ from tests.unit.ticket_fakes import (
 pytest_plugins = ("tests.unit.ticket_fixtures",)
 
 _CODE_ALPHABET = set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+_GUEST_CLIENT = "client-a"
 
 
 class TestWebhook:
@@ -160,6 +163,42 @@ class TestWebhook:
         assert awaiting.tickets == []
         assert settled is WebhookOutcome.PAID
         assert len(book.orders[order.pk].tickets) == order.ticket_count
+
+    @pytest.mark.parametrize(
+        ("stage", "paid", "status", "guest_client"),
+        (
+            pytest.param(
+                CheckoutStage.COMPLETED, True, OrderStatus.PAID, "", id="paid"
+            ),
+            pytest.param(
+                CheckoutStage.COMPLETED,
+                False,
+                OrderStatus.AWAITING_PAYMENT,
+                _GUEST_CLIENT,
+                id="awaiting-payment",
+            ),
+            pytest.param(
+                CheckoutStage.EXPIRED, False, OrderStatus.EXPIRED, "", id="expired"
+            ),
+            pytest.param(
+                CheckoutStage.ASYNC_FAILED, False, OrderStatus.FAILED, "", id="failed"
+            ),
+        ),
+    )
+    def test_guest_order_keeps_its_network_only_while_it_holds_seats(
+        self, sales, book, types, orders, payments, stage, paid, status, guest_client
+    ):
+        order = add_guest_order(
+            orders,
+            types.add(),
+            stripe_checkout_session_id="cs_1",
+            guest_client=_GUEST_CLIENT,
+        )
+
+        deliver(sales, payments, checkout_event(stage, paid=paid))
+
+        assert status_of(book, order) is status
+        assert book.guest_clients[order.pk] == guest_client
 
     def test_failed_delayed_payment_is_final(
         self, sales, book, types, orders, payments, mailer

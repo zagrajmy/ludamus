@@ -9,6 +9,7 @@ ids, which only Stripe's signed payload names.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -18,6 +19,7 @@ from django.db.models import Count, Max, Q, Sum
 from django.db.models.functions import Coalesce, Now
 from django.urls import reverse
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
@@ -31,6 +33,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.tickets import (
     CHECKOUT_STATUSES,
     LEDGER_STATUSES,
+    ORDER_CLAIM_LINK_MAX_AGE,
     SETTLING_STATUSES,
     SOLD_STATUSES,
     OrderDTO,
@@ -228,6 +231,7 @@ def _order_dto(order: TicketOrder) -> OrderDTO:
         hold_until=order.hold_until,
         paid_at=order.paid_at,
         refunded_at=order.refunded_at,
+        claim_mailed_at=order.claim_mailed_at,
         creation_time=order.creation_time,
         lines=_line_dtos(order),
         tickets=[
@@ -280,9 +284,15 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
     @staticmethod
     def claim(*, pk: int, buyer_id: int) -> None:
         TicketOrder.objects.filter(pk=pk).update(
-            buyer_id=buyer_id, modification_time=Now()
+            buyer_id=buyer_id, guest_client="", modification_time=Now()
         )
         Ticket.objects.filter(order_id=pk).update(holder_id=buyer_id)
+
+    @staticmethod
+    def mark_claim_mailed(*, pk: int, at: datetime) -> None:
+        TicketOrder.objects.filter(pk=pk).update(
+            claim_mailed_at=at, modification_time=Now()
+        )
 
     @staticmethod
     def count_guest_holds(
@@ -448,12 +458,17 @@ def _order_url(event: OrderMailEvent, *, name: str, **kwargs: str) -> str:
 
 def _send_after_commit(*, order_pk: int, subject: str, body: str, to: str) -> None:
     def _send() -> None:
-        EmailMessage(subject=subject, body=body, to=[to]).send()
+        # SMTPException is an OSError; a header Django refuses, a ValueError.
+        try:
+            EmailMessage(subject=subject, body=body, to=[to]).send()
+        except OSError, ValueError:
+            logger.exception("Ticket order mail failed: order=%s", order_pk)
+            return
         logger.info("Ticket order mail sent: order=%s", order_pk)
 
     # SAFETY: after commit, so a rolled-back webhook never mails a page that
-    # still says pending; robust, so a refused mail cannot fail the webhook
-    # Stripe would then retry. The order page works without it.
+    # still says pending; a failed mail is logged, never raised into the
+    # webhook Stripe would then retry. The order page works without it.
     transaction.on_commit(_send, robust=True)
 
 
@@ -497,13 +512,19 @@ class DjangoTicketMailer(TicketMailerProtocol):
             reference=mail.reference,
             token=mail.token,
         )
+        hours = ORDER_CLAIM_LINK_MAX_AGE // timedelta(hours=1)
         lines = [
             _(
-                "Someone signed in to Zagrajmy as %(account)s wants to add your"
-                " tickets for %(event)s to their account."
+                "Someone signed in to Zagrajmy wants to add your tickets for"
+                " %(event)s to their account."
             )
-            % {"account": mail.account_name, "event": mail.event.name},
-            _("If that was you, confirm it here within a day:"),
+            % {"event": mail.event.name},
+            ngettext(
+                "If that was you, confirm it here within %(hours)d hour:",
+                "If that was you, confirm it here within %(hours)d hours:",
+                hours,
+            )
+            % {"hours": hours},
             url,
             _("If it wasn't, ignore this email. Your tickets stay as they are."),
         ]

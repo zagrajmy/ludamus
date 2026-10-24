@@ -10,6 +10,7 @@ it came with; a deal paid by transfer is ended by a webhook, or a subscription
 checkout is taken for a ticket order.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from smtplib import SMTPException
@@ -33,6 +34,7 @@ from tests.integration.stripe_helpers import (
     API,
     BILLING_SECRET,
     CONNECT_SECRET,
+    GUEST_CLIENT,
     connected_account,
     event_payload,
     order,
@@ -426,14 +428,22 @@ class TestOrderMail:
         assert not mailoutbox
 
     def test_mail_server_refusing_does_not_fail_the_webhook(
-        self, client, guest_order, monkeypatch, django_capture_on_commit_callbacks
+        self,
+        client,
+        guest_order,
+        monkeypatch,
+        caplog,
+        django_capture_on_commit_callbacks,
     ):
         def _refuse(*_args, **_kwargs):
             raise SMTPException
 
         monkeypatch.setattr(EmailMessage, "send", _refuse)
 
-        with django_capture_on_commit_callbacks(execute=True):
+        with (
+            caplog.at_level(logging.INFO, logger="ludamus.links.db.django.tickets"),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
             response = _connect(
                 client,
                 "checkout.session.completed",
@@ -442,6 +452,11 @@ class TestOrderMail:
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
         assert TicketOrder.objects.get(pk=guest_order.pk).status == OrderStatus.PAID
+        assert [
+            (record.levelno, record.getMessage())
+            for record in caplog.records
+            if record.getMessage().startswith("Ticket order mail")
+        ] == [(logging.ERROR, f"Ticket order mail failed: order={guest_order.pk}")]
 
     def test_payment_for_an_abandoned_order_mails_nothing(
         self,
@@ -465,6 +480,64 @@ class TestOrderMail:
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "refunded"})
         assert not mailoutbox
+
+
+class TestGuestNetwork:
+    # A guest's keyed network limits how many orders it holds at once; an
+    # order that holds no seats any more has no reason to keep it.
+    @pytest.fixture(name="guest_order")
+    def guest_order_fixture(self, event):
+        connected_account(event.sphere)
+        return order(
+            event,
+            buyer=None,
+            lines=[(ticket_type(event), 1)],
+            guest_client=GUEST_CLIENT,
+        )
+
+    @pytest.mark.parametrize(
+        ("event_type", "paid", "outcome", "kept"),
+        (
+            pytest.param("checkout.session.completed", True, "paid", "", id="paid"),
+            pytest.param(
+                "checkout.session.completed",
+                False,
+                "awaiting_payment",
+                GUEST_CLIENT,
+                id="awaiting-transfer",
+            ),
+            pytest.param(
+                "checkout.session.expired", False, "expired", "", id="expired"
+            ),
+            pytest.param(
+                "checkout.session.async_payment_failed",
+                False,
+                "failed",
+                "",
+                id="failed",
+            ),
+        ),
+    )
+    def test_is_kept_only_while_the_order_holds_seats(
+        self, client, guest_order, *, event_type, paid, outcome, kept
+    ):
+        response = _connect(client, event_type, _checkout(paid=paid))
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": outcome})
+        assert TicketOrder.objects.get(pk=guest_order.pk).guest_client == kept
+
+    def test_transfer_that_arrives_forgets_it(self, client, guest_order):
+        _connect(client, "checkout.session.completed", _checkout(paid=False))
+
+        response = _connect(
+            client,
+            "checkout.session.async_payment_succeeded",
+            _checkout(),
+            event_id="evt_2",
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert not TicketOrder.objects.get(pk=guest_order.pk).guest_client
 
 
 class TestExpiredAndRefunded:

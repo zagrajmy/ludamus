@@ -2,11 +2,13 @@
 
 The ticket type and order fakes share one `TicketBook`, so seats sold and held
 are counted from the orders the way the real repository's query counts them,
-and an order moves only from a status its `allowed_from` names.
+and an order moves only from a status its `allowed_from` names. The book also
+notes which transactions were open as each order was created.
 
 `tests.unit.ticket_fixtures` wires them into the ticket services.
 """
 
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
@@ -32,7 +34,7 @@ from ludamus.pacts.tickets import (
     TicketDTO,
     TicketTypeDTO,
 )
-from tests.unit.factories import event_dto
+from tests.unit.factories import FakeTransaction, event_dto, user_dto
 
 SPHERE_ID = 1
 EVENT_ID = 1
@@ -65,6 +67,8 @@ class TicketBook:
         self.orders: dict[int, OrderDTO] = {}
         # Not on `OrderDTO`: only the guest hold count reads it.
         self.guest_clients: dict[int, str] = {}
+        # The transactions open, outermost first, as each order was created.
+        self.created_in: dict[int, tuple[str, ...]] = {}
 
     @staticmethod
     def holds_seats(order, *, holds_after):
@@ -80,6 +84,29 @@ class TicketBook:
             for line in order.lines
             if line.ticket_type_id == ticket_type_id
         )
+
+
+class FakeTicketTransaction:
+    """`FakeTransaction`, with `open` naming the ones in progress, outermost first."""
+
+    def __init__(self):
+        self._plain = FakeTransaction()
+        self.open: list[str] = []
+
+    @contextmanager
+    def _opened(self, kind, context):
+        self.open.append(kind)
+        try:
+            with context:
+                yield
+        finally:
+            self.open.pop()
+
+    def atomic(self):
+        return self._opened("atomic", self._plain.atomic())
+
+    def durable(self):
+        return self._opened("durable", self._plain.durable())
 
 
 class FakeTicketTypes:
@@ -174,8 +201,9 @@ class FakeTicketTypes:
 
 
 class FakeOrders:
-    def __init__(self, book):
+    def __init__(self, book, *, transaction):
         self._book = book
+        self._transaction = transaction
         self._pks = count(1)
         self._ticket_pks = count(1)
 
@@ -199,6 +227,7 @@ class FakeOrders:
             "hold_until": NOW + timedelta(minutes=31),
             "paid_at": None,
             "refunded_at": None,
+            "claim_mailed_at": None,
             "creation_time": NOW,
             "tickets": [],
         }
@@ -227,7 +256,9 @@ class FakeOrders:
 
     def create(self, data):
         fields = {key: value for key, value in data.items() if key != "lines"}
-        return self.add(lines=data["lines"], **fields)
+        order = self.add(lines=data["lines"], **fields)
+        self._book.created_in[order.pk] = tuple(self._transaction.open)
+        return order
 
     def attach_checkout(self, *, pk, session_id):
         self._update(pk, stripe_checkout_session_id=session_id)
@@ -240,6 +271,10 @@ class FakeOrders:
 
     def claim(self, *, pk, buyer_id):
         self._update(pk, buyer_id=buyer_id)
+        self._book.guest_clients[pk] = ""
+
+    def mark_claim_mailed(self, *, pk, at):
+        self._update(pk, claim_mailed_at=at)
 
     def count_guest_holds(self, *, event_id, guest_client, holds_after):
         return sum(
@@ -297,7 +332,10 @@ class FakeOrders:
     def move(self, *, pk, to, allowed_from, changes):
         if self._book.orders[pk].status not in allowed_from:
             return False
-        self._update(pk, status=to, **changes)
+        fields = dict(changes)
+        if "guest_client" in fields:
+            self._book.guest_clients[pk] = fields.pop("guest_client")
+        self._update(pk, status=to, **fields)
         return True
 
     def issue_tickets(self, *, order, tickets):
@@ -418,6 +456,23 @@ class FakePlans:
             ),
             None,
         )
+
+
+class FakeUsers:
+    """Accounts: BUYER_ID verified its own address, OTHER_BUYER_ID not the guest's."""
+
+    def __init__(self):
+        self.rows = {}
+        self.add(pk=BUYER_ID, email=BUYER_EMAIL, email_verified=True)
+        self.add(pk=OTHER_BUYER_ID, email=GUEST_EMAIL, email_verified=False)
+
+    def add(self, *, pk, email, email_verified):
+        self.rows[pk] = user_dto(
+            pk=pk, slug=f"user-{pk}", email=email, email_verified=email_verified
+        )
+
+    def read_by_id(self, pk):
+        return self.rows[pk]
 
 
 class FakeTicketPayments:

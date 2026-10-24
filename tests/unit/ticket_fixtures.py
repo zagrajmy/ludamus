@@ -16,7 +16,9 @@ from tests.unit.ticket_fakes import (
     FakeOrders,
     FakePlans,
     FakeTicketPayments,
+    FakeTicketTransaction,
     FakeTicketTypes,
+    FakeUsers,
     TicketBook,
 )
 
@@ -31,9 +33,14 @@ def types_fixture(book):
     return FakeTicketTypes(book)
 
 
+@pytest.fixture(name="transaction")
+def transaction_fixture():
+    return FakeTicketTransaction()
+
+
 @pytest.fixture(name="orders")
-def orders_fixture(book):
-    return FakeOrders(book)
+def orders_fixture(book, transaction):
+    return FakeOrders(book, transaction=transaction)
 
 
 @pytest.fixture(name="accounts")
@@ -61,10 +68,15 @@ def claims_fixture():
     return FakeClaimCodec()
 
 
+@pytest.fixture(name="users")
+def users_fixture():
+    return FakeUsers()
+
+
 @pytest.fixture(name="repos")
-def repos_fixture(types, orders, accounts, plans):
+def repos_fixture(types, orders, accounts, plans, users):
     return TicketRepos(
-        ticket_types=types, orders=orders, accounts=accounts, plans=plans
+        ticket_types=types, orders=orders, accounts=accounts, plans=plans, users=users
     )
 
 
@@ -76,9 +88,9 @@ def payout_fixture(accounts, payments):
 
 
 @pytest.fixture(name="sales")
-def sales_fixture(repos, payments, mailer, claims):
+def sales_fixture(transaction, repos, payments, mailer, claims):
     return TicketSalesService(
-        transaction=FakeTransaction(),
+        transaction=transaction,
         repos=repos,
         payments=payments,
         mailer=mailer,

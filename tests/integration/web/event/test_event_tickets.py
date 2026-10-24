@@ -17,8 +17,10 @@ from urllib.parse import parse_qs
 import pytest
 import responses
 from django.contrib import messages
+from django.db import connection
 from django.test import Client
 from django.urls import reverse
+from django.utils.crypto import salted_hmac
 
 from ludamus.links.db.django.models import SpherePlan, Ticket, TicketOrder
 from ludamus.pacts import EventDTO
@@ -51,8 +53,8 @@ CHECKOUT_URL = "https://checkout.stripe.com/c/pay/cs_test_new"
 TOO_MANY_HOLDS = (
     messages.ERROR,
     (
-        "Your connection already has unpaid orders for this event. Finish or"
-        " cancel one, or sign in to buy now."
+        "Your connection already has several unpaid orders for this event. Try"
+        " again in about an hour, or sign in to buy now."
     ),
 )
 
@@ -113,6 +115,12 @@ def _mock_checkouts(stripe_api):
 
 def _sent(stripe_api):
     return parse_qs(stripe_api.calls[0].request.body)
+
+
+def _keyed(network):
+    return salted_hmac(
+        "ludamus.ticket-guest-client", network, algorithm="sha256"
+    ).hexdigest()
 
 
 class TestEventTicketsPageView:
@@ -219,11 +227,13 @@ class TestEventTicketsBuyActionView:
 
         assert_response(response, HTTPStatus.FOUND, url=CHECKOUT_URL)
         created = TicketOrder.objects.get()
-        assert (created.buyer_id, created.email, created.status) == (
-            None,
-            "",
-            OrderStatus.PENDING,
-        )
+        # The network is kept keyed, never as the address, while seats are held.
+        assert (
+            created.buyer_id,
+            created.email,
+            created.status,
+            created.guest_client,
+        ) == (None, "", OrderStatus.PENDING, _keyed("127.0.0.1/32"))
         sent = _sent(stripe_api)
         assert "customer_email" not in sent
         assert sent["success_url"] == [f"http://testserver{order_url(event, created)}"]
@@ -666,3 +676,46 @@ class TestGuestHoldLimit:
             .exclude(guest_client="")
             .exists()
         )
+
+
+class TestHoldCommitsBeforeStripe:
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.parametrize("signed_in", (False, True), ids=("guest", "account"))
+    def test_stripe_is_called_with_the_hold_committed_and_no_lock_held(
+        self, client, event, active_user, stripe_api, *, signed_in
+    ):
+        # A slow Stripe call inside the hold's transaction would keep every
+        # other buyer of the event waiting on its ticket types' row locks.
+        connected_account(event.sphere)
+        kind = ticket_type(event)
+        seen = []
+
+        def _session(_request):
+            seen.append(
+                (
+                    connection.in_atomic_block,
+                    list(TicketOrder.objects.values_list("status", flat=True)),
+                )
+            )
+            return (
+                HTTPStatus.OK,
+                {"Content-Type": "application/json"},
+                json.dumps(
+                    {
+                        "id": "cs_test_new",
+                        "object": "checkout.session",
+                        "url": CHECKOUT_URL,
+                    }
+                ),
+            )
+
+        stripe_api.add_callback(
+            responses.POST, f"{API}/checkout/sessions", callback=_session
+        )
+        if signed_in:
+            client.force_login(active_user)
+
+        response = client.post(_buy_url(event), {f"quantity-{kind.pk}": "1"})
+
+        assert_response(response, HTTPStatus.FOUND, url=CHECKOUT_URL)
+        assert seen == [(False, [OrderStatus.PENDING])]

@@ -49,7 +49,7 @@ _TIMEOUT_SECONDS = 20
 # Stripe's own default: a signature older than this is a replay.
 _SIGNATURE_TOLERANCE_SECONDS = 300
 _PAID_STATUSES = frozenset({"paid", "no_payment_required"})
-# Django's EmailField, which `TicketOrder.email` is.
+# NOTE: Django's EmailField length, which `TicketOrder.email` has.
 _EMAIL_MAX_LENGTH = 254
 # Subscription states Stripe still bills: a failed renewal is retried
 # (past_due) before the subscription ends.
