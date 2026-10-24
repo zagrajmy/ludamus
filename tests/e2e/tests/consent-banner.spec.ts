@@ -144,6 +144,7 @@ test.describe("Cookie consent banner", () => {
       .getByRole("button", { name: "Cool" })
       .click();
     await expect.poll(() => storedConsent(page)).toBe("accepted");
+    await expect.poll(() => posthogStarted(page)).toBe(true);
     const sdkRequests: string[] = [];
     page.on("request", (request) => {
       if (/module\.full\.no-external/u.test(request.url())) sdkRequests.push(request.url());
