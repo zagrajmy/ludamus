@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import TYPE_CHECKING, assert_never
 
 from ludamus.pacts.legacy import NotFoundError
@@ -150,10 +151,23 @@ def _for_claim(order: OrderDTO | None, *, event_id: int, user_id: int) -> OrderD
     return order
 
 
-def _made_for(
-    payload: OrderClaimPayload | None, *, order: OrderDTO, user_id: int
-) -> bool:
-    return payload == OrderClaimPayload(order_pk=order.pk, user_id=user_id)
+def _link_verdict(
+    order: OrderDTO, *, payload: OrderClaimPayload | None, user_id: int
+) -> ConfirmLinkState:
+    if order.buyer_id == user_id:
+        return ConfirmLinkState.ALREADY_YOURS
+    if payload != OrderClaimPayload(order_pk=order.pk, user_id=user_id):
+        return ConfirmLinkState.LINK_INVALID
+    return ConfirmLinkState.READY
+
+
+_CONFIRMED = MappingProxyType(
+    {
+        ConfirmLinkState.READY: ConfirmOutcome.CLAIMED,
+        ConfirmLinkState.ALREADY_YOURS: ConfirmOutcome.ALREADY_YOURS,
+        ConfirmLinkState.LINK_INVALID: ConfirmOutcome.LINK_INVALID,
+    }
+)
 
 
 def _mail_event(order: OrderDTO) -> OrderMailEvent:
@@ -453,48 +467,55 @@ class TicketSalesService(TicketSalesServiceProtocol):
         self, *, event_id: int, reference: str, user_id: int
     ) -> ClaimResultDTO:
         verified_email = self._repos.users.read_by_id(user_id).deliverable_email
-        with self._transaction.atomic():
+        with self._transaction.durable():
             order = _for_claim(
                 self._repos.orders.lock_by_reference(reference=reference),
                 event_id=event_id,
                 user_id=user_id,
             )
             if order.buyer_id == user_id:
-                outcome = ClaimOutcome.ALREADY_YOURS
-            elif owns_order_email(
-                order_email=order.email, verified_email=verified_email
-            ):
+                return ClaimResultDTO(
+                    outcome=ClaimOutcome.ALREADY_YOURS, order_email=order.email
+                )
+            if owns_order_email(order_email=order.email, verified_email=verified_email):
                 self._claim(order, user_id=user_id)
-                outcome = ClaimOutcome.CLAIMED
-            else:
-                outcome = self._ask_order_email(order, user_id=user_id)
-        return ClaimResultDTO(outcome=outcome, order_email=order.email)
+                return ClaimResultDTO(
+                    outcome=ClaimOutcome.CLAIMED, order_email=order.email
+                )
+        # SAFETY: after the order's lock is released, so a slow mail server
+        # holds up no webhook or refund on it.
+        return ClaimResultDTO(
+            outcome=self._ask_order_email(order, user_id=user_id),
+            order_email=order.email,
+        )
 
     def _ask_order_email(self, order: OrderDTO, *, user_id: int) -> ClaimOutcome:
         # SAFETY: the link alone may be a forwarded mail, so only the order's
         # address may hand the order to an account it has not been proven for.
+        now = datetime.now(tz=UTC)
+        with self._transaction.durable():
+            taken = self._repos.orders.take_claim_mail_slot(
+                pk=order.pk, now=now, interval=CLAIM_MAIL_INTERVAL
+            )
+        if not taken:
+            logger.info("Ticket order claim mail held back: order=%s", order.pk)
+            return ClaimOutcome.CONFIRMATION_HELD
         try:
-            # SAFETY: a savepoint, so a refused mail rolls its throttle stamp
-            # back and asking again sends anew.
-            with self._transaction.atomic():
-                if not self._repos.orders.take_claim_mail_slot(
-                    pk=order.pk, now=datetime.now(tz=UTC), interval=CLAIM_MAIL_INTERVAL
-                ):
-                    logger.info("Ticket order claim mail held back: order=%s", order.pk)
-                    return ClaimOutcome.CONFIRMATION_HELD
-                self._mailer.send_claim_confirmation(
-                    ClaimConfirmationMail(
-                        order_pk=order.pk,
-                        email=order.email,
-                        event=_mail_event(order),
-                        reference=order.reference,
-                        token=self._claims.dumps(
-                            OrderClaimPayload(order_pk=order.pk, user_id=user_id)
-                        ),
-                    )
+            self._mailer.send_claim_confirmation(
+                ClaimConfirmationMail(
+                    order_pk=order.pk,
+                    email=order.email,
+                    event=_mail_event(order),
+                    reference=order.reference,
+                    token=self._claims.dumps(
+                        OrderClaimPayload(order_pk=order.pk, user_id=user_id)
+                    ),
                 )
+            )
         except OrderMailError:
             logger.exception("Ticket order claim mail failed: order=%s", order.pk)
+            with self._transaction.durable():
+                self._repos.orders.release_claim_mail_slot(pk=order.pk, taken_at=now)
             return ClaimOutcome.MAIL_FAILED
         logger.info(
             "Ticket order claim confirmation sent: order=%s user=%s", order.pk, user_id
@@ -509,11 +530,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
             event_id=event_id,
             user_id=user_id,
         )
-        if order.buyer_id == user_id:
-            return ConfirmLinkState.ALREADY_YOURS
-        if not _made_for(self._claims.loads(token), order=order, user_id=user_id):
-            return ConfirmLinkState.LINK_INVALID
-        return ConfirmLinkState.READY
+        return _link_verdict(order, payload=self._claims.loads(token), user_id=user_id)
 
     def confirm_claim(
         self, *, event_id: int, reference: str, token: str, user_id: int
@@ -525,12 +542,10 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 event_id=event_id,
                 user_id=user_id,
             )
-            if order.buyer_id == user_id:
-                return ConfirmOutcome.ALREADY_YOURS
-            if not _made_for(payload, order=order, user_id=user_id):
-                return ConfirmOutcome.LINK_INVALID
-            self._claim(order, user_id=user_id)
-        return ConfirmOutcome.CLAIMED
+            verdict = _link_verdict(order, payload=payload, user_id=user_id)
+            if verdict is ConfirmLinkState.READY:
+                self._claim(order, user_id=user_id)
+        return _CONFIRMED[verdict]
 
     def _claim(self, order: OrderDTO, *, user_id: int) -> None:
         self._repos.orders.claim(pk=order.pk, buyer_id=user_id)

@@ -252,6 +252,13 @@ class FakeOrders:
         self._book.claim_mailed_at[pk] = now
         return True
 
+    def release_claim_mail_slot(self, *, pk, taken_at):
+        self._book.claim_mailed_at = {
+            order_pk: stamp
+            for order_pk, stamp in self._book.claim_mailed_at.items()
+            if (order_pk, stamp) != (pk, taken_at)
+        }
+
     def count_guest_holds(self, *, event_id, guest_client, holds_after):
         return sum(
             1

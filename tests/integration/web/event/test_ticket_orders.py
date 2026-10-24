@@ -115,11 +115,11 @@ def _confirm_link(mail):
     return resolve(urlparse(url).path)
 
 
-def _link_sent(shown):
+def _link_sent(email):
     return (
         messages.INFO,
         (
-            f"These tickets were bought with {shown}. We've sent a link there:"
+            f"These tickets were bought with {email}. We've sent a link there:"
             " open it while signed in to this account to add them."
         ),
     )
@@ -402,17 +402,11 @@ class TestEventTicketOrderPage:
 
 class TestEventTicketOrderClaimActionView:
     def test_account_verified_for_the_orders_email_claims_it_at_once(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
+        self, authenticated_client, event, active_user, mailoutbox
     ):
         guests = _guest_order_with_tickets(event, email=active_user.email.upper())
 
-        with django_capture_on_commit_callbacks(execute=True):
-            response = authenticated_client.post(_claim_url(event, guests))
+        response = authenticated_client.post(_claim_url(event, guests))
 
         assert_response(
             response, HTTPStatus.FOUND, url=order_url(event, guests), messages=[CLAIMED]
@@ -434,17 +428,12 @@ class TestEventTicketOrderClaimActionView:
         assert (guests.buyer_id, guests.guest_client) == (active_user.pk, "")
 
     @pytest.mark.parametrize(
-        ("verified", "order_email", "shown"),
+        ("verified", "order_email"),
         (
             pytest.param(
-                False,
-                "testuser@example.com",
-                "t…@example.com",
-                id="unverified-account-same-address",
+                False, "testuser@example.com", id="unverified-account-same-address"
             ),
-            pytest.param(
-                True, GUEST_EMAIL, "g…@example.com", id="verified-another-address"
-            ),
+            pytest.param(True, GUEST_EMAIL, id="verified-another-address"),
         ),
     )
     def test_account_not_proven_for_the_email_is_sent_a_link_there(
@@ -453,24 +442,21 @@ class TestEventTicketOrderClaimActionView:
         event,
         active_user,
         mailoutbox,
-        django_capture_on_commit_callbacks,
         *,
         verified,
         order_email,
-        shown,
     ):
         active_user.email_verified = verified
         active_user.save()
         guests = _guest_order_with_tickets(event, email=order_email)
 
-        with django_capture_on_commit_callbacks(execute=True):
-            response = authenticated_client.post(_claim_url(event, guests))
+        response = authenticated_client.post(_claim_url(event, guests))
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=order_url(event, guests),
-            messages=[_link_sent(shown)],
+            messages=[_link_sent(order_email)],
         )
         assert _holders(guests) == (None, {None})
         assert [(mail.to, mail.subject) for mail in mailoutbox] == [
@@ -501,18 +487,11 @@ class TestEventTicketOrderClaimActionView:
         )
 
     def test_asking_again_soon_mails_nothing_more(
-        self,
-        authenticated_client,
-        event,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
+        self, authenticated_client, event, mailoutbox
     ):
         guests = _guest_order_with_tickets(event)
         url = _claim_url(event, guests)
-        with (
-            freeze_time(datetime.now(UTC)) as clock,
-            django_capture_on_commit_callbacks(execute=True),
-        ):
+        with freeze_time(datetime.now(UTC)) as clock:
             # Followed, so the order page shows, and spends, its message.
             authenticated_client.post(url, follow=True)
             clock.tick(CLAIM_MAIL_INTERVAL - timedelta(seconds=1))
@@ -526,7 +505,7 @@ class TestEventTicketOrderClaimActionView:
                 (
                     messages.INFO,
                     (
-                        "A confirmation link went to g…@example.com recently. If it"
+                        "A confirmation link went to guest@example.com recently. If it"
                         " doesn't work for this account, ask again in 10 minutes."
                     ),
                 )
@@ -536,18 +515,11 @@ class TestEventTicketOrderClaimActionView:
         assert _holders(guests) == (None, {None})
 
     def test_asking_again_after_the_interval_mails_again(
-        self,
-        authenticated_client,
-        event,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
+        self, authenticated_client, event, mailoutbox
     ):
         guests = _guest_order_with_tickets(event)
         url = _claim_url(event, guests)
-        with (
-            freeze_time(datetime.now(UTC)) as clock,
-            django_capture_on_commit_callbacks(execute=True),
-        ):
+        with freeze_time(datetime.now(UTC)) as clock:
             # Followed, so the order page shows, and spends, its message.
             authenticated_client.post(url, follow=True)
             clock.tick(CLAIM_MAIL_INTERVAL)
@@ -557,7 +529,7 @@ class TestEventTicketOrderClaimActionView:
             response,
             HTTPStatus.FOUND,
             url=order_url(event, guests),
-            messages=[_link_sent("g…@example.com")],
+            messages=[_link_sent(GUEST_EMAIL)],
         )
         assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL], [GUEST_EMAIL]]
 
@@ -581,7 +553,7 @@ class TestEventTicketOrderClaimActionView:
                 (
                     messages.ERROR,
                     (
-                        "We couldn't send the confirmation link to g…@example.com."
+                        "We couldn't send the confirmation link to guest@example.com."
                         " Try again in a moment."
                     ),
                 )
@@ -597,7 +569,7 @@ class TestEventTicketOrderClaimActionView:
             response,
             HTTPStatus.FOUND,
             url=order_url(event, guests),
-            messages=[_link_sent("g…@example.com")],
+            messages=[_link_sent(GUEST_EMAIL)],
         )
         assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL]]
 
@@ -606,15 +578,7 @@ class TestEventTicketOrderClaimActionView:
         "verified", (True, False), ids=("verified-account", "unverified-account")
     )
     def test_order_that_brings_no_tickets_is_not_found_and_stays_as_it_is(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
-        *,
-        status,
-        verified,
+        self, authenticated_client, event, active_user, mailoutbox, *, status, verified
     ):
         active_user.email_verified = verified
         active_user.save()
@@ -626,8 +590,7 @@ class TestEventTicketOrderClaimActionView:
             email=active_user.email,
         )
 
-        with django_capture_on_commit_callbacks(execute=True):
-            response = authenticated_client.post(_claim_url(event, guests))
+        response = authenticated_client.post(_claim_url(event, guests))
 
         assert_response_404(response)
         guests.refresh_from_db()
@@ -700,16 +663,11 @@ class TestEventTicketOrderClaimActionView:
         assert not mailoutbox
 
     def test_order_without_an_email_yet_is_not_found_and_mails_nothing(
-        self,
-        authenticated_client,
-        event,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
+        self, authenticated_client, event, mailoutbox
     ):
         guests = order(event, buyer=None, lines=[(ticket_type(event), 1)])
 
-        with django_capture_on_commit_callbacks(execute=True):
-            response = authenticated_client.post(_claim_url(event, guests))
+        response = authenticated_client.post(_claim_url(event, guests))
 
         assert_response_404(response)
         guests.refresh_from_db()
@@ -732,16 +690,10 @@ class TestEventTicketOrderClaimActionView:
 
 class TestEventTicketOrderClaimConfirmPageView:
     def test_mailed_link_hands_the_order_to_the_account_that_asked(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        mailoutbox,
-        django_capture_on_commit_callbacks,
+        self, authenticated_client, event, active_user, mailoutbox
     ):
         guests = _guest_order_with_tickets(event)
-        with django_capture_on_commit_callbacks(execute=True):
-            authenticated_client.post(_claim_url(event, guests), follow=True)
+        authenticated_client.post(_claim_url(event, guests), follow=True)
         link = _confirm_link(mailoutbox[0])
 
         response = authenticated_client.post(

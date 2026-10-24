@@ -95,11 +95,6 @@ def _guest_client(request: RootRequest) -> str:
     return salted_hmac(_GUEST_CLIENT_SALT, network, algorithm="sha256").hexdigest()
 
 
-def _masked(email: str) -> str:
-    name, _at, domain = email.partition("@")
-    return f"{name[:1]}…@{domain}"
-
-
 def _sign_in_url(next_path: str, *, signup: bool) -> str:
     # Auth0 opens its signup screen when asked; either way the buyer comes
     # back to the order page, signed in, to claim it.
@@ -297,7 +292,7 @@ class EventTicketOrderClaimActionView(View):
                         "These tickets were bought with %(email)s. We've sent a link"
                         " there: open it while signed in to this account to add them."
                     )
-                    % {"email": _masked(result.order_email)},
+                    % {"email": result.order_email},
                 )
             case ClaimOutcome.CONFIRMATION_HELD:
                 minutes = CLAIM_MAIL_INTERVAL // timedelta(minutes=1)
@@ -312,7 +307,7 @@ class EventTicketOrderClaimActionView(View):
                         " minutes.",
                         minutes,
                     )
-                    % {"email": _masked(result.order_email), "minutes": minutes},
+                    % {"email": result.order_email, "minutes": minutes},
                 )
             case ClaimOutcome.MAIL_FAILED:
                 messages.error(
@@ -321,7 +316,7 @@ class EventTicketOrderClaimActionView(View):
                         "We couldn't send the confirmation link to %(email)s. Try"
                         " again in a moment."
                     )
-                    % {"email": _masked(result.order_email)},
+                    % {"email": result.order_email},
                 )
             case ClaimOutcome.ALREADY_YOURS:
                 pass

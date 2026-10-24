@@ -61,9 +61,11 @@ urlpatterns: list[URLPattern] = [
         non_atomic_requests(tickets.EventTicketOrderCancelActionView.as_view()),
         name="event-ticket-order-cancel",
     ),
+    # SAFETY: non-atomic, so the order's lock is released before the mail
+    # server is waited on.
     path(
         "event/<str:event_slug>/tickets/orders/<slug:reference>/do/claim",
-        tickets.EventTicketOrderClaimActionView.as_view(),
+        non_atomic_requests(tickets.EventTicketOrderClaimActionView.as_view()),
         name="event-ticket-order-claim",
     ),
     path(

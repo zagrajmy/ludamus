@@ -31,7 +31,7 @@
         </div>
         {% if state == "paid" %}
             <p class="text-foreground">
-                {% if claimable %}
+                {% if order.is_guest %}
                     {% translate "Show these codes at the entrance." %}
                 {% else %}
                     {% translate "Show these codes at the entrance. They're also saved under My tickets." %}
@@ -84,13 +84,9 @@
                         <h2 id="keep-tickets-heading"
                             class="font-semibold text-foreground">{% translate "Keep your tickets safe" %}</h2>
                         <p class="text-sm text-foreground-muted">
-                            {% if order.email %}
-                                {% blocktranslate trimmed with email=order.email %}
-                                    We've emailed a link to this page to {{ email }}. Create a free account, or log in, to keep the tickets with your sign-ups and stop anyone else using the link.
-                                {% endblocktranslate %}
-                            {% else %}
-                                {% translate "Create a free account, or log in, to keep the tickets with your sign-ups and stop anyone else using this link." %}
-                            {% endif %}
+                            {% blocktranslate trimmed with email=order.email %}
+                                We've emailed a link to this page to {{ email }}. Create a free account, or log in, to keep the tickets with your sign-ups and stop anyone else using the link.
+                            {% endblocktranslate %}
                         </p>
                         <div class="flex flex-wrap gap-3">
                             {% translate "Create an account" as sign_up_label %}
@@ -120,7 +116,7 @@
                 </ul>
             </div>
         </section>
-        {% if state == "paid" and not claimable %}
+        {% if state == "paid" and not order.is_guest %}
             {% translate "Show my tickets" as tickets_label %}
             {% url 'user:profile-tickets' as tickets_url %}
             {% tessera_button tickets_label href=tickets_url icon="ticket" %}

@@ -377,21 +377,30 @@ class TestClaimOrder:
         )
         assert book.claim_mailed_at[order.pk] > NOW
 
-    def test_mail_server_refusing_the_link_says_so(
+    def test_mail_server_refusing_the_link_says_so_and_holds_nothing_back(
         self, sales, book, mailer, paid_guest_order, caplog
     ):
         order = paid_guest_order
         mailer.down = True
 
         with caplog.at_level(logging.INFO, logger=TICKETS_LOGGER):
-            result = _claim(sales, order, user_id=OTHER_BUYER_ID)
+            refused = _claim(sales, order, user_id=OTHER_BUYER_ID)
+            mailer.down = False
+            again = _claim(sales, order, user_id=OTHER_BUYER_ID)
 
-        assert result == ClaimResultDTO(
+        assert refused == ClaimResultDTO(
             outcome=ClaimOutcome.MAIL_FAILED, order_email=GUEST_EMAIL
         )
+        assert again.outcome is ClaimOutcome.CONFIRMATION_SENT
         assert book.orders[order.pk].buyer_id is None
-        assert mailer.confirmations == []
-        assert caplog.messages == [f"Ticket order claim mail failed: order={order.pk}"]
+        assert len(mailer.confirmations) == 1
+        assert caplog.messages == [
+            f"Ticket order claim mail failed: order={order.pk}",
+            (
+                f"Ticket order claim confirmation sent: order={order.pk}"
+                f" user={OTHER_BUYER_ID}"
+            ),
+        ]
 
     @pytest.mark.parametrize("status", (OrderStatus.PAID, OrderStatus.REFUNDED))
     def test_claiming_your_own_order_again_changes_nothing(

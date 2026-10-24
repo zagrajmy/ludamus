@@ -597,7 +597,14 @@ class TicketOrderRepositoryProtocol(Protocol):
 
     @staticmethod
     def take_claim_mail_slot(*, pk: int, now: datetime, interval: timedelta) -> bool:
-        """Stamp `now` unless a claim mail went out within `interval`; say if it did."""
+        """Stamp `now` unless a claim mail went out within `interval`.
+
+        Return True if it stamped.
+        """
+
+    @staticmethod
+    def release_claim_mail_slot(*, pk: int, taken_at: datetime) -> None:
+        """Clear the stamp `take_claim_mail_slot` made at `taken_at`, if still it."""
 
     @staticmethod
     def count_guest_holds(

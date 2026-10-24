@@ -115,7 +115,9 @@ test.describe("Ticket sales", () => {
       await keep.getByRole("button", { name: "Add to my account" }).click();
       // The tester's account isn't verified for the guest's address, so the
       // order's email has to hand it over.
-      await expect(page.getByText(/These tickets were bought with g…@test\.local\./)).toBeVisible();
+      await expect(
+        page.getByText(/These tickets were bought with guest@test\.local\./),
+      ).toBeVisible();
 
       let confirmPath = "";
       await expect(async () => {

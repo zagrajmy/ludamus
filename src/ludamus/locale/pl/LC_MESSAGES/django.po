@@ -6764,14 +6764,6 @@ msgstr ""
 "nie skorzystał z linku."
 
 #: src/ludamus/templates/chronology/ticket-order.html
-msgid ""
-"Create a free account, or log in, to keep the tickets with your sign-ups and "
-"stop anyone else using this link."
-msgstr ""
-"Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
-"zapisami i żeby nikt inny nie skorzystał z tego linku."
-
-#: src/ludamus/templates/chronology/ticket-order.html
 msgid "Create an account"
 msgstr "Załóż konto"
 
@@ -13963,6 +13955,13 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid ""
+#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
+#~ "and stop anyone else using this link."
+#~ msgstr ""
+#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
+#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
 
 #~ msgid ""
 #~ "Too many checkouts from your connection. Wait a few minutes, or sign in "

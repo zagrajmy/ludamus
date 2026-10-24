@@ -144,8 +144,11 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
    The link alone is not enough: buyers forward the order mail to friends. An
    account verified for the order's email claims at once; any other account
    gets a confirmation link mailed to the order's email (signed, bound to the
-   order and the account, valid a day). From then on only that account sees
-   the order; anyone else with the link is asked to sign in.
+   order and the account, valid a day). An order mails at most one such link
+   per ten minutes, and a mail the server refuses frees that slot again. The
+   mail goes out after the order's lock is released, so a slow mail server
+   holds up no webhook or refund. From then on only that account sees the
+   order; anyone else with the link is asked to sign in.
 6. Coming back through Stripe's "back" link expires the Checkout Session at once
    and releases the hold.
 

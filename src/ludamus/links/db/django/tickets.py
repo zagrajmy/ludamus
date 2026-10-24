@@ -299,6 +299,12 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         )
 
     @staticmethod
+    def release_claim_mail_slot(*, pk: int, taken_at: datetime) -> None:
+        TicketOrder.objects.filter(pk=pk, claim_mailed_at=taken_at).update(
+            claim_mailed_at=None, modification_time=Now()
+        )
+
+    @staticmethod
     def count_guest_holds(
         *, event_id: int, guest_client: str, holds_after: datetime
     ) -> int:
@@ -462,12 +468,19 @@ def _order_url(event: OrderMailEvent, *, name: str, **kwargs: str) -> str:
     )
 
 
+def _send_now(*, subject: str, body: str, to: str) -> None:
+    try:
+        EmailMessage(subject=subject, body=body, to=[to]).send()
+    # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
+    except (OSError, ValueError) as error:
+        raise OrderMailError from error
+
+
 def _send_after_commit(*, order_pk: int, subject: str, body: str, to: str) -> None:
     def _send() -> None:
-        # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
         try:
-            EmailMessage(subject=subject, body=body, to=[to]).send()
-        except OSError, ValueError:
+            _send_now(subject=subject, body=body, to=to)
+        except OrderMailError:
             logger.exception("Ticket order mail failed: order=%s", order_pk)
             return
         logger.info("Ticket order mail sent: order=%s", order_pk)
@@ -534,15 +547,10 @@ class DjangoTicketMailer(TicketMailerProtocol):
             url,
             _("If it wasn't, ignore this email. Your tickets stay as they are."),
         ]
-        try:
-            EmailMessage(
-                subject=_("Add your tickets for %(event)s to an account?") % {
-                    "event": mail.event.name
-                },
-                body="\n\n".join(lines),
-                to=[mail.email],
-            ).send()
-        # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
-        except (OSError, ValueError) as error:
-            raise OrderMailError from error
-        logger.info("Ticket order mail sent: order=%s", mail.order_pk)
+        _send_now(
+            subject=_("Add your tickets for %(event)s to an account?") % {
+                "event": mail.event.name
+            },
+            body="\n\n".join(lines),
+            to=mail.email,
+        )
