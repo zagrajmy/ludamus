@@ -51,7 +51,7 @@ def _reset_age(user):
 
 @pytest.mark.parametrize("age_band", (AgeBand.UNKNOWN, AgeBand.THIRTEEN_TO_FIFTEEN))
 def test_marketing_notifier_cannot_bypass_current_age(
-    subscription, mailoutbox, django_capture_on_commit_callbacks, age_band
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks, age_band
 ):
     promotion = _promotion(subscription)
     User.objects.filter(pk=subscription.user_id).update(age_band=age_band)
@@ -65,7 +65,7 @@ def test_marketing_notifier_cannot_bypass_current_age(
 
 @pytest.mark.parametrize("resubscribe", (False, True))
 def test_snapshot_does_not_survive_age_reset(
-    subscription, mailoutbox, django_capture_on_commit_callbacks, resubscribe
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks, resubscribe
 ):
     promotion = _promotion(subscription)
     _reset_age(subscription.user)
@@ -83,7 +83,7 @@ def test_snapshot_does_not_survive_age_reset(
 
 @pytest.mark.parametrize("resubscribe", (False, True))
 def test_snapshot_does_not_survive_signed_link_withdrawal(
-    subscription, client, mailoutbox, django_capture_on_commit_callbacks, resubscribe
+    *, subscription, client, mailoutbox, django_capture_on_commit_callbacks, resubscribe
 ):
     promotion = _promotion(subscription)
     client.post(
@@ -106,7 +106,7 @@ def test_snapshot_does_not_survive_signed_link_withdrawal(
 
 @pytest.mark.parametrize("age_band", (AgeBand.UNKNOWN, AgeBand.THIRTEEN_TO_FIFTEEN))
 def test_queued_marketing_rechecks_current_age_before_sending(
-    subscription, mailoutbox, django_capture_on_commit_callbacks, age_band
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks, age_band
 ):
     with django_capture_on_commit_callbacks(execute=True):
         DjangoUserNotifier().notify_sphere_event_published(_promotion(subscription))
@@ -118,7 +118,7 @@ def test_queued_marketing_rechecks_current_age_before_sending(
 
 @pytest.mark.parametrize("resubscribe", (False, True))
 def test_queued_marketing_does_not_survive_age_reset(
-    subscription, mailoutbox, django_capture_on_commit_callbacks, resubscribe
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks, resubscribe
 ):
     with django_capture_on_commit_callbacks(execute=True):
         DjangoUserNotifier().notify_sphere_event_published(_promotion(subscription))
@@ -134,7 +134,7 @@ def test_queued_marketing_does_not_survive_age_reset(
 
 @pytest.mark.parametrize("resubscribe", (False, True))
 def test_queued_marketing_does_not_survive_signed_link_withdrawal(
-    subscription, client, mailoutbox, django_capture_on_commit_callbacks, resubscribe
+    *, subscription, client, mailoutbox, django_capture_on_commit_callbacks, resubscribe
 ):
     promotion = _promotion(subscription)
     with django_capture_on_commit_callbacks(execute=True):
@@ -155,7 +155,7 @@ def test_queued_marketing_does_not_survive_signed_link_withdrawal(
 
 
 def test_foreign_subscription_cannot_authorize_marketing(
-    subscription, mailoutbox, django_capture_on_commit_callbacks
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks
 ):
     recipient = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
     promotion = _promotion(subscription).model_copy(
@@ -170,7 +170,7 @@ def test_foreign_subscription_cannot_authorize_marketing(
 
 
 def test_changed_subscription_owner_revokes_queued_marketing(
-    subscription, mailoutbox, django_capture_on_commit_callbacks
+    *, subscription, mailoutbox, django_capture_on_commit_callbacks
 ):
     other_user = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
 
@@ -183,7 +183,7 @@ def test_changed_subscription_owner_revokes_queued_marketing(
 
 
 def test_young_account_still_receives_service_notifications(
-    active_user, mailoutbox, django_capture_on_commit_callbacks
+    *, active_user, mailoutbox, django_capture_on_commit_callbacks
 ):
     User.objects.filter(pk=active_user.pk).update(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
 
