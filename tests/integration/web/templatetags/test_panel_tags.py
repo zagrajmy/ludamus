@@ -126,7 +126,7 @@ CATEGORY = (
     '{% sidebar_cat key="sphere" label="Sphere" %}'
     '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
     ' label="Guilds" key="guilds" %}'
-    "{% endsidebar_cat %}"
+    "{% end_sidebar_cat %}"
 )
 
 
@@ -161,7 +161,7 @@ class TestSidebarCatKey:
         # sidebar_link guards.
         tpl = Template(
             "{% load panel_tags %}"
-            '{% sidebar_cat key="reports" label="Reports" %}{% endsidebar_cat %}'
+            '{% sidebar_cat key="reports" label="Reports" %}{% end_sidebar_cat %}'
         )
 
         with pytest.raises(TemplateSyntaxError, match="reports"):
