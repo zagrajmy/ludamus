@@ -679,6 +679,7 @@ class TestGuestHoldLimit:
 
 
 class TestHoldCommitsBeforeStripe:
+    @pytest.mark.postgres
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.parametrize("signed_in", (False, True), ids=("guest", "account"))
     def test_stripe_is_called_with_the_hold_committed_and_no_lock_held(

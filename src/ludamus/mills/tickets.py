@@ -467,6 +467,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
         self, *, event_id: int, reference: str, user_id: int
     ) -> ClaimResultDTO:
         verified_email = self._repos.users.read_by_id(user_id).deliverable_email
+        now = datetime.now(tz=UTC)
         with self._transaction.durable():
             order = _for_claim(
                 self._repos.orders.lock_by_reference(reference=reference),
@@ -474,32 +475,30 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 user_id=user_id,
             )
             if order.buyer_id == user_id:
-                return ClaimResultDTO(
-                    outcome=ClaimOutcome.ALREADY_YOURS, order_email=order.email
-                )
-            if owns_order_email(order_email=order.email, verified_email=verified_email):
+                outcome = ClaimOutcome.ALREADY_YOURS
+            elif owns_order_email(
+                order_email=order.email, verified_email=verified_email
+            ):
                 self._claim(order, user_id=user_id)
-                return ClaimResultDTO(
-                    outcome=ClaimOutcome.CLAIMED, order_email=order.email
-                )
-        # SAFETY: after the order's lock is released, so a slow mail server
-        # holds up no webhook or refund on it.
-        return ClaimResultDTO(
-            outcome=self._ask_order_email(order, user_id=user_id),
-            order_email=order.email,
-        )
+                outcome = ClaimOutcome.CLAIMED
+            elif self._repos.orders.take_claim_mail_slot(
+                pk=order.pk, now=now, interval=CLAIM_MAIL_INTERVAL
+            ):
+                outcome = ClaimOutcome.CONFIRMATION_SENT
+            else:
+                logger.info("Ticket order claim mail held back: order=%s", order.pk)
+                outcome = ClaimOutcome.CONFIRMATION_HELD
+        if outcome is ClaimOutcome.CONFIRMATION_SENT:
+            # SAFETY: after the order's lock is released, so a slow mail server
+            # holds up no webhook or refund on it.
+            outcome = self._ask_order_email(order, user_id=user_id, slot_taken_at=now)
+        return ClaimResultDTO(outcome=outcome, order_email=order.email)
 
-    def _ask_order_email(self, order: OrderDTO, *, user_id: int) -> ClaimOutcome:
+    def _ask_order_email(
+        self, order: OrderDTO, *, user_id: int, slot_taken_at: datetime
+    ) -> ClaimOutcome:
         # SAFETY: the link alone may be a forwarded mail, so only the order's
         # address may hand the order to an account it has not been proven for.
-        now = datetime.now(tz=UTC)
-        with self._transaction.durable():
-            taken = self._repos.orders.take_claim_mail_slot(
-                pk=order.pk, now=now, interval=CLAIM_MAIL_INTERVAL
-            )
-        if not taken:
-            logger.info("Ticket order claim mail held back: order=%s", order.pk)
-            return ClaimOutcome.CONFIRMATION_HELD
         try:
             self._mailer.send_claim_confirmation(
                 ClaimConfirmationMail(
@@ -515,7 +514,9 @@ class TicketSalesService(TicketSalesServiceProtocol):
         except OrderMailError:
             logger.exception("Ticket order claim mail failed: order=%s", order.pk)
             with self._transaction.durable():
-                self._repos.orders.release_claim_mail_slot(pk=order.pk, taken_at=now)
+                self._repos.orders.release_claim_mail_slot(
+                    pk=order.pk, taken_at=slot_taken_at
+                )
             return ClaimOutcome.MAIL_FAILED
         logger.info(
             "Ticket order claim confirmation sent: order=%s user=%s", order.pk, user_id
@@ -545,6 +546,10 @@ class TicketSalesService(TicketSalesServiceProtocol):
             verdict = _link_verdict(order, payload=payload, user_id=user_id)
             if verdict is ConfirmLinkState.READY:
                 self._claim(order, user_id=user_id)
+        if verdict is ConfirmLinkState.LINK_INVALID:
+            logger.warning(
+                "Ticket order claim link refused: order=%s user=%s", order.pk, user_id
+            )
         return _CONFIRMED[verdict]
 
     def _claim(self, order: OrderDTO, *, user_id: int) -> None:

@@ -29,6 +29,7 @@ Claiming
 - A confirmation link takes the order for an account it was not made for, or
   takes an order it was not made for, or works once expired or forged.
 - A link followed twice, or for an order already yours, claims it again.
+- A refused link leaves no trace in the logs.
 - Opening a link, before confirming it, claims the order or misreports what
   confirming it would do.
 - An address differing only in case is not the order's, or an account with no
@@ -519,18 +520,23 @@ class TestConfirmClaim:
 
     @pytest.mark.parametrize("expired", (True, False), ids=("expired", "forged"))
     def test_link_that_does_not_read_back_claims_nothing(
-        self, sales, book, orders, mailer, claims, regular, expired
+        self, sales, book, orders, mailer, claims, regular, expired, caplog
     ):
         order = add_guest_order(orders, regular, email=GUEST_EMAIL)
         token = self._ask(sales, mailer, order)
         asked = book.orders[order.pk]
         if expired:
             claims.expire(token)
+        caplog.clear()
 
-        outcome = self._confirm(sales, order, token=token if expired else "forged")
+        with caplog.at_level(logging.WARNING, logger=TICKETS_LOGGER):
+            outcome = self._confirm(sales, order, token=token if expired else "forged")
 
         assert outcome is ConfirmOutcome.LINK_INVALID
         assert book.orders[order.pk] == asked
+        assert caplog.messages == [
+            f"Ticket order claim link refused: order={order.pk} user={BUYER_ID}"
+        ]
 
     def test_link_followed_again_finds_the_order_already_yours(
         self, sales, book, orders, mailer, regular

@@ -18,6 +18,7 @@ from urllib.parse import urlencode, urlparse
 import pytest
 from django.contrib import messages
 from django.core.mail import EmailMessage
+from django.db import connection
 from django.test import Client
 from django.urls import resolve, reverse
 from freezegun import freeze_time
@@ -686,6 +687,36 @@ class TestEventTicketOrderClaimActionView:
         )
         guests.refresh_from_db()
         assert guests.buyer_id is None
+
+
+class TestClaimMailWaitsForNoLock:
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_claim_link_is_mailed_with_no_transaction_open(
+        self, authenticated_client, event, mailoutbox, monkeypatch
+    ):
+        # A mail server is waited on while sending: inside a transaction it
+        # would keep the order's row lock, and Stripe's webhooks behind it.
+        guests = _guest_order_with_tickets(event)
+        send = EmailMessage.send
+        seen = []
+
+        def recorded(message, *args, **kwargs):
+            seen.append(connection.in_atomic_block)
+            return send(message, *args, **kwargs)
+
+        monkeypatch.setattr(EmailMessage, "send", recorded)
+
+        response = authenticated_client.post(_claim_url(event, guests))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=order_url(event, guests),
+            messages=[_link_sent(GUEST_EMAIL)],
+        )
+        assert seen == [False]
+        assert [mail.to for mail in mailoutbox] == [[GUEST_EMAIL]]
 
 
 class TestEventTicketOrderClaimConfirmPageView:
