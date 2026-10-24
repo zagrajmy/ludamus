@@ -219,6 +219,7 @@ class Services:
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            subscriptions=self._repos.sphere_subscriptions,
         )
 
     @cached_property
