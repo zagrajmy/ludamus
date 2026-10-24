@@ -86,7 +86,7 @@ pytest-xdist = "^3.8.0"
 # copy has to use the same flavour.
 regex = "^2026.7.19"
 responses = "^0.26.0"
-ruff = "^0.17.0"
+ruff = "^0.17.1"
 taplo = "^0.9.3"
 tingle = "^0.8.0"
 types-authlib = "^1.7.2.20260724"
