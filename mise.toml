@@ -122,14 +122,6 @@ depends = [
     { task = "lint:frog" },
 ]
 
-## Dependencies
-
-[tasks.update]
-description = "Update all dependencies: mise tools, pip, Poetry packages"
-run = [
-    { task = "dep:upgrade:py" },
-]
-
 ## Tests
 
 ### End-to-End tests
