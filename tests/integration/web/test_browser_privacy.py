@@ -1,13 +1,16 @@
-from uuid import uuid4
+from http import HTTPStatus
 
 import pytest
+from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpResponse
 from django.test import RequestFactory
+from django.urls import reverse
 
 from ludamus.inits.browser_privacy import BrowserPrivacyMiddleware
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import User
+from tests.integration.utils import NonEmptyStringMatcher, assert_response
 
 
 @pytest.mark.parametrize("age_band", ("unknown", "13_15", "16_plus"))
@@ -34,49 +37,47 @@ def test_cookie_exposes_only_current_eligible_revision(active_user, settings, ag
 
 @pytest.mark.parametrize("age_band", ("13_15", "16_plus"))
 def test_cookie_uses_response_time_state_not_the_authenticated_user_cache(
-    active_user, age_band
+    active_user, authenticated_client, age_band
 ):
     User.objects.filter(pk=active_user.pk).update(age_band="16_plus")
     active_user.refresh_from_db()
-    request = RequestFactory().get("/")
-    request.user = active_user
-    request.services = Services()
-    revision = uuid4()
 
-    def change_age(_request):
-        User.objects.filter(pk=active_user.pk).update(
-            age_band=age_band, privacy_revision=revision
-        )
-        return HttpResponse()
+    response = authenticated_client.post(
+        reverse("user:profile-age-range"), {"age_band": age_band}
+    )
 
-    response = BrowserPrivacyMiddleware(change_age)(request)
-
-    assert response.cookies["ludamus.privacy"].value == (
-        str(revision) if age_band == "16_plus" else "off"
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        url=reverse("user:profile-privacy"),
+        messages=[(messages.SUCCESS, "Age range saved. Your bookings are unchanged.")],
+    )
+    assert authenticated_client.cookies["ludamus.privacy"].value == (
+        str(active_user.privacy_revision) if age_band == "16_plus" else "off"
     )
     assert active_user.age_band == "16_plus"
-    assert active_user.privacy_revision != revision
 
 
-def test_cookie_uses_explicit_shared_session_domain(active_user, settings):
+def test_cookie_uses_explicit_shared_session_domain(client, settings):
     settings.SESSION_COOKIE_DOMAIN = ".example.test"
-    request = RequestFactory().get("/")
-    request.user = active_user
-    request.services = Services()
 
-    response = BrowserPrivacyMiddleware(lambda _: HttpResponse())(request)
+    response = client.get(reverse("web:crowd:auth0:logout"))
 
-    assert response.cookies["ludamus.privacy"]["domain"] == ".example.test"
+    assert_response(
+        response, HTTPStatus.FOUND, url=NonEmptyStringMatcher(contains="/v2/logout?")
+    )
+    assert client.cookies["ludamus.privacy"]["domain"] == ".example.test"
 
 
-def test_signed_out_response_revokes_existing_cookie():
-    request = RequestFactory().get("/", HTTP_COOKIE="ludamus.privacy=old-revision")
-    request.user = AnonymousUser()
-    request.services = Services()
+def test_signed_out_response_revokes_existing_cookie(client):
+    client.cookies["ludamus.privacy"] = "old-revision"
 
-    response = BrowserPrivacyMiddleware(lambda _: HttpResponse())(request)
+    response = client.get(reverse("web:crowd:auth0:logout"))
 
-    assert response.cookies["ludamus.privacy"].value == "off"
+    assert_response(
+        response, HTTPStatus.FOUND, url=NonEmptyStringMatcher(contains="/v2/logout?")
+    )
+    assert client.cookies["ludamus.privacy"].value == "off"
 
 
 def test_correct_cookie_does_not_emit_redundant_set_cookie():
