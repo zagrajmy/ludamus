@@ -66,7 +66,7 @@ class TestSignupIdentityRaces:
     @pytest.mark.parametrize("reject_first", (False, True))
     @pytest.mark.parametrize("claim", (False, True))
     def test_underage_denial_wins_with_uncommitted_identity(
-        self, reject_first, claim, non_root_sphere
+        self, *, reject_first, claim, non_root_sphere
     ):
         companion = None
         if claim:
