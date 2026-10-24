@@ -3,7 +3,32 @@ from typing import cast
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.crowd import UserData, UserType
+from ludamus.pacts.crowd import AgeBand, UserData, UserType
+
+# Not an AgeBand: nobody under the minimum age holds an account, so this answer
+# is never stored, only acted on.
+_UNDER_MIN_AGE = "under_13"
+
+
+class AgeRangeForm(forms.Form):
+    age_band = forms.ChoiceField(
+        label=_("Age range"),
+        choices=[
+            (AgeBand.SIXTEEN_PLUS, _("16 or older")),
+            (AgeBand.THIRTEEN_TO_FIFTEEN, _("13–15")),
+            (_UNDER_MIN_AGE, _("Under 13")),
+        ],
+        widget=forms.RadioSelect,
+    )
+
+    def clean_age_band(self) -> AgeBand | None:
+        """Return the declared range, or None for an answer below the minimum age."""
+        answer = self.cleaned_data["age_band"]
+        return None if answer == _UNDER_MIN_AGE else AgeBand(answer)
+
+
+class SignupAgeForm(AgeRangeForm):
+    confirmation_token = forms.CharField(widget=forms.HiddenInput())
 
 
 class BaseUserForm(forms.Form):

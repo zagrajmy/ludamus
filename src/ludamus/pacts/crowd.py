@@ -16,11 +16,31 @@ from ludamus.pacts.ids import UserId
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
+MIN_ACCOUNT_AGE = 13
 
 # Signed verification links live this long. Shared contract: the token codec
 # enforces it on read, and the repository's pending-address reservation
 # (`email_unavailable`) expires with it, so nothing needs a cleanup job.
 EMAIL_LINK_MAX_AGE = timedelta(hours=24)
+
+
+class AgeBand(StrEnum):
+    UNKNOWN = "unknown"
+    THIRTEEN_TO_FIFTEEN = "13_15"
+    SIXTEEN_PLUS = "16_plus"
+
+    @property
+    def is_confirmed(self) -> bool:
+        return self is not AgeBand.UNKNOWN
+
+    @property
+    def allows_optional_features(self) -> bool:
+        """Analytics, session recordings and promotional email: 16+ only."""
+        return self is AgeBand.SIXTEEN_PLUS
+
+
+class AgeBandRequiredError(ValueError):
+    """An age range was confirmed as UNKNOWN, which is no answer at all."""
 
 
 class UserType(StrEnum):
@@ -32,6 +52,7 @@ class UserType(StrEnum):
 class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    age_band: AgeBand
     avatar_url: str
     date_joined: datetime
     discord_username: str
@@ -67,6 +88,7 @@ class CompanionDTO(UserDTO):
 
 
 class UserData(TypedDict, total=False):
+    age_band: AgeBand
     avatar_url: str
     discord_username: str
     email: str
@@ -92,6 +114,8 @@ class UserRepositoryProtocol(Protocol):
     def read_by_email(self, email: str) -> UserDTO: ...
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None: ...
+    @staticmethod
+    def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand: ...
     @staticmethod
     def email_unavailable(
         *, email: str, now: datetime, exclude_slug: str | None = None
@@ -172,6 +196,9 @@ class CrowdAuthServiceProtocol(Protocol):
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO: ...
+    def has_account(self, username: str) -> bool: ...
+    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool: ...
+    def disable_underage_account(self, user_slug: str) -> None: ...
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO: ...
     def is_known_sphere_domain(self, domain: str) -> bool: ...
 
