@@ -24,7 +24,7 @@
             {% endif %}
             <div>
                 <p class="flex flex-wrap items-center gap-x-3 text-sm font-medium text-coral-700 dark:text-coral-300">
-                    {{ listing|pair_label }}
+                    {{ listing|seeking_label }}
                     {% include "board/_status.html" %}
                 </p>
                 <h1 class="mt-1 break-words text-2xl font-bold text-foreground">{{ listing.title }}</h1>
@@ -59,7 +59,7 @@
                 {% endif %}
                 {% if listing.seats %}
                     <div>
-                        <dt class="text-foreground-muted">{% translate "Seats" %}</dt>
+                        <dt class="text-foreground-muted">{% translate "Seats" context "listing" %}</dt>
                         <dd class="text-foreground-primary">
                             {{ listing.seats }}
                         </dd>

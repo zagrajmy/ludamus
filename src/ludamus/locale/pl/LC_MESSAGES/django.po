@@ -738,24 +738,22 @@ msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
 msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "GM looking for players"
-msgstr "MG szuka graczy"
+msgid "Looking for players"
+msgstr "Szuka graczy"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Player looking for a GM"
-msgstr "Gracz szuka MG"
+msgid "Looking for a GM"
+msgstr "Szuka MG"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Player looking for a group"
-msgstr "Gracz szuka grupy"
+msgctxt "listing seeking"
+msgid "Players"
+msgstr "Graczy"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Group looking for players"
-msgstr "Grupa szuka graczy"
-
-#: src/ludamus/gates/web/django/board/forms.py
-msgid "Group looking for a GM"
-msgstr "Grupa szuka MG"
+msgctxt "listing seeking"
+msgid "GM"
+msgstr "MG"
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/templates/board/detail.html
@@ -768,8 +766,8 @@ msgid "Account email"
 msgstr "E-mail konta"
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Who is looking for whom"
-msgstr "Kto kogo szuka"
+msgid "Looking for"
+msgstr "Szukam"
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -846,16 +844,15 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/templates/board/detail.html
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/panel/enrollment-settings.html
+msgctxt "listing"
 msgid "Seats"
-msgstr "Miejsca"
+msgstr "Miejsca przy stole"
 
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Only informs; nobody is turned away when they fill up."
 msgstr ""
-"Tylko informacyjnie; nikt nie zostanie odesłany, gdy miejsca się skończą."
+"Tylko informacyjnie; nikt nie zostanie odesłany, gdy miejsca przy stole się "
+"skończą."
 
 #: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/templates/board/detail.html
@@ -5487,8 +5484,8 @@ msgid "No listings yet"
 msgstr "Nie ma jeszcze ogłoszeń"
 
 #: src/ludamus/templates/board/index.html
-msgid "Looking for players, a GM or a group? Add the first listing."
-msgstr "Szukasz graczy, MG albo grupy? Dodaj pierwsze ogłoszenie."
+msgid "Looking for players or a GM? Add the first listing."
+msgstr "Szukasz graczy albo MG? Dodaj pierwsze ogłoszenie."
 
 #: src/ludamus/templates/board/mine.html
 msgid "You have no listings yet"
@@ -5811,6 +5808,12 @@ msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Seats"
+msgstr "Miejsca"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Length"
@@ -13286,26 +13289,51 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
+
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgid "Group looking for a GM"
+#~ msgstr "Grupa szuka MG"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
 #~ msgid "Online or offline"
 #~ msgstr "Online czy na miejscu"
-
-#~ msgid "A GM"
-#~ msgstr "MG"
 
 #~ msgid "A player"
 #~ msgstr "Gracz"
 
 #~ msgid "A group"
 #~ msgstr "Grupa"
-
-#~ msgid "Players"
-#~ msgstr "Graczy"
-
-#~ msgid "I am"
-#~ msgstr "Jestem"
-
-#~ msgid "I'm looking for"
-#~ msgstr "Szukam"
 
 #~ msgid "Pick who you are looking for again."
 #~ msgstr "Wybierz jeszcze raz, kogo szukasz."

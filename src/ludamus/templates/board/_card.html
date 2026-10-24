@@ -6,7 +6,7 @@
     <a href="{% url 'web:board:detail' pk=listing.pk %}"
        class="flex flex-col gap-1.5 px-4 py-4 transition-colors duration-150 hover:bg-bg-tertiary">
         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-coral-700 dark:text-coral-300">
-            {{ listing|pair_label }}
+            {{ listing|seeking_label }}
             {% if show_status %}
                 {% include "board/_status.html" %}
             {% endif %}

@@ -8,7 +8,6 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingContactMissingError,
     ListingDTO,
-    ListingRole,
     ListingSeeking,
     ListingStatus,
     ListingStatusError,
@@ -21,7 +20,6 @@ STRANGER_PK = 3
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 
 _WRITE = {
-    "role": ListingRole.GM,
     "seeking": ListingSeeking.PLAYERS,
     "title": "Zew Cthulhu",
     "what": "one-shot",

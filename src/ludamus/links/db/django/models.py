@@ -31,11 +31,9 @@ from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.listing import (
-    LISTING_PAIRS,
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
     ListingContact,
-    ListingRole,
     ListingSeeking,
     ListingStatus,
 )
@@ -380,9 +378,6 @@ class Listing(models.Model):
         "Sphere", on_delete=models.CASCADE, related_name="listings"
     )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="listings")
-    role = models.CharField(
-        max_length=16, choices=[(r.value, r.name) for r in ListingRole]
-    )
     seeking = models.CharField(
         max_length=16, choices=[(s.value, s.name) for s in ListingSeeking]
     )
@@ -418,13 +413,6 @@ class Listing(models.Model):
             )
         ]
         constraints = (
-            models.CheckConstraint(
-                condition=Q(
-                    *(Q(role=role, seeking=seeking) for role, seeking in LISTING_PAIRS),
-                    _connector=Q.OR,
-                ),
-                name="listing_has_offered_pair",
-            ),
             models.CheckConstraint(
                 condition=Q(starts_at__isnull=False) | ~Q(when_text=""),
                 name="listing_has_when",

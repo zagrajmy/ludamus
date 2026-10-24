@@ -14,7 +14,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.board.forms import ListingForm, pair_value, split_pair
+from ludamus.gates.web.django.board.forms import ListingForm
 from ludamus.gates.web.django.pagination import windowed_pagination_context
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import NotFoundError
@@ -22,6 +22,7 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingContactMissingError,
     ListingCreateDict,
+    ListingSeeking,
     ListingStatusError,
     ListingWriteDict,
 )
@@ -149,10 +150,8 @@ class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
 
 def _write_data(form: ListingForm) -> ListingWriteDict:
     data = form.cleaned_data
-    role, seeking = split_pair(data["pair"])
     write = ListingWriteDict(
-        role=role,
-        seeking=seeking,
+        seeking=ListingSeeking(data["seeking"]),
         title=data["title"],
         what=data["what"],
         description=data["description"],
@@ -227,7 +226,7 @@ class ListingEditPageView(_ListingFormPageView):
         listing = self._listing(pk)
         form = self._form(
             initial={
-                "pair": pair_value(listing.role, listing.seeking),
+                "seeking": listing.seeking,
                 "title": listing.title,
                 "what": listing.what,
                 # Strings, as posted data arrives, so the picker matches either.

@@ -26,25 +26,9 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "role",
-                    models.CharField(
-                        choices=[
-                            ("gm", "GM"),
-                            ("player", "PLAYER"),
-                            ("group", "GROUP"),
-                        ],
-                        max_length=16,
-                    ),
-                ),
-                (
                     "seeking",
                     models.CharField(
-                        choices=[
-                            ("players", "PLAYERS"),
-                            ("gm", "GM"),
-                            ("group", "GROUP"),
-                        ],
-                        max_length=16,
+                        choices=[("players", "PLAYERS"), ("gm", "GM")], max_length=16
                     ),
                 ),
                 ("title", models.CharField(max_length=255)),
@@ -119,41 +103,6 @@ class Migration(migrations.Migration):
                     )
                 ],
                 "constraints": [
-                    models.CheckConstraint(
-                        condition=models.Q(
-                            models.Q(
-                                ("role", ludamus.pacts.listing.ListingRole["GM"]),
-                                (
-                                    "seeking",
-                                    ludamus.pacts.listing.ListingSeeking["PLAYERS"],
-                                ),
-                            ),
-                            models.Q(
-                                ("role", ludamus.pacts.listing.ListingRole["PLAYER"]),
-                                ("seeking", ludamus.pacts.listing.ListingSeeking["GM"]),
-                            ),
-                            models.Q(
-                                ("role", ludamus.pacts.listing.ListingRole["PLAYER"]),
-                                (
-                                    "seeking",
-                                    ludamus.pacts.listing.ListingSeeking["GROUP"],
-                                ),
-                            ),
-                            models.Q(
-                                ("role", ludamus.pacts.listing.ListingRole["GROUP"]),
-                                (
-                                    "seeking",
-                                    ludamus.pacts.listing.ListingSeeking["PLAYERS"],
-                                ),
-                            ),
-                            models.Q(
-                                ("role", ludamus.pacts.listing.ListingRole["GROUP"]),
-                                ("seeking", ludamus.pacts.listing.ListingSeeking["GM"]),
-                            ),
-                            _connector="OR",
-                        ),
-                        name="listing_has_offered_pair",
-                    ),
                     models.CheckConstraint(
                         condition=models.Q(
                             ("starts_at__isnull", False),

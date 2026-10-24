@@ -2,7 +2,6 @@ from ludamus.links.db.django.models import Listing
 from ludamus.pacts.listing import (
     ListingContact,
     ListingDTO,
-    ListingRole,
     ListingSeeking,
     ListingStatus,
     ListingTagDTO,
@@ -16,7 +15,6 @@ def listing_dto(listing):
         sphere_id=listing.sphere_id,
         author_id=listing.author_id,
         author_name=listing.author.full_name,
-        role=ListingRole(listing.role),
         seeking=ListingSeeking(listing.seeking),
         title=listing.title,
         what=listing.what,

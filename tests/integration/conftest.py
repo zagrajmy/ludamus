@@ -35,12 +35,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
 )
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.listing import (
-    ListingContact,
-    ListingRole,
-    ListingSeeking,
-    ListingStatus,
-)
+from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 from tests.template_checks import MissingTemplateVariableFilter
@@ -319,7 +314,6 @@ class ListingFactory(DjangoModelFactory):
 
     sphere = SubFactory(SphereFactory)
     author = SubFactory(UserFactory)
-    role = ListingRole.GM
     seeking = ListingSeeking.PLAYERS
     title = Faker("sentence", nb_words=4)
     what = Faker("sentence", nb_words=3)

@@ -20,7 +20,7 @@ def _url(listing):
 
 def _post(**overrides):
     return {
-        "pair": "player:group",
+        "seeking": "gm",
         "title": "New title",
         "what": "Board games",
         "starts_at": "2031-05-01T19:00",
@@ -43,7 +43,7 @@ class TestListingEditPageView:
             HTTPStatus.OK,
             context_data={
                 "form": FormInitialMatcher(
-                    pair="gm:players",
+                    seeking="players",
                     title=listing.title,
                     what=listing.what,
                     tags=[],
@@ -67,9 +67,8 @@ class TestListingEditPageView:
             url=reverse("web:board:detail", kwargs={"pk": listing.pk}),
         )
         listing.refresh_from_db()
-        assert (listing.role, listing.seeking, listing.title, listing.what) == (
-            "player",
-            "group",
+        assert (listing.seeking, listing.title, listing.what) == (
+            "gm",
             "New title",
             "Board games",
         )
@@ -91,16 +90,16 @@ class TestListingEditPageView:
         listing = ListingFactory(sphere=sphere, author=active_user)
         before = listing_dto(listing)
 
-        response = authenticated_client.post(_url(listing), _post(pair="gm:gm"))
+        response = authenticated_client.post(_url(listing), _post(seeking="group"))
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "form": FormErrorsMatcher(
-                    pair=[
+                    seeking=[
                         (
-                            "Select a valid choice. gm:gm is not one of the "
+                            "Select a valid choice. group is not one of the "
                             "available choices."
                         )
                     ]

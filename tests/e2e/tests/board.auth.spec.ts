@@ -6,7 +6,7 @@ test.describe("Board listings", () => {
     const title = `Mörk Borg one-shot ${Date.now()}`;
 
     await page.goto("/board/create/");
-    await page.getByLabel("GM looking for players").check();
+    await page.getByLabel("Players").check();
     await page.getByLabel("Title").fill(title);
     await page.getByLabel("What we'll do").fill("A grim dungeon crawl");
     await page.getByLabel("When, in your words").fill("Every other Friday evening");
@@ -28,12 +28,12 @@ test.describe("Board listings", () => {
 
     await page.goto("/board/");
     const card = page.getByRole("link", { name: new RegExp(title) });
-    await expect(card).toContainText("GM looking for players");
+    await expect(card).toContainText("Looking for players");
     await expect(card).toContainText("Every other Friday evening");
     await attachArtifacts(test.info(), {
       name: "board-listing",
       region: page.getByRole("main"),
-      facts: { title, pair: "GM looking for players", when: "Every other Friday evening" },
+      facts: { title, seeking: "Looking for players", when: "Every other Friday evening" },
     });
 
     await card.click();
@@ -55,7 +55,7 @@ test.describe("Board listings", () => {
     await page.goto("/board/create/");
     const when = page.getByRole("group", { name: "When" });
     await expect(when).toHaveAccessibleDescription(/Required, drafts too/);
-    await page.getByLabel("GM looking for players").check();
+    await page.getByLabel("Players").check();
     await page.getByLabel("Title").fill("No time given");
     await page.getByLabel("What we'll do").fill("Board games");
     await page.getByRole("button", { name: "Publish listing" }).click();
@@ -72,7 +72,7 @@ test.describe("Board listings, edge cases", () => {
     const title = `T${Date.now()}${unbroken}`;
 
     await page.goto("/board/create/");
-    await page.getByLabel("GM looking for players").check();
+    await page.getByLabel("Players").check();
     await page.getByLabel("Title").fill(title);
     await page.getByLabel("What we'll do").fill(unbroken);
     await page.getByLabel("When, in your words").fill(unbroken);

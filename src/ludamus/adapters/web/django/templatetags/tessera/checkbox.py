@@ -116,6 +116,7 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         "components/choice-group.html",
         {
             "input_type": "radio" if is_radio else "checkbox",
+            "toggle": getattr(field.field.widget, "toggle", False),
             "name": field.html_name,
             "options": options,
             "aria_describedby": help_text_id(field),

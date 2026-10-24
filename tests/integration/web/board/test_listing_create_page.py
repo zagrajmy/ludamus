@@ -21,7 +21,7 @@ URL = reverse("web:board:create")
 
 def _post(**overrides):
     return {
-        "pair": "gm:players",
+        "seeking": "players",
         "title": "Mörk Borg one-shot",
         "what": "A grim dungeon crawl",
         "when_text": "Friday evenings",
@@ -138,17 +138,17 @@ class TestListingCreatePageView:
         )
         assert not Listing.objects.exists()
 
-    def test_refuses_a_pair_not_offered(self, authenticated_client):
-        response = authenticated_client.post(URL, _post(pair="gm:gm"))
+    def test_refuses_seeking_a_group(self, authenticated_client):
+        response = authenticated_client.post(URL, _post(seeking="group"))
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "form": FormErrorsMatcher(
-                    pair=[
+                    seeking=[
                         (
-                            "Select a valid choice. gm:gm is not one of the "
+                            "Select a valid choice. group is not one of the "
                             "available choices."
                         )
                     ]

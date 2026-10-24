@@ -1,4 +1,4 @@
-"""Listings on the looking-for-group board: who seeks whom, to do what, when."""
+"""Listings on the looking-for-group board: who is sought, to do what, when."""
 
 from datetime import datetime
 from enum import StrEnum
@@ -13,27 +13,9 @@ LISTING_TITLE_MAX_LENGTH = 255
 LISTING_TEXT_MAX_LENGTH = 255
 
 
-class ListingRole(StrEnum):
-    GM = "gm"
-    PLAYER = "player"
-    GROUP = "group"
-
-
 class ListingSeeking(StrEnum):
     PLAYERS = "players"
     GM = "gm"
-    GROUP = "group"
-
-
-# The only who-seeks-whom pairs a listing may take; the column check holds the
-# same set.
-LISTING_PAIRS = (
-    (ListingRole.GM, ListingSeeking.PLAYERS),
-    (ListingRole.PLAYER, ListingSeeking.GM),
-    (ListingRole.PLAYER, ListingSeeking.GROUP),
-    (ListingRole.GROUP, ListingSeeking.PLAYERS),
-    (ListingRole.GROUP, ListingSeeking.GM),
-)
 
 
 class ListingStatus(StrEnum):
@@ -57,7 +39,6 @@ class ListingDTO(BaseModel):
     sphere_id: int
     author_id: int
     author_name: str
-    role: ListingRole
     seeking: ListingSeeking
     title: str
     what: str
@@ -76,7 +57,6 @@ class ListingDTO(BaseModel):
 
 
 class ListingWriteDict(TypedDict):
-    role: ListingRole
     seeking: ListingSeeking
     title: str
     what: str

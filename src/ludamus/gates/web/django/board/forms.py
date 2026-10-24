@@ -1,46 +1,30 @@
 from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.utils.translation import gettext
+from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
-from ludamus.gates.web.django.forms import cover_image_field
+from ludamus.gates.web.django.forms import ToggleRadioSelect, cover_image_field
 from ludamus.pacts.listing import (
-    LISTING_PAIRS,
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
     ListingContact,
-    ListingRole,
     ListingSeeking,
 )
 
 if TYPE_CHECKING:
     from ludamus.pacts.tags import TagCategoryOptionsDTO
 
-PAIR_LABELS = dict(
-    zip(
-        LISTING_PAIRS,
-        (
-            _("GM looking for players"),
-            _("Player looking for a GM"),
-            _("Player looking for a group"),
-            _("Group looking for players"),
-            _("Group looking for a GM"),
-        ),
-        strict=True,
-    )
+SEEKING_LABELS = {
+    ListingSeeking.PLAYERS: _("Looking for players"),
+    ListingSeeking.GM: _("Looking for a GM"),
+}
+
+SEEKING_CHOICES = (
+    (ListingSeeking.PLAYERS, pgettext_lazy("listing seeking", "Players")),
+    (ListingSeeking.GM, pgettext_lazy("listing seeking", "GM")),
 )
-
-
-def pair_value(role: ListingRole, seeking: ListingSeeking) -> str:
-    return f"{role}:{seeking}"
-
-
-def split_pair(value: str) -> tuple[ListingRole, ListingSeeking]:
-    role, seeking = value.split(":")
-    return ListingRole(role), ListingSeeking(seeking)
-
 
 CONTACT_CHOICES = (
     (ListingContact.DISCORD, _("Discord")),
@@ -49,10 +33,8 @@ CONTACT_CHOICES = (
 
 
 class ListingForm(forms.Form):
-    pair = forms.ChoiceField(
-        label=_("Who is looking for whom"),
-        choices=[(pair_value(*pair), label) for pair, label in PAIR_LABELS.items()],
-        widget=forms.RadioSelect,
+    seeking = forms.ChoiceField(
+        label=_("Looking for"), choices=SEEKING_CHOICES, widget=ToggleRadioSelect
     )
     title = forms.CharField(label=_("Title"), max_length=LISTING_TITLE_MAX_LENGTH)
     what = forms.CharField(
@@ -92,7 +74,7 @@ class ListingForm(forms.Form):
         help_text=_("For example: our Discord server, a café in Kraków, or my place."),
     )
     seats = forms.IntegerField(
-        label=_("Seats"),
+        label=pgettext_lazy("listing", "Seats"),
         min_value=1,
         max_value=99,
         required=False,

@@ -19,7 +19,6 @@ def _update(listing, **data):
         sphere_id=listing.sphere_id,
         author_id=listing.author_id,
         data={
-            "role": listing.role,
             "seeking": listing.seeking,
             "title": "Renamed",
             "what": listing.what,
