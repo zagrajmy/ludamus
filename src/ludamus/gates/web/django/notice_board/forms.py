@@ -74,13 +74,15 @@ class EncounterForm(forms.Form):
                 invalid.append(email)
         if invalid:
             raise ValidationError(
-                gettext("These are not email addresses: %(addresses)s")
-                % {"addresses": ", ".join(invalid)}
+                gettext("These are not email addresses: %(addresses)s") % {
+                    "addresses": ", ".join(invalid)
+                }
             )
         if len(emails) > MAX_INVITEES:
             raise ValidationError(
-                gettext("Invite at most %(limit)d people to one encounter.")
-                % {"limit": MAX_INVITEES}
+                gettext("Invite at most %(limit)d people to one encounter.") % {
+                    "limit": MAX_INVITEES
+                }
             )
         return emails
 

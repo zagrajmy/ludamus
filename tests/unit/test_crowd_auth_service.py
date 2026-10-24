@@ -1,11 +1,18 @@
 import math
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 
 from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimOutcome, ClaimResultDTO
+from ludamus.pacts.crowd import (
+    AgeBand,
+    AgeBandRequiredError,
+    ClaimableProfileDTO,
+    ClaimOutcome,
+    ClaimResultDTO,
+)
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, user_dto
 
@@ -20,12 +27,14 @@ def _user_dto(**overrides) -> UserDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=()):
+    def __init__(self, *, users=(), taken=()):
         self._users = list(users)
-        self._existing_emails = set(existing_emails)
+        # Unavailable address -> slug of the account holding or reserving it.
+        self._taken = dict(taken)
         self.created = []
         self.updated = []
         self.email_checks = []
+        self.checked_at = []
 
     def create(self, user_data):
         self.created.append(dict(user_data))
@@ -37,6 +46,7 @@ class FakeUsers:
                 email=user_data.get("email", ""),
                 email_verified=user_data.get("email_verified", False),
                 name=user_data.get("name", ""),
+                age_band=user_data.get("age_band", AgeBand.UNKNOWN),
             )
         )
 
@@ -55,18 +65,15 @@ class FakeUsers:
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
 
+    def set_age_band(self, user_slug, age_band):
+        previous = self.read(user_slug).age_band
+        self.update(user_slug, {"age_band": age_band})
+        return previous
+
     def email_unavailable(self, *, email, now, exclude_slug=None):
-        _ = now
         self.email_checks.append((email, exclude_slug))
-        if not email:
-            return False
-        return (
-            any(
-                user.email == email and user.slug != exclude_slug
-                for user in self._users
-            )
-            or email in self._existing_emails
-        )
+        self.checked_at.append(now)
+        return email in self._taken and self._taken[email] != exclude_slug
 
     def slug_exists(self, slug):
         return any(user.slug == slug for user in self._users)
@@ -139,6 +146,15 @@ class FakeClaims:
         return self._result
 
 
+class FakeSubscriptions:
+    def __init__(self):
+        self.dropped_for = []
+
+    def unsubscribe_everywhere(self, user_id):
+        self.dropped_for.append(user_id)
+        return 1
+
+
 class FakeSpheres:
     def __init__(self, domains=()):
         self._domains = set(domains)
@@ -147,12 +163,13 @@ class FakeSpheres:
         return domain in self._domains
 
 
-def _service(*, users, claims=None, spheres=None):
+def _service(*, users, claims=None, spheres=None, subscriptions=None):
     return CrowdAuthService(
         transaction=FakeTransaction(),
         users=users,
         spheres=spheres or FakeSpheres(),
         claims=claims or FakeClaims(),
+        subscriptions=subscriptions or FakeSubscriptions(),
     )
 
 
@@ -213,8 +230,9 @@ class TestClaimServiceRedeem:
 
 class TestProvisionUser:
     def test_create_strips_duplicate_email_and_reports_conflict(self):
-        users = FakeUsers(existing_emails={"taken@example.com"})
+        users = FakeUsers(taken={"taken@example.com": "other"})
         service = _service(users=users)
+        before = datetime.now(UTC)
 
         result = service.provision_user(
             username="auth0|sub",
@@ -234,6 +252,7 @@ class TestProvisionUser:
             }
         ]
         assert result.email_conflict is True
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
 
     def test_create_without_conflict_reports_none(self):
         users = FakeUsers()
@@ -287,6 +306,17 @@ class TestProvisionUser:
         assert result.claim_outcome is None
         assert not users.created
 
+    def test_existing_user_still_hears_how_their_claim_went(self):
+        users = FakeUsers(users=[_user_dto(username="auth0|sub")])
+        claims = FakeClaims(ClaimResultDTO(outcome=ClaimOutcome.INVALID))
+
+        result = _service(users=users, claims=claims).provision_user(
+            username="auth0|sub", create_data={"slug": "auth0user"}, claim_token="x"
+        )
+
+        assert result.claim_outcome == ClaimOutcome.INVALID
+        assert not users.created
+
     def test_converted_claim_returns_the_claimed_profile(self):
         users = FakeUsers(users=[_user_dto(slug="kid", username="auth0|sub")])
         claims = FakeClaims(
@@ -302,6 +332,34 @@ class TestProvisionUser:
         assert claims.redeemed == [("valid", "auth0|sub")]
         assert not users.created
 
+    def test_converted_claim_takes_the_declared_age_range(self):
+        users = FakeUsers(users=[_user_dto(slug="kid", username="auth0|sub")])
+        claims = FakeClaims(
+            ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug="kid")
+        )
+
+        result = _service(users=users, claims=claims).provision_user(
+            username="auth0|sub",
+            create_data={"slug": "other", "age_band": AgeBand.THIRTEEN_TO_FIFTEEN},
+            claim_token="valid",
+        )
+
+        assert result.user.age_band == AgeBand.THIRTEEN_TO_FIFTEEN
+
+    def test_new_account_is_created_with_the_declared_age_range(self):
+        users = FakeUsers()
+
+        result = _service(users=users).provision_user(
+            username="auth0|sub",
+            create_data={
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "age_band": AgeBand.SIXTEEN_PLUS,
+            },
+        )
+
+        assert result.user.age_band == AgeBand.SIXTEEN_PLUS
+
     def test_invalid_claim_still_provisions_and_reports_it(self):
         users = FakeUsers()
         claims = FakeClaims(ClaimResultDTO(outcome=ClaimOutcome.INVALID))
@@ -316,9 +374,7 @@ class TestProvisionUser:
         assert result.user.username == "auth0|sub"
 
     def test_taken_email_is_dropped_on_create(self):
-        users = FakeUsers(
-            users=[_user_dto(slug="other", username="x", email="dup@example.com")]
-        )
+        users = FakeUsers(taken={"dup@example.com": "other"})
 
         result = _service(users=users).provision_user(
             username="auth0|sub",
@@ -452,8 +508,10 @@ class TestSyncIdentity:
 
     def test_someone_elses_email_is_not_synced(self):
         users = FakeUsers(
-            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")]
+            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")],
+            taken={"theirs@example.com": "other"},
         )
+        before = datetime.now(UTC)
 
         result = _service(users=users).sync_identity(
             user_slug="auth0user", data={"email": "theirs@example.com", "name": "New"}
@@ -462,11 +520,47 @@ class TestSyncIdentity:
         assert users.updated == [("auth0user", {"name": "New"})]
         assert result.name == "New"
         assert not result.email
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
+
+    def test_claim_without_the_flag_adopts_the_address_unverified(self):
+        users = FakeUsers(users=[_user_dto()])
+
+        _service(users=users).sync_identity(
+            user_slug="auth0user", data={"email": "new@example.com"}
+        )
+
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": False,
+                    "pending_email": "",
+                },
+            )
+        ]
+
+    def test_own_pending_address_proven_by_the_provider_is_adopted(self):
+        users = FakeUsers(users=[_user_dto()], taken={"new@example.com": "auth0user"})
+
+        _service(users=users).sync_identity(
+            user_slug="auth0user",
+            data={"email": "new@example.com", "email_verified": True},
+        )
+
+        assert users.updated == [
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": True,
+                    "pending_email": "",
+                },
+            )
+        ]
 
     def test_nothing_left_to_sync_skips_the_write(self):
-        users = FakeUsers(
-            users=[_user_dto(), _user_dto(slug="other", email="theirs@example.com")]
-        )
+        users = FakeUsers(users=[_user_dto()], taken={"theirs@example.com": "other"})
 
         result = _service(users=users).sync_identity(
             user_slug="auth0user", data={"email": "theirs@example.com"}
@@ -482,3 +576,74 @@ class TestIsKnownSphereDomain:
 
         assert service.is_known_sphere_domain("a.example.com") is True
         assert service.is_known_sphere_domain("b.example.com") is False
+
+
+class TestAgeConfirmation:
+    def test_underage_account_cannot_keep_independent_access(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+
+        _service(users=users).disable_underage_account("auth0user")
+
+        user = users.read("auth0user")
+        assert user.is_active is False
+        assert user.age_band == AgeBand.UNKNOWN
+
+    @pytest.mark.parametrize(
+        "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)
+    )
+    def test_confirmed_range_is_persisted(self, age_band):
+        users = FakeUsers(users=[_user_dto()])
+
+        _service(users=users).confirm_age(user_slug="auth0user", age_band=age_band)
+
+        assert users.read("auth0user").age_band == age_band
+
+    def test_unknown_is_not_an_age_confirmation(self):
+        users = FakeUsers(users=[_user_dto()])
+
+        with pytest.raises(AgeBandRequiredError):
+            _service(users=users).confirm_age(
+                user_slug="auth0user", age_band=AgeBand.UNKNOWN
+            )
+
+        assert users.read("auth0user").age_band == AgeBand.UNKNOWN
+
+    @pytest.mark.parametrize(
+        ("previous", "declared"),
+        (
+            (AgeBand.UNKNOWN, AgeBand.SIXTEEN_PLUS),
+            (AgeBand.SIXTEEN_PLUS, AgeBand.THIRTEEN_TO_FIFTEEN),
+            (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.THIRTEEN_TO_FIFTEEN),
+        ),
+    )
+    def test_subscriptions_need_fresh_consent_unless_already_16_plus(
+        self, previous, declared
+    ):
+        users = FakeUsers(users=[_user_dto(pk=7, age_band=previous)])
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).confirm_age(
+            user_slug="auth0user", age_band=declared
+        )
+
+        assert subscriptions.dropped_for == [7]
+
+    def test_a_16_plus_account_reconfirming_keeps_its_subscriptions(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).confirm_age(
+            user_slug="auth0user", age_band=AgeBand.SIXTEEN_PLUS
+        )
+
+        assert not subscriptions.dropped_for
+
+
+class TestHasAccount:
+    def test_known_identity_has_an_account(self):
+        service = _service(users=FakeUsers(users=[_user_dto(username="auth0|sub")]))
+
+        assert service.has_account("auth0|sub") is True
+
+    def test_unknown_identity_has_none(self):
+        assert _service(users=FakeUsers()).has_account("auth0|sub") is False

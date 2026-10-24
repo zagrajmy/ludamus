@@ -133,7 +133,7 @@
                                             </td>
                                             <td class="py-2 pr-4 text-foreground-muted">
                                                 {% if row.manager_names %}
-                                                    {{ row.manager_names|join:", " }}
+                                                    <span data-ph-mask>{{ row.manager_names|join:", " }}</span>
                                                 {% else %}
                                                     <span class="text-xs text-warning-text">{% translate "Nobody yet" %}</span>
                                                 {% endif %}

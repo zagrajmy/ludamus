@@ -30,6 +30,7 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
+    Session,
     SessionBookmark,
     SessionField,
     SessionFieldOption,
@@ -1312,6 +1313,10 @@ class TestEventPageView:
         allow_custom=False,
         filterable=True,
     ):
+        loaded = Session.objects.select_related(
+            "agenda_item__space__parent", "presenter", "category"
+        ).in_bulk([session.pk for session in sessions])
+        sessions = [loaded[session.pk] for session in sessions]
         cards = [
             cls._tagged_card(
                 session,
@@ -2851,6 +2856,22 @@ class TestEventPageView:
             HTTPStatus.FOUND,
             url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
+        )
+
+    def test_unlisted_event_opens_for_anonymous_before_publication(
+        self, client, sphere
+    ):
+        event = EventFactory(
+            sphere=sphere, publication_time=None, visibility="unlisted"
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
         )
 
     def test_unpublished_event_redirects_regular_user_to_events_list(
