@@ -1,9 +1,12 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.pacts.listing import ListingStatus
-from tests.integration.conftest import ListingFactory
+from ludamus.links.db.django.models import Tag, TagCategory
+from ludamus.pacts.listing import ListingContact, ListingStatus
+from tests.integration.conftest import PNG_BYTES, ListingFactory
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.board.expected import listing_dto
 
@@ -65,3 +68,42 @@ class TestListingDetailPageView:
         response = client.get(_url(listing))
 
         assert_response_404(response)
+
+    def test_author_sees_every_detail_of_their_open_listing(
+        self, authenticated_client, active_user, sphere
+    ):
+        active_user.discord_username = "gm#1"
+        active_user.save()
+        listing = ListingFactory(
+            sphere=sphere,
+            author=active_user,
+            header_image=SimpleUploadedFile(
+                "header.png", PNG_BYTES, content_type="image/png"
+            ),
+            description="Bring **dice**.",
+            seats=4,
+            medium="Foundry",
+            place="Kraków",
+            starts_at=datetime(2031, 5, 1, 17, 0, tzinfo=UTC),
+            contact=ListingContact.DISCORD,
+        )
+        genre = TagCategory.objects.create(slug="genre", name="Genre")
+        listing.picked_tags.set(
+            [
+                Tag.objects.create(category=genre, slug="horror", name="Horror"),
+                Tag.objects.create(category=genre, slug="osr", name="OSR"),
+            ]
+        )
+
+        response = authenticated_client.get(_url(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing),
+                "is_author": True,
+                "open_for_days": 30,
+            },
+            template_name="board/detail.html",
+        )

@@ -40,3 +40,15 @@ class TestMyListingsPageView:
             context_data={"listings": [listing_dto(closed), listing_dto(draft)]},
             template_name="board/mine.html",
         )
+
+    def test_no_listings_yet(self, authenticated_client, sphere):
+        ListingFactory(sphere=sphere)
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"listings": []},
+            template_name="board/mine.html",
+        )

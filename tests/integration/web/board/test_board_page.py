@@ -3,6 +3,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
+from ludamus.links.db.django.models import Tag, TagCategory
 from ludamus.pacts.listing import ListingStatus
 from tests.integration.conftest import ListingFactory
 from tests.integration.utils import PageMatcher, assert_response, assert_response_404
@@ -69,6 +70,29 @@ class TestBoardPageView:
             template_name="board/index.html",
         )
         assert not list(response.context["page_obj"])
+
+    def test_signed_in_with_the_board_public(
+        self, authenticated_client, settings, sphere
+    ):
+        settings.BOARD_PUBLIC = True
+        listing = ListingFactory(sphere=sphere, medium="Foundry", place="Kraków")
+        genre = TagCategory.objects.create(slug="genre", name="Genre")
+        listing.picked_tags.set(
+            [Tag.objects.create(category=genre, slug="horror", name="Horror")]
+        )
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": [10, 20, 50, 100],
+            },
+            template_name="board/index.html",
+        )
+        assert list(response.context["page_obj"]) == [listing_dto(listing)]
 
     def test_other_sphere_has_no_board(self, client, non_root_sphere):
         response = client.get(URL, HTTP_HOST=non_root_sphere.site.domain)

@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from tests.integration.conftest import ListingFactory
 from tests.integration.utils import (
+    FormErrorsMatcher,
     FormInitialMatcher,
     assert_response,
     assert_response_404,
@@ -82,4 +83,59 @@ class TestListingEditPageView:
         response = authenticated_client.post(_url(listing), _post())
 
         assert_response_404(response)
+        assert listing_dto(listing) == before
+
+    def test_invalid_post_rerenders_and_leaves_the_listing(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        before = listing_dto(listing)
+
+        response = authenticated_client.post(_url(listing), _post(pair="gm:gm"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormErrorsMatcher(
+                    pair=[
+                        (
+                            "Select a valid choice. gm:gm is not one of the "
+                            "available choices."
+                        )
+                    ]
+                ),
+                "listing": before,
+            },
+            template_name="board/edit.html",
+        )
+        assert listing_dto(listing) == before
+
+    def test_open_listing_needs_a_contact_on_the_profile(
+        self, authenticated_client, active_user, sphere
+    ):
+        active_user.discord_username = ""
+        active_user.email = ""
+        active_user.save()
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        before = listing_dto(listing)
+
+        response = authenticated_client.post(_url(listing), _post(contact="email"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormErrorsMatcher(
+                    contact=[
+                        (
+                            "Add an email address to your profile, or pick "
+                            "another contact."
+                        )
+                    ]
+                ),
+                "listing": before,
+            },
+            template_name="board/edit.html",
+        )
         assert listing_dto(listing) == before

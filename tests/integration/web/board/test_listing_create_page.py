@@ -2,10 +2,12 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 from django.contrib.messages import constants
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Listing, Tag, TagCategory
 from ludamus.pacts.listing import ListingStatus
+from tests.integration.conftest import PNG_BYTES
 from tests.integration.utils import (
     FormErrorsMatcher,
     FormFieldsMatcher,
@@ -218,6 +220,71 @@ class TestListingCreatePageView:
                     contact=[
                         (
                             "Select a valid choice. discord is not one of the "
+                            "available choices."
+                        )
+                    ]
+                ),
+                "open_for_days": 30,
+            },
+            template_name="board/create.html",
+        )
+        assert not Listing.objects.exists()
+
+    def test_publish_without_any_contact_on_the_profile(
+        self, authenticated_client, active_user
+    ):
+        active_user.discord_username = ""
+        active_user.email = ""
+        active_user.save()
+
+        response = authenticated_client.post(URL, _post(contact="email", publish=""))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormErrorsMatcher(
+                    contact=[
+                        (
+                            "Add an email address to your profile, or pick "
+                            "another contact."
+                        )
+                    ]
+                ),
+                "open_for_days": 30,
+            },
+            template_name="board/create.html",
+        )
+        assert not Listing.objects.exists()
+
+    def test_publish_stores_the_header_image(self, authenticated_client):
+        image = SimpleUploadedFile("header.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(URL, _post(header_image=image, publish=""))
+
+        listing = Listing.objects.get()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "Listing published."),),
+            url=reverse("web:board:detail", kwargs={"pk": listing.pk}),
+        )
+        assert (bool(listing.header_image), listing.header_image_original_name) == (
+            True,
+            "header.png",
+        )
+
+    def test_refuses_an_unknown_tag(self, authenticated_client):
+        response = authenticated_client.post(URL, _post(tags=[999_999], publish=""))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormErrorsMatcher(
+                    tags=[
+                        (
+                            "Select a valid choice. 999999 is not one of the "
                             "available choices."
                         )
                     ]
