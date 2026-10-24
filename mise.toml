@@ -54,7 +54,7 @@ pipx = "1.18.3"
 _.python.venv = { path = ".venv", create = true }
 _.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
 LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
-PYTHONPATH = "src"
+PYTHONPATH = "src:scripts"
 PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
