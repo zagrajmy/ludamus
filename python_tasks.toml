@@ -79,7 +79,7 @@ depends = [
 
 ## Dependencies
 
-["dep:audit:py"]
+["dep:drift:py"]
 description = "Check Python dependency drift: unused or undeclared packages (deptry)"
 run = "deptry {{ env.SRC_PATHS }} {{ env.TEST_PATHS }}"
 

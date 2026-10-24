@@ -49,7 +49,6 @@ shellcheck = "prefix:0.11.0"
 hadolint = "prefix:2.15.1"
 "github:reteps/dockerfmt" = "0.5.4"
 pipx = "1.17.14"
-trivy = "0.76.1"
 
 [env]
 _.python.venv = { path = ".venv", create = true }

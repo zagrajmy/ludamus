@@ -69,8 +69,8 @@ jobs:
       - name: Convert scan to SARIF and SBOM
         if: always() && hashFiles('trivy.json') != ''
         run: |
-          trivy convert --format sarif --output trivy.sarif trivy.json
-          trivy convert --format cyclonedx --output sbom.cdx.json trivy.json
+          mise x trivy@0.76.1 -- trivy convert --format sarif --output trivy.sarif trivy.json
+          mise x trivy@0.76.1 -- trivy convert --format cyclonedx --output sbom.cdx.json trivy.json
 
       - name: Upload scan to code scanning
         if: always() && hashFiles('trivy.sarif') != ''
