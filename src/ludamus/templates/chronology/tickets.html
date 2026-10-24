@@ -65,17 +65,19 @@
             </ul>
             {% if shop.on_sale %}
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    {% if current_user %}
-                        {% translate "Continue to payment" as pay_label %}
-                        {% tessera_button pay_label icon="lock-closed" size="lg" %}
-                    {% else %}
-                        {% translate "Log in to buy tickets" as login_label %}
-                        {% include "components/login_button.html" with next=request.build_absolute_uri text=login_label show_icon=True extra_class="" %}
-                    {% endif %}
+                    {% translate "Continue to payment" as pay_label %}
+                    {% tessera_button pay_label icon="lock-closed" size="lg" %}
                     <p class="text-sm text-foreground-muted">
                         {% blocktranslate trimmed with limit=max_per_order %}
                             Payment by card, BLIK or bank transfer on Stripe's secure page. Up to {{ limit }} tickets per order.
                         {% endblocktranslate %}
+                        {% if not current_user %}
+                            {% url 'web:crowd:auth0:login' as login_url %}
+                            {% blocktranslate trimmed with next=request.get_full_path|urlencode %}
+                                No account needed. <a href="{{ login_url }}?next={{ next }}"
+    class="underline underline-offset-4">Log in</a> first to save the tickets to yours.
+                            {% endblocktranslate %}
+                        {% endif %}
                     </p>
                 </div>
             {% elif not shop.accepting_payments %}

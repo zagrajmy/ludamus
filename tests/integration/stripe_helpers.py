@@ -8,6 +8,7 @@ real adapter, services, repositories and views all run.
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -82,12 +83,15 @@ def order(
     session_id: str = "cs_test_1",
     payment_intent_id: str = "",
     hold_minutes: int = 30,
+    email: str | None = None,
 ) -> TicketOrder:
+    # `buyer=None` is a guest's order: its reference is all that finds it.
     total = sum(kind.price * quantity for kind, quantity in lines)
     created = TicketOrder.objects.create(
         event=event,
         buyer=buyer,
-        email=buyer.email,
+        reference=secrets.token_urlsafe(16),
+        email=(buyer.email if buyer is not None else "") if email is None else email,
         status=status,
         currency="pln",
         total=total,

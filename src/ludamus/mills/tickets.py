@@ -1,8 +1,9 @@
 """Ticket sales: the sphere's payout account, the shop, the panel, the webhook.
 
 Every id a request supplies is scoped here, not in the view: ticket type ids
-to the event the gate resolved, order ids to their buyer or to the panel's
-event. Stripe's ids arrive only in signed webhooks.
+to the event the gate resolved, order references to their event and to
+whoever may see them (`_viewable`), order ids to the panel's event. Stripe's
+ids arrive only in signed webhooks.
 
 An order moves only along `specs.tickets.ORDER_TRANSITIONS`, and every write
 is guarded by the status it moves from, so a redelivered or reordered webhook
@@ -36,7 +37,9 @@ from ludamus.pacts.tickets import (
     CheckoutOutcome,
     CheckoutRequest,
     CheckoutStartDTO,
+    ClaimOutcome,
     EventShopDTO,
+    OrderLinkMail,
     OrderStatus,
     PayoutPageDTO,
     PayoutServiceProtocol,
@@ -48,9 +51,11 @@ from ludamus.pacts.tickets import (
     TicketSalesSummaryDTO,
     TicketTypeRowDTO,
 )
-from ludamus.specs.billing import effective_plan
+from ludamus.specs.billing import current_terms
 from ludamus.specs.tickets import (
     CHECKOUT_HOLD,
+    GUEST_CHECKOUT_WINDOW_SECONDS,
+    GUEST_CHECKOUTS_PER_WINDOW,
     PANEL_ORDERS_SHOWN,
     WEBHOOK_GRACE,
     checkout_refusal,
@@ -66,7 +71,8 @@ from ludamus.specs.tickets import (
 
 if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
-    from ludamus.pacts.billing import PlanKind, SpherePlanRepositoryProtocol
+    from ludamus.pacts.billing import SpherePlanRepositoryProtocol
+    from ludamus.pacts.legacy import CacheProtocol
     from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tickets import (
@@ -77,6 +83,7 @@ if TYPE_CHECKING:
         OwnedTicketDTO,
         PayoutAccountDTO,
         PayoutAccountRepositoryProtocol,
+        TicketMailerProtocol,
         TicketOrderRepositoryProtocol,
         TicketPaymentsProtocol,
         TicketRepos,
@@ -98,8 +105,20 @@ def _holds_after(now: datetime) -> datetime:
     return now - WEBHOOK_GRACE
 
 
-def _plan(plans: SpherePlanRepositoryProtocol, *, sphere_id: int) -> PlanKind:
-    return effective_plan(plans.read(sphere_id=sphere_id), now=datetime.now(tz=UTC))
+def _order_reference() -> str:
+    # The order page's only key for a guest: unguessable, and short in a URL.
+    return secrets.token_urlsafe(16)
+
+
+def _fee_bps(plans: SpherePlanRepositoryProtocol, *, sphere_id: int) -> int:
+    return current_terms(
+        plans.read(sphere_id=sphere_id), now=datetime.now(tz=UTC)
+    ).ticket_fee_bps
+
+
+def _viewable(order: OrderDTO, *, viewer_id: int | None) -> bool:
+    # A guest's order is its link's; a claimed one is its holder's alone.
+    return order.buyer_id is None or order.buyer_id == viewer_id
 
 
 def _move(
@@ -112,6 +131,11 @@ def _move(
     # The only way an order changes status: from wherever ORDER_TRANSITIONS
     # allows, and not at all if it has moved on since it was read.
     return orders.move(pk=pk, to=to, allowed_from=sources_of(to), changes=changes or {})
+
+
+def _buyer_email(event: CheckoutEvent) -> OrderChanges:
+    # What the buyer typed into Checkout: a guest's only address.
+    return {"email": event.email} if event.email else {}
 
 
 def _record_refund(
@@ -197,17 +221,18 @@ class TicketSalesService(TicketSalesServiceProtocol):
         transaction: TransactionProtocol,
         repos: TicketRepos,
         payments: TicketPaymentsProtocol,
+        mailer: TicketMailerProtocol,
+        cache: CacheProtocol,
     ) -> None:
         self._transaction = transaction
-        self._ticket_types = repos.ticket_types
-        self._orders = repos.orders
-        self._accounts = repos.accounts
-        self._plans = repos.plans
+        self._repos = repos
         self._payments = payments
+        self._mailer = mailer
+        self._cache = cache
 
     def shop(self, *, event: EventDTO, viewer_id: int | None) -> EventShopDTO:
         now = datetime.now(tz=UTC)
-        types = self._ticket_types.list_for_event(
+        types = self._repos.ticket_types.list_for_event(
             event_id=event.pk, holds_after=_holds_after(now)
         )
         # Counted even with nothing on sale: tickets sold before every type
@@ -215,7 +240,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
         viewer_ticket_count = (
             0
             if viewer_id is None
-            else self._orders.count_valid_tickets(
+            else self._repos.orders.count_valid_tickets(
                 event_id=event.pk, holder_id=viewer_id
             )
         )
@@ -227,7 +252,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
             # Most events are free: with no ticket types, the account is not read.
             accepting_payments=bool(types)
             and self._accepting_payments(
-                self._accounts.read(sphere_id=event.sphere_id)
+                self._repos.accounts.read(sphere_id=event.sphere_id)
             ),
             viewer_ticket_count=viewer_ticket_count,
         )
@@ -235,11 +260,23 @@ class TicketSalesService(TicketSalesServiceProtocol):
     def _accepting_payments(self, account: PayoutAccountDTO | None) -> bool:
         return self._payments.enabled and payout_status(account) is PayoutStatus.ACTIVE
 
+    def guest_checkout_allowed(self, *, ip: str, event_id: int) -> bool:
+        # NOTE: get-then-set races, so a burst may get a checkout or two past
+        # the limit; it bounds a script, not a person double-clicking.
+        key = f"guest_checkout:{event_id}:{ip}"
+        started = self._cache.get(key)
+        count = started if isinstance(started, int) else 0
+        if count >= GUEST_CHECKOUTS_PER_WINDOW:
+            logger.warning("Guest checkouts over the limit: event=%s", event_id)
+            return False
+        self._cache.set(key, count + 1, timeout=GUEST_CHECKOUT_WINDOW_SECONDS)
+        return True
+
     def start_checkout(
         self,
         *,
         event: EventDTO,
-        buyer_id: int,
+        buyer_id: int | None,
         email: str,
         quantities: dict[int, int],
         urls: CheckoutUrls,
@@ -249,12 +286,12 @@ class TicketSalesService(TicketSalesServiceProtocol):
             return CheckoutStartDTO(outcome=CheckoutOutcome.NOTHING_SELECTED)
         if sum(wanted.values()) > MAX_TICKETS_PER_ORDER:
             return CheckoutStartDTO(outcome=CheckoutOutcome.TOO_MANY)
-        account = self._accounts.read(sphere_id=event.sphere_id)
+        account = self._repos.accounts.read(sphere_id=event.sphere_id)
         if account is None or not self._accepting_payments(account):
             return CheckoutStartDTO(outcome=CheckoutOutcome.SALES_CLOSED)
 
         with self._transaction.atomic():
-            locked = self._ticket_types.lock_for_event(
+            locked = self._repos.ticket_types.lock_for_event(
                 event_id=event.pk, holds_after=_holds_after(datetime.now(tz=UTC))
             )
             # Read the clock after the lock: a queue of buyers in a ticket drop
@@ -277,15 +314,17 @@ class TicketSalesService(TicketSalesServiceProtocol):
                     }
                 )
             total = sum(line["quantity"] * line["unit_price"] for line in lines)
-            order = self._orders.create(
+            order = self._repos.orders.create(
                 {
+                    "reference": _order_reference(),
                     "event_id": event.pk,
                     "buyer_id": buyer_id,
                     "email": email,
                     "currency": DEFAULT_CURRENCY,
                     "total": total,
                     "platform_fee": platform_fee(
-                        total, plan=_plan(self._plans, sphere_id=event.sphere_id)
+                        total,
+                        bps=_fee_bps(self._repos.plans, sphere_id=event.sphere_id),
                     ),
                     "stripe_account_id": account.stripe_account_id,
                     "hold_until": now + CHECKOUT_HOLD,
@@ -311,42 +350,72 @@ class TicketSalesService(TicketSalesServiceProtocol):
                     ],
                     application_fee=order.platform_fee,
                     customer_email=email,
-                    success_url=urls.success(order.pk),
-                    cancel_url=urls.cancel(order.pk),
+                    success_url=urls.success(order.reference),
+                    cancel_url=urls.cancel(order.reference),
                     expires_at=order.hold_until,
                 )
             )
         except PaymentProviderError:
             with self._transaction.atomic():
-                _move(self._orders, pk=order.pk, to=OrderStatus.FAILED)
+                _move(self._repos.orders, pk=order.pk, to=OrderStatus.FAILED)
             return CheckoutStartDTO(outcome=CheckoutOutcome.PROVIDER_ERROR)
         with self._transaction.atomic():
-            self._orders.attach_checkout(pk=order.pk, session_id=session.id)
+            self._repos.orders.attach_checkout(pk=order.pk, session_id=session.id)
         logger.info(
-            "Ticket checkout started: event=%s order=%s tickets=%s total=%s",
+            "Ticket checkout started: event=%s order=%s tickets=%s total=%s guest=%s",
             event.pk,
             order.pk,
             order.ticket_count,
             order.total,
+            buyer_id is None,
         )
         return CheckoutStartDTO(outcome=CheckoutOutcome.STARTED, url=session.url)
 
-    def order(self, *, buyer_id: int, event_id: int, pk: int) -> BuyerOrderDTO:
-        order = self._owned(buyer_id=buyer_id, event_id=event_id, pk=pk)
+    def order(
+        self, *, event_id: int, reference: str, viewer_id: int | None
+    ) -> BuyerOrderDTO:
+        order = self._visible(
+            event_id=event_id, reference=reference, viewer_id=viewer_id
+        )
         return BuyerOrderDTO(
             order=order, state=order_page_state(order, now=datetime.now(tz=UTC))
         )
 
-    def _owned(self, *, buyer_id: int, event_id: int, pk: int) -> OrderDTO:
-        order = self._orders.read_for_buyer(buyer_id=buyer_id, pk=pk)
-        if order is None or order.event_id != event_id:
+    def _visible(
+        self, *, event_id: int, reference: str, viewer_id: int | None
+    ) -> OrderDTO:
+        order = self._repos.orders.read_by_reference(reference=reference)
+        if (
+            order is None
+            or order.event_id != event_id
+            or not _viewable(order, viewer_id=viewer_id)
+        ):
             raise NotFoundError
         return order
 
+    def claim_order(
+        self, *, event_id: int, reference: str, user_id: int
+    ) -> ClaimOutcome:
+        with self._transaction.atomic():
+            order = self._repos.orders.lock_by_reference(reference=reference)
+            if (
+                order is None
+                or order.event_id != event_id
+                or not _viewable(order, viewer_id=user_id)
+            ):
+                raise NotFoundError
+            if order.buyer_id == user_id:
+                return ClaimOutcome.ALREADY_YOURS
+            self._repos.orders.claim(pk=order.pk, buyer_id=user_id)
+        logger.info("Ticket order claimed: order=%s user=%s", order.pk, user_id)
+        return ClaimOutcome.CLAIMED
+
     def abandon_checkout(
-        self, *, buyer_id: int, event_id: int, pk: int
+        self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> AbandonOutcome:
-        order = self._owned(buyer_id=buyer_id, event_id=event_id, pk=pk)
+        order = self._visible(
+            event_id=event_id, reference=reference, viewer_id=viewer_id
+        )
         if order.status is not OrderStatus.PENDING:
             return AbandonOutcome.SETTLED
         if order.stripe_checkout_session_id:
@@ -361,12 +430,14 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 logger.warning("Ticket checkout not expired: order=%s", order.pk)
                 return AbandonOutcome.UNCONFIRMED
         with self._transaction.atomic():
-            expired = _move(self._orders, pk=order.pk, to=OrderStatus.EXPIRED)
+            expired = _move(self._repos.orders, pk=order.pk, to=OrderStatus.EXPIRED)
         logger.info("Ticket checkout abandoned: order=%s expired=%s", order.pk, expired)
         return AbandonOutcome.CANCELLED if expired else AbandonOutcome.SETTLED
 
     def owned_tickets(self, *, sphere_id: int, holder_id: int) -> list[OwnedTicketDTO]:
-        return self._orders.list_owned_tickets(sphere_id=sphere_id, holder_id=holder_id)
+        return self._repos.orders.list_owned_tickets(
+            sphere_id=sphere_id, holder_id=holder_id
+        )
 
     def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome:
         event = self._payments.parse_webhook(payload=payload, signature=signature)
@@ -376,7 +447,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
     def _apply(self, event: StripeWebhookEvent) -> WebhookOutcome:
         match event:
             case AccountEvent():
-                known = self._accounts.update_state(
+                known = self._repos.accounts.update_state(
                     stripe_account_id=event.account_id, state=event.state
                 )
                 return (
@@ -389,7 +460,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
         return WebhookOutcome.NOT_OURS
 
     def _refunded(self, event: RefundEvent) -> WebhookOutcome:
-        order = self._orders.lock_by_payment_intent(
+        order = self._repos.orders.lock_by_payment_intent(
             payment_intent_id=event.payment_intent_id
         )
         if order is None:
@@ -397,26 +468,38 @@ class TicketSalesService(TicketSalesServiceProtocol):
         if not event.fully_refunded:
             logger.info("Ticket order refunded in part: order=%s", order.pk)
             return WebhookOutcome.PARTLY_REFUNDED
-        if not _record_refund(self._orders, order=order, now=datetime.now(tz=UTC)):
+        if not _record_refund(
+            self._repos.orders, order=order, now=datetime.now(tz=UTC)
+        ):
             return WebhookOutcome.STALE
         return WebhookOutcome.REFUNDED
 
     def _checkout(self, event: CheckoutEvent) -> WebhookOutcome:
-        order = self._orders.lock_by_checkout(session_id=event.session_id)
+        order = self._repos.orders.lock_by_checkout(session_id=event.session_id)
         if order is None:
             return WebhookOutcome.NOT_OURS
         match event.stage:
             case CheckoutStage.COMPLETED if not event.paid:
-                return self._settle(
+                outcome = self._settle(
                     pk=order.pk,
                     to=OrderStatus.AWAITING_PAYMENT,
                     outcome=WebhookOutcome.AWAITING_PAYMENT,
-                    changes={"stripe_payment_intent_id": event.payment_intent_id},
+                    changes={
+                        "stripe_payment_intent_id": event.payment_intent_id,
+                        **_buyer_email(event),
+                    },
                 )
+                if outcome is WebhookOutcome.AWAITING_PAYMENT:
+                    self._send_link(order, event=event)
+                return outcome
             case CheckoutStage.COMPLETED | CheckoutStage.ASYNC_SUCCEEDED:
-                return self._paid(
-                    order=order, payment_intent_id=event.payment_intent_id
-                )
+                outcome = self._paid(order=order, event=event)
+                if (
+                    outcome is WebhookOutcome.PAID
+                    and event.stage is CheckoutStage.COMPLETED
+                ):
+                    self._send_link(order, event=event)
+                return outcome
             case CheckoutStage.ASYNC_FAILED:
                 # Final even if it beats the "completed" that preceded it:
                 # that one then finds the order failed and holds nothing.
@@ -438,23 +521,42 @@ class TicketSalesService(TicketSalesServiceProtocol):
         outcome: WebhookOutcome,
         changes: OrderChanges | None = None,
     ) -> WebhookOutcome:
-        moved = _move(self._orders, pk=pk, to=to, changes=changes)
+        moved = _move(self._repos.orders, pk=pk, to=to, changes=changes)
         return outcome if moved else WebhookOutcome.STALE
 
-    def _paid(self, *, order: OrderDTO, payment_intent_id: str) -> WebhookOutcome:
+    def _send_link(self, order: OrderDTO, *, event: CheckoutEvent) -> None:
+        # Once per order, when Checkout completes: a bank transfer's page is
+        # worth having while the money is on its way, too.
+        if not (email := event.email or order.email):
+            logger.warning("Ticket order has no email to send it to: %s", order.pk)
+            return
+        self._mailer.send_order_link(
+            OrderLinkMail(
+                email=email,
+                event_id=order.event_id,
+                event_name=order.event_name,
+                event_slug=order.event_slug,
+                reference=order.reference,
+                claimable=order.buyer_id is None,
+            )
+        )
+
+    def _paid(self, *, order: OrderDTO, event: CheckoutEvent) -> WebhookOutcome:
+        payment_intent_id = event.payment_intent_id
         if not _move(
-            self._orders,
+            self._repos.orders,
             pk=order.pk,
             to=OrderStatus.PAID,
             changes={
                 "stripe_payment_intent_id": payment_intent_id,
                 "paid_at": datetime.now(tz=UTC),
+                **_buyer_email(event),
             },
         ):
             if order.status in ABANDONED_STATUSES:
                 return self._refund_late(order, payment_intent_id=payment_intent_id)
             return WebhookOutcome.STALE
-        self._orders.issue_tickets(
+        self._repos.orders.issue_tickets(
             order=order,
             tickets=[
                 {"ticket_type_id": line.ticket_type_id, "code": _ticket_code()}
@@ -492,7 +594,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
 
     def _warn_if_oversold(self, order: OrderDTO) -> None:
         bought = {line.ticket_type_id for line in order.lines}
-        for ticket_type in self._ticket_types.list_for_event(
+        for ticket_type in self._repos.ticket_types.list_for_event(
             event_id=order.event_id,
             holds_after=_holds_after(datetime.now(tz=UTC)),
             include_archived=True,
@@ -527,7 +629,7 @@ class TicketPanelService(TicketPanelServiceProtocol):
         self._payments = payments
 
     def page(self, *, sphere_id: int, event_id: int) -> TicketPanelDTO:
-        plan = _plan(self._plans, sphere_id=sphere_id)
+        bps = _fee_bps(self._plans, sphere_id=sphere_id)
         types = self._ticket_types.list_for_event(
             event_id=event_id,
             holds_after=_holds_after(datetime.now(tz=UTC)),
@@ -540,11 +642,11 @@ class TicketPanelService(TicketPanelServiceProtocol):
         return TicketPanelDTO(
             payout_status=payout_status(self._accounts.read(sphere_id=sphere_id)),
             payments_available=self._payments.enabled,
-            platform_fee_percent=platform_fee_percent(plan),
+            platform_fee_percent=platform_fee_percent(bps),
             rows=[
                 TicketTypeRowDTO(
                     ticket_type=ticket_type,
-                    fees=fee_breakdown(ticket_type.price, plan=plan),
+                    fees=fee_breakdown(ticket_type.price, bps=bps),
                 )
                 for ticket_type in types
                 if not ticket_type.is_archived

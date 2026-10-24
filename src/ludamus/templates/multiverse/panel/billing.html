@@ -1,5 +1,5 @@
 {% extends "panel/base.html" %}
-{% load i18n tessera %}
+{% load i18n tessera ticket_tags %}
 {% block title %}
     {% translate "Plan & payouts" %}
 {% endblock title %}
@@ -61,49 +61,59 @@
         <section class="card p-6" aria-labelledby="plan-heading">
             <div class="flex items-center justify-between gap-3">
                 <h2 id="plan-heading" class="text-lg font-semibold text-foreground">{% translate "Plan" %}</h2>
-                <span class="shrink-0 rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-foreground-secondary">
-                    {% if plan.kind == "white_glove" %}
-                        {% translate "Yearly" context "plan" %}
-                    {% else %}
-                        {% translate "Pay per ticket" context "plan" %}
-                    {% endif %}
-                </span>
+                {% if plan.terms.technical_partner %}
+                    <span class="shrink-0 rounded-full bg-success-bg px-2.5 py-1 text-xs font-medium text-success-text">{% translate "Technical Partner" %}</span>
+                {% endif %}
             </div>
-            {% if plan.kind == "white_glove" %}
+            {% if plan.terms.has_deal %}
                 <p class="mt-2 text-sm text-foreground-muted">
-                    {% translate "Your sphere is on the yearly plan: the programme, sign-ups and the panel for a flat yearly fee, with the Zagrajmy team helping you set up." %}
-                </p>
-                <p class="mt-4 text-sm text-foreground">
-                    {% if plan.paid_until %}
-                        {% blocktranslate with date=plan.paid_until|date:"j E Y" %}Paid until {{ date }}.{% endblocktranslate %}
-                    {% elif plan.source == "manual" %}
-                        {% translate "Arranged with the Zagrajmy team." %}
+                    {% if plan.terms.technical_partner %}
+                        {% translate "The Zagrajmy team runs the technical side of your convention with you: setup, your programme, and help on the day." %}
                     {% else %}
-                        {% translate "Stripe is confirming the first payment." %}
+                        {% translate "Your sphere has terms agreed with the Zagrajmy team." %}
                     {% endif %}
                 </p>
+                <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                    <dt class="text-foreground-muted">{% translate "Ticket fee" %}</dt>
+                    <dd class="text-foreground tabular-nums">
+                        {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
+                            {{ percent }}% of each order
+                        {% endblocktranslate %}
+                    </dd>
+                    {% if plan.terms.yearly_price %}
+                        <dt class="text-foreground-muted">{% translate "Fixed price" %}</dt>
+                        <dd class="text-foreground tabular-nums">
+                            {% blocktranslate trimmed with price=plan.terms.yearly_price|money %}
+                                {{ price }} a year
+                            {% endblocktranslate %}
+                        </dd>
+                    {% endif %}
+                    {% if plan.terms.paid_until %}
+                        <dt class="text-foreground-muted">{% translate "Valid until" %}</dt>
+                        <dd class="text-foreground">
+                            {{ plan.terms.paid_until|date:"j E Y" }}
+                        </dd>
+                    {% endif %}
+                </dl>
             {% else %}
                 <p class="mt-2 text-sm text-foreground-muted">
                     {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
                         Zagrajmy costs nothing up front. When you sell tickets here, we keep {{ percent }}% of each order. Free events stay free.
                     {% endblocktranslate %}
                 </p>
-                <p class="mt-4 text-sm text-foreground">
-                    {% translate "Selling tickets somewhere else? The yearly plan is for conventions that run their programme on Zagrajmy but sell entry through their own shop. It comes with onboarding help from the Zagrajmy team." %}
+                <h3 class="mt-5 text-sm font-semibold text-foreground">{% translate "Technical Partner" %}</h3>
+                <p class="mt-1 text-sm text-foreground">
+                    {% translate "Want your convention to run without technical worries? As a Technical Partner, the Zagrajmy team sets everything up with you, brings your programme in and is on hand during the event. We agree the terms, ticket fee included, for each convention." %}
                 </p>
             {% endif %}
             {% if can_manage %}
                 <div class="mt-5 flex flex-wrap gap-3">
-                    {% if plan.can_subscribe %}
-                        <form method="post" action="{% url 'multiverse:panel:billing-subscribe' %}">
-                            {% csrf_token %}
-                            {% translate "Switch to the yearly plan" as subscribe_label %}
-                            {% tessera_button subscribe_label variant="secondary" icon="arrow-path-rounded-square" %}
-                        </form>
-                    {% elif plan.kind == "standard" %}
-                        {% translate "Ask about the yearly plan" as ask_label %}
-                        {% tessera_button ask_label href="mailto:"|add:SUPPORT_EMAIL variant="secondary" icon="envelope" %}
+                    {% if plan.terms.has_deal %}
+                        {% translate "Ask about your terms" as ask_label %}
+                    {% else %}
+                        {% translate "Talk to us about partnering" as ask_label %}
                     {% endif %}
+                    {% tessera_button ask_label href="mailto:"|add:SUPPORT_EMAIL variant="secondary" icon="envelope" %}
                     {% if plan.has_billing_history %}
                         <form method="post" action="{% url 'multiverse:panel:billing-portal' %}">
                             {% csrf_token %}

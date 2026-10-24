@@ -3,6 +3,10 @@
 The page lists what is on sale; buying hands the browser to Stripe Checkout,
 and Stripe sends it back to the order page (paid) or through the cancel action
 (the buyer changed their mind, which releases the seats at once).
+
+Nobody needs an account to buy. The order page's address carries the order's
+secret reference; a guest who signs in there can claim the order, and its
+tickets, into the account they signed in to, new or old.
 """
 
 from __future__ import annotations
@@ -13,7 +17,6 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
-from django.core.signing import BadSignature, Signer
 from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -21,13 +24,18 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.helpers import account_email, read_public_event
+from ludamus.gates.web.django.helpers import (
+    account_email,
+    get_client_ip,
+    read_public_event,
+)
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     AbandonOutcome,
     CheckoutOutcome,
     CheckoutUrls,
+    ClaimOutcome,
 )
 
 if TYPE_CHECKING:
@@ -43,32 +51,31 @@ logger = logging.getLogger(__name__)
 _QUANTITY_PREFIX = "quantity-"
 # Far above any real ticket-type pk or quantity, far below int()'s 4300-digit cap.
 _MAX_DIGITS = 9
-_CANCEL_SIGNER = Signer(salt="ticket-checkout-cancel")
-
-
-def _signed_for(token: str, *, pk: int) -> bool:
-    try:
-        return _CANCEL_SIGNER.unsign(token) == str(pk)
-    except BadSignature:
-        return False
 
 
 def _tickets_url(slug: str) -> str:
     return reverse("web:event:event-tickets", kwargs={"event_slug": slug})
 
 
-def _order_url(slug: str, pk: int) -> str:
+def _order_url(slug: str, reference: str) -> str:
     return reverse(
-        "web:event:event-ticket-order", kwargs={"event_slug": slug, "pk": pk}
+        "web:event:event-ticket-order",
+        kwargs={"event_slug": slug, "reference": reference},
     )
 
 
-def _cancel_url(slug: str, pk: int) -> str:
-    # Signed: only the link handed to Stripe cancels a checkout.
-    path = reverse(
-        "web:event:event-ticket-order-cancel", kwargs={"event_slug": slug, "pk": pk}
+def _cancel_url(slug: str, reference: str) -> str:
+    return reverse(
+        "web:event:event-ticket-order-cancel",
+        kwargs={"event_slug": slug, "reference": reference},
     )
-    return f"{path}?{urlencode({'token': _CANCEL_SIGNER.sign(str(pk))})}"
+
+
+def _sign_in_url(next_path: str, *, signup: bool) -> str:
+    # Auth0 opens its signup screen when asked; either way the buyer comes
+    # back to the order page, signed in, to claim it.
+    params = {"next": next_path} | ({"screen_hint": "signup"} if signup else {})
+    return f"{reverse('web:crowd:auth0:login')}?{urlencode(params)}"
 
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
@@ -145,29 +152,37 @@ class EventTicketsBuyActionView(View):
     @staticmethod
     def post(request: RootRequest, event_slug: str) -> HttpResponse:
         event = read_public_event(request, event_slug)
-        if (buyer_id := request.context.current_user_id) is None:
-            return redirect_to_login(_tickets_url(event.slug))
-        if not (email := account_email(request)):
-            messages.error(
-                request,
-                _("Add an email address to your profile first: tickets go there."),
-            )
-            return redirect(_tickets_url(event.slug))
         if (quantities := _quantities(request)) is None:
             messages.error(request, _("Choose how many tickets you want."))
+            return redirect(_tickets_url(event.slug))
+        buyer_id = request.context.current_user_id
+        if (
+            buyer_id is None
+            and not request.services.ticket_sales.guest_checkout_allowed(
+                ip=get_client_ip(request), event_id=event.pk
+            )
+        ):
+            messages.error(
+                request,
+                _(
+                    "Too many checkouts from your connection. Wait a few minutes,"
+                    " or sign in to buy now."
+                ),
+            )
             return redirect(_tickets_url(event.slug))
 
         started = request.services.ticket_sales.start_checkout(
             event=event,
             buyer_id=buyer_id,
-            email=email,
+            # Empty for a guest, or an account without one: Checkout asks.
+            email=account_email(request),
             quantities=quantities,
             urls=CheckoutUrls(
-                success=lambda pk: request.build_absolute_uri(
-                    _order_url(event.slug, pk)
+                success=lambda reference: request.build_absolute_uri(
+                    _order_url(event.slug, reference)
                 ),
-                cancel=lambda pk: request.build_absolute_uri(
-                    _cancel_url(event.slug, pk)
+                cancel=lambda reference: request.build_absolute_uri(
+                    _cancel_url(event.slug, reference)
                 ),
             ),
         )
@@ -189,46 +204,84 @@ class EventTicketOrderPageView(View):
     request: RootRequest
 
     @staticmethod
-    def get(request: RootRequest, event_slug: str, pk: int) -> HttpResponse:
+    def get(request: RootRequest, event_slug: str, reference: str) -> HttpResponse:
         event = read_public_event(request, event_slug)
-        if (buyer_id := request.context.current_user_id) is None:
-            return redirect_to_login(request.get_full_path())
+        viewer_id = request.context.current_user_id
         try:
             page = request.services.ticket_sales.order(
-                buyer_id=buyer_id, event_id=event.pk, pk=pk
+                event_id=event.pk, reference=reference, viewer_id=viewer_id
             )
         except NotFoundError as exc:
+            if viewer_id is None:
+                # Claimed into an account: its holder signs in to see it.
+                return redirect_to_login(request.get_full_path())
             raise Http404 from exc
+        here = request.get_full_path()
         return TemplateResponse(
             request,
             "chronology/ticket-order.html",
-            {"event": event, "order": page.order, "state": page.state},
+            {
+                "event": event,
+                "order": page.order,
+                "state": page.state,
+                "claimable": page.claimable,
+                "sign_in_url": _sign_in_url(here, signup=False),
+                "sign_up_url": _sign_in_url(here, signup=True),
+            },
         )
+
+
+class EventTicketOrderClaimActionView(View):
+    """Keep a guest's order: it and its tickets move into the signed-in account."""
+
+    request: RootRequest
+    http_method_names = ("post",)
+
+    @staticmethod
+    def post(request: RootRequest, event_slug: str, reference: str) -> HttpResponse:
+        event = read_public_event(request, event_slug)
+        if (user_id := request.context.current_user_id) is None:
+            return redirect_to_login(_order_url(event.slug, reference))
+        try:
+            outcome = request.services.ticket_sales.claim_order(
+                event_id=event.pk, reference=reference, user_id=user_id
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        match outcome:
+            case ClaimOutcome.CLAIMED:
+                messages.success(
+                    request,
+                    _("The tickets are in your account. They're under My tickets."),
+                )
+            case ClaimOutcome.ALREADY_YOURS:
+                pass
+            case _:
+                assert_never(outcome)
+        return redirect(_order_url(event.slug, reference))
 
 
 class EventTicketOrderCancelActionView(View):
     """Stripe's "back" link: the buyer left Checkout, so free the seats now.
 
-    A GET because Stripe can only redirect; it acts on the signed-in buyer's
-    own unpaid order and nothing else, and only through the signed link handed
-    to Stripe, so another site cannot cancel a buyer's checkout under them.
+    A GET because Stripe can only redirect. It acts only on an unpaid order
+    its viewer may see, found by the secret reference in the link handed to
+    Stripe, so another site cannot cancel a buyer's checkout under them.
     """
 
     request: RootRequest
 
     @staticmethod
-    def get(request: RootRequest, event_slug: str, pk: int) -> HttpResponse:
+    def get(request: RootRequest, event_slug: str, reference: str) -> HttpResponse:
         event = read_public_event(request, event_slug)
-        if (buyer_id := request.context.current_user_id) is None:
-            return redirect(_tickets_url(event.slug))
-        if not _signed_for(request.GET.get("token", ""), pk=pk):
-            logger.warning("Ticket checkout cancel without a valid token: order=%s", pk)
-            return redirect(_order_url(event.slug, pk))
+        viewer_id = request.context.current_user_id
         try:
             outcome = request.services.ticket_sales.abandon_checkout(
-                buyer_id=buyer_id, event_id=event.pk, pk=pk
+                event_id=event.pk, reference=reference, viewer_id=viewer_id
             )
         except NotFoundError as exc:
+            if viewer_id is None:
+                return redirect(_tickets_url(event.slug))
             raise Http404 from exc
         match outcome:
             case AbandonOutcome.CANCELLED:
@@ -242,7 +295,7 @@ class EventTicketOrderCancelActionView(View):
                     ),
                 )
             case AbandonOutcome.SETTLED:
-                return redirect(_order_url(event.slug, pk))
+                return redirect(_order_url(event.slug, reference))
             case _:
                 assert_never(outcome)
         return redirect(_tickets_url(event.slug))

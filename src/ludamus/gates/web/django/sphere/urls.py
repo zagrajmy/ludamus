@@ -24,11 +24,6 @@ urlpatterns = [
         name="billing-return",
     ),
     path(
-        "billing/do/subscribe",
-        billing.BillingSubscribeActionView.as_view(),
-        name="billing-subscribe",
-    ),
-    path(
         "billing/do/portal",
         billing.BillingPortalActionView.as_view(),
         name="billing-portal",

@@ -6,6 +6,11 @@ on the sphere's own connected Stripe account (its `PayoutAccount`), and
 Zagrajmy keeps a share of each order as Stripe's application fee. See
 docs/rfc/0002-ticketing.md.
 
+Buying needs no account. An order's page lives at a secret `reference`, which
+Stripe sends the buyer back to and the order mail repeats; whoever has it sees
+the order until someone claims it into their account, and from then on only
+that account does.
+
 Money is integer minor units (grosze) everywhere.
 """
 
@@ -43,6 +48,7 @@ MAX_TICKET_PRICE = 99_999_999 // MAX_TICKETS_PER_ORDER
 # Well under the integer column's limit, and over any convention's attendance.
 MAX_TICKET_QUANTITY = 1_000_000
 TICKET_CODE_LENGTH = 10
+ORDER_REFERENCE_MAX_LENGTH = 32
 
 
 class OrderStatus(StrEnum):
@@ -102,6 +108,11 @@ class CheckoutOutcome(StrEnum):
     SOLD_OUT = "sold_out"
     SALES_CLOSED = "sales_closed"
     PROVIDER_ERROR = "provider_error"
+
+
+class ClaimOutcome(StrEnum):
+    CLAIMED = "claimed"
+    ALREADY_YOURS = "already_yours"
 
 
 class RefundOutcome(StrEnum):
@@ -227,6 +238,7 @@ class TicketDTO(BaseModel):
 
 class OrderDTO(BaseModel):
     pk: int
+    reference: str
     event_id: int
     event_name: str
     event_slug: str
@@ -278,6 +290,11 @@ class BuyerOrderDTO(BaseModel):
     order: OrderDTO
     state: OrderPageState
 
+    @property
+    def claimable(self) -> bool:
+        """No account holds it yet: signing in on its page keeps it."""
+        return self.order.buyer_id is None
+
 
 class OwnedTicketDTO(BaseModel):
     """A ticket on its holder's "My tickets" page."""
@@ -302,14 +319,18 @@ class OrderLineData(TypedDict):
 
 class OrderChanges(TypedDict, total=False):
     # What a move records besides the status.
+    email: str
     stripe_payment_intent_id: str
     paid_at: datetime
     refunded_at: datetime
 
 
 class OrderCreateData(TypedDict):
+    reference: str
     event_id: int
-    buyer_id: int
+    # None: a guest, until they claim it.
+    buyer_id: int | None
+    # Empty for a guest: Checkout asks for it.
     email: str
     currency: str
     total: int
@@ -400,6 +421,7 @@ class CheckoutRequest(BaseModel):
     currency: str
     lines: list[CheckoutLine]
     application_fee: int
+    # Empty: Checkout asks the buyer.
     customer_email: str
     success_url: str
     cancel_url: str
@@ -418,10 +440,28 @@ class CheckoutStartDTO(BaseModel):
 
 @dataclass(frozen=True)
 class CheckoutUrls:
-    """Where Stripe sends the buyer back, given the order's pk."""
+    """Where Stripe sends the buyer back, given the order's reference."""
 
-    success: Callable[[int], str]
-    cancel: Callable[[int], str]
+    success: Callable[[str], str]
+    cancel: Callable[[str], str]
+
+
+class OrderLinkMail(BaseModel):
+    """The mail that hands a buyer their order page, so a guest can find it."""
+
+    email: str
+    event_id: int
+    event_name: str
+    event_slug: str
+    reference: str
+    # No account holds the order: the mail says how to keep it in one.
+    claimable: bool
+
+
+class TicketMailerProtocol(Protocol):
+    @staticmethod
+    def send_order_link(mail: OrderLinkMail) -> None:
+        """Send after the surrounding transaction commits; never raise."""
 
 
 class TicketTypeRepositoryProtocol(Protocol):
@@ -455,7 +495,13 @@ class TicketOrderRepositoryProtocol(Protocol):
     @staticmethod
     def attach_checkout(*, pk: int, session_id: str) -> None: ...
     @staticmethod
-    def read_for_buyer(*, buyer_id: int, pk: int) -> OrderDTO | None: ...
+    def read_by_reference(*, reference: str) -> OrderDTO | None: ...
+    @staticmethod
+    def lock_by_reference(*, reference: str) -> OrderDTO | None: ...
+    @staticmethod
+    def claim(*, pk: int, buyer_id: int) -> None:
+        """Give the order, and every ticket it issued, to `buyer_id`."""
+
     @staticmethod
     def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None: ...
     @staticmethod
@@ -532,19 +578,30 @@ class PayoutServiceProtocol(Protocol):
 
 class TicketSalesServiceProtocol(Protocol):
     def shop(self, *, event: EventDTO, viewer_id: int | None) -> EventShopDTO: ...
+    def guest_checkout_allowed(self, *, ip: str, event_id: int) -> bool:
+        """Count a guest's checkout from `ip`; say if it is within the limit."""
+
     def start_checkout(
         self,
         *,
         event: EventDTO,
-        buyer_id: int,
+        buyer_id: int | None,
         email: str,
         quantities: dict[int, int],
         urls: CheckoutUrls,
     ) -> CheckoutStartDTO: ...
-    def order(self, *, buyer_id: int, event_id: int, pk: int) -> BuyerOrderDTO: ...
+
+    # `viewer_id`: who is looking, None for nobody signed in. An order a guest
+    # bought is anyone's with its reference; a claimed one only its holder's.
+    def order(
+        self, *, event_id: int, reference: str, viewer_id: int | None
+    ) -> BuyerOrderDTO: ...
     def abandon_checkout(
-        self, *, buyer_id: int, event_id: int, pk: int
+        self, *, event_id: int, reference: str, viewer_id: int | None
     ) -> AbandonOutcome: ...
+    def claim_order(
+        self, *, event_id: int, reference: str, user_id: int
+    ) -> ClaimOutcome: ...
     def owned_tickets(
         self, *, sphere_id: int, holder_id: int
     ) -> list[OwnedTicketDTO]: ...

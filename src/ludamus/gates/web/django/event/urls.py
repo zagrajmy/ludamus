@@ -49,13 +49,18 @@ urlpatterns: list[URLPattern] = [
         name="event-tickets-buy",
     ),
     path(
-        "event/<str:event_slug>/tickets/orders/<int:pk>/",
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/",
         tickets.EventTicketOrderPageView.as_view(),
         name="event-ticket-order",
     ),
     path(
-        "event/<str:event_slug>/tickets/orders/<int:pk>/do/cancel",
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/do/cancel",
         tickets.EventTicketOrderCancelActionView.as_view(),
         name="event-ticket-order-cancel",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/do/claim",
+        tickets.EventTicketOrderClaimActionView.as_view(),
+        name="event-ticket-order-claim",
     ),
 ]

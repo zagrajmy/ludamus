@@ -1,5 +1,5 @@
 {% extends "crowd/user/profile_base.html" %}
-{% load i18n tessera ticket_tags %}
+{% load i18n tessera %}
 {% block title %}
     {% translate "Tickets" %}
 {% endblock title %}
@@ -23,18 +23,7 @@
                         </p>
                         <ul class="grid gap-3 sm:grid-cols-2">
                             {% for ticket in group.list %}
-                                <li class="card card-body flex items-center gap-4">
-                                    {# The QR carries only the code shown beside it. #}
-                                    <img src="{{ ticket.code|qr_data_url }}"
-                                         alt="{% blocktranslate with code=ticket.code %}QR code for ticket {{ code }}{% endblocktranslate %}"
-                                         class="size-24 shrink-0 rounded-lg bg-white p-1.5"
-                                         width="96"
-                                         height="96">
-                                    <div class="min-w-0">
-                                        <div class="text-sm text-foreground-muted wrap-anywhere">{{ ticket.ticket_type_name }}</div>
-                                        <div class="font-mono text-lg font-semibold tracking-widest text-foreground">{{ ticket.code }}</div>
-                                    </div>
-                                </li>
+                                {% include "components/ticket_card.html" with code=ticket.code ticket_type_name=ticket.ticket_type_name only %}
                             {% endfor %}
                         </ul>
                     </section>

@@ -25,6 +25,7 @@ from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
+from ludamus.links.db.django.tickets import DjangoTicketMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
@@ -758,6 +759,8 @@ class Services:
             transaction=self._transaction,
             repos=self._ticket_repos,
             payments=self._stripe_connect,
+            mailer=DjangoTicketMailer(),
+            cache=DjangoCache(),
         )
 
     @cached_property
@@ -772,16 +775,10 @@ class Services:
     def plan(self) -> PlanService:
         api_key: str = settings.STRIPE_SECRET_KEY
         webhook_secret: str = settings.STRIPE_BILLING_WEBHOOK_SECRET
-        yearly_price_id: str = settings.STRIPE_YEARLY_PRICE_ID
-        root_domain: str = settings.ROOT_DOMAIN
         return PlanService(
             transaction=self._transaction,
             plans=self._repos.sphere_plans,
             billing=StripeBilling(
-                client=_stripe_client(api_key),
-                webhook_secret=webhook_secret,
-                yearly_price_id=yearly_price_id,
-                # Keys stay apart when deployments share a Stripe test account.
-                idempotency_namespace=root_domain,
+                client=_stripe_client(api_key), webhook_secret=webhook_secret
             ),
         )

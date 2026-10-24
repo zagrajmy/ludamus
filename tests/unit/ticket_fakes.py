@@ -1,4 +1,4 @@
-"""In-memory stand-ins for the ticket and plan repositories and Stripe.
+"""In-memory stand-ins for the ticket and plan repositories, Stripe and mail.
 
 The ticket type and order fakes share one `TicketBook`, so seats sold and held
 are counted from the orders the way the real repository's query counts them,
@@ -8,16 +8,18 @@ and an order moves only from a status its `allowed_from` names.
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
-from ludamus.pacts.billing import PlanKind, PlanSource, SpherePlanDTO
+from ludamus.pacts.billing import PlanSource, SpherePlanDTO
 from ludamus.pacts.payment_api import AccountState, PaymentProviderError
 from ludamus.pacts.tickets import (
     CHECKOUT_STATUSES,
     LEDGER_STATUSES,
     SETTLING_STATUSES,
     SOLD_STATUSES,
+    CheckoutRequest,
     CheckoutSessionDTO,
     OrderDTO,
     OrderLineDTO,
+    OrderLinkMail,
     OrderRowDTO,
     OrderStatus,
     OwnedTicketDTO,
@@ -167,6 +169,7 @@ class FakeOrders:
         pk = next(self._pks)
         defaults = {
             "pk": pk,
+            "reference": f"ref{pk}",
             "event_id": EVENT_ID,
             "event_name": self._book.event.name,
             "event_slug": self._book.event.slug,
@@ -214,8 +217,14 @@ class FakeOrders:
     def attach_checkout(self, *, pk, session_id):
         self._update(pk, stripe_checkout_session_id=session_id)
 
-    def read_for_buyer(self, *, buyer_id, pk):
-        return self._find(lambda order: order.pk == pk and order.buyer_id == buyer_id)
+    def read_by_reference(self, *, reference):
+        return self._find(lambda order: order.reference == reference)
+
+    def lock_by_reference(self, *, reference):
+        return self.read_by_reference(reference=reference)
+
+    def claim(self, *, pk, buyer_id):
+        self._update(pk, buyer_id=buyer_id)
 
     def lock_for_event(self, *, event_id, pk):
         return self._find(lambda order: order.pk == pk and order.event_id == event_id)
@@ -303,13 +312,11 @@ class FakeOrders:
             OwnedTicketDTO(
                 code=ticket.code,
                 ticket_type_name=ticket.ticket_type_name,
-                order_pk=order.pk,
                 event_name=event.name,
                 event_slug=event.slug,
                 event_start=event.start_time,
-                event_end=event.end_time,
             )
-            for order, ticket in self._valid_tickets(
+            for _order, ticket in self._valid_tickets(
                 holder_id=holder_id,
                 belongs=lambda order: order.event_id == event.pk
                 and event.sphere_id == sphere_id,
@@ -366,8 +373,10 @@ class FakePlans:
     def save(self, *, sphere_id, data):
         current = self.rows.get(sphere_id) or SpherePlanDTO(
             sphere_id=sphere_id,
-            kind=PlanKind.STANDARD,
-            source=PlanSource.STRIPE,
+            technical_partner=False,
+            ticket_fee_bps=None,
+            yearly_price=None,
+            source=PlanSource.MANUAL,
             paid_until=None,
             stripe_customer_id="",
             stripe_subscription_id="",
@@ -397,6 +406,7 @@ class FakeTicketPayments:
             details_submitted=True, charges_enabled=True, payouts_enabled=True
         )
         self.refunded: list[str] = []
+        self.checkouts: list[CheckoutRequest] = []
 
     def _answer(self, call):
         if call in self.down:
@@ -413,6 +423,7 @@ class FakeTicketPayments:
 
     def create_checkout(self, request):
         self._answer("create_checkout")
+        self.checkouts.append(request)
         session_id = f"cs_{request.order_pk}"
         return CheckoutSessionDTO(
             id=session_id, url=f"https://checkout.stripe.test/{session_id}"
@@ -431,3 +442,26 @@ class FakeTicketPayments:
 
     def parse_webhook(self, *, payload, signature):
         return self.event
+
+
+class FakeMailer:
+    def __init__(self):
+        self.sent: list[OrderLinkMail] = []
+
+    def send_order_link(self, mail):
+        self.sent.append(mail)
+
+
+class FakeCache:
+    """Django's cache as far as a counter needs: no expiry, only its timeout."""
+
+    def __init__(self):
+        self.entries: dict[str, object] = {}
+        self.timeouts: dict[str, int | None] = {}
+
+    def get(self, key):
+        return self.entries.get(key)
+
+    def set(self, key, value, timeout=None):
+        self.entries[key] = value
+        self.timeouts[key] = timeout

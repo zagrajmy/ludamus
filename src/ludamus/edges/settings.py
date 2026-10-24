@@ -80,7 +80,6 @@ env = environ.Env(
     STRIPE_SECRET_KEY=(str, ""),
     STRIPE_CONNECT_WEBHOOK_SECRET=(str, ""),
     STRIPE_BILLING_WEBHOOK_SECRET=(str, ""),
-    STRIPE_YEARLY_PRICE_ID=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -630,7 +629,6 @@ ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_CONNECT_WEBHOOK_SECRET = env("STRIPE_CONNECT_WEBHOOK_SECRET")
 STRIPE_BILLING_WEBHOOK_SECRET = env("STRIPE_BILLING_WEBHOOK_SECRET")
-STRIPE_YEARLY_PRICE_ID = env("STRIPE_YEARLY_PRICE_ID")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).

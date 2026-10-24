@@ -3138,8 +3138,17 @@ msgstr ""
 "spróbuj za chwilę."
 
 #: src/ludamus/gates/web/django/event/tickets.py
-msgid "Add an email address to your profile first: tickets go there."
-msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+msgid ""
+"Too many checkouts from your connection. Wait a few minutes, or sign in to "
+"buy now."
+msgstr ""
+"Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka minut "
+"albo zaloguj się, żeby kupić od razu."
+
+#: src/ludamus/gates/web/django/event/tickets.py
+msgid "The tickets are in your account. They're under My tickets."
+msgstr ""
+"Bilety są już na twoim koncie. Znajdziesz je w zakładce Bilety w profilu."
 
 #: src/ludamus/gates/web/django/event/tickets.py
 msgid "Checkout cancelled. Nothing was charged."
@@ -3945,13 +3954,6 @@ msgid "Stripe didn't respond. Nothing was changed; try again in a moment."
 msgstr "Stripe nie odpowiedział. Nic się nie zmieniło; spróbuj za chwilę."
 
 #: src/ludamus/gates/web/django/sphere/billing.py
-msgid ""
-"Thank you! Stripe is confirming the payment; the plan switches over within a "
-"minute."
-msgstr ""
-"Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
-
-#: src/ludamus/gates/web/django/sphere/billing.py
 msgid "Add an email address to your profile first: Stripe needs one."
 msgstr "Najpierw dodaj adres e-mail do profilu: Stripe go wymaga."
 
@@ -3966,10 +3968,6 @@ msgid ""
 msgstr ""
 "Stripe potrzebuje jeszcze kilku informacji. Dokończ konfigurację, gdy "
 "będziesz je mieć pod ręką."
-
-#: src/ludamus/gates/web/django/sphere/billing.py
-msgid "Add an email address to your profile first: invoices go there."
-msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
 
 #: src/ludamus/gates/web/django/sphere/billing.py
 msgid "This sphere has no billing history yet."
@@ -4686,6 +4684,27 @@ msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s.
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+
+#: src/ludamus/links/db/django/tickets.py
+#, python-format
+msgid "Your tickets for %(event)s"
+msgstr "Twoje bilety na %(event)s"
+
+#: src/ludamus/links/db/django/tickets.py
+msgid "Thank you for your order. Your tickets and their QR codes are here:"
+msgstr "Dziękujemy za zamówienie. Twoje bilety z kodami QR znajdziesz tutaj:"
+
+#: src/ludamus/links/db/django/tickets.py
+msgid "Anyone with this link can see the tickets, so keep it to yourself."
+msgstr "Każdy, kto ma ten link, zobaczy bilety, więc zachowaj go dla siebie."
+
+#: src/ludamus/links/db/django/tickets.py
+msgid ""
+"To keep them in your Zagrajmy account, open the link and sign in or create "
+"an account there."
+msgstr ""
+"Aby zachować je na swoim koncie w Zagrajmy, otwórz link i zaloguj się albo "
+"załóż tam konto."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
@@ -6567,6 +6586,10 @@ msgid "Order #%(pk)s"
 msgstr "Zamówienie nr %(pk)s"
 
 #: src/ludamus/templates/chronology/ticket-order.html
+msgid "Show these codes at the entrance."
+msgstr "Pokaż te kody przy wejściu."
+
+#: src/ludamus/templates/chronology/ticket-order.html
 msgid "Show these codes at the entrance. They're also saved under My tickets."
 msgstr ""
 "Pokaż te kody przy wejściu. Znajdziesz je też w zakładce Bilety w profilu."
@@ -6610,6 +6633,55 @@ msgstr "Nic nie zostało pobrane, a bilety wróciły do sprzedaży."
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid "Choose tickets again"
 msgstr "Wybierz bilety ponownie"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Add these tickets to your account"
+msgstr "Dodaj te bilety do swojego konta"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"They'll wait for you under My tickets, next to your sign-ups, and this link "
+"stops working for anyone else."
+msgstr ""
+"Będą czekać w zakładce Bilety w profilu, obok twoich zapisów, a ten link "
+"przestanie działać dla innych."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Add to my account"
+msgstr "Dodaj do mojego konta"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Keep your tickets safe"
+msgstr "Zabezpiecz swoje bilety"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+#, python-format
+msgid ""
+"We've emailed a link to this page to %(email)s. Create a free account, or "
+"log in, to keep the tickets with your sign-ups and stop anyone else using "
+"the link."
+msgstr ""
+"Link do tej strony wysłaliśmy na adres %(email)s. Załóż darmowe konto albo "
+"zaloguj się, żeby trzymać bilety razem ze swoimi zapisami i żeby nikt inny "
+"nie skorzystał z linku."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid ""
+"Create a free account, or log in, to keep the tickets with your sign-ups and "
+"stop anyone else using this link."
+msgstr ""
+"Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
+"zapisami i żeby nikt inny nie skorzystał z tego linku."
+
+#: src/ludamus/templates/chronology/ticket-order.html
+msgid "Create an account"
+msgstr "Załóż konto"
+
+#: src/ludamus/templates/chronology/ticket-order.html
+#: src/ludamus/templates/components/login_button.html
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+msgid "Log in"
+msgstr "Zaloguj się"
 
 #: src/ludamus/templates/chronology/ticket-order.html
 msgid "Order summary"
@@ -6666,10 +6738,6 @@ msgid "Continue to payment"
 msgstr "Przejdź do płatności"
 
 #: src/ludamus/templates/chronology/tickets.html
-msgid "Log in to buy tickets"
-msgstr "Zaloguj się, by kupić bilety"
-
-#: src/ludamus/templates/chronology/tickets.html
 #, python-format
 msgid ""
 "Payment by card, BLIK or bank transfer on Stripe's secure page. Up to "
@@ -6677,6 +6745,16 @@ msgid ""
 msgstr ""
 "Płatność kartą, BLIKIEM lub przelewem na bezpiecznej stronie Stripe. Do "
 "%(limit)s biletów w jednym zamówieniu."
+
+#: src/ludamus/templates/chronology/tickets.html
+#, python-format
+msgid ""
+"No account needed. <a href=\"%(login_url)s?next=%(next)s\" class=\"underline "
+"underline-offset-4\">Log in</a> first to save the tickets to yours."
+msgstr ""
+"Konto nie jest potrzebne. <a href=\"%(login_url)s?next=%(next)s\" "
+"class=\"underline underline-offset-4\">Zaloguj się</a> najpierw, a bilety "
+"trafią na twoje konto."
 
 #: src/ludamus/templates/chronology/tickets.html
 msgid "Ticket sales for this event haven't opened yet. Check back soon."
@@ -6941,11 +7019,6 @@ msgstr "Brak ikony"
 msgid "Preview unavailable for this icon"
 msgstr "Podgląd tej ikony jest niedostępny"
 
-#: src/ludamus/templates/components/login_button.html
-#: src/ludamus/templates/event/propose/parts/_login_nudge.html
-msgid "Log in"
-msgstr "Zaloguj się"
-
 #: src/ludamus/templates/components/multiselect-filter-options.html
 msgid "Start typing to find someone."
 msgstr "Zacznij pisać, aby kogoś znaleźć."
@@ -7047,6 +7120,11 @@ msgstr "Ciemny motyw"
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "dark"
 msgstr "ciemny"
+
+#: src/ludamus/templates/components/ticket_card.html
+#, python-format
+msgid "QR code for ticket %(code)s"
+msgstr "Kod QR biletu %(code)s"
 
 #: src/ludamus/templates/components/visibility-badge.html
 #: src/ludamus/templates/components/visibility-icon.html
@@ -7951,11 +8029,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #: src/ludamus/templates/crowd/user/tickets.html
 msgid "Show a code, or its QR, at the entrance. Each one admits one person."
 msgstr "Przy wejściu pokaż kod albo jego kod QR. Każdy wpuszcza jedną osobę."
-
-#: src/ludamus/templates/crowd/user/tickets.html
-#, python-format
-msgid "QR code for ticket %(code)s"
-msgstr "Kod QR biletu %(code)s"
 
 #: src/ludamus/templates/crowd/user/tickets.html
 msgid "No tickets yet"
@@ -9601,35 +9674,42 @@ msgid "Plan"
 msgstr "Plan"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
-msgctxt "plan"
-msgid "Yearly"
-msgstr "Roczny"
-
-#: src/ludamus/templates/multiverse/panel/billing.html
-msgctxt "plan"
-msgid "Pay per ticket"
-msgstr "Opłata od biletu"
+msgid "Technical Partner"
+msgstr "Partner techniczny"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
 msgid ""
-"Your sphere is on the yearly plan: the programme, sign-ups and the panel for "
-"a flat yearly fee, with the Zagrajmy team helping you set up."
+"The Zagrajmy team runs the technical side of your convention with you: "
+"setup, your programme, and help on the day."
 msgstr ""
-"Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną opłatą, "
-"z pomocą zespołu Zagrajmy przy konfiguracji."
+"Zespół Zagrajmy prowadzi z tobą techniczną stronę konwentu: konfigurację, "
+"program i pomoc w trakcie wydarzenia."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Your sphere has terms agreed with the Zagrajmy team."
+msgstr "Twoja sfera ma warunki uzgodnione z zespołem Zagrajmy."
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Ticket fee"
+msgstr "Prowizja od biletów"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
 #, python-format
-msgid "Paid until %(date)s."
-msgstr "Opłacony do %(date)s."
+msgid "%(percent)s%% of each order"
+msgstr "%(percent)s%% z każdego zamówienia"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
-msgid "Arranged with the Zagrajmy team."
-msgstr "Uzgodniony z zespołem Zagrajmy."
+msgid "Fixed price"
+msgstr "Stała opłata"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
-msgid "Stripe is confirming the first payment."
-msgstr "Stripe potwierdza pierwszą płatność."
+#, python-format
+msgid "%(price)s a year"
+msgstr "%(price)s rocznie"
+
+#: src/ludamus/templates/multiverse/panel/billing.html
+msgid "Valid until"
+msgstr "Ważne do"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
 #, python-format
@@ -9642,21 +9722,23 @@ msgstr ""
 
 #: src/ludamus/templates/multiverse/panel/billing.html
 msgid ""
-"Selling tickets somewhere else? The yearly plan is for conventions that run "
-"their programme on Zagrajmy but sell entry through their own shop. It comes "
-"with onboarding help from the Zagrajmy team."
+"Want your convention to run without technical worries? As a Technical "
+"Partner, the Zagrajmy team sets everything up with you, brings your "
+"programme in and is on hand during the event. We agree the terms, ticket fee "
+"included, for each convention."
 msgstr ""
-"Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
-"prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. W "
-"cenie jest pomoc zespołu Zagrajmy przy starcie."
+"Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój partner "
+"techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie twój "
+"program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym prowizję od "
+"biletów, ustalamy osobno dla każdego konwentu."
 
 #: src/ludamus/templates/multiverse/panel/billing.html
-msgid "Switch to the yearly plan"
-msgstr "Przejdź na plan roczny"
+msgid "Ask about your terms"
+msgstr "Zapytaj o warunki"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
-msgid "Ask about the yearly plan"
-msgstr "Zapytaj o plan roczny"
+msgid "Talk to us about partnering"
+msgstr "Porozmawiaj z nami o partnerstwie"
 
 #: src/ludamus/templates/multiverse/panel/billing.html
 msgid "Invoices and billing"
@@ -13784,6 +13866,58 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#~ msgid "Add an email address to your profile first: tickets go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+
+#~ msgid ""
+#~ "Thank you! Stripe is confirming the payment; the plan switches over "
+#~ "within a minute."
+#~ msgstr ""
+#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
+
+#~ msgid "Add an email address to your profile first: invoices go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
+
+#~ msgid "Log in to buy tickets"
+#~ msgstr "Zaloguj się, by kupić bilety"
+
+#~ msgctxt "plan"
+#~ msgid "Yearly"
+#~ msgstr "Roczny"
+
+#~ msgctxt "plan"
+#~ msgid "Pay per ticket"
+#~ msgstr "Opłata od biletu"
+
+#~ msgid ""
+#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
+#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
+#~ msgstr ""
+#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
+#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
+
+#, python-format
+#~ msgid "Paid until %(date)s."
+#~ msgstr "Opłacony do %(date)s."
+
+#~ msgid "Stripe is confirming the first payment."
+#~ msgstr "Stripe potwierdza pierwszą płatność."
+
+#~ msgid ""
+#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
+#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
+#~ "comes with onboarding help from the Zagrajmy team."
+#~ msgstr ""
+#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
+#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
+#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
+
+#~ msgid "Switch to the yearly plan"
+#~ msgstr "Przejdź na plan roczny"
+
+#~ msgid "Ask about the yearly plan"
+#~ msgstr "Zapytaj o plan roczny"
+
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
 #~ "companion to sign you up for sessions."
@@ -13796,9 +13930,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
 
 #~ msgid "How old are you?"
 #~ msgstr "Ile masz lat?"

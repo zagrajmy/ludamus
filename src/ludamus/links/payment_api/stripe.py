@@ -2,8 +2,9 @@
 
 Two clients over one SDK. `StripeConnect` acts on organizers' connected
 accounts (onboarding, ticket Checkout, refunds); `StripeBilling` acts on
-Zagrajmy's own account (the yearly plan). Each verifies its own webhook
-endpoint's signature and flattens the payload into a `StripeWebhookEvent`.
+Zagrajmy's own account (the fixed price of a sphere's deal). Each verifies its
+own webhook endpoint's signature and flattens the payload into a
+`StripeWebhookEvent`.
 
 Unconfigured (no API key) both report `enabled = False` and refuse every call
 with `PaymentProviderError`, so a deployment without Stripe shows "payments
@@ -172,10 +173,21 @@ class StripeConnect(TicketPaymentsProtocol):
                         for line in request.lines
                     ],
                     "payment_intent_data": {
-                        "application_fee_amount": request.application_fee,
+                        # A deal may waive the fee; Stripe wants none, not 0.
+                        **(
+                            {"application_fee_amount": request.application_fee}
+                            if request.application_fee
+                            else {}
+                        ),
                         "metadata": {"ticket_order": reference},
                     },
-                    "customer_email": request.customer_email,
+                    # A guest has none yet: Checkout asks, and the webhook
+                    # brings it back.
+                    **(
+                        {"customer_email": request.customer_email}
+                        if request.customer_email
+                        else {}
+                    ),
                     "client_reference_id": reference,
                     "metadata": {"ticket_order": reference},
                     "success_url": request.success_url,
@@ -235,60 +247,14 @@ class StripeConnect(TicketPaymentsProtocol):
 
 class StripeBilling(PlanBillingProtocol):
     def __init__(
-        self,
-        *,
-        client: stripe.StripeClient | None,
-        webhook_secret: str,
-        yearly_price_id: str,
-        idempotency_namespace: str,
+        self, *, client: stripe.StripeClient | None, webhook_secret: str
     ) -> None:
         self._client = client
         self._webhook_secret = webhook_secret
-        self._yearly_price_id = yearly_price_id
-        self._namespace = idempotency_namespace
 
     @property
     def enabled(self) -> bool:
-        return self._client is not None and bool(self._yearly_price_id)
-
-    def create_customer(self, *, sphere_id: int, name: str, email: str) -> str:
-        client = _require(self._client)
-        with _call("customer create"):
-            customer = client.v1.customers.create(
-                params={
-                    "name": name,
-                    "email": email,
-                    "metadata": {"sphere_id": str(sphere_id)},
-                },
-                options={
-                    "idempotency_key": f"{self._namespace}-sphere-customer-{sphere_id}"
-                },
-            )
-        return customer.id
-
-    def create_plan_checkout(
-        self, *, sphere_id: int, customer_id: str, success_url: str, cancel_url: str
-    ) -> str:
-        client = _require(self._client)
-        with _call("plan checkout"):
-            session = client.v1.checkout.sessions.create(
-                params={
-                    "mode": "subscription",
-                    "customer": customer_id,
-                    "line_items": [{"price": self._yearly_price_id, "quantity": 1}],
-                    "client_reference_id": str(sphere_id),
-                    # Polish organizations need a VAT invoice with their NIP.
-                    "tax_id_collection": {"enabled": True},
-                    "billing_address_collection": "required",
-                    "customer_update": {"name": "auto", "address": "auto"},
-                    "success_url": success_url,
-                    "cancel_url": cancel_url,
-                }
-            )
-        if not session.url:
-            message = "Stripe returned a Checkout Session without a URL."
-            raise PaymentProviderError(message)
-        return session.url
+        return self._client is not None
 
     def billing_portal_url(self, *, customer_id: str, return_url: str) -> str:
         client = _require(self._client)
@@ -297,17 +263,6 @@ class StripeBilling(PlanBillingProtocol):
                 params={"customer": customer_id, "return_url": return_url}
             )
         return portal.url
-
-    def has_live_subscription(self, *, customer_id: str) -> bool:
-        client = _require(self._client)
-        with _call("subscription list"):
-            subscriptions = client.v1.subscriptions.list(
-                params={"customer": customer_id, "limit": 100}
-            )
-        return any(
-            subscription.status in _LIVE_SUBSCRIPTION_STATUSES
-            for subscription in subscriptions.data
-        )
 
     def read_subscription(self, *, subscription_id: str) -> SubscriptionState:
         client = _require(self._client)
@@ -341,13 +296,17 @@ def _id(value: _IdOrResource) -> str:
     return value if isinstance(value, str) else "" if value is None else value.id
 
 
+class _CustomerDetails(BaseModel):
+    # Stripe sends null for a session that has not collected it yet.
+    email: str | None = None
+
+
 class _CheckoutSession(BaseModel):
     id: str
     mode: str = ""
     payment_status: str = ""
     payment_intent: _IdOrResource = None
-    customer: _IdOrResource = None
-    subscription: _IdOrResource = None
+    customer_details: _CustomerDetails | None = None
 
 
 class _Charge(BaseModel):
@@ -422,22 +381,15 @@ def _event(envelope: _Envelope) -> StripeWebhookEvent:
 
 def _checkout_event(
     stage: CheckoutStage, raw: dict[str, JsonValue]
-) -> CheckoutEvent | SubscriptionEvent | UnhandledEvent:
+) -> CheckoutEvent | UnhandledEvent:
     session = _CheckoutSession.model_validate(raw)
-    match session.mode:
-        case "payment":
-            return CheckoutEvent(
-                stage=stage,
-                session_id=session.id,
-                paid=session.payment_status in _PAID_STATUSES,
-                payment_intent_id=_id(session.payment_intent),
-            )
-        case "subscription" if stage is CheckoutStage.COMPLETED and (
-            subscription_id := _id(session.subscription)
-        ):
-            # The yearly plan bought: what it now is, Stripe is asked.
-            return SubscriptionEvent(
-                subscription_id=subscription_id, customer_id=_id(session.customer)
-            )
-    # A setup-mode session, say, or a subscription not yet made.
-    return UnhandledEvent(type=stage)
+    if session.mode != "payment":
+        # A subscription or setup session made in the dashboard, say.
+        return UnhandledEvent(type=stage)
+    return CheckoutEvent(
+        stage=stage,
+        session_id=session.id,
+        paid=session.payment_status in _PAID_STATUSES,
+        payment_intent_id=_id(session.payment_intent),
+        email=(session.customer_details and session.customer_details.email) or "",
+    )

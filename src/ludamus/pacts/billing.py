@@ -1,14 +1,18 @@
-"""What a sphere pays Zagrajmy: its plan, and the Stripe billing behind it.
+"""What a sphere pays Zagrajmy, and what it gets for it.
 
-Every sphere is on the standard plan unless it holds the yearly one. The
-standard plan costs nothing up front; Zagrajmy earns a share of the tickets
-the sphere sells here (`pacts.tickets`). The yearly plan is for conventions
-that run their programme on Zagrajmy but sell tickets somewhere else, so there
-is no ticket to take a share of: the sphere pays once a year instead.
+Two things a sphere's plan holds, kept apart on purpose:
 
-The yearly plan is bought self-serve through Stripe Checkout and lives on as a
-Stripe subscription; a maintainer may also record one paid by bank transfer
-(`PlanSource.MANUAL`) in the admin.
+- **Terms:** the money. Every sphere pays a share of the tickets it sells here
+  (`STANDARD_TICKET_FEE_BPS` unless a deal says less) and, if a deal says so,
+  a fixed yearly price on top or instead.
+- **Technical Partner:** the outcome. The Zagrajmy team runs the technical side
+  of the convention with the organizers: setup, the programme, help during the
+  event. It is agreed per convention, never bought by clicking.
+
+A maintainer records a deal in the admin. Its terms hold until `paid_until`
+(open-ended without one). A deal billed through a Stripe subscription
+(`PlanSource.STRIPE`) has `paid_until` kept current by Stripe's webhooks; one
+paid by bank transfer (`PlanSource.MANUAL`) is left alone.
 """
 
 from __future__ import annotations
@@ -23,10 +27,9 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from ludamus.pacts.payment_api import StripeWebhookEvent, WebhookOutcome
 
-
-class PlanKind(StrEnum):
-    STANDARD = "standard"
-    WHITE_GLOVE = "white_glove"
+# Zagrajmy's share of every ticket order, in basis points (350 = 3.5%), taken
+# as the Stripe application fee. A deal may lower it, never raise it.
+STANDARD_TICKET_FEE_BPS = 350
 
 
 class PlanSource(StrEnum):
@@ -38,15 +41,30 @@ class SpherePlanDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     sphere_id: int
-    kind: PlanKind
+    technical_partner: bool
+    # None: the standard rate.
+    ticket_fee_bps: int | None
+    # Minor units (grosze); None: no fixed price.
+    yearly_price: int | None
     source: PlanSource
     paid_until: datetime | None
     stripe_customer_id: str
     stripe_subscription_id: str
 
 
+class PlanTermsDTO(BaseModel):
+    """What applies to a sphere right now: its deal while it lasts, else none."""
+
+    technical_partner: bool
+    ticket_fee_bps: int
+    yearly_price: int | None
+    # When the deal ends; None for no deal, or a deal without an end.
+    paid_until: datetime | None
+    has_deal: bool
+
+
 class SubscriptionState(BaseModel):
-    """A yearly-plan subscription as Stripe has it now."""
+    """A deal's Stripe subscription as Stripe has it now."""
 
     # Stripe still bills it: paid up, or a failed renewal it is retrying.
     live: bool
@@ -57,24 +75,16 @@ class SubscriptionState(BaseModel):
 class PlanPageDTO(BaseModel):
     """The plan as the sphere panel shows it."""
 
-    kind: PlanKind
-    source: PlanSource | None
-    paid_until: datetime | None
-    # The yearly plan can be bought: Stripe billing is configured here and the
-    # sphere does not already hold the plan.
-    can_subscribe: bool
-    # The sphere has a Stripe customer, so the billing portal has something
-    # to show: invoices, the card on file, cancelling.
-    has_billing_history: bool
-    # Zagrajmy's share of each ticket order on this plan, in percent.
+    terms: PlanTermsDTO
+    # Zagrajmy's share of each ticket order, in percent.
     ticket_fee_percent: Decimal
+    # The sphere has a Stripe customer, so the billing portal has something
+    # to show: invoices, the card on file.
+    has_billing_history: bool
 
 
 class SpherePlanData(TypedDict, total=False):
-    kind: PlanKind
-    source: PlanSource
     paid_until: datetime | None
-    stripe_customer_id: str
     stripe_subscription_id: str
 
 
@@ -88,16 +98,11 @@ class SpherePlanRepositoryProtocol(Protocol):
 
 
 class PlanBillingProtocol(Protocol):
-    """Zagrajmy's own Stripe account, billing spheres for the yearly plan."""
+    """Zagrajmy's own Stripe account, billing spheres for their deals."""
 
     @property
     def enabled(self) -> bool: ...
-    def create_customer(self, *, sphere_id: int, name: str, email: str) -> str: ...
-    def create_plan_checkout(
-        self, *, sphere_id: int, customer_id: str, success_url: str, cancel_url: str
-    ) -> str: ...
     def billing_portal_url(self, *, customer_id: str, return_url: str) -> str: ...
-    def has_live_subscription(self, *, customer_id: str) -> bool: ...
     def read_subscription(self, *, subscription_id: str) -> SubscriptionState: ...
     def parse_webhook(
         self, *, payload: bytes, signature: str
@@ -106,14 +111,5 @@ class PlanBillingProtocol(Protocol):
 
 class PlanServiceProtocol(Protocol):
     def page(self, *, sphere_id: int) -> PlanPageDTO: ...
-    def start_yearly_checkout(
-        self,
-        *,
-        sphere_id: int,
-        sphere_name: str,
-        email: str,
-        success_url: str,
-        cancel_url: str,
-    ) -> str: ...
     def billing_portal_url(self, *, sphere_id: int, return_url: str) -> str: ...
     def handle_webhook(self, *, payload: bytes, signature: str) -> WebhookOutcome: ...

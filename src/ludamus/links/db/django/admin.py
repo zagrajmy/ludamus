@@ -244,13 +244,22 @@ class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
-# The yearly plan paid by bank transfer is recorded here: set kind to White
-# Glove, source to Manual and the date it is paid until. Stripe webhooks leave
-# a manual plan alone.
+# A sphere's deal is recorded here: Technical Partner or not, its ticket fee
+# in basis points (blank: the standard 350), its yearly price in grosze, and
+# the date it holds until. Source Manual for a deal paid by transfer, which
+# Stripe webhooks leave alone; Stripe, with the sphere's customer id, for one
+# billed by a subscription made in the Stripe dashboard.
 admin.site.register(
     SpherePlan,
-    list_display=("sphere", "kind", "source", "paid_until"),
-    list_filter=("kind", "source"),
+    list_display=(
+        "sphere",
+        "technical_partner",
+        "ticket_fee_bps",
+        "yearly_price",
+        "source",
+        "paid_until",
+    ),
+    list_filter=("technical_partner", "source"),
     search_fields=("sphere__name", "stripe_customer_id"),
 )
 admin.site.register(

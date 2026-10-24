@@ -1,9 +1,10 @@
 """The event panel's Tickets page: ticket types, takings, and refunds.
 
 How it could go wrong: a non-manager edits prices or refunds; a ticket type or
-order from another event is changed through this event's URLs; a price is
-stored in złoty instead of grosze; a refund leaves Zagrajmy's fee behind or
-the tickets valid; a refund Stripe refused is shown as done.
+order from another event is changed through this event's URLs; the fee shown
+is not the sphere's deal's; a price is stored in złoty instead of grosze; a
+refund leaves Zagrajmy's fee behind or the tickets valid; a refund Stripe
+refused is shown as done.
 """
 
 from decimal import Decimal
@@ -18,16 +19,19 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     SphereMembership,
+    SpherePlan,
     Ticket,
     TicketOrder,
     TicketType,
 )
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.tickets import (
+    FeeBreakdownDTO,
     PayoutStatus,
     TicketPanelDTO,
     TicketSalesSummaryDTO,
     TicketTypeDTO,
+    TicketTypeRowDTO,
 )
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.stripe_helpers import (
@@ -98,6 +102,60 @@ class TestTicketsPage:
                     payments_available=True,
                     platform_fee_percent=Decimal("3.5"),
                     rows=[],
+                    archived=[],
+                    summary=TicketSalesSummaryDTO(
+                        orders=0,
+                        tickets=0,
+                        gross=0,
+                        platform_fees=0,
+                        estimated_stripe_fees=0,
+                    ),
+                    orders=[],
+                    more_orders=False,
+                ),
+            },
+        )
+
+    def test_a_deal_without_a_ticket_fee_shows_none_taken(self, panel_client, event):
+        SpherePlan.objects.create(sphere=event.sphere, ticket_fee_bps=0)
+        connected_account(event.sphere)
+        kind = ticket_type(event, price=5000)
+
+        response = panel_client.get(_url("panel:tickets", event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/tickets.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "page": TicketPanelDTO(
+                    payout_status=PayoutStatus.ACTIVE,
+                    payments_available=True,
+                    platform_fee_percent=Decimal(0),
+                    rows=[
+                        TicketTypeRowDTO(
+                            ticket_type=TicketTypeDTO(
+                                pk=kind.pk,
+                                event_id=event.pk,
+                                name="Weekend pass",
+                                description="",
+                                price=5000,
+                                currency="pln",
+                                quantity=None,
+                                sales_start=None,
+                                sales_end=None,
+                                is_archived=False,
+                                order=0,
+                                sold=0,
+                                held=0,
+                            ),
+                            # Stripe's 2.9% + 0,30 zł of 50,00 zł is 1,75 zł.
+                            fees=FeeBreakdownDTO(
+                                price=5000, platform_fee=0, estimated_stripe_fee=175
+                            ),
+                        )
+                    ],
                     archived=[],
                     summary=TicketSalesSummaryDTO(
                         orders=0,

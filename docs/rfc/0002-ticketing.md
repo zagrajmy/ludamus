@@ -1,4 +1,4 @@
-# RFC 0002 — Ticket sales on Stripe, and the yearly plan
+# RFC 0002 — Ticket sales on Stripe, and the Technical Partner deal
 
 **Status:** 🟡 v1 built (this branch). Open questions at the end.
 **Touches:** sphere panel (plan, payouts), event panel (tickets, orders), the
@@ -16,14 +16,21 @@ Kapitularz is wired in as a _ticketing integration_). So:
   the organizer's Stripe balance. Zagrajmy takes **3.5% of every ticket** as a
   Stripe _application fee_; Stripe takes its processing fee (2.9% + 0.30 on the
   headline card rate) from the organizer's side of the same charge.
-- **The yearly plan ("White Glove")** — for conventions that run their programme
-  on Zagrajmy but sell tickets elsewhere, so there is no per-ticket fee to
-  collect. A sphere manager buys it self-serve (Stripe Checkout, subscription
-  mode) and manages it in the Stripe billing portal; a maintainer can also
-  record a plan paid by bank transfer in the admin.
+- **Buying needs no account.** A guest pays in Checkout and lands on an order
+  page at a secret link, which we also email them. Signing in there (new
+  account or old) claims the order and its tickets into that account.
+- **Deals, and the Technical Partner tier.** We sell outcomes, not software, so
+  the money is kept apart from the help:
+  - _Terms_: a sphere's ticket fee (3.5% unless a deal lowers it, down to 0)
+    and, if agreed, a fixed yearly price.
+  - _Technical Partner_: the Zagrajmy team runs the technical side of the
+    convention with the organizers — setup, the programme, help on the day.
+  Both are agreed per convention and recorded by a maintainer; nothing is
+  bought by clicking. A fixed price is billed by a Stripe subscription made in
+  the dashboard, or by bank transfer.
 
-The pricing page is out of scope here; the numbers it will quote live in one
-place (`specs/tickets.py`, plus the yearly Stripe Price id in settings).
+The pricing page is out of scope here; the standard rate it will quote lives in
+one place (`STANDARD_TICKET_FEE_BPS` in `pacts/billing.py`).
 
 ## Who pays what
 
@@ -39,8 +46,9 @@ For a 50,00 zł ticket:
 - Fees are per **order** (one Stripe charge), not per ticket, so buying three
   tickets at once costs the organizer one fixed 0,30, not three.
 - The Zagrajmy fee is computed by us (`platform_fee()`, round half up to the
-  grosz) and sent as `application_fee_amount`. That is the only number we
-  control.
+  grosz) at the sphere's rate (`specs.billing.current_terms`) and sent as
+  `application_fee_amount`. That is the only number we control. A deal's rate
+  applies while the deal holds; it can only be lower than the standard one.
 - The Stripe fee is Stripe's. We show an _estimate_ in the panel ("you keep
   about …"); the real fee varies with card country and payment method (BLIK,
   Przelewy24) and appears in the organizer's Stripe dashboard.
@@ -78,14 +86,16 @@ account's payment method settings, and we never touch card data (PCI SAQ A).
 ## Data model
 
 ```text
-SpherePlan       1:1 Sphere   plan (standard | white_glove), source (stripe | manual),
+SpherePlan       1:1 Sphere   technical_partner, ticket_fee_bps (null = standard,
+                              ≤ 350), yearly_price (grosze), source (stripe | manual),
                               paid_until, stripe_customer_id, stripe_subscription_id
 PayoutAccount    1:1 Sphere   stripe_account_id, details_submitted,
                               charges_enabled, payouts_enabled
 TicketType       N:1 Event    name, description, price (grosze), currency,
                               quantity (null = unlimited), sales_start/end,
                               is_archived, order
-TicketOrder      N:1 Event    buyer, email, status, currency, total,
+TicketOrder      N:1 Event    reference (secret, unique), buyer (null = guest),
+                              email, status, currency, total,
                               platform_fee, stripe_account_id,
                               stripe_checkout_session_id, stripe_payment_intent_id,
                               hold_until, paid_at, refunded_at
@@ -94,8 +104,9 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
 ```
 
 - Money is integer minor units everywhere. Currency is PLN in v1.
-- A missing `SpherePlan` row reads as the standard plan; a missing
-  `PayoutAccount` row as "not connected". No backfill migration.
+- A missing `SpherePlan` row, one past its `paid_until`, or one with no terms
+  on it reads as no deal: the standard fee, no Technical Partner. A missing
+  `PayoutAccount` row reads as "not connected". No backfill migration.
 - Ticket types are archived, never deleted, once anything was sold — orders
   point at them.
 - Orders move only along `specs.tickets.ORDER_TRANSITIONS`, and every write is
@@ -109,16 +120,26 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
 
 1. The event page shows **Buy tickets** (primary) when at least one ticket type
    is on sale. The tickets page lists types with price and what is left.
-2. The buyer picks quantities and submits. Signed-out buyers go through login
-   first: a ticket belongs to an account, it is what "My tickets" lists.
+2. The buyer picks quantities and submits, signed in or not. A signed-in buyer's
+   email goes to Checkout; a guest types it there. Guests are limited to five
+   checkouts per address per event in half an hour, so a script cannot hold
+   a sell-out.
 3. The service locks the event's ticket types, checks availability and the
    sales window, and creates a `pending` order that **holds** its seats until
    `hold_until` (now + 31 min, just over Stripe's minimum Checkout lifetime).
    It then creates the Checkout Session with the same `expires_at`, so the hold
    and the session die together.
-4. Stripe redirects back to the order page. It shows "paid" once the webhook
-   landed and "confirming payment" until then (it refreshes itself).
-5. Coming back through Stripe's "back" link expires the Checkout Session at once
+4. Stripe redirects back to the order page, at `/tickets/orders/<reference>/`.
+   It shows "paid" once the webhook landed and "confirming payment" until then
+   (it refreshes itself). The webhook that completes Checkout stores the email
+   the buyer typed and mails them the page's link, once.
+5. A guest's order page offers **Create an account** and **Log in** (Auth0, back
+   to the same page). Signed in, **Add to my account** claims the order: it and
+   its tickets move to that account — a new one or an existing one, so this is
+   also how a guest merges a purchase into the account they already had. From
+   then on only that account sees the order; anyone else with the link is
+   asked to sign in.
+6. Coming back through Stripe's "back" link expires the Checkout Session at once
    and releases the hold.
 
 Availability = `quantity − sold − held`, where held counts `awaiting_payment`
@@ -137,17 +158,17 @@ Two endpoints, two signing secrets:
   `checkout.session.completed` (paid → issue tickets; unpaid → awaiting
   payment), `checkout.session.async_payment_succeeded` / `…_failed`,
   `checkout.session.expired`, `charge.refunded`, `account.updated`.
-- `/hooks/stripe/billing` — Zagrajmy's own account (the yearly plan):
-  `checkout.session.completed` (subscription mode),
+- `/hooks/stripe/billing` — Zagrajmy's own account (a deal's fixed price):
   `customer.subscription.created` / `.updated` / `.deleted`.
 
 Stripe does not deliver in order. Ticket orders are protected by the transition
-guards above. A yearly-plan event only names a subscription and its customer:
+guards above. A subscription event only names a subscription and its customer:
 the plan's row is locked, then the subscription's state (live or ended, paid
-until when) is read back from Stripe and written, so the last delivery writes
-the latest state whatever order they came in. An ended subscription other than
-the one on record changes nothing. If Stripe cannot be reached the endpoint
-answers 503 and Stripe retries.
+until when) is read back from Stripe and written as the deal's `paid_until`,
+so the last delivery writes the latest state whatever order they came in. An
+ended subscription other than the one on record changes nothing, and a deal
+paid by transfer (`source=manual`) is never touched. If Stripe cannot be
+reached the endpoint answers 503 and Stripe retries.
 
 ### Refunds
 
@@ -176,7 +197,9 @@ it may leave from it.
 | Stripe API down when creating Checkout      | Order is cancelled, hold released, buyer sees a retry message.    |
 | Organizer's account loses `charges_enabled` | Tickets page stops selling, panel says why and links onboarding.  |
 | Forged webhook                              | Signature check fails → 400, logged, nothing changes.             |
-| Order id from another sphere/event          | Every read is scoped to the buyer or the panel's event → 404.     |
+| Order id from another sphere/event          | Scoped to the panel's event, or the link's event → 404.           |
+| Guest order link forwarded or leaked        | Anyone with it sees the order until claimed; then its holder.     |
+| A script starts guest checkouts in bulk     | Five per address per event per half hour, then refused.           |
 
 ## Out of scope (v1)
 
@@ -189,10 +212,9 @@ it may leave from it.
   "paid tickets for this email" counter can answer.
 - Partial refunds and per-ticket transfers.
 
-## Open questions
+## Decided
 
-1. Should the yearly plan waive the 3.5% if a White Glove sphere also sells on
-   Zagrajmy? v1 charges it on all tickets, per the brief; the rate is a
-   per-plan lookup in `specs/tickets.py`, so waiving is one line.
-2. Refunds return our fee (`refund_application_fee=True`). Keep it?
-3. Do we require login to buy, or add guest checkout by email later?
+1. The ticket fee is part of each deal: a Technical Partner may pay less than
+   3.5%, or nothing, as agreed (`SpherePlan.ticket_fee_bps`).
+2. Refunds return our fee (`refund_application_fee=True`).
+3. Guests buy without an account and claim the order into one afterwards.

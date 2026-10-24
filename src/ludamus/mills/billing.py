@@ -1,7 +1,8 @@
-"""The sphere's plan: which one it is on, buying the yearly one, and Stripe's word.
+"""The sphere's plan: what its deal gives it, and Stripe's word on the price.
 
-`specs.billing.effective_plan` says which plan a sphere holds. Stripe webhooks
-keep a Stripe-billed plan current; a plan a maintainer recorded by hand
+`specs.billing.current_terms` says what a sphere's deal gives it. A maintainer
+records the deal; a deal billed through a Stripe subscription has its
+`paid_until` kept current by Stripe's webhooks, and one paid by bank transfer
 (`PlanSource.MANUAL`) is theirs while it lasts, and webhooks leave it be.
 
 Stripe does not deliver events in order, so an event only says which
@@ -16,15 +17,16 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.billing import PlanKind, PlanPageDTO, PlanServiceProtocol, PlanSource
+from ludamus.pacts.billing import PlanPageDTO, PlanServiceProtocol, PlanSource
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.payment_api import SubscriptionEvent, WebhookOutcome
-from ludamus.specs.billing import effective_plan
+from ludamus.specs.billing import current_terms
 from ludamus.specs.tickets import platform_fee_percent
 
 if TYPE_CHECKING:
     from ludamus.pacts.billing import (
         PlanBillingProtocol,
+        SpherePlanData,
         SpherePlanDTO,
         SpherePlanRepositoryProtocol,
         SubscriptionState,
@@ -48,60 +50,13 @@ class PlanService(PlanServiceProtocol):
 
     def page(self, *, sphere_id: int) -> PlanPageDTO:
         plan = self._plans.read(sphere_id=sphere_id)
-        kind = effective_plan(plan, now=datetime.now(tz=UTC))
-        yearly = plan if kind is PlanKind.WHITE_GLOVE else None
+        terms = current_terms(plan, now=datetime.now(tz=UTC))
         return PlanPageDTO(
-            kind=kind,
-            ticket_fee_percent=platform_fee_percent(kind),
-            source=yearly.source if yearly else None,
-            paid_until=yearly.paid_until if yearly else None,
-            can_subscribe=self._billing.enabled and yearly is None,
+            terms=terms,
+            ticket_fee_percent=platform_fee_percent(terms.ticket_fee_bps),
             has_billing_history=self._billing.enabled
             and plan is not None
             and bool(plan.stripe_customer_id),
-        )
-
-    def start_yearly_checkout(
-        self,
-        *,
-        sphere_id: int,
-        sphere_name: str,
-        email: str,
-        success_url: str,
-        cancel_url: str,
-    ) -> str:
-        """Say where to send the buyer: Checkout, or wherever the plan they hold is.
-
-        A second subscription would bill the sphere twice, so one Stripe already
-        has (paid a moment ago, its webhook not here yet) sends them to manage it.
-        """
-        plan = self._plans.read(sphere_id=sphere_id)
-        customer_id = plan.stripe_customer_id if plan is not None else ""
-        held = effective_plan(plan, now=datetime.now(tz=UTC)) is PlanKind.WHITE_GLOVE
-        if held and not customer_id:
-            logger.info("Yearly plan already held by hand: sphere=%s", sphere_id)
-            return cancel_url
-        if customer_id and (
-            held or self._billing.has_live_subscription(customer_id=customer_id)
-        ):
-            return self._billing.billing_portal_url(
-                customer_id=customer_id, return_url=cancel_url
-            )
-        if not customer_id:
-            # Created before Checkout, so every webhook that follows finds the
-            # sphere by customer.
-            customer_id = self._billing.create_customer(
-                sphere_id=sphere_id, name=sphere_name, email=email
-            )
-            with self._transaction.atomic():
-                self._plans.save(
-                    sphere_id=sphere_id, data={"stripe_customer_id": customer_id}
-                )
-        return self._billing.create_plan_checkout(
-            sphere_id=sphere_id,
-            customer_id=customer_id,
-            success_url=success_url,
-            cancel_url=cancel_url,
         )
 
     def billing_portal_url(self, *, sphere_id: int, return_url: str) -> str:
@@ -123,6 +78,9 @@ class PlanService(PlanServiceProtocol):
             plan = self._plans.lock_by_customer(customer_id=event.customer_id)
             if plan is None:
                 return WebhookOutcome.NOT_OURS
+            if plan.source is PlanSource.MANUAL:
+                # A deal paid by transfer: its dates are the maintainer's.
+                return WebhookOutcome.STALE
             # SAFETY: read under the lock, so a delivery that read an older
             # state cannot commit after one that read a newer state.
             state = self._billing.read_subscription(
@@ -135,30 +93,24 @@ class PlanService(PlanServiceProtocol):
     def _record(
         self, *, plan: SpherePlanDTO, subscription_id: str, state: SubscriptionState
     ) -> WebhookOutcome:
-        if (
-            plan.source is PlanSource.MANUAL
-            and effective_plan(plan, now=datetime.now(tz=UTC)) is PlanKind.WHITE_GLOVE
-        ):
-            # A maintainer's deal is theirs while it lasts.
-            return WebhookOutcome.STALE
         on_record = plan.stripe_subscription_id == subscription_id
         if state.live:
-            self._plans.save(
-                sphere_id=plan.sphere_id,
-                data={
-                    "kind": PlanKind.WHITE_GLOVE,
-                    "source": PlanSource.STRIPE,
-                    "paid_until": state.paid_until,
-                    "stripe_subscription_id": subscription_id,
-                },
-            )
+            data: SpherePlanData = {"stripe_subscription_id": subscription_id}
+            # Without a period Stripe says nothing of the end: an unset date
+            # would read as an open-ended deal, so the one on record stays.
+            if state.paid_until is not None:
+                data["paid_until"] = state.paid_until
+            self._plans.save(sphere_id=plan.sphere_id, data=data)
             logger.info(
-                "Yearly plan paid: sphere=%s until=%s", plan.sphere_id, state.paid_until
+                "Deal paid: sphere=%s until=%s", plan.sphere_id, state.paid_until
             )
             return WebhookOutcome.RENEWED if on_record else WebhookOutcome.SUBSCRIBED
-        if on_record and plan.kind is PlanKind.WHITE_GLOVE:
-            self._plans.save(sphere_id=plan.sphere_id, data={"kind": PlanKind.STANDARD})
-            logger.info("Yearly plan ended: sphere=%s", plan.sphere_id)
+        if on_record:
+            # The deal lapses now; its terms stay on record for a renewal.
+            now = datetime.now(tz=UTC)
+            ended = now if state.paid_until is None else min(state.paid_until, now)
+            self._plans.save(sphere_id=plan.sphere_id, data={"paid_until": ended})
+            logger.info("Deal ended: sphere=%s", plan.sphere_id)
             return WebhookOutcome.ENDED
         # An ended subscription other than the one on record: an old one.
         return WebhookOutcome.STALE

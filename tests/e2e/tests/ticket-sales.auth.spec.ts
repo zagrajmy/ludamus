@@ -26,9 +26,9 @@ test.describe("Ticket sales", () => {
 
     await expect(page).toHaveURL(TICKETS_URL);
     await expect(page.getByRole("heading", { name: "Tickets", level: 1 })).toBeVisible();
-    // Two seeded tickets, or three when a retry of this serial group follows
-    // the webhook test that pays the pending Saturday order.
-    await expect(page.getByText(/You have [23] tickets for this event\./)).toBeVisible();
+    // Two seeded tickets, or more when a retry of this serial group follows
+    // the tests that pay the pending order and claim a guest's.
+    await expect(page.getByText(/You have [2-4] tickets for this event\./)).toBeVisible();
     const weekend = page.getByRole("listitem").filter({ hasText: "Weekend pass" });
     await expect(weekend.getByText("120.00 zł")).toBeVisible();
     await expect(weekend.getByRole("spinbutton", { name: "How many: Weekend pass" })).toBeVisible();
@@ -85,6 +85,30 @@ test.describe("Ticket sales", () => {
       name: "my-tickets",
       region: page.locator("main"),
       facts: { url: page.url(), webhook: await delivered.json() },
+    });
+  });
+
+  test("a guest's order can be kept in the account", async ({ page }, testInfo) => {
+    await page.goto("/event/ticket-fair/tickets/orders/e2e-unclaimed/");
+    await expect(page.getByRole("heading", { name: "You're going!" })).toBeVisible();
+    const keep = page.getByRole("region", { name: "Add these tickets to your account" });
+    // A retry of this serial group finds the order claimed already.
+    if (await keep.isVisible()) {
+      await keep.getByRole("button", { name: "Add to my account" }).click();
+      await expect(
+        page.getByText("The tickets are in your account. They're under My tickets."),
+      ).toBeVisible();
+    }
+    await expect(keep).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Show my tickets" }).click();
+    await expect(page.getByText("GST2E2EDDD")).toBeVisible();
+    await expect(page.getByRole("img", { name: "QR code for ticket GST2E2EDDD" })).toBeVisible();
+
+    await attachArtifacts(testInfo, {
+      name: "claimed-guest-order",
+      region: page.locator("main"),
+      facts: { url: page.url() },
     });
   });
 

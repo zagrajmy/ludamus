@@ -3,7 +3,6 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import TYPE_CHECKING, assert_never
 
-from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     CheckoutOutcome,
@@ -22,13 +21,6 @@ if TYPE_CHECKING:
 
 _BPS = 10_000
 
-# Zagrajmy's share of every ticket order, in basis points (350 = 3.5%), taken
-# as the Stripe application fee. The brief sets one rate for all tickets; a
-# plan that should pay less per ticket changes its line here.
-PLATFORM_FEE_BPS: Mapping[PlanKind, int] = MappingProxyType(
-    {PlanKind.STANDARD: 350, PlanKind.WHITE_GLOVE: 350}
-)
-
 # Stripe's headline card rate, used only to show organizers what they keep.
 # Stripe charges the real fee to their account; it varies with card country
 # and payment method, so this is never sent anywhere.
@@ -43,6 +35,11 @@ CHECKOUT_HOLD = timedelta(minutes=31)
 # stay held this long past the hold, unless Stripe says it expired, so a slow
 # webhook never finds them sold to someone else.
 WEBHOOK_GRACE = timedelta(hours=1)
+
+# A guest's checkout holds seats with no account behind it: this many from one
+# address per event in the window, and a script cannot hold a sell-out.
+GUEST_CHECKOUTS_PER_WINDOW = 5
+GUEST_CHECKOUT_WINDOW_SECONDS = 30 * 60
 
 # At or below this many left, the shop says how many.
 FEW_TICKETS_LEFT = 20
@@ -78,15 +75,16 @@ def _share(total: int, bps: int) -> int:
     return (total * bps + _BPS // 2) // _BPS
 
 
-def platform_fee(total: int, *, plan: PlanKind) -> int:
+def platform_fee(total: int, *, bps: int) -> int:
+    """Zagrajmy's share of an order, at the sphere's rate (`specs.billing`)."""
     if total <= 0:
         message = f"A fee needs a positive total, got {total}."
         raise ValueError(message)
-    return _share(total, PLATFORM_FEE_BPS[plan])
+    return _share(total, bps)
 
 
-def platform_fee_percent(plan: PlanKind) -> Decimal:
-    return Decimal(PLATFORM_FEE_BPS[plan]) / 100
+def platform_fee_percent(bps: int) -> Decimal:
+    return Decimal(bps) / 100
 
 
 def estimated_stripe_fees(*, gross: int, orders: int) -> int:
@@ -98,10 +96,10 @@ def estimated_stripe_fee(total: int) -> int:
     return estimated_stripe_fees(gross=total, orders=1)
 
 
-def fee_breakdown(price: int, *, plan: PlanKind) -> FeeBreakdownDTO:
+def fee_breakdown(price: int, *, bps: int) -> FeeBreakdownDTO:
     return FeeBreakdownDTO(
         price=price,
-        platform_fee=platform_fee(price, plan=plan),
+        platform_fee=platform_fee(price, bps=bps),
         estimated_stripe_fee=estimated_stripe_fee(price),
     )
 

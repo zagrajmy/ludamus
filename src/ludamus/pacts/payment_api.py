@@ -1,7 +1,7 @@
 """The payment provider port: what a Stripe webhook tells us, and how it fails.
 
 Two Stripe surfaces talk to us. Organizers' connected accounts sell tickets
-(`pacts.tickets`), Zagrajmy's own account bills the yearly plan
+(`pacts.tickets`), Zagrajmy's own account bills spheres' deals
 (`pacts.billing`). Both deliver webhooks; the adapter verifies each one and
 turns it into exactly one of the event types below, so no mill reads Stripe's
 JSON or checks which optional field happens to be set.
@@ -59,12 +59,14 @@ class AccountState(BaseModel):
 
 
 class CheckoutEvent(BaseModel):
-    """A ticket order's Checkout Session; the yearly plan's is a SubscriptionEvent."""
+    """A ticket order's Checkout Session."""
 
     stage: CheckoutStage
     session_id: str
     paid: bool
     payment_intent_id: str
+    # What the buyer typed into Checkout; empty until they did.
+    email: str = ""
 
 
 class RefundEvent(BaseModel):

@@ -445,7 +445,7 @@ def _create_ticket_sales_scenario(sphere: Sphere, *, tester: User) -> None:
     )
 
     def order(
-        buyer: User,
+        buyer: User | None,
         lines: list[tuple[TicketType, int]],
         *,
         status: str,
@@ -454,9 +454,11 @@ def _create_ticket_sales_scenario(sphere: Sphere, *, tester: User) -> None:
     ) -> None:
         total = sum(kind.price * quantity for kind, quantity in lines)
         created = TicketOrder.objects.create(
+            # Readable in the specs' URLs; a real one is token_urlsafe(16).
+            reference=f"e2e-{session_id.removeprefix('cs_e2e_')}",
             event=event,
             buyer=buyer,
-            email=buyer.email,
+            email=buyer.email if buyer is not None else "guest@test.local",
             status=status,
             currency="pln",
             total=total,
@@ -496,6 +498,16 @@ def _create_ticket_sales_scenario(sphere: Sphere, *, tester: User) -> None:
     )
     # Held in Checkout for a day; the spec completes it through the webhook.
     order(tester, [(saturday, 1)], status="pending", session_id="cs_e2e_pending")
+    # Bought by guests: one the guest spec pays through the webhook, one
+    # already paid that the tester claims into their account.
+    order(None, [(saturday, 1)], status="pending", session_id="cs_e2e_guest")
+    order(
+        None,
+        [(weekend, 1)],
+        status="paid",
+        session_id="cs_e2e_unclaimed",
+        codes=("GST2E2EDDD",),
+    )
 
 
 def _create_notifications_scenario() -> None:

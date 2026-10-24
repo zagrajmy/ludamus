@@ -596,7 +596,6 @@ def stripe_settings_fixture(settings):
     settings.STRIPE_SECRET_KEY = "sk_test_ludamus"
     settings.STRIPE_CONNECT_WEBHOOK_SECRET = STRIPE_CONNECT_SECRET
     settings.STRIPE_BILLING_WEBHOOK_SECRET = STRIPE_BILLING_SECRET
-    settings.STRIPE_YEARLY_PRICE_ID = "price_yearly_test"
     return settings
 
 

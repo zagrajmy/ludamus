@@ -3,8 +3,9 @@
 How it could go wrong: a forged or replayed delivery is acted on; a redelivery
 issues tickets twice; a paid order issues the wrong number of tickets or none;
 a refund leaves tickets valid; an unpaid (delayed) checkout issues tickets; an
-expiry kills a paid order; the yearly plan is switched by a webhook for a plan
-a maintainer recorded by hand.
+expiry kills a paid order; the order link is mailed twice, to nobody, or not
+at all; a deal paid by transfer is ended by a webhook, or a subscription
+checkout is taken for a ticket order.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -21,7 +22,7 @@ from ludamus.links.db.django.models import (
     Ticket,
     TicketOrder,
 )
-from ludamus.pacts.billing import PlanKind, PlanSource
+from ludamus.pacts.billing import PlanSource
 from ludamus.pacts.tickets import OrderStatus
 from tests.integration.stripe_helpers import (
     ACCOUNT_ID,
@@ -34,7 +35,7 @@ from tests.integration.stripe_helpers import (
     post_hook,
     ticket_type,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import RequestTimeMatcher, assert_response
 
 pytestmark = pytest.mark.usefixtures("stripe_settings")
 
@@ -257,6 +258,128 @@ class TestCheckoutCompleted:
         assert not Ticket.objects.exists()
 
 
+def _order_link(placed):
+    path = reverse(
+        "web:event:event-ticket-order",
+        kwargs={"event_slug": placed.event.slug, "reference": placed.reference},
+    )
+    return f"https://testserver{path}"
+
+
+def _buyer(email):
+    return {"customer_details": {"email": email}}
+
+
+class TestOrderMail:
+    @pytest.fixture(name="guest_order")
+    def guest_order_fixture(self, event):
+        connected_account(event.sphere)
+        return order(event, buyer=None, lines=[(ticket_type(event), 1)])
+
+    def test_guest_gets_the_order_link_at_the_address_typed_into_checkout(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert TicketOrder.objects.get().email == "guest@example.com"
+        assert [
+            (mail.to, mail.subject, _order_link(guest_order) in mail.body)
+            for mail in mailoutbox
+        ] == [
+            (["guest@example.com"], f"Your tickets for {guest_order.event.name}", True)
+        ]
+
+    def test_redelivery_mails_nothing_more(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+            )
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
+        assert len(mailoutbox) == 1
+
+    def test_bank_transfer_is_mailed_when_checkout_completes_not_when_paid(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(paid=False, **_buyer("guest@example.com")),
+            )
+            response = _connect(
+                client,
+                "checkout.session.async_payment_succeeded",
+                _checkout(**_buyer("guest@example.com")),
+                event_id="evt_2",
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert [mail.to for mail in mailoutbox] == [["guest@example.com"]]
+
+    def test_signed_in_buyer_gets_it_at_their_account_address(
+        self,
+        client,
+        paid_setup,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            _connect(client, "checkout.session.completed", _checkout())
+
+        assert [mail.to for mail in mailoutbox] == [[active_user.email]]
+        assert TicketOrder.objects.get(pk=paid_setup.pk).email == active_user.email
+
+    def test_order_without_any_address_is_paid_and_mails_nothing(
+        self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(client, "checkout.session.completed", _checkout())
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert not TicketOrder.objects.get(pk=guest_order.pk).email
+        assert not mailoutbox
+
+    def test_payment_for_an_abandoned_order_mails_nothing(
+        self,
+        client,
+        guest_order,
+        stripe_api,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+    ):
+        TicketOrder.objects.filter(pk=guest_order.pk).update(status=OrderStatus.EXPIRED)
+        stripe_api.add(
+            responses.POST, f"{API}/refunds", json={"id": "re_1", "object": "refund"}
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("guest@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "refunded"})
+        assert not mailoutbox
+
+
 class TestExpiredAndRefunded:
     def test_expiry_releases_a_pending_order(self, client, paid_setup):
         response = _connect(client, "checkout.session.expired", _checkout(paid=False))
@@ -392,64 +515,51 @@ def _stripe_says(
             "status": status,
             "items": {
                 "object": "list",
-                "data": [
-                    {
-                        "id": "si_1",
-                        "object": "subscription_item",
-                        "current_period_end": int(period_end.timestamp()),
-                    }
-                ],
+                "data": (
+                    []
+                    if period_end is None
+                    else [
+                        {
+                            "id": "si_1",
+                            "object": "subscription_item",
+                            "current_period_end": int(period_end.timestamp()),
+                        }
+                    ]
+                ),
             },
         },
     )
 
 
-def _plan(customer):
-    customer.refresh_from_db()
-    return (
-        customer.kind,
-        customer.source,
-        customer.paid_until,
-        customer.stripe_subscription_id,
-    )
+def _deal(plan):
+    plan.refresh_from_db()
+    return (plan.source, plan.paid_until, plan.stripe_subscription_id)
 
 
-class TestYearlyPlan:
-    @pytest.fixture(name="customer")
-    def customer_fixture(self, sphere):
-        return SpherePlan.objects.create(sphere=sphere, stripe_customer_id=CUSTOMER_ID)
+class TestDealSync:
+    @pytest.fixture(name="deal")
+    def deal_fixture(self, sphere):
+        return SpherePlan.objects.create(
+            sphere=sphere,
+            technical_partner=True,
+            yearly_price=500_000,
+            source=PlanSource.STRIPE,
+            stripe_customer_id=CUSTOMER_ID,
+        )
 
-    def test_completed_checkout_puts_the_sphere_on_the_yearly_plan(
-        self, client, customer, stripe_api
+    def test_first_subscription_records_what_it_is_paid_until(
+        self, client, deal, stripe_api
     ):
         _stripe_says(stripe_api)
 
-        response = _billing(
-            client,
-            "checkout.session.completed",
-            {
-                "id": "cs_plan",
-                "object": "checkout.session",
-                "mode": "subscription",
-                "payment_status": "paid",
-                "customer": CUSTOMER_ID,
-                "subscription": "sub_1",
-            },
-        )
+        response = _subscription_changed(client)
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
-        assert _plan(customer) == (
-            PlanKind.WHITE_GLOVE,
-            PlanSource.STRIPE,
-            PERIOD_END,
-            "sub_1",
-        )
+        assert _deal(deal) == (PlanSource.STRIPE, PERIOD_END, "sub_1")
 
-    def test_renewal_moves_the_paid_date(self, client, customer, stripe_api):
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.WHITE_GLOVE,
-            paid_until=PERIOD_END,
-            stripe_subscription_id="sub_1",
+    def test_renewal_moves_the_paid_date(self, client, deal, stripe_api):
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=PERIOD_END, stripe_subscription_id="sub_1"
         )
         next_year = PERIOD_END + timedelta(days=365)
         _stripe_says(stripe_api, period_end=next_year)
@@ -457,30 +567,48 @@ class TestYearlyPlan:
         response = _subscription_changed(client)
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "renewed"})
-        assert _plan(customer) == (
-            PlanKind.WHITE_GLOVE,
-            PlanSource.STRIPE,
-            next_year,
-            "sub_1",
-        )
+        assert _deal(deal) == (PlanSource.STRIPE, next_year, "sub_1")
 
-    def test_cancelled_subscription_returns_to_the_standard_plan(
-        self, client, customer, stripe_api
+    def test_live_subscription_without_a_period_keeps_the_date_on_record(
+        self, client, deal, stripe_api
     ):
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.WHITE_GLOVE,
-            paid_until=PERIOD_END,
-            stripe_subscription_id="sub_1",
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=PERIOD_END, stripe_subscription_id="sub_1"
+        )
+        _stripe_says(stripe_api, period_end=None)
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "renewed"})
+        assert _deal(deal) == (PlanSource.STRIPE, PERIOD_END, "sub_1")
+
+    def test_cancelled_subscription_ends_the_deal_now(self, client, deal, stripe_api):
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=PERIOD_END, stripe_subscription_id="sub_1"
         )
         _stripe_says(stripe_api, status="canceled")
 
         response = _subscription_changed(client)
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "ended"})
-        assert _plan(customer)[0] == PlanKind.STANDARD
+        assert _deal(deal) == (PlanSource.STRIPE, RequestTimeMatcher(), "sub_1")
+
+    def test_subscription_that_ran_out_ends_the_deal_when_its_period_did(
+        self, client, deal, stripe_api
+    ):
+        ran_out = datetime.now(UTC) - timedelta(days=3)
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=PERIOD_END, stripe_subscription_id="sub_1"
+        )
+        _stripe_says(stripe_api, status="unpaid", period_end=ran_out)
+
+        response = _subscription_changed(client)
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "ended"})
+        assert _deal(deal)[1] == ran_out.replace(microsecond=0)
 
     def test_late_event_for_a_live_subscription_still_records_what_stripe_says(
-        self, client, customer, stripe_api
+        self, client, deal, stripe_api
     ):
         # Stripe's answer, not the event's, decides: a "created" event that
         # arrives after the renewal writes the renewed date, not an older one.
@@ -498,72 +626,55 @@ class TestYearlyPlan:
         )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
-        assert _plan(customer)[2] == PERIOD_END
+        assert _deal(deal)[1] == PERIOD_END
 
-    def test_buying_again_after_a_lapse_is_recorded_whatever_arrives_first(
-        self, client, customer, stripe_api
-    ):
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.STANDARD, stripe_subscription_id="sub_old"
+    def test_new_subscription_after_a_lapse_takes_over(self, client, deal, stripe_api):
+        lapsed = datetime(2026, 1, 1, tzinfo=UTC)
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=lapsed, stripe_subscription_id="sub_old"
         )
         _stripe_says(stripe_api, subscription_id="sub_new")
 
         response = _subscription_changed(client, "sub_new")
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "subscribed"})
-        assert _plan(customer) == (
-            PlanKind.WHITE_GLOVE,
-            PlanSource.STRIPE,
-            PERIOD_END,
-            "sub_new",
-        )
+        assert _deal(deal) == (PlanSource.STRIPE, PERIOD_END, "sub_new")
 
     def test_an_older_subscription_ending_changes_nothing(
-        self, client, customer, stripe_api
+        self, client, deal, stripe_api
     ):
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.WHITE_GLOVE,
-            paid_until=PERIOD_END,
-            stripe_subscription_id="sub_new",
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            paid_until=PERIOD_END, stripe_subscription_id="sub_new"
         )
         _stripe_says(stripe_api, subscription_id="sub_old", status="canceled")
 
         response = _subscription_changed(client, "sub_old")
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        assert _plan(customer) == (
-            PlanKind.WHITE_GLOVE,
-            PlanSource.STRIPE,
-            PERIOD_END,
-            "sub_new",
-        )
+        assert _deal(deal) == (PlanSource.STRIPE, PERIOD_END, "sub_new")
 
-    def test_plan_recorded_by_hand_is_left_alone(self, client, customer, stripe_api):
+    def test_deal_paid_by_transfer_is_left_alone(self, client, deal, stripe_api):
         paid_until = datetime.now(UTC) + timedelta(days=200)
-        SpherePlan.objects.filter(pk=customer.pk).update(
-            kind=PlanKind.WHITE_GLOVE, source=PlanSource.MANUAL, paid_until=paid_until
+        SpherePlan.objects.filter(pk=deal.pk).update(
+            source=PlanSource.MANUAL, paid_until=paid_until
         )
         _stripe_says(stripe_api, status="canceled")
 
         response = _subscription_changed(client)
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "stale"})
-        assert _plan(customer) == (
-            PlanKind.WHITE_GLOVE,
-            PlanSource.MANUAL,
-            paid_until,
-            "",
-        )
+        assert _deal(deal) == (PlanSource.MANUAL, paid_until, "")
+        assert not stripe_api.calls
 
-    def test_unknown_customer_changes_nothing(self, client, customer, stripe_api):
+    def test_unknown_customer_changes_nothing(self, client, deal, stripe_api):
         _stripe_says(stripe_api, customer="cus_stranger")
 
         response = _subscription_changed(client, customer="cus_stranger")
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
-        assert _plan(customer)[0] == PlanKind.STANDARD
+        assert _deal(deal) == (PlanSource.STRIPE, None, "")
 
-    def test_stripe_unreachable_asks_for_a_retry(self, client, customer, stripe_api):
+    def test_stripe_unreachable_asks_for_a_retry(self, client, deal, stripe_api):
         stripe_api.add(
             responses.GET,
             f"{API}/subscriptions/sub_1",
@@ -578,32 +689,32 @@ class TestYearlyPlan:
             HTTPStatus.SERVICE_UNAVAILABLE,
             json={"error": "Stripe could not be reached; retry later."},
         )
-        assert _plan(customer)[0] == PlanKind.STANDARD
+        assert _deal(deal) == (PlanSource.STRIPE, None, "")
 
-    def test_one_off_invoice_is_not_the_yearly_plan(self, client, customer, stripe_api):
+    def test_subscription_checkout_is_left_to_the_subscription_events(
+        self, client, deal, stripe_api
+    ):
+        response = _billing(
+            client,
+            "checkout.session.completed",
+            {
+                "id": "cs_plan",
+                "object": "checkout.session",
+                "mode": "subscription",
+                "payment_status": "paid",
+                "customer": CUSTOMER_ID,
+                "subscription": "sub_1",
+            },
+        )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
+        assert _deal(deal) == (PlanSource.STRIPE, None, "")
+        assert not stripe_api.calls
+
+    def test_one_off_invoice_changes_nothing(self, client, deal, stripe_api):
         response = _billing(
             client, "invoice.paid", {"id": "in_1", "customer": CUSTOMER_ID}
         )
 
         assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
-        assert not stripe_api.calls
-
-    def test_plan_checkout_left_to_expire_changes_nothing(
-        self, client, customer, stripe_api
-    ):
-        response = _billing(
-            client,
-            "checkout.session.expired",
-            {
-                "id": "cs_plan",
-                "object": "checkout.session",
-                "mode": "subscription",
-                "payment_status": "unpaid",
-                "customer": CUSTOMER_ID,
-                "subscription": None,
-            },
-        )
-
-        assert_response(response, HTTPStatus.OK, json={"outcome": "not_ours"})
-        assert _plan(customer)[0] == PlanKind.STANDARD
         assert not stripe_api.calls

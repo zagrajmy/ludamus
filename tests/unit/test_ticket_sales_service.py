@@ -8,6 +8,8 @@ Payout account
 - Coming back from onboarding shows the stale state Stripe has since changed.
 
 Shop and checkout
+- A guest from one address holds checkout after checkout, or the limit for one
+  address or event locks out another.
 - A free event (no ticket types) reports itself as selling.
 - The shop says payments are accepted while the payout account cannot charge.
 - A viewer's ticket count includes someone else's tickets or a refunded order.
@@ -18,13 +20,19 @@ Shop and checkout
 - More seats are sold than are left, or a sold-out type is sold at all.
 - A started order is not held, has the wrong total or fee, or the buyer is not
   sent to Stripe.
+- The fee ignores the sphere's deal, or keeps a deal's rate after it lapsed.
+- A guest's order is tied to an account, gets a guessable or overlong
+  reference, or Stripe sends the guest back to a page keyed by anything else.
 - Stripe refusing to open Checkout leaves the seats held by a dead order.
 
 Buyer's order
-- Another buyer's order, or one from another event, is shown.
+- An order claimed into an account is shown to anyone else, an order from
+  another event is shown, or a guest's order is hidden from its link.
 - The page polls for an order Stripe will not settle within seconds.
-- Abandoning Checkout expires an order Stripe already completed, or expires an
-  order that is no longer pending.
+- Abandoning Checkout expires an order Stripe already completed, expires an
+  order that is no longer pending, or expires someone else's.
+- Claiming takes an order another account holds, or leaves its tickets out of
+  the new holder's count.
 
 Webhook
 - A redelivered or reordered event moves an order backwards or twice.
@@ -34,6 +42,10 @@ Webhook
 - Money taken for an order we gave up on is kept, or tickets are issued for it.
 - A late payment that cannot be refunded is reported as refunded.
 - Seats resold while a payment was late go unnoticed.
+- A guest's email from Checkout is not kept on the order.
+- The order mail is not sent when Checkout completes, is sent again on a
+  redelivery or when the money settles, or is sent for a refunded late payment.
+- An order with no email anywhere crashes the webhook instead of skipping mail.
 
 Panel
 - Archived types are priced as if on sale, or vanish from the panel.
@@ -63,11 +75,14 @@ from ludamus.pacts.payment_api import (
     WebhookOutcome,
 )
 from ludamus.pacts.tickets import (
+    ORDER_REFERENCE_MAX_LENGTH,
     TICKET_CODE_LENGTH,
     AbandonOutcome,
     CheckoutOutcome,
     CheckoutStartDTO,
     CheckoutUrls,
+    ClaimOutcome,
+    OrderLinkMail,
     OrderPageState,
     OrderStatus,
     PayoutPageDTO,
@@ -76,7 +91,11 @@ from ludamus.pacts.tickets import (
     TicketRepos,
     TicketSalesSummaryDTO,
 )
-from ludamus.specs.tickets import PANEL_ORDERS_SHOWN
+from ludamus.specs.tickets import (
+    GUEST_CHECKOUT_WINDOW_SECONDS,
+    GUEST_CHECKOUTS_PER_WINDOW,
+    PANEL_ORDERS_SHOWN,
+)
 from tests.unit.factories import FakeTransaction
 from tests.unit.ticket_fakes import (
     ACCOUNT_ID,
@@ -87,6 +106,8 @@ from tests.unit.ticket_fakes import (
     OTHER_EVENT_ID,
     SPHERE_ID,
     FakeAccounts,
+    FakeCache,
+    FakeMailer,
     FakeOrders,
     FakePlans,
     FakeTicketPayments,
@@ -103,9 +124,16 @@ _FEE_PERCENT = Decimal("3.5")
 _CHECKOUT_URL = "https://checkout.stripe.test/cs_1"
 _CODE_ALPHABET = set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
 _URLS = CheckoutUrls(
-    success=lambda pk: f"/orders/{pk}/", cancel=lambda pk: f"/orders/{pk}/cancel/"
+    success=lambda reference: f"/orders/{reference}/",
+    cancel=lambda reference: f"/orders/{reference}/cancel/",
 )
 _TICKETS_LOGGER = "ludamus.mills.tickets"
+_GUEST_EMAIL = "guest@example.com"
+# 96 random bits as URL-safe base64; a counter or a pk is far shorter.
+_UNGUESSABLE_REFERENCE_LENGTH = 16
+_DEAL_FEE_BPS = 150
+# 1.5% of 100 zł.
+_DEAL_FEE_ON_TWO = 150
 
 
 @pytest.fixture(name="book")
@@ -133,10 +161,25 @@ def payments_fixture():
     return FakeTicketPayments()
 
 
+@pytest.fixture(name="plans")
+def plans_fixture():
+    return FakePlans()
+
+
+@pytest.fixture(name="mailer")
+def mailer_fixture():
+    return FakeMailer()
+
+
+@pytest.fixture(name="cache")
+def cache_fixture():
+    return FakeCache()
+
+
 @pytest.fixture(name="repos")
-def repos_fixture(types, orders, accounts):
+def repos_fixture(types, orders, accounts, plans):
     return TicketRepos(
-        ticket_types=types, orders=orders, accounts=accounts, plans=FakePlans()
+        ticket_types=types, orders=orders, accounts=accounts, plans=plans
     )
 
 
@@ -148,9 +191,13 @@ def payout_fixture(accounts, payments):
 
 
 @pytest.fixture(name="sales")
-def sales_fixture(repos, payments):
+def sales_fixture(repos, payments, mailer, cache):
     return TicketSalesService(
-        transaction=FakeTransaction(), repos=repos, payments=payments
+        transaction=FakeTransaction(),
+        repos=repos,
+        payments=payments,
+        mailer=mailer,
+        cache=cache,
     )
 
 
@@ -174,9 +221,13 @@ def _order(orders, ticket_type, *, quantity=2, **overrides):
     )
 
 
-def _checkout(stage, *, session_id="cs_1", paid=True):
+def _checkout(stage, *, session_id="cs_1", paid=True, email=""):
     return CheckoutEvent(
-        stage=stage, session_id=session_id, paid=paid, payment_intent_id="pi_1"
+        stage=stage,
+        session_id=session_id,
+        paid=paid,
+        payment_intent_id="pi_1",
+        email=email,
     )
 
 
@@ -185,14 +236,18 @@ def _deliver(sales, payments, event):
     return sales.handle_webhook(payload=b"{}", signature="sig")
 
 
-def _start(sales, book, quantities):
+def _start(sales, book, quantities, *, buyer_id=BUYER_ID, email="buyer@example.com"):
     return sales.start_checkout(
         event=book.event,
-        buyer_id=BUYER_ID,
-        email="buyer@example.com",
+        buyer_id=buyer_id,
+        email=email,
         quantities=quantities,
         urls=_URLS,
     )
+
+
+def _guest_order(orders, ticket_type, **overrides):
+    return _order(orders, ticket_type, buyer_id=None, email="", **overrides)
 
 
 def _status(book, order):
@@ -335,6 +390,33 @@ class TestShop:
         assert not shop.accepting_payments
 
 
+class TestGuestCheckoutLimit:
+    def test_one_address_is_refused_past_the_limit_for_the_window(self, sales, cache):
+        allowed = [
+            sales.guest_checkout_allowed(ip="203.0.113.1", event_id=EVENT_ID)
+            for _ in range(GUEST_CHECKOUTS_PER_WINDOW + 1)
+        ]
+
+        assert allowed == [True] * GUEST_CHECKOUTS_PER_WINDOW + [False]
+        assert set(cache.timeouts.values()) == {GUEST_CHECKOUT_WINDOW_SECONDS}
+
+    def test_limit_reached_at_one_address_and_event_leaves_the_others(self, sales):
+        for _ in range(GUEST_CHECKOUTS_PER_WINDOW):
+            sales.guest_checkout_allowed(ip="203.0.113.1", event_id=EVENT_ID)
+
+        assert sales.guest_checkout_allowed(ip="203.0.113.2", event_id=EVENT_ID)
+        assert sales.guest_checkout_allowed(ip="203.0.113.1", event_id=OTHER_EVENT_ID)
+
+    def test_refusal_is_logged(self, sales, caplog):
+        for _ in range(GUEST_CHECKOUTS_PER_WINDOW):
+            sales.guest_checkout_allowed(ip="203.0.113.1", event_id=EVENT_ID)
+
+        with caplog.at_level(logging.WARNING, logger=_TICKETS_LOGGER):
+            sales.guest_checkout_allowed(ip="203.0.113.1", event_id=EVENT_ID)
+
+        assert caplog.messages == [f"Guest checkouts over the limit: event={EVENT_ID}"]
+
+
 class TestSalesClosed:
     @pytest.mark.parametrize(
         ("enabled", "account", "charges_enabled"),
@@ -444,6 +526,45 @@ class TestStartCheckout:
         shop = sales.shop(event=book.event, viewer_id=BUYER_ID)
         assert [offer.remaining for offer in shop.offers] == [8, None]
 
+    def test_guest_checkout_is_keyed_by_a_secret_reference(
+        self, sales, book, types, payments
+    ):
+        regular = types.add()
+
+        _start(sales, book, {regular.pk: 1}, buyer_id=None, email="")
+        _start(sales, book, {regular.pk: 1}, buyer_id=None, email="")
+
+        first, second = book.orders[1], book.orders[2]
+        assert (first.buyer_id, first.email) == (None, "")
+        assert first.reference != second.reference
+        assert (
+            _UNGUESSABLE_REFERENCE_LENGTH
+            <= len(first.reference)
+            <= ORDER_REFERENCE_MAX_LENGTH
+        )
+        request = payments.checkouts[0]
+        assert (request.customer_email, request.success_url, request.cancel_url) == (
+            "",
+            f"/orders/{first.reference}/",
+            f"/orders/{first.reference}/cancel/",
+        )
+
+    @pytest.mark.parametrize(
+        ("paid_until", "fee"),
+        ((None, _DEAL_FEE_ON_TWO), (NOW, _FEE_ON_TWO)),
+        ids=("deal", "lapsed-deal"),
+    )
+    def test_fee_is_the_spheres_rate_today(
+        self, sales, book, types, plans, payments, paid_until, fee
+    ):
+        plans.add(ticket_fee_bps=_DEAL_FEE_BPS, paid_until=paid_until)
+        regular = types.add(price=_PRICE)
+
+        _start(sales, book, {regular.pk: 2})
+
+        assert book.orders[1].platform_fee == fee
+        assert payments.checkouts[0].application_fee == fee
+
     def test_stripe_refusing_checkout_releases_the_seats(
         self, sales, book, types, payments
     ):
@@ -460,19 +581,51 @@ class TestStartCheckout:
 
 class TestBuyerOrder:
     @pytest.mark.parametrize(
-        ("buyer_id", "event_id"),
-        ((OTHER_BUYER_ID, EVENT_ID), (BUYER_ID, OTHER_EVENT_ID)),
+        ("event_id", "reference", "viewer_id"),
+        (
+            pytest.param(EVENT_ID, "ref1", OTHER_BUYER_ID, id="someone-elses"),
+            pytest.param(EVENT_ID, "ref1", None, id="claimed-and-signed-out"),
+            pytest.param(OTHER_EVENT_ID, "ref1", BUYER_ID, id="another-event"),
+            pytest.param(EVENT_ID, "nope", BUYER_ID, id="unknown-reference"),
+        ),
     )
-    def test_someone_elses_order_is_not_found(
-        self, sales, book, types, orders, buyer_id, event_id
+    def test_order_out_of_the_viewers_reach_is_not_found(
+        self, sales, book, types, orders, payments, event_id, reference, viewer_id
+    ):
+        order = _order(orders, types.add(), stripe_checkout_session_id="cs_1")
+        payments.down.add("expire_checkout")
+
+        with pytest.raises(NotFoundError):
+            sales.order(event_id=event_id, reference=reference, viewer_id=viewer_id)
+        with pytest.raises(NotFoundError):
+            sales.abandon_checkout(
+                event_id=event_id, reference=reference, viewer_id=viewer_id
+            )
+        assert book.orders[order.pk] == order
+
+    def test_guest_order_is_its_links_whoever_holds_it(self, sales, types, orders):
+        order = _guest_order(orders, types.add())
+
+        pages = [
+            sales.order(event_id=EVENT_ID, reference=order.reference, viewer_id=viewer)
+            for viewer in (None, OTHER_BUYER_ID)
+        ]
+
+        assert [(page.order, page.claimable) for page in pages] == [
+            (order, True),
+            (order, True),
+        ]
+
+    def test_order_held_by_an_account_is_not_offered_to_claim(
+        self, sales, types, orders
     ):
         order = _order(orders, types.add())
 
-        with pytest.raises(NotFoundError):
-            sales.order(buyer_id=buyer_id, event_id=event_id, pk=order.pk)
-        with pytest.raises(NotFoundError):
-            sales.abandon_checkout(buyer_id=buyer_id, event_id=event_id, pk=order.pk)
-        assert book.orders[order.pk] == order
+        page = sales.order(
+            event_id=EVENT_ID, reference=order.reference, viewer_id=BUYER_ID
+        )
+
+        assert not page.claimable
 
     @pytest.mark.parametrize(
         ("status", "hold", "state"),
@@ -499,18 +652,30 @@ class TestBuyerOrder:
     ):
         order = _order(orders, types.add(), status=status, hold_until=NOW + hold)
 
-        page = sales.order(buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk)
+        page = sales.order(
+            event_id=EVENT_ID, reference=order.reference, viewer_id=BUYER_ID
+        )
 
         assert page.state is state
 
     @pytest.mark.parametrize("session_id", ("cs_1", ""))
+    @pytest.mark.parametrize(
+        ("buyer_id", "viewer_id"),
+        ((BUYER_ID, BUYER_ID), (None, None)),
+        ids=("holder", "guest"),
+    )
     def test_abandoning_checkout_expires_the_pending_order(
-        self, sales, book, types, orders, session_id
+        self, sales, book, types, orders, session_id, buyer_id, viewer_id
     ):
-        order = _order(orders, types.add(), stripe_checkout_session_id=session_id)
+        order = _order(
+            orders,
+            types.add(),
+            buyer_id=buyer_id,
+            stripe_checkout_session_id=session_id,
+        )
 
         outcome = sales.abandon_checkout(
-            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+            event_id=EVENT_ID, reference=order.reference, viewer_id=viewer_id
         )
 
         assert outcome is AbandonOutcome.CANCELLED
@@ -523,7 +688,7 @@ class TestBuyerOrder:
         payments.down.add("expire_checkout")
 
         outcome = sales.abandon_checkout(
-            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+            event_id=EVENT_ID, reference=order.reference, viewer_id=BUYER_ID
         )
 
         assert outcome is AbandonOutcome.UNCONFIRMED
@@ -533,7 +698,7 @@ class TestBuyerOrder:
         order = _order(orders, types.add(), status=OrderStatus.PAID)
 
         outcome = sales.abandon_checkout(
-            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+            event_id=EVENT_ID, reference=order.reference, viewer_id=BUYER_ID
         )
 
         assert outcome is AbandonOutcome.SETTLED
@@ -555,11 +720,68 @@ class TestBuyerOrder:
         monkeypatch.setattr(payments, "expire_checkout", paid_meanwhile)
 
         outcome = sales.abandon_checkout(
-            buyer_id=BUYER_ID, event_id=EVENT_ID, pk=order.pk
+            event_id=EVENT_ID, reference=order.reference, viewer_id=BUYER_ID
         )
 
         assert outcome is AbandonOutcome.SETTLED
         assert _status(book, order) is OrderStatus.PAID
+
+
+class TestClaimOrder:
+    def test_claimed_guest_order_becomes_the_accounts_alone(
+        self, sales, book, types, orders
+    ):
+        regular = types.add()
+        order = _guest_order(orders, regular, status=OrderStatus.PAID)
+        orders.issue_tickets(
+            order=order, tickets=[{"ticket_type_id": regular.pk, "code": "AAAA"}]
+        )
+
+        outcome = sales.claim_order(
+            event_id=EVENT_ID, reference=order.reference, user_id=BUYER_ID
+        )
+
+        assert outcome is ClaimOutcome.CLAIMED
+        assert book.orders[order.pk].buyer_id == BUYER_ID
+        assert [
+            ticket.code
+            for ticket in sales.owned_tickets(sphere_id=SPHERE_ID, holder_id=BUYER_ID)
+        ] == ["AAAA"]
+        assert sales.shop(event=book.event, viewer_id=BUYER_ID).viewer_ticket_count == 1
+        for viewer in (None, OTHER_BUYER_ID):
+            with pytest.raises(NotFoundError):
+                sales.order(
+                    event_id=EVENT_ID, reference=order.reference, viewer_id=viewer
+                )
+
+    def test_claiming_your_own_order_again_changes_nothing(
+        self, sales, book, types, orders
+    ):
+        order = _order(orders, types.add())
+
+        outcome = sales.claim_order(
+            event_id=EVENT_ID, reference=order.reference, user_id=BUYER_ID
+        )
+
+        assert outcome is ClaimOutcome.ALREADY_YOURS
+        assert book.orders[order.pk] == order
+
+    @pytest.mark.parametrize(
+        ("event_id", "reference", "holder"),
+        (
+            pytest.param(EVENT_ID, "ref1", OTHER_BUYER_ID, id="held-by-another"),
+            pytest.param(OTHER_EVENT_ID, "ref1", None, id="another-event"),
+            pytest.param(EVENT_ID, "nope", None, id="unknown-reference"),
+        ),
+    )
+    def test_order_out_of_reach_is_not_claimed(
+        self, sales, book, types, orders, event_id, reference, holder
+    ):
+        order = _order(orders, types.add(), buyer_id=holder)
+
+        with pytest.raises(NotFoundError):
+            sales.claim_order(event_id=event_id, reference=reference, user_id=BUYER_ID)
+        assert book.orders[order.pk] == order
 
 
 class TestWebhook:
@@ -655,7 +877,7 @@ class TestWebhook:
         assert len(book.orders[order.pk].tickets) == order.ticket_count
 
     def test_failed_delayed_payment_is_final(
-        self, sales, book, types, orders, payments
+        self, sales, book, types, orders, payments, mailer
     ):
         order = _order(
             orders,
@@ -674,6 +896,7 @@ class TestWebhook:
             WebhookOutcome.STALE,
         )
         assert _status(book, order) is OrderStatus.FAILED
+        assert mailer.sent == []
 
     def test_expired_checkout_releases_the_order_once(
         self, sales, book, types, orders, payments
@@ -688,17 +911,20 @@ class TestWebhook:
 
     @pytest.mark.parametrize("given_up", (OrderStatus.EXPIRED, OrderStatus.FAILED))
     def test_payment_for_an_order_given_up_on_is_refunded(
-        self, sales, book, types, orders, payments, given_up
+        self, sales, book, types, orders, payments, mailer, given_up
     ):
         order = _order(
             orders, types.add(), stripe_checkout_session_id="cs_1", status=given_up
         )
 
-        outcome = _deliver(sales, payments, _checkout(CheckoutStage.COMPLETED))
+        outcome = _deliver(
+            sales, payments, _checkout(CheckoutStage.COMPLETED, email=_GUEST_EMAIL)
+        )
 
         assert outcome is WebhookOutcome.REFUNDED
         assert payments.refunded == ["pi_1"]
         assert book.orders[order.pk] == order
+        assert mailer.sent == []
 
     def test_late_payment_stripe_will_not_refund_fails_the_delivery(
         self, sales, book, types, orders, payments
@@ -779,6 +1005,79 @@ class TestWebhook:
         ]
 
 
+class TestOrderMail:
+    def test_paid_guest_order_keeps_the_email_and_is_mailed_once(
+        self, sales, book, types, orders, payments, mailer
+    ):
+        order = _guest_order(orders, types.add(), stripe_checkout_session_id="cs_1")
+        completed = _checkout(CheckoutStage.COMPLETED, email=_GUEST_EMAIL)
+
+        first = _deliver(sales, payments, completed)
+        again = _deliver(sales, payments, completed)
+
+        assert (first, again) == (WebhookOutcome.PAID, WebhookOutcome.STALE)
+        assert book.orders[order.pk].email == _GUEST_EMAIL
+        assert mailer.sent == [
+            OrderLinkMail(
+                email=_GUEST_EMAIL,
+                event_id=EVENT_ID,
+                event_name=book.event.name,
+                event_slug=book.event.slug,
+                reference=order.reference,
+                claimable=True,
+            )
+        ]
+
+    def test_delayed_payment_is_mailed_when_checkout_completes_not_again(
+        self, sales, book, types, orders, payments, mailer
+    ):
+        order = _guest_order(orders, types.add(), stripe_checkout_session_id="cs_1")
+
+        _deliver(
+            sales,
+            payments,
+            _checkout(CheckoutStage.COMPLETED, paid=False, email=_GUEST_EMAIL),
+        )
+        awaiting = book.orders[order.pk]
+        mailed_while_awaiting = list(mailer.sent)
+        _deliver(sales, payments, _checkout(CheckoutStage.ASYNC_SUCCEEDED))
+
+        assert awaiting.email == _GUEST_EMAIL
+        assert [mail.reference for mail in mailed_while_awaiting] == [order.reference]
+        assert _status(book, order) is OrderStatus.PAID
+        assert mailer.sent == mailed_while_awaiting
+
+    @pytest.mark.parametrize(
+        ("typed", "kept"),
+        (("", "buyer@example.com"), ("typed@example.com", "typed@example.com")),
+        ids=("account-email", "typed-in-checkout"),
+    )
+    def test_account_buyer_is_mailed_where_checkout_last_heard_from_them(
+        self, sales, book, types, orders, payments, mailer, typed, kept
+    ):
+        order = _order(orders, types.add(), stripe_checkout_session_id="cs_1")
+
+        _deliver(sales, payments, _checkout(CheckoutStage.COMPLETED, email=typed))
+
+        assert book.orders[order.pk].email == kept
+        assert [(mail.email, mail.claimable) for mail in mailer.sent] == [(kept, False)]
+
+    def test_order_without_any_email_is_paid_and_not_mailed(
+        self, sales, book, types, orders, payments, mailer, caplog
+    ):
+        order = _guest_order(orders, types.add(), stripe_checkout_session_id="cs_1")
+
+        with caplog.at_level(logging.WARNING, logger=_TICKETS_LOGGER):
+            outcome = _deliver(sales, payments, _checkout(CheckoutStage.COMPLETED))
+
+        assert outcome is WebhookOutcome.PAID
+        assert len(book.orders[order.pk].tickets) == order.ticket_count
+        assert mailer.sent == []
+        assert caplog.messages == [
+            f"Ticket order has no email to send it to: {order.pk}"
+        ]
+
+
 class TestPanel:
     def test_page_prices_live_types_and_totals_only_paid_orders(
         self, panel, types, orders, accounts
@@ -811,6 +1110,15 @@ class TestPanel:
         )
         assert [row.pk for row in page.orders] == [refunded.pk, paid.pk]
         assert not page.more_orders
+
+    def test_page_prices_at_the_spheres_deal_rate(self, panel, types, plans):
+        plans.add(ticket_fee_bps=_DEAL_FEE_BPS)
+        types.add(price=_PRICE)
+
+        page = panel.page(sphere_id=SPHERE_ID, event_id=EVENT_ID)
+
+        assert page.platform_fee_percent == Decimal("1.5")
+        assert page.rows[0].fees.platform_fee == _DEAL_FEE_ON_TWO // 2
 
     def test_page_says_when_older_orders_were_left_out(self, panel, types, orders):
         regular = types.add()

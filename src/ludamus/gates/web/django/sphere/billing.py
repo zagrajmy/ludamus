@@ -1,8 +1,9 @@
-"""The sphere's Plan & payouts page: its Zagrajmy plan, and its Stripe account.
+"""The sphere's Plan & payouts page: its deal with Zagrajmy, and its Stripe account.
 
 Two money flows, one page. Payouts is where ticket money lands (the sphere's
-own connected Stripe account); the plan is what the sphere pays Zagrajmy.
-Every action hands the browser to Stripe and Stripe hands it back here.
+own connected Stripe account); the plan is what the sphere pays Zagrajmy and
+what it gets for it. Every action hands the browser to Stripe and Stripe hands
+it back here.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts.billing import PlanKind
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.payment_api import PaymentProviderError
@@ -59,22 +59,12 @@ class BillingPageView(SphereAccessMixin, View):
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
-        plan = self.request.services.plan.page(sphere_id=sphere_id)
-        if self.request.GET.get("subscribed") and plan.kind is PlanKind.STANDARD:
-            # Stripe sends the buyer back before its webhook lands.
-            messages.info(
-                self.request,
-                _(
-                    "Thank you! Stripe is confirming the payment; the plan switches"
-                    " over within a minute."
-                ),
-            )
         return TemplateResponse(
             self.request,
             "multiverse/panel/billing.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="billing"),
-                "plan": plan,
+                "plan": self.request.services.plan.page(sphere_id=sphere_id),
                 "payouts": self.request.services.payouts.page(sphere_id=sphere_id),
                 # Comms people read where the money goes; only managers move it.
                 "can_manage": panel_access(self.request).allows(Capability.PANEL_WRITE),
@@ -171,36 +161,6 @@ class BillingReturnActionView(_ManagerOnlyMixin, View):
                 ),
             )
         return redirect(_BILLING_URL)
-
-
-class BillingSubscribeActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
-    http_method_names = ("post",)
-
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        if not (email := account_email(self.request)):
-            messages.error(
-                self.request,
-                _("Add an email address to your profile first: invoices go there."),
-            )
-            return redirect(_BILLING_URL)
-        try:
-            url = self.request.services.plan.start_yearly_checkout(
-                sphere_id=sphere_id,
-                sphere_name=self.request.services.sphere_panel.read(sphere_id).name,
-                email=email,
-                success_url=_absolute(self.request, _BILLING_URL) + "?subscribed=1",
-                cancel_url=_absolute(self.request, _BILLING_URL),
-            )
-        except PaymentProviderError:
-            return _stripe_unreachable(self.request, "plan checkout")
-        logger.info(
-            "Billing: yearly plan checkout for sphere=%s by=%s",
-            sphere_id,
-            self.request.context.current_user_id,
-        )
-        return redirect(url)
 
 
 class BillingPortalActionView(SphereAccessMixin, View):

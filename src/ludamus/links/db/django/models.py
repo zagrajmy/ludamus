@@ -25,7 +25,7 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
 )
-from ludamus.pacts.billing import PlanKind, PlanSource
+from ludamus.pacts.billing import STANDARD_TICKET_FEE_BPS, PlanSource
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
@@ -45,6 +45,7 @@ from ludamus.pacts.tickets import (
     DEFAULT_CURRENCY,
     MAX_TICKET_PRICE,
     MIN_TICKET_PRICE,
+    ORDER_REFERENCE_MAX_LENGTH,
     TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
     TICKET_TYPE_NAME_MAX_LENGTH,
     OrderStatus,
@@ -2317,21 +2318,26 @@ class ImportLogEntry(models.Model):
 
 
 class SpherePlan(models.Model):
-    """What a sphere pays Zagrajmy; no row reads as the standard plan."""
+    """A sphere's deal with Zagrajmy; no row, or no terms on it, is no deal.
+
+    The money (ticket fee, fixed price) and the Technical Partner help are
+    agreed separately: any mix of them is a deal a maintainer can record.
+    """
 
     sphere = models.OneToOneField(Sphere, on_delete=models.CASCADE, related_name="plan")
-    kind = models.CharField(
-        max_length=20,
-        choices=[(k.value, k.name.title()) for k in PlanKind],
-        default=PlanKind.STANDARD,
-    )
-    # A maintainer records a plan paid by bank transfer as MANUAL; Stripe
+    technical_partner = models.BooleanField(default=False)
+    # Basis points; null: the standard rate.
+    ticket_fee_bps = models.PositiveSmallIntegerField(blank=True, null=True)
+    # Minor units (grosze) a year; null: no fixed price.
+    yearly_price = models.PositiveIntegerField(blank=True, null=True)
+    # A maintainer records a deal paid by bank transfer as MANUAL; Stripe
     # webhooks then leave its dates alone.
     source = models.CharField(
         max_length=20,
         choices=[(s.value, s.name.title()) for s in PlanSource],
-        default=PlanSource.STRIPE,
+        default=PlanSource.MANUAL,
     )
+    # The deal holds until then; null: until someone ends it.
     paid_until = models.DateTimeField(blank=True, null=True)
     stripe_customer_id = models.CharField(
         max_length=255, blank=True, default="", db_index=True
@@ -2341,9 +2347,16 @@ class SpherePlan(models.Model):
 
     class Meta:
         db_table = "sphere_plan"
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(ticket_fee_bps__isnull=True)
+                | Q(ticket_fee_bps__lte=STANDARD_TICKET_FEE_BPS),
+                name="sphere_plan_fee_at_most_standard",
+            ),
+        )
 
     def __str__(self) -> str:
-        return f"{self.sphere} - {self.kind}"
+        return f"{self.sphere} plan"
 
 
 class PayoutAccount(models.Model):
@@ -2420,7 +2433,11 @@ class TicketOrder(models.Model):
         blank=True,
         related_name="ticket_orders",
     )
-    email = models.EmailField()
+    # The order page's address: whoever has it sees the order, until the
+    # order is claimed into an account.
+    reference = models.CharField(max_length=ORDER_REFERENCE_MAX_LENGTH, unique=True)
+    # Empty while a guest is still in Checkout: Stripe asks them for it.
+    email = models.EmailField(blank=True, default="")
     status = models.CharField(
         max_length=20,
         choices=[(s.value, s.name.title()) for s in OrderStatus],

@@ -1,42 +1,39 @@
-"""The sphere's plan: the panel, buying the yearly plan, and Stripe's webhooks.
+"""The sphere's plan: the panel, the billing portal, and Stripe's webhooks.
 
 Ways the service could fail, each pinned below:
 
 Panel
-- A lapsed yearly plan still shows as held, or a held one offers to sell it
-  again.
+- A lapsed deal still shows its terms, or a held one shows the standard ones.
+- The fee percent shown is not the rate the sphere's tickets are charged.
 - The billing portal is offered to a sphere Stripe knows nothing about, or
-  the plan is offered for sale while Stripe billing is off.
+  while Stripe billing is off.
 
-Buying the yearly plan
-- A sphere holding the plan by a maintainer's hand is sent to pay for it.
-- A sphere Stripe already bills (held, or paid a moment ago with the webhook
-  still on its way) is sent to Checkout and billed twice.
-- A second Stripe customer is created for a sphere that has one.
-- A new customer is not recorded on the sphere, so its webhooks find nothing.
+Billing portal
 - The portal is opened for a sphere without a Stripe customer.
 
 Webhook
-- An event that is not about a yearly-plan subscription changes a plan.
+- An event that is not about a subscription changes a plan.
 - A subscription for a customer we never created touches someone's plan.
-- A paid subscription does not grant the plan, or a renewal is reported as a
+- A paid subscription does not extend the deal, or a renewal is reported as a
   new one.
-- An ended subscription that is not the one on record takes the plan away.
-- An end redelivered after the plan already ended reports it ended again.
-- Stripe overrides a plan a maintainer recorded by hand while it lasts.
+- An ended subscription keeps the deal running to the end of a period it was
+  cancelled in, or dates the end into the future.
+- An ended subscription that is not the one on record ends the deal.
+- Ending a deal wipes its terms, so a renewal brings back nothing.
+- Stripe overrides the dates of a deal a maintainer recorded by hand.
 """
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
 from ludamus.mills.billing import PlanService
 from ludamus.pacts.billing import (
-    PlanKind,
+    STANDARD_TICKET_FEE_BPS,
     PlanPageDTO,
     PlanSource,
-    SpherePlanDTO,
+    PlanTermsDTO,
     SubscriptionState,
 )
 from ludamus.pacts.legacy import NotFoundError
@@ -47,16 +44,24 @@ from ludamus.pacts.payment_api import (
     UnhandledEvent,
     WebhookOutcome,
 )
+from ludamus.specs.billing import current_terms
 from tests.unit.factories import FakeTransaction
 from tests.unit.ticket_fakes import NOW, SPHERE_ID, FakePlans
 
 _CUSTOMER = "cus_sphere"
 _SUBSCRIPTION = "sub_current"
-_FEE_PERCENT = Decimal("3.5")
-_SUCCESS_URL = "/plan/thanks/"
-_CANCEL_URL = "/plan/"
+_DEAL_FEE_BPS = 150
+_YEARLY_PRICE = 500_000
+_RETURN_URL = "/plan/"
 _PAID_UNTIL = NOW + timedelta(days=365)
 _LAPSED = NOW - timedelta(days=1)
+_STANDARD = PlanTermsDTO(
+    technical_partner=False,
+    ticket_fee_bps=STANDARD_TICKET_FEE_BPS,
+    yearly_price=None,
+    paid_until=None,
+    has_deal=False,
+)
 
 
 class FakePlanBilling:
@@ -64,21 +69,11 @@ class FakePlanBilling:
 
     def __init__(self):
         self.enabled = True
-        self.live_customers: set[str] = set()
         self.subscriptions: dict[str, SubscriptionState] = {}
         self.event = None
 
-    def create_customer(self, *, sphere_id, name, email):
-        return f"cus_new_{sphere_id}"
-
-    def create_plan_checkout(self, *, sphere_id, customer_id, success_url, cancel_url):
-        return f"https://checkout.stripe.test/{customer_id}"
-
     def billing_portal_url(self, *, customer_id, return_url):
         return f"https://billing.stripe.test/{customer_id}"
-
-    def has_live_subscription(self, *, customer_id):
-        return customer_id in self.live_customers
 
     def read_subscription(self, *, subscription_id):
         return self.subscriptions[subscription_id]
@@ -102,9 +97,11 @@ def service_fixture(plans, billing):
     return PlanService(transaction=FakeTransaction(), plans=plans, billing=billing)
 
 
-def _yearly(plans, **overrides):
+def _deal(plans, **overrides):
     data = {
-        "kind": PlanKind.WHITE_GLOVE,
+        "technical_partner": True,
+        "ticket_fee_bps": _DEAL_FEE_BPS,
+        "yearly_price": _YEARLY_PRICE,
         "source": PlanSource.STRIPE,
         "paid_until": _PAID_UNTIL,
         "stripe_customer_id": _CUSTOMER,
@@ -113,136 +110,78 @@ def _yearly(plans, **overrides):
     return plans.add(**(data | overrides))
 
 
-def _start(service):
-    return service.start_yearly_checkout(
-        sphere_id=SPHERE_ID,
-        sphere_name="Konwent",
-        email="org@example.com",
-        success_url=_SUCCESS_URL,
-        cancel_url=_CANCEL_URL,
+def _deliver(service, billing, *, subscription_id=_SUBSCRIPTION, state):
+    billing.subscriptions[subscription_id] = state
+    billing.event = SubscriptionEvent(
+        subscription_id=subscription_id, customer_id=_CUSTOMER
     )
-
-
-def _deliver(service, billing, event, *, live):
-    billing.subscriptions[event.subscription_id] = SubscriptionState(
-        live=live, paid_until=_PAID_UNTIL
-    )
-    billing.event = event
     return service.handle_webhook(payload=b"{}", signature="sig")
 
 
+def _live(paid_until=_PAID_UNTIL):
+    return SubscriptionState(live=True, paid_until=paid_until)
+
+
+def _dead(paid_until):
+    return SubscriptionState(live=False, paid_until=paid_until)
+
+
 class TestPage:
-    def test_sphere_without_a_plan_row_is_on_standard_and_may_subscribe(self, service):
+    def test_sphere_without_a_plan_row_pays_the_standard_rate(self, service):
         assert service.page(sphere_id=SPHERE_ID) == PlanPageDTO(
-            kind=PlanKind.STANDARD,
-            source=None,
-            paid_until=None,
-            can_subscribe=True,
+            terms=_STANDARD,
+            ticket_fee_percent=Decimal("3.5"),
             has_billing_history=False,
-            ticket_fee_percent=_FEE_PERCENT,
         )
 
-    def test_held_yearly_plan_is_managed_not_sold_again(self, service, plans):
-        _yearly(plans)
+    def test_held_deal_shows_its_terms_and_its_rate(self, service, plans):
+        _deal(plans)
 
         assert service.page(sphere_id=SPHERE_ID) == PlanPageDTO(
-            kind=PlanKind.WHITE_GLOVE,
-            source=PlanSource.STRIPE,
-            paid_until=_PAID_UNTIL,
-            can_subscribe=False,
+            terms=PlanTermsDTO(
+                technical_partner=True,
+                ticket_fee_bps=_DEAL_FEE_BPS,
+                yearly_price=_YEARLY_PRICE,
+                paid_until=_PAID_UNTIL,
+                has_deal=True,
+            ),
+            ticket_fee_percent=Decimal("1.5"),
             has_billing_history=True,
-            ticket_fee_percent=_FEE_PERCENT,
         )
 
-    def test_lapsed_yearly_plan_reads_as_standard(self, service, plans):
-        _yearly(plans, paid_until=_LAPSED)
+    def test_lapsed_deal_reads_as_standard_but_keeps_its_invoices(self, service, plans):
+        _deal(plans, paid_until=_LAPSED)
 
         assert service.page(sphere_id=SPHERE_ID) == PlanPageDTO(
-            kind=PlanKind.STANDARD,
-            source=None,
-            paid_until=None,
-            can_subscribe=True,
-            has_billing_history=True,
-            ticket_fee_percent=_FEE_PERCENT,
+            terms=_STANDARD, ticket_fee_percent=Decimal("3.5"), has_billing_history=True
         )
 
-    def test_nothing_is_sold_or_managed_while_billing_is_off(
-        self, service, plans, billing
+    @pytest.mark.parametrize(
+        ("enabled", "customer"), ((False, _CUSTOMER), (True, "")), ids=("off", "none")
+    )
+    def test_no_billing_history_without_stripe_billing_the_sphere(
+        self, service, plans, billing, enabled, customer
     ):
-        billing.enabled = False
-        _yearly(plans, paid_until=_LAPSED)
+        billing.enabled = enabled
+        _deal(plans, source=PlanSource.MANUAL, stripe_customer_id=customer)
 
-        page = service.page(sphere_id=SPHERE_ID)
-
-        assert (page.can_subscribe, page.has_billing_history) == (False, False)
-
-
-class TestStartYearlyCheckout:
-    def test_plan_held_by_a_maintainers_hand_goes_back_to_the_panel(
-        self, service, plans
-    ):
-        held = _yearly(
-            plans,
-            source=PlanSource.MANUAL,
-            paid_until=None,
-            stripe_customer_id="",
-            stripe_subscription_id="",
-        )
-
-        assert _start(service) == _CANCEL_URL
-        assert plans.rows == {SPHERE_ID: held}
-
-    def test_plan_stripe_already_bills_goes_to_the_portal(self, service, plans):
-        _yearly(plans)
-
-        assert _start(service) == f"https://billing.stripe.test/{_CUSTOMER}"
-
-    def test_subscription_paid_before_its_webhook_goes_to_the_portal(
-        self, service, plans, billing
-    ):
-        plans.add(stripe_customer_id=_CUSTOMER)
-        billing.live_customers.add(_CUSTOMER)
-
-        assert _start(service) == f"https://billing.stripe.test/{_CUSTOMER}"
-
-    def test_returning_customer_checks_out_as_the_same_customer(self, service, plans):
-        lapsed = _yearly(plans, paid_until=_LAPSED)
-
-        assert _start(service) == f"https://checkout.stripe.test/{_CUSTOMER}"
-        assert plans.rows == {SPHERE_ID: lapsed}
-
-    def test_first_purchase_records_the_new_customer_before_checkout(
-        self, service, plans
-    ):
-        url = _start(service)
-
-        assert url == f"https://checkout.stripe.test/cus_new_{SPHERE_ID}"
-        assert plans.rows == {
-            SPHERE_ID: SpherePlanDTO(
-                sphere_id=SPHERE_ID,
-                kind=PlanKind.STANDARD,
-                source=PlanSource.STRIPE,
-                paid_until=None,
-                stripe_customer_id=f"cus_new_{SPHERE_ID}",
-                stripe_subscription_id="",
-            )
-        }
+        assert not service.page(sphere_id=SPHERE_ID).has_billing_history
 
 
 class TestBillingPortal:
     @pytest.mark.parametrize("seed", (False, True))
     def test_sphere_without_a_customer_has_no_portal(self, service, plans, seed):
         if seed:
-            plans.add()
+            _deal(plans, source=PlanSource.MANUAL, stripe_customer_id="")
 
         with pytest.raises(NotFoundError):
-            service.billing_portal_url(sphere_id=SPHERE_ID, return_url=_CANCEL_URL)
+            service.billing_portal_url(sphere_id=SPHERE_ID, return_url=_RETURN_URL)
 
     def test_portal_opens_for_the_spheres_customer(self, service, plans):
-        _yearly(plans)
+        _deal(plans)
 
         assert (
-            service.billing_portal_url(sphere_id=SPHERE_ID, return_url=_CANCEL_URL)
+            service.billing_portal_url(sphere_id=SPHERE_ID, return_url=_RETURN_URL)
             == f"https://billing.stripe.test/{_CUSTOMER}"
         )
 
@@ -260,10 +199,10 @@ class TestWebhook:
             ),
         ),
     )
-    def test_event_not_about_a_plan_subscription_changes_nothing(
+    def test_event_not_about_a_subscription_changes_nothing(
         self, service, plans, billing, event
     ):
-        lapsed = _yearly(plans, paid_until=_LAPSED)
+        lapsed = _deal(plans, paid_until=_LAPSED)
         billing.event = event
 
         assert service.handle_webhook(payload=b"{}", signature="sig") is (
@@ -274,121 +213,108 @@ class TestWebhook:
     def test_subscription_of_a_customer_we_never_created_is_not_ours(
         self, service, plans, billing
     ):
-        lapsed = _yearly(plans, paid_until=_LAPSED)
-
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id="sub_other", customer_id="cus_other"),
-            live=True,
+        lapsed = _deal(plans, paid_until=_LAPSED)
+        billing.subscriptions["sub_other"] = _live()
+        billing.event = SubscriptionEvent(
+            subscription_id="sub_other", customer_id="cus_other"
         )
 
-        assert outcome is WebhookOutcome.NOT_OURS
+        assert service.handle_webhook(payload=b"{}", signature="sig") is (
+            WebhookOutcome.NOT_OURS
+        )
         assert plans.rows == {SPHERE_ID: lapsed}
 
-    def test_paid_checkout_grants_the_yearly_plan(self, service, plans, billing):
-        plans.add(stripe_customer_id=_CUSTOMER)
+    def test_first_payment_dates_the_deal_and_records_its_subscription(
+        self, service, plans, billing
+    ):
+        agreed = _deal(plans, paid_until=None, stripe_subscription_id="")
 
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
-            live=True,
-        )
+        outcome = _deliver(service, billing, state=_live())
 
         assert outcome is WebhookOutcome.SUBSCRIBED
-        assert plans.rows[SPHERE_ID] == SpherePlanDTO(
-            sphere_id=SPHERE_ID,
-            kind=PlanKind.WHITE_GLOVE,
-            source=PlanSource.STRIPE,
-            paid_until=_PAID_UNTIL,
-            stripe_customer_id=_CUSTOMER,
-            stripe_subscription_id=_SUBSCRIPTION,
+        assert plans.rows[SPHERE_ID] == agreed.model_copy(
+            update={"paid_until": _PAID_UNTIL, "stripe_subscription_id": _SUBSCRIPTION}
         )
 
-    def test_renewal_extends_the_plan_on_record(self, service, plans, billing):
-        _yearly(plans, paid_until=NOW + timedelta(days=1))
+    def test_renewal_extends_the_deal_on_record(self, service, plans, billing):
+        _deal(plans, paid_until=NOW + timedelta(days=1))
 
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
-            live=True,
-        )
+        outcome = _deliver(service, billing, state=_live())
 
         assert outcome is WebhookOutcome.RENEWED
         assert plans.rows[SPHERE_ID].paid_until == _PAID_UNTIL
 
-    def test_ended_subscription_on_record_ends_the_plan(self, service, plans, billing):
-        _yearly(plans)
+    def test_live_subscription_without_a_period_keeps_the_date_on_record(
+        self, service, plans, billing
+    ):
+        until = NOW + timedelta(days=1)
+        _deal(plans, paid_until=until)
 
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
-            live=False,
-        )
+        outcome = _deliver(service, billing, state=_live(paid_until=None))
+
+        assert outcome is WebhookOutcome.RENEWED
+        assert plans.rows[SPHERE_ID].paid_until == until
+
+    @pytest.mark.parametrize(
+        "period_end", (_PAID_UNTIL, None), ids=("mid-period", "no-period")
+    )
+    def test_ended_subscription_ends_the_deal_now(
+        self, service, plans, billing, period_end
+    ):
+        _deal(plans)
+        before = datetime.now(tz=UTC)
+
+        outcome = _deliver(service, billing, state=_dead(period_end))
+
+        ended = plans.rows[SPHERE_ID]
+        after = datetime.now(tz=UTC)
+        assert outcome is WebhookOutcome.ENDED
+        assert ended.paid_until is not None
+        assert before <= ended.paid_until <= after
+        assert not current_terms(ended, now=after).has_deal
+
+    def test_subscription_ended_after_its_period_keeps_that_end(
+        self, service, plans, billing
+    ):
+        _deal(plans)
+
+        outcome = _deliver(service, billing, state=_dead(_LAPSED))
 
         assert outcome is WebhookOutcome.ENDED
-        assert plans.rows[SPHERE_ID].kind is PlanKind.STANDARD
+        assert plans.rows[SPHERE_ID].paid_until == _LAPSED
 
-    def test_end_redelivered_after_the_plan_ended_is_stale(
+    def test_ended_deal_keeps_its_terms_for_a_renewal(self, service, plans, billing):
+        _deal(plans)
+        _deliver(service, billing, state=_dead(_PAID_UNTIL))
+
+        outcome = _deliver(service, billing, state=_live())
+
+        assert outcome is WebhookOutcome.RENEWED
+        terms = current_terms(plans.rows[SPHERE_ID], now=datetime.now(tz=UTC))
+        assert (terms.has_deal, terms.ticket_fee_bps) == (True, _DEAL_FEE_BPS)
+
+    def test_old_subscription_ending_leaves_the_current_deal(
         self, service, plans, billing
     ):
-        ended = _yearly(plans, kind=PlanKind.STANDARD)
+        current = _deal(plans)
 
         outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id=_SUBSCRIPTION, customer_id=_CUSTOMER),
-            live=False,
-        )
-
-        assert outcome is WebhookOutcome.STALE
-        assert plans.rows == {SPHERE_ID: ended}
-
-    def test_old_subscription_ending_leaves_the_current_plan(
-        self, service, plans, billing
-    ):
-        current = _yearly(plans)
-
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id="sub_old", customer_id=_CUSTOMER),
-            live=False,
+            service, billing, subscription_id="sub_old", state=_dead(_LAPSED)
         )
 
         assert outcome is WebhookOutcome.STALE
         assert plans.rows == {SPHERE_ID: current}
 
-    def test_plan_recorded_by_hand_is_left_alone_while_it_lasts(
-        self, service, plans, billing
+    @pytest.mark.parametrize("paid_until", (None, _LAPSED), ids=("open", "lapsed"))
+    @pytest.mark.parametrize("live", (True, False))
+    def test_deal_recorded_by_hand_is_left_alone(
+        self, service, plans, billing, paid_until, live
     ):
-        manual = _yearly(plans, source=PlanSource.MANUAL, paid_until=None)
+        manual = _deal(plans, source=PlanSource.MANUAL, paid_until=paid_until)
 
         outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id="sub_new", customer_id=_CUSTOMER),
-            live=True,
+            service, billing, state=SubscriptionState(live=live, paid_until=_PAID_UNTIL)
         )
 
         assert outcome is WebhookOutcome.STALE
         assert plans.rows == {SPHERE_ID: manual}
-
-    def test_lapsed_plan_recorded_by_hand_gives_way_to_stripe(
-        self, service, plans, billing
-    ):
-        _yearly(plans, source=PlanSource.MANUAL, paid_until=_LAPSED)
-
-        outcome = _deliver(
-            service,
-            billing,
-            SubscriptionEvent(subscription_id="sub_new", customer_id=_CUSTOMER),
-            live=True,
-        )
-
-        assert outcome is WebhookOutcome.SUBSCRIBED
-        assert plans.rows[SPHERE_ID].source is PlanSource.STRIPE
-        assert plans.rows[SPHERE_ID].paid_until == _PAID_UNTIL

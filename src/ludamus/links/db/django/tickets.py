@@ -1,18 +1,27 @@
 """Repositories for ticket sales: ticket types, orders, tickets, payout accounts.
 
-Panel reads are scoped to the event the panel resolved, buyer reads to the
-buyer, so a pk from another event or another person matches nothing here.
-Webhook reads go by Stripe's own ids, which only Stripe's signed payload names.
+Panel reads are scoped to the event the panel resolved, so a pk from another
+event matches nothing here; a buyer's order is found by its secret reference,
+and `mills.tickets` decides who may see it. Webhook reads go by Stripe's own
+ids, which only Stripe's signed payload names.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
+from django.conf import settings
+from django.core.mail import EmailMessage
+from django.db import transaction
 from django.db.models import Count, Max, Q, Sum
 from django.db.models.functions import Coalesce, Now
+from django.urls import reverse
+from django.utils.translation import gettext as _
 
+from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
+    Event,
     PayoutAccount,
     Ticket,
     TicketOrder,
@@ -33,6 +42,7 @@ from ludamus.pacts.tickets import (
     PayoutAccountDTO,
     PayoutAccountRepositoryProtocol,
     TicketDTO,
+    TicketMailerProtocol,
     TicketOrderRepositoryProtocol,
     TicketTypeDTO,
     TicketTypeRepositoryProtocol,
@@ -48,10 +58,12 @@ if TYPE_CHECKING:
         NewTicketData,
         OrderChanges,
         OrderCreateData,
+        OrderLinkMail,
         TicketTypeCreateData,
         TicketTypeData,
     )
 
+logger = logging.getLogger(__name__)
 
 _TICKET_TYPE_FIELDS = (
     "pk",
@@ -197,6 +209,7 @@ def _line_dtos(order: TicketOrder) -> list[OrderLineDTO]:
 def _order_dto(order: TicketOrder) -> OrderDTO:
     return OrderDTO(
         pk=order.pk,
+        reference=order.reference,
         event_id=order.event_id,
         event_name=order.event.name,
         event_slug=order.event.slug,
@@ -253,8 +266,21 @@ class TicketOrderRepository(TicketOrderRepositoryProtocol):
         )
 
     @staticmethod
-    def read_for_buyer(*, buyer_id: int, pk: int) -> OrderDTO | None:
-        return _read(_orders().filter(buyer_id=buyer_id, pk=pk))
+    def read_by_reference(*, reference: str) -> OrderDTO | None:
+        return _read(_orders().filter(reference=reference)) if reference else None
+
+    @staticmethod
+    def lock_by_reference(*, reference: str) -> OrderDTO | None:
+        if not reference:
+            return None
+        return _lock(TicketOrder.objects.filter(reference=reference))
+
+    @staticmethod
+    def claim(*, pk: int, buyer_id: int) -> None:
+        TicketOrder.objects.filter(pk=pk).update(
+            buyer_id=buyer_id, modification_time=Now()
+        )
+        Ticket.objects.filter(order_id=pk).update(holder_id=buyer_id)
 
     @staticmethod
     def lock_for_event(*, event_id: int, pk: int) -> OrderDTO | None:
@@ -389,3 +415,45 @@ class PayoutAccountRepository(PayoutAccountRepositoryProtocol):
                 **state.model_dump(), modification_time=Now()
             )
         )
+
+
+class DjangoTicketMailer(TicketMailerProtocol):
+    @staticmethod
+    def send_order_link(mail: OrderLinkMail) -> None:
+        domain = (
+            Event.objects.filter(pk=mail.event_id)
+            .values_list("sphere__site__domain", flat=True)
+            .first()
+        ) or str(settings.ROOT_DOMAIN)
+        url = absolute_url(
+            reverse(
+                "web:event:event-ticket-order",
+                kwargs={"event_slug": mail.event_slug, "reference": mail.reference},
+            ),
+            domain=domain,
+        )
+        subject = _("Your tickets for %(event)s") % {"event": mail.event_name}
+        lines = [
+            _("Thank you for your order. Your tickets and their QR codes are here:"),
+            url,
+            _("Anyone with this link can see the tickets, so keep it to yourself."),
+        ]
+        if mail.claimable:
+            lines.append(
+                _(
+                    "To keep them in your Zagrajmy account, open the link and sign"
+                    " in or create an account there."
+                )
+            )
+        body = "\n\n".join(lines)
+
+        def _send() -> None:
+            try:
+                EmailMessage(subject=subject, body=body, to=[mail.email]).send()
+            except OSError:
+                # The order page still works; the buyer has it open already.
+                logger.exception("Order mail not sent: order=%s", mail.reference)
+
+        # After commit: a rolled-back webhook must not mail a page that says
+        # the order is still pending.
+        transaction.on_commit(_send)
