@@ -150,22 +150,23 @@ test.describe("Cookie consent banner", () => {
       if (/module\.full\.no-external/u.test(request.url())) sdkRequests.push(request.url());
     });
     let documentRequests = 0;
-    await page.route("**/crowd/profile/privacy/", async (route) => {
-      documentRequests++;
-      if (documentRequests > 1) {
-        await route.abort();
-        return;
-      }
-      const response = await route.fetch();
-      const body = (await response.text()).replace(
-        /<script\b(?=[^>]*\bid="posthog-config")[^>]*>[\s\S]*?<\/script>/u,
-        "",
-      );
-      await route.fulfill({ response, body });
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests++;
+    });
+    await page.addInitScript(() => {
+      const observer = new MutationObserver(() => {
+        const config = document.getElementById("posthog-config");
+        if (config) {
+          config.remove();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document, { childList: true, subtree: true });
     });
 
     await page.goto("/crowd/profile/privacy/");
 
+    await expect(page.locator("#posthog-config")).toHaveCount(0);
     await expect.poll(() => storedConsent(page)).toBe("accepted");
     expect(documentRequests).toBe(1);
     expect(sdkRequests).toEqual([]);
