@@ -21,25 +21,16 @@
   },
   "pnpm": {
     "overrides": {
-      "@faker-js/faker": "10.5.0",
-      "body-parser": "2.4.0",
-      "brace-expansion": "5.0.12",
-      "dompurify": "3.4.17",
-      "fast-uri": "3.1.9",
-      "follow-redirects": "1.16.1",
-      "js-yaml": "4.3.2",
-      "minimatch": "10.2.3",
-      "nanoid": "3.3.18",
-      "next": "16.4.1",
-      "postcss-selector-parser": "7.1.6",
-      "proxy-addr": "2.0.8",
-      "qs": "6.16.0",
-      "sharp": "0.35.5",
-      "source-map-js": "1.2.2",
+      "dompurify@>=3.0.0 <3.4.17": "3.4.17",
+      "fast-uri@>=3.0.0 <3.1.9": "3.1.9",
+      "js-yaml@>=4.0.0 <4.3.2": "4.3.2",
+      "nanoid@>=3.0.0 <3.3.18": "3.3.18",
+      "next@>=16.0.0 <16.4.1": "16.4.1",
+      "sharp@>=0.35.0 <0.35.5": "0.35.5",
+      "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
       "synckit": "0.11.13",
-      "tinypool": "2.1.2",
-      "vite": "8.1.6",
-      "zod": "4.6.6"
+      "tinypool@>=2.0.0 <2.1.2": "2.1.2",
+      "vite@>=8.0.0 <8.1.6": "8.1.6"
     }
   }
 }
