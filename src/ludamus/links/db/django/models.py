@@ -1157,7 +1157,7 @@ class SessionManager(AliveManager["Session"]):
             .filter(
                 event_id=session.event_id,
                 session_participations__user_id__in=user_ids,
-                session_participations__status=SessionParticipationStatus.CONFIRMED,
+                session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES,
             )
             .filter(
                 Q(agenda_item__start_time__gte=start, agenda_item__start_time__lt=end)

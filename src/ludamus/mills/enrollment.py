@@ -307,7 +307,15 @@ class WaitlistPromotionService:
                 session_id=offer.session_id,
                 event_slug=offer.event_slug,
             )
-        self._participations.mark_claimed(offer.participant_ids, claimed_at=_now())
+        if not self._participations.mark_claimed(
+            offer.participant_ids, claimed_at=_now()
+        ):
+            return ClaimResult(
+                success=False,
+                reason="conflict",
+                session_id=offer.session_id,
+                event_slug=offer.event_slug,
+            )
         return ClaimResult(
             success=True, session_id=offer.session_id, event_slug=offer.event_slug
         )
