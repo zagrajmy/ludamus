@@ -35,7 +35,7 @@
                             <option value="{{ option.pk }}"
                                     {% if option.pk|stringformat:"d" in selected %}selected{% endif %}>{{ option.path }}</option>
                         {% endfor %}
-                    {% endtessera_combobox %}
+                    {% end_tessera_combobox %}
                 {% endwith %}
             </div>
         {% endif %}
