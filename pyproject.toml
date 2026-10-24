@@ -145,6 +145,8 @@ exclude_also = [
     # with it — a bare `case _:` pattern would also silence the several real
     # fallbacks that carry logic.
     """case _:\\n\\s*assert_never\\([^)]*\\)""",
+    # Exclude one line functions that only return stuff
+    """def .*\\n[ ]+return[a-z\\. ]*""",
 ]
 
 [tool.coverage.django_coverage_plugin]

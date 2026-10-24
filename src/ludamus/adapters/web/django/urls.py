@@ -5,6 +5,7 @@ from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
+from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
@@ -154,6 +155,7 @@ urlpatterns = [
         name="chronology-legacy-redirect",
     ),
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
+    path("board/", include((board_urls, "board"), namespace="board")),
     # The Auth0 tenant's error page setting points here; the path must stay
     # /auth-error to match it.
     path("auth-error/", auth_error_page, name="auth-error"),
