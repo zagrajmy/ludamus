@@ -150,7 +150,7 @@ Użytkownik nie może:
 
 ## § 8. USUWANIE KONTA
 
-1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radoslaw@ganczarek.in
+1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radek@zagrajmy.net
 2. Usunięcie Konta skutkuje:
    - anulowaniem wszystkich aktywnych zapisów na Wydarzenia
    - usunięciem wszystkich danych osobowych
@@ -178,7 +178,7 @@ Użytkownik nie może:
 
 W sprawach dotyczących Regulaminu można się kontaktować:
 
-**Email:** radoslaw@ganczarek.in
+**Email:** radek@zagrajmy.net
 
 **Temat:** "Regulamin - [opis sprawy]"
 
