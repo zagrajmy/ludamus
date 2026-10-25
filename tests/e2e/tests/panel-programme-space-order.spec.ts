@@ -1,9 +1,10 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
+
+test.use({ storageState: managerState });
 
 test.describe("Programme room order", () => {
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await page.goto("/panel/event/autumn-open/venues/?view=programme");
   });
 
@@ -56,7 +57,6 @@ test.describe("Programme room order", () => {
 });
 
 test("renders the longest path at phone and desktop modal widths", async ({ page }) => {
-  await signInAsManager(page);
   await page.goto("/panel/event/autumn-open/venues/");
 
   const phone = page.getByRole("figure").filter({ hasText: "Phone modal · 390 px viewport" });

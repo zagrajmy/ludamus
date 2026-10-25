@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const printUrl = "/event/kapitularz-2025-anonymized/print/";
@@ -121,9 +121,7 @@ test.describe("Print page controls", () => {
 });
 
 test.describe("Print page for managers", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("panel links lead to the canonical print page", async ({ page }) => {
     await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/");

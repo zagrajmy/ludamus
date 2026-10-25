@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The panel shows a thin top-edge progress bar while a request is in flight
@@ -13,8 +13,9 @@ import { expect, test } from "./helpers/fixtures";
 const bar = (page: import("@playwright/test").Page) => page.getByRole("progressbar");
 
 test.describe("panel navigation progress bar", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await page.goto("/panel/");
     await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
   });

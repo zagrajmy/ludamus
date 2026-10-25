@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { labeledDropzone } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
@@ -42,153 +42,156 @@ test.describe("Event maps", () => {
     await expect(page.getByRole("link", { name: "Venue maps" })).toHaveCount(0);
   });
 
-  test("an organizer adds a map, attaches a venue, and the hero links to it", async ({ page }) => {
-    await signInAsManager(page);
-    await page.goto(MAPS_URL);
+  test.describe(() => {
+    test.use({ storageState: managerState });
 
-    // The "Add map" link opens an addressable dialog.
-    await page.getByRole("link", { name: "Add map" }).first().click();
-    const addDialog = page.getByRole("dialog", { name: "Add map" });
-    await expect(addDialog).toBeVisible();
-    await expect(page).toHaveURL(/\?add-map=1$/);
+    test("an organizer adds a map, attaches a venue, and the hero links to it", async ({
+      page,
+    }) => {
+      await page.goto(MAPS_URL);
 
-    // A rejected upload reopens the dialog with its error. (An empty one never
-    // leaves the browser: the dropzone's input is required.)
-    await addDialog.getByRole("textbox", { name: /^Name/ }).fill("Ground floor");
-    await addDialog.getByLabel("Map pages", { exact: true }).setInputFiles({
-      name: "floor.gif",
-      mimeType: "image/gif",
-      buffer: GIF_BYTES,
+      // The "Add map" link opens an addressable dialog.
+      await page.getByRole("link", { name: "Add map" }).first().click();
+      const addDialog = page.getByRole("dialog", { name: "Add map" });
+      await expect(addDialog).toBeVisible();
+      await expect(page).toHaveURL(/\?add-map=1$/);
+
+      // A rejected upload reopens the dialog with its error. (An empty one never
+      // leaves the browser: the dropzone's input is required.)
+      await addDialog.getByRole("textbox", { name: /^Name/ }).fill("Ground floor");
+      await addDialog.getByLabel("Map pages", { exact: true }).setInputFiles({
+        name: "floor.gif",
+        mimeType: "image/gif",
+        buffer: GIF_BYTES,
+      });
+      await addDialog.getByRole("button", { name: "Add map" }).click();
+      await expect(page.getByRole("dialog", { name: "Add map" })).toBeVisible();
+      await expect(
+        page.getByText("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
+      ).toBeVisible();
+
+      // Two files in one go: the plan and its legend become one map's pages.
+      const reopened = page.getByRole("dialog", { name: "Add map" });
+      await reopened.getByLabel("Map pages", { exact: true }).setInputFiles([
+        { name: "floor.png", mimeType: "image/png", buffer: PNG_BYTES },
+        { name: "legend.png", mimeType: "image/png", buffer: PNG_BYTES },
+      ]);
+      await reopened.getByRole("button", { name: "Add map" }).click();
+
+      await expect(page.getByText("Map added.")).toBeVisible();
+      const card = page.getByRole("region", { name: "Ground floor" });
+      await expect(card).toBeVisible();
+      await expect(card.getByRole("img", { name: "Ground floor, page 1" })).toBeVisible();
+      await expect(card.getByRole("img", { name: "Ground floor, page 2" })).toBeVisible();
+      await expect(card.getByRole("link", { name: "Edit Ground floor" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Delete Ground floor" })).toBeVisible();
+
+      // On a phone the breadcrumb and the Add map control each keep to one
+      // line, and a plan runs edge to edge like the event cover does.
+      await page.setViewportSize({ width: 390, height: 900 });
+      const crumb = await page.getByRole("link", { name: "Retro Mini Jam" }).boundingBox();
+      const addMap = await page.getByRole("link", { name: "Add map" }).first().boundingBox();
+      const plan = card.getByRole("link", { name: "Ground floor, page 1" });
+      const planBox = await plan.boundingBox();
+      const main = await page.locator("main").boundingBox();
+      if (!crumb || !addMap || !planBox || !main) throw new Error("maps header has no box");
+      expect(crumb.height).toBeLessThan(28);
+      expect(addMap.height).toBeLessThan(44);
+      expect(Math.abs(planBox.x - main.x)).toBeLessThan(1);
+      expect(Math.abs(planBox.width - main.width)).toBeLessThan(1);
+      await expect(plan).toHaveCSS("border-top-left-radius", "0px");
+      await page.setViewportSize({ width: 1280, height: 900 });
+
+      // Attaching a room draws it in its venue's tree; the room links into the
+      // schedule filtered to it, the venue above it stays plain text.
+      await card.getByRole("link", { name: "Attach or detach venue" }).click();
+      const attachDialog = page.getByRole("dialog", { name: "Attach or detach venue" });
+      await expect(attachDialog).toBeVisible();
+      // The checklist is the venue tree itself: a room is named once, under the
+      // venue it sits in, and a branch button takes the whole subtree at once.
+      // Its name carries the branch and the word for what the next click does.
+      const branch = attachDialog.getByRole("button", { name: "Venues under Arcade Hall: all" });
+      await expect(branch).toBeVisible();
+      await branch.click();
+      await expect(
+        attachDialog.getByRole("button", { name: "Venues under Arcade Hall: none" }),
+      ).toBeVisible();
+      await attachDialog.getByLabel("Main Arcade Floor", { exact: true }).uncheck();
+      await attachDialog.getByLabel("Puzzle Corner", { exact: true }).check();
+      await attachDialog.getByRole("button", { name: "Save venues" }).click();
+
+      await expect(page.getByText("Venues on the map updated.")).toBeVisible();
+      const tree = page.getByRole("navigation", { name: "Venues on Ground floor" });
+      await expect(tree.getByText("Arcade Hall", { exact: true })).toBeVisible();
+      await expect(tree.getByRole("link", { name: "Arcade Hall" })).toHaveCount(0);
+      const roomLink = tree.getByRole("link", { name: "Puzzle Corner" });
+      await expect(roomLink).toHaveAttribute(
+        "href",
+        /\/event\/retro-mini-jam\/\?space=\d+#schedule-region$/,
+      );
+
+      // The hero now offers the maps page.
+      await page.goto(EVENT_URL);
+      const heroLink = page.getByRole("link", { name: "Venue maps" });
+      await expect(heroLink).toBeVisible();
+      await heroLink.click();
+      await expect(page).toHaveURL(MAPS_URL);
+      await expect(page.getByRole("heading", { name: "Ground floor", level: 2 })).toBeVisible();
     });
-    await addDialog.getByRole("button", { name: "Add map" }).click();
-    await expect(page.getByRole("dialog", { name: "Add map" })).toBeVisible();
-    await expect(
-      page.getByText("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
-    ).toBeVisible();
 
-    // Two files in one go: the plan and its legend become one map's pages.
-    const reopened = page.getByRole("dialog", { name: "Add map" });
-    await reopened.getByLabel("Map pages", { exact: true }).setInputFiles([
-      { name: "floor.png", mimeType: "image/png", buffer: PNG_BYTES },
-      { name: "legend.png", mimeType: "image/png", buffer: PNG_BYTES },
-    ]);
-    await reopened.getByRole("button", { name: "Add map" }).click();
+    // The maps control has two homes. Beside the CTAs it is an icon, small enough
+    // not to read as a third call to action; on a cover it has room for its name.
+    test("a cover takes the maps control into its top-right corner", async ({ page }) => {
+      await page.goto(SETTINGS_URL);
+      await page.getByLabel("Cover image", { exact: true }).setInputFiles({
+        name: "cover.png",
+        mimeType: "image/png",
+        buffer: PNG_BYTES,
+      });
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
 
-    await expect(page.getByText("Map added.")).toBeVisible();
-    const card = page.getByRole("region", { name: "Ground floor" });
-    await expect(card).toBeVisible();
-    await expect(card.getByRole("img", { name: "Ground floor, page 1" })).toBeVisible();
-    await expect(card.getByRole("img", { name: "Ground floor, page 2" })).toBeVisible();
-    await expect(card.getByRole("link", { name: "Edit Ground floor" })).toBeVisible();
-    await expect(card.getByRole("button", { name: "Delete Ground floor" })).toBeVisible();
+      await page.setViewportSize({ width: 440, height: 900 });
+      await page.goto(EVENT_URL);
+      const hero = page.locator("[data-event-hero]");
+      const cover = await hero.locator("[data-event-cover]").boundingBox();
+      const link = await hero.getByRole("link", { name: "Venue maps" }).boundingBox();
+      if (!cover || !link) throw new Error("hero part has no box");
 
-    // On a phone the breadcrumb and the Add map control each keep to one
-    // line, and a plan runs edge to edge like the event cover does.
-    await page.setViewportSize({ width: 390, height: 900 });
-    const crumb = await page.getByRole("link", { name: "Retro Mini Jam" }).boundingBox();
-    const addMap = await page.getByRole("link", { name: "Add map" }).first().boundingBox();
-    const plan = card.getByRole("link", { name: "Ground floor, page 1" });
-    const planBox = await plan.boundingBox();
-    const main = await page.locator("main").boundingBox();
-    if (!crumb || !addMap || !planBox || !main) throw new Error("maps header has no box");
-    expect(crumb.height).toBeLessThan(28);
-    expect(addMap.height).toBeLessThan(44);
-    expect(Math.abs(planBox.x - main.x)).toBeLessThan(1);
-    expect(Math.abs(planBox.width - main.width)).toBeLessThan(1);
-    await expect(plan).toHaveCSS("border-top-left-radius", "0px");
-    await page.setViewportSize({ width: 1280, height: 900 });
+      expect(link.y).toBeGreaterThanOrEqual(cover.y);
+      expect(link.y + link.height).toBeLessThanOrEqual(cover.y + cover.height);
+      // Its right edge lands on the gutter the body text below keeps.
+      expect(Math.abs(cover.x + cover.width - (link.x + link.width) - 16)).toBeLessThan(2);
 
-    // Attaching a room draws it in its venue's tree; the room links into the
-    // schedule filtered to it, the venue above it stays plain text.
-    await card.getByRole("link", { name: "Attach or detach venue" }).click();
-    const attachDialog = page.getByRole("dialog", { name: "Attach or detach venue" });
-    await expect(attachDialog).toBeVisible();
-    // The checklist is the venue tree itself: a room is named once, under the
-    // venue it sits in, and a branch button takes the whole subtree at once.
-    // Its name carries the branch and the word for what the next click does.
-    const branch = attachDialog.getByRole("button", { name: "Venues under Arcade Hall: all" });
-    await expect(branch).toBeVisible();
-    await branch.click();
-    await expect(
-      attachDialog.getByRole("button", { name: "Venues under Arcade Hall: none" }),
-    ).toBeVisible();
-    await attachDialog.getByLabel("Main Arcade Floor", { exact: true }).uncheck();
-    await attachDialog.getByLabel("Puzzle Corner", { exact: true }).check();
-    await attachDialog.getByRole("button", { name: "Save venues" }).click();
-
-    await expect(page.getByText("Venues on the map updated.")).toBeVisible();
-    const tree = page.getByRole("navigation", { name: "Venues on Ground floor" });
-    await expect(tree.getByText("Arcade Hall", { exact: true })).toBeVisible();
-    await expect(tree.getByRole("link", { name: "Arcade Hall" })).toHaveCount(0);
-    const roomLink = tree.getByRole("link", { name: "Puzzle Corner" });
-    await expect(roomLink).toHaveAttribute(
-      "href",
-      /\/event\/retro-mini-jam\/\?space=\d+#schedule-region$/,
-    );
-
-    // The hero now offers the maps page.
-    await page.goto(EVENT_URL);
-    const heroLink = page.getByRole("link", { name: "Venue maps" });
-    await expect(heroLink).toBeVisible();
-    await heroLink.click();
-    await expect(page).toHaveURL(MAPS_URL);
-    await expect(page.getByRole("heading", { name: "Ground floor", level: 2 })).toBeVisible();
-  });
-
-  // The maps control has two homes. Beside the CTAs it is an icon, small enough
-  // not to read as a third call to action; on a cover it has room for its name.
-  test("a cover takes the maps control into its top-right corner", async ({ page }) => {
-    await signInAsManager(page);
-    await page.goto(SETTINGS_URL);
-    await page.getByLabel("Cover image", { exact: true }).setInputFiles({
-      name: "cover.png",
-      mimeType: "image/png",
-      buffer: PNG_BYTES,
+      // Leave the event the way the rest of this file found it.
+      await page.goto(SETTINGS_URL);
+      await labeledDropzone(page, "Cover image")
+        .getByRole("button", { name: "Remove image" })
+        .click();
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
     });
-    await page.getByRole("button", { name: "Save Settings" }).click();
-    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
 
-    await page.setViewportSize({ width: 440, height: 900 });
-    await page.goto(EVENT_URL);
-    const hero = page.locator("[data-event-hero]");
-    const cover = await hero.locator("[data-event-cover]").boundingBox();
-    const link = await hero.getByRole("link", { name: "Venue maps" }).boundingBox();
-    if (!cover || !link) throw new Error("hero part has no box");
+    test("an organizer renames and then deletes the map", async ({ page }) => {
+      await page.goto(MAPS_URL);
 
-    expect(link.y).toBeGreaterThanOrEqual(cover.y);
-    expect(link.y + link.height).toBeLessThanOrEqual(cover.y + cover.height);
-    // Its right edge lands on the gutter the body text below keeps.
-    expect(Math.abs(cover.x + cover.width - (link.x + link.width) - 16)).toBeLessThan(2);
+      await page.getByRole("link", { name: "Edit Ground floor" }).click();
+      const editDialog = page.getByRole("dialog", { name: "Edit map" });
+      await expect(editDialog).toBeVisible();
+      await editDialog.getByRole("textbox", { name: /^Name/ }).fill("First floor");
+      await editDialog.getByRole("button", { name: "Save map" }).click();
 
-    // Leave the event the way the rest of this file found it.
-    await page.goto(SETTINGS_URL);
-    await labeledDropzone(page, "Cover image")
-      .getByRole("button", { name: "Remove image" })
-      .click();
-    await page.getByRole("button", { name: "Save Settings" }).click();
-    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
-  });
+      await expect(page.getByText("Map saved.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "First floor", level: 2 })).toBeVisible();
 
-  test("an organizer renames and then deletes the map", async ({ page }) => {
-    await signInAsManager(page);
-    await page.goto(MAPS_URL);
+      await page.getByRole("button", { name: "Delete First floor" }).click();
+      const confirm = page.getByRole("alertdialog");
+      await expect(confirm).toBeVisible();
+      await confirm.getByRole("button", { name: "Confirm" }).click();
 
-    await page.getByRole("link", { name: "Edit Ground floor" }).click();
-    const editDialog = page.getByRole("dialog", { name: "Edit map" });
-    await expect(editDialog).toBeVisible();
-    await editDialog.getByRole("textbox", { name: /^Name/ }).fill("First floor");
-    await editDialog.getByRole("button", { name: "Save map" }).click();
-
-    await expect(page.getByText("Map saved.")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "First floor", level: 2 })).toBeVisible();
-
-    await page.getByRole("button", { name: "Delete First floor" }).click();
-    const confirm = page.getByRole("alertdialog");
-    await expect(confirm).toBeVisible();
-    await confirm.getByRole("button", { name: "Confirm" }).click();
-
-    await expect(page.getByText("Map deleted.")).toBeVisible();
-    await expect(page.getByText("No maps yet.", { exact: false })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "First floor", level: 2 })).toHaveCount(0);
+      await expect(page.getByText("Map deleted.")).toBeVisible();
+      await expect(page.getByText("No maps yet.", { exact: false })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "First floor", level: 2 })).toHaveCount(0);
+    });
   });
 });

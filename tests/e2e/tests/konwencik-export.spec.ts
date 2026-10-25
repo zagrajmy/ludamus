@@ -1,5 +1,5 @@
 import { analyzePageAccessibility } from "./helpers/a11y";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The export is its own panel section, reached from the sidebar like the
@@ -11,9 +11,7 @@ const TIMETABLE_URL = `/panel/event/${EVENT}/timetable/`;
 const INTEGRATION = "Konwencik agenda";
 
 test.describe("Konwencik export", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("a manager reaches the export from the sidebar", async ({ page }) => {
     await page.goto(TIMETABLE_URL);
@@ -116,12 +114,12 @@ test.describe("Konwencik export", () => {
     await expect(hex).toHaveValue("#12");
   });
 
-  test("hex fields remain editable without JavaScript", async ({ page, browser, baseURL }) => {
+  test("hex fields remain editable without JavaScript", async ({ browser, baseURL }) => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
       locale: "en-US",
-      storageState: await page.context().storageState(),
+      storageState: managerState,
     });
     const plainPage = await context.newPage();
     await plainPage.goto("/panel/event/konwencik-preview/export/");

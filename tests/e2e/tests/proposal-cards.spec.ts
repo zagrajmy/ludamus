@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The event page's proposal cards. Their Python tests assert context and
@@ -8,9 +8,7 @@ import { expect, test } from "./helpers/fixtures";
 const EVENT_URL = "/event/autumn-open/";
 
 test.describe("Proposal cards", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("shows pending proposals under their own heading", async ({ page }) => {
     await page.goto(EVENT_URL);

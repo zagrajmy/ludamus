@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // Each organizer list's way out of the browser: the Export tab on proposals and
@@ -23,9 +23,7 @@ const expectOdsDownload = async (
 };
 
 test.describe("Panel list exports", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("proposals: the Export tab downloads the ticked columns", async ({ page }) => {
     await page.goto(`${PANEL_URL}/proposals/`);

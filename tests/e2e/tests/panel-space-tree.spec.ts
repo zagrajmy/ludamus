@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const auroraName = "Aurora Convention Hall";
@@ -34,8 +34,9 @@ function savedOrder(page: Page) {
 }
 
 test.describe("Venue tree handles", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await page.goto("/panel/event/frostfire-con/venues/");
   });
 

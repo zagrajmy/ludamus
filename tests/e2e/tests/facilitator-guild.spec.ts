@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The guild column on the panel's facilitator list, and the way into a guild it
@@ -57,14 +57,14 @@ const attachButton = (page: Page, name: string) =>
 test.describe.configure({ mode: "serial" });
 
 test.describe("Facilitator guild marks", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await deleteGuildIfPresent(page);
   });
 
   test.afterAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    await signInAsManager(page);
+    const page = await browser.newPage({ storageState: managerState });
     await deleteGuildIfPresent(page);
     await page.close();
   });

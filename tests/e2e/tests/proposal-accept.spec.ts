@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // accept-lab is seeded with one bookable room and one time slot, so the
@@ -11,13 +11,14 @@ const EVENT = "accept-lab";
 const ROOM = "The Only Room";
 
 async function reviewProposal(page: import("@playwright/test").Page, title: string) {
-  await signInAsManager(page);
   await page.goto(`/event/${EVENT}/`);
   await page.getByRole("link", { name: `Review proposal ${title}` }).click();
   return page.getByRole("heading", { name: "Schedule it" }).locator("..");
 }
 
 test.describe("Accepting a proposal", () => {
+  test.use({ storageState: managerState });
+
   test("a foregone space and time are named, not asked for", async ({ page }) => {
     const decision = await reviewProposal(page, "Solo Showcase");
 

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { BASE_URL, CREW_SPHERE } from "./helpers/urls";
 
@@ -71,11 +71,13 @@ test("the non-root sphere's manager sees the unlisted event marked as such", asy
   await context.close();
 });
 
-test("the root sphere's manager dashboard leaves the unlisted event out", async ({ page }) => {
-  await signInAsManager(page);
+test.describe(() => {
+  test.use({ storageState: managerState });
 
-  await page.goto(`${BASE_URL}/`);
+  test("the root sphere's manager dashboard leaves the unlisted event out", async ({ page }) => {
+    await page.goto(`${BASE_URL}/`);
 
-  await expect(page.getByRole("heading", { name: "Your dashboard" })).toBeVisible();
-  await expect(page.getByText("Root Sneak Peek")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Your dashboard" })).toBeVisible();
+    await expect(page.getByText("Root Sneak Peek")).toHaveCount(0);
+  });
 });

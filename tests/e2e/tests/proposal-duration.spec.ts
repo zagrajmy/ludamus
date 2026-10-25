@@ -1,10 +1,8 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 test.describe("Proposal duration", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("reveals the hour and minute steppers only for a custom duration", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/proposals/create/");

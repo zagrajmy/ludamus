@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { clearFacilitators, savedAnswers, signUp } from "./helpers/facilitators";
 import { expect, test } from "./helpers/fixtures";
 
@@ -32,8 +32,9 @@ const checkedAnswers = async (page: Page) => ({
 });
 
 test.describe("Facilitator merge target", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await clearFacilitators(page, LIST_URL);
   });
 

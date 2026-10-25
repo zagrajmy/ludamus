@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
@@ -25,8 +25,9 @@ const removeSavedLogo = async (page: Page): Promise<void> => {
 test.describe.configure({ mode: "serial" });
 
 test.describe("Sphere logo upload", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await removeSavedLogo(page);
   });
 

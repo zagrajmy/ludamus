@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
@@ -26,9 +26,7 @@ const EVENT_COVER_NAME = "Cover image for Lakeside Tabletop Weekend";
 test.describe.configure({ mode: "serial" });
 
 test.describe("Event cover image upload", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("manager uploads cover image via the dropzone", async ({ page }) => {
     await installCspViolationCollector(page);

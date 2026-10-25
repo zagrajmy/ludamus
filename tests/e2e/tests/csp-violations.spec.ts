@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
 
@@ -86,50 +86,52 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     await assertNoCspViolations(page);
   });
 
-  test("panel dashboard, sidebar/category chrome, and a CFP-edit page with inline scripts", async ({
-    page,
-  }) => {
-    await installCspViolationCollector(page);
+  test.describe(() => {
+    test.use({ storageState: managerState });
 
-    await signInAsManager(page);
+    test("panel dashboard, sidebar/category chrome, and a CFP-edit page with inline scripts", async ({
+      page,
+    }) => {
+      await installCspViolationCollector(page);
 
-    await page.goto("/panel/", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+      await page.goto("/panel/", { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
+      await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // Exercise panel-chrome.ts's delegated data-action listeners (the
-    // hx-on: -> data-action conversion this plan's Finding 1 depends on
-    // staying eval-free): fold the sidebar, then a category toggle.
-    const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
-    await foldButton.click();
-    await expect(page.locator("html")).toHaveAttribute("data-folded", "");
-    await foldButton.click();
-    await page.getByRole("button", { name: "Program" }).click();
+      // Exercise panel-chrome.ts's delegated data-action listeners (the
+      // hx-on: -> data-action conversion this plan's Finding 1 depends on
+      // staying eval-free): fold the sidebar, then a category toggle.
+      const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
+      await foldButton.click();
+      await expect(page.locator("html")).toHaveAttribute("data-folded", "");
+      await foldButton.click();
+      await page.getByRole("button", { name: "Program" }).click();
 
-    await assertNoCspViolations(page);
+      await assertNoCspViolations(page);
 
-    // panel/cfp-edit.html: three inline <script> tags on one page (duration
-    // add/remove, the window.__fieldPickerI18n data blob, and the picker
-    // script that reads it) — the densest concentration of nonce'd scripts
-    // in the app. domcontentloaded, not the default "load": Firefox
-    // occasionally never fires "load" for panel pages in this environment
-    // (same quirk panel.spec.ts's login goto already works around) and
-    // that's unrelated to CSP — the violation collector only needs the
-    // scripts to have run, not every subresource (images, font files) to
-    // have finished.
-    await page.goto("/panel/event/frostfire-con/cfp/rpg-proposals/", {
-      waitUntil: "domcontentloaded",
+      // panel/cfp-edit.html: three inline <script> tags on one page (duration
+      // add/remove, the window.__fieldPickerI18n data blob, and the picker
+      // script that reads it) — the densest concentration of nonce'd scripts
+      // in the app. domcontentloaded, not the default "load": Firefox
+      // occasionally never fires "load" for panel pages in this environment
+      // (same quirk panel.spec.ts's login goto already works around) and
+      // that's unrelated to CSP — the violation collector only needs the
+      // scripts to have run, not every subresource (images, font files) to
+      // have finished.
+      await page.goto("/panel/event/frostfire-con/cfp/rpg-proposals/", {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByRole("heading", { name: "Configure Category" })).toBeVisible();
+
+      // Exercise the duration-list inline script so a blocked handler (rather
+      // than just a blocked <script> tag) would also be caught. The rendered
+      // rows are plain divs with no distinct accessible role, so the count
+      // assertion stays scoped by id/class rather than getByRole/getByText.
+      await page.getByRole("button", { name: "Add" }).click();
+      await expect(page.locator("#durations-list [data-duration-item]")).not.toHaveCount(0);
+
+      await assertNoCspViolations(page);
     });
-    await expect(page.getByRole("heading", { name: "Configure Category" })).toBeVisible();
-
-    // Exercise the duration-list inline script so a blocked handler (rather
-    // than just a blocked <script> tag) would also be caught. The rendered
-    // rows are plain divs with no distinct accessible role, so the count
-    // assertion stays scoped by id/class rather than getByRole/getByText.
-    await page.getByRole("button", { name: "Add" }).click();
-    await expect(page.locator("#durations-list [data-duration-item]")).not.toHaveCount(0);
-
-    await assertNoCspViolations(page);
   });
 });
 
@@ -138,10 +140,11 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
 // there, it just stops doing anything — so every test drives the control and
 // asserts the effect, not merely the absence of a violation.
 test.describe("CSP enforcement doesn't break converted inline handlers", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
     await installCspViolationCollector(page);
     await stubPrint(page);
-    await signInAsManager(page);
   });
 
   test("proposals track filter submits its form", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // Facilitator + proposal CRUD against "Cinderpeak Game Days" (bootstrap_data.py),
@@ -31,9 +31,7 @@ let facilitator: string = "Wanda Frost";
 let proposalUrl = "";
 
 test.describe("Panel facilitator + proposal CRUD", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("creates a facilitator", async ({ page }, testInfo) => {
     facilitator = testInfo.retry === 0 ? "Wanda Frost" : `Wanda Frost (retry ${testInfo.retry})`;

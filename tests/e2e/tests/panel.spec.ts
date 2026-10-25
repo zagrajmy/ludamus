@@ -2,7 +2,7 @@ import { type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { EMPTY_SPHERE } from "./helpers/urls";
 
@@ -94,9 +94,7 @@ test("panel sends a manager of an empty sphere to create its first event", async
 test.describe.configure({ mode: "serial" });
 
 test.describe("Backoffice Panel", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("opens panel dashboard with sidebar and stats", async ({ page }) => {
     await page.goto("/panel/");

@@ -1,6 +1,6 @@
 import { type Locator, type Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
@@ -56,9 +56,7 @@ function row(facilitatorCard: Locator, title: string) {
 }
 
 test.describe("Confirmations", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   // Every mutation these specs make is Ada's, and each undo is a no-op when the
   // test did not get that far — so one hook restores from any state, including

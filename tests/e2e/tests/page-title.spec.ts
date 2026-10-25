@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 /**
@@ -19,15 +19,17 @@ test.describe("Page titles", () => {
     await expect(twitterTitle).toHaveAttribute("content", await page.title());
   });
 
-  test("names an organizer's event in panel and print titles", async ({ page }) => {
-    await signInAsManager(page);
+  test.describe(() => {
+    test.use({ storageState: managerState });
 
-    await page.goto("/panel/event/frostfire-con/proposals/");
+    test("names an organizer's event in panel and print titles", async ({ page }) => {
+      await page.goto("/panel/event/frostfire-con/proposals/");
 
-    await expect(page).toHaveTitle(/^Proposals • Frostfire Game Convention/);
+      await expect(page).toHaveTitle(/^Proposals • Frostfire Game Convention/);
 
-    await page.goto("/event/frostfire-con/print/?material=door-cards");
+      await page.goto("/event/frostfire-con/print/?material=door-cards");
 
-    await expect(page).toHaveTitle("Frostfire Game Convention • Print • Root Domain Sphere");
+      await expect(page).toHaveTitle("Frostfire Game Convention • Print • Root Domain Sphere");
+    });
   });
 });

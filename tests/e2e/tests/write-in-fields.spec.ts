@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // A page can offer several write-ins, so each is named after its own question.
@@ -226,9 +226,7 @@ test.describe("Write-in answers", () => {
 });
 
 test.describe("Session field toggles", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("keeps multi-value and custom-value settings on the edit page", async ({ page }) => {
     const name = `Content notes ${Date.now()}`;
