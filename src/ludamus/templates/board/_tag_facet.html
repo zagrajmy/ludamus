@@ -1,9 +1,9 @@
-{% load tessera board_tags %}
+{% load tessera %}
 {# One tag among the board filters, recursing through the tags under it. #}
 {# Ticking a tag finds its descendants too, so the count rolls them up. Variable: tag. #}
 <li>
     {% if tag.children %}
-        <details class="group" {% if tag|has_selected %}open{% endif %}>
+        <details class="group" {% if tag.expanded %}open{% endif %}>
             <summary class="flex cursor-pointer list-none items-center rounded-md hover:bg-bg-tertiary [&::-webkit-details-marker]:hidden">
                 {% icon "chevron-right" class="size-4 shrink-0 text-foreground-muted transition-transform group-open:rotate-90" %}
                 {% include "board/_tag_facet_label.html" %}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db.models import Prefetch, QuerySet
+from django.db.models import Case, Prefetch, QuerySet, Value, When
 
 from ludamus.links.db.django.models import Listing, Tag
 from ludamus.links.db.django.repositories.storage import (
@@ -104,9 +104,11 @@ class ListingRepository(ListingRepositoryProtocol):
         if seeking is not None:
             listings = listings.filter(seeking=seeking)
         rows = list(
-            listings.order_by("-opened_at", "-pk").values_list(
-                "pk", "status", "title", "what"
-            )
+            listings.order_by(
+                Case(When(status=ListingStatus.OPEN, then=Value(0)), default=Value(1)),
+                "-opened_at",
+                "-pk",
+            ).values_list("pk", "status", "title", "what")
         )
         tag_ids: dict[int, list[int]] = defaultdict(list)
         for listing_id, tag_id in Listing.picked_tags.through.objects.filter(

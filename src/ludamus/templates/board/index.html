@@ -28,7 +28,7 @@
                   role="search"
                   aria-label="{% translate "Filter listings" %}"
                   data-autosubmit
-                  hx-get=""
+                  hx-get="{% url 'web:board:index' %}"
                   hx-target="#board-results"
                   hx-select="#board-results"
                   hx-swap="outerHTML"

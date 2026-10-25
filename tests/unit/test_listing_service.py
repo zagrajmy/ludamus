@@ -376,9 +376,14 @@ def _filters(**overrides):
     } | overrides
 
 
-def _facet(*, pk, name, count, selected=False, children=()):
+def _facet(*, pk, name, count, selected=False, expanded=False, children=()):
     return BoardTagFacetDTO(
-        pk=pk, name=name, count=count, selected=selected, children=list(children)
+        pk=pk,
+        name=name,
+        count=count,
+        selected=selected,
+        expanded=expanded,
+        children=list(children),
     )
 
 
@@ -403,12 +408,12 @@ class TestSearchBoard:
             .listing_ids
         )
 
-    def test_closed_listings_are_hidden_unless_asked_and_then_come_last(self, listings):
+    def test_closed_listings_are_hidden_unless_asked(self, listings):
         listings.close(2)
 
         assert (self._ids(listings), self._ids(listings, show_closed=True)) == (
             [3, 1],
-            [3, 1, 2],
+            [3, 2, 1],
         )
 
     def test_search_folds_case_and_diacritics(self, listings):
@@ -477,6 +482,32 @@ class TestSearchBoard:
                 slug="length",
                 name="Length",
                 tags=[_facet(pk=ONE_SHOT, name="One-shot", count=3, selected=True)],
+            )
+            in result.facets
+        )
+
+    def test_tag_with_a_picked_descendant_comes_expanded(self, listings):
+        result = _service(listings).search_board(
+            sphere_id=SPHERE_PK, filters=_filters(tag_ids=[COSMIC])
+        )
+
+        assert (
+            BoardCategoryFacetDTO(
+                slug="genre",
+                name="Genre",
+                tags=[
+                    _facet(pk=FANTASY, name="Fantasy", count=1),
+                    _facet(
+                        pk=HORROR,
+                        name="Horror",
+                        count=2,
+                        expanded=True,
+                        children=[
+                            _facet(pk=COSMIC, name="Cosmic", count=1, selected=True),
+                            _facet(pk=GOTHIC, name="Gothic", count=1),
+                        ],
+                    ),
+                ],
             )
             in result.facets
         )

@@ -103,6 +103,12 @@ test.describe("Board filters", () => {
       facts: { search: `MORK borg ${stamp}`, found: tableTitle },
     });
 
+    await filters.getByLabel("Show closed").check();
+    await expect(page).toHaveURL(/closed=on/);
+    await filters.getByLabel("Show closed").uncheck();
+    await expect(page).not.toHaveURL(/closed=/);
+    await expect(page).toHaveURL(/q=MORK/);
+
     await filters.getByLabel("Search").fill(`nothing ${stamp}`);
     await expect(page.getByText("No listings match these filters")).toBeVisible();
     await page.getByRole("link", { name: "Clear filters" }).click();

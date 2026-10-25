@@ -76,6 +76,7 @@ class BoardTagFacetDTO(BaseModel):
     name: str
     count: int
     selected: bool
+    expanded: bool
     children: list[BoardTagFacetDTO]
 
 

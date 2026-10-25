@@ -29,12 +29,13 @@ def _context(*, num_pages=1, number=1, facets=(), is_filtered=False):
     }
 
 
-def _facet(tag, *, count, selected=False, children=()):
+def _facet(tag, *, count, selected=False, expanded=False, children=()):
     return BoardTagFacetDTO(
         pk=tag.pk,
         name=tag.name,
         count=count,
         selected=selected,
+        expanded=expanded,
         children=list(children),
     )
 

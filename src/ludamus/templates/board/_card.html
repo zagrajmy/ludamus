@@ -8,9 +8,7 @@
        class="flex flex-col gap-1.5 px-4 py-4 transition-colors duration-150 hover:bg-bg-tertiary">
         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-coral-700 dark:text-coral-300">
             {{ listing|seeking_label }}
-            {% if show_status or listing.status == "closed" %}
-                {% include "board/_status.html" %}
-            {% endif %}
+            {% include "board/_status.html" %}
         </span>
         <span class="break-words text-lg font-semibold leading-tight text-foreground-primary">{{ listing.title }}</span>
         <span class="break-words text-sm text-foreground-secondary">{{ listing.what }}</span>

@@ -57,9 +57,11 @@ class _TagTree:
             for tag in tags
             if tag.parent_slug is not None
         }
-        self.children: dict[int | None, list[TagDTO]] = defaultdict(list)
+        self.in_category: dict[str, list[TagDTO]] = defaultdict(list)
+        self.children: dict[tuple[str, int | None], list[TagDTO]] = defaultdict(list)
         for tag in sorted(tags, key=_by_name):
-            self.children[self.parent.get(tag.pk)].append(tag)
+            self.in_category[tag.category_slug].append(tag)
+            self.children[tag.category_slug, self.parent.get(tag.pk)].append(tag)
 
     def with_ancestors(self, pks: list[int]) -> set[int]:
         reach: set[int] = set()
@@ -70,35 +72,69 @@ class _TagTree:
                 current = self.parent.get(current)
         return reach
 
-    def facets(
-        self,
-        *,
-        category_slug: str,
-        counts: Counter[int],
-        selected: set[int],
-        parent: int | None = None,
-    ) -> list[BoardTagFacetDTO]:
-        nodes = []
-        for tag in self.children[parent]:
-            if tag.category_slug != category_slug:
-                continue
-            children = self.facets(
-                category_slug=category_slug,
-                counts=counts,
-                selected=selected,
-                parent=tag.pk,
+
+class _BoardFacets:
+    def __init__(
+        self, *, rows: list[ListingBoardRowDTO], tags: list[TagDTO], tag_ids: list[int]
+    ) -> None:
+        self._rows = rows
+        self._tree = _TagTree(tags)
+        self._picked: dict[str, set[int]] = defaultdict(set)
+        for pk in tag_ids:
+            if pk in self._tree.tags:
+                self._picked[self._tree.tags[pk].category_slug].add(pk)
+        self._reach = {row.pk: self._tree.with_ancestors(row.tag_ids) for row in rows}
+
+    def matching(self, *, ignoring: str | None = None) -> list[ListingBoardRowDTO]:
+        return [
+            row
+            for row in self._rows
+            if all(
+                self._reach[row.pk] & pks
+                for category, pks in self._picked.items()
+                if category != ignoring
             )
-            if counts[tag.pk] or tag.pk in selected or children:
-                nodes.append(
-                    BoardTagFacetDTO(
-                        pk=tag.pk,
-                        name=tag.name,
-                        count=counts[tag.pk],
-                        selected=tag.pk in selected,
-                        children=children,
+        ]
+
+    def category(self, *, slug: str, name: str) -> BoardCategoryFacetDTO | None:
+        # A category counts against the rows the other categories' picks leave,
+        # so its own picks never hide their alternatives.
+        pool = self.matching(ignoring=slug)
+        counts = Counter(pk for row in pool for pk in self._reach[row.pk])
+        selected = self._picked.get(slug, set())
+
+        def nodes(parent: int | None) -> list[BoardTagFacetDTO]:
+            facets = []
+            for tag in self._tree.children[slug, parent]:
+                children = nodes(tag.pk)
+                if counts[tag.pk] or tag.pk in selected or children:
+                    facets.append(
+                        BoardTagFacetDTO(
+                            pk=tag.pk,
+                            name=tag.name,
+                            count=counts[tag.pk],
+                            selected=tag.pk in selected,
+                            expanded=any(
+                                child.selected or child.expanded for child in children
+                            ),
+                            children=children,
+                        )
                     )
-                )
-        return nodes
+            return facets
+
+        roots = nodes(None)
+        if not roots or not self._offers_choice(
+            slug=slug, counts=counts, pool_size=len(pool)
+        ):
+            return None
+        return BoardCategoryFacetDTO(slug=slug, name=name, tags=roots)
+
+    def _offers_choice(
+        self, *, slug: str, counts: Counter[int], pool_size: int
+    ) -> bool:
+        return bool(self._picked.get(slug)) or any(
+            0 < counts[tag.pk] < pool_size for tag in self._tree.in_category[slug]
+        )
 
 
 class ListingService(ListingServiceProtocol):
@@ -183,44 +219,20 @@ class ListingService(ListingServiceProtocol):
             sphere_id=sphere_id, seeking=filters["seeking"], statuses=statuses
         )
         words = _search_key(filters["search"]).split()
-        rows = [row for row in rows if _mentions_all(row, words)]
-        # Open first; the repository already orders each status newest first.
-        rows.sort(key=lambda row: row.status is not ListingStatus.OPEN)
-
-        tree = _TagTree(self._tags.read_all())
-        picked: dict[str, set[int]] = defaultdict(set)
-        for pk in filters["tag_ids"]:
-            if pk in tree.tags:
-                picked[tree.tags[pk].category_slug].add(pk)
-        reach = {row.pk: tree.with_ancestors(row.tag_ids) for row in rows}
-
-        def matching(*, ignoring: str | None = None) -> list[ListingBoardRowDTO]:
-            return [
-                row
-                for row in rows
-                if all(
-                    reach[row.pk] & pks
-                    for category, pks in picked.items()
-                    if category != ignoring
-                )
-            ]
-
-        facets = []
-        for slug, name in sorted(
-            self._tags.category_names().items(), key=_by_category_name
-        ):
-            pool = matching(ignoring=slug)
-            counts = Counter(pk for row in pool for pk in reach[row.pk])
-            selected = picked.get(slug, set())
-            roots = tree.facets(category_slug=slug, counts=counts, selected=selected)
-            splits = any(
-                0 < counts[pk] < len(pool)
-                for pk, tag in tree.tags.items()
-                if tag.category_slug == slug
-            )
-            if roots and (splits or selected):
-                facets.append(BoardCategoryFacetDTO(slug=slug, name=name, tags=roots))
-        return BoardSearchDTO(listing_ids=[row.pk for row in matching()], facets=facets)
+        board = _BoardFacets(
+            rows=[row for row in rows if _mentions_all(row, words)],
+            tags=self._tags.read_all(),
+            tag_ids=filters["tag_ids"],
+        )
+        categories = sorted(self._tags.category_names().items(), key=_by_category_name)
+        return BoardSearchDTO(
+            listing_ids=[row.pk for row in board.matching()],
+            facets=[
+                facet
+                for slug, name in categories
+                if (facet := board.category(slug=slug, name=name)) is not None
+            ],
+        )
 
     def read_many(self, pks: list[int]) -> list[ListingDTO]:
         return self._listings.read_many(pks)
