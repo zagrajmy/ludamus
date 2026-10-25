@@ -190,12 +190,13 @@ class FakeClaims:
 
 
 class FakeSubscriptions:
-    def __init__(self):
+    def __init__(self, *, held=1):
+        self.held = held
         self.dropped_for = []
 
     def unsubscribe_everywhere(self, user_id):
         self.dropped_for.append(user_id)
-        return 1
+        return self.held
 
 
 class FakeSpheres:
@@ -324,9 +325,7 @@ def _service(
 
 
 def _login(service, **kwargs):
-    return service.complete_login(
-        authentication=service.authenticate("code"), **kwargs
-    )
+    return service.complete_login(authentication=service.authenticate("code"), **kwargs)
 
 
 class TestProviderUrls:
@@ -821,9 +820,7 @@ class TestAgeConfirmation:
         users = FakeUsers(users=[_user_dto()])
 
         with pytest.raises(AgeBandRequiredError):
-            _service(users=users).confirm_age(
-                user_slug="me", age_band=AgeBand.UNKNOWN
-            )
+            _service(users=users).confirm_age(user_slug="me", age_band=AgeBand.UNKNOWN)
 
         assert users.read("me").age_band == AgeBand.UNKNOWN
 
@@ -841,18 +838,29 @@ class TestAgeConfirmation:
         users = FakeUsers(users=[_user_dto(pk=7, age_band=previous)])
         subscriptions = FakeSubscriptions()
 
-        _service(users=users, subscriptions=subscriptions).confirm_age(
+        dropped = _service(users=users, subscriptions=subscriptions).confirm_age(
             user_slug="me", age_band=declared
         )
 
+        assert dropped is True
         assert subscriptions.dropped_for == [7]
+
+    def test_nothing_reported_dropped_when_no_subscriptions_were_held(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.UNKNOWN)])
+
+        dropped = _service(
+            users=users, subscriptions=FakeSubscriptions(held=0)
+        ).confirm_age(user_slug="me", age_band=AgeBand.SIXTEEN_PLUS)
+
+        assert dropped is False
 
     def test_a_16_plus_account_reconfirming_keeps_its_subscriptions(self):
         users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
         subscriptions = FakeSubscriptions()
 
-        _service(users=users, subscriptions=subscriptions).confirm_age(
+        dropped = _service(users=users, subscriptions=subscriptions).confirm_age(
             user_slug="me", age_band=AgeBand.SIXTEEN_PLUS
         )
 
+        assert dropped is False
         assert not subscriptions.dropped_for

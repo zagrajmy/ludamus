@@ -200,10 +200,8 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def has_account(self, identity: IdentityDTO) -> bool:
         username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
-        return (
-            self._read_by_username(username) is not None
-            or self._legacy_accounts.exists(identity)
-        )
+        existing = self._read_by_username(username)
+        return existing is not None or self._legacy_accounts.exists(identity)
 
     def complete_login(
         self,
