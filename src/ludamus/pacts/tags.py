@@ -26,6 +26,12 @@ class TagOptionDTO(BaseModel):
     path: str
 
 
+class TagCategoryOptionsDTO(BaseModel):
+    slug: str
+    name: str
+    options: list[TagOptionDTO]
+
+
 class ImportTagRowDict(TypedDict):
     # One CSV row as read; "" for an empty cell. `line` is the file line, for
     # pointing at the row in the report.
@@ -52,7 +58,7 @@ class TagImportReportDTO(BaseModel):
 
 class TagRepositoryProtocol(Protocol):
     @staticmethod
-    def category_slugs() -> set[str]: ...
+    def category_names() -> dict[str, str]: ...
     @staticmethod
     def read_all() -> list[TagDTO]: ...
     @staticmethod
@@ -67,4 +73,4 @@ class TagServiceProtocol(Protocol):
     def import_rows(
         self, rows: list[ImportTagRowDict], *, force: bool
     ) -> TagImportReportDTO: ...
-    def options(self, category_slug: str) -> list[TagOptionDTO]: ...
+    def picker(self) -> list[TagCategoryOptionsDTO]: ...

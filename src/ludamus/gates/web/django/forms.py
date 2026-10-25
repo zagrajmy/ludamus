@@ -634,6 +634,11 @@ class TreeChoice(NamedTuple):
     children: list[TreeChoice]
 
 
+class ToggleRadioSelect(forms.RadioSelect):
+    # Read by the tessera renderer: a short row of options drawn as buttons.
+    toggle = True
+
+
 class CheckboxTreeSelect(forms.CheckboxSelectMultiple):
     # `choice_tree` is read by the tessera renderer, which draws the nesting the
     # flat `choices` cannot express. Both describe the same options, so

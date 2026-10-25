@@ -23,6 +23,7 @@ from ludamus.links.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Listing,
     Party,
     PartyMembership,
     ProposalCategory,
@@ -35,6 +36,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 from tests.template_checks import MissingTemplateVariableFilter
@@ -308,6 +310,21 @@ class EncounterFactory(DjangoModelFactory):
     place = Faker("city")
     max_participants = 6
     share_code = LazyAttribute(lambda __: token_urlsafe(4)[:6])
+
+
+class ListingFactory(DjangoModelFactory):
+    class Meta:
+        model = Listing
+
+    sphere = SubFactory(SphereFactory)
+    author = SubFactory(UserFactory)
+    seeking = ListingSeeking.PLAYERS
+    title = Faker("sentence", nb_words=4)
+    what = Faker("sentence", nb_words=3)
+    when_text = "Fridays"
+    contact = ListingContact.EMAIL
+    status = ListingStatus.OPEN
+    opened_at = LazyAttribute(lambda __: datetime.now(UTC))
 
 
 class EncounterRSVPFactory(DjangoModelFactory):
