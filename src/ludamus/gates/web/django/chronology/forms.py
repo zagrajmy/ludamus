@@ -89,8 +89,9 @@ def create_proposal_acceptance_form(
     start_field = forms.DateTimeField(
         label=_("Starts at"),
         help_text=offered_times_hint(context.availability)
-        or _("When this session starts. It runs for %(minutes)s minutes.")
-        % {"minutes": context.duration_minutes},
+        or _("When this session starts. It runs for %(minutes)s minutes.") % {
+            "minutes": context.duration_minutes
+        },
         widget=forms.DateTimeInput(
             attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
         ),
