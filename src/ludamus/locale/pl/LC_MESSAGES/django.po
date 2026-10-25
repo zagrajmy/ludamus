@@ -737,6 +737,180 @@ msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
 msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
 msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
 
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Looking for players"
+msgstr "Szuka graczy"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Looking for a GM"
+msgstr "Szuka MG"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgctxt "listing seeking"
+msgid "Players"
+msgstr "Graczy"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgctxt "listing seeking"
+msgid "GM"
+msgstr "MG"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Discord"
+msgstr "Discord"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Account email"
+msgstr "E-mail konta"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Looking for"
+msgstr "Szukam"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Title"
+msgstr "Tytuł"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "What we'll do"
+msgstr "Co będziemy robić"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: a Mörk Borg campaign, or painting D&D minis."
+msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Description"
+msgstr "Opis"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Supports Markdown formatting."
+msgstr "Obsługuje formatowanie Markdown."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Date and time"
+msgstr "Data i godzina"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "When, in your words"
+msgstr "Kiedy, własnymi słowami"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: every other Friday evening, or to be agreed."
+msgstr "Na przykład: co drugi piątek wieczorem albo do ustalenia."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Format"
+msgstr "Forma"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: online, or in person."
+msgstr "Na przykład: online albo na żywo."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/notice_board/detail.html
+msgid "Where"
+msgstr "Gdzie"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "For example: our Discord server, a café in Kraków, or my place."
+msgstr ""
+"Na przykład: nasz serwer na Discordzie, kawiarnia w Krakowie albo u mnie."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgctxt "listing"
+msgid "Seats"
+msgstr "Miejsca przy stole"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Only informs; nobody is turned away when they fill up."
+msgstr ""
+"Tylko informacyjnie; nikt nie zostanie odesłany, gdy miejsca przy stole się "
+"skończą."
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/board/detail.html
+msgid "Tags"
+msgstr "Tagi"
+
+#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
+msgid "Contact"
+msgstr "Kontakt"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Shown only to the people in the party you form."
+msgstr "Widoczny tylko dla osób z drużyny, którą utworzysz."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid ""
+"Add your Discord username or an email address to your profile before you "
+"publish."
+msgstr ""
+"Zanim opublikujesz, dodaj do profilu nazwę użytkownika Discorda albo adres e-"
+"mail."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Give a date and time, or describe when."
+msgstr "Podaj datę i godzinę albo opisz, kiedy."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Add your Discord username to your profile, or pick another contact."
+msgstr "Dodaj do profilu nazwę użytkownika Discorda albo wybierz inny kontakt."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Add an email address to your profile, or pick another contact."
+msgstr "Dodaj do profilu adres e-mail albo wybierz inny kontakt."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing published."
+msgstr "Ogłoszenie opublikowane."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Draft saved."
+msgstr "Szkic zapisany."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing updated."
+msgstr "Ogłoszenie zaktualizowane."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "This listing has already changed. Nothing was done."
+msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing closed."
+msgstr "Ogłoszenie zamknięte."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Listing reopened."
+msgstr "Ogłoszenie wznowione."
+
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
@@ -1059,19 +1233,6 @@ msgstr "Akredytacja"
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Organizer"
 msgstr "Przypisany do"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
-#: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Title"
-msgstr "Tytuł"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/event/propose_forms.py
@@ -2397,6 +2558,8 @@ msgid "Manage the seats you booked for others…"
 msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/templates/board/_create_actions.html
+#: src/ludamus/templates/board/_edit_actions.html
 #: src/ludamus/templates/chronology/_map_card.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/maps.html
@@ -2951,19 +3114,6 @@ msgstr "Maks. uczestników"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Empty or 0 = no enrollment"
 msgstr "Puste pole lub 0 = bez zapisów"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Description"
-msgstr "Opis"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -3706,10 +3856,6 @@ msgstr "Połączenie zostało usunięte."
 #: src/ludamus/gates/web/django/multiverse/panel/views/sphere_settings.py
 msgid "Sphere settings saved successfully."
 msgstr "Ustawienia sfery zostały zapisane."
-
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "Supports Markdown formatting."
-msgstr "Obsługuje formatowanie Markdown."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/templates/landing/spotkanie.html
@@ -5212,9 +5358,143 @@ msgstr "Ustawienia ciasteczek"
 msgid "Brand"
 msgstr "Marka"
 
-#: src/ludamus/templates/base.html
-msgid "Contact"
-msgstr "Kontakt"
+#: src/ludamus/templates/board/_back_link.html
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Board"
+msgstr "Ogłoszenia"
+
+#: src/ludamus/templates/board/_create_actions.html
+#, python-format
+msgid ""
+"Drafts stay private. A published listing closes after %(days)s day; you can "
+"reopen it."
+msgid_plural ""
+"Drafts stay private. A published listing closes after %(days)s days; you can "
+"reopen it."
+msgstr[0] ""
+"Szkice widzisz tylko Ty. Opublikowane ogłoszenie zamyka się po %(days)s "
+"dniu; możesz je otworzyć ponownie."
+msgstr[1] ""
+"Szkice widzisz tylko Ty. Opublikowane ogłoszenie zamyka się po %(days)s "
+"dniach; możesz je otworzyć ponownie."
+msgstr[2] ""
+"Szkice widzisz tylko Ty. Opublikowane ogłoszenie zamyka się po %(days)s "
+"dniach; możesz je otworzyć ponownie."
+msgstr[3] ""
+"Szkice widzisz tylko Ty. Opublikowane ogłoszenie zamyka się po %(days)s "
+"dniach; możesz je otworzyć ponownie."
+
+#: src/ludamus/templates/board/_create_actions.html
+msgid "Save draft"
+msgstr "Zapisz szkic"
+
+#: src/ludamus/templates/board/_create_actions.html
+#: src/ludamus/templates/board/detail.html
+msgid "Publish listing"
+msgstr "Opublikuj ogłoszenie"
+
+#: src/ludamus/templates/board/_edit_actions.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Save changes"
+msgstr "Zapisz zmiany"
+
+#: src/ludamus/templates/board/_form.html
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/notice_board/detail.html
+msgid "When"
+msgstr "Kiedy"
+
+#: src/ludamus/templates/board/_form.html
+msgid ""
+"Required, drafts too: give a date and time, describe it in your words, or "
+"both."
+msgstr ""
+"Wymagane, także w szkicu: podaj datę i godzinę, opisz termin własnymi "
+"słowami albo jedno i drugie."
+
+#: src/ludamus/templates/board/_status.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Draft"
+msgstr "Szkic"
+
+#: src/ludamus/templates/board/_status.html
+msgctxt "listing status"
+msgid "Ended"
+msgstr "Zakończone"
+
+#: src/ludamus/templates/board/create.html
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+msgid "Add listing"
+msgstr "Dodaj ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Posted by"
+msgstr "Autor"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Contact for your party"
+msgstr "Kontakt dla twojej drużyny"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Close listing"
+msgstr "Zamknij ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+#, python-format
+msgid ""
+"Open listings close %(days)s day after publishing; you can reopen yours."
+msgid_plural ""
+"Open listings close %(days)s days after publishing; you can reopen yours."
+msgstr[0] ""
+"Otwarte ogłoszenia zamykają się %(days)s dzień po publikacji; swoje możesz "
+"otworzyć ponownie."
+msgstr[1] ""
+"Otwarte ogłoszenia zamykają się %(days)s dni po publikacji; swoje możesz "
+"otworzyć ponownie."
+msgstr[2] ""
+"Otwarte ogłoszenia zamykają się %(days)s dni po publikacji; swoje możesz "
+"otworzyć ponownie."
+msgstr[3] ""
+"Otwarte ogłoszenia zamykają się %(days)s dni po publikacji; swoje możesz "
+"otworzyć ponownie."
+
+#: src/ludamus/templates/board/detail.html
+msgid "Reopen listing"
+msgstr "Wznów ogłoszenie"
+
+#: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/board/edit.html
+msgid "Edit listing"
+msgstr "Edytuj ogłoszenie"
+
+#: src/ludamus/templates/board/index.html
+msgid "GMs, players and groups looking for each other."
+msgstr "MG, gracze i grupy szukają siebie nawzajem."
+
+#: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+msgid "My listings"
+msgstr "Moje ogłoszenia"
+
+#: src/ludamus/templates/board/index.html
+msgid "No listings yet"
+msgstr "Nie ma jeszcze ogłoszeń"
+
+#: src/ludamus/templates/board/index.html
+msgid "Looking for players or a GM? Add the first listing."
+msgstr "Szukasz graczy albo MG? Dodaj pierwsze ogłoszenie."
+
+#: src/ludamus/templates/board/mine.html
+msgid "You have no listings yet"
+msgstr "Nie masz jeszcze ogłoszeń"
+
+#: src/ludamus/templates/board/mine.html
+msgid ""
+"Add one, and people looking for the same thing will find you on the board."
+msgstr "Dodaj ogłoszenie, a osoby szukające tego samego znajdą cię na tablicy."
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -6217,11 +6497,6 @@ msgstr "Arkusz %(sheet)s z %(total)s"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Save changes"
-msgstr "Zapisz zmiany"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -8801,18 +9076,8 @@ msgid "Brass: Birmingham on Thursday"
 msgstr "Brass: Birmingham na czwartek"
 
 #: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/notice_board/detail.html
-msgid "When"
-msgstr "Kiedy"
-
-#: src/ludamus/templates/landing/spotkanie.html
 msgid "Thu, 9 July, 18:30"
 msgstr "czw., 9 lipca, 18:30"
-
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/notice_board/detail.html
-msgid "Where"
-msgstr "Gdzie"
 
 #: src/ludamus/templates/landing/spotkanie.html
 msgid "Kostka café, table 4"
@@ -9139,10 +9404,6 @@ msgstr "Edytuj ogłoszenie"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements for this sphere"
 msgstr "Ogłoszenia organizacji dla tej sfery"
-
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-msgid "Draft"
-msgstr "Szkic"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
@@ -13028,6 +13289,55 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
+
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgid "Group looking for a GM"
+#~ msgstr "Grupa szuka MG"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
+#~ msgid "Online or offline"
+#~ msgstr "Online czy na miejscu"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
+
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
 #~ "companion to sign you up for sessions."
@@ -13684,22 +13994,12 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
-#~ msgid "Session list"
-#~ msgstr "Lista punktów programu"
-
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
-
-#~ msgid "Player"
-#~ msgid_plural "Players"
-#~ msgstr[0] "Gracz"
-#~ msgstr[1] "Graczy"
-#~ msgstr[2] "Graczy"
-#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -14247,10 +14547,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Invalid facilitator selection."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
-
-#, python-format
-#~ msgid "Remove %(name)s from your party?"
-#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
 
 #, python-format
 #~ msgid "Party of %(leader_name)s"

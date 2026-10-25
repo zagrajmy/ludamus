@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Board" %}
+{% endblock title %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <div class="max-w-3xl w-full mx-auto">
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-foreground">{% translate "Board" %}</h1>
+                <p class="mt-1 text-foreground-secondary">{% translate "GMs, players and groups looking for each other." %}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if request.user.is_authenticated %}
+                    {% url 'web:board:mine' as mine_url %}
+                    {% translate "My listings" as t_my_listings %}
+                    {% tessera_button text=t_my_listings href=mine_url variant="secondary" %}
+                {% endif %}
+                {% url 'web:board:create' as create_url %}
+                {% translate "Add listing" as t_add_listing %}
+                {% tessera_button text=t_add_listing href=create_url icon="plus" %}
+            </div>
+        </div>
+        {% if page_obj.object_list %}
+            <ul class="rounded-lg border border-border bg-bg-secondary divide-y divide-border overflow-hidden">
+                {% for listing in page_obj %}
+                    {% include "board/_card.html" with show_status=False %}
+                {% endfor %}
+            </ul>
+            {% include "components/_pagination.html" %}
+        {% else %}
+            <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
+                {% icon "megaphone" class="w-8 h-8 mx-auto text-foreground-muted" %}
+                <p class="mt-3 font-medium text-foreground-primary">{% translate "No listings yet" %}</p>
+                <p class="mt-1 text-sm text-foreground-secondary">
+                    {% translate "Looking for players or a GM? Add the first listing." %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock body %}

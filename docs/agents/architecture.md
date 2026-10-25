@@ -240,6 +240,7 @@ names; they are renamed opportunistically, tracked by the
 | Multiverse       | sphere    | Sphere and concepts depending only on Sphere               |
 | Notice Board     | encounter | Informal gatherings decoupled from events                  |
 | — (RFC 0001)     | party     | The drużyna: the group that enrolls together               |
+| —                | listing   | Looking-for-group board on the root sphere                 |
 
 ---
 
@@ -465,6 +466,31 @@ route below.
 
 ---
 
+### listing
+
+A post on the looking-for-group board (epic #1491): a GM, a player or a group
+says whom they seek, what they will do and when.
+
+#### Pages: Board
+
+The board lives on the root sphere only; every route 404s elsewhere. Anyone
+reads open listings; an author also sees their drafts and closed ones. A
+listing goes draft → open → closed, and a daily sweep closes one left open
+for 30 days. Reopening restarts that clock.
+
+- **URLs:** `/board/` (public), `/board/<pk>/` (public; a draft only to its
+  author), `/board/mine/`, `/board/create/`, `/board/<pk>/edit/`,
+  `/board/<pk>/do/publish|close|reopen` (authenticated), namespace `board`
+- **Views:** `gates/web/django/board/views.py`, all behind `_BoardGate`
+- **Templates:** `templates/board/`
+- **Service:** `ListingService` — `create()`, `update()`, `publish()`,
+  `close()`, `reopen()`, `board()`, `authored()`, `close_stale()`; it stores
+  the picked tags only. `TagService.picker()` feeds the form.
+- **DTOs:** `ListingDTO`, `ListingWriteDict`, `ListingCreateDict`
+- **Repositories:** `ListingRepository`
+
+---
+
 ### user
 
 Legacy name: `crowd`. Authentication, user profiles, and delegate
@@ -535,6 +561,7 @@ owns them.
 | sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| listing   | `Listing`, `TagCategory`, `Tag`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | event     | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation`                |
 
 <!-- markdownlint-enable MD013 -->
@@ -545,5 +572,3 @@ Notes:
   proposal intake writes it, scheduling and enrollment read it, all
   inside the event noun. The remaining debt is the enrollment behaviour
   still living on the `Session` model (see the event section).
-- `Tag` / `TagCategory` are slated for deletion and are intentionally
-  absent from this mapping.

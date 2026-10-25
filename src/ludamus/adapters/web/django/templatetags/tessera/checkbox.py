@@ -9,7 +9,7 @@ from django.utils.html import format_html
 
 from ._choices import grouped_choices
 from ._registry import register
-from .errors import render_errors, render_help_text
+from .errors import help_text_id, render_errors, render_help_text
 from .label import render_label
 
 if TYPE_CHECKING:
@@ -77,8 +77,8 @@ def render_checkbox_tree_field(field: BoundField) -> str:
         },
     )
     return format_html(
-        "{}\n{}\n{}\n{}",
-        render_label(field),
+        "<fieldset>\n{}\n{}\n{}\n{}\n</fieldset>",
+        render_label(field, as_legend=True),
         tree_html,
         render_help_text(field),
         render_errors(field),
@@ -116,8 +116,10 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         "components/choice-group.html",
         {
             "input_type": "radio" if is_radio else "checkbox",
+            "toggle": getattr(field.field.widget, "toggle", False),
             "name": field.html_name,
             "options": options,
+            "aria_describedby": help_text_id(field),
         },
     )
 
@@ -125,8 +127,8 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
     # is left for the user to meet, so the label flags none.
     answered = is_radio and any(is_checked for _, _, is_checked, _ in options)
     return format_html(
-        "{}\n{}\n{}\n{}",
-        render_label(field, required=False if answered else None),
+        "<fieldset>\n{}\n{}\n{}\n{}\n</fieldset>",
+        render_label(field, required=False if answered else None, as_legend=True),
         group_html,
         render_help_text(field),
         render_errors(field),
