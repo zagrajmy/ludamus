@@ -1,18 +1,31 @@
 {# Radio button or checkbox group. #}
 {# Variables: input_type ("radio"|"checkbox"), name, options (list of (value, label, checked, id)) #}
-{# Optional: has_errors (red border + aria-invalid on the group), aria_describedby #}
-<div class="mt-2 space-y-2"
+{# Optional: has_errors (red border + aria-invalid on the group), aria_describedby, #}
+{# toggle (a short row of options drawn as buttons, as checkbox-toggle.html) #}
+<div class="mt-2 {% if toggle|default:False %}flex flex-wrap gap-2{% else %}space-y-2{% endif %}"
      {% if has_errors|default:False %}aria-invalid="true"{% endif %}
      {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
     {% for value, label, checked, input_id in options %}
-        <label class="flex items-center cursor-pointer">
-            <input type="{{ input_type }}"
-                   id="{{ input_id }}"
-                   name="{{ name }}"
-                   value="{{ value }}"
-                   class="w-4 h-4 rounded border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} accent-primary focus:ring-1 focus:ring-offset-0"
-                   {% if checked %}checked{% endif %}>
-            <span class="ml-2 text-sm text-foreground">{{ label }}</span>
-        </label>
+        {% if toggle|default:False %}
+            <label class="relative inline-flex items-center px-3 py-2 rounded-lg bg-bg-tertiary text-sm font-medium text-foreground whitespace-nowrap cursor-pointer select-none transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
+                <input type="{{ input_type }}"
+                       id="{{ input_id }}"
+                       name="{{ name }}"
+                       value="{{ value }}"
+                       class="absolute inset-0 opacity-0 cursor-pointer"
+                       {% if checked %}checked{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+        {% else %}
+            <label class="flex items-center cursor-pointer">
+                <input type="{{ input_type }}"
+                       id="{{ input_id }}"
+                       name="{{ name }}"
+                       value="{{ value }}"
+                       class="w-4 h-4 rounded border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} accent-primary focus:ring-1 focus:ring-offset-0"
+                       {% if checked %}checked{% endif %}>
+                <span class="ml-2 text-sm text-foreground">{{ label }}</span>
+            </label>
+        {% endif %}
     {% endfor %}
 </div>

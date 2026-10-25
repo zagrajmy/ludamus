@@ -30,6 +30,13 @@ from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EventVisibility
+from ludamus.pacts.listing import (
+    LISTING_TEXT_MAX_LENGTH,
+    LISTING_TITLE_MAX_LENGTH,
+    ListingContact,
+    ListingSeeking,
+    ListingStatus,
+)
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
@@ -364,6 +371,64 @@ class Tag(models.Model):
             if ancestor.pk == self.pk:
                 raise ValidationError(_("A tag cannot be its own ancestor."))
             ancestor = ancestor.parent
+
+
+class Listing(models.Model):
+    sphere = models.ForeignKey(
+        "Sphere", on_delete=models.CASCADE, related_name="listings"
+    )
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="listings")
+    seeking = models.CharField(
+        max_length=16, choices=[(s.value, s.name) for s in ListingSeeking]
+    )
+    title = models.CharField(max_length=LISTING_TITLE_MAX_LENGTH)
+    what = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH)
+    description = models.TextField(blank=True, default="")
+    picked_tags = models.ManyToManyField(Tag, related_name="+", blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
+    medium = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    place = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    when_text = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    contact = models.CharField(
+        max_length=16, choices=[(c.value, c.name) for c in ListingContact]
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=[(s.value, s.name) for s in ListingStatus],
+        default=ListingStatus.DRAFT,
+    )
+    opened_at = models.DateTimeField(null=True, blank=True)
+    header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    header_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "listing"
+        indexes: ClassVar = [
+            models.Index(
+                fields=["sphere", "status", "opened_at"], name="listing_board_idx"
+            )
+        ]
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(starts_at__isnull=False) | ~Q(when_text=""),
+                name="listing_has_when",
+            ),
+            models.CheckConstraint(
+                condition=Q(status=ListingStatus.DRAFT) | Q(opened_at__isnull=False),
+                name="listing_published_has_opened_at",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def header_image_url(self) -> str:
+        return self.header_image.url if self.header_image else ""
 
 
 class SessionBookmark(models.Model):

@@ -82,6 +82,13 @@
                                     {% icon "home" class="w-4 h-4 opacity-60" %}
                                     {% translate "Your dashboard" %}
                                 </a>
+                                {% if BOARD_PUBLIC %}
+                                    <a href="{{ root_origin }}{% url 'web:board:index' %}"
+                                       class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                        {% icon "megaphone" class="w-4 h-4 opacity-60" %}
+                                        {% translate "Board" %}
+                                    </a>
+                                {% endif %}
                                 <a href="{% url 'web:crowd:profile' %}"
                                    class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                     {% icon "user-circle" class="w-4 h-4 opacity-60" %}

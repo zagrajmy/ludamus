@@ -20,6 +20,7 @@ from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
+from ludamus.links.db.django.listing import ListingRepository
 from ludamus.links.db.django.notifications import (
     AnnouncementFanoutRepository,
     NotificationReadRepository,
@@ -85,6 +86,10 @@ class Repositories:
     @cached_property
     def tags(self) -> TagRepository:
         return TagRepository()
+
+    @cached_property
+    def listings(self) -> ListingRepository:
+        return ListingRepository()
 
     @cached_property
     def party_session_history(self) -> repositories.PartySessionHistoryRepository:

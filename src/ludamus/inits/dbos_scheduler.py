@@ -44,6 +44,7 @@ from ludamus.inits.builders import (
     build_email_verification,
     build_encounters,
     build_konwencik_export,
+    build_listings,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -77,6 +78,8 @@ KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
 SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
 # Rows only wait out the one-day invite window, so daily is enough.
 ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
+# Listings stay open for days, so a day late to close one costs nothing.
+LISTING_CLOSE_SCHEDULE = "50 3 * * *"
 
 
 def _releases_db_connection[**P](step: Callable[P, None]) -> Callable[P, None]:
@@ -208,6 +211,18 @@ def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None
     _purge_encounter_invitees_step(scheduled)
 
 
+@DBOS.step()
+@_releases_db_connection
+def _close_stale_listings_step(now: datetime) -> None:
+    closed = build_listings().close_stale(now)
+    logger.info("listing close sweep: closed %s listing(s)", closed)
+
+
+@DBOS.workflow()
+def listing_close_tick(scheduled: datetime, _actual: datetime) -> None:
+    _close_stale_listings_step(scheduled)
+
+
 CRON_WORKFLOWS = (
     (expire_offers_sweep, EXPIRE_OFFERS_SCHEDULE),
     (printables_reminders_tick, PRINTABLES_REMINDERS_SCHEDULE),
@@ -216,6 +231,7 @@ CRON_WORKFLOWS = (
     (sphere_announcements_tick, SPHERE_ANNOUNCEMENTS_SCHEDULE),
     (konwencik_export_tick, KONWENCIK_EXPORT_SCHEDULE),
     (encounter_invitee_purge_tick, ENCOUNTER_INVITEE_PURGE_SCHEDULE),
+    (listing_close_tick, LISTING_CLOSE_SCHEDULE),
 )
 
 
