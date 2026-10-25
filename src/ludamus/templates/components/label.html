@@ -1,10 +1,21 @@
 {% load i18n %}
-{# Label for form fields. #}
-{# Variables: for_id, text, required (bool) #}
-<label {% if for_id %}for="{{ for_id }}"{% endif %}
-       class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
-    {{ text }}
-    {% if required|default:False %}
-        <span class="text-danger" aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
-    {% endif %}
-</label>
+{# Label for form fields, or the legend naming a fieldset of choices. #}
+{# Variables: for_id, text, required (bool), as_legend (bool) #}
+{% if as_legend|default:False %}
+    <legend class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+        {{ text }}
+        {% if required|default:False %}
+            <span class="text-danger"
+                  aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+        {% endif %}
+    </legend>
+{% else %}
+    <label {% if for_id %}for="{{ for_id }}"{% endif %}
+           class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+        {{ text }}
+        {% if required|default:False %}
+            <span class="text-danger"
+                  aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+        {% endif %}
+    </label>
+{% endif %}

@@ -294,3 +294,25 @@ class TestRadioRequiredMarker:
         assert "(required)" not in html
         assert 'value="s"' in html
         assert "checked" in html
+
+
+class TestFieldAccessibility:
+    """Help text is announced with its control; a choice group is named."""
+
+    def test_input_is_described_by_its_help_text(self) -> None:
+        html = tessera_field(SimpleForm()["email"])
+
+        assert 'id="id_email_help"' in html
+        assert 'aria-describedby="id_email_help"' in html
+
+    def test_a_rejected_field_drops_the_hidden_help_reference(self) -> None:
+        html = tessera_field(SimpleForm({"email": "nope"})["email"])
+
+        assert "id_email_help" not in html
+
+    def test_radio_group_is_a_fieldset_named_by_its_legend(self) -> None:
+        html = tessera_field(PickOneForm()["size"])
+
+        assert "<fieldset" in html
+        assert "<legend" in html
+        assert "<label for=" not in html.split("<legend", 1)[0]
