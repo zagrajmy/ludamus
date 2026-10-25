@@ -4,6 +4,7 @@
         aria-labelledby="session-{{ data.session.pk }}-title"
         data-csrf="{{ csrf_token }}"
         data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
+        data-login-url="{% url 'web:crowd:auth:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
@@ -78,7 +79,8 @@
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
                         {% if data.session.facilitator_name %}
                             <div class="font-medium text-foreground"
-                                 data-morph="host">{{ data.presenter.full_name }}</div>
+                                 data-morph="host"
+                                 data-ph-mask>{{ data.presenter.full_name }}</div>
                         {% endif %}
                         {% if data.location_crumbs %}
                             {# The room sits beside a name that is still flying in from #}

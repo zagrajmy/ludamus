@@ -12,7 +12,7 @@ from workos import BadRequestError
 
 from ludamus.links.db.django.models import User
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, confirm_signup_age
 from tests.integration.web.crowd.workos_responses import (
     AUTHENTICATE,
     SESSION_ID,
@@ -59,7 +59,8 @@ class TestLoginCallbackActionView:
         authenticate.return_value = authenticate_response(workos_id)
         state_token = _valid_state()
 
-        response = client.get(self.URL, {"state": state_token, "code": "abc"})
+        client.get(self.URL, {"state": state_token, "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -80,7 +81,8 @@ class TestLoginCallbackActionView:
         session.save()
         authenticate.return_value = authenticate_response(workos_id)
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -93,12 +95,16 @@ class TestLoginCallbackActionView:
         authenticate.return_value = authenticate_response(workos_id)
         state_token = _valid_state("https://www.testserver/a/b/c")
 
-        response = client.get(self.URL, {"state": state_token, "code": "abc"})
+        client.get(self.URL, {"state": state_token, "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            url="https://www.testserver/crowd/profile/?next=%2F",
+            HTTPStatus.OK,
+            template_name="crowd/signup_continue.html",
+            context_data={
+                "redirect_to": "https://www.testserver/crowd/profile/?next=%2F"
+            },
             messages=COMPLETE_PROFILE,
         )
 
@@ -139,7 +145,8 @@ class TestLoginCallbackActionView:
         authenticate.return_value = authenticate_response(workos_id)
         state_token = _valid_state("https://evil.example.com/a/b/c")
 
-        response = client.get(self.URL, {"state": state_token, "code": "abc"})
+        client.get(self.URL, {"state": state_token, "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -161,7 +168,8 @@ class TestLoginCallbackActionView:
         workos_id = "user_" + "X" * 60
         authenticate.return_value = authenticate_response(workos_id)
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -175,7 +183,8 @@ class TestLoginCallbackActionView:
         complete_user_factory(username="someone-else", slug=workos_id.lower())
         authenticate.return_value = authenticate_response(workos_id)
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -315,7 +324,8 @@ class TestLoginCallbackActionView:
             workos_id, profile_picture_url=picture
         )
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -352,7 +362,8 @@ class TestLoginCallbackActionView:
             workos_id, profile_picture_url=picture
         )
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -391,7 +402,8 @@ class TestLoginCallbackActionView:
             workos_id, email="taken@example.com"
         )
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,
@@ -467,7 +479,8 @@ class TestLoginCallbackActionView:
             workos_id, email="new@example.com", email_verified=False
         )
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
@@ -528,7 +541,8 @@ class TestLegacyAuth0Accounts:
             workos_id, email="me@example.com", email_verified=verified
         )
 
-        response = client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+        response = confirm_signup_age(client)
 
         assert_response(
             response,

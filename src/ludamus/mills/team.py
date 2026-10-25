@@ -54,7 +54,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
     def invite(
         self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
     ) -> IssuedInvitationDTO:
-        token = secrets.token_urlsafe(32)
+        token = secrets.token_urlsafe()
         with self._transaction.atomic():
             invitation = self._team.create_invitation(
                 {
@@ -71,7 +71,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
     def reissue(
         self, *, sphere_id: int, pk: int, reissued_by_id: int
     ) -> IssuedInvitationDTO | None:
-        token = secrets.token_urlsafe(32)
+        token = secrets.token_urlsafe()
         now = datetime.now(tz=UTC)
         with self._transaction.atomic():
             invitation = self._team.rotate_open_invitation(

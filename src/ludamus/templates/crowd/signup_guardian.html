@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Join with a parent or guardian" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold text-foreground">{% translate "Join with a parent or guardian" %}</h1>
+        <p class="text-sm text-foreground-secondary mt-3">
+            {% blocktranslate trimmed %}
+                You need to be {{ min_age }} or older to have your own account. A parent or guardian can add you as a companion and sign you up for sessions.
+            {% endblocktranslate %}
+        </p>
+        <div class="mt-6">
+            {% translate "Continue with a parent or guardian" as guardian_label %}
+            {% tessera_button guardian_label href=guardian_login_url extra_class="w-full" %}
+        </div>
+        <p class="text-sm text-foreground-muted mt-4 [&_a]:text-primary [&_a]:hover:underline">
+            {% blocktranslate trimmed with support_email=SUPPORT_EMAIL %}
+                Already have bookings? <a href="mailto:{{ support_email }}">Contact us</a> for help with guardian-managed participation.
+            {% endblocktranslate %}
+        </p>
+    </div>
+{% endblock body %}

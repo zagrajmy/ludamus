@@ -226,6 +226,7 @@ class Services:
                 api_key=api_key, client_id=client_id, base_url=base_url or None
             ),
             legacy_accounts=LegacyAccountLinker(users=self._repos.active_users),
+            subscriptions=self._repos.sphere_subscriptions,
         )
 
     @cached_property

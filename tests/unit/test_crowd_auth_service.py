@@ -9,6 +9,8 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     EMAIL_LINK_MAX_AGE,
     MAX_AVATAR_URL_LENGTH,
+    AgeBand,
+    AgeBandRequiredError,
     AuthenticationDTO,
     ClaimableProfileDTO,
     ClaimOutcome,
@@ -86,6 +88,7 @@ class FakeUsers:
                 email=user_data.get("email", ""),
                 email_verified=user_data.get("email_verified", False),
                 name=user_data.get("name", ""),
+                age_band=user_data.get("age_band", AgeBand.UNKNOWN),
             )
         )
 
@@ -110,6 +113,11 @@ class FakeUsers:
             user.model_copy(update=dict(user_data)) if user.slug == user_slug else user
             for user in self._users
         ]
+
+    def set_age_band(self, user_slug, age_band):
+        previous = self.read(user_slug).age_band
+        self.update(user_slug, {"age_band": age_band})
+        return previous
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
         if not email:
@@ -179,6 +187,15 @@ class FakeClaims:
     def redeem(self, *, token, username):
         self.redeemed.append((token, username))
         return self._result
+
+
+class FakeSubscriptions:
+    def __init__(self):
+        self.dropped_for = []
+
+    def unsubscribe_everywhere(self, user_id):
+        self.dropped_for.append(user_id)
+        return 1
 
 
 class FakeSpheres:
@@ -286,7 +303,15 @@ class FakeIdentity:
         return f"https://idp.example/logout?{session_id}&{return_to}"
 
 
-def _service(*, users, claims=None, spheres=None, transaction=None, identity=None):
+def _service(
+    *,
+    users,
+    claims=None,
+    spheres=None,
+    transaction=None,
+    identity=None,
+    subscriptions=None,
+):
     return CrowdAuthService(
         transaction=transaction or FakeTransaction(),
         users=users,
@@ -294,11 +319,14 @@ def _service(*, users, claims=None, spheres=None, transaction=None, identity=Non
         claims=claims or FakeClaims(),
         identity=identity or FakeIdentity(),
         legacy_accounts=LegacyAccountLinker(users=users),
+        subscriptions=subscriptions or FakeSubscriptions(),
     )
 
 
 def _login(service, **kwargs):
-    return service.complete_login(code="code", **kwargs)
+    return service.complete_login(
+        authentication=service.authenticate("code"), **kwargs
+    )
 
 
 class TestProviderUrls:
@@ -345,6 +373,7 @@ class TestCompleteLogin:
         assert transaction.savepoints == 1
         assert users.created == [
             {
+                "age_band": AgeBand.UNKNOWN,
                 "slug": "user_01me",
                 "username": USERNAME,
                 "email": "new@example.com",
@@ -720,3 +749,110 @@ class TestIsKnownSphereDomain:
 
         assert service.is_known_sphere_domain("a.example.com") is True
         assert service.is_known_sphere_domain("b.example.com") is False
+
+
+class TestHasAccount:
+    def test_known_identity_has_an_account(self):
+        service = _service(users=FakeUsers(users=[_user_dto()]))
+
+        assert service.has_account(_identity()) is True
+
+    def test_legacy_account_counts(self):
+        legacy = _user_dto(slug="old", username="auth0|abc")
+        service = _service(users=FakeUsers(users=[legacy]))
+
+        assert service.has_account(_identity(legacy_id="abc")) is True
+
+    def test_unknown_identity_has_none(self):
+        assert _service(users=FakeUsers()).has_account(_identity()) is False
+
+
+class TestDeclaredAgeRange:
+    def test_new_account_is_created_with_the_declared_age_range(self):
+        users = FakeUsers()
+
+        result = _login(_service(users=users), age_band=AgeBand.SIXTEEN_PLUS)
+
+        assert result.user.age_band == AgeBand.SIXTEEN_PLUS
+
+    def test_converted_claim_takes_the_declared_age_range(self):
+        users = FakeUsers(users=[_user_dto(slug="kid", username="connected|kid")])
+        claims = FakeClaims(
+            ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug="kid")
+        )
+
+        result = _login(
+            _service(users=users, claims=claims),
+            claim_token="valid",
+            age_band=AgeBand.THIRTEEN_TO_FIFTEEN,
+        )
+
+        assert result.user.age_band == AgeBand.THIRTEEN_TO_FIFTEEN
+
+    def test_existing_account_keeps_its_age_range(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+
+        result = _login(_service(users=users), age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
+
+        assert result.user.age_band == AgeBand.SIXTEEN_PLUS
+
+
+class TestAgeConfirmation:
+    def test_underage_account_cannot_keep_independent_access(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+
+        _service(users=users).disable_underage_account("me")
+
+        user = users.read("me")
+        assert user.is_active is False
+        assert user.age_band == AgeBand.UNKNOWN
+
+    @pytest.mark.parametrize(
+        "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)
+    )
+    def test_confirmed_range_is_persisted(self, age_band):
+        users = FakeUsers(users=[_user_dto()])
+
+        _service(users=users).confirm_age(user_slug="me", age_band=age_band)
+
+        assert users.read("me").age_band == age_band
+
+    def test_unknown_is_not_an_age_confirmation(self):
+        users = FakeUsers(users=[_user_dto()])
+
+        with pytest.raises(AgeBandRequiredError):
+            _service(users=users).confirm_age(
+                user_slug="me", age_band=AgeBand.UNKNOWN
+            )
+
+        assert users.read("me").age_band == AgeBand.UNKNOWN
+
+    @pytest.mark.parametrize(
+        ("previous", "declared"),
+        (
+            (AgeBand.UNKNOWN, AgeBand.SIXTEEN_PLUS),
+            (AgeBand.SIXTEEN_PLUS, AgeBand.THIRTEEN_TO_FIFTEEN),
+            (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.THIRTEEN_TO_FIFTEEN),
+        ),
+    )
+    def test_subscriptions_need_fresh_consent_unless_already_16_plus(
+        self, previous, declared
+    ):
+        users = FakeUsers(users=[_user_dto(pk=7, age_band=previous)])
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).confirm_age(
+            user_slug="me", age_band=declared
+        )
+
+        assert subscriptions.dropped_for == [7]
+
+    def test_a_16_plus_account_reconfirming_keeps_its_subscriptions(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).confirm_age(
+            user_slug="me", age_band=AgeBand.SIXTEEN_PLUS
+        )
+
+        assert not subscriptions.dropped_for
