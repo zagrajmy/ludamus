@@ -56,6 +56,40 @@ class ListingDTO(BaseModel):
     header_image_original_name: str
 
 
+class ListingBoardRowDTO(BaseModel):
+    pk: int
+    status: ListingStatus
+    title: str
+    what: str
+    tag_ids: list[int]
+
+
+class BoardFiltersDict(TypedDict):
+    seeking: ListingSeeking | None
+    search: str
+    tag_ids: list[int]
+    show_closed: bool
+
+
+class BoardTagFacetDTO(BaseModel):
+    pk: int
+    name: str
+    count: int
+    selected: bool
+    children: list[BoardTagFacetDTO]
+
+
+class BoardCategoryFacetDTO(BaseModel):
+    slug: str
+    name: str
+    tags: list[BoardTagFacetDTO]
+
+
+class BoardSearchDTO(BaseModel):
+    listing_ids: list[int]
+    facets: list[BoardCategoryFacetDTO]
+
+
 class ListingWriteDict(TypedDict):
     seeking: ListingSeeking
     title: str
@@ -101,9 +135,11 @@ class ListingRepositoryProtocol(Protocol):
     @staticmethod
     def lock_authored(*, pk: int, sphere_id: int, author_id: int) -> ListingDTO: ...
     @staticmethod
-    def count_open(sphere_id: int) -> int: ...
+    def board_rows(
+        *, sphere_id: int, seeking: ListingSeeking | None, statuses: list[ListingStatus]
+    ) -> list[ListingBoardRowDTO]: ...
     @staticmethod
-    def list_open(*, sphere_id: int, limit: int, offset: int) -> list[ListingDTO]: ...
+    def read_many(pks: list[int]) -> list[ListingDTO]: ...
     @staticmethod
     def list_authored(*, sphere_id: int, author_id: int) -> list[ListingDTO]: ...
     @staticmethod
@@ -137,8 +173,10 @@ class ListingServiceProtocol(Protocol):
     def read_authored(
         self, *, pk: int, sphere_id: int, author_id: int
     ) -> ListingDTO: ...
-    def count_open(self, sphere_id: int) -> int: ...
-    def board(self, *, sphere_id: int, limit: int, offset: int) -> list[ListingDTO]: ...
+    def search_board(
+        self, *, sphere_id: int, filters: BoardFiltersDict
+    ) -> BoardSearchDTO: ...
+    def read_many(self, pks: list[int]) -> list[ListingDTO]: ...
     def contact_channels(self, user_id: int) -> list[ListingContact]: ...
     def authored(self, *, sphere_id: int, author_id: int) -> list[ListingDTO]: ...
     def publish(

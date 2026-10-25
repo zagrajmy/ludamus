@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -103,7 +104,12 @@ class FakeUsers:
 
 
 def _service(listings, **profile):
-    return ListingService(FakeTransaction(), listings, FakeUsers(**profile))
+    return ListingService(
+        transaction=FakeTransaction(),
+        listings=listings,
+        users=FakeUsers(**profile),
+        tags=MagicMock(),
+    )
 
 
 def _ids(listing):

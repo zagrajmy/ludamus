@@ -1,0 +1,23 @@
+{% load tessera board_tags %}
+{# One tag among the board filters, recursing through the tags under it. #}
+{# Ticking a tag finds its descendants too, so the count rolls them up. Variable: tag. #}
+<li>
+    {% if tag.children %}
+        <details class="group" {% if tag|has_selected %}open{% endif %}>
+            <summary class="flex cursor-pointer list-none items-center rounded-md hover:bg-bg-tertiary [&::-webkit-details-marker]:hidden">
+                {% icon "chevron-right" class="size-4 shrink-0 text-foreground-muted transition-transform group-open:rotate-90" %}
+                {% include "board/_tag_facet_label.html" %}
+            </summary>
+            <ul class="ml-2 flex flex-col gap-0.5 border-l border-border pl-2">
+                {% for child in tag.children %}
+                    {% include "board/_tag_facet.html" with tag=child %}
+                {% endfor %}
+            </ul>
+        </details>
+    {% else %}
+        <div class="flex items-center rounded-md hover:bg-bg-tertiary">
+            <span class="size-4 shrink-0"></span>
+            {% include "board/_tag_facet_label.html" %}
+        </div>
+    {% endif %}
+</li>
