@@ -13,6 +13,12 @@ test("a new person signs up through AuthKit and signs out again", async ({ page 
   await page.getByLabel("Name").fill("Nowa Osoba");
   await page.getByRole("button", { name: "Sign in" }).click();
 
+  // A first sign-in has no account yet, so it stops at the age gate.
+  await expect(page).toHaveURL(/\/crowd\/auth\/signup\/age$/);
+  await expect(page.getByRole("heading", { name: "Confirm your age range" })).toBeVisible();
+  await page.getByRole("radio", { name: "16 or older", exact: true }).check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
   // The name came through AuthKit, so no onboarding detour: straight home.
   await expect(page).toHaveURL(/localhost:8000\/$/);
   await expect(page.getByRole("heading", { name: "Your dashboard" })).toBeVisible();
