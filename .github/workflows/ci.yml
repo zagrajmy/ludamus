@@ -111,7 +111,7 @@ jobs:
       # show — an e2e-only mills branch reads the same there.
       - run: mise run test:unit:cov
       - run: mise run test:py:cov
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: .coverage.unit
@@ -213,7 +213,7 @@ jobs:
       # `test:e2e` pins COVERAGE_FILE back to `.coverage.e2e` regardless.
       - name: Name this shard's coverage
         run: mv .coverage.e2e .coverage.e2e.${{ matrix.shard }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-e2e-${{ matrix.shard }}
           path: .coverage.e2e.${{ matrix.shard }}
@@ -230,7 +230,7 @@ jobs:
           flags: client
           disable_search: true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && !cancelled()
         with:
           name: playwright-report-${{ matrix.shard }}
@@ -305,7 +305,7 @@ jobs:
       - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
       - run: mise run test:bombadil
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: bombadil-output
