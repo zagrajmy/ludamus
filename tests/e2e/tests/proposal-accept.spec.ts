@@ -1,3 +1,4 @@
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // accept-lab is seeded with one bookable room, so the space is foregone and the
@@ -10,16 +11,14 @@ const EVENT = "accept-lab";
 const ROOM = "The Only Room";
 
 async function reviewProposal(page: import("@playwright/test").Page, title: string) {
-  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
   await page.goto(`/event/${EVENT}/`);
   await page.getByRole("link", { name: `Review proposal ${title}` }).click();
   return page.getByRole("heading", { name: "Schedule it" }).locator("..");
 }
 
 test.describe("Accepting a proposal", () => {
+  test.use({ storageState: managerState });
+
   test("a foregone space is named, and the time is asked for", async ({ page }) => {
     const decision = await reviewProposal(page, "Solo Showcase");
 
