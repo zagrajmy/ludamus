@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
 
@@ -90,13 +91,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
   }) => {
     await installCspViolationCollector(page);
 
-    // Live login (as panel.spec.ts does): panel access is per-event manager
-    // status, not just Django staff/superuser, and no storageState fixture
-    // is seeded for the manager role.
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
 
     await page.goto("/panel/", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
@@ -146,10 +141,7 @@ test.describe("CSP enforcement doesn't break converted inline handlers", () => {
   test.beforeEach(async ({ page }) => {
     await installCspViolationCollector(page);
     await stubPrint(page);
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("proposals track filter submits its form", async ({ page }) => {

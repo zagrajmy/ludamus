@@ -1,10 +1,8 @@
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 test("manager generates an event-scoped organizer MCP token", async ({ page }) => {
-  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
+  await signInAsManager(page);
 
   await page.goto("/panel/event/frostfire-con/settings/mcp/");
 

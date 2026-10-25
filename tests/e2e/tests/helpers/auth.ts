@@ -1,9 +1,12 @@
 import { type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
+const managerState = path.join(__dirname, "..", "..", ".auth-state-manager.json");
+
+// The seed (scripts/bootstrap_data.py) writes the manager's session cookie;
+// loading it skips a page load and form round-trip through /admin/login/.
 export const signInAsManager = async (page: Page): Promise<void> => {
-  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/admin/login"));
+  const { cookies } = JSON.parse(fs.readFileSync(managerState, "utf8"));
+  await page.context().addCookies(cookies);
 };

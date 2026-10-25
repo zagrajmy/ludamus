@@ -1,4 +1,5 @@
 import { analyzePageAccessibility } from "./helpers/a11y";
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The export is its own panel section, reached from the sidebar like the
@@ -11,10 +12,7 @@ const INTEGRATION = "Konwencik agenda";
 
 test.describe("Konwencik export", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("a manager reaches the export from the sidebar", async ({ page }) => {
@@ -118,14 +116,15 @@ test.describe("Konwencik export", () => {
     await expect(hex).toHaveValue("#12");
   });
 
-  test("hex fields remain editable without JavaScript", async ({ page, browser }) => {
+  test("hex fields remain editable without JavaScript", async ({ page, browser, baseURL }) => {
     const context = await browser.newContext({
+      baseURL,
       javaScriptEnabled: false,
       locale: "en-US",
       storageState: await page.context().storageState(),
     });
     const plainPage = await context.newPage();
-    await plainPage.goto(new URL("/panel/event/konwencik-preview/export/", page.url()).href);
+    await plainPage.goto("/panel/event/konwencik-preview/export/");
     const hex = plainPage
       .getByRole("group", { name: "Adventure", exact: true })
       .getByLabel("Background", { exact: true });

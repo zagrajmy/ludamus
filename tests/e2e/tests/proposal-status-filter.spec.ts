@@ -1,3 +1,4 @@
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // A bare proposals URL means "pending backlog", so "All statuses" only holds
@@ -8,10 +9,7 @@ const PROPOSALS_URL = "/panel/event/sunhaven-festival/proposals/";
 
 test.describe("Proposal status filter", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("opens on the pending backlog", async ({ page }) => {

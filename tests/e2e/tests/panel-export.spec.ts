@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // Each organizer list's way out of the browser: the Export tab on proposals and
@@ -8,13 +9,6 @@ import { expect, test } from "./helpers/fixtures";
 // facilitators, so the discounts list has rows and a toolbar to click.
 const EVENT = "frostfire-con";
 const PANEL_URL = `/panel/event/${EVENT}`;
-
-const signInAsManager = async (page: Page): Promise<void> => {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-};
 
 const expectOdsDownload = async (
   page: Page,

@@ -1,5 +1,6 @@
 import { type Locator, type Page } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
@@ -17,13 +18,6 @@ const SEEDED_CONFIRMATIONS: [string, boolean][] = [
   ["Wizards of the Pier", false],
   ["Club Night", false],
 ];
-
-async function login(page: Page) {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-}
 
 // The dashboard's track row is the way in: clicking it is what an organizer
 // does after reading which block is behind.
@@ -63,7 +57,7 @@ function row(facilitatorCard: Locator, title: string) {
 
 test.describe("Confirmations", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await signInAsManager(page);
   });
 
   // Every mutation these specs make is Ada's, and each undo is a no-op when the

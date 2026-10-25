@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const auroraName = "Aurora Convention Hall";
@@ -34,10 +35,7 @@ function savedOrder(page: Page) {
 
 test.describe("Venue tree handles", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
     await page.goto("/panel/event/frostfire-con/venues/");
   });
 

@@ -1,3 +1,4 @@
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The delete + restore actions mutate the shared seeded "Pending Neon
@@ -10,12 +11,7 @@ const PROPOSALS_URL = "/panel/event/autumn-open/proposals/";
 
 test.describe("Proposal delete and restore", () => {
   test.beforeEach(async ({ page }) => {
-    // Authenticate as the sphere manager via Django admin, mirroring the
-    // panel + timetable specs.
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("soft-deletes a pending session from its detail page", async ({ page }) => {

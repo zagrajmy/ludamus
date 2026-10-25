@@ -1,17 +1,9 @@
-import { type Page } from "@playwright/test";
-
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
-
-async function logIn(page: Page) {
-  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-}
 
 test.describe("Programme room order", () => {
   test.beforeEach(async ({ page }) => {
-    await logIn(page);
+    await signInAsManager(page);
     await page.goto("/panel/event/autumn-open/venues/?view=programme");
   });
 
@@ -64,7 +56,7 @@ test.describe("Programme room order", () => {
 });
 
 test("renders the longest path at phone and desktop modal widths", async ({ page }) => {
-  await logIn(page);
+  await signInAsManager(page);
   await page.goto("/panel/event/autumn-open/venues/");
 
   const phone = page.getByRole("figure").filter({ hasText: "Phone modal · 390 px viewport" });

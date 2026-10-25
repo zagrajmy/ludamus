@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The guild column on the panel's facilitator list, and the way into a guild it
@@ -20,13 +21,6 @@ const LINKED = "Dana Reyes";
 const UNLINKED = "Bob Chen";
 const FACILITATORS_URL = "/panel/event/frostfire-con/facilitators/";
 const UNLINKED_EDIT_URL = "/panel/event/frostfire-con/facilitators/bob-chen/edit/";
-
-const signInAsManager = async (page: Page): Promise<void> => {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-};
 
 const guildRow = (page: Page) => page.getByRole("row").filter({ hasText: GUILD });
 

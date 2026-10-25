@@ -1,3 +1,4 @@
+import { signInAsManager } from "./helpers/auth";
 import { labeledDropzone } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
@@ -22,13 +23,6 @@ const GIF_BYTES = Buffer.from(
   "hex",
 );
 
-const logInAsManager = async (page: import("@playwright/test").Page) => {
-  await page.goto("/admin/login/");
-  await page.getByLabel("Username:").fill("e2e-manager");
-  await page.getByLabel("Password:").fill("e2e-manager-123");
-  await page.getByRole("button", { name: /Log in/i }).click();
-};
-
 test.describe.configure({ mode: "serial" });
 
 test.describe("Event maps", () => {
@@ -49,7 +43,7 @@ test.describe("Event maps", () => {
   });
 
   test("an organizer adds a map, attaches a venue, and the hero links to it", async ({ page }) => {
-    await logInAsManager(page);
+    await signInAsManager(page);
     await page.goto(MAPS_URL);
 
     // The "Add map" link opens an addressable dialog.
@@ -144,7 +138,7 @@ test.describe("Event maps", () => {
   // The maps control has two homes. Beside the CTAs it is an icon, small enough
   // not to read as a third call to action; on a cover it has room for its name.
   test("a cover takes the maps control into its top-right corner", async ({ page }) => {
-    await logInAsManager(page);
+    await signInAsManager(page);
     await page.goto(SETTINGS_URL);
     await page.getByLabel("Cover image", { exact: true }).setInputFiles({
       name: "cover.png",
@@ -176,7 +170,7 @@ test.describe("Event maps", () => {
   });
 
   test("an organizer renames and then deletes the map", async ({ page }) => {
-    await logInAsManager(page);
+    await signInAsManager(page);
     await page.goto(MAPS_URL);
 
     await page.getByRole("link", { name: "Edit Ground floor" }).click();

@@ -2,6 +2,7 @@ import { type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+import { signInAsManager } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { EMPTY_SPHERE } from "./helpers/urls";
 
@@ -94,14 +95,7 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("Backoffice Panel", () => {
   test.beforeEach(async ({ page }) => {
-    // Log in via Django admin as the manager user.
-    // Use domcontentloaded — the login form is interactable at DCL and
-    // Firefox occasionally never fires `load` for this page, hanging the
-    // default goto until the test timeout (CI run 25398374365).
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+    await signInAsManager(page);
   });
 
   test("opens panel dashboard with sidebar and stats", async ({ page }) => {
