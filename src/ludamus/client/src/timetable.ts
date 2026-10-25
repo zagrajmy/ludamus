@@ -264,10 +264,10 @@ function exitAssignMode(): void {
 function placementFromAssignButton(btn: HTMLElement): Placement {
   return {
     availability: parseAvailability(btn.dataset.assignAvailability),
-    participantsLimit: Number(btn.dataset.assignParticipantsLimit) || 0,
     backUrl: btn.dataset.assignBackUrl ?? null,
     confirmed: btn.dataset.assignConfirmed === "true",
     duration: Number(btn.dataset.assignDuration) || 60,
+    participantsLimit: Number(btn.dataset.assignParticipantsLimit) || 0,
     sessionPk: btn.dataset.assignSessionPk!,
   };
 }

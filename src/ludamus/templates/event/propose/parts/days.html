@@ -5,7 +5,7 @@
     {% if day_descriptors|default:"" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "When could you host?" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">{% translate "Tick every time that would work. We settle the exact hours later." %}</p>
-        {% if error|default:"" %}<div class="alert backdrop-blur-lg alert-danger mb-4">{{ error }}</div>{% endif %}
+        {% if error|default:"" %}<p class="text-sm text-danger mb-4" role="alert">{{ error }}</p>{% endif %}
         <form method="post"
               hx-post="{% url 'web:event:session-propose-days' event_slug=event.slug %}"
               hx-target="#wizard-content"
