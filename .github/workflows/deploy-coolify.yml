@@ -122,7 +122,7 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -144,6 +144,12 @@ jobs:
           build-args: |
             ENV=production
             DJANGO_SETTINGS_MODULE=ludamus.edges.settings
+            POSTHOG_CLI_ENV_ID=${{ vars.POSTHOG_CLI_ENV_ID }}
+            POSTHOG_SOURCEMAPS_ARMED=${{ secrets.POSTHOG_CLI_TOKEN != '' }}
+          # NOTE: the action rejects a secret with an empty value, so the
+          # token is passed only when the Environment has one. Without it,
+          # the Dockerfile skips the source-map upload.
+          secrets: ${{ secrets.POSTHOG_CLI_TOKEN && format('posthog_cli_token={0}', secrets.POSTHOG_CLI_TOKEN) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

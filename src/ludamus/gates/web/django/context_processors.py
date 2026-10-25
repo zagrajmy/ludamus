@@ -7,6 +7,7 @@ from django.conf import settings
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.analytics import identity, redaction
+from ludamus.pacts.crowd import AgeBand
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -75,23 +76,24 @@ class AnalyticsContextData(TypedDict):
 
 
 def analytics(request: HttpRequest) -> AnalyticsContextData:
-    if not settings.POSTHOG_API_KEY:
+    user = getattr(request, "user", None)
+    if (
+        not settings.POSTHOG_API_KEY
+        or user is None
+        or not user.is_authenticated
+        or not AgeBand(user.age_band).allows_optional_features
+    ):
         return AnalyticsContextData(posthog_config=None)
     # Identify by pk, not slug: a slug follows a rename and would split one
     # person across two distinct_ids. request.user rather than the profile
     # service — the auth middleware already resolved it, so this costs no
     # extra query. distinct_id namespaces it per deployment so staging and
     # production cannot land on the same person.
-    user = getattr(request, "user", None)
     return AnalyticsContextData(
         posthog_config=PosthogConfig(
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
-            user_id=(
-                identity.distinct_id(user.pk)
-                if user is not None and user.is_authenticated
-                else None
-            ),
+            user_id=identity.distinct_id(user.pk),
             environment=identity.environment(),
             redaction_rules=redaction.client_patterns(),
         )
@@ -106,6 +108,7 @@ def static_version(_request: HttpRequest) -> dict[str, str]:
 
 
 class CurrentUserContextData(TypedDict):
+    optional_features_available: bool
     current_user_info: NotRequired[UserInfo]
     current_user: UserDTO | None
     navbar_notifications: NotRequired[NavbarNotificationsDTO]
@@ -118,11 +121,14 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
         or not hasattr(request, "di")
         or not request.context.current_user_slug
     ):
-        return CurrentUserContextData(current_user=None)
+        return CurrentUserContextData(
+            current_user=None, optional_features_available=False
+        )
 
     user_dto = request.services.profile.read(request.context.current_user_slug)
     return CurrentUserContextData(
         current_user=user_dto,
+        optional_features_available=user_dto.age_band.allows_optional_features,
         current_user_info=UserInfo.from_user_dto(
             user_dto, gravatar_url=request.di.gravatar_url
         ),

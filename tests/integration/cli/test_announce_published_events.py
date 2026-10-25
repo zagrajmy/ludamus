@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from django.core.management import call_command
 from django.urls import reverse
 
@@ -20,6 +21,7 @@ def _published_event(sphere, *, published_ago=timedelta(minutes=5)):
     )
 
 
+@pytest.mark.usefixtures("sixteen_plus_user")
 class TestAnnouncePublishedEvents:
     def test_tells_subscribers_about_a_newly_published_event(
         self,
@@ -114,7 +116,7 @@ class TestAnnouncePublishedEvents:
     def test_notifies_a_subscriber_without_an_email_address_in_app_only(
         self, non_root_sphere, mailoutbox, django_capture_on_commit_callbacks
     ):
-        quiet = UserFactory(username="no-email", email="")
+        quiet = UserFactory(username="no-email", email="", age_band="16_plus")
         SphereSubscription.objects.create(sphere=non_root_sphere, user=quiet)
         _published_event(non_root_sphere)
 
@@ -141,3 +143,20 @@ class TestAnnouncePublishedEvents:
 
         assert mailoutbox == []
         assert not Notification.objects.exists()
+
+
+@pytest.mark.parametrize("age_band", ("unknown", "13_15"))
+def test_a_subscriber_without_a_16_plus_range_hears_nothing(
+    non_root_sphere, mailoutbox, django_capture_on_commit_callbacks, age_band
+):
+    young = UserFactory(username="young", age_band=age_band)
+    SphereSubscription.objects.create(sphere=non_root_sphere, user=young)
+    event = _published_event(non_root_sphere)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("announce_published_events")
+
+    assert mailoutbox == []
+    assert not Notification.objects.filter(recipient=young).exists()
+    event.refresh_from_db()
+    assert event.subscribers_announced_at is not None

@@ -23,6 +23,7 @@
                             <div class="min-w-0">
                                 <p class="text-sm font-medium text-foreground truncate"
                                    data-ph-no-capture
+                                   data-ph-block
                                    title="{% firstof member.name member.email %}">
                                     {% firstof member.name member.email %}
                                     {% if member.user_id == user.pk %}
@@ -31,7 +32,7 @@
                                 </p>
                                 {% if member.name and member.email %}
                                     <p class="text-sm text-foreground-muted truncate"
-                                       data-ph-no-capture
+                                       data-ph-block
                                        title="{{ member.email }}">{{ member.email }}</p>
                                 {% endif %}
                             </div>

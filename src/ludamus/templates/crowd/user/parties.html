@@ -285,7 +285,7 @@
                             <div class="flex min-w-0 items-center gap-3">
                                 {% include "components/avatar.html" with user=row.companion size="size-10" %}
                                 <p class="min-w-0 text-sm font-medium leading-tight">
-                                    <span class="block truncate">{{ row.companion.name }}</span>
+                                    <span class="block truncate" data-ph-mask>{{ row.companion.name }}</span>
                                 </p>
                             </div>
                             {# ludamus-disable:no-negative-margin -- keeps the icon controls aligned to the card edge without shrinking their tap targets #}
@@ -334,6 +334,7 @@
                                 </form>
                                 <form method="post"
                                       action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
+                                      data-ph-block
                                       data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
                                       data-confirm-action="{% translate "Delete companion" %}">
                                     {% csrf_token %}

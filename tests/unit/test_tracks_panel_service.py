@@ -5,7 +5,7 @@ import pytest
 
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.legacy import (
     SpaceDTO,
     TrackCreateData,
@@ -164,6 +164,7 @@ class TestTracksPanelService:
 
 def _user(pk):
     return UserDTO(
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=NOW,
         discord_username="",

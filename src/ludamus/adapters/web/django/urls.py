@@ -102,6 +102,16 @@ urlpatterns = [
         name="sphere-unsubscribe",
     ),
     path(
+        "dashboard/unsubscribe/<str:token>/",
+        dashboard_gate.UnsubscribePageView.as_view(),
+        name="email-unsubscribe",
+    ),
+    path(
+        "dashboard/unsubscribe/<str:token>/do/unsubscribe",
+        dashboard_gate.UnsubscribeActionView.as_view(),
+        name="email-unsubscribe-confirm",
+    ),
+    path(
         "dashboard/sessions/<int:session_id>/do/claim-offer",
         dashboard_gate.OfferClaimActionView.as_view(),
         name="dashboard-offer-claim",

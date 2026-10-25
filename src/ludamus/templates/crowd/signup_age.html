@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Confirm age range" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold text-foreground">{% translate "Confirm your age range" %}</h1>
+        {% include "crowd/_age_range_intro.html" %}
+        <form method="post" class="mt-6 space-y-4" data-ph-no-capture>
+            {% csrf_token %}
+            {% tessera_form form %}
+            {% translate "Continue" as continue_label %}
+            {% tessera_button continue_label extra_class="w-full" %}
+        </form>
+        <p class="text-xs text-foreground-muted mt-6 [&_a]:text-primary [&_a]:hover:underline">
+            {% url 'terms-of-service' as terms_url %}
+            {% url 'privacy-policy' as privacy_url %}
+            {% blocktranslate trimmed %}
+                By creating an account you accept the <a href="{{ terms_url }}">Terms of Service</a>. The <a href="{{ privacy_url }}">Privacy Policy</a> explains how we use your data.
+            {% endblocktranslate %}
+        </p>
+    </div>
+{% endblock body %}

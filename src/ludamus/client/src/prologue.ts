@@ -13,7 +13,9 @@
 //               session recording with every input masked.
 // - "declined": PostHog is never initialized; withdrawing consent on a
 //               pageload where it already runs opts out and stops recording.
-import posthog from "posthog-js/dist/module.full.no-external";
+import type posthogClient from "posthog-js/dist/module.full.no-external";
+
+let posthog: typeof posthogClient | undefined;
 
 const STORAGE_KEY = "prologue.consent";
 
@@ -42,17 +44,17 @@ const readConsent = (): Consent => {
   return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
-const syncIdentity = (userId: string | null): void => {
+const syncIdentity = (client: typeof posthogClient, userId: string | null): void => {
   // PostHog persists distinct_id across pageloads, so a logout leaves the
   // previous user identified until we reset. Asking posthog rather than
   // tracking it ourselves keeps one source of truth: a mirror desyncs when
   // site data is cleared, and then nobody is ever identified again.
-  if (posthog.get_distinct_id() === userId) return;
+  if (client.get_distinct_id() === userId) return;
   // identify() on an already-identified instance silently re-registers the id
   // without emitting $identify or linking the anonymous history, so a switch
   // between accounts has to reset first.
-  if (posthog._isIdentified()) posthog.reset();
-  if (userId !== null) posthog.identify(userId);
+  if (client._isIdentified()) client.reset();
+  if (userId !== null) client.identify(userId);
 };
 
 // Claim links and session offers authenticate by bearing a token in the path —
@@ -152,7 +154,12 @@ const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void
   }
 };
 
-const initPosthog = (config: PosthogServerConfig): void => {
+const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
+  if (!posthog) {
+    const client = await import("posthog-js/dist/module.full.no-external");
+    posthog = client.default;
+  }
+  if (readConsent() !== "accepted") return;
   const rules = compileRules(config.redaction_rules);
   posthog.init(config.api_key, {
     api_host: config.host,
@@ -208,7 +215,14 @@ const initPosthog = (config: PosthogServerConfig): void => {
       // autocapture too, which drops the click event entirely, and these are
       // buttons whose use is worth measuring. This blocks the element from the
       // recording and nothing else.
-      blockSelector: "[data-ph-no-capture]",
+      //
+      // maskTextSelector masks TEXT NODES only — rrweb records attribute
+      // values verbatim. Any element carrying PII in an attribute (a name in
+      // aria-label or data-confirm copy, an email in a data-copy chip or a
+      // mailto: href) must therefore be excluded from the recording entirely
+      // with data-ph-block; it shows as a same-size placeholder in replay.
+      // The pii-attribute-needs-block ast-grep rule enforces the pairing.
+      blockSelector: "[data-ph-no-capture], [data-ph-block]",
       maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
       // base.html puts the current URL in og:url, and rrweb serialises social
@@ -217,48 +231,137 @@ const initPosthog = (config: PosthogServerConfig): void => {
       slimDOMOptions: { headMetaSocial: true },
     },
   });
-  syncIdentity(config.user_id);
+  syncIdentity(posthog, config.user_id);
 };
 
-const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined"): void => {
-  localStorage.setItem(STORAGE_KEY, choice);
-  if (choice === "accepted") {
-    if (posthog.__loaded) {
-      posthog.set_config({ persistence: "localStorage+cookie" });
-      posthog.opt_in_capturing();
-      posthog.startSessionRecording();
-      syncIdentity(config.user_id);
-    } else {
-      initPosthog(config);
-    }
-  } else if (posthog.__loaded) {
-    // reset() before opt_out_capturing(), never after: reset() calls
-    // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
-    // reverse order withdraws consent and then immediately clears the
-    // withdrawal. Dropping the identity matters too, or re-accepting later
-    // resumes capture under the person who declined.
-    posthog.stopSessionRecording();
-    syncIdentity(null);
-    posthog.opt_out_capturing();
+// The profile Privacy tab shows the stored choice: the server cannot know it
+// (localStorage never leaves the browser), so elements carry the translated
+// labels in data attributes and this fills the right one in.
+const renderConsentState = (): void => {
+  const consent = readConsent();
+  for (const el of document.querySelectorAll<HTMLElement>("[data-consent-state]")) {
+    const { labelAccepted = "", labelDeclined = "", labelUnset = "" } = el.dataset;
+    el.textContent =
+      consent === "accepted" ? labelAccepted : consent === "declined" ? labelDeclined : labelUnset;
   }
 };
 
-const init = (): void => {
+const startCapture = async (config: PosthogServerConfig): Promise<void> => {
+  if (!posthog?.__loaded) {
+    await initPosthog(config);
+    return;
+  }
+  posthog.set_config({ persistence: "localStorage+cookie" });
+  posthog.opt_in_capturing();
+  posthog.startSessionRecording();
+  syncIdentity(posthog, config.user_id);
+};
+
+const stopCapture = (): void => {
+  if (!posthog?.__loaded) return;
+  // reset() before opt_out_capturing(), never after: reset() calls
+  // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
+  // reverse order withdraws consent and then immediately clears the
+  // withdrawal. Dropping the identity matters too, or re-accepting later
+  // resumes capture under the person who declined.
+  posthog.stopSessionRecording();
+  syncIdentity(posthog, null);
+  posthog.opt_out_capturing();
+};
+
+const applyChoice = async (
+  config: PosthogServerConfig,
+  choice: "accepted" | "declined",
+): Promise<void> => {
+  localStorage.setItem(STORAGE_KEY, choice);
+  if (choice === "accepted") await startCapture(config);
+  else stopCapture();
+};
+
+const isTrackingKey = (name: string): boolean =>
+  name.startsWith("ph_") || name.startsWith("__ph_opt_in_out_");
+
+// posthog sets its cookie on the widest domain it can, so each parent domain
+// gets its own delete.
+const cookieDomains = (): string[] => {
+  const parts = location.hostname.split(".");
+  return parts.slice(0, -1).map((_, i) => parts.slice(i).join("."));
+};
+
+const expireCookie = (name: string, domain?: string): void => {
+  const scope = domain === undefined ? "" : `; domain=${domain}`;
+  // HACK: the Cookie Store API the rule points at is undefined on iOS Safari
+  // before 18.4 and outside secure contexts, where a tracking cookie would
+  // otherwise outlive the consent that set it.
+  // oxlint-disable-next-line unicorn/no-document-cookie
+  document.cookie = `${name}=; path=/; max-age=0${scope}`;
+};
+
+// NOTE: the stored choice goes too. A page without posthog-config is signed
+// out or ineligible, and on a shared device the next person to sign in must
+// be asked again rather than inherit the previous one's consent.
+const clearTrackingStorage = async (): Promise<void> => {
+  localStorage.removeItem(STORAGE_KEY);
+  for (const key of Object.keys(localStorage)) {
+    if (isTrackingKey(key)) localStorage.removeItem(key);
+  }
+  if (!("cookieStore" in globalThis)) {
+    for (const pair of document.cookie.split(";")) {
+      const name = pair.split("=")[0]?.trim() ?? "";
+      if (!isTrackingKey(name)) continue;
+      expireCookie(name);
+      for (const domain of cookieDomains()) expireCookie(name, domain);
+    }
+    return;
+  }
+  for (const { name } of await globalThis.cookieStore.getAll()) {
+    if (!name || !isTrackingKey(name)) continue;
+    await globalThis.cookieStore.delete(name);
+    for (const domain of cookieDomains()) {
+      // A public suffix such as org.pl can hold no cookie, so its delete
+      // rejects; that says nothing about the domains still to try.
+      await globalThis.cookieStore.delete({ domain, name, path: "/" }).catch(() => null);
+    }
+  }
+};
+
+const init = async (): Promise<void> => {
   const config = readServerConfig();
-  if (!config) return;
+  if (!config) {
+    await clearTrackingStorage();
+    return;
+  }
+
+  // Another tab answered or reset the banner. Follow its choice without writing
+  // one back: a cleared choice must stay cleared so the reload asks again.
+  globalThis.addEventListener("storage", async (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    if (event.newValue === null) {
+      stopCapture();
+      globalThis.location.reload();
+      return;
+    }
+    if (event.newValue === "accepted") await startCapture(config);
+    else stopCapture();
+    renderConsentState();
+    const banner = document.getElementById("consent-banner");
+    if (banner) banner.hidden = true;
+  });
 
   const consent = readConsent();
-  if (consent === "accepted") initPosthog(config);
+  if (consent === "accepted") await initPosthog(config);
+  renderConsentState();
 
   const banner = document.getElementById("consent-banner");
   if (!(banner instanceof HTMLElement)) return;
   if (consent === null) banner.hidden = false;
 
   for (const button of banner.querySelectorAll<HTMLButtonElement>("[data-consent-choice]")) {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const { consentChoice } = button.dataset;
       if (consentChoice !== "accepted" && consentChoice !== "declined") return;
-      applyChoice(config, consentChoice);
+      await applyChoice(config, consentChoice);
+      renderConsentState();
       banner.hidden = true;
     });
   }
@@ -271,4 +374,4 @@ const init = (): void => {
   }
 };
 
-init();
+await init();

@@ -16,6 +16,8 @@ from ludamus.mills.slugs import slug_base, unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
+    AgeBand,
+    AgeBandRequiredError,
     AvatarPageDTO,
     ChangeRequestOutcome,
     ClaimOutcome,
@@ -45,6 +47,7 @@ from ludamus.specs.email_verification import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import (
+        AuthenticationDTO,
         AvatarUrlProviderProtocol,
         ClaimableProfileDTO,
         ClaimRepositoryProtocol,
@@ -59,6 +62,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 type _Effect = Literal["cancel", "promote", "verify"]
@@ -132,6 +136,9 @@ class LegacyAccountLinker:
     def __init__(self, *, users: UserRepositoryProtocol) -> None:
         self._users = users
 
+    def exists(self, identity: IdentityDTO) -> bool:
+        return self._find(identity) is not None
+
     def adopt(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
         if (legacy := self._find(identity)) is None:
             return None
@@ -170,6 +177,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         claims: ClaimServiceProtocol,
         identity: IdentityProviderProtocol,
         legacy_accounts: LegacyAccountLinker,
+        subscriptions: SphereSubscriptionRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
@@ -177,6 +185,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         self._claims = claims
         self._identity = identity
         self._legacy_accounts = legacy_accounts
+        self._subscriptions = subscriptions
 
     def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
         return self._identity.authorization_url(
@@ -186,8 +195,27 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     def logout_url(self, *, session_id: str, return_to: str) -> str:
         return self._identity.logout_url(session_id=session_id, return_to=return_to)
 
-    def complete_login(self, *, code: str, claim_token: str = "") -> LoginDTO:
-        authentication = self._identity.authenticate(code)
+    def authenticate(self, code: str) -> AuthenticationDTO:
+        return self._identity.authenticate(code)
+
+    def has_account(self, identity: IdentityDTO) -> bool:
+        username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
+        return (
+            self._read_by_username(username) is not None
+            or self._legacy_accounts.exists(identity)
+        )
+
+    def complete_login(
+        self,
+        *,
+        authentication: AuthenticationDTO,
+        claim_token: str = "",
+        age_band: AgeBand = AgeBand.UNKNOWN,
+    ) -> LoginDTO:
+        """Log in, creating the account if need be.
+
+        `age_band` only reaches an account created or claimed here.
+        """
         identity = authentication.identity
         username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
         avatar_url = _avatar_url(identity)
@@ -200,6 +228,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                 result = self._claims.redeem(token=claim_token, username=username)
                 claim_outcome = result.outcome
                 if result.outcome == ClaimOutcome.CONVERTED:
+                    # The converted row keeps its own fields, so the age range
+                    # the new owner declared is written onto it here.
+                    self._set_age_band(result.user_slug, age_band)
                     user = self._users.read(result.user_slug)
             email_conflict = False
             if user is None:
@@ -211,6 +242,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                     identity=identity,
                     email="" if email_conflict else identity.email,
                     avatar_url=avatar_url,
+                    age_band=age_band,
                 )
             user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
         return LoginDTO(
@@ -225,8 +257,35 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             return self._users.read_by_username(username)
         return None
 
+    def disable_underage_account(self, user_slug: str) -> None:
+        with self._transaction.atomic():
+            self._set_age_band(user_slug, AgeBand.UNKNOWN)
+            self._users.update(user_slug, UserData(is_active=False))
+
+    def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool:
+        """Return whether the change dropped promotional subscriptions."""
+        if not age_band.is_confirmed:
+            raise AgeBandRequiredError
+        with self._transaction.atomic():
+            return self._set_age_band(user_slug, age_band)
+
+    def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
+        previous = self._users.set_age_band(user_slug, age_band)
+        # A subscription made under one age range is no consent under another:
+        # only an account that was and stays 16+ keeps its subscriptions.
+        if previous.allows_optional_features and age_band.allows_optional_features:
+            return False
+        user_id = self._users.read(user_slug).pk
+        return self._subscriptions.unsubscribe_everywhere(user_id) > 0
+
     def _create_user(
-        self, *, username: str, identity: IdentityDTO, email: str, avatar_url: str
+        self,
+        *,
+        username: str,
+        identity: IdentityDTO,
+        email: str,
+        avatar_url: str,
+        age_band: AgeBand,
     ) -> UserDTO:
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
         # row can own the one the provider id slugifies to; uniquifying also
@@ -237,6 +296,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             exists=self._users.slug_exists,
         )
         data = UserData(
+            age_band=age_band,
             slug=slug,
             username=username,
             email=email,

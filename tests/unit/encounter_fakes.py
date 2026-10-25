@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.pacts import EncounterDTO, NotFoundError
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.encounter import EncounterInviteeDTO, EncountersPolicy, InviteeStatus
 from tests.unit.factories import FakeTransaction
 
@@ -34,6 +34,7 @@ def make_encounter(pk=1, *, max_participants=0, is_public=True):
 
 def make_user(pk=CREATOR_ID, **overrides):
     fields = {
+        "age_band": AgeBand.UNKNOWN,
         "avatar_url": "",
         "date_joined": START_TIME - timedelta(days=30),
         "discord_username": "",

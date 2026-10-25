@@ -109,9 +109,10 @@ doesn't share the icon's convention.
 Polish strings run roughly 15–20% longer than English. That length is what
 breaks proximity-only grouping, single-line tabs, and card grids — so
 **Uniform Connectedness** ("would this grouping survive a rewrap?") is checked
-by looking at the Polish build, not the English one. Terms are fixed by
-CLAUDE.md's translation table (`session` → "punkt programu", `track` → "blok",
-`time slot` → "przedział czasowy", and the rest); a law never overrides those.
+by looking at the Polish build, not the English one. Terms are fixed by the
+translation table in `src/ludamus/locale/CLAUDE.md` (`session` → "punkt
+programu", `track` → "blok", `time slot` → "przedział czasowy", and the rest);
+a law never overrides those.
 
 ## Verifying a law-based finding
 

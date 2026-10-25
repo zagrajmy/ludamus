@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 25.09.2026**
+**Data ostatniej aktualizacji: 21.10.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -32,14 +32,20 @@ Użyte w Regulaminie pojęcia oznaczają:
 3. Podczas rejestracji Użytkownik podaje:
    - pseudonim (nie musi być prawdziwym imieniem i nazwiskiem)
    - adres email
+   - przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 4. Użytkownik może używać tylko jednego Konta w Serwisie.
+5. Pytanie o przedział wieku pojawia się po zalogowaniu przez WorkOS. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: Auth0 może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
 
 ### 2.2 Ograniczenia wiekowe
 
-1. Konto może założyć wyłącznie osoba, która ukończyła 16 lat.
-2. Po uzyskaniu wiarygodnej informacji, że właściciel Konta nie spełnia tego wymogu, Administrator może usunąć Konto.
-3. Użytkownicy pełnoletni mogą dodawać dzieci do swojego Konta w celu zapisywania ich na wydarzenia.
-4. Za zapisy dzieci pełną odpowiedzialność ponosi dorosły Użytkownik.
+1. Własne Konto może założyć osoba, która ukończyła 13 lat. Dzieci poniżej 13. roku życia mogą być zapisywane na Wydarzenia przez pełnoletniego opiekuna, który zarządza ich zapisami ze swojego Konta.
+2. Użytkownik deklaruje przedział wieku: 13–15 lat albo 16+. Serwis nie zbiera daty urodzenia ani dokumentów tożsamości. Deklaracja przedziału wieku nie jest weryfikacją tożsamości.
+3. Przedział wieku można potwierdzić lub zmienić na stronie „Prywatność”. Serwis nie zmienia go automatycznie po upływie czasu.
+4. Opcjonalna analityka w przeglądarce, nagrywanie sesji i subskrypcje promocyjnych ogłoszeń email o wydarzeniach w sferach są dostępne wyłącznie dla zalogowanych Użytkowników, którzy zadeklarowali przedział 16+ i wyrazili odpowiednie zgody. Zgoda na analitykę i zgoda na promocyjne emaile są odrębne. Samo zadeklarowanie 16+ nie włącza tych opcji.
+5. Osoby niezalogowane, Użytkownicy w wieku 13–15 lat oraz Konta bez deklaracji wieku, także założone wcześniej, nie mogą korzystać z tych opcji. Nie ogranicza to obsługi konta i zapisów ani niezbędnych wiadomości dotyczących konta, zapisów i bezpieczeństwa. Ograniczone zgłoszenia awarii serwera są niezależne od opcjonalnej analityki i nie służą analizie zachowania Użytkownika.
+6. Możliwość założenia własnego Konta nie wyłącza wymogu zgody przedstawiciela ustawowego na czynności, dla których wymaga jej polskie prawo. Osoby w wieku 16–17 lat nadal są małoletnie.
+7. Zadeklarowanie wieku poniżej 13 lat blokuje samodzielne logowanie na istniejące Konto. W sprawie dotychczasowych zapisów można skontaktować się z Administratorem. Po uzyskaniu wiarygodnej informacji, że właściciel Konta nie ukończył 13 lat, Administrator może usunąć Konto.
+8. Pełnoletni opiekun może dodawać dzieci do swojego Konta w celu zapisywania ich na Wydarzenia i odpowiada za zarządzanie ich zapisami.
 
 ### 2.3 Bezpieczeństwo Konta
 
@@ -139,7 +145,7 @@ Użytkownik nie może:
 ## § 7. OCHRONA DANYCH OSOBOWYCH
 
 1. Szczegółowe informacje o przetwarzaniu danych osobowych zawiera Polityka Prywatności.
-2. Korzystając z Serwisu, Użytkownik przyjmuje do wiadomości zasady przetwarzania danych opisane w Polityce Prywatności.
+2. Korzystając z Serwisu, Użytkownik przyjmuje do wiadomości zasady przetwarzania danych opisane w Polityce Prywatności. Nie oznacza to zgody na wszystkie opisane tam operacje przetwarzania. Opcjonalna analityka i promocyjne emaile wymagają odrębnych zgód. Zgodę na analitykę można wycofać w zakładce „Prywatność” w profilu, dostępnym z menu użytkownika, lub przyciskiem „Ustawienia ciasteczek” w stopce, widocznym dla Kont uprawnionych do opcjonalnej analityki. Z promocyjnych emaili można zrezygnować przełącznikiem subskrypcji na karcie sfery w panelu głównym lub linkiem rezygnacji w każdej promocyjnej wiadomości email. Serwis nie wysyła wiadomości z wcześniej włączonych subskrypcji Kont bez deklaracji wieku. Potwierdzenie wieku takiego Konta usuwa stare subskrypcje, których ponowne włączenie wymaga nowej zgody. Zmiana przedziału na 13–15 lat również usuwa subskrypcje; po ponownym zadeklarowaniu 16+ ich włączenie wymaga nowej zgody. Wycofanie zgód nie ogranicza dostępu do podstawowych funkcji Serwisu ani nie wyłącza niezbędnych wiadomości dotyczących konta, zapisów i bezpieczeństwa.
 3. Użytkownik ma prawo do usunięcia swojego Konta i wszystkich danych osobowych.
 
 ## § 8. USUWANIE KONTA

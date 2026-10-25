@@ -25,7 +25,7 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
 )
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
@@ -127,6 +127,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         _("staff status"),
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
+    )
+    age_band = models.CharField(
+        max_length=16,
+        choices=[(band.value, band.name) for band in AgeBand],
+        default=AgeBand.UNKNOWN.value,
     )
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)

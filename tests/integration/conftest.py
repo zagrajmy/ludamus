@@ -134,6 +134,13 @@ def sponsor_user(*, leader, member):
     return party
 
 
+@pytest.fixture
+def sixteen_plus_user(active_user):
+    active_user.age_band = "16_plus"
+    active_user.save(update_fields=["age_band"])
+    return active_user
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User

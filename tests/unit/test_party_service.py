@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.party import PartyService
-from ludamus.pacts.crowd import CompanionDTO, UserType
+from ludamus.pacts.crowd import AgeBand, CompanionDTO, UserType
 from ludamus.pacts.party import (
     ENROLL_WITHOUT_PARTY,
     CompanionAddOutcome,
@@ -496,6 +496,7 @@ def _party(pk, *, is_leader=False, members=()):
 
 def _companion_dto():
     return CompanionDTO(
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",

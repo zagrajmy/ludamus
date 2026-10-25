@@ -27,7 +27,12 @@
             </span>
         </a>
     </div>
-    {% if sphere.is_subscribed %}
+    {% comment %}
+        No control without a confirmed 16+ range: such an account gets no
+        announcement mail, so "Subscribed" would be untrue. index.html says why,
+        once, above the grid.
+    {% endcomment %}
+    {% if optional_features_available and sphere.is_subscribed %}
         <form method="post"
               action="{% url 'web:sphere-unsubscribe' pk=sphere.pk %}"
               class="mt-auto">
@@ -35,7 +40,7 @@
             {% translate "Subscribed" as unsubscribe_label %}
             {% tessera_button unsubscribe_label variant="secondary" size="sm" icon="check" full_width_mobile=False %}
         </form>
-    {% else %}
+    {% elif optional_features_available %}
         {% blocktranslate asvar subscribe_prompt with name=sphere.name %}
             We'll notify you whenever {{ name }} publishes a new event. You can unsubscribe here any time.
         {% endblocktranslate %}

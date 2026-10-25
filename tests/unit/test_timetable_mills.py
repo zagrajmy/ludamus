@@ -1006,6 +1006,22 @@ class TestListAllForTrack:
 
         assert not conflicts
 
+    def test_back_to_back_items_do_not_conflict_from_the_later_side(self):
+        # A clash is reported from the lower session pk, so that pk goes last.
+        earlier = _make_item(pk=1, session_id=20, space_id=1)
+        later = _make_item(
+            pk=2,
+            session_id=10,
+            space_id=1,
+            start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow = self._uow(all_items=[earlier, later])
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert not conflicts
+
     def test_capacity_exceeded_uses_batched_limits(self):
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -1848,6 +1864,7 @@ class TestRevertChangeOutcomes:
         self._revert(uow)
 
         uow.sessions.lock.assert_called_once_with(1)
+        uow.sessions.update.assert_called_once_with(1, {"schedule_confirmed": False})
         assert uow.agenda_items.rows == {}
         assert uow.schedule_change_logs.created == [
             {
@@ -1881,6 +1898,7 @@ class TestRevertChangeOutcomes:
 
         self._revert(uow)
 
+        uow.sessions.update.assert_called_once_with(1, {"schedule_confirmed": False})
         assert uow.agenda_items.created == [
             {
                 "session_id": 1,

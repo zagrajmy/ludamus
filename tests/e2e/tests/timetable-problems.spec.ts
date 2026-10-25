@@ -250,7 +250,10 @@ test.describe("Timetable problems", () => {
       await schedule(page)
         .getByRole("button", { name: new RegExp(title) })
         .click();
-      await page.locator("#left-pane").getByRole("button", { name: "Reassign" }).click();
+      const details = page.locator("#left-pane");
+      await expect(details.getByText(title, { exact: true })).toBeVisible();
+      await expect(details).not.toHaveClass(/\bhtmx-settling\b/);
+      await details.getByRole("button", { name: "Reassign" }).click();
       await expect(page.locator(".timetable-column.assign-mode-active")).toHaveCount(ROOMS.length);
     };
 

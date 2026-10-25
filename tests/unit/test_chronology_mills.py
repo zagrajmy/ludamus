@@ -480,10 +480,16 @@ def _user_dto(**overrides):
     return user_dto(**{"date_joined": _NOW, **overrides})
 
 
+_HALL = SpaceOptionDTO(pk=7, name="Hall", group="")
+
+
 class TestProposalAcceptanceService:
     @pytest.fixture
     def sessions(self):
-        return MagicMock()
+        sessions = MagicMock()
+        sessions.read_event.return_value = _event_dto()
+        sessions.read_space_options.return_value = [_HALL]
+        return sessions
 
     @pytest.fixture
     def agenda_items(self):
@@ -1260,6 +1266,7 @@ class TestProposalAcceptanceWithFakes:
             event=_event_dto(auto_confirm_sessions=True),
         )
         sessions.related["time_slots"] = {cls._SLOT.pk: cls._SLOT}
+        sessions.form["space_options"] = [_HALL]
         return sessions
 
     @staticmethod
@@ -1275,7 +1282,6 @@ class TestProposalAcceptanceWithFakes:
     def test_accept_context_reads_everything_about_the_session(self):
         sessions = self._sessions()
         sessions.form["presenter"] = _user_dto(pk=2, slug="speaker")
-        sessions.form["space_options"] = [SpaceOptionDTO(pk=7, name="Hall", group="")]
         sessions.related_ids["time_slots"] = [2]
         sessions.form["field_values"] = [
             SessionFieldValueDTO(
@@ -1291,7 +1297,7 @@ class TestProposalAcceptanceWithFakes:
             session=sessions.rows[_SESSION_PK],
             event=sessions.event,
             presenter=sessions.form["presenter"],
-            space_options=sessions.form["space_options"],
+            space_options=[_HALL],
             time_slots=[self._SLOT],
             preferred_time_slot_ids=[2],
             field_values=sessions.form["field_values"],
@@ -1329,3 +1335,35 @@ class TestProposalAcceptanceWithFakes:
                 "end_time": self._SLOT.end_time,
             }
         ]
+
+    def test_another_spheres_session_has_no_accept_context(self):
+        sessions = self._sessions()
+        sessions.event = _event_dto(sphere_id=4)
+
+        context = self._service(sessions, _FakeAgendaItems()).get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+
+        assert context is None
+
+    @pytest.mark.parametrize(
+        ("event_sphere_id", "space_id"), ((4, 7), (3, 8)), ids=["sphere", "space"]
+    )
+    def test_accept_session_refuses_ids_outside_the_event(
+        self, event_sphere_id, space_id
+    ):
+        sessions = self._sessions()
+        sessions.event = _event_dto(sphere_id=event_sphere_id)
+        agenda_items = _FakeAgendaItems()
+
+        with pytest.raises(NotFoundError):
+            self._service(sessions, agenda_items).accept_session(
+                session_id=_SESSION_PK,
+                space_id=space_id,
+                time_slot_id=2,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+        assert not sessions.updates
+        assert not agenda_items.created

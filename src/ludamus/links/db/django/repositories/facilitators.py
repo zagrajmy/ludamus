@@ -77,6 +77,13 @@ def _live_session_count() -> Count:
     return Count("sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True)
 
 
+def _list_items(qs: QuerySet[Facilitator]) -> QuerySet[Facilitator]:
+    # Every `FacilitatorListItemDTO` source annotates the same two columns.
+    return qs.annotate(
+        session_count=_live_session_count(), organizer_name=F("organizer__name")
+    )
+
+
 class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def create(data: FacilitatorData) -> FacilitatorDTO:
@@ -179,9 +186,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
-        qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=_live_session_count(), organizer_name=F("organizer__name")
-        )
+        qs = _list_items(Facilitator.objects.filter(event_id=event_id))
 
         if pks := filters.get("pks"):
             qs = qs.filter(pk__in=pks)
@@ -224,13 +229,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     def list_deleted_by_event(event_id: int) -> list[FacilitatorListItemDTO]:
         # The bin, newest deletion first — the row an organizer is looking for
         # is almost always the one they just deleted.
-        qs = (
+        qs = _list_items(
             Facilitator.all_objects.filter(event_id=event_id, deleted_at__isnull=False)
-            .annotate(
-                session_count=_live_session_count(), organizer_name=F("organizer__name")
-            )
-            .order_by("-deleted_at", "display_name", "pk")
-        )
+        ).order_by("-deleted_at", "display_name", "pk")
         return [FacilitatorListItemDTO.model_validate(f) for f in qs]
 
     @staticmethod
@@ -239,9 +240,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     ) -> list[FacilitatorListItemDTO]:
         if not facilitator_slugs:
             return []
-        facilitators = Facilitator.objects.filter(
-            event_id=event_id, slug__in=facilitator_slugs
-        ).annotate(session_count=_live_session_count())
+        facilitators = _list_items(
+            Facilitator.objects.filter(event_id=event_id, slug__in=facilitator_slugs)
+        )
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
         # have drops out rather than raising.

@@ -12,3 +12,7 @@ src/ludamus/templates/**/*.html
 # editors, and ad-hoc `oxfmt` invocations.
 .claude/skills/**
 .agents/skills/**
+
+# Bend output (`bend x.bend -o x.gen.mjs`); formal/check.sh keeps it in step
+# with its .bend source.
+formal/**/*.gen.mjs

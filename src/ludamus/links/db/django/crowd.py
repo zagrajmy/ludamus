@@ -8,6 +8,7 @@ from ludamus.links.db.django.models import PartyMembership
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     EMAIL_LINK_MAX_AGE,
+    AgeBand,
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
     CompanionDTO,
@@ -89,6 +90,14 @@ class UserRepository(UserRepositoryProtocol):
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None:
         User.objects.filter(slug=user_slug).update(**user_data)
+
+    @staticmethod
+    def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand:
+        user = User.objects.select_for_update().get(slug=user_slug)
+        previous_band = AgeBand(user.age_band)
+        user.age_band = age_band
+        user.save(update_fields=["age_band"])
+        return previous_band
 
     @staticmethod
     def fill_discord_username(user_slug: str, discord_username: str) -> bool:

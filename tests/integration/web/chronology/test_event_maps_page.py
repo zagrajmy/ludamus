@@ -1,4 +1,3 @@
-from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -6,7 +5,6 @@ import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
-from django.utils import timezone
 from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import EventMap, EventMapPage
@@ -36,7 +34,9 @@ def make_map(event, name, *spaces, page_count=1):
 
 
 def _page_names(event_map):
-    return [page.image.name for page in event_map.pages.all()]
+    return list(
+        EventMapPage.objects.filter(event_map=event_map).values_list("image", flat=True)
+    )
 
 
 def _png(name="plan.png"):
@@ -180,7 +180,7 @@ class TestEventMapsPageView:
         assert_response_404(response)
 
     def test_unpublished_event_is_not_found_for_anonymous(self, client, event):
-        event.publication_time = timezone.now() + timedelta(days=1)
+        event.publication_time = event.start_time
         event.save()
 
         response = client.get(_maps_url(event))
