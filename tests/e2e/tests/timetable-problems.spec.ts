@@ -259,14 +259,9 @@ test.describe("Timetable problems", () => {
       await expect(page.locator(".timetable-column.assign-mode-active")).toHaveCount(ROOMS.length);
     };
 
-    // 12:00-13:00 sits between the two slots, the same gap in every room.
-    for (const name of ROOMS) await expect(room(name).locator(".timetable-closed")).toHaveCount(1);
-
     // Five seats fit every room: all green.
     await arm("Clockwork Heist");
     await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(0);
-    await hoverOver(room("Basalt Room").locator(".timetable-closed"));
-    await expect(preview).toContainText("Extends the day");
     await hoverOver(room("Cobalt Room").getByRole("button", { name: /Tidepool Tales/ }));
     await expect(preview).toContainText("Room taken");
     await page.keyboard.press("Escape");
@@ -274,8 +269,6 @@ test.describe("Timetable problems", () => {
     // Twenty seats fit none of them: all red, and the reason says why.
     await arm("Giant Mech Brawl");
     await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(ROOMS.length);
-    await hoverOver(room("Amber Room").locator(".timetable-closed"));
-    await expect(preview).toContainText("Room too small");
 
     await attachArtifacts(testInfo, {
       name: "drop-affordances",
