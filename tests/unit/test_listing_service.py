@@ -1,11 +1,14 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
 
 import pytest
 
 from ludamus.mills.listing import ListingService
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.listing import (
+    BoardCategoryFacetDTO,
+    BoardSearchDTO,
+    BoardTagFacetDTO,
+    ListingBoardRowDTO,
     ListingContact,
     ListingContactMissingError,
     ListingDTO,
@@ -13,6 +16,7 @@ from ludamus.pacts.listing import (
     ListingStatus,
     ListingStatusError,
 )
+from ludamus.pacts.tags import TagDTO
 from tests.unit.factories import FakeTransaction, user_dto
 
 SPHERE_PK = 1
@@ -93,6 +97,61 @@ class FakeListings:
             self.close(pk)
         return len(stale)
 
+    def board_rows(self, *, sphere_id, seeking, statuses):
+        return [
+            ListingBoardRowDTO(
+                pk=listing.pk,
+                status=listing.status,
+                title=listing.title,
+                what=listing.what,
+                tag_ids=self.tags.get(listing.pk, []),
+            )
+            for listing in reversed(self.rows.values())
+            if listing.sphere_id == sphere_id
+            and listing.status in statuses
+            and seeking in {None, listing.seeking}
+        ]
+
+
+HORROR, COSMIC, GOTHIC, FANTASY, SCIFI = 10, 11, 12, 13, 14
+COC, DND = 20, 21
+ONE_SHOT = 30
+CALM = 40
+
+
+class FakeTags:
+    @staticmethod
+    def read_all():
+        return [
+            TagDTO(
+                pk=pk,
+                category_slug=category_slug,
+                slug=name.casefold(),
+                name=name,
+                parent_slug=parent_slug,
+            )
+            for pk, category_slug, name, parent_slug in (
+                (HORROR, "genre", "Horror", None),
+                (COSMIC, "genre", "Cosmic", "horror"),
+                (GOTHIC, "genre", "Gothic", "horror"),
+                (FANTASY, "genre", "Fantasy", None),
+                (SCIFI, "genre", "Scifi", None),
+                (COC, "system", "CoC", None),
+                (DND, "system", "DnD", None),
+                (ONE_SHOT, "length", "One-shot", None),
+                (CALM, "mood", "Calm", None),
+            )
+        ]
+
+    @staticmethod
+    def category_names():
+        return {
+            "system": "System",
+            "mood": "Mood",
+            "length": "Length",
+            "genre": "Genre",
+        }
+
 
 class FakeUsers:
     def __init__(self, **profile):
@@ -108,7 +167,7 @@ def _service(listings, **profile):
         transaction=FakeTransaction(),
         listings=listings,
         users=FakeUsers(**profile),
-        tags=MagicMock(),
+        tags=FakeTags(),
     )
 
 
@@ -306,3 +365,118 @@ def test_close_stale_closes_only_listings_open_longer_than_the_open_period():
         ListingStatus.CLOSED,
         ListingStatus.OPEN,
     )
+
+
+def _filters(**overrides):
+    return {
+        "seeking": None,
+        "search": "",
+        "tag_ids": [],
+        "show_closed": False,
+    } | overrides
+
+
+def _facet(*, pk, name, count, selected=False, children=()):
+    return BoardTagFacetDTO(
+        pk=pk, name=name, count=count, selected=selected, children=list(children)
+    )
+
+
+class TestSearchBoard:
+    @pytest.fixture
+    def listings(self):
+        listings = FakeListings()
+        for title, tag_ids in (
+            ("Zew Cthulhu", [COSMIC, GOTHIC, COC, ONE_SHOT]),
+            ("Smocza Jama", [FANTASY, DND, ONE_SHOT]),
+            ("Horror w Łodzi", [HORROR, DND, ONE_SHOT]),
+        ):
+            listing = listings.add(title=title)
+            listings.set_tags(pk=listing.pk, tag_ids=tag_ids)
+            listings.open(pk=listing.pk, at=NOW)
+        return listings
+
+    def _ids(self, listings, **filters):
+        return (
+            _service(listings)
+            .search_board(sphere_id=SPHERE_PK, filters=_filters(**filters))
+            .listing_ids
+        )
+
+    def test_closed_listings_are_hidden_unless_asked_and_then_come_last(self, listings):
+        listings.close(2)
+
+        assert (self._ids(listings), self._ids(listings, show_closed=True)) == (
+            [3, 1],
+            [3, 1, 2],
+        )
+
+    def test_search_folds_case_and_diacritics(self, listings):
+        assert self._ids(listings, search="LODZ") == [3]
+
+    def test_search_needs_every_word_in_title_or_what(self, listings):
+        assert (
+            self._ids(listings, search="zew ONE-SHOT"),
+            self._ids(listings, search="zew smocza"),
+        ) == ([1], [])
+
+    def test_tag_matches_listings_tagged_with_its_descendants(self, listings):
+        assert self._ids(listings, tag_ids=[HORROR]) == [3, 1]
+
+    def test_tags_or_within_a_category_and_across_categories(self, listings):
+        assert self._ids(listings, tag_ids=[HORROR, FANTASY, DND]) == [3, 2]
+
+    def test_unknown_tag_is_ignored(self, listings):
+        assert self._ids(listings, tag_ids=[999]) == [3, 2, 1]
+
+    def test_facets_count_without_their_own_picks_and_hide_what_cannot_narrow(
+        self, listings
+    ):
+        result = _service(listings).search_board(
+            sphere_id=SPHERE_PK, filters=_filters(tag_ids=[HORROR])
+        )
+
+        assert result == BoardSearchDTO(
+            listing_ids=[3, 1],
+            facets=[
+                BoardCategoryFacetDTO(
+                    slug="genre",
+                    name="Genre",
+                    tags=[
+                        _facet(pk=FANTASY, name="Fantasy", count=1),
+                        _facet(
+                            pk=HORROR,
+                            name="Horror",
+                            count=2,
+                            selected=True,
+                            children=[
+                                _facet(pk=COSMIC, name="Cosmic", count=1),
+                                _facet(pk=GOTHIC, name="Gothic", count=1),
+                            ],
+                        ),
+                    ],
+                ),
+                BoardCategoryFacetDTO(
+                    slug="system",
+                    name="System",
+                    tags=[
+                        _facet(pk=COC, name="CoC", count=1),
+                        _facet(pk=DND, name="DnD", count=1),
+                    ],
+                ),
+            ],
+        )
+
+    def test_picked_category_stays_shown_even_when_it_cannot_narrow(self, listings):
+        result = _service(listings).search_board(
+            sphere_id=SPHERE_PK, filters=_filters(tag_ids=[ONE_SHOT])
+        )
+
+        assert (
+            BoardCategoryFacetDTO(
+                slug="length",
+                name="Length",
+                tags=[_facet(pk=ONE_SHOT, name="One-shot", count=3, selected=True)],
+            )
+            in result.facets
+        )
