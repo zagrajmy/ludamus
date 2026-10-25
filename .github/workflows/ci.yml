@@ -223,7 +223,7 @@ jobs:
       # own slice; separate flags keep the Python gate a Python gate.
       - name: Upload client coverage to Codecov
         if: ${{ hashFiles('coverage-client/lcov.info') != '' }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-client/lcov.info
@@ -262,7 +262,7 @@ jobs:
           merge-multiple: true
       - run: mise run coverage:combine
       - name: Upload Python coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
