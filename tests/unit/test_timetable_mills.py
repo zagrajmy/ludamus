@@ -808,16 +808,13 @@ class TestListAllForTrack:
     """Batched conflict detection: repos are hit once, overlaps found in memory."""
 
     @staticmethod
-    def _uow(*, all_items, subjects=None, spaces=(), limits=None, facilitators=None):
+    def _uow(*, all_items, subjects=None, spaces=(), facilitators=None):
         uow = MagicMock()
         uow.agenda_items.list_by_event.return_value = all_items
         uow.agenda_items.list_by_track.return_value = (
             all_items if subjects is None else subjects
         )
         uow.spaces.list_by_event.return_value = list(spaces)
-        uow.sessions.read_participants_limits.side_effect = _subset(
-            limits if limits is not None else {i.session_id: 0 for i in all_items}
-        )
         uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.read.return_value = _event_track(event_pk=1)
@@ -851,6 +848,22 @@ class TestListAllForTrack:
 
         assert not conflicts
 
+    def test_back_to_back_items_do_not_conflict_from_the_later_side(self):
+        # A clash is reported from the lower session pk, so that pk goes last.
+        earlier = _make_item(pk=1, session_id=20, space_id=1)
+        later = _make_item(
+            pk=2,
+            session_id=10,
+            space_id=1,
+            start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow = self._uow(all_items=[earlier, later])
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert not conflicts
+
     def test_capacity_exceeded_uses_batched_limits(self):
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -862,8 +875,10 @@ class TestListAllForTrack:
             pk=1,
             slug="room-1",
         )
-        item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(all_items=[item], spaces=[space], limits={10: _SESSION_LIMIT})
+        item = _make_item(
+            pk=1, session_id=10, space_id=1, session_participants_limit=_SESSION_LIMIT
+        )
+        uow = self._uow(all_items=[item], spaces=[space])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -873,12 +888,10 @@ class TestListAllForTrack:
         assert conflicts[0].session_limit == _SESSION_LIMIT
 
     def test_a_room_as_big_as_the_limit_is_not_exceeded(self):
-        item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(
-            all_items=[item],
-            spaces=[_space(1, capacity=_SESSION_LIMIT)],
-            limits={10: _SESSION_LIMIT},
+        item = _make_item(
+            pk=1, session_id=10, space_id=1, session_participants_limit=_SESSION_LIMIT
         )
+        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=_SESSION_LIMIT)])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -886,7 +899,7 @@ class TestListAllForTrack:
 
     def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self):
         item = _make_item(pk=1, session_id=10, space_id=1)
-        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=0)], limits={})
+        uow = self._uow(all_items=[item], spaces=[_space(1, capacity=0)])
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
@@ -1342,7 +1355,6 @@ def _subset(mapping):
 
 def _stub_warning_reads(uow):
     uow.sessions.read_facilitators_by_sessions.side_effect = _subset({})
-    uow.sessions.read_participants_limits.side_effect = _subset({})
     uow.sessions.read_availability_by_sessions.side_effect = _subset({})
     uow.sessions.list_track_names_by_session.side_effect = _subset({})
     uow.tracks.list_manager_names_by_tracks.side_effect = _subset({})
@@ -1722,6 +1734,7 @@ class TestRevertChangeOutcomes:
         self._revert(uow)
 
         uow.sessions.lock.assert_called_once_with(1)
+        uow.sessions.update.assert_called_once_with(1, {"schedule_confirmed": False})
         assert uow.agenda_items.rows == {}
         assert uow.schedule_change_logs.created == [
             {
@@ -1755,6 +1768,7 @@ class TestRevertChangeOutcomes:
 
         self._revert(uow)
 
+        uow.sessions.update.assert_called_once_with(1, {"schedule_confirmed": False})
         assert uow.agenda_items.created == [
             {
                 "session_id": 1,
@@ -1831,11 +1845,15 @@ class TestDetectForAssignment:
         ]
 
     def test_reports_a_room_too_small_for_the_session(self, uow):
-        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
+        uow.agenda_items.rows = {
+            1: _make_item(
+                pk=1,
+                session_id=10,
+                space_id=1,
+                session_participants_limit=_SESSION_LIMIT,
+            )
+        }
         uow.spaces.list_by_event.return_value = [_space(1, capacity=_ROOM_CAPACITY)]
-        uow.sessions.read_participants_limits.side_effect = _subset(
-            {10: _SESSION_LIMIT}
-        )
 
         conflicts = _conflict_service(uow).detect_for_assignment(
             event_pk=1, session_pk=10

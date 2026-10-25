@@ -9,6 +9,7 @@ import sys
 from datetime import datetime, time, timedelta
 from importlib import import_module
 from pathlib import Path
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_DIR = REPO_ROOT / "src"
@@ -19,8 +20,6 @@ if str(SRC_DIR) not in sys.path:
 import django
 
 django.setup()
-
-from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
@@ -59,7 +58,7 @@ from ludamus.links.db.django.models import (
 from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.crowd import AgeBand, UserType
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import (
     EventVisibility,
@@ -265,6 +264,7 @@ def _create_test_user() -> User:
     """
     user = User.objects.create_user(
         username="e2e-tester",
+        age_band=AgeBand.SIXTEEN_PLUS,
         email="e2e@test.local",
         password="e2e-password-123",
         name="E2E Tester",
@@ -1074,9 +1074,35 @@ def _create_guild_roster_event(sphere: Sphere) -> Event:
     return event
 
 
-# NOTE: profile-edit.auth.spec.ts renames this user and tries a taken email, so
-# it can't use the shared e2e-tester, whose name and email other specs read.
-# The spec counts the one confirmed seat.
+def _create_email_verification_profiles() -> None:
+    # NOTE: CI retries twice; verification sends need one unsent account per attempt.
+    domains = {
+        "verified": "test.local",
+        "missing": "",
+        "pending": "test.local",
+        "nongmail": "notgmail.com",
+        "lookalike": "gmail.com.test.local",
+        **{f"unverified-chromium-{retry}": "GMAIL.COM" for retry in range(3)},
+    }
+    for state, domain in domains.items():
+        slug = f"email-{state}"
+        user = User.objects.create_user(
+            username=slug,
+            email=f"{slug}@{domain}" if domain else "",
+            email_verified=state in {"verified", "pending"},
+            pending_email="email-pending-new@test.local" if state == "pending" else "",
+            email_verification_sent_at=timezone.now() if state == "pending" else None,
+            password="e2e-email-123",
+            name=f"Email {state}",
+            slug=slug,
+        )
+        _write_storage_state(
+            user,
+            domain=_cookie_domain(),
+            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-email-{state}.json",
+        )
+
+
 def _create_profile_editor_scenario(sphere: Sphere) -> None:
     editor = User.objects.create_user(
         username="e2e-profile",
@@ -1297,6 +1323,7 @@ def _create_single_slot_event(sphere: Sphere) -> None:
         publication_offset=timedelta(days=2),
         enrollment_banner="Enrollment is open",
         proposals_open=True,
+        allow_anonymous_proposals=True,
     )
     venue = _create_venue(event, name="Lone Venue", slug="lone-venue")
     area = _create_area(venue, name="Lone Area", slug="lone-area")
@@ -1406,6 +1433,48 @@ def _create_discord_proposal_scenario(sphere: Sphere) -> None:
     )
 
 
+def _create_age_scenarios() -> None:
+    unknown = User.objects.create_user(
+        username="e2e-age-unknown",
+        name="Privacy First",
+        slug="e2e-age-unknown",
+        password="e2e-age-unknown-123",
+    )
+    _write_storage_state(
+        unknown,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests/e2e/.auth-state-age-unknown.json",
+    )
+    for scenario in ("teen", "older", "child", "cross-sphere"):
+        session = SessionStore()
+        session["pending_signup"] = {
+            "userinfo": {"sub": f"e2e-age-{scenario}", "name": f"Age {scenario}"},
+            "redirect_to": (
+                "http://another.localhost:8000/" if scenario == "cross-sphere" else ""
+            ),
+            "confirmation_token": "",
+            "started_at": timezone.now().isoformat(),
+        }
+        session.create()
+        state = {
+            "cookies": [
+                {
+                    "name": "sessionid",
+                    "value": session.session_key,
+                    "domain": _cookie_domain(),
+                    "path": "/",
+                    "httpOnly": True,
+                    "secure": False,
+                    "sameSite": "Lax",
+                }
+            ],
+            "origins": [],
+        }
+        (REPO_ROOT / f"tests/e2e/.auth-state-age-{scenario}.json").write_text(
+            json.dumps(state), encoding="utf-8"
+        )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1422,6 +1491,7 @@ def main() -> None:
 
     # Test user for authenticated e2e tests
     tester = _create_test_user()
+    _create_age_scenarios()
 
     superuser = User.objects.create_superuser(
         username="admin",
@@ -1695,6 +1765,7 @@ def main() -> None:
         start_offset=timedelta(days=28),
     )
     _create_profile_editor_scenario(sphere)
+    _create_email_verification_profiles()
     _create_party_refusals_scenario()
     _create_merge_event(
         sphere,
@@ -1756,6 +1827,24 @@ def main() -> None:
         max_participants=4,
         share_code="ENCQR1",
     )
+
+    for domain, name in zip(
+        settings.LANDING_CONVENTION_DOMAINS,
+        ("Kapitularz", "Bachanalia Fantastyczne", "Otwarte Opcje Fantastyczne"),
+        strict=True,
+    ):
+        _, convention_sphere = _create_site(domain, name=name)
+        convention_sphere.name = name
+        convention_sphere.save(update_fields=["name"])
+        _create_event(
+            convention_sphere,
+            name=name,
+            slug=f"landing-{convention_sphere.pk}",
+            description="Published cover examples for the landing page.",
+            start_offset=timedelta(days=-20),
+            duration_hours=8,
+            publication_offset=timedelta(days=30),
+        )
 
     _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
     foreign_event = _create_event(
@@ -1828,6 +1917,69 @@ def main() -> None:
             "is_published": True,
         },
     )
+
+    _seed_feed_cards_sphere(tester)
+
+
+def _seed_feed_cards_sphere(tester: User) -> None:
+    # The calendar page on feed cards, driven by feed-cards.spec.ts. Fixed
+    # dates, so the page's lines are known exactly; one relative event for the
+    # state that only exists while something is running.
+    _, sphere = _create_site("feed.localhost:8000", name="Feed Cards")
+    sphere.encounters_policy = EncountersPolicy.EVERYONE
+    sphere.save()
+    tz = get_current_timezone()
+    now = timezone.now()
+    for name, slug, start, end in (
+        (
+            "Harvest Convention",
+            "harvest-convention",
+            datetime(2031, 10, 30, 10, tzinfo=tz),
+            datetime(2031, 11, 1, 18, tzinfo=tz),
+        ),
+        (
+            "Sunday Pub Session",
+            "sunday-pub-session",
+            datetime(2031, 11, 9, 13, tzinfo=tz),
+            datetime(2031, 11, 9, 18, tzinfo=tz),
+        ),
+        (
+            "Running Marathon",
+            "running-marathon",
+            now - timedelta(days=1),
+            now + timedelta(days=1),
+        ),
+    ):
+        Event.objects.create(
+            sphere=sphere,
+            name=name,
+            slug=slug,
+            start_time=start,
+            end_time=end,
+            publication_time=min(start, now) - timedelta(days=1),
+        )
+    for title, code, start, end in (
+        # Runs past midnight: still one evening on the calendar.
+        (
+            "Late Night Tactics",
+            "FEED01",
+            datetime(2031, 11, 4, 19, tzinfo=tz),
+            datetime(2031, 11, 5, 1, tzinfo=tz),
+        ),
+        ("Old Tuesday Table", "FEED02", datetime(2025, 9, 23, 18, tzinfo=tz), None),
+    ):
+        Encounter.objects.create(
+            sphere=sphere,
+            creator=tester,
+            title=title,
+            game="Memoir '44",
+            start_time=start,
+            end_time=end,
+            place="Tester's place",
+            max_participants=6,
+            is_public=True,
+            share_code=code,
+        )
 
 
 if __name__ == "__main__":

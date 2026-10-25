@@ -549,6 +549,7 @@ class TestDashboardPastEvents:
         assert past == [f"{n} weeks ago" for n in range(1, DASHBOARD_PAST_EVENTS + 1)]
 
 
+@pytest.mark.usefixtures("sixteen_plus_user")
 class TestSphereSubscriptionActions:
     @pytest.fixture(name="subscribe_url")
     def subscribe_url_fixture(self, non_root_sphere):

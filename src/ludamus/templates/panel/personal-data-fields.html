@@ -24,16 +24,11 @@
     {% if current_event %}
         {% tab_shell "panel/_cfp_tabs.html" %}
             {% tab_shell_body %}
-                <div class="alert backdrop-blur-lg alert-info mb-6">
-                    <div class="flex items-start gap-3">
-                        <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
-                        <div>
-                            <p class="text-sm font-medium">{% translate "What are Host Data Fields?" %}</p>
-                            <p class="text-sm mt-1">
-                                {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. Every proposer at the event is asked the same questions once, whatever they propose." %}
-                            </p>
-                        </div>
-                    </div>
+                <div class="mb-6">
+                    <h2 class="text-sm font-semibold">{% translate "What are Host Data Fields?" %}</h2>
+                    <p class="text-sm text-foreground-muted mt-1">
+                        {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. Every proposer at the event is asked the same questions once, whatever they propose." %}
+                    </p>
                 </div>
                 {% if fields %}
                     {% tessera_table %}
@@ -108,7 +103,7 @@
                                 </tr>
                             {% endfor %}
                         </tbody>
-                    {% endtessera_table %}
+                    {% end_tessera_table %}
                 {% else %}
                     <div class="card p-8 text-center">
                         <p class="text-foreground-muted">
@@ -116,8 +111,8 @@
                         </p>
                     </div>
                 {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
     {% else %}
         <div class="card p-8 text-center">
             <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

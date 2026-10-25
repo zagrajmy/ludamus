@@ -267,26 +267,19 @@
                         });
                     })();
                 </script>
-                {% if proposal_count > 0 and available_session_fields %}
-                    <div class="alert backdrop-blur-lg alert-warning mt-6">
-                        <div class="flex items-start gap-3">
-                            <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
-                            <div>
-                                <p class="text-sm font-medium">
-                                    {% blocktranslate count count=proposal_count %}There is {{ count }} existing proposal for this category.{% plural %}There are {{ count }} existing proposals for this category.{% endblocktranslate %}
-                                </p>
-                                <p class="text-sm opacity-80 mt-1">
-                                    {% translate "Changes to field requirements will not affect existing proposals. New fields will not be added to them, and removed fields will keep their data." %}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
                 {% if available_session_fields %}
                     <div class="card mt-6">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Fields" %}</h3>
                             <p class="text-sm text-foreground-muted mb-6">{% translate "Select which session fields hosts must provide." %}</p>
+                            {% if proposal_count > 0 %}
+                                <p class="text-sm font-medium mb-1">
+                                    {% blocktranslate count count=proposal_count %}There is {{ count }} existing proposal for this category.{% plural %}There are {{ count }} existing proposals for this category.{% endblocktranslate %}
+                                </p>
+                                <p class="text-sm text-foreground-muted mb-6">
+                                    {% translate "Changes to field requirements will not affect existing proposals. New fields will not be added to them, and removed fields will keep their data." %}
+                                </p>
+                            {% endif %}
                             <input type="hidden"
                                    name="session_field_order"
                                    id="session-field-order"

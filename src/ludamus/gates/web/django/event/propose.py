@@ -59,6 +59,7 @@ if TYPE_CHECKING:
         EventProposalSettingsDTO,
         OrganizerFieldDTO,
         ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
     )
     from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
 
@@ -265,8 +266,14 @@ class _Wizard:
     @cached_property
     def asks_days(self) -> bool:
         if self.category is None:
-            return True
+            return bool(self.categories)
         return self.service.asks_availability(self.category.pk)
+
+    @cached_property
+    def session_requirements(self) -> list[SessionFieldRequirementDTO]:
+        if self.chosen is None:
+            return []
+        return self.service.get_session_requirements(self.chosen.pk)
 
     @cached_property
     def personal_pairs(self) -> list[tuple[OrganizerFieldDTO, bool]]:
@@ -309,14 +316,14 @@ class _Wizard:
         return tuple(
             key
             for key in _STEP_KEYS
-            if (key != "category" or len(self.categories) != 1)
+            if (key != "category" or len(self.categories) > 1)
             and (key != "days" or shows_days)
             and (key != "personal" or shows_personal)
         )
 
     @property
-    def chosen(self) -> ProposalCategoryDTO:
-        if self.category is None:
+    def chosen(self) -> ProposalCategoryDTO | None:
+        if self.category is None and self.categories:
             raise RedirectError(
                 _propose_url(self.event.slug),
                 error=_("Please select a category first."),
@@ -439,7 +446,7 @@ def _details_context(
     track_error: str | None = None,
 ) -> StepContext:
     category = wizard.chosen
-    requirements = wizard.service.get_session_requirements(category.pk)
+    requirements = wizard.session_requirements
 
     if form is None:
         initial = unfold_custom_answers(
@@ -475,9 +482,7 @@ def _details_context(
 def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
     category = wizard.chosen
     session_fields = _review_fields(
-        fields=[
-            req.field for req in wizard.service.get_session_requirements(category.pk)
-        ],
+        fields=[req.field for req in wizard.session_requirements],
         answers=state.get("session_data", {}),
         prefix="session",
     )
@@ -498,7 +503,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
 
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
-        "category_name": category.name,
+        "category_name": category.name if category else "",
         "facilitator_name": session_data.get("facilitator_name", ""),
         "title": session_data.get("title", ""),
         "description": session_data.get("description", ""),
@@ -591,9 +596,11 @@ class ProposeWizardMixin(View):
     @staticmethod
     def _get_wizard_category(
         *, request: RootRequest, service: ProposeSessionServiceProtocol, event: EventDTO
-    ) -> ProposalCategoryDTO:
+    ) -> ProposalCategoryDTO | None:
         state = request.session.get(_session_key(event.slug), {})
         if not (category_id := state.get("category_id")):
+            if not service.get_categories(event.pk):
+                return None
             raise RedirectError(
                 _propose_url(event.slug), error=_("Please select a category first.")
             )
@@ -739,7 +746,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin):
         if request.POST.get("back"):
             return _render(wizard, wizard.at_or_before("details"))
 
-        requirements = wizard.service.get_session_requirements(wizard.chosen.pk)
+        requirements = wizard.session_requirements
         form = build_session_details_form(requirements, category=wizard.chosen)(
             data=request.POST
         )

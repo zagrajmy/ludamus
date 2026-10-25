@@ -21,6 +21,8 @@ from ludamus.links.db.django.models import (
     Space,
     Sphere,
     SphereMembership,
+    Tag,
+    TagCategory,
     User,
     UserEnrollmentConfig,
 )
@@ -214,3 +216,19 @@ class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 class EncounterRSVPAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("encounter", "user", "ip_address", "creation_time")
     list_filter = ("encounter",)
+
+
+@admin.register(TagCategory)
+class TagCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
+    list_display = ("name", "slug")
+    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
+    list_display = ("__str__", "category", "slug")
+    list_filter = ("category",)
+    list_select_related = ("category", "parent__parent")
+    search_fields = ("name", "search_key")
+    autocomplete_fields = ("parent",)
+    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}

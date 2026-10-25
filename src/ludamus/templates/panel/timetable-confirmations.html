@@ -28,7 +28,7 @@
                                     {{ track.name }}
                                 </option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     </form>
                 {% endif %}
             </div>
@@ -133,7 +133,7 @@
                                             </td>
                                             <td class="py-2 pr-4 text-foreground-muted">
                                                 {% if row.manager_names %}
-                                                    {{ row.manager_names|join:", " }}
+                                                    <span data-ph-mask>{{ row.manager_names|join:", " }}</span>
                                                 {% else %}
                                                     <span class="text-xs text-warning-text">{% translate "Nobody yet" %}</span>
                                                 {% endif %}
@@ -154,8 +154,8 @@
                 </section>
                 {% include "panel/parts/confirmation-orphan-warning.html" with count=dashboard.without_facilitator_count %}
             {% endif %}
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/filter-autosubmit.ts' %}

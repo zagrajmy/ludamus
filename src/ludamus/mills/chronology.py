@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from ludamus.mills.event import require_session_in_event, widen_event_dates
+from ludamus.mills.event import (
+    require_session_in_event,
+    require_session_in_sphere,
+    widen_event_dates,
+)
 from ludamus.mills.multiverse import can_write_programme
 from ludamus.pacts import (
     EventDTO,
@@ -222,11 +226,14 @@ class ProposalAcceptanceService:
     ) -> ProposalAcceptContextDTO | None:
         try:
             session = self._sessions.read(session_id)
+            event = require_session_in_sphere(
+                sessions=self._sessions, session_pk=session.pk, sphere_id=sphere_id
+            )
         except NotFoundError:
             return None
         return ProposalAcceptContextDTO(
             session=session,
-            event=self._sessions.read_event(session.pk),
+            event=event,
             presenter=self._sessions.read_presenter(session.pk),
             space_options=self._sessions.read_space_options(session.pk),
             availability=self._sessions.read_availability(session.pk),
@@ -255,14 +262,19 @@ class ProposalAcceptanceService:
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
+        event = require_session_in_sphere(
+            sessions=self._sessions, session_pk=session_id, sphere_id=sphere_id
+        )
+        if space_id not in {
+            option.pk for option in self._sessions.read_space_options(session_id)
+        }:
+            raise NotFoundError
         end_time = start_time + timedelta(minutes=duration_minutes(session.duration))
+        # Same rule as assign_session: the event decides whether a first
+        # placement counts as agreed. Acceptance is always a first placement,
+        # so the move exemption that path carries does not apply here.
+        confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
-            event = self._sessions.read_event(session_id)
-            # Same rule as assign_session: the event decides whether a first
-            # placement counts as agreed. Acceptance is always a first
-            # placement, so the move exemption that path carries does not
-            # apply here.
-            confirmed = event.auto_confirm_sessions
             # Accepting on to a time the event does not cover yet moves the
             # event, the same way dragging a card past its edge does.
             widen_event_dates(

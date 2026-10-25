@@ -646,7 +646,9 @@ class TestProposalCreatePageView:
         self, panel_client, sphere, event
     ):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign = Facilitator.objects.create(
             event=other_event, display_name="Bob", slug="bob", user=None
         )

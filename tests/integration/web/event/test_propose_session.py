@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, timedelta
 from http import HTTPStatus
 from itertools import starmap
 from unittest.mock import patch
@@ -115,13 +115,18 @@ class TestProposeSessionPageView:
         )
 
     def _activate_proposals(self, event, faker, time_zone):
+        # NOTE: in UTC, as read back from the DB; a local time in the DST fold
+        # never equals its UTC twin (PEP 495).
         event.proposal_start_time = faker.date_time_between(
             "-10d", "-1d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.proposal_end_time = faker.date_time_between(
             "+1d", "+10d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
+        event.refresh_from_db()
 
     def _offer_times(self, event, category, *, days=3):
         # The time step only shows when the category asks and the event offers
@@ -1802,7 +1807,7 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/details.html"
 
     def test_post_step_without_wizard_category_redirects(
-        self, authenticated_client, event, faker, time_zone
+        self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
 
@@ -3076,13 +3081,18 @@ class TestAnonymousProposalSubmission:
         return reverse(name, kwargs={"event_slug": event_slug})
 
     def _activate_proposals(self, event, faker, time_zone):
+        # NOTE: in UTC, as read back from the DB; a local time in the DST fold
+        # never equals its UTC twin (PEP 495).
         event.proposal_start_time = faker.date_time_between(
             "-10d", "-1d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.proposal_end_time = faker.date_time_between(
             "+1d", "+10d", tzinfo=time_zone
-        )
+        ).astimezone(UTC)
         event.save()
+        # NOTE: a local time in the DST fold never equals a datetime in another
+        # zone, so compare against the stored UTC values.
+        event.refresh_from_db()
 
     def _enable_anonymous(self, event):
         EventProposalSettings.objects.update_or_create(

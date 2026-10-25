@@ -19,7 +19,13 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.crowd import UserDTO
-from tests.integration.conftest import SessionAvailabilityFactory
+from tests.integration.conftest import (
+    EventFactory,
+    SessionAvailabilityFactory,
+    SessionFactory,
+    SpaceFactory,
+    SphereFactory,
+)
 from tests.integration.utils import assert_response
 
 POSTED_START = "%Y-%m-%dT%H:%M"
@@ -550,6 +556,29 @@ class TestProposalAcceptPageView:
             ],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
+
+    def test_post_error_proposal_of_another_sphere(self, manager_client):
+        foreign_event = EventFactory(sphere=SphereFactory())
+        foreign_session = SessionFactory(event=foreign_event, status="pending")
+        space = SpaceFactory(event=foreign_event)
+
+        response = manager_client.post(
+            self._get_url(foreign_session.id, foreign_event.slug),
+            data={
+                "space": space.id,
+                "start_time": _wall_clock(foreign_event).strftime(POSTED_START),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url=reverse("web:index"),
+        )
+        foreign_session.refresh_from_db()
+        assert foreign_session.status == "pending"
+        assert not AgendaItem.objects.filter(session=foreign_session).exists()
 
     @pytest.mark.usefixtures("space")
     def test_post_invalid_space_id(self, event, pending_session, manager_client):

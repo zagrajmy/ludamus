@@ -998,14 +998,16 @@ class EventImportRunActionView(_ImportActionView):
         if result.duplicates:
             messages.info(
                 self.request,
-                _("Skipped %(count)d responses already imported.")
-                % {"count": result.duplicates},
+                _("Skipped %(count)d responses already imported.") % {
+                    "count": result.duplicates
+                },
             )
         if result.skipped:
             messages.warning(
                 self.request,
-                _("Skipped %(count)d responses with an invalid or unmapped answer.")
-                % {"count": result.skipped},
+                _("Skipped %(count)d responses with an invalid or unmapped answer.") % {
+                    "count": result.skipped
+                },
             )
 
 

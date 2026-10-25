@@ -1,0 +1,20 @@
+id: no-static-alerts
+valid:
+  - '<p class="text-sm text-foreground-secondary">Your email address</p>'
+  - '<p role="alert" class="text-danger">Choose a time slot.</p>'
+  - '<div role="alertdialog" class="dialog">Delete session?</div>'
+  - '<div class="alertness">Not a banner class</div>'
+  - '<div class="custom-alert">Not the alert component</div>'
+  - '<div data-alert="true">Not a class</div>'
+invalid:
+  - '<div class="alert alert-info">Your email is verified.</div>'
+  - "<div class='alert alert-success'>Signed up.</div>"
+  - '<div class="mb-4 alert-warning flex">A warning</div>'
+  - '<div class="alert-info">A message</div>'
+  - |
+    <div class="flex
+                alert alert-info">A message</div>
+  - |
+    <div class="alert {% if ok %}alert-success{% else %}alert-danger{% endif %}">
+      {{ message }}
+    </div>

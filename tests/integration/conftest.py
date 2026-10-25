@@ -135,6 +135,13 @@ def sponsor_user(*, leader, member):
     return party
 
 
+@pytest.fixture
+def sixteen_plus_user(active_user):
+    active_user.age_band = "16_plus"
+    active_user.save(update_fields=["age_band"])
+    return active_user
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
@@ -173,6 +180,22 @@ class SphereFactory(DjangoModelFactory):
     site = SubFactory(SiteFactory)
     # A sphere that runs encounters, since most tests that touch them want one.
     encounters_policy = EncountersPolicy.EVERYONE
+
+
+def dst_free_midnight():
+    # NOTE: wall-clock expectations break when an event's days span a DST
+    # switch (02:00 repeats on the autumn one). Among 7 consecutive midnights
+    # one always clears the switch; search from a week out so the event never
+    # starts sooner, as tests postpone publication_time by a day.
+    tz = get_current_timezone()
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    midnights = (today + timedelta(days=days) for days in range(7, 14))
+    return next(
+        midnight
+        for midnight in midnights
+        if (midnight - timedelta(days=1)).astimezone(tz).utcoffset()
+        == (midnight + timedelta(days=5)).astimezone(tz).utcoffset()
+    )
 
 
 class EventFactory(DjangoModelFactory):
@@ -431,9 +454,7 @@ def non_root_sphere(settings, faker):
 @pytest.fixture(name="event")
 def event_fixture(sphere):
     now = datetime.now(UTC)
-    midnight = (now + timedelta(days=7)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
         start_time=midnight,

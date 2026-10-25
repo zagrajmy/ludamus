@@ -162,8 +162,10 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
         )
 
     def test_get_renders_no_questions_state_with_an_active_integration(
@@ -186,8 +188,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
@@ -224,8 +225,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
@@ -780,8 +780,10 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
             contains="No import integrations yet.",
         )
 
@@ -805,8 +807,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "review",
@@ -1841,8 +1842,10 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
             contains="No import integrations yet.",
         )
 
@@ -1864,8 +1867,7 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "json",
@@ -1976,8 +1978,7 @@ class TestEventImportJsonView:
             HTTPStatus.OK,
             template_name="panel/import-json.html",
             messages=[(messages.ERROR, "Invalid import settings JSON.")],
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "json",
@@ -2011,8 +2012,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",
@@ -2072,8 +2072,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",
@@ -2124,8 +2123,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",

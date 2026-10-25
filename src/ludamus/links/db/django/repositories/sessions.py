@@ -753,8 +753,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 start_time=row["agenda_item__start_time"],
                 end_time=row["agenda_item__end_time"],
                 room_name=row["agenda_item__space__name"] or "",
-            )
-            for row in rows
+            ) for row in rows
         ]
 
     @staticmethod
@@ -847,14 +846,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 FacilitatorDTO.model_validate(row.facilitator)
             )
         return result
-
-    @staticmethod
-    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
-        return dict(
-            Session.objects.filter(pk__in=session_ids).values_list(
-                "pk", "participants_limit"
-            )
-        )
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:

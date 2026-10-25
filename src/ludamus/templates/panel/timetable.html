@@ -45,7 +45,7 @@
                                     {{ track.name }}
                                 </option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     {% endif %}
                     {% if grid.available_dates|length > 1 %}
                         <label for="timetable-date"
@@ -57,7 +57,7 @@
                                 <option value="{{ d|date:"Y-m-d" }}"
                                         {% if grid.date_selection == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     {% endif %}
                     {% comment %}
                     Rooms paginate five to a page, so on a large venue this picker
@@ -123,13 +123,16 @@
                          data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                          data-confirm-move="{% translate "The schedule of this program item is confirmed. Moving it will clear the confirmation." %}"
                          data-confirm-move-action="{% translate "Move" %}"
+                         data-drop-occupied="{% translate "Room taken" %}"
+                         data-drop-too-small="{% translate "Room too small" %}"
+                         data-drop-closed="{% translate "Extends the day" %}"
                          hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}{% querystring %}"
                          hx-swap="innerHTML"
                          hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
                 </div>
             </div>
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/timetable.ts' %}
