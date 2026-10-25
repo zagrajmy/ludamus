@@ -1,5 +1,5 @@
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { clearFacilitators, savedAnswers, signUp } from "./helpers/facilitators";
 import { expect, test } from "./helpers/fixtures";
 
@@ -12,8 +12,9 @@ const IMPORTED = "Rowan Ash (import)";
 const INITIALS = "R. Ash";
 
 test.describe("Facilitator merge", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await clearFacilitators(page, LIST_URL);
   });
 
