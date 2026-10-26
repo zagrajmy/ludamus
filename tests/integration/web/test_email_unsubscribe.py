@@ -140,7 +140,6 @@ class TestAnnouncementEmailUnsubscribe:
         )
         assert SphereSubscription.objects.filter(user=active_user).exists()
 
-
     def test_post_without_the_one_click_field_changes_nothing(
         self, client, non_root_sphere, active_user
     ):
