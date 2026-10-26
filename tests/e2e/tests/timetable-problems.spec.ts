@@ -1,7 +1,7 @@
 import { type Browser, type Locator, type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Emberfall Convention" (bootstrap_timetable.py) is seeded for this spec
@@ -72,9 +72,8 @@ const restoreSeededSchedule = async (page: Page): Promise<void> => {
 };
 
 const withManager = async (browser: Browser, act: (page: Page) => Promise<void>): Promise<void> => {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ storageState: managerState });
   try {
-    await signInAsManager(page);
     await act(page);
   } finally {
     await page.close();
@@ -113,16 +112,14 @@ const shownOf = async (names: string[], locate: (name: string) => Locator) => {
 const countOf = (label: string, count: number) => new RegExp(`${label}\\s+${count}\\b`);
 
 test.describe("Timetable problems", () => {
+  test.use({ storageState: managerState });
+
   test.beforeAll(async ({ browser }) => {
     await withManager(browser, restoreSeededSchedule);
   });
 
   test.afterAll(async ({ browser }) => {
     await withManager(browser, restoreSeededSchedule);
-  });
-
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
   });
 
   test("organizer reviews every kind of scheduling problem", async ({ page }, testInfo) => {

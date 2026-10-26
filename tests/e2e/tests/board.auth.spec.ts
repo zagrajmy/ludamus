@@ -65,6 +65,58 @@ test.describe("Board listings", () => {
   });
 });
 
+test.describe("Board filters", () => {
+  test("viewer narrows the board by what they look for and by text", async ({ page }) => {
+    const stamp = Date.now();
+    const tableTitle = `Mörk Borg table ${stamp}`;
+    const playersTitle = `Players want a GM ${stamp}`;
+    for (const [seeking, title] of [
+      ["Players", tableTitle],
+      ["GM", playersTitle],
+    ]) {
+      await page.goto("/board/create/");
+      await page.getByLabel(seeking, { exact: true }).check();
+      await page.getByLabel("Title").fill(title);
+      await page.getByLabel("What we'll do").fill("A grim dungeon crawl");
+      await page.getByLabel("When, in your words").fill("Fridays");
+      await page.getByRole("button", { name: "Publish listing" }).click();
+      await expect(page.getByText("Listing published.")).toBeVisible();
+    }
+
+    await page.goto("/board/");
+    const filters = page.getByRole("search", { name: "Filter listings" });
+    const listing = (title: string) => page.getByRole("link", { name: new RegExp(title) });
+
+    await filters.getByLabel("Players", { exact: true }).check();
+    await expect(page).toHaveURL(/looking_for=players/);
+    await expect(listing(playersTitle)).toBeVisible();
+    await expect(listing(tableTitle)).toHaveCount(0);
+
+    await filters.getByLabel("Anything").check();
+    await filters.getByLabel("Search").fill(`MORK borg ${stamp}`);
+    await expect(page).toHaveURL(/q=MORK/);
+    await expect(listing(tableTitle)).toBeVisible();
+    await expect(listing(playersTitle)).toHaveCount(0);
+    await attachArtifacts(test.info(), {
+      name: "board-filtered",
+      region: page.getByRole("main"),
+      facts: { search: `MORK borg ${stamp}`, found: tableTitle },
+    });
+
+    await filters.getByLabel("Show closed").check();
+    await expect(page).toHaveURL(/closed=on/);
+    await filters.getByLabel("Show closed").uncheck();
+    await expect(page).not.toHaveURL(/closed=/);
+    await expect(page).toHaveURL(/q=MORK/);
+
+    await filters.getByLabel("Search").fill(`nothing ${stamp}`);
+    await expect(page.getByText("No listings match these filters")).toBeVisible();
+    await page.getByRole("link", { name: "Clear filters" }).click();
+    await expect(page).toHaveURL(/\/board\/$/);
+    await expect(listing(tableTitle)).toBeVisible();
+  });
+});
+
 test.describe("Board listings, edge cases", () => {
   test("long unbroken text stays inside a phone-width page", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
