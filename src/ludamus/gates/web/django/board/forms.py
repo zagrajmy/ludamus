@@ -14,6 +14,9 @@ from ludamus.pacts.listing import (
 )
 
 if TYPE_CHECKING:
+    from django.http import QueryDict
+
+    from ludamus.pacts.listing import BoardFiltersDict
     from ludamus.pacts.tags import TagCategoryOptionsDTO
 
 SEEKING_LABELS = {
@@ -30,6 +33,60 @@ CONTACT_CHOICES = (
     (ListingContact.DISCORD, _("Discord")),
     (ListingContact.EMAIL, _("Account email")),
 )
+
+
+# What the viewer wants, keyed to what a listing seeks: a listing seeking
+# players offers a game to join, one seeking a GM offers players.
+LOOKING_FOR = {"game": ListingSeeking.PLAYERS, "players": ListingSeeking.GM}
+
+ANYTHING = "any"
+BOARD_SEARCH_MAX_LENGTH = 100
+
+
+class BoardFilterForm(forms.Form):
+    looking_for = forms.ChoiceField(
+        label=_("What are you looking for?"),
+        required=False,
+        choices=(
+            (ANYTHING, pgettext_lazy("board looking for", "Anything")),
+            ("game", pgettext_lazy("board looking for", "A game to join")),
+            ("players", pgettext_lazy("board looking for", "Players")),
+        ),
+        widget=ToggleRadioSelect,
+    )
+    q = forms.CharField(
+        label=_("Search"),
+        required=False,
+        max_length=BOARD_SEARCH_MAX_LENGTH,
+        widget=forms.TextInput(
+            attrs={"type": "search", "placeholder": _("Title or what you'll do")}
+        ),
+    )
+    closed = forms.BooleanField(label=_("Show closed"), required=False)
+    # The facets draw these boxes; the field only reads the repeated ?tag=.
+    tag = forms.Field(required=False, widget=forms.MultipleHiddenInput)
+
+    def __init__(self, data: QueryDict) -> None:
+        # A bound form ignores `initial`, and the toggle shows nothing picked
+        # for an empty value, so "Anything" is filled in as if sent.
+        data = data.copy()
+        data.setdefault("looking_for", ANYTHING)
+        super().__init__(data)
+
+    def clean_tag(self) -> list[int]:
+        return [int(raw) for raw in self.cleaned_data["tag"] or [] if raw.isdecimal()]
+
+    def filters(self) -> BoardFiltersDict:
+        # A filter that fails to parse is dropped, not reported: the query
+        # string is a link someone may have edited by hand.
+        self.is_valid()
+        data = self.cleaned_data
+        return {
+            "seeking": LOOKING_FOR.get(data.get("looking_for", "")),
+            "search": data.get("q", ""),
+            "tag_ids": data.get("tag", []),
+            "show_closed": data.get("closed", False),
+        }
 
 
 class ListingForm(forms.Form):

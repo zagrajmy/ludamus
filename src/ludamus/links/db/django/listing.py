@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db.models import Prefetch, QuerySet
+from django.db.models import Case, Prefetch, QuerySet, Value, When
 
 from ludamus.links.db.django.models import Listing, Tag
 from ludamus.links.db.django.repositories.storage import (
@@ -13,6 +14,7 @@ from ludamus.links.db.django.repositories.storage import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.listing import (
+    ListingBoardRowDTO,
     ListingContact,
     ListingDTO,
     ListingRepositoryProtocol,
@@ -95,16 +97,39 @@ class ListingRepository(ListingRepositoryProtocol):
         )
 
     @staticmethod
-    def count_open(sphere_id: int) -> int:
-        return Listing.objects.filter(
-            sphere_id=sphere_id, status=ListingStatus.OPEN
-        ).count()
+    def board_rows(
+        *, sphere_id: int, seeking: ListingSeeking | None, statuses: list[ListingStatus]
+    ) -> list[ListingBoardRowDTO]:
+        listings = Listing.objects.filter(sphere_id=sphere_id, status__in=statuses)
+        if seeking is not None:
+            listings = listings.filter(seeking=seeking)
+        rows = list(
+            listings.order_by(
+                Case(When(status=ListingStatus.OPEN, then=Value(0)), default=Value(1)),
+                "-opened_at",
+                "-pk",
+            ).values_list("pk", "status", "title", "what")
+        )
+        tag_ids: dict[int, list[int]] = defaultdict(list)
+        for listing_id, tag_id in Listing.picked_tags.through.objects.filter(
+            listing_id__in=[pk for pk, *_ in rows]
+        ).values_list("listing_id", "tag_id"):
+            tag_ids[listing_id].append(tag_id)
+        return [
+            ListingBoardRowDTO(
+                pk=pk,
+                status=ListingStatus(status),
+                title=title,
+                what=what,
+                tag_ids=tag_ids[pk],
+            )
+            for pk, status, title, what in rows
+        ]
 
     @staticmethod
-    def list_open(*, sphere_id: int, limit: int, offset: int) -> list[ListingDTO]:
-        listings = _listings().filter(sphere_id=sphere_id, status=ListingStatus.OPEN)
-        window = listings.order_by("-opened_at", "-pk")[offset : offset + limit]
-        return [_dto(listing) for listing in window]
+    def read_many(pks: list[int]) -> list[ListingDTO]:
+        listings = _listings().in_bulk(pks)
+        return [_dto(listings[pk]) for pk in pks if pk in listings]
 
     @staticmethod
     def list_authored(*, sphere_id: int, author_id: int) -> list[ListingDTO]:
