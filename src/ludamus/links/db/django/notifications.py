@@ -17,12 +17,14 @@ from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils.formats import date_format
+from django.utils.text import Truncator
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
+    NOTIFICATION_TITLE_MAX_LENGTH,
     Announcement,
     Notification,
     NotificationSubscription,
@@ -45,7 +47,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
-    from ludamus.pacts.listing import ListingNotification
+    from ludamus.pacts.listing import (
+        ListingDeclinedNotification,
+        ListingInterestedNotification,
+        ListingNotification,
+    )
     from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
         HeldSeatNotification,
@@ -110,7 +116,7 @@ def _ring(
     Notification.objects.create(
         recipient_id=notification.recipient_user_id,
         kind=kind.value,
-        title=title,
+        title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
         body=body,
         url=absolute_url(
             reverse(url_name, kwargs={"pk": notification.listing_id}),
@@ -421,7 +427,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
-    def notify_listing_interested(notification: ListingNotification) -> None:
+    def notify_listing_interested(notification: ListingInterestedNotification) -> None:
         title = _("%(name)s is interested in %(listing)s") % {
             "name": notification.responder_name,
             "listing": notification.listing_title,
@@ -435,7 +441,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
-    def notify_listing_declined(notification: ListingNotification) -> None:
+    def notify_listing_declined(notification: ListingDeclinedNotification) -> None:
         title = _("Not this time: %(listing)s") % {
             "listing": notification.listing_title
         }

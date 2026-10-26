@@ -139,8 +139,30 @@ class ListingNotification(BaseModel):
     recipient_user_id: int
     listing_id: int
     listing_title: str
-    responder_name: str = ""
-    message: str = ""
+
+
+class ListingDeclinedNotification(ListingNotification):
+    message: str
+
+
+class ListingInterestedNotification(ListingNotification):
+    responder_name: str
+    message: str
+
+
+class ListingDetailDTO(BaseModel):
+    listing: ListingDTO
+    is_author: bool
+    own_response: ListingResponseDTO | None
+    can_respond: bool
+    waiting_count: int | None
+    open_for_days: int
+
+
+class ListingResponsesDTO(BaseModel):
+    listing: ListingDTO
+    responses: list[ListingResponseDTO]
+    counts: dict[ListingResponseStatus, int]
 
 
 class ListingContactMissingError(Exception):
@@ -152,11 +174,7 @@ class ListingContactMissingError(Exception):
 
 
 class ListingStatusError(Exception):
-    """The listing is not in the status the transition starts from."""
-
-
-class ListingResponseError(Exception):
-    """The response cannot be sent or changed in its current state."""
+    """The listing or response has moved past the state the action starts from."""
 
 
 class ListingRepositoryProtocol(Protocol):
@@ -208,14 +226,18 @@ class ListingResponseRepositoryProtocol(Protocol):
     @staticmethod
     def decline(*, pk: int, message: str) -> None: ...
     @staticmethod
-    def mark_not_chosen(listing_id: int) -> None: ...
+    def dismiss_waiting(listing_ids: list[int]) -> list[ListingNotification]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 
 
 class ListingNotifierProtocol(Protocol):
-    def notify_listing_interested(self, notification: ListingNotification) -> None: ...
-    def notify_listing_declined(self, notification: ListingNotification) -> None: ...
+    def notify_listing_interested(
+        self, notification: ListingInterestedNotification
+    ) -> None: ...
+    def notify_listing_declined(
+        self, notification: ListingDeclinedNotification
+    ) -> None: ...
     def notify_listing_not_chosen(self, notification: ListingNotification) -> None: ...
     def notify_listing_changed(self, notification: ListingNotification) -> None: ...
 
@@ -237,9 +259,9 @@ class ListingServiceProtocol(Protocol):
         data: ListingWriteDict,
         tag_ids: list[int],
     ) -> None: ...
-    def read_visible(
+    def detail(
         self, *, pk: int, sphere_id: int, viewer_id: int | None
-    ) -> ListingDTO: ...
+    ) -> ListingDetailDTO: ...
     def read_authored(
         self, *, pk: int, sphere_id: int, author_id: int
     ) -> ListingDTO: ...
@@ -270,10 +292,8 @@ class ListingServiceProtocol(Protocol):
     def decline(
         self, *, pk: int, sphere_id: int, author_id: int, response_id: int, message: str
     ) -> None: ...
-    def own_response(self, *, pk: int, user_id: int) -> ListingResponseDTO | None: ...
     def responses(
         self, *, pk: int, sphere_id: int, author_id: int, status: ListingResponseStatus
-    ) -> list[ListingResponseDTO]: ...
-    def response_counts(self, pk: int) -> dict[ListingResponseStatus, int]: ...
+    ) -> ListingResponsesDTO: ...
     @staticmethod
     def open_for_days() -> int: ...

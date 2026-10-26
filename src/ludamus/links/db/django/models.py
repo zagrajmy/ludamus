@@ -1616,6 +1616,9 @@ class SessionParticipation(models.Model):
         return f"{self.user.name} {self.status} on {self.session}"
 
 
+NOTIFICATION_TITLE_MAX_LENGTH = 255
+
+
 class Notification(models.Model):
     """In-app notification for a single recipient.
 
@@ -1632,7 +1635,7 @@ class Notification(models.Model):
     )
     # Localised, ready-to-render copy plus structured refs (session/event ids,
     # claim url, deadline). Rendered by the recipient's request, not at send.
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=NOTIFICATION_TITLE_MAX_LENGTH)
     body = models.TextField(blank=True, default="")
     url = models.CharField(max_length=512, blank=True, default="")
     payload = models.JSONField(default=dict, blank=True)

@@ -17,6 +17,7 @@ from ludamus.pacts.listing import (
     ListingBoardRowDTO,
     ListingContact,
     ListingDTO,
+    ListingNotification,
     ListingRepositoryProtocol,
     ListingResponseDTO,
     ListingResponseRepositoryProtocol,
@@ -235,10 +236,23 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
         )
 
     @staticmethod
-    def mark_not_chosen(listing_id: int) -> None:
-        ListingResponse.objects.filter(
-            listing_id=listing_id, status=ListingResponseStatus.WAITING
-        ).update(status=ListingResponseStatus.NOT_CHOSEN)
+    def dismiss_waiting(listing_ids: list[int]) -> list[ListingNotification]:
+        waiting = list(
+            ListingResponse.objects.filter(
+                listing_id__in=listing_ids, status=ListingResponseStatus.WAITING
+            )
+            .order_by("listing_id", "pk")
+            .values_list("pk", "user_id", "listing_id", "listing__title")
+        )
+        ListingResponse.objects.filter(pk__in=[row[0] for row in waiting]).update(
+            status=ListingResponseStatus.NOT_CHOSEN
+        )
+        return [
+            ListingNotification(
+                recipient_user_id=user_id, listing_id=listing_id, listing_title=title
+            )
+            for _, user_id, listing_id, title in waiting
+        ]
 
     @staticmethod
     def delete(pk: int) -> None:

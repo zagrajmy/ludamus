@@ -28,10 +28,8 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingContactMissingError,
     ListingCreateDict,
-    ListingResponseError,
     ListingResponseStatus,
     ListingSeeking,
-    ListingStatus,
     ListingStatusError,
     ListingWriteDict,
 )
@@ -44,7 +42,7 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
-    from ludamus.pacts.listing import ListingDTO
+    from ludamus.pacts.listing import ListingDetailDTO, ListingDTO
 
 _CONTACT_MISSING = {
     ListingContact.DISCORD: gettext_lazy(
@@ -127,9 +125,9 @@ class MyListingsPageView(_BoardGate, LoginRequiredMixin, View):
         )
 
 
-def _read_visible(request: RootRequest, pk: int) -> ListingDTO:
+def _read_detail(request: RootRequest, pk: int) -> ListingDetailDTO:
     try:
-        return request.services.listings.read_visible(
+        return request.services.listings.detail(
             pk=pk,
             sphere_id=request.context.current_sphere_id,
             viewer_id=request.context.current_user_id,
@@ -152,39 +150,23 @@ def _response_form(
 
 def _render_detail(
     request: RootRequest,
-    listing: ListingDTO,
+    detail: ListingDetailDTO,
     response_form: ListingResponseForm | None = None,
 ) -> HttpResponse:
-    listings = request.services.listings
-    user_id = request.context.current_user_id
-    is_author = listing.author_id == user_id
-    own_response = (
-        listings.own_response(pk=listing.pk, user_id=user_id)
-        if user_id and not is_author
-        else None
-    )
-    can_respond = (
-        user_id is not None
-        and not is_author
-        and own_response is None
-        and listing.status is ListingStatus.OPEN
-    )
     return TemplateResponse(
         request,
         "board/detail.html",
         {
-            "listing": listing,
-            "is_author": is_author,
-            "open_for_days": listings.open_for_days(),
-            "own_response": own_response,
+            "listing": detail.listing,
+            "is_author": detail.is_author,
+            "open_for_days": detail.open_for_days,
+            "own_response": detail.own_response,
             "response_form": (
-                (response_form or _response_form(request)) if can_respond else None
-            ),
-            "waiting_count": (
-                listings.response_counts(listing.pk)[ListingResponseStatus.WAITING]
-                if is_author
+                (response_form or _response_form(request))
+                if detail.can_respond
                 else None
             ),
+            "waiting_count": detail.waiting_count,
         },
     )
 
@@ -194,7 +176,7 @@ class ListingDetailPageView(_BoardGate):
 
     @staticmethod
     def get(request: RootRequest, pk: int) -> HttpResponse:
-        return _render_detail(request, _read_visible(request, pk))
+        return _render_detail(request, _read_detail(request, pk))
 
 
 _RESPONSE_TABS = {
@@ -211,14 +193,8 @@ class ListingResponsesPageView(_BoardGate, LoginRequiredMixin, View):
         status = _RESPONSE_TABS.get(
             request.GET.get("tab", ""), ListingResponseStatus.WAITING
         )
-        listings = request.services.listings
         try:
-            listing = listings.read_authored(
-                pk=pk,
-                sphere_id=request.context.current_sphere_id,
-                author_id=request.context.current_user_id,
-            )
-            responses = listings.responses(
+            found = request.services.listings.responses(
                 pk=pk,
                 sphere_id=request.context.current_sphere_id,
                 author_id=request.context.current_user_id,
@@ -230,9 +206,9 @@ class ListingResponsesPageView(_BoardGate, LoginRequiredMixin, View):
             request,
             "board/responses.html",
             {
-                "listing": listing,
-                "responses": responses,
-                "counts": listings.response_counts(pk),
+                "listing": found.listing,
+                "responses": found.responses,
+                "counts": found.counts,
                 "active_tab": status.value,
                 "decline_form": ListingDeclineForm(),
             },
@@ -244,10 +220,10 @@ class ListingRespondActionView(_BoardGate, LoginRequiredMixin, View):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        listing = _read_visible(request, pk)
+        detail = _read_detail(request, pk)
         form = _response_form(request, request.POST)
         if not form.is_valid():
-            return _render_detail(request, listing, form)
+            return _render_detail(request, detail, form)
         try:
             request.services.listings.respond(
                 pk=pk,
@@ -258,8 +234,8 @@ class ListingRespondActionView(_BoardGate, LoginRequiredMixin, View):
             )
         except ListingContactMissingError as exc:
             form.add_error("contact", _CONTACT_MISSING[exc.contact])
-            return _render_detail(request, listing, form)
-        except ListingResponseError:
+            return _render_detail(request, detail, form)
+        except ListingStatusError:
             messages.error(request, _STALE)
         else:
             messages.success(request, _("The author will see you're interested."))
@@ -292,7 +268,7 @@ class ListingResponseDeclineActionView(_BoardGate, LoginRequiredMixin, View):
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        except ListingResponseError:
+        except ListingStatusError:
             messages.error(request, _STALE)
         else:
             messages.success(request, _("They'll be told it's not this time."))
@@ -451,7 +427,7 @@ class _ListingActionView(_BoardGate, LoginRequiredMixin, View):
             raise Http404 from exc
         except ListingContactMissingError as exc:
             messages.error(request, _CONTACT_MISSING[exc.contact])
-        except ListingStatusError, ListingResponseError:
+        except ListingStatusError:
             messages.error(request, _STALE)
         else:
             messages.success(request, self.success_message)

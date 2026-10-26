@@ -4700,7 +4700,7 @@ msgstr "Nie tym razem: %(listing)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "The author went with other people this time."
-msgstr "Tym razem autor wybrał inne osoby."
+msgstr "Tym razem wybrano inne osoby."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -4718,7 +4718,7 @@ msgstr "Ogłoszenie zmienione: %(listing)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "The author edited the listing you responded to."
-msgstr "Autor zmienił ogłoszenie, do którego masz zgłoszenie."
+msgstr "Ogłoszenie, do którego masz zgłoszenie, zostało zmienione."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format

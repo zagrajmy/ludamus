@@ -12,10 +12,13 @@ from ludamus.pacts.listing import (
     ListingBoardRowDTO,
     ListingContact,
     ListingContactMissingError,
+    ListingDeclinedNotification,
+    ListingDetailDTO,
     ListingDTO,
+    ListingInterestedNotification,
     ListingNotification,
     ListingResponseDTO,
-    ListingResponseError,
+    ListingResponsesDTO,
     ListingResponseStatus,
     ListingSeeking,
     ListingStatus,
@@ -179,7 +182,8 @@ class FakeUsers:
 
 
 class FakeResponses:
-    def __init__(self):
+    def __init__(self, listings=None):
+        self.listings = listings
         self.rows: dict[int, ListingResponseDTO] = {}
         self._pks = itertools.count(1)
 
@@ -230,6 +234,12 @@ class FakeResponses:
             if response.listing_id == listing_id and response.status is status
         ]
 
+    def count_by_status(self, listing_id):
+        return {
+            status: len(self.list_for_listing(listing_id=listing_id, status=status))
+            for status in ListingResponseStatus
+        }
+
     def waiting_user_ids(self, listing_id):
         return [
             response.user_id
@@ -241,11 +251,21 @@ class FakeResponses:
     def decline(self, *, pk, message):
         self._set(pk, status=ListingResponseStatus.DECLINED, decline_message=message)
 
-    def mark_not_chosen(self, listing_id):
-        for response in self.list_for_listing(
-            listing_id=listing_id, status=ListingResponseStatus.WAITING
-        ):
-            self._set(response.pk, status=ListingResponseStatus.NOT_CHOSEN)
+    def dismiss_waiting(self, listing_ids):
+        dismissed = []
+        for listing_id in listing_ids:
+            for response in self.list_for_listing(
+                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            ):
+                self._set(response.pk, status=ListingResponseStatus.NOT_CHOSEN)
+                dismissed.append(
+                    ListingNotification(
+                        recipient_user_id=response.user_id,
+                        listing_id=listing_id,
+                        listing_title=self.listings.rows[listing_id].title,
+                    )
+                )
+        return dismissed
 
     def delete(self, pk):
         del self.rows[pk]
@@ -361,13 +381,13 @@ class TestUpdate:
             )
 
 
-class TestReadVisible:
+class TestDetail:
     def test_draft_is_hidden_from_others(self):
         listings = FakeListings()
         listing = listings.add()
 
         with pytest.raises(NotFoundError):
-            _service(listings).read_visible(
+            _service(listings).detail(
                 pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
             )
 
@@ -376,9 +396,9 @@ class TestReadVisible:
         listing = listings.add()
 
         assert (
-            _service(listings).read_visible(
-                pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK
-            )
+            _service(listings)
+            .detail(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK)
+            .listing
             == listing
         )
 
@@ -389,9 +409,41 @@ class TestReadVisible:
 
         assert (
             _service(listings)
-            .read_visible(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=None)
-            .status
+            .detail(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=None)
+            .listing.status
             is ListingStatus.OPEN
+        )
+
+    def test_a_stranger_may_respond_once(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        service = _service(listings, responses=responses)
+
+        before = service.detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+        responses.add(listing.pk)
+        after = service.detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+
+        assert (before, after) == (
+            ListingDetailDTO(
+                listing=listing,
+                is_author=False,
+                own_response=None,
+                can_respond=True,
+                waiting_count=None,
+                open_for_days=30,
+            ),
+            ListingDetailDTO(
+                listing=listing,
+                is_author=False,
+                own_response=responses.rows[1],
+                can_respond=False,
+                waiting_count=None,
+                open_for_days=30,
+            ),
         )
 
 
@@ -507,7 +559,7 @@ class TestRespond:
             [
                 (
                     "interested",
-                    ListingNotification(
+                    ListingInterestedNotification(
                         recipient_user_id=AUTHOR_PK,
                         listing_id=listing.pk,
                         listing_title="Zew Cthulhu",
@@ -535,7 +587,7 @@ class TestRespond:
                 responses.add(listing.pk)
         before = dict(responses.rows)
 
-        with pytest.raises(ListingResponseError):
+        with pytest.raises(ListingStatusError):
             self._respond(
                 _service(listings, responses=responses, notifier=notifier), listing
             )
@@ -572,7 +624,7 @@ class TestWithdraw:
         listings = FakeListings()
         listing = _open_listing(listings)
 
-        with pytest.raises(ListingResponseError):
+        with pytest.raises(ListingStatusError):
             _service(listings).withdraw(
                 pk=listing.pk, sphere_id=SPHERE_PK, user_id=STRANGER_PK
             )
@@ -583,7 +635,7 @@ class TestWithdraw:
         responses.decline(pk=responses.add(listing.pk), message="")
         before = dict(responses.rows)
 
-        with pytest.raises(ListingResponseError):
+        with pytest.raises(ListingStatusError):
             _service(listings, responses=responses).withdraw(
                 pk=listing.pk, sphere_id=SPHERE_PK, user_id=STRANGER_PK
             )
@@ -618,7 +670,7 @@ class TestDecline:
             [
                 (
                     "declined",
-                    ListingNotification(
+                    ListingDeclinedNotification(
                         recipient_user_id=STRANGER_PK,
                         listing_id=listing.pk,
                         listing_title="Zew Cthulhu",
@@ -629,12 +681,13 @@ class TestDecline:
         )
 
     def test_refuses_a_response_no_longer_waiting(self):
-        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        listings, notifier = FakeListings(), FakeNotifier()
+        responses = FakeResponses(listings)
         listing = _open_listing(listings)
         response_pk = responses.add(listing.pk)
-        responses.mark_not_chosen(listing.pk)
+        responses.dismiss_waiting([listing.pk])
 
-        with pytest.raises(ListingResponseError):
+        with pytest.raises(ListingStatusError):
             self._decline(
                 _service(listings, responses=responses, notifier=notifier),
                 listing,
@@ -668,7 +721,15 @@ class TestResponses:
             **_ids(listing), status=ListingResponseStatus.WAITING
         )
 
-        assert result == [responses.rows[waiting_pk]]
+        assert result == ListingResponsesDTO(
+            listing=listing,
+            responses=[responses.rows[waiting_pk]],
+            counts={
+                ListingResponseStatus.WAITING: 1,
+                ListingResponseStatus.DECLINED: 1,
+                ListingResponseStatus.NOT_CHOSEN: 0,
+            },
+        )
 
     def test_another_authors_listing_is_not_found(self):
         listings = FakeListings()
@@ -701,8 +762,21 @@ def test_update_tells_waiting_responders_the_new_title():
     ]
 
 
-def test_close_tells_waiting_responders_they_were_not_chosen():
+def test_update_that_changes_nothing_tells_no_one():
     listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+    listing = _open_listing(listings)
+    responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier, **DISCORD_ONLY).update(
+        **_ids(listing), data=_WRITE, tag_ids=[]
+    )
+
+    assert not notifier.sent
+
+
+def test_close_tells_waiting_responders_they_were_not_chosen():
+    listings, notifier = FakeListings(), FakeNotifier()
+    responses = FakeResponses(listings)
     listing = _open_listing(listings)
     response_pk = responses.add(listing.pk)
 

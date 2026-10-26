@@ -88,6 +88,20 @@ class TestListingRespondActionView:
             )
         ]
 
+    def test_a_long_title_is_cut_to_fit_the_bell(self, authenticated_client, sphere):
+        listing = ListingFactory(sphere=sphere, title="x" * 255)
+
+        authenticated_client.post(
+            _respond(listing), {"message": "Hi!", "contact": ListingContact.EMAIL}
+        )
+
+        assert _bell(listing.author) == [
+            (
+                NotificationKind.LISTING_INTERESTED,
+                f"Test User is interested in {'x' * 227}…",
+            )
+        ]
+
     def test_shows_the_viewer_their_response(
         self, authenticated_client, active_user, sphere
     ):
@@ -273,6 +287,15 @@ class TestListingResponsesPageView:
 
     def test_someone_elses_listing_is_not_found(self, authenticated_client, sphere):
         listing = ListingFactory(sphere=sphere)
+
+        response = authenticated_client.get(_responses(listing))
+
+        assert_response_404(response)
+
+    def test_own_listing_of_another_sphere_is_not_found(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        listing = ListingFactory(sphere=non_root_sphere, author=active_user)
 
         response = authenticated_client.get(_responses(listing))
 
