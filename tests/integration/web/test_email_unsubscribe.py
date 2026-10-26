@@ -7,6 +7,7 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
+from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.pacts.dashboard import SphereUnsubscribeTokenPayload
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
@@ -129,12 +130,35 @@ class TestAnnouncementEmailUnsubscribe:
         SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
         url = reverse("web:email-unsubscribe-confirm", kwargs={"token": "forged"})
 
-        response = client.post(url)
+        response = client.post(url, {"List-Unsubscribe": "One-Click"})
 
         assert_response(
             response,
             HTTPStatus.NOT_FOUND,
             template_name="dashboard/unsubscribe.html",
             context_data={"payload": None, "token": "forged", "done": True},
+        )
+        assert SphereSubscription.objects.filter(user=active_user).exists()
+
+
+    def test_post_without_the_one_click_field_changes_nothing(
+        self, client, non_root_sphere, active_user
+    ):
+        SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
+        token = DjangoSphereUnsubscribeTokenCodec.dumps(
+            SphereUnsubscribeTokenPayload(
+                user_id=active_user.pk,
+                sphere_id=non_root_sphere.pk,
+                sphere_name=non_root_sphere.name,
+            )
+        )
+        url = reverse("web:email-unsubscribe-confirm", kwargs={"token": token})
+
+        response = client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:email-unsubscribe", kwargs={"token": token}),
         )
         assert SphereSubscription.objects.filter(user=active_user).exists()
