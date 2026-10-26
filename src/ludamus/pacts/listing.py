@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 LISTING_TITLE_MAX_LENGTH = 255
 LISTING_TEXT_MAX_LENGTH = 255
+LISTING_MESSAGE_MAX_LENGTH = 1000
 
 
 class ListingSeeking(StrEnum):
@@ -27,6 +28,12 @@ class ListingStatus(StrEnum):
 class ListingContact(StrEnum):
     DISCORD = "discord"
     EMAIL = "email"
+
+
+class ListingResponseStatus(StrEnum):
+    WAITING = "waiting"
+    DECLINED = "declined"
+    NOT_CHOSEN = "not_chosen"
 
 
 class ListingTagDTO(BaseModel):
@@ -110,6 +117,32 @@ class ListingCreateDict(ListingWriteDict):
     author_id: int
 
 
+class ListingResponseDTO(BaseModel):
+    pk: int
+    listing_id: int
+    user_id: int
+    user_name: str
+    message: str
+    status: ListingResponseStatus
+    decline_message: str
+    creation_time: datetime
+
+
+class ListingResponseCreateDict(TypedDict):
+    listing_id: int
+    user_id: int
+    message: str
+    contact: ListingContact
+
+
+class ListingNotification(BaseModel):
+    recipient_user_id: int
+    listing_id: int
+    listing_title: str
+    responder_name: str = ""
+    message: str = ""
+
+
 class ListingContactMissingError(Exception):
     """The contact the listing names is not on the author's profile."""
 
@@ -120,6 +153,10 @@ class ListingContactMissingError(Exception):
 
 class ListingStatusError(Exception):
     """The listing is not in the status the transition starts from."""
+
+
+class ListingResponseError(Exception):
+    """The response cannot be sent or changed in its current state."""
 
 
 class ListingRepositoryProtocol(Protocol):
@@ -133,6 +170,8 @@ class ListingRepositoryProtocol(Protocol):
     def read(*, pk: int, sphere_id: int) -> ListingDTO: ...
     @staticmethod
     def read_authored(*, pk: int, sphere_id: int, author_id: int) -> ListingDTO: ...
+    @staticmethod
+    def lock(*, pk: int, sphere_id: int) -> ListingDTO: ...
     @staticmethod
     def lock_authored(*, pk: int, sphere_id: int, author_id: int) -> ListingDTO: ...
     @staticmethod
@@ -148,7 +187,37 @@ class ListingRepositoryProtocol(Protocol):
     @staticmethod
     def close(pk: int) -> None: ...
     @staticmethod
-    def close_opened_before(cutoff: datetime) -> int: ...
+    def close_opened_before(cutoff: datetime) -> list[int]: ...
+
+
+class ListingResponseRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: ListingResponseCreateDict) -> int: ...
+    @staticmethod
+    def read(*, pk: int, listing_id: int) -> ListingResponseDTO: ...
+    @staticmethod
+    def read_own(*, listing_id: int, user_id: int) -> ListingResponseDTO | None: ...
+    @staticmethod
+    def list_for_listing(
+        *, listing_id: int, status: ListingResponseStatus
+    ) -> list[ListingResponseDTO]: ...
+    @staticmethod
+    def count_by_status(listing_id: int) -> dict[ListingResponseStatus, int]: ...
+    @staticmethod
+    def waiting_user_ids(listing_id: int) -> list[int]: ...
+    @staticmethod
+    def decline(*, pk: int, message: str) -> None: ...
+    @staticmethod
+    def mark_not_chosen(listing_id: int) -> None: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+
+
+class ListingNotifierProtocol(Protocol):
+    def notify_listing_interested(self, notification: ListingNotification) -> None: ...
+    def notify_listing_declined(self, notification: ListingNotification) -> None: ...
+    def notify_listing_not_chosen(self, notification: ListingNotification) -> None: ...
+    def notify_listing_changed(self, notification: ListingNotification) -> None: ...
 
 
 class ListingServiceProtocol(Protocol):
@@ -188,5 +257,23 @@ class ListingServiceProtocol(Protocol):
         self, *, pk: int, sphere_id: int, author_id: int, now: datetime
     ) -> None: ...
     def close_stale(self, now: datetime) -> int: ...
+    def respond(
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        user_id: int,
+        message: str,
+        contact: ListingContact,
+    ) -> None: ...
+    def withdraw(self, *, pk: int, sphere_id: int, user_id: int) -> None: ...
+    def decline(
+        self, *, pk: int, sphere_id: int, author_id: int, response_id: int, message: str
+    ) -> None: ...
+    def own_response(self, *, pk: int, user_id: int) -> ListingResponseDTO | None: ...
+    def responses(
+        self, *, pk: int, sphere_id: int, author_id: int, status: ListingResponseStatus
+    ) -> list[ListingResponseDTO]: ...
+    def response_counts(self, pk: int) -> dict[ListingResponseStatus, int]: ...
     @staticmethod
     def open_for_days() -> int: ...

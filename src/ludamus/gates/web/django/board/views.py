@@ -14,15 +14,24 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.board.forms import BoardFilterForm, ListingForm
+from ludamus.gates.web.django.board.forms import (
+    BoardFilterForm,
+    ListingDeclineForm,
+    ListingForm,
+    ListingResponseForm,
+)
 from ludamus.gates.web.django.pagination import windowed_pagination_context
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.listing import (
+    LISTING_MESSAGE_MAX_LENGTH,
     ListingContact,
     ListingContactMissingError,
     ListingCreateDict,
+    ListingResponseError,
+    ListingResponseStatus,
     ListingSeeking,
+    ListingStatus,
     ListingStatusError,
     ListingWriteDict,
 )
@@ -45,6 +54,7 @@ _CONTACT_MISSING = {
         "Add an email address to your profile, or pick another contact."
     ),
 }
+_STALE = gettext_lazy("This listing has already changed. Nothing was done.")
 
 
 class _BoardGate(View):
@@ -117,28 +127,176 @@ class MyListingsPageView(_BoardGate, LoginRequiredMixin, View):
         )
 
 
+def _read_visible(request: RootRequest, pk: int) -> ListingDTO:
+    try:
+        return request.services.listings.read_visible(
+            pk=pk,
+            sphere_id=request.context.current_sphere_id,
+            viewer_id=request.context.current_user_id,
+        )
+    except NotFoundError as exc:
+        raise Http404 from exc
+
+
+def _response_form(
+    request: RootRequest, data: QueryDict | None = None
+) -> ListingResponseForm:
+    user_id = request.context.current_user_id
+    return ListingResponseForm(
+        data,
+        contact_channels=(
+            request.services.listings.contact_channels(user_id) if user_id else []
+        ),
+    )
+
+
+def _render_detail(
+    request: RootRequest,
+    listing: ListingDTO,
+    response_form: ListingResponseForm | None = None,
+) -> HttpResponse:
+    listings = request.services.listings
+    user_id = request.context.current_user_id
+    is_author = listing.author_id == user_id
+    own_response = (
+        listings.own_response(pk=listing.pk, user_id=user_id)
+        if user_id and not is_author
+        else None
+    )
+    can_respond = (
+        user_id is not None
+        and not is_author
+        and own_response is None
+        and listing.status is ListingStatus.OPEN
+    )
+    return TemplateResponse(
+        request,
+        "board/detail.html",
+        {
+            "listing": listing,
+            "is_author": is_author,
+            "open_for_days": listings.open_for_days(),
+            "own_response": own_response,
+            "response_form": (
+                (response_form or _response_form(request)) if can_respond else None
+            ),
+            "waiting_count": (
+                listings.response_counts(listing.pk)[ListingResponseStatus.WAITING]
+                if is_author
+                else None
+            ),
+        },
+    )
+
+
 class ListingDetailPageView(_BoardGate):
     request: RootRequest
 
     @staticmethod
     def get(request: RootRequest, pk: int) -> HttpResponse:
+        return _render_detail(request, _read_visible(request, pk))
+
+
+_RESPONSE_TABS = {
+    ListingResponseStatus.WAITING.value: ListingResponseStatus.WAITING,
+    ListingResponseStatus.DECLINED.value: ListingResponseStatus.DECLINED,
+}
+
+
+class ListingResponsesPageView(_BoardGate, LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        status = _RESPONSE_TABS.get(
+            request.GET.get("tab", ""), ListingResponseStatus.WAITING
+        )
+        listings = request.services.listings
         try:
-            listing = request.services.listings.read_visible(
+            listing = listings.read_authored(
                 pk=pk,
                 sphere_id=request.context.current_sphere_id,
-                viewer_id=request.context.current_user_id,
+                author_id=request.context.current_user_id,
+            )
+            responses = listings.responses(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                author_id=request.context.current_user_id,
+                status=status,
             )
         except NotFoundError as exc:
             raise Http404 from exc
         return TemplateResponse(
             request,
-            "board/detail.html",
+            "board/responses.html",
             {
                 "listing": listing,
-                "is_author": listing.author_id == request.context.current_user_id,
-                "open_for_days": request.services.listings.open_for_days(),
+                "responses": responses,
+                "counts": listings.response_counts(pk),
+                "active_tab": status.value,
+                "decline_form": ListingDeclineForm(),
             },
         )
+
+
+class ListingRespondActionView(_BoardGate, LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        listing = _read_visible(request, pk)
+        form = _response_form(request, request.POST)
+        if not form.is_valid():
+            return _render_detail(request, listing, form)
+        try:
+            request.services.listings.respond(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
+                message=form.cleaned_data["message"],
+                contact=ListingContact(form.cleaned_data["contact"]),
+            )
+        except ListingContactMissingError as exc:
+            form.add_error("contact", _CONTACT_MISSING[exc.contact])
+            return _render_detail(request, listing, form)
+        except ListingResponseError:
+            messages.error(request, _STALE)
+        else:
+            messages.success(request, _("The author will see you're interested."))
+        return redirect("web:board:detail", pk=pk)
+
+
+class ListingResponseDeclineActionView(_BoardGate, LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(
+        request: AuthenticatedRootRequest, pk: int, response_pk: int
+    ) -> HttpResponse:
+        form = ListingDeclineForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request,
+                _("Keep the message under %(limit)d characters.") % {
+                    "limit": LISTING_MESSAGE_MAX_LENGTH
+                },
+            )
+            return redirect("web:board:responses", pk=pk)
+        try:
+            request.services.listings.decline(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                author_id=request.context.current_user_id,
+                response_id=response_pk,
+                message=form.cleaned_data["message"],
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        except ListingResponseError:
+            messages.error(request, _STALE)
+        else:
+            messages.success(request, _("They'll be told it's not this time."))
+        return redirect("web:board:responses", pk=pk)
 
 
 class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
@@ -293,10 +451,8 @@ class _ListingActionView(_BoardGate, LoginRequiredMixin, View):
             raise Http404 from exc
         except ListingContactMissingError as exc:
             messages.error(request, _CONTACT_MISSING[exc.contact])
-        except ListingStatusError:
-            messages.error(
-                request, _("This listing has already changed. Nothing was done.")
-            )
+        except ListingStatusError, ListingResponseError:
+            messages.error(request, _STALE)
         else:
             messages.success(request, self.success_message)
         return redirect("web:board:detail", pk=pk)
@@ -322,6 +478,17 @@ class ListingCloseActionView(_ListingActionView):
             pk=pk,
             sphere_id=self.request.context.current_sphere_id,
             author_id=self.request.context.current_user_id,
+        )
+
+
+class ListingWithdrawActionView(_ListingActionView):
+    success_message = gettext_lazy("Your response is withdrawn.")
+
+    def _apply(self, pk: int) -> None:
+        self.request.services.listings.withdraw(
+            pk=pk,
+            sphere_id=self.request.context.current_sphere_id,
+            user_id=self.request.context.current_user_id,
         )
 
 

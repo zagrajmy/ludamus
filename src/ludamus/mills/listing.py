@@ -15,6 +15,9 @@ from ludamus.pacts.listing import (
     BoardTagFacetDTO,
     ListingContact,
     ListingContactMissingError,
+    ListingNotification,
+    ListingResponseError,
+    ListingResponseStatus,
     ListingServiceProtocol,
     ListingStatus,
     ListingStatusError,
@@ -30,7 +33,10 @@ if TYPE_CHECKING:
         ListingBoardRowDTO,
         ListingCreateDict,
         ListingDTO,
+        ListingNotifierProtocol,
         ListingRepositoryProtocol,
+        ListingResponseDTO,
+        ListingResponseRepositoryProtocol,
         ListingWriteDict,
     )
     from ludamus.pacts.services import TransactionProtocol
@@ -143,13 +149,17 @@ class ListingService(ListingServiceProtocol):
         *,
         transaction: TransactionProtocol,
         listings: ListingRepositoryProtocol,
+        responses: ListingResponseRepositoryProtocol,
         users: UserRepositoryProtocol,
         tags: TagRepositoryProtocol,
+        notifier: ListingNotifierProtocol,
     ) -> None:
         self._transaction = transaction
         self._listings = listings
+        self._responses = responses
         self._users = users
         self._tags = tags
+        self._notifier = notifier
 
     def create(
         self,
@@ -193,6 +203,10 @@ class ListingService(ListingServiceProtocol):
             self._listings.set_tags(pk=pk, tag_ids=tag_ids)
             if listing.status is not ListingStatus.DRAFT:
                 self._check_contact(author_id, data["contact"])
+            for user_id in self._responses.waiting_user_ids(pk):
+                self._notifier.notify_listing_changed(
+                    _notice(user_id, listing, title=data["title"])
+                )
 
     def read_visible(
         self, *, pk: int, sphere_id: int, viewer_id: int | None
@@ -263,10 +277,11 @@ class ListingService(ListingServiceProtocol):
 
     def close(self, *, pk: int, sphere_id: int, author_id: int) -> None:
         with self._transaction.atomic():
-            self._read_in(
+            listing = self._read_in(
                 ListingStatus.OPEN, pk=pk, sphere_id=sphere_id, author_id=author_id
             )
             self._listings.close(pk)
+            self._dismiss_waiting(listing)
         logger.info("Listing %s closed by its author", pk)
 
     def reopen(self, *, pk: int, sphere_id: int, author_id: int, now: datetime) -> None:
@@ -279,11 +294,96 @@ class ListingService(ListingServiceProtocol):
 
     def close_stale(self, now: datetime) -> int:
         with self._transaction.atomic():
-            return self._listings.close_opened_before(now - LISTING_OPEN_FOR)
+            pks = self._listings.close_opened_before(now - LISTING_OPEN_FOR)
+            for listing in self._listings.read_many(pks):
+                self._dismiss_waiting(listing)
+        return len(pks)
 
     @staticmethod
     def open_for_days() -> int:
         return LISTING_OPEN_FOR.days
+
+    def respond(
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        user_id: int,
+        message: str,
+        contact: ListingContact,
+    ) -> None:
+        with self._transaction.atomic():
+            # The lock orders this against a close, which dismisses everyone
+            # still waiting, and against a second response from the same user.
+            listing = self._listings.lock(pk=pk, sphere_id=sphere_id)
+            if (
+                listing.status is not ListingStatus.OPEN
+                or listing.author_id == user_id
+                or self._responses.read_own(listing_id=pk, user_id=user_id)
+            ):
+                raise ListingResponseError
+            self._check_contact(user_id, contact)
+            self._responses.create(
+                {
+                    "listing_id": pk,
+                    "user_id": user_id,
+                    "message": message,
+                    "contact": contact,
+                }
+            )
+            self._notifier.notify_listing_interested(
+                ListingNotification(
+                    recipient_user_id=listing.author_id,
+                    listing_id=pk,
+                    listing_title=listing.title,
+                    responder_name=self._users.read_by_id(user_id).full_name,
+                    message=message,
+                )
+            )
+        logger.info("User %s responded to listing %s", user_id, pk)
+
+    def withdraw(self, *, pk: int, sphere_id: int, user_id: int) -> None:
+        with self._transaction.atomic():
+            self._listings.lock(pk=pk, sphere_id=sphere_id)
+            response = self._responses.read_own(listing_id=pk, user_id=user_id)
+            if response is None or response.status is not ListingResponseStatus.WAITING:
+                raise ListingResponseError
+            self._responses.delete(response.pk)
+        logger.info("User %s withdrew from listing %s", user_id, pk)
+
+    def decline(
+        self, *, pk: int, sphere_id: int, author_id: int, response_id: int, message: str
+    ) -> None:
+        with self._transaction.atomic():
+            listing = self._listings.lock_authored(
+                pk=pk, sphere_id=sphere_id, author_id=author_id
+            )
+            response = self._responses.read(pk=response_id, listing_id=pk)
+            if response.status is not ListingResponseStatus.WAITING:
+                raise ListingResponseError
+            self._responses.decline(pk=response_id, message=message)
+            self._notifier.notify_listing_declined(
+                _notice(response.user_id, listing, message=message)
+            )
+        logger.info("Response %s to listing %s declined", response_id, pk)
+
+    def own_response(self, *, pk: int, user_id: int) -> ListingResponseDTO | None:
+        return self._responses.read_own(listing_id=pk, user_id=user_id)
+
+    def responses(
+        self, *, pk: int, sphere_id: int, author_id: int, status: ListingResponseStatus
+    ) -> list[ListingResponseDTO]:
+        self._listings.read_authored(pk=pk, sphere_id=sphere_id, author_id=author_id)
+        return self._responses.list_for_listing(listing_id=pk, status=status)
+
+    def response_counts(self, pk: int) -> dict[ListingResponseStatus, int]:
+        return self._responses.count_by_status(pk)
+
+    def _dismiss_waiting(self, listing: ListingDTO) -> None:
+        waiting = self._responses.waiting_user_ids(listing.pk)
+        self._responses.mark_not_chosen(listing.pk)
+        for user_id in waiting:
+            self._notifier.notify_listing_not_chosen(_notice(user_id, listing))
 
     def _read_in(
         self, status: ListingStatus, *, pk: int, sphere_id: int, author_id: int
@@ -304,6 +404,17 @@ class ListingService(ListingServiceProtocol):
     def _check_contact(self, author_id: int, contact: ListingContact) -> None:
         if contact not in self.contact_channels(author_id):
             raise ListingContactMissingError(contact)
+
+
+def _notice(
+    recipient_id: int, listing: ListingDTO, *, title: str = "", message: str = ""
+) -> ListingNotification:
+    return ListingNotification(
+        recipient_user_id=recipient_id,
+        listing_id=listing.pk,
+        listing_title=title or listing.title,
+        message=message,
+    )
 
 
 def _by_name(tag: TagDTO) -> str:

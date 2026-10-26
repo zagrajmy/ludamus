@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db.models import Case, Prefetch, QuerySet, Value, When
+from django.db.models import Case, Count, Prefetch, QuerySet, Value, When
 
-from ludamus.links.db.django.models import Listing, Tag
+from ludamus.links.db.django.models import Listing, ListingResponse, Tag
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -18,6 +18,9 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingDTO,
     ListingRepositoryProtocol,
+    ListingResponseDTO,
+    ListingResponseRepositoryProtocol,
+    ListingResponseStatus,
     ListingSeeking,
     ListingStatus,
     ListingTagDTO,
@@ -26,7 +29,11 @@ from ludamus.pacts.listing import (
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.listing import ListingCreateDict, ListingWriteDict
+    from ludamus.pacts.listing import (
+        ListingCreateDict,
+        ListingResponseCreateDict,
+        ListingWriteDict,
+    )
 
 
 def _listings() -> QuerySet[Listing]:
@@ -88,6 +95,12 @@ class ListingRepository(ListingRepositoryProtocol):
         return _get(_listings(), pk=pk, sphere_id=sphere_id, author_id=author_id)
 
     @staticmethod
+    def lock(*, pk: int, sphere_id: int) -> ListingDTO:
+        return _get(
+            _listings().select_for_update(of=("self",)), pk=pk, sphere_id=sphere_id
+        )
+
+    @staticmethod
     def lock_authored(*, pk: int, sphere_id: int, author_id: int) -> ListingDTO:
         return _get(
             _listings().select_for_update(of=("self",)),
@@ -145,7 +158,88 @@ class ListingRepository(ListingRepositoryProtocol):
         Listing.objects.filter(pk=pk).update(status=ListingStatus.CLOSED)
 
     @staticmethod
-    def close_opened_before(cutoff: datetime) -> int:
-        return Listing.objects.filter(
+    def close_opened_before(cutoff: datetime) -> list[int]:
+        stale = Listing.objects.select_for_update().filter(
             status=ListingStatus.OPEN, opened_at__lt=cutoff
-        ).update(status=ListingStatus.CLOSED)
+        )
+        pks = list(stale.values_list("pk", flat=True))
+        Listing.objects.filter(pk__in=pks).update(status=ListingStatus.CLOSED)
+        return pks
+
+
+def _response_dto(response: ListingResponse) -> ListingResponseDTO:
+    return ListingResponseDTO(
+        pk=response.pk,
+        listing_id=response.listing_id,
+        user_id=response.user_id,
+        user_name=response.user.full_name,
+        message=response.message,
+        status=ListingResponseStatus(response.status),
+        decline_message=response.decline_message,
+        creation_time=response.creation_time,
+    )
+
+
+def _responses() -> QuerySet[ListingResponse]:
+    return ListingResponse.objects.select_related("user")
+
+
+class ListingResponseRepository(ListingResponseRepositoryProtocol):
+    @staticmethod
+    def create(data: ListingResponseCreateDict) -> int:
+        return ListingResponse.objects.create(**data).pk
+
+    @staticmethod
+    def read(*, pk: int, listing_id: int) -> ListingResponseDTO:
+        try:
+            return _response_dto(_responses().get(pk=pk, listing_id=listing_id))
+        except ListingResponse.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+    @staticmethod
+    def read_own(*, listing_id: int, user_id: int) -> ListingResponseDTO | None:
+        response = _responses().filter(listing_id=listing_id, user_id=user_id).first()
+        return _response_dto(response) if response else None
+
+    @staticmethod
+    def list_for_listing(
+        *, listing_id: int, status: ListingResponseStatus
+    ) -> list[ListingResponseDTO]:
+        responses = _responses().filter(listing_id=listing_id, status=status)
+        return [_response_dto(response) for response in responses.order_by("pk")]
+
+    @staticmethod
+    def count_by_status(listing_id: int) -> dict[ListingResponseStatus, int]:
+        counts = dict(
+            ListingResponse.objects.filter(listing_id=listing_id)
+            .values("status")
+            .annotate(count=Count("pk"))
+            .values_list("status", "count")
+        )
+        return {status: counts.get(status, 0) for status in ListingResponseStatus}
+
+    @staticmethod
+    def waiting_user_ids(listing_id: int) -> list[int]:
+        return list(
+            ListingResponse.objects.filter(
+                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            )
+            .order_by("pk")
+            .values_list("user_id", flat=True)
+        )
+
+    @staticmethod
+    def decline(*, pk: int, message: str) -> None:
+        ListingResponse.objects.filter(pk=pk).update(
+            status=ListingResponseStatus.DECLINED, decline_message=message
+        )
+
+    @staticmethod
+    def mark_not_chosen(listing_id: int) -> None:
+        ListingResponse.objects.filter(
+            listing_id=listing_id, status=ListingResponseStatus.WAITING
+        ).update(status=ListingResponseStatus.NOT_CHOSEN)
+
+    @staticmethod
+    def delete(pk: int) -> None:
+        ListingResponse.objects.filter(pk=pk).delete()

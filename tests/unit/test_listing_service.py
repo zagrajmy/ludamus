@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -95,7 +96,10 @@ class FakeListings:
         ]
         for pk in stale:
             self.close(pk)
-        return len(stale)
+        return stale
+
+    def read_many(self, pks):
+        return [self.rows[pk] for pk in pks]
 
     def board_rows(self, *, sphere_id, seeking, statuses):
         return [
@@ -166,8 +170,10 @@ def _service(listings, **profile):
     return ListingService(
         transaction=FakeTransaction(),
         listings=listings,
+        responses=MagicMock(**{"waiting_user_ids.return_value": []}),
         users=FakeUsers(**profile),
         tags=FakeTags(),
+        notifier=MagicMock(),
     )
 
 
