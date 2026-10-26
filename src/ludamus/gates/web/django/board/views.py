@@ -14,7 +14,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.board.forms import ListingForm
+from ludamus.gates.web.django.board.forms import BoardFilterForm, ListingForm
 from ludamus.gates.web.django.pagination import windowed_pagination_context
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import NotFoundError
@@ -74,16 +74,30 @@ class BoardPageView(_BoardGate):
 
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        sphere_id = request.context.current_sphere_id
+        form = BoardFilterForm(request.GET)
+        filters = form.filters()
         listings = request.services.listings
+        found = listings.search_board(
+            sphere_id=request.context.current_sphere_id, filters=filters
+        )
+        ids = found.listing_ids
         pagination = windowed_pagination_context(
             request,
-            total=listings.count_open(sphere_id),
-            window=lambda limit, offset: listings.board(
-                sphere_id=sphere_id, limit=limit, offset=offset
+            total=len(ids),
+            window=lambda limit, offset: listings.read_many(
+                ids[offset : offset + limit]
             ),
         )
-        return TemplateResponse(request, "board/index.html", {**pagination})
+        return TemplateResponse(
+            request,
+            "board/index.html",
+            {
+                "form": form,
+                "facets": found.facets,
+                "is_filtered": any(filters.values()),
+                **pagination,
+            },
+        )
 
 
 class MyListingsPageView(_BoardGate, LoginRequiredMixin, View):
