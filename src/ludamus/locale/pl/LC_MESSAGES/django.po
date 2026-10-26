@@ -766,6 +766,42 @@ msgid "Account email"
 msgstr "E-mail konta"
 
 #: src/ludamus/gates/web/django/board/forms.py
+msgid "What are you looking for?"
+msgstr "Czego szukasz?"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgctxt "board looking for"
+msgid "Anything"
+msgstr "Obojętnie"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgctxt "board looking for"
+msgid "A game to join"
+msgstr "Gry, do której dołączę"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgctxt "board looking for"
+msgid "Players"
+msgstr "Graczy"
+
+#: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Search"
+msgstr "Szukaj"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Title or what you'll do"
+msgstr "Tytuł lub co będziemy robić"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Show closed"
+msgstr "Pokaż zakończone"
+
+#: src/ludamus/gates/web/django/board/forms.py
 msgid "Looking for"
 msgstr "Szukam"
 
@@ -5474,6 +5510,27 @@ msgstr "MG, gracze i grupy szukają siebie nawzajem."
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
 msgid "My listings"
 msgstr "Moje ogłoszenia"
+
+#: src/ludamus/templates/board/index.html
+msgid "Filter listings"
+msgstr "Filtruj ogłoszenia"
+
+#: src/ludamus/templates/board/index.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Filter"
+msgstr "Filtruj"
+
+#: src/ludamus/templates/board/index.html
+msgid "No listings match these filters"
+msgstr "Żadne ogłoszenie nie pasuje do tych filtrów"
+
+#: src/ludamus/templates/board/index.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Clear filters"
+msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/board/index.html
 msgid "No listings yet"
@@ -10649,12 +10706,6 @@ msgstr "Żaden twórca programu nie pasuje do filtrów."
 
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Clear filters"
-msgstr "Wyczyść filtry"
-
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
@@ -11100,14 +11151,6 @@ msgstr ""
 "twórca programu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/staging_email_inbox.html
-msgid "Search"
-msgstr "Szukaj"
-
-#: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Selected for merge"
 msgstr "Wybrani do scalenia"
 
@@ -11141,11 +11184,6 @@ msgstr "Moi"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Nobody"
 msgstr "Nikt"
-
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Filter"
-msgstr "Filtruj"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html

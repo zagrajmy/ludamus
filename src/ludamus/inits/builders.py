@@ -123,7 +123,12 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
 
 def build_listings() -> ListingService:
     repos = Repositories()
-    return ListingService(DjangoTransaction(), repos.listings, repos.active_users)
+    return ListingService(
+        transaction=DjangoTransaction(),
+        listings=repos.listings,
+        users=repos.active_users,
+        tags=repos.tags,
+    )
 
 
 def build_encounters(sites: SitesServiceProtocol) -> EncounterService:

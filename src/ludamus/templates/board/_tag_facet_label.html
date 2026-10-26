@@ -1,0 +1,6 @@
+{# A tag's box, name and count of matching listings. Variable: tag. #}
+<label class="flex min-w-0 grow cursor-pointer items-center gap-2 px-1 py-1">
+    {% include "components/checkbox-input.html" with name="tag" value=tag.pk checked=tag.selected only %}
+    <span class="truncate text-sm text-foreground">{{ tag.name }}</span>
+    <span class="ml-auto text-xs tabular-nums text-foreground-muted">{{ tag.count }}</span>
+</label>

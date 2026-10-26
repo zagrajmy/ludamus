@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Saltmarsh Moot" (bootstrap_data.py) holds Mira Kestrel twice,
@@ -40,8 +40,9 @@ const addPresenter = async (page: Page): Promise<void> => {
 };
 
 test.describe("Guild roster", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await deleteGuildIfPresent(page, FROM);
     await deleteGuildIfPresent(page, TO);
   });

@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.local/share/aube/store
           key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.local/share/aube/store
           key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
@@ -111,7 +111,7 @@ jobs:
       # show — an e2e-only mills branch reads the same there.
       - run: mise run test:unit:cov
       - run: mise run test:py:cov
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: .coverage.unit
@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
       # NOTE: the browser install below is a no-op for browsers this cache
       # restored.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles(
@@ -157,7 +157,7 @@ jobs:
           sudo chown "$USER" /var/cache/apt/archives
       # Only the .debs: apt's own partial/ is mode 0700, and the post-job save
       # runs as the runner user, which could not read it.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: /var/cache/apt/archives/*.deb
           key: apt-${{ steps.apt.outputs.key }}-${{ hashFiles(
@@ -213,7 +213,7 @@ jobs:
       # `test:e2e` pins COVERAGE_FILE back to `.coverage.e2e` regardless.
       - name: Name this shard's coverage
         run: mv .coverage.e2e .coverage.e2e.${{ matrix.shard }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-e2e-${{ matrix.shard }}
           path: .coverage.e2e.${{ matrix.shard }}
@@ -230,7 +230,7 @@ jobs:
           flags: client
           disable_search: true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && !cancelled()
         with:
           name: playwright-report-${{ matrix.shard }}
@@ -276,7 +276,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ludamus
           key: bend-${{ runner.os }}-${{ hashFiles('formal/check.sh') }}
@@ -305,7 +305,7 @@ jobs:
       - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
       - run: mise run test:bombadil
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: bombadil-output

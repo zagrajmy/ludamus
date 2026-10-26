@@ -2,7 +2,7 @@ import { type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
@@ -59,14 +59,14 @@ test("the empty state explains what a guild is and offers the way in", async ({ 
 });
 
 test.describe("Guilds", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await deleteGuildIfPresent(page);
   });
 
   test.afterAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    await signInAsManager(page);
+    const page = await browser.newPage({ storageState: managerState });
     await deleteGuildIfPresent(page);
     await page.close();
   });
