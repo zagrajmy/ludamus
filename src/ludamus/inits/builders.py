@@ -126,8 +126,10 @@ def build_listings() -> ListingService:
     return ListingService(
         transaction=DjangoTransaction(),
         listings=repos.listings,
+        responses=repos.listing_responses,
         users=repos.active_users,
         tags=repos.tags,
+        notifier=DjangoUserNotifier(),
     )
 
 

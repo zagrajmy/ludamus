@@ -9,3 +9,7 @@
 - **proposal category** (prelekcja, sesja RPG, warsztaty, …) →
   "rodzaj atrakcji" on participant-facing pages (do **not** use "kategoria" —
   counterintuitive there); "kategoria" stays OK in the organizer panel
+- **listing** (board) → "ogłoszenie"; a **response** to one → "zgłoszenie"
+  ("I'm interested" → "Zgłaszam się"), declining it → "Nie tym razem". Keep
+  board copy gender-neutral: nouns ("zgłoszenie") over past-tense verbs
+  ("zgłosiłeś się")

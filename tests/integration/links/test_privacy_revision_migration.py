@@ -49,4 +49,5 @@ class TestPrivacyRevisionMigration:
                 == legacy_pks
             )
         finally:
-            MigrationExecutor(connection).migrate(after)
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

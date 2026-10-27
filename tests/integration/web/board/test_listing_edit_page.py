@@ -4,7 +4,10 @@ from http import HTTPStatus
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from tests.integration.conftest import ListingFactory
+from ludamus.links.db.django.models import ListingResponse, Notification
+from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.listing import ListingContact, ListingResponseStatus
+from tests.integration.conftest import ListingFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
     FormInitialMatcher,
@@ -72,6 +75,26 @@ class TestListingEditPageView:
             "New title",
             "Board games",
         )
+
+    def test_post_tells_waiting_responders_it_changed(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        waiting = ListingResponse.objects.create(
+            listing=listing, user=UserFactory(), contact=ListingContact.EMAIL
+        )
+        ListingResponse.objects.create(
+            listing=listing,
+            user=UserFactory(),
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.DECLINED,
+        )
+
+        authenticated_client.post(_url(listing), _post())
+
+        assert list(Notification.objects.values_list("recipient", "kind", "title")) == [
+            (waiting.user_id, NotificationKind.LISTING_CHANGED, "New title has changed")
+        ]
 
     def test_someone_elses_listing_is_not_found_and_unchanged(
         self, authenticated_client, sphere

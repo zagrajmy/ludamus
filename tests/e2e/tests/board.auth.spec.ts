@@ -1,5 +1,11 @@
+import path from "node:path";
+
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+
+const e2eDir = path.join(__dirname, "..");
+// NOTE: the default user writes listings; Tamsin Reed (bootstrap_data.py) answers them.
+const INVITEE = "Tamsin Reed";
 
 test.describe("Board listings", () => {
   test("author publishes a listing, finds it on the board, and closes it", async ({ page }) => {
@@ -159,5 +165,62 @@ test.describe("Board listings, edge cases", () => {
 
     await expect(page).toHaveURL(/\/board\/$/);
     await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  });
+});
+
+test.describe("Board responses", () => {
+  test("a player says they're interested, the author answers not this time", async ({
+    page,
+    browser,
+  }) => {
+    const title = `Zew Cthulhu one-shot ${Date.now()}`;
+    await page.goto("/board/create/");
+    await page.getByLabel("Players").check();
+    await page.getByLabel("Title").fill(title);
+    await page.getByLabel("What we'll do").fill("A cosy investigation");
+    await page.getByLabel("When, in your words").fill("Saturday afternoon");
+    await page.getByRole("button", { name: "Publish listing" }).click();
+    await expect(page.getByText("Listing published.")).toBeVisible();
+    const listingUrl = page.url();
+
+    const player = await browser.newContext({
+      storageState: path.join(e2eDir, ".auth-state-party-invitee.json"),
+    });
+    const playerPage = await player.newPage();
+    await playerPage.goto(listingUrl);
+    await playerPage.getByLabel("Message").fill("I bring snacks.");
+    const email = playerPage.getByLabel("Account email");
+    if (await email.isVisible()) await email.check();
+    await playerPage.getByRole("button", { name: "I'm interested" }).click();
+    await expect(playerPage.getByText("The author will see you're interested.")).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "listing-responded",
+      region: playerPage.getByRole("main"),
+      facts: { title, status: "waiting" },
+    });
+
+    await page.goto(listingUrl);
+    await page.getByRole("link", { name: "Responses (1)" }).click();
+    const row = page.getByRole("listitem").filter({ hasText: "I bring snacks." });
+    await expect(row).toContainText(INVITEE);
+    await attachArtifacts(test.info(), {
+      name: "listing-responses",
+      region: page.getByRole("main"),
+      facts: { title, responder: INVITEE },
+    });
+    await row.getByText("Not this time", { exact: true }).click();
+    await row.getByLabel("Message").fill("Table is full, sorry!");
+    await row.getByRole("button", { name: "Send “Not this time”" }).click();
+    await expect(page.getByText("They'll be told it's not this time.")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Not this time (1)" })).toBeVisible();
+
+    await playerPage.goto("/notifications/");
+    await expect(playerPage.getByRole("main").getByText(`Not this time: ${title}`)).toBeVisible();
+    await playerPage.goto(listingUrl);
+    await expect(playerPage.getByRole("main").getByText("Table is full, sorry!")).toBeVisible();
+    await player.close();
+
+    await page.goto(listingUrl);
+    await page.getByRole("button", { name: "Close listing" }).click();
   });
 });

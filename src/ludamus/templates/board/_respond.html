@@ -1,0 +1,40 @@
+{% load i18n tessera %}
+{% comment %}
+    The viewer's side of a listing they did not write. Variables: listing,
+    own_response, response_form.
+{% endcomment %}
+{% if own_response %}
+    <div class="flex flex-col gap-2 border-t border-border pt-4">
+        {% if own_response.status == "waiting" %}
+            <p class="text-sm text-foreground-primary">{% translate "You're interested. The author will add you to their party or let you know." %}</p>
+            <form method="post" action="{% url 'web:board:withdraw' pk=listing.pk %}">
+                {% csrf_token %}
+                {% translate "Withdraw response" as t_withdraw %}
+                {% tessera_button text=t_withdraw variant="secondary" extra_class="w-full" %}
+            </form>
+        {% elif own_response.status == "declined" %}
+            <p class="text-sm text-foreground-primary">{% translate "Not this time." %}</p>
+            {% if own_response.decline_message %}
+                <p class="text-sm text-foreground-secondary break-words">{{ own_response.decline_message }}</p>
+            {% endif %}
+        {% else %}
+            <p class="text-sm text-foreground-primary">{% translate "The listing closed. You weren't chosen this time." %}</p>
+        {% endif %}
+    </div>
+{% elif response_form %}
+    <form method="post"
+          action="{% url 'web:board:respond' pk=listing.pk %}"
+          class="flex flex-col border-t border-border pt-4">
+        {% csrf_token %}
+        {% tessera_errors response_form %}
+        {% tessera_field response_form.message %}
+        {% tessera_field response_form.contact %}
+        {% translate "I'm interested" as t_respond %}
+        {% tessera_button text=t_respond extra_class="w-full" %}
+    </form>
+{% elif not user.is_authenticated and listing.status == "open" %}
+    <div class="border-t border-border pt-4">
+        {% translate "Log in to respond" as t_login %}
+        {% include "components/login_button.html" with next=request.build_absolute_uri show_icon="" text=t_login extra_class="w-full justify-center" %}
+    </div>
+{% endif %}

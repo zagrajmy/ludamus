@@ -1,0 +1,3 @@
+# body-parser 2.4.0 is younger than .npmrc's min-release-age; only the local
+# auth0-simulator (via express) pulls body-parser in.
+CVE-2026-111181 exp:2026-10-30

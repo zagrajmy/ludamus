@@ -191,7 +191,7 @@ raw_args = true
 
 ["dep:audit"]
 description = "Scan the lockfiles for CVEs and check Python dependency drift"
-run = [{ task = "dep:drift:py" }, { task = "dep:audit:locks" }]
+run = [{ task = "dep:drift:py" }, { task = "dep:audit:py" }, { task = "dep:audit:js" }]
 
 ["dep:audit:image"]
 description = "Scan a container image for fixable HIGH/CRITICAL CVEs (OS, Python, node_modules)"
@@ -200,11 +200,16 @@ description = "Scan a container image for fixable HIGH/CRITICAL CVEs (OS, Python
 tools = { trivy = "0.76.1" }
 run = "trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1"
 
-["dep:audit:locks"]
-description = "Scan the repo's lockfiles for fixable HIGH/CRITICAL CVEs (Trivy)"
+["dep:audit:py"]
+description = "Scan poetry.lock, dev dependencies included, for fixable HIGH/CRITICAL CVEs (Trivy)"
+tools = { trivy = "0.76.1" }
+run = "trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --include-dev-deps poetry.lock"
+
+["dep:audit:js"]
+description = "Scan the npm lockfiles (aube-lock.yaml, tests/e2e), dev dependencies included, for fixable HIGH/CRITICAL CVEs (Trivy)"
 # NOTE: Trivy picks parsers by filename; --file-patterns maps aube-lock.yaml to pnpm.
 tools = { trivy = "0.76.1" }
-run = 'trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --file-patterns "pnpm:aube-lock\.yaml" --skip-dirs "**/node_modules" --skip-dirs .venv .'
+run = 'trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --include-dev-deps --file-patterns "pnpm:aube-lock\.yaml" --skip-files poetry.lock --skip-dirs "**/node_modules" --skip-dirs .venv .'
 
 [env-show]
 description = "Print resolved env with secrets redacted (agent-safe JSON)"
