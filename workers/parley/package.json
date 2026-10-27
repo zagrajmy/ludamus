@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "agents": "0.20.1",
+    "agents": "0.29.0",
     "jose": "6.2.3"
   },
   "aube": {
