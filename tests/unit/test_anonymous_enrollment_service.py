@@ -1,6 +1,7 @@
 import re
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
@@ -51,6 +52,7 @@ def _seating(**overrides) -> AnonymousSeatingDTO:
 
 def _user(name="Ala") -> UserDTO:
     return UserDTO(
+        privacy_revision=UUID(int=1),
         age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),

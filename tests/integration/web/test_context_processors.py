@@ -20,7 +20,7 @@ class TestSitesContext:
 @pytest.mark.usefixtures("sixteen_plus_user")
 class TestAnalyticsContext:
     def test_configured_key_exposes_posthog_config(
-        self, authenticated_client, settings
+        self, authenticated_client, active_user, settings
     ):
         settings.POSTHOG_API_KEY = "phc_integration"
         settings.POSTHOG_HOST = "https://eu.i.posthog.com"
@@ -38,6 +38,7 @@ class TestAnalyticsContext:
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
             "user_id": f"test:{authenticated_client.session['_auth_user_id']}",
+            "privacy_revision": str(active_user.privacy_revision),
             "environment": "test",
             "redaction_rules": rules,
         }

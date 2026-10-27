@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
@@ -35,6 +36,7 @@ def make_encounter(pk=1, *, max_participants=0, is_public=True):
 def make_user(pk=CREATOR_ID, **overrides):
     fields = {
         "age_band": AgeBand.UNKNOWN,
+        "privacy_revision": UUID(int=1),
         "avatar_url": "",
         "date_joined": START_TIME - timedelta(days=30),
         "discord_username": "",
