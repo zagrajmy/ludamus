@@ -6,8 +6,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
     "bindings": [
-      { "name": "PARLEY_SPHERE", "class_name": "ParleySphereAgent" },
-      { "name": "PARLEY_SESSION", "class_name": "ParleySessionAgent" }
+      { "name": "ParleySphereAgent", "class_name": "ParleySphereAgent" },
+      { "name": "ParleySessionAgent", "class_name": "ParleySessionAgent" }
     ]
   },
   "exports": {

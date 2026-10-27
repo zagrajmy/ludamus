@@ -9,6 +9,8 @@ import {
 } from "agents";
 
 import type { Capability, ConnectionState, Message, RpcResult, ServerEvent } from "./protocol";
+import type { ParleySessionAgent } from "./session-agent";
+import type { ParleySphereAgent } from "./sphere-agent";
 
 import { capabilityFromRequest } from "./auth";
 import { integer, normalizeMessage } from "./limits";
@@ -19,8 +21,10 @@ export type Env = {
   JWT_ISSUER: string;
   PARLEY_PUBLIC_KEY: string;
   PARLEY_INTERNAL_SECRET: string;
-  PARLEY_SESSION: AgentNamespace<RoomAgent>;
-  PARLEY_SPHERE: AgentNamespace<RoomAgent>;
+  // NOTE: routeAgentRequest serves each namespace under its binding name,
+  // kebab-cased, and the browser addresses rooms by class name.
+  ParleySessionAgent: AgentNamespace<ParleySessionAgent>;
+  ParleySphereAgent: AgentNamespace<ParleySphereAgent>;
 };
 
 type MessageRow = {

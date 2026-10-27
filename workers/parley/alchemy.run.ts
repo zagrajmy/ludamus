@@ -1,3 +1,4 @@
+import agents from "agents/vite";
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Config from "effect/Config";
@@ -39,6 +40,9 @@ export default Alchemy.Stack(
     const stage = yield* Alchemy.Stage;
     const parley = yield* Cloudflare.Worker("Parley", {
       name: stage === "prod" ? testedRuntime.name : undefined,
+      // NOTE: the capability cookie is SameSite=Strict, so browsers send it
+      // only to a Worker on the app's own site, never to workers.dev.
+      domain: stage === "prod" ? yield* Config.String("PARLEY_DOMAIN") : undefined,
       main: "./src/index.ts",
       compatibility: {
         date: testedRuntime.compatibility_date,
@@ -48,6 +52,10 @@ export default Alchemy.Stack(
         // Alchemy leaves it out.
         flags: ["legacy_module_registry"],
       },
+      // NOTE: Alchemy bundles with Rolldown, whose Oxc transform leaves the
+      // agents' @callable() decorators in place, and workerd cannot parse
+      // them. The Agents SDK plugin compiles them first.
+      build: { input: { plugins: [agents()] } },
       observability,
       env: {
         ...durableObjects,

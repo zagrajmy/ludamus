@@ -80,7 +80,7 @@ export class ParleySessionAgent extends RoomAgent {
     const latestMessageId = input.message?.id ?? input.messageId;
     if (latestMessageId === undefined) return;
     const sphere = await getAgentByName<Env, ParleySphereAgent>(
-      this.workerEnv.PARLEY_SPHERE,
+      this.workerEnv.ParleySphereAgent,
       input.sphere,
     );
     try {

@@ -22,6 +22,7 @@
     }
   },
   "devDependencies": {
+    "@babel/plugin-proposal-decorators": "8.0.2",
     "@cloudflare/vitest-pool-workers": "0.20.1",
     "@cloudflare/workers-types": "5.20260801.1",
     "@effect/platform-node": "4.0.1",
