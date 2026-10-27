@@ -31,7 +31,15 @@ class TestPrivacyRevisionMigration:
             assert all(revisions)
             assert len(set(revisions)) == len(legacy_pks)
 
-            executor.migrate(before)
+            MigrationExecutor(connection).migrate(before)
+            with connection.cursor() as cursor:
+                columns = {
+                    column.name
+                    for column in connection.introspection.get_table_description(
+                        cursor, old_user._meta.db_table
+                    )
+                }
+            assert "privacy_revision" not in columns
             assert (
                 set(
                     old_user.objects.filter(pk__in=legacy_pks).values_list(
