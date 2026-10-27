@@ -115,7 +115,14 @@
                     {% url 'web:board:edit' pk=listing.pk as edit_url %}
                     {% translate "Edit listing" as t_edit %}
                     {% tessera_button text=t_edit href=edit_url variant="secondary" extra_class="w-full justify-center" %}
+                    {% if listing.status != "draft" %}
+                        {% url 'web:board:responses' pk=listing.pk as responses_url %}
+                        {% blocktranslate asvar t_responses %}Responses ({{ waiting_count }}){% endblocktranslate %}
+                        {% tessera_button text=t_responses href=responses_url variant="secondary" extra_class="w-full justify-center" %}
+                    {% endif %}
                 </div>
+            {% else %}
+                {% include "board/_respond.html" %}
             {% endif %}
         </aside>
     </div>

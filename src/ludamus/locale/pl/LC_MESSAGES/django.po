@@ -801,6 +801,26 @@ msgstr "Tytuł lub co będziemy robić"
 msgid "Show closed"
 msgstr "Pokaż zakończone"
 
+#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
+msgid "Contact"
+msgstr "Kontakt"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Message"
+msgstr "Wiadomość"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Optional. Say a few words about yourself."
+msgstr "Opcjonalnie. Napisz kilka słów o sobie."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Shown to the author once you join their party."
+msgstr "Autor zobaczy go, gdy dołączysz do drużyny."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Optional. They see it in their notifications."
+msgstr "Opcjonalnie. Zobaczy ją w powiadomieniach."
+
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Looking for"
 msgstr "Szukam"
@@ -895,10 +915,6 @@ msgstr ""
 msgid "Tags"
 msgstr "Tagi"
 
-#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
-msgid "Contact"
-msgstr "Kontakt"
-
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Shown only to the people in the party you form."
 msgstr "Widoczny tylko dla osób z drużyny, którą utworzysz."
@@ -924,6 +940,23 @@ msgid "Add an email address to your profile, or pick another contact."
 msgstr "Dodaj do profilu adres e-mail albo wybierz inny kontakt."
 
 #: src/ludamus/gates/web/django/board/views.py
+msgid "This listing has already changed. Nothing was done."
+msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "The author will see you're interested."
+msgstr "Autor zobaczy Twoje zgłoszenie."
+
+#: src/ludamus/gates/web/django/board/views.py
+#, python-format
+msgid "Keep the message under %(limit)d characters."
+msgstr "Wiadomość może mieć najwyżej %(limit)d znaków."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "They'll be told it's not this time."
+msgstr "Dostanie wiadomość „Nie tym razem”."
+
+#: src/ludamus/gates/web/django/board/views.py
 msgid "Listing published."
 msgstr "Ogłoszenie opublikowane."
 
@@ -936,12 +969,12 @@ msgid "Listing updated."
 msgstr "Ogłoszenie zaktualizowane."
 
 #: src/ludamus/gates/web/django/board/views.py
-msgid "This listing has already changed. Nothing was done."
-msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
-
-#: src/ludamus/gates/web/django/board/views.py
 msgid "Listing closed."
 msgstr "Ogłoszenie zamknięte."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Your response is withdrawn."
+msgstr "Zgłoszenie wycofane."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing reopened."
@@ -4657,6 +4690,38 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "%(name)s is interested in %(listing)s"
+msgstr "Nowe zgłoszenie od %(name)s: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Not this time: %(listing)s"
+msgstr "Nie tym razem: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "The author went with other people this time."
+msgstr "Tym razem wybrano inne osoby."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(listing)s has closed"
+msgstr "Ogłoszenie zamknięte: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "You weren't chosen this time. Thanks for responding."
+msgstr "Tym razem się nie udało. Dzięki za zgłoszenie."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(listing)s has changed"
+msgstr "Ogłoszenie zmienione: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "The author edited the listing you responded to."
+msgstr "Ogłoszenie, do którego masz zgłoszenie, zostało zmienione."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "%(sphere)s announced %(event)s"
 msgstr "%(sphere)s ogłasza: %(event)s"
 
@@ -5452,6 +5517,31 @@ msgstr ""
 "Wymagane, także w szkicu: podaj datę i godzinę, opisz termin własnymi "
 "słowami albo jedno i drugie."
 
+#: src/ludamus/templates/board/_respond.html
+msgid ""
+"You're interested. The author will add you to their party or let you know."
+msgstr "Zgłoszenie wysłane. Autor doda Cię do drużyny albo da znać."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Withdraw response"
+msgstr "Wycofaj zgłoszenie"
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Not this time."
+msgstr "Nie tym razem."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "The listing closed. You weren't chosen this time."
+msgstr "Ogłoszenie zamknięte. Tym razem się nie udało."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "I'm interested"
+msgstr "Zgłaszam się"
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Log in to respond"
+msgstr "Zaloguj się, aby się zgłosić"
+
 #: src/ludamus/templates/board/_status.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Draft"
@@ -5507,6 +5597,11 @@ msgstr "Wznów ogłoszenie"
 msgid "Edit listing"
 msgstr "Edytuj ogłoszenie"
 
+#: src/ludamus/templates/board/detail.html
+#, python-format
+msgid "Responses (%(waiting_count)s)"
+msgstr "Zgłoszenia (%(waiting_count)s)"
+
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
 msgstr "MG, gracze i grupy szukają siebie nawzajem."
@@ -5552,6 +5647,50 @@ msgstr "Nie masz jeszcze ogłoszeń"
 msgid ""
 "Add one, and people looking for the same thing will find you on the board."
 msgstr "Dodaj ogłoszenie, a osoby szukające tego samego znajdą cię na tablicy."
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Responses to %(title)s"
+msgstr "Zgłoszenia: %(title)s"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Responses"
+msgstr "Zgłoszenia"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Contacts are shared once someone joins your party."
+msgstr "Kontakty zobaczycie, gdy ktoś dołączy do Twojej drużyny."
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Interested (%(count)s)"
+msgstr "Czekają (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Not this time (%(count)s)"
+msgstr "Nie tym razem (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Not this time"
+msgstr "Nie tym razem"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Send “Not this time”"
+msgstr "Wyślij „Nie tym razem”"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Nobody is waiting for an answer"
+msgstr "Nikt nie czeka na odpowiedź"
+
+#: src/ludamus/templates/board/responses.html
+msgid "People who click “I'm interested” on your listing show up here."
+msgstr ""
+"Tu pojawią się osoby, które klikną „Zgłaszam się” przy Twoim ogłoszeniu."
+
+#: src/ludamus/templates/board/responses.html
+msgid "You haven't turned anyone down"
+msgstr "Nikt jeszcze nie dostał odpowiedzi „Nie tym razem”"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
