@@ -2981,14 +2981,14 @@ test = ["coverage[toml] (>=7.2.5)", "mypy (>=1.2.0)", "pytest (>=7.3.0)", "pytes
 
 [[package]]
 name = "markdown"
-version = "3.11.1"
+version = "3.11.2"
 description = "Python implementation of John Gruber's Markdown."
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "markdown-3.11.1-py3-none-any.whl", hash = "sha256:f1fa378ba5d682900c9ecb55ccceacca936016dda7c3b27097e8ae03ff78feb5"},
-    {file = "markdown-3.11.1.tar.gz", hash = "sha256:496f4f80f9ebd3395a04c8ec9595c40bbe8ec19e9c67d21fe071a1643e876606"},
+    {file = "markdown-3.11.2-py3-none-any.whl", hash = "sha256:f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5"},
+    {file = "markdown-3.11.2.tar.gz", hash = "sha256:87bf5d90f2d2882e2c02fcda182c2800456b985bff38913867c49706481514b0"},
 ]
 
 [package.extras]
@@ -5762,4 +5762,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "18ad5b41a04a7a4b663f362c103de31b0a498b47bac8f4345485fe8c478f3e9d"
+content-hash = "6a10b13352f9f1f8364d08b1159f4a1a8c375b59fcfd5c5c90df996865d6d00d"
