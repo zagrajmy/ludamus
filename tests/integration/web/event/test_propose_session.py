@@ -526,10 +526,10 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(cat),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "field_descriptors": [],
                 "track_options": [],
                 "track_error": None,
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "current_step": "details",
@@ -841,10 +841,10 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(cat),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "field_descriptors": [],
                 "track_options": [],
                 "track_error": None,
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "current_step": "details",
@@ -1086,12 +1086,12 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "field_descriptors": [],
                 "track_options": [
                     (track.pk, track.name, False, f"id_track_{track.pk}")
                 ],
                 "track_error": "Please select at least one track.",
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "current_step": "details",
@@ -1187,9 +1187,9 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
-        assert len(response.context["field_descriptors"]) == 1
+        assert len(response.context["private_field_descriptors"]) == 1
         assert (
-            response.context["field_descriptors"][0]["field"].question
+            response.context["private_field_descriptors"][0]["field"].question
             == "What RPG system will you use?"
         )
 
@@ -1884,7 +1884,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
-        descriptors = response.context["field_descriptors"]
+        descriptors = response.context["private_field_descriptors"]
         assert len(descriptors) == 1
         assert descriptors[0]["field"].allow_custom is True
 
@@ -2103,7 +2103,6 @@ class TestProposeSessionPageView:
                 "current_step": "details",
                 "is_first_step": True,
                 "event": EventDTO.model_validate(event),
-                "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
                 "proposal_settings": EventProposalSettingsDTO(
@@ -2111,7 +2110,8 @@ class TestProposeSessionPageView:
                 ),
                 "track_options": [],
                 "track_error": None,
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "wizard_steps": ["details", "review"],
@@ -2148,7 +2148,6 @@ class TestProposeSessionPageView:
                 "current_step": "details",
                 "is_first_step": True,
                 "event": EventDTO.model_validate(event),
-                "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
                 "proposal_settings": EventProposalSettingsDTO(
@@ -2156,7 +2155,8 @@ class TestProposeSessionPageView:
                 ),
                 "track_options": [],
                 "track_error": None,
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "wizard_steps": ["details", "review"],
@@ -2315,7 +2315,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
-        descriptors = response.context["field_descriptors"]
+        descriptors = response.context["private_field_descriptors"]
         assert len(descriptors) == 1
         assert descriptors[0]["field"].is_multiple is True
 
@@ -2373,7 +2373,7 @@ class TestProposeSessionPageView:
 
         descriptor = next(
             desc
-            for desc in response.context["field_descriptors"]
+            for desc in response.context["private_field_descriptors"]
             if desc["field"].slug == "triggers"
         )
         assert descriptor["field"].allow_custom is True
@@ -2439,7 +2439,7 @@ class TestProposeSessionPageView:
 
         descriptor = next(
             desc
-            for desc in response.context["field_descriptors"]
+            for desc in response.context["private_field_descriptors"]
             if desc["field"].slug == "triggers"
         )
         assert descriptor["answer"].errors == []
@@ -2765,10 +2765,10 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "field_descriptors": [],
                 "track_options": [],
                 "track_error": None,
-                "has_private_fields": False,
+                "public_field_descriptors": [],
+                "private_field_descriptors": [],
                 "reusable_sessions": [],
                 "reusable_form_values": {},
                 "current_step": "details",

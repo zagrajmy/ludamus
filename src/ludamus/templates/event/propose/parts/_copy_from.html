@@ -24,7 +24,6 @@
                             data-propose-copy-from="{{ session.pk }}">{% translate "Copy" %}</button>
                     <span class="inline-flex items-center gap-1 font-medium text-success-text"
                           hidden
-                          role="status"
                           data-propose-copied>
                         {% icon "check" class="size-3.5" variant="mini" %}
                         {% translate "Copied" %}
@@ -40,5 +39,6 @@
     <p class="mt-1.5 text-xs text-foreground-muted">
         {% translate "Time slots and the cover image stay as they are: this is a new event." %}
     </p>
+    <p class="sr-only" role="status" data-propose-copy-status></p>
     {{ reusable_form_values|json_script:"propose-copy-values" }}
 </details>

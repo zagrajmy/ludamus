@@ -168,12 +168,12 @@ def _reusable_form_values(
         "title": session.title,
         "description": session.description,
         "facilitator_name": session.facilitator_name,
-        "participants_limit": str(session.participants_limit),
+        "participants_limit": str(session.participants_limit or ""),
         "min_age": str(session.min_age),
         "duration": session.duration,
     }
-    # Another event asks other questions: an answer carries over only to a
-    # field this form has, and every field it has is set, so a copy never
+    # NOTE: another event asks other questions. An answer carries over only
+    # to a field this form has, and every field it has is set, so a copy never
     # leaves half of what the proposer typed under another session's title.
     return {name: copied.get(name, "") for name in form.fields}
 
@@ -454,8 +454,10 @@ def _details_context(
         "category": category,
         "form": form,
         "image_form": image_form or _wizard_image_form(state),
-        "field_descriptors": descriptors,
-        "has_private_fields": any(not d["field"].is_public for d in descriptors),
+        "public_field_descriptors": [d for d in descriptors if d["field"].is_public],
+        "private_field_descriptors": [
+            d for d in descriptors if not d["field"].is_public
+        ],
         "track_options": [
             (track.pk, track.name, track.pk in selected_tracks, f"id_track_{track.pk}")
             for track in wizard.service.get_public_tracks(wizard.event.pk)

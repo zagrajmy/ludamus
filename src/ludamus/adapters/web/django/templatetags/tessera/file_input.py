@@ -19,10 +19,10 @@ def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     return None, ""
 
 
-def render_file_input(field: BoundField, *, strip: bool = False) -> str:
+def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
     """Render a styled drag-and-drop file input.
 
-    ``strip`` draws it as the cover strip a session card shows: a slim row
+    ``inplace`` draws it as the cover strip a session card shows: a slim row
     while empty, the card's own crop once an image is picked.
 
     Returns:
@@ -51,6 +51,6 @@ def render_file_input(field: BoundField, *, strip: bool = False) -> str:
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
             "crop": getattr(field.field.widget, "crop", None),
             "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
-            "strip": strip,
+            "inplace": inplace,
         },
     )

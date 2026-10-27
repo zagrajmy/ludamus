@@ -1,11 +1,11 @@
 {% extends "chronology/parts/_session_info.html" %}
-{% load i18n tessera %}
+{% load i18n session_info_tags tessera %}
 {% block host %}
     {% include "components/avatar.html" with user=current_user size="size-9" %}
     <div class="flex flex-1 min-w-0 font-medium text-foreground">
         <label for="{{ form.facilitator_name.auto_id }}" class="sr-only">{{ form.facilitator_name.label }}</label>
         {% translate "Your name or nickname" as facilitator_placeholder %}
-        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True outlined=True %}
+        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True dotted=True %}
     </div>
 {% endblock host %}
 {% block description_label %}
@@ -20,24 +20,21 @@
     </div>
 {% endblock description %}
 {% block fields_section %}
-    {% if field_descriptors or track_options %}{{ block.super }}{% endif %}
+    {% if public_field_descriptors or track_options %}{{ block.super }}{% endif %}
 {% endblock fields_section %}
 {% block fields %}
     <div class="space-y-4">
-        {% for desc in field_descriptors %}
-            {% if desc.field.is_public %}
-                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer look="inplace" %}
-            {% endif %}
+        {% for desc in public_field_descriptors %}
+            {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer inplace=True %}
         {% endfor %}
         {% if track_options %}
-            <fieldset>
-                <legend class="text-sm font-semibold mb-1 text-foreground-secondary">
-                    {% translate "Tracks" %}
-                    <span class="text-danger"
-                          aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+            {% translate "Tracks" as tracks_label %}
+            <fieldset class="flex flex-col gap-y-1">
+                <legend class="text-sm font-semibold text-foreground-secondary">
+                    {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True inplace=True only %}
                 </legend>
-                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options pills=True has_errors=track_error only %}
-                {% if track_error %}<p class="mt-1 text-sm text-danger">{{ track_error }}</p>{% endif %}
+                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error inplace=True only %}
+                {% if track_error %}<p class="text-sm text-danger">{{ track_error }}</p>{% endif %}
             </fieldset>
         {% endif %}
     </div>
@@ -56,13 +53,11 @@
         {% endif %}
     {% endif %}
     {% translate "Seats" as seats_label %}
-    {% translate "no sign-up" as no_sign_up %}
+    {% if not form.participants_limit.field.required %}
+        {% translate "no sign-up" as seats_placeholder %}
+    {% endif %}
     {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
-        {% if form.participants_limit.field.required %}
-            {% tessera_inplace form.participants_limit placeholder="–" %}
-        {% else %}
-            {% tessera_inplace form.participants_limit placeholder=no_sign_up %}
-        {% endif %}
+        {% tessera_inplace form.participants_limit placeholder=seats_placeholder|default:"–" %}
     {% end_session_fact %}
     {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
         <span class="inline-flex items-baseline">

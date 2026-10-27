@@ -23,8 +23,32 @@ _INPUTMODE_BY_TYPE = {
 _NO_SPELLCHECK_TYPES = frozenset({"email", "url", "tel", "password"})
 
 
-def render_input(field: BoundField) -> str:
-    """Render a styled ``<input>``.
+# The in-place look shared by text-field.html, textarea.html and select.html:
+# a field dressed as the text it writes. It takes its type from the element
+# around it and adds only a hover wash, a focus ring and an outline at rest,
+# whose style (dashed, or dotted for a prefilled value) the template picks.
+INPLACE_CLASS = (
+    "[font:inherit] [color:inherit] [letter-spacing:inherit] bg-transparent"
+    " border-0 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5"
+    " transition-[background-color,box-shadow] duration-150 hover:duration-0"
+    " hover:bg-foreground/5 focus:outline-none focus:ring-2 focus:ring-primary/40"
+    " placeholder:text-foreground-muted not-focus:outline-1"
+    " not-focus:outline-warm-400 dark:not-focus:outline-neutral-600"
+    " aria-invalid:outline-danger"
+)
+
+
+def render_input(
+    field: BoundField,
+    *,
+    inplace: bool = False,
+    fit: bool = False,
+    dotted: bool = False,
+    placeholder: str = "",
+) -> str:
+    """Render a styled ``<input>``, or with ``inplace`` one dressed as its text.
+
+    ``fit`` sizes it to its content; ``dotted`` marks a prefilled value.
 
     Returns:
         HTML string of the input element.
@@ -54,7 +78,7 @@ def render_input(field: BoundField) -> str:
             "required": field.field.required,
             "disabled": attrs.get("disabled", False),
             "readonly": attrs.get("readonly", False),
-            "placeholder": attrs.get("placeholder", ""),
+            "placeholder": placeholder or attrs.get("placeholder", ""),
             "maxlength": attrs.get("maxlength", ""),
             # Widget attrs (e.g. Django's NumberInput derives them from
             # min_value/max_value); stringified so a 0 bound still renders.
@@ -69,5 +93,9 @@ def render_input(field: BoundField) -> str:
             "spellcheck": spellcheck or "",
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace": inplace,
+            "inplace_class": INPLACE_CLASS,
+            "fit": fit,
+            "dotted": dotted,
         },
     )

@@ -5,7 +5,9 @@ const snapshots = new WeakMap<HTMLFormElement, Values>();
 
 const controls = (form: HTMLFormElement, name: string): Element[] =>
   [...form.elements].filter(
-    (el) => (el as HTMLInputElement).name === name && (el as HTMLInputElement).type !== "file",
+    (el) =>
+      (el as HTMLInputElement).name === name &&
+      !["file", "hidden"].includes((el as HTMLInputElement).type),
   );
 
 const read = (form: HTMLFormElement, names: string[]): Values =>
@@ -63,13 +65,16 @@ document.addEventListener("click", (event) => {
   const form = panel && document.getElementById(panel.dataset.proposeCopy ?? "");
   if (!button || !panel || !(form instanceof HTMLFormElement)) return;
 
+  const row = button.closest<HTMLElement>("[data-propose-copy-row]");
+  const status = panel.querySelector<HTMLElement>("[data-propose-copy-status]");
   const pk = button.dataset.proposeCopyFrom;
   if (pk === undefined) {
     const before = snapshots.get(form);
     if (before) write(form, before);
     snapshots.delete(form);
     markCopied(panel, null);
-    panel.querySelector<HTMLElement>(`[data-propose-copy-from]`)?.focus();
+    if (status) status.textContent = "";
+    row?.querySelector<HTMLElement>("[data-propose-copy-from]")?.focus();
     return;
   }
 
@@ -81,6 +86,8 @@ document.addEventListener("click", (event) => {
   if (!snapshots.has(form)) snapshots.set(form, read(form, Object.keys(values)));
   write(form, values);
   markCopied(panel, pk);
+  if (status)
+    status.textContent = row?.querySelector("[data-propose-copied]")?.textContent?.trim() ?? "";
   panel
     .querySelector<HTMLElement>(`[data-propose-copy-row="${pk}"] [data-propose-copy-undo]`)
     ?.focus();

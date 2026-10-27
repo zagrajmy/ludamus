@@ -40,15 +40,14 @@ from .form import (
     tessera_errors,
     tessera_field,
     tessera_form,
+    tessera_inplace,
     tessera_sole_choice,
 )
 from .icon import icon
 from .icon_button import tessera_icon_button
 from .icon_toggle import tessera_icon_toggle
-from .inplace import tessera_inplace
 from .radio import RadioNode, do_radio
 from .select import SelectNode, do_select
-from .session_fact import SessionFactNode, do_session_fact
 from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
 from .tab_shell import TabShellBodyNode, TabShellNode, tab_shell, tab_shell_body
 from .table import TableNode, do_tessera_table
@@ -60,7 +59,6 @@ __all__ = [
     "RadioNode",
     "SegmentNode",
     "SelectNode",
-    "SessionFactNode",
     "SwitcherNode",
     "TabNode",
     "TabShellBodyNode",
@@ -72,7 +70,6 @@ __all__ = [
     "do_combobox",
     "do_radio",
     "do_select",
-    "do_session_fact",
     "do_tab",
     "do_tabs",
     "do_tessera_table",

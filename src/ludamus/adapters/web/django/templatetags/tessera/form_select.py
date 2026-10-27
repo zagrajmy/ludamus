@@ -8,13 +8,23 @@ from django.template.loader import render_to_string
 
 from ._choices import grouped_choices
 from .errors import help_text_id
+from .input import INPLACE_CLASS
 
 if TYPE_CHECKING:
     from django.forms import BoundField
 
 
-def render_select(field: BoundField) -> str:
-    """Render a styled ``<select>``.
+def render_select(
+    field: BoundField,
+    *,
+    inplace: bool = False,
+    pill: bool = False,
+    placeholder: str = "",
+) -> str:
+    """Render a styled ``<select>``, or with ``inplace`` one dressed as its text.
+
+    ``pill`` dresses it as the pill the answer shows in; ``placeholder`` names
+    the blank choice.
 
     Returns:
         HTML string of the select element.
@@ -30,5 +40,9 @@ def render_select(field: BoundField) -> str:
             "disabled": field.field.disabled,
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace": inplace,
+            "inplace_class": INPLACE_CLASS,
+            "pill": pill,
+            "placeholder": placeholder,
         },
     )

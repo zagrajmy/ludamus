@@ -50,8 +50,8 @@ class ReusableSessionDTO(BaseModel):
     participants_limit: int
     min_age: int
     duration: str
-    # Session fields belong to an event, so the slug is the only key that can
-    # carry an answer over to another event's form.
+    # NOTE: session fields belong to an event, so the slug is the only key
+    # that can carry an answer over to another event's form.
     field_values: dict[str, FieldValue]
 
 

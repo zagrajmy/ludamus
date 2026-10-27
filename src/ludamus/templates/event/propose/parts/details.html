@@ -1,5 +1,4 @@
-{% load i18n %}
-{% load tessera %}
+{% load i18n tessera %}
 {# The session step is the session as the event page's modal will show it, #}
 {# written in place: same layout (chronology/parts/_session_info.html), with #}
 {# the fields standing where their answers will be read. #}
@@ -31,7 +30,7 @@
                 <div class="px-6 py-4">
                     {% include "event/propose/parts/_session_info_edit.html" %}
                     <div class="space-y-6">
-                        {% if has_private_fields %}
+                        {% if private_field_descriptors %}
                             <section class="rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 bg-proposal-surface p-4"
                                      aria-labelledby="propose-private-heading">
                                 <h3 id="propose-private-heading"
@@ -40,10 +39,8 @@
                                     {% translate "Visible to organizers only" %}
                                 </h3>
                                 <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
-                                {% for desc in field_descriptors %}
-                                    {% if not desc.field.is_public %}
-                                        {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
-                                    {% endif %}
+                                {% for desc in private_field_descriptors %}
+                                    {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
                                 {% endfor %}
                             </section>
                         {% endif %}

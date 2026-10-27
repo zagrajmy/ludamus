@@ -2530,7 +2530,6 @@ msgid "Pick an option or type your own."
 msgstr "Wybierz opcję lub wpisz własną."
 
 #: src/ludamus/gates/web/django/dynamic_fields.py
-#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
@@ -3698,7 +3697,6 @@ msgstr "Twórca programu"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Accreditation type"
 msgstr "Rodzaj akredytacji"
@@ -6691,15 +6689,6 @@ msgstr "żadne"
 msgid "Venues under %(name)s:"
 msgstr "Lokalizacje w %(name)s:"
 
-# Login Required Page
-#: src/ludamus/templates/components/_inplace-field-heading.html
-#: src/ludamus/templates/components/dynamic-field-label.html
-#: src/ludamus/templates/components/label.html
-#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "required"
-msgstr "wymagane"
-
 #: src/ludamus/templates/components/_pagination.html
 #, python-format
 msgid ""
@@ -6802,7 +6791,13 @@ msgstr ""
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
 
-#: src/ludamus/templates/components/dynamic-field-inplace.html
+# Login Required Page
+#: src/ludamus/templates/components/dynamic-field-label.html
+#: src/ludamus/templates/components/label.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "required"
+msgstr "wymagane"
+
 #: src/ludamus/templates/components/dynamic-field.html
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/panel/bans.html
@@ -6812,12 +6807,10 @@ msgstr "Utwórz spotkanie"
 msgid "Remove"
 msgstr "Usuń"
 
-#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "This value is too long to add here."
 msgstr "Ta wartość jest za długa, aby ją dodać."
 
-#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 #, python-format
 msgid "Custom value for: %(question)s"

@@ -128,6 +128,47 @@ def tessera_field(
 
 
 @register.simple_tag
+def tessera_inplace(
+    field: BoundField,
+    *,
+    placeholder: str = "",
+    fit: bool = False,
+    dotted: bool = False,
+    pill: bool = False,
+) -> str:
+    """Render a field's control in place: dressed as the text it writes.
+
+    For pages that show a thing in the shape it is read in, so the label is
+    the page's own; only the control and its errors render here. A select
+    with one option is still not asked, as in `tessera_field`.
+
+    Returns:
+        HTML string of the control followed by its errors.
+
+    Usage:
+        {% tessera_inplace form.title placeholder=title_placeholder %}
+        {% tessera_inplace form.facilitator_name fit=True dotted=True %}
+        {% tessera_inplace image_form.cover_image %}
+    """
+    widget = field.field.widget
+    if isinstance(widget, ChoiceWidget) and (sole := sole_required_choice(field)):
+        return format_html(
+            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
+        )
+    if isinstance(widget, FileInput):
+        control = render_file_input(field, inplace=True)
+    elif isinstance(widget, Select):
+        control = render_select(field, inplace=True, pill=pill, placeholder=placeholder)
+    elif isinstance(widget, Textarea):
+        control = render_textarea(field, inplace=True, placeholder=placeholder)
+    else:
+        control = render_input(
+            field, inplace=True, fit=fit, dotted=dotted, placeholder=placeholder
+        )
+    return format_html("{}{}", control, render_errors(field))
+
+
+@register.simple_tag
 def tessera_sole_choice(field: BoundField) -> str:
     """Name the answer `tessera_field` stopped asking for.
 

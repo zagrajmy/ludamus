@@ -60,7 +60,6 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import ConfirmationSessionRow
-from ludamus.pacts.propose import ReusableSessionDTO, ReusableSessionRepositoryProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -98,6 +97,15 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     hours = int(m.group(1) or 0)
     minutes = int(m.group(2) or 0)
     return hours * 60 + minutes
+
+
+def sessions_run_by(user_id: int) -> QuerySet[Session]:
+    # A subquery rather than a join: joining facilitators would repeat each
+    # session once per facilitator and inflate every count annotated on it.
+    return Session.objects.filter(
+        Q(presenter_id=user_id)
+        | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
+    )
 
 
 def annotate_session_participation_counts(
@@ -262,11 +270,7 @@ def _session_modal_dto(
     )
 
 
-class SessionRepository(
-    SessionRepositoryProtocol,
-    SessionModalRepositoryProtocol,
-    ReusableSessionRepositoryProtocol,
-):
+class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtocol):
     @staticmethod
     def read_modal(
         *,
@@ -482,55 +486,6 @@ class SessionRepository(
             )
             for s in qs
         ]
-
-    @staticmethod
-    def list_reusable(
-        *, user_id: int, sphere_id: int, exclude_event_id: int, limit: int
-    ) -> list[ReusableSessionDTO]:
-        sessions = (
-            Session.objects.filter(
-                Q(presenter_id=user_id) | Q(facilitators__user_id=user_id),
-                event__sphere_id=sphere_id,
-            )
-            .exclude(event_id=exclude_event_id)
-            .select_related("event")
-            .prefetch_related(
-                Prefetch(
-                    "field_values",
-                    queryset=SessionFieldValue.objects.select_related("field"),
-                )
-            )
-            .distinct()
-            .order_by("-event__start_time", "-creation_time")
-        )
-        # A session proposed to several editions is one thing to start from,
-        # so only its newest copy is offered.
-        # NOTE: deduped over a window of `limit * 4` rows, so someone who
-        # repeats one session more often than that may be offered fewer.
-        seen: set[str] = set()
-        found: list[ReusableSessionDTO] = []
-        for session in sessions[: limit * 4]:
-            if (key := session.title.strip().casefold()) in seen:
-                continue
-            seen.add(key)
-            found.append(
-                ReusableSessionDTO(
-                    pk=session.pk,
-                    title=session.title,
-                    event_name=session.event.name,
-                    description=session.description,
-                    facilitator_name=session.facilitator_name,
-                    participants_limit=session.participants_limit,
-                    min_age=session.min_age,
-                    duration=session.duration,
-                    field_values={
-                        fv.field.slug: fv.value for fv in session.field_values.all()
-                    },
-                )
-            )
-            if len(found) == limit:
-                break
-        return found
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:

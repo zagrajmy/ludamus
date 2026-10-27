@@ -15,6 +15,7 @@ from django.template.loader import render_to_string
 from ludamus.pacts import FieldAnswer
 
 from ._registry import register
+from .input import INPLACE_CLASS
 
 if TYPE_CHECKING:
     from ludamus.pacts import FieldValue, OrganizerFieldDTO
@@ -29,7 +30,11 @@ def _selected(value: FieldValue) -> list[str]:
 
 
 def field_context(
-    field: OrganizerFieldDTO, *, name_prefix: str, answer: FieldAnswer
+    field: OrganizerFieldDTO,
+    *,
+    name_prefix: str,
+    answer: FieldAnswer,
+    inplace: bool = False,
 ) -> dict[str, object]:
     # Everything the markup switches on, derived once. Kept separate from the
     # render so the derivation can be checked without going through a template.
@@ -44,6 +49,10 @@ def field_context(
     return {
         "field": field,
         "label": field.question,
+        "heading": field.name if inplace else field.question,
+        "placeholder": field.question if inplace else "",
+        "inplace": inplace,
+        "inplace_class": INPLACE_CLASS,
         "icon_name": field.icon,
         "name": name,
         "input_id": input_id,
@@ -80,14 +89,11 @@ def dynamic_field(
     *,
     name_prefix: str,
     answer: FieldAnswer | None = None,
-    look: str = "form",
-    select_look: str = "pill",
+    inplace: bool = False,
 ) -> str:
     """Render one organizer-defined field, switched on its type.
 
-    ``look="inplace"`` renders it the way the session modal shows the answer —
-    the field's name as a heading, the control dressed as the value — for
-    pages that let someone write a session in the shape it is read in.
+    ``inplace`` writes it the way the session modal reads the answer.
 
     Returns:
         HTML string for the field's label, input(s), help text and errors.
@@ -95,12 +101,12 @@ def dynamic_field(
     Usage:
         {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
     """
-    context = field_context(
-        field, name_prefix=name_prefix, answer=answer or FieldAnswer()
+    return render_to_string(
+        "components/dynamic-field.html",
+        field_context(
+            field,
+            name_prefix=name_prefix,
+            answer=answer or FieldAnswer(),
+            inplace=inplace,
+        ),
     )
-    if look == "inplace":
-        return render_to_string(
-            "components/dynamic-field-inplace.html",
-            {**context, "select_look": select_look},
-        )
-    return render_to_string("components/dynamic-field.html", context)

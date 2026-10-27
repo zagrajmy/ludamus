@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from ludamus.links.db.django.models import Facilitator, SessionField, SessionFieldValue
-from ludamus.links.db.django.repositories import SessionRepository
+from ludamus.links.db.django.repositories import ReusableSessionRepository
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -16,7 +16,7 @@ def _session(*, event, **kwargs):
 
 
 def _list(*, user, sphere, current):
-    return SessionRepository.list_reusable(
+    return ReusableSessionRepository.list_reusable(
         user_id=user.pk, sphere_id=sphere.pk, exclude_event_id=current.pk, limit=5
     )
 
@@ -50,6 +50,21 @@ class TestListReusable:
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
         assert [s.pk for s in found] == [imported.pk]
+
+    def test_skips_a_session_held_only_through_a_deleted_facilitator(self):
+        user = UserFactory()
+        sphere = SphereFactory()
+        past = EventFactory(sphere=sphere)
+        session = _session(event=past, presenter=None)
+        facilitator = Facilitator.objects.create(
+            event=past, user=user, display_name="Ola", slug="ola"
+        )
+        session.facilitators.add(facilitator)
+        facilitator.soft_delete()
+
+        found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
+
+        assert not found
 
     def test_offers_a_repeated_session_once_from_its_newest_edition(self):
         user = UserFactory()
