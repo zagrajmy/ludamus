@@ -88,6 +88,7 @@ class DashboardDTO(BaseModel):
 
 
 class SubscriptionRecipientDTO(BaseModel):
+    subscription_id: int
     user_id: int
     email: str
     age_band: AgeBand
@@ -105,6 +106,7 @@ class SphereEventAnnouncementDTO(BaseModel):
 
 
 class SphereEventPublishedNotification(BaseModel):
+    subscription_id: int
     recipient_user_id: int
     recipient_email: str
     event_name: str

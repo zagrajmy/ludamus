@@ -6,27 +6,19 @@
 // needs two origins — the ingestion host, and the assets host posthog-js
 // derives from it to fetch remote config.
 //
-// Consent states (stored under STORAGE_KEY in localStorage):
-// - unset:      PostHog is not initialized at all — no events leave the
-//               browser — and the banner shows.
-// - "accepted": initialized with durable persistence, capturing opted in,
-//               session recording with every input masked.
-// - "declined": PostHog is never initialized; withdrawing consent on a
-//               pageload where it already runs opts out and stops recording.
 import type posthogClient from "posthog-js/dist/module.full.no-external";
 
+import { PrivacyController, type PrivacyState } from "./privacy-controller";
+
 let posthog: typeof posthogClient | undefined;
-
-const STORAGE_KEY = "prologue.consent";
-
-type Consent = "accepted" | "declined" | null;
 
 type PosthogServerConfig = {
   api_key: string;
   environment: string;
   host: string;
+  privacy_revision: string;
   redaction_rules: [string, string][];
-  user_id: string | null;
+  user_id: string;
 };
 
 const readServerConfig = (): PosthogServerConfig | null => {
@@ -37,11 +29,6 @@ const readServerConfig = (): PosthogServerConfig | null => {
   } catch {
     return null;
   }
-};
-
-const readConsent = (): Consent => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
 const syncIdentity = (client: typeof posthogClient, userId: string | null): void => {
@@ -154,12 +141,16 @@ const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void
   }
 };
 
-const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
+const initPosthog = async (
+  config: PosthogServerConfig,
+  canCapture: () => boolean,
+): Promise<void> => {
+  if (!canCapture()) return;
   if (!posthog) {
     const client = await import("posthog-js/dist/module.full.no-external");
     posthog = client.default;
   }
-  if (readConsent() !== "accepted") return;
+  if (!canCapture()) return;
   const rules = compileRules(config.redaction_rules);
   posthog.init(config.api_key, {
     api_host: config.host,
@@ -168,6 +159,7 @@ const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
     // super property because reset() clears super properties, and reset() is
     // exactly what a logout, an account switch or a withdrawn consent does.
     before_send: (event) => {
+      if (!canCapture()) return null;
       if (!event) return event;
       event.properties.environment = config.environment;
       // Not an either/or: $set_once hangs off the event, not off properties,
@@ -237,8 +229,8 @@ const initPosthog = async (config: PosthogServerConfig): Promise<void> => {
 // The profile Privacy tab shows the stored choice: the server cannot know it
 // (localStorage never leaves the browser), so elements carry the translated
 // labels in data attributes and this fills the right one in.
-const renderConsentState = (): void => {
-  const consent = readConsent();
+const renderConsentState = (state: PrivacyState): void => {
+  const consent = state === "ineligible" ? "declined" : state;
   for (const el of document.querySelectorAll<HTMLElement>("[data-consent-state]")) {
     const { labelAccepted = "", labelDeclined = "", labelUnset = "" } = el.dataset;
     el.textContent =
@@ -246,9 +238,13 @@ const renderConsentState = (): void => {
   }
 };
 
-const startCapture = async (config: PosthogServerConfig): Promise<void> => {
+const startCapture = async (
+  config: PosthogServerConfig,
+  canCapture: () => boolean,
+): Promise<void> => {
+  if (!canCapture()) return;
   if (!posthog?.__loaded) {
-    await initPosthog(config);
+    await initPosthog(config, canCapture);
     return;
   }
   posthog.set_config({ persistence: "localStorage+cookie" });
@@ -267,15 +263,6 @@ const stopCapture = (): void => {
   posthog.stopSessionRecording();
   syncIdentity(posthog, null);
   posthog.opt_out_capturing();
-};
-
-const applyChoice = async (
-  config: PosthogServerConfig,
-  choice: "accepted" | "declined",
-): Promise<void> => {
-  localStorage.setItem(STORAGE_KEY, choice);
-  if (choice === "accepted") await startCapture(config);
-  else stopCapture();
 };
 
 const isTrackingKey = (name: string): boolean =>
@@ -301,11 +288,10 @@ const expireCookie = (name: string, domain?: string): void => {
 // out or ineligible, and on a shared device the next person to sign in must
 // be asked again rather than inherit the previous one's consent.
 const clearTrackingStorage = async (): Promise<void> => {
-  localStorage.removeItem(STORAGE_KEY);
   for (const key of Object.keys(localStorage)) {
     if (isTrackingKey(key)) localStorage.removeItem(key);
   }
-  if (!("cookieStore" in globalThis)) {
+  if (!globalThis.cookieStore) {
     for (const pair of document.cookie.split(";")) {
       const name = pair.split("=")[0]?.trim() ?? "";
       if (!isTrackingKey(name)) continue;
@@ -325,48 +311,36 @@ const clearTrackingStorage = async (): Promise<void> => {
   }
 };
 
-const init = async (): Promise<void> => {
+const init = (): void => {
   const config = readServerConfig();
-  if (!config) {
-    await clearTrackingStorage();
-    return;
-  }
-
-  // Another tab answered or reset the banner. Follow its choice without writing
-  // one back: a cleared choice must stay cleared so the reload asks again.
-  globalThis.addEventListener("storage", async (event) => {
-    if (event.key !== STORAGE_KEY) return;
-    if (event.newValue === null) {
-      stopCapture();
-      globalThis.location.reload();
-      return;
-    }
-    if (event.newValue === "accepted") await startCapture(config);
-    else stopCapture();
-    renderConsentState();
-    const banner = document.getElementById("consent-banner");
-    if (banner) banner.hidden = true;
-  });
-
-  const consent = readConsent();
-  if (consent === "accepted") await initPosthog(config);
-  renderConsentState();
-
   const banner = document.getElementById("consent-banner");
+  const openers = document.querySelectorAll<HTMLElement>("[data-consent-reopen]");
+  const privacy = new PrivacyController({
+    clear: clearTrackingStorage,
+    render: (state) => {
+      renderConsentState(state);
+      if (banner instanceof HTMLElement) banner.hidden = state !== null;
+      for (const opener of openers) opener.hidden = state === "ineligible";
+    },
+    revision: config?.privacy_revision ?? null,
+    start: async () => {
+      if (config) await startCapture(config, privacy.canCapture);
+    },
+    stop: stopCapture,
+  });
+  privacy.init();
   if (!(banner instanceof HTMLElement)) return;
-  if (consent === null) banner.hidden = false;
 
   for (const button of banner.querySelectorAll<HTMLButtonElement>("[data-consent-choice]")) {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const { consentChoice } = button.dataset;
       if (consentChoice !== "accepted" && consentChoice !== "declined") return;
-      await applyChoice(config, consentChoice);
-      renderConsentState();
+      privacy.choose(consentChoice);
       banner.hidden = true;
     });
   }
 
-  for (const opener of document.querySelectorAll("[data-consent-reopen]")) {
+  for (const opener of openers) {
     opener.addEventListener("click", () => {
       banner.hidden = false;
       banner.querySelector<HTMLButtonElement>("[data-consent-choice]")?.focus();
@@ -374,4 +348,4 @@ const init = async (): Promise<void> => {
   }
 };
 
-await init();
+init();

@@ -4,6 +4,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
@@ -136,6 +137,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
+    privacy_revision = models.UUIDField(default=uuid4, editable=False)
     age_band = models.CharField(
         max_length=16,
         choices=[(band.value, band.name) for band in AgeBand],
