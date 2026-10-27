@@ -94,6 +94,8 @@ test("a seatless session's modal offers the bookmark at the end of its facts", a
   const bookmark = dialog.getByRole("button", { name: "Bookmark session" });
   const close = dialog.getByRole("button", { name: "Close" });
   const facts = dialog.locator("[data-session-facts]");
+  const factsList = facts.locator("> :first-child");
+  const listWidth = (await factsList.boundingBox())?.width;
   const [bookmarkBox, closeBox, factsBox] = await Promise.all([
     bookmark.boundingBox(),
     close.boundingBox(),
@@ -102,8 +104,7 @@ test("a seatless session's modal offers the bookmark at the end of its facts", a
   expect(bookmarkBox && closeBox && factsBox).toBeTruthy();
   if (!bookmarkBox || !closeBox || !factsBox) return;
   expect(bookmarkBox.x + bookmarkBox.width).toBeCloseTo(closeBox.x + closeBox.width, 0);
-  expect(bookmarkBox.y).toBeGreaterThanOrEqual(factsBox.y - 1);
-  expect(bookmarkBox.y + bookmarkBox.height).toBeLessThanOrEqual(factsBox.y + factsBox.height + 1);
+  expect(bookmarkBox.y + bookmarkBox.height).toBeCloseTo(factsBox.y + factsBox.height, 0);
 
   // Each toggle paints twice (optimistic, then settled), and the settled paint
   // runs in the same tick that releases the in-flight guard. Counting paints
@@ -124,8 +125,8 @@ test("a seatless session's modal offers the bookmark at the end of its facts", a
   expect((await toggled).ok()).toBe(true);
   await expect.poll(paints).toBe(2);
   await expect(bookmark).toHaveAttribute("aria-pressed", String(was !== "true"));
-  // The count showing up or going away must not reflow the facts line.
-  expect((await facts.boundingBox())?.height).toBe(factsBox.height);
+  // The count showing up or going away must not take width from the facts.
+  expect((await factsList.boundingBox())?.width).toBe(listWidth);
 
   const restored = page.waitForResponse(/\/bookmark\/$/);
   await bookmark.click();

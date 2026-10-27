@@ -10,14 +10,14 @@
     {% if field.field_type == "select" and field.is_multiple %}
         {# A checkbox group has no single control to point a label at, so the #}
         {# question is the group's legend instead of an orphan <label>. #}
-        <fieldset>
+        <fieldset {% if described_by %}aria-describedby="{{ described_by }}"{% endif %}>
             <legend class="{{ label_class }}">
                 {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
                 {# In place the legend leads with the field's name; a group has no #}
                 {# placeholder, so the question rides along in the legend. #}
                 {% if inplace %}<span class="block text-xs font-normal text-foreground-muted">{{ label }}</span>{% endif %}
             </legend>
-            {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors aria_describedby=described_by inplace=inplace only %}
+            {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors inplace=inplace only %}
         </fieldset>
     {% elif field.field_type == "select" %}
         <label for="{{ input_id }}" class="{{ label_class }}">
