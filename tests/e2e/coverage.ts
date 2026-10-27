@@ -10,18 +10,20 @@ export const coverageOptions: CoverageReportOptions = {
   name: "Client TypeScript",
   outputDir: path.join(repoRoot, "coverage-client"),
   reports: [["lcovonly", { file: "lcov.info" }], "console-summary"],
-  // Vite's own auto-named `chunk-*.js` and `preload-helper-*.js` output
-  // (shared code it factors out across entry points, e.g. a CJS/ESM interop
-  // helper or the dynamic-import preloader) carries no sourcemap back to a
-  // first-party file — there is no TS source to map to by design.
+  // Vite's own auto-named `chunk-*.js`, `preload-helper-*.js` and
+  // `rolldown-runtime-*.js` output (shared code it factors out across entry
+  // points: a CJS/ESM interop helper, the dynamic-import preloader, the
+  // bundler's module runtime) carries no sourcemap back to a first-party
+  // file — there is no TS source to map to by design.
   // Parley's dependencies are the first to pull one in; excluding it here
   // keeps the real signal in global-teardown.ts's unmapped-sources check,
   // which otherwise cannot tell that gap apart from a stale/reused server.
   entryFilter: (entry) => {
     const isImportStub = /^(?:import\s*["']\.\/[^"'\n]+["'];\s*)+$/u.test(entry.source ?? "");
-    const isViteChunk = /\/static\/vite\/assets\/(?:chunk|preload-helper)-[^/]*\.js$/u.test(
-      entry.url,
-    );
+    const isViteChunk =
+      /\/static\/vite\/assets\/(?:chunk|preload-helper|rolldown-runtime)-[^/]*\.js$/u.test(
+        entry.url,
+      );
     return entry.url.includes("/static/vite/") && !isImportStub && !isViteChunk;
   },
   sourceFilter: "**/client/src/**",
