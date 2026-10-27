@@ -159,28 +159,11 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             event_pk, track_pk
         )
         orphans = self._agenda_items.count_without_facilitator(event_pk, track_pk)
-        # Nobody in the block means nothing to look up: the assembly below
-        # already yields an empty view, it just does not need three queries.
-        session_rows = (
-            self._sessions.list_confirmation_rows(
-                event_pk, [row["pk"] for row in facilitator_rows]
-            )
-            if facilitator_rows
-            else []
+        session_rows = self._sessions.list_confirmation_rows(
+            event_pk, [row["pk"] for row in facilitator_rows]
         )
-        session_pks = [row["session_pk"] for row in session_rows]
-        lookups = _Lookups(
-            track_names=(
-                self._sessions.list_track_names_by_session(session_pks)
-                if session_pks
-                else {}
-            ),
-            facilitator_names=(
-                self._sessions.list_facilitator_names_by_session(session_pks)
-                if session_pks
-                else {}
-            ),
-            track_pk=track_pk,
+        names = _SessionNames.load(
+            sessions=self._sessions, rows=session_rows, track_pk=track_pk
         )
 
         by_facilitator: dict[int, list[ConfirmationSessionRow]] = defaultdict(list)
@@ -189,7 +172,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
 
         facilitators = [
             _facilitator(
-                row=row, sessions=by_facilitator.get(row["pk"], []), lookups=lookups
+                row=row, sessions=by_facilitator.get(row["pk"], []), names=names
             )
             for row in facilitator_rows
         ]
@@ -200,8 +183,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         in_track = [
             row
             for row in session_rows
-            if row["is_scheduled"]
-            and track_pk in lookups.track_names.get(row["session_pk"], {})
+            if row["is_scheduled"] and names.in_track(row["session_pk"])
         ]
         scheduled = len({row["session_pk"] for row in in_track})
         confirmed = len({row["session_pk"] for row in in_track if row["is_confirmed"]})
@@ -229,16 +211,11 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             tracks=self._tracks, track_pk=track_pk, event_pk=event_pk
         )
         sessions = self._sessions.list_confirmation_rows(event_pk, [facilitator_pk])
-        session_pks = [session["session_pk"] for session in sessions]
         return _facilitator(
             row=row,
             sessions=sessions,
-            lookups=_Lookups(
-                track_names=self._sessions.list_track_names_by_session(session_pks),
-                facilitator_names=self._sessions.list_facilitator_names_by_session(
-                    session_pks
-                ),
-                track_pk=track_pk,
+            names=_SessionNames.load(
+                sessions=self._sessions, rows=sessions, track_pk=track_pk
             ),
         )
 
@@ -314,18 +291,49 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         )
 
 
-@dataclass(frozen=True, slots=True)
-class _Lookups:
-    track_names: dict[int, dict[int, str]]
-    facilitator_names: dict[int, dict[int, str]]
-    track_pk: int
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _SessionNames:
+    _track_names: dict[int, dict[int, str]]
+    _facilitator_names: dict[int, dict[int, str]]
+    _track_pk: int
+
+    @classmethod
+    def load(
+        cls,
+        *,
+        sessions: SessionRepositoryProtocol,
+        rows: list[ConfirmationSessionRow],
+        track_pk: int,
+    ) -> _SessionNames:
+        # NOTE: no empty-list guard needed: Django answers `__in=[]` without SQL.
+        session_pks = [row["session_pk"] for row in rows]
+        return cls(
+            _track_names=sessions.list_track_names_by_session(session_pks),
+            _facilitator_names=sessions.list_facilitator_names_by_session(session_pks),
+            _track_pk=track_pk,
+        )
+
+    def in_track(self, session_pk: int) -> bool:
+        return self._track_pk in self._track_names.get(session_pk, {})
+
+    def other_tracks(self, session_pk: int) -> list[str]:
+        return [
+            name
+            for pk, name in self._track_names.get(session_pk, {}).items()
+            if pk != self._track_pk
+        ]
+
+    def co_facilitators(self, row: ConfirmationSessionRow) -> list[str]:
+        return [
+            name
+            for pk, name in self._facilitator_names.get(row["session_pk"], {}).items()
+            if pk != row["facilitator_pk"]
+        ]
 
 
 def _session_dto(
-    *, row: ConfirmationSessionRow, lookups: _Lookups
+    *, row: ConfirmationSessionRow, names: _SessionNames
 ) -> ConfirmationSessionDTO:
-    others = lookups.track_names.get(row["session_pk"], {})
-    co_facilitators = lookups.facilitator_names.get(row["session_pk"], {})
     return ConfirmationSessionDTO(
         session_pk=row["session_pk"],
         title=row["title"],
@@ -335,17 +343,13 @@ def _session_dto(
         end_time=row["end_time"],
         is_scheduled=row["is_scheduled"],
         is_confirmed=row["is_confirmed"],
-        co_facilitator_names=[
-            name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
-        ],
-        other_track_names=[
-            name for pk, name in others.items() if pk != lookups.track_pk
-        ],
+        co_facilitator_names=names.co_facilitators(row),
+        other_track_names=names.other_tracks(row["session_pk"]),
     )
 
 
 def _email_group(
-    *, contact_email: str, rows: list[ConfirmationSessionRow], lookups: _Lookups
+    *, contact_email: str, rows: list[ConfirmationSessionRow], names: _SessionNames
 ) -> ConfirmationEmailGroupDTO:
     # Grouping runs on status and placement alone. Confirmation is a checkbox
     # on the row, so ticking one never moves it into another group.
@@ -361,7 +365,7 @@ def _email_group(
                 status=status,
                 is_scheduled=is_scheduled,
                 sessions=[
-                    _session_dto(row=row, lookups=lookups)
+                    _session_dto(row=row, names=names)
                     for row in by_status[status, is_scheduled]
                 ],
             )
@@ -381,7 +385,7 @@ def _facilitator(
     *,
     row: ConfirmationFacilitatorRow,
     sessions: list[ConfirmationSessionRow],
-    lookups: _Lookups,
+    names: _SessionNames,
 ) -> ConfirmationFacilitatorDTO:
     # Only a placed session can be confirmed. Accepted-but-unplaced and pending
     # sessions become counts: there is nothing to tick, and pending detail may
@@ -403,7 +407,7 @@ def _facilitator(
         organizer_id=row["organizer_id"],
         organizer_name=row["organizer_name"],
         email_groups=[
-            _email_group(contact_email=email, rows=listed[email], lookups=lookups)
+            _email_group(contact_email=email, rows=listed[email], names=names)
             # An address-less group sorts last: it is the one needing a fix,
             # not the one to start reading from.
             for email in sorted(listed, key=_email_sort_key)
