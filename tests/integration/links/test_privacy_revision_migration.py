@@ -6,8 +6,8 @@ from django.db.migrations.executor import MigrationExecutor
 @pytest.mark.usefixtures("transactional_db")
 class TestPrivacyRevisionMigration:
     def test_existing_accounts_receive_distinct_revisions_and_can_roll_back(self):
-        before = [("db_main", "0182_user_age_band")]
-        after = [("db_main", "0183_user_privacy_revision")]
+        before = [("db_main", "0183_listing")]
+        after = [("db_main", "0184_user_privacy_revision")]
         executor = MigrationExecutor(connection)
         executor.migrate(before)
         old_user = executor.loader.project_state(before).apps.get_model(

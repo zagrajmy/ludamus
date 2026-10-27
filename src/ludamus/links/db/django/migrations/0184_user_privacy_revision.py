@@ -15,7 +15,7 @@ def assign_privacy_revisions(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0182_user_age_band")]
+    dependencies = [("db_main", "0183_listing")]
 
     operations = [
         migrations.AddField(
