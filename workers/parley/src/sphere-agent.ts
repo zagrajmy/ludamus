@@ -71,7 +71,11 @@ export class ParleySphereAgent extends RoomAgent {
       VALUES (${capability.sub}, ${input.roomId}, ${input.messageId}, ${Date.now()})
       ON CONFLICT(user_id, room_id) DO UPDATE SET
         last_read_message_id = MAX(last_read_message_id, excluded.last_read_message_id), updated_at = excluded.updated_at`;
-    this.emit({ type: "unread.changed", v: 1, payload: { roomId: input.roomId, unread: false } });
+    this.emitTo(capability.sub, {
+      type: "unread.changed",
+      v: 1,
+      payload: { roomId: input.roomId, unread: false },
+    });
     return { ok: true, value: {} };
   }
 

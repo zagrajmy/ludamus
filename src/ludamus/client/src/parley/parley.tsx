@@ -123,7 +123,7 @@ function RoomList({
       >
         <ul>
           {rooms.map(({ room, seen }, index) => {
-            const unread = seen?.unread === true && room.id !== current;
+            const unread = seen?.unread === true;
             return (
               <li key={room.id}>
                 <button

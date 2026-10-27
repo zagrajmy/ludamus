@@ -97,7 +97,10 @@ export function Conversation({
   room: Room;
 }) {
   const { copy } = bootstrap;
-  const { agent, load, messages, presence, setMessages } = useRoom(room, bootstrap.agentHost);
+  const { agent, earlier, load, messages, presence, setMessages } = useRoom(
+    room,
+    bootstrap.agentHost,
+  );
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -245,7 +248,7 @@ export function Conversation({
             aria-label={copy.messageListLabel}
             className="parley-thread absolute inset-0 overflow-y-auto overscroll-contain"
           >
-            <MessageScroller.Content className="flex min-h-full flex-col pb-3">
+            <MessageScroller.Content className="flex min-h-full flex-col justify-end pb-3">
               {messages.length === 0 ? (
                 <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
                   <Avatar className="size-16 text-lg" name={room.title} />
@@ -253,13 +256,15 @@ export function Conversation({
                   <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
                 </div>
               ) : (
-                <button
-                  className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                  onClick={() => void load()}
-                  type="button"
-                >
-                  {copy.loadEarlier}
-                </button>
+                earlier && (
+                  <button
+                    className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
+                    onClick={() => void load()}
+                    type="button"
+                  >
+                    {copy.loadEarlier}
+                  </button>
+                )
               )}
               {messages.map((message, index) => {
                 const previous = messages[index - 1];
@@ -297,7 +302,7 @@ export function Conversation({
           </MessageScroller.Viewport>
           <MessageScroller.Button
             aria-label={copy.scrollLatest}
-            className="absolute bottom-3 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-bg-secondary text-foreground shadow-lg"
+            className="absolute bottom-3 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-bg-secondary text-foreground shadow-lg transition-[opacity,scale] duration-150 data-[active=false]:scale-90 data-[active=false]:opacity-0"
             direction="end"
           >
             <Icon className="size-4" name="ScrollDown" />

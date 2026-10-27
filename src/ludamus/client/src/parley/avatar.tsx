@@ -1,12 +1,13 @@
 import { useState } from "react";
 
-// Mirrors avatar_tags.py's palette, so a name gets the same disc in Parley
-// as on the rest of the site: the colour follows the name's length.
+// Picks the colour by name length the way avatar_tags.py does, so a name
+// keeps its colour family across the site; the teal discs carry text in
+// their own hue, which clears AA where neutral-900 reads washed out.
 function palette(name: string): string {
   const { length } = name;
   if (length % 4 === 0) return "bg-coral-400 text-neutral-900";
-  if (length % 3 === 0) return "bg-teal-400 text-neutral-900";
-  if (length % 2 === 0) return "bg-teal-500 text-neutral-900";
+  if (length % 3 === 0) return "bg-teal-400 text-teal-900";
+  if (length % 2 === 0) return "bg-teal-700 text-white";
   return "bg-warm-400 text-neutral-900 dark:bg-warm-800 dark:text-neutral-50";
 }
 

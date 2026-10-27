@@ -44,8 +44,14 @@ export function ActionsMenu({
       left: Math.min(Math.max(EDGE, left), innerWidth - width - EDGE),
       top: Math.max(EDGE, top),
     });
-    items()[0]?.focus();
   }, [align, open]);
+
+  // Focus waits for the measured position: the menu is invisible while it is
+  // measured, and a hidden element cannot take focus.
+  const placed = position !== null;
+  useEffect(() => {
+    if (placed) items()[0]?.focus();
+  }, [placed]);
 
   useEffect(() => {
     if (!open) return;

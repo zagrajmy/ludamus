@@ -87,11 +87,11 @@ export abstract class RoomAgent extends Agent<Env> {
     const capability = await capabilityFromRequest(context.request, this.workerEnv);
     if (!capability.rooms.includes(this.roomId)) throw new Error("Forbidden room");
     connection.setState({ capability });
-    this.emit({ type: "presence.changed", v: 1, payload: { count: this.connectionCount() } });
+    this.emit({ type: "presence.changed", v: 1, payload: { count: this.presentUsers() } });
   }
 
   onClose(): void {
-    this.emit({ type: "presence.changed", v: 1, payload: { count: this.connectionCount() } });
+    this.emit({ type: "presence.changed", v: 1, payload: { count: this.presentUsers() } });
   }
 
   @callable()
@@ -272,6 +272,13 @@ export abstract class RoomAgent extends Agent<Env> {
     this.broadcast(JSON.stringify(event));
   }
 
+  protected emitTo(userId: string, event: ServerEvent): void {
+    const message = JSON.stringify(event);
+    for (const connection of this.getConnections<ConnectionState>()) {
+      if (connection.state?.capability.sub === userId) connection.send(message);
+    }
+  }
+
   protected writeError(capability: Capability): Extract<RpcResult<never>, { ok: false }> | null {
     if (capability.exp * 1_000 <= Date.now()) return { ok: false, code: "expired" };
     if (!capability.writes.includes(this.roomId)) return { ok: false, code: "forbidden" };
@@ -287,8 +294,15 @@ export abstract class RoomAgent extends Agent<Env> {
     return null;
   }
 
-  private connectionCount(): number {
-    return [...this.getConnections()].length;
+  // People, not sockets: one person holds several, a tab each and the
+  // sphere feed beside its room.
+  private presentUsers(): number {
+    const users = new Set<string>();
+    for (const connection of this.getConnections<ConnectionState>()) {
+      const user = connection.state?.capability.sub;
+      if (user !== undefined) users.add(user);
+    }
+    return users.size;
   }
 
   private consumeRate(userId: string, kind: string, maximum: number, windowMs: number): boolean {

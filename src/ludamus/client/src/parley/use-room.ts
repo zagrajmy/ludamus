@@ -28,8 +28,11 @@ type RoomAgent = {
   removeEventListener: (type: "message", listener: MessageListener) => void;
 };
 
+const PAGE = 50;
+
 type UseRoomResult = {
   agent: RoomAgent;
+  earlier: boolean;
   load: () => Promise<void>;
   messages: Message[];
   presence: number;
@@ -40,6 +43,7 @@ export function useRoom(room: Room, agentHost: string): UseRoomResult {
   const url = agentUrl(agentHost);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState(0);
+  const [earlier, setEarlier] = useState(false);
   const agent: RoomAgent = useAgent({
     agent: room.kind === "sphere" ? "ParleySphereAgent" : "ParleySessionAgent",
     host: url.host,
@@ -49,8 +53,10 @@ export function useRoom(room: Room, agentHost: string): UseRoomResult {
 
   const loadBefore = useCallback(
     async (beforeId?: number) => {
-      const result = await agent.call<Result<Message[]>>("loadBefore", [{ beforeId, limit: 50 }]);
-      if (result.ok) setMessages((current) => [...result.value, ...current]);
+      const result = await agent.call<Result<Message[]>>("loadBefore", [{ beforeId, limit: PAGE }]);
+      if (!result.ok) return;
+      setEarlier(result.value.length === PAGE);
+      setMessages((current) => [...result.value, ...current]);
     },
     [agent],
   );
@@ -84,5 +90,5 @@ export function useRoom(room: Room, agentHost: string): UseRoomResult {
     void loadBefore();
   }, [loadBefore, room.id]);
 
-  return { agent, load, messages, presence, setMessages };
+  return { agent, earlier, load, messages, presence, setMessages };
 }

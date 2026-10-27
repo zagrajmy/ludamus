@@ -17,7 +17,7 @@ function MessageBody({ body }: { body: string }) {
       {parts.map((part, index) =>
         /^https?:\/\//iu.test(part) ? (
           <a
-            className="font-medium break-all underline decoration-1 underline-offset-2"
+            className="font-medium wrap-anywhere underline decoration-1 underline-offset-2"
             href={part}
             key={`${part}-${index}`}
             rel="noreferrer"
@@ -163,7 +163,7 @@ export function MessageItem({
           </p>
           {entries.length > 0 && (
             <ActionsMenu
-              align={own ? "end" : "start"}
+              align={own ? "start" : "end"}
               entries={entries}
               label={copy.messageActions}
             />
