@@ -47,8 +47,13 @@ class FakeUsers:
                 email_verified=user_data.get("email_verified", False),
                 name=user_data.get("name", ""),
                 age_band=user_data.get("age_band", AgeBand.UNKNOWN),
+                is_active=user_data.get("is_active", True),
             )
         )
+
+    @staticmethod
+    def lock_username(username):
+        _ = username
 
     def read(self, slug):
         return next(user for user in self._users if user.slug == slug)
@@ -88,6 +93,10 @@ class _RacingUsers:
         self.create_attempts = 0
         self._misses = misses
         self._reads = 0
+
+    @staticmethod
+    def lock_username(username):
+        _ = username
 
     def read_by_username(self, username):
         self._reads += 1
@@ -576,6 +585,43 @@ class TestIsKnownSphereDomain:
 
         assert service.is_known_sphere_domain("a.example.com") is True
         assert service.is_known_sphere_domain("b.example.com") is False
+
+
+class TestSignupRejection:
+    def test_rejection_before_completion_is_a_durable_denial(self):
+        users = FakeUsers()
+        service = _service(users=users)
+
+        service.reject_signup(
+            username="auth0|sub", slug="auth0user", password="!unusable"
+        )
+        result = service.provision_user(
+            username="auth0|sub",
+            create_data={
+                "username": "auth0|sub",
+                "email": "child@example.com",
+                "age_band": AgeBand.SIXTEEN_PLUS,
+            },
+        )
+
+        assert result.user.is_active is False
+        assert result.user.age_band == AgeBand.UNKNOWN
+        assert not result.user.email
+        assert not result.user.name
+
+    def test_rejection_after_completion_disables_and_revokes_subscriptions(self):
+        users = FakeUsers(
+            users=[_user_dto(username="auth0|sub", age_band=AgeBand.SIXTEEN_PLUS)]
+        )
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).reject_signup(
+            username="auth0|sub", slug="auth0user", password="!unusable"
+        )
+
+        assert users.read("auth0user").is_active is False
+        assert users.read("auth0user").age_band == AgeBand.UNKNOWN
+        assert subscriptions.dropped_for == [users.read("auth0user").pk]
 
 
 class TestAgeConfirmation:

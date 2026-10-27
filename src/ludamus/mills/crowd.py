@@ -135,6 +135,15 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO:
+        with self._transaction.atomic():
+            self._users.lock_username(username)
+            return self._provision_locked(
+                username=username, create_data=create_data, claim_token=claim_token
+            )
+
+    def _provision_locked(
+        self, *, username: str, create_data: UserData, claim_token: str = ""
+    ) -> AuthProvisionDTO:
         claim_outcome: ClaimOutcome | None = None
         if claim_token:
             with self._transaction.atomic():
@@ -165,6 +174,22 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             claim_outcome=claim_outcome,
             email_conflict=email_conflict,
         )
+
+    def reject_signup(self, *, username: str, slug: str, password: str) -> None:
+        with self._transaction.atomic():
+            self._users.lock_username(username)
+            result = self._provision_locked(
+                username=username,
+                create_data=UserData(
+                    username=username,
+                    slug=slug,
+                    password=password,
+                    user_type=UserType.ACTIVE,
+                    age_band=AgeBand.UNKNOWN,
+                    is_active=False,
+                ),
+            )
+            self.disable_underage_account(result.user.slug)
 
     def disable_underage_account(self, user_slug: str) -> None:
         with self._transaction.atomic():
