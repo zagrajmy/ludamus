@@ -206,7 +206,7 @@ class ListingService(ListingServiceProtocol):
             self._listings.set_tags(pk=pk, tag_ids=tag_ids)
             if listing.status is not ListingStatus.DRAFT:
                 self._check_contact(author_id, data["contact"])
-            if not _changes(listing, data):
+            if not _changes(listing, data=data, tag_ids=tag_ids):
                 return
             for user_id in self._responses.waiting_user_ids(pk):
                 self._notifier.notify_listing_changed(
@@ -444,10 +444,14 @@ def _can_respond(
     )
 
 
-def _changes(listing: ListingDTO, data: ListingWriteDict) -> bool:
+def _changes(
+    listing: ListingDTO, *, data: ListingWriteDict, tag_ids: list[int]
+) -> bool:
     # The DTO carries the stored image URL, not an upload to compare against.
     edited = {field: value for field, value in data.items() if field != "header_image"}
-    return listing.model_copy(update=edited) != listing
+    return listing.model_copy(update=edited) != listing or set(tag_ids) != {
+        tag.pk for tag in listing.tags
+    }
 
 
 def _by_name(tag: TagDTO) -> str:

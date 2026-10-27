@@ -774,6 +774,27 @@ def test_update_that_changes_nothing_tells_no_one():
     assert not notifier.sent
 
 
+def test_update_that_changes_only_tags_tells_waiting_responders():
+    listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+    listing = _open_listing(listings)
+    responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier, **DISCORD_ONLY).update(
+        **_ids(listing), data=_WRITE, tag_ids=[HORROR]
+    )
+
+    assert notifier.sent == [
+        (
+            "changed",
+            ListingNotification(
+                recipient_user_id=STRANGER_PK,
+                listing_id=listing.pk,
+                listing_title=listing.title,
+            ),
+        )
+    ]
+
+
 def test_close_tells_waiting_responders_they_were_not_chosen():
     listings, notifier = FakeListings(), FakeNotifier()
     responses = FakeResponses(listings)
