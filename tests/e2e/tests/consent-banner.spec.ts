@@ -293,7 +293,8 @@ test.describe("Unavailable analytics storage", () => {
     });
     const cleanupError = page.waitForEvent("console", {
       predicate: (entry) =>
-        entry.type() === "error" && entry.text().includes("Cookie Store deliberately unavailable"),
+        entry.type() === "error" &&
+        entry.text().includes("Optional analytics storage could not be cleared"),
     });
 
     await page.goto("/");
