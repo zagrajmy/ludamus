@@ -29,11 +29,12 @@
         {% endfor %}
         {% if track_options %}
             {% translate "Tracks" as tracks_label %}
-            <fieldset class="flex flex-col gap-y-1">
+            <fieldset class="flex flex-col gap-y-1"
+                      {% if track_error %}aria-describedby="propose-track-error"{% endif %}>
                 <legend class="text-sm font-semibold text-foreground-secondary">
                     {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True only %}
                 </legend>
-                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error aria_describedby=track_error|yesno:"propose-track-error," inplace=True only %}
+                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error inplace=True only %}
                 {% if track_error %}<p id="propose-track-error"
    class="text-sm text-danger">{{ track_error }}</p>{% endif %}
             </fieldset>
