@@ -199,8 +199,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         return self._identity.authenticate(code)
 
     def has_account(self, identity: IdentityDTO) -> bool:
-        username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
-        existing = self._read_by_username(username)
+        existing = self._read_by_username(_workos_username(identity))
         return existing is not None or self._legacy_accounts.exists(identity)
 
     def complete_login(
@@ -215,12 +214,11 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         `age_band` only reaches an account created or claimed here.
         """
         identity = authentication.identity
-        username = f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
+        username = _workos_username(identity)
         avatar_url = _avatar_url(identity)
         with self._transaction.atomic():
-            user = self._read_by_username(username) or self._legacy_accounts.adopt(
-                identity, username=username
-            )
+            self._users.lock_username(username)
+            user = self._find_account(identity, username=username)
             claim_outcome: ClaimOutcome | None = None
             if claim_token:
                 result = self._claims.redeem(token=claim_token, username=username)
@@ -235,14 +233,24 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                 email_conflict = self._users.email_unavailable(
                     email=identity.email, now=datetime.now(UTC)
                 )
+                email = "" if email_conflict else identity.email
                 user = self._create_user(
                     username=username,
                     identity=identity,
-                    email="" if email_conflict else identity.email,
-                    avatar_url=avatar_url,
-                    age_band=age_band,
+                    data=UserData(
+                        age_band=age_band,
+                        email=email,
+                        email_verified=bool(email and identity.email_verified),
+                        avatar_url=avatar_url,
+                        name=identity.name,
+                    ),
                 )
-            user = self._sync_identity(user, identity=identity, avatar_url=avatar_url)
+            # NOTE: a disabled account (one an underage answer rejected) must
+            # not collect the identity's personal data on a later sign-in.
+            if user.is_active:
+                user = self._sync_identity(
+                    user, identity=identity, avatar_url=avatar_url
+                )
         return LoginDTO(
             user=user,
             claim_outcome=claim_outcome,
@@ -250,10 +258,25 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             email_conflict=email_conflict,
         )
 
+    def _find_account(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
+        return self._read_by_username(username) or self._legacy_accounts.adopt(
+            identity, username=username
+        )
+
     def _read_by_username(self, username: str) -> UserDTO | None:
         with suppress(NotFoundError):
             return self._users.read_by_username(username)
         return None
+
+    def reject_signup(self, identity: IdentityDTO) -> None:
+        """Keep a disabled account so the identity cannot sign up again."""
+        username = _workos_username(identity)
+        with self._transaction.atomic():
+            self._users.lock_username(username)
+            user = self._find_account(identity, username=username) or self._create_user(
+                username=username, identity=identity, data=UserData()
+            )
+            self.disable_underage_account(user.slug)
 
     def disable_underage_account(self, user_slug: str) -> None:
         with self._transaction.atomic():
@@ -277,13 +300,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         return self._subscriptions.unsubscribe_everywhere(user_id) > 0
 
     def _create_user(
-        self,
-        *,
-        username: str,
-        identity: IdentityDTO,
-        email: str,
-        avatar_url: str,
-        age_band: AgeBand,
+        self, *, username: str, identity: IdentityDTO, data: UserData
     ) -> UserDTO:
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
         # row can own the one the provider id slugifies to; uniquifying also
@@ -293,18 +310,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             default="user",
             exists=self._users.slug_exists,
         )
-        data = UserData(
-            age_band=age_band,
-            slug=slug,
-            username=username,
-            email=email,
-            email_verified=bool(email and identity.email_verified),
-            avatar_url=avatar_url,
-            name=identity.name,
-        )
         try:
             with self._transaction.savepoint():
-                self._users.create(data)
+                self._users.create(data | UserData(slug=slug, username=username))
         except DatabaseConstraintError:
             # NOTE: a concurrent callback for the same identity may have
             # inserted the row between our read_by_username miss and this
@@ -360,6 +368,10 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def is_known_sphere_domain(self, domain: str) -> bool:
         return self._spheres.domain_exists(domain)
+
+
+def _workos_username(identity: IdentityDTO) -> str:
+    return f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
 
 
 def _avatar_url(identity: IdentityDTO) -> str:

@@ -78,8 +78,12 @@ class FakeUsers:
         self._existing_emails = set(existing_emails)
         self.created = []
         self.updated = []
+        self._locked = set()
 
     def create(self, user_data):
+        # NOTE: a row lock cannot serialize an identity before its row exists,
+        # so creating one is only safe under that identity's lock.
+        assert user_data["username"] in self._locked
         self.created.append(user_data)
         self._users.append(
             _user_dto(
@@ -89,8 +93,12 @@ class FakeUsers:
                 email_verified=user_data.get("email_verified", False),
                 name=user_data.get("name", ""),
                 age_band=user_data.get("age_band", AgeBand.UNKNOWN),
+                is_active=user_data.get("is_active", True),
             )
         )
+
+    def lock_username(self, username):
+        self._locked.add(username)
 
     def _find(self, predicate):
         matches = (user for user in self._users if predicate(user))
@@ -150,6 +158,10 @@ class _RacingUsers:
         self.create_attempts = 0
         self._misses = misses
         self._reads = 0
+
+    @staticmethod
+    def lock_username(username):
+        _ = username
 
     def read_by_username(self, username):
         self._reads += 1
@@ -794,6 +806,49 @@ class TestDeclaredAgeRange:
         result = _login(_service(users=users), age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
 
         assert result.user.age_band == AgeBand.SIXTEEN_PLUS
+
+
+_CHILD = {
+    "email": "child@example.com",
+    "name": "Child",
+    "avatar_url": "https://pic.test/child",
+}
+
+
+class TestSignupRejection:
+    def test_rejection_before_completion_is_a_durable_denial(self):
+        users = FakeUsers()
+        service = _service(users=users, identity=FakeIdentity(_identity(**_CHILD)))
+
+        service.reject_signup(_identity(**_CHILD))
+        result = _login(service, age_band=AgeBand.SIXTEEN_PLUS)
+
+        assert result.user.is_active is False
+        assert result.user.age_band == AgeBand.UNKNOWN
+        assert (result.user.email, result.user.name, result.user.avatar_url) == (
+            "",
+            "",
+            "",
+        )
+
+    def test_rejection_after_completion_disables_and_revokes_subscriptions(self):
+        users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        subscriptions = FakeSubscriptions()
+
+        _service(users=users, subscriptions=subscriptions).reject_signup(_identity())
+
+        assert users.read("me").is_active is False
+        assert users.read("me").age_band == AgeBand.UNKNOWN
+        assert subscriptions.dropped_for == [users.read("me").pk]
+
+    def test_rejection_disables_a_legacy_account_it_links(self):
+        legacy = _user_dto(slug="old", username="auth0|abc")
+        users = FakeUsers(users=[legacy])
+
+        _service(users=users).reject_signup(_identity(legacy_id="abc"))
+
+        assert users.read("old").is_active is False
+        assert users.read("old").username == USERNAME
 
 
 class TestAgeConfirmation:

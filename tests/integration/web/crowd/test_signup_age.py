@@ -8,10 +8,12 @@ from urllib.parse import urlencode
 import pytest
 from django.contrib import messages
 from django.core.cache import cache
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription, User
-from tests.integration.conftest import SessionParticipationFactory
+from ludamus.pacts.crowd import UserType
+from tests.integration.conftest import SessionParticipationFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
     assert_login_required,
@@ -40,14 +42,14 @@ GUARDIAN_CONTEXT = {
 }
 
 
-def _reach_gate(client, sub):
+def _reach_gate(client, sub, **user):
     state_token = token_urlsafe(32)
     cache.set(
         f"oauth_state:{state_token}",
         json.dumps({"redirect_to": None, "created_at": datetime.now(UTC).isoformat()}),
         timeout=600,
     )
-    with patch(AUTHENTICATE, return_value=authenticate_response(sub)):
+    with patch(AUTHENTICATE, return_value=authenticate_response(sub, **user)):
         return client.get(CALLBACK_URL, {"state": state_token, "code": "abc"})
 
 
@@ -121,13 +123,20 @@ class TestSignupAgeGate:
             client.get(GATE_URL), HTTPStatus.FOUND, url=reverse("web:index")
         )
 
-    def test_under_thirteen_creates_nothing_and_clears_pending_claim(
+    def test_under_thirteen_keeps_only_disabled_identity_and_clears_pending_claim(
         self, client, faker
     ):
         session = client.session
         session["pending_claim_token"] = "claim-token"
         session.save()
-        _reach_gate(client, faker.uuid4())
+        sub = faker.uuid4()
+        _reach_gate(
+            client,
+            sub,
+            email="child@example.com",
+            first_name="Child",
+            profile_picture_url="https://pic.test/x",
+        )
 
         response = _answer(client, "under_13")
 
@@ -137,9 +146,92 @@ class TestSignupAgeGate:
             template_name="crowd/signup_guardian.html",
             context_data=GUARDIAN_CONTEXT,
         )
-        assert not User.objects.exists()
+        user = User.objects.get(username=f"workos|{sub}")
+        assert user.is_active is False
+        assert user.user_type == UserType.ACTIVE
+        assert user.age_band == "unknown"
+        assert (user.email, user.name, user.avatar_url) == ("", "", "")
+        assert not user.has_usable_password()
         assert "pending_signup" not in client.session
         assert "pending_claim_token" not in client.session
+
+    def test_later_invitation_cannot_replace_the_pending_identity_claim(
+        self, client, active_user, faker
+    ):
+        original = UserFactory(
+            user_type=UserType.CONNECTED, manager=active_user, claim_token="first"
+        )
+        later = UserFactory(
+            user_type=UserType.CONNECTED, manager=active_user, claim_token="later"
+        )
+        client.post(reverse("web:crowd:claim", kwargs={"token": "first"}))
+        sub = faker.uuid4()
+        _reach_gate(client, sub)
+        token = client.get(GATE_URL).context_data["form"]["confirmation_token"].value()
+        assert "pending_claim_token" not in client.session
+        client.post(reverse("web:crowd:claim", kwargs={"token": "later"}))
+
+        client.post(GATE_URL, {"age_band": "13_15", "confirmation_token": token})
+
+        original.refresh_from_db()
+        later.refresh_from_db()
+        assert original.username == f"workos|{sub}"
+        assert original.user_type == UserType.ACTIVE
+        assert original.age_band == "13_15"
+        assert later.user_type == UserType.CONNECTED
+        assert later.claim_token == "later"
+        assert client.session["pending_claim_token"] == "later"
+
+    def test_stale_underage_answer_disables_account_created_by_another_signup(
+        self, client, non_root_sphere, faker
+    ):
+        sub = faker.uuid4()
+        other = Client()
+        _reach_gate(client, sub)
+        _reach_gate(other, sub)
+        _answer(other, "16_plus")
+        user = User.objects.get(username=f"workos|{sub}")
+        SphereSubscription.objects.create(user=user, sphere=non_root_sphere)
+
+        response = _answer(client, "under_13")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/signup_guardian.html",
+            context_data=GUARDIAN_CONTEXT,
+        )
+        user.refresh_from_db()
+        assert user.is_active is False
+        assert user.age_band == "unknown"
+        assert not SphereSubscription.objects.filter(user=user).exists()
+
+    def test_rejected_identity_cannot_be_reactivated_by_a_stale_eligible_answer(
+        self, client, faker
+    ):
+        sub = faker.uuid4()
+        other = Client()
+        for pending_client in (client, other):
+            _reach_gate(
+                pending_client, sub, email="child@example.com", first_name="Child"
+            )
+        _answer(client, "under_13")
+
+        response = _answer(other, "16_plus")
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/",
+            messages=[
+                (messages.ERROR, "This account is inactive. Contact support for help.")
+            ],
+        )
+        user = User.objects.get(username=f"workos|{sub}")
+        assert user.is_active is False
+        assert user.age_band == "unknown"
+        assert (user.email, user.name, user.avatar_url) == ("", "", "")
+        assert "_auth_user_id" not in other.session
 
     def test_expired_form_can_be_restarted(self, client, faker):
         _reach_gate(client, faker.uuid4())

@@ -143,9 +143,11 @@ class LoginCallbackActionView(RedirectView):
             return redirect_to or index_url
 
         authentication = self._authenticate()
+        claim_token = self.request.session.pop("pending_claim_token", "")
         if not self.request.services.crowd_auth.has_account(authentication.identity):
             self.request.session[PENDING_SIGNUP_SESSION_KEY] = _PendingSignup(
                 authentication=authentication,
+                claim_token=claim_token,
                 redirect_to=redirect_to,
                 started_at=datetime.now(UTC),
             ).model_dump(mode="json")
@@ -155,6 +157,7 @@ class LoginCallbackActionView(RedirectView):
             authentication=authentication,
             redirect_to=redirect_to,
             age_band=AgeBand.UNKNOWN,
+            claim_token=claim_token,
         )
 
     def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
@@ -216,11 +219,11 @@ def _finish_login(
     authentication: AuthenticationDTO,
     redirect_to: str,
     age_band: AgeBand,
+    claim_token: str,
 ) -> str:
     """Create or find the account and log in. `age_band` only reaches a new one."""
     index_url = request.build_absolute_uri(reverse("web:index"))
     request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
-    claim_token = request.session.pop("pending_claim_token", "")
     login = request.services.crowd_auth.complete_login(
         authentication=authentication, claim_token=claim_token, age_band=age_band
     )
@@ -275,6 +278,7 @@ def _announce_login_outcome(request: RootRequest, login: LoginDTO) -> None:
 
 class _PendingSignup(BaseModel):
     authentication: AuthenticationDTO
+    claim_token: str = ""
     redirect_to: str = ""
     confirmation_token: str = ""
     started_at: datetime
@@ -366,6 +370,7 @@ class SignupAgePageView(View):
         if not form.is_valid():
             return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
         if (age_band := form.cleaned_data["age_band"]) is None:
+            request.services.crowd_auth.reject_signup(pending.authentication.identity)
             logger.info("Independent signup declined: below minimum age")
             return sign_out_to_guardian_page(
                 request, session_id=pending.authentication.session_id
@@ -376,6 +381,7 @@ class SignupAgePageView(View):
             authentication=pending.authentication,
             redirect_to=pending.redirect_to,
             age_band=age_band,
+            claim_token=pending.claim_token,
         )
         # NOTE: CSP form-action stops a form POST from redirecting to another
         # sphere's host, so a cross-host destination is reached from a page.
