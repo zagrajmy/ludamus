@@ -179,7 +179,9 @@
             {% endif %}
         {% endblock email_verification_banner %}
         {% if current_sphere.parley_enabled and current_user and current_user.is_active %}
-            <div data-parley-root data-bootstrap-url="{% url 'parley_bootstrap' %}">
+            <div data-parley-root
+                 data-ph-block
+                 data-bootstrap-url="{% url 'parley_bootstrap' %}">
                 <button type="button"
                         data-parley-launcher
                         aria-controls="parley-panel"
