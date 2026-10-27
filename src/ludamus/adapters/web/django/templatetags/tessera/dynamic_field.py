@@ -76,9 +76,18 @@ def field_context(
 
 @register.simple_tag
 def dynamic_field(
-    field: OrganizerFieldDTO, *, name_prefix: str, answer: FieldAnswer | None = None
+    field: OrganizerFieldDTO,
+    *,
+    name_prefix: str,
+    answer: FieldAnswer | None = None,
+    look: str = "form",
+    select_look: str = "pill",
 ) -> str:
     """Render one organizer-defined field, switched on its type.
+
+    ``look="inplace"`` renders it the way the session modal shows the answer —
+    the field's name as a heading, the control dressed as the value — for
+    pages that let someone write a session in the shape it is read in.
 
     Returns:
         HTML string for the field's label, input(s), help text and errors.
@@ -86,7 +95,12 @@ def dynamic_field(
     Usage:
         {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
     """
-    return render_to_string(
-        "components/dynamic-field.html",
-        field_context(field, name_prefix=name_prefix, answer=answer or FieldAnswer()),
+    context = field_context(
+        field, name_prefix=name_prefix, answer=answer or FieldAnswer()
     )
+    if look == "inplace":
+        return render_to_string(
+            "components/dynamic-field-inplace.html",
+            {**context, "select_look": select_look},
+        )
+    return render_to_string("components/dynamic-field.html", context)

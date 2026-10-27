@@ -1,9 +1,6 @@
 {% load i18n tessera vite_tags %}
 {% vite_asset_once 'src/dropzone.ts' %}
-<label for="{{ id }}"
-       data-dropzone
-       data-state="{{ dropzone_state }}"
-       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 {% if crop %}data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
+<label for="{{ id }}" data-dropzone data-state="{{ dropzone_state }}" class="group relative flex w-full items-center justify-center cursor-pointer overflow-hidden has-[input[aria-invalid=true]]:border-danger {% if strip %}min-h-12 px-4 py-3 rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 transition-colors duration-150 hover:duration-0 hover:bg-foreground/5 data-[state=image]:h-40 data-[state=image]:border-0{% else %}flex-col min-h-44 sm:min-h-48 {% if crop %}data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg transition-colors hover:bg-bg-secondary hover:border-primary/40{% endif %}">
     <input type="file"
            id="{{ id }}"
            name="{{ name }}"
@@ -22,20 +19,32 @@
            tabindex="-1"
            aria-hidden="true"
            class="sr-only">
-    <div data-dropzone-empty
-         class="pointer-events-none flex flex-col items-center text-center hidden group-data-[state=empty]:flex">
-        <span class="mb-3 inline-flex items-center justify-center w-11 h-11 rounded-full bg-bg-secondary text-foreground-secondary border border-border transition-colors hover:duration-0 group-hover:text-primary group-hover:border-primary/30">
-            {% icon "arrow-up-tray" class="w-5 h-5" %}
-        </span>
-        <p class="text-sm text-foreground">
-            <span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
-            <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span>
-        </p>
-        {% if has_errors %}<p data-dropzone-error
+    {% if strip %}
+        <div data-dropzone-empty
+             class="pointer-events-none hidden group-data-[state=empty]:flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-center">
+            {% icon "photo" class="size-4 shrink-0 text-foreground-muted" variant="mini" %}
+            <span class="font-medium text-foreground-secondary">{{ label }}</span>
+            <span><span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
+                <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span></span>
+            {% if has_errors %}<p data-dropzone-error
+   class="w-full text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
+        </div>
+    {% else %}
+        <div data-dropzone-empty
+             class="pointer-events-none flex flex-col items-center text-center hidden group-data-[state=empty]:flex">
+            <span class="mb-3 inline-flex items-center justify-center w-11 h-11 rounded-full bg-bg-secondary text-foreground-secondary border border-border transition-colors hover:duration-0 group-hover:text-primary group-hover:border-primary/30">
+                {% icon "arrow-up-tray" class="w-5 h-5" %}
+            </span>
+            <p class="text-sm text-foreground">
+                <span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
+                <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span>
+            </p>
+            {% if has_errors %}<p data-dropzone-error
    class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
-    </div>
+        </div>
+    {% endif %}
     <div data-dropzone-selected
-         class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-lg group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
+         class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block {% if strip %}group-data-[state=image]:rounded-xl{% else %}group-data-[state=image]:rounded-lg{% endif %} group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
         <div class="pointer-events-none absolute inset-0 hidden group-data-[state=image]:block">
             <img data-dropzone-preview
                  src="{{ initial_url|default:'' }}"
@@ -48,7 +57,7 @@
                    class="min-w-0 truncate text-sm font-medium text-white">{{ initial_name }}</p>
                 <p data-dropzone-size class="shrink-0 text-xs text-white"></p>
             </div>
-            {% if crop %}
+            {% if crop and not strip %}
                 {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
                 {# down for slack. `crop` says which way the image is cut; the box below #}
                 {# is the safe zone that leaves, hence data-dropzone-safe-zone. #}

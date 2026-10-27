@@ -1,0 +1,92 @@
+{% extends "chronology/parts/_session_info.html" %}
+{% load i18n tessera cfp_tags date_tags markdown_tags schedule_tags %}
+{% block host %}
+    {# Paired with the card's own guard: both rows appear or neither #}
+    {# does, or the card-to-modal morph is left with unmatched groups. #}
+    {% if data.session.facilitator_name %}
+        <span class="shrink-0 relative" data-morph="avatar">
+            {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
+            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
+        </span>
+    {% endif %}
+    <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
+        {% if data.session.facilitator_name %}
+            <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
+        {% endif %}
+        {% if data.session.facilitator_name and data.presenter.pk %}
+            {% with host=data.presenter %}
+                {% if host.discord_username %}
+                    <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
+                    {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+    </div>
+{% endblock host %}
+{% block description_section %}
+    {% if data.session.description %}{{ block.super }}{% endif %}
+{% endblock description_section %}
+{% block description %}
+    {# Deliberately NOT a morph group. A named element is hoisted #}
+    {# into the view-transition layer whole and unclipped, so a #}
+    {# description longer than the dialog spilled past its bottom #}
+    {# edge for the length of the morph. Left unnamed it stays in #}
+    {# the dialog's own snapshot, which the dialog's #}
+    {# overflow-hidden clips. Nesting it under the dialog's group #}
+    {# would keep the morph and the clip, but view-transition-group #}
+    {# is Chromium-only and this ships to Safari. #}
+    {# leading-5 is the card excerpt's text-sm leading, kept #}
+    {# here so a session reads at the same density in both #}
+    {# places rather than loosening to prose-sm's 1.71. #}
+    <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
+         data-session-description>{{ data.session.description|render_markdown }}</div>
+{% endblock description %}
+{% block fields_section %}
+    {% if data.field_values %}{{ block.super }}{% endif %}
+{% endblock fields_section %}
+{% block fields %}
+    {% include "components/_session_field_values.html" with field_values=data.field_values %}
+{% endblock fields %}
+{% block facts %}
+    {% if data.agenda_item %}
+        {% session_fact icon="calendar-days" %}
+            <span>{% include "chronology/_session_when.html" with agenda_item=data.agenda_item only %}</span>
+        {% end_session_fact %}
+    {% endif %}
+    {% if data.location_crumbs %}
+        {# Its own morph group: it lands with the other static labels while #}
+        {# the name is still flying in from the card. The pin is decoration #}
+        {# next to a labelled path; on the narrowest phones its width is what #}
+        {# the room name itself needs. #}
+        <span class="flex items-center gap-1.5 min-w-0" data-morph="venue">
+            {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80 max-[400px]:hidden" variant="mini" %}
+            {% include "chronology/_session_location.html" with show_map_link=True %}
+        </span>
+    {% endif %}
+    {% with duration_label=data.session.duration|format_duration %}
+        {% if duration_label %}
+            {% session_fact icon="clock" %}
+                {{ duration_label }}
+            {% end_session_fact %}
+        {% endif %}
+    {% endwith %}
+    {% if data.takes_enrollment %}
+        {% session_fact icon="users" %}
+            <span class="sr-only">{% translate "Capacity" %}:</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if data.is_full %}bg-coral-100 dark:bg-coral-900/40 text-coral-700 dark:text-coral-400{% else %}bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-400{% endif %}">
+                {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
+            </span>
+            {% if data.waiting_count > 0 %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
+            {% endif %}
+        {% end_session_fact %}
+    {% endif %}
+    {% if data.session.min_age > 0 %}
+        {% include "components/_age_pill.html" with age=data.session.min_age only %}
+    {% endif %}
+    {# With no seats there is no enroll button; the bookmark stands in for #}
+    {# it at the end of the line. #}
+    {% if not data.takes_enrollment %}
+        {% session_bookmark data "ml-auto" %}
+    {% endif %}
+{% endblock facts %}

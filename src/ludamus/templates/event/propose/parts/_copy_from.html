@@ -1,0 +1,44 @@
+{% load i18n tessera %}
+{# Starting from one of your earlier sessions: an extra action, so a quiet #}
+{# disclosure beside the session on wide screens and under it on narrow #}
+{# ones. propose-copy.ts fills the form from the JSON below and can undo it. #}
+<details class="group w-full max-w-200 px-4 sm:px-0 lg:w-auto lg:max-w-80 lg:sticky lg:top-4"
+         data-propose-copy="propose-details-form">
+    <summary class="inline-flex items-center gap-1 min-h-11 cursor-pointer list-none whitespace-nowrap rounded-md text-sm font-medium text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground group-open:text-foreground-secondary [&::-webkit-details-marker]:hidden">
+        {% icon "document-duplicate" class="size-4 shrink-0" variant="mini" %}
+        <span class="hover:underline underline-offset-3">{% translate "Copy from an earlier session" %}</span>
+    </summary>
+    <ul>
+        {% for session in reusable_sessions %}
+            <li class="flex items-baseline justify-between gap-3 py-1.5 border-t border-border"
+                data-propose-copy-row="{{ session.pk }}">
+                <div class="grid min-w-0">
+                    <span class="text-sm font-medium leading-snug">{{ session.title }}</span>
+                    <span class="text-xs text-foreground-muted">{{ session.event_name }}</span>
+                </div>
+                <span class="shrink-0 inline-flex items-baseline gap-2 text-sm">
+                    {% blocktranslate asvar copy_label with title=session.title %}Copy {{ title }}{% endblocktranslate %}
+                    <button type="button"
+                            class="font-medium text-primary underline underline-offset-3"
+                            aria-label="{{ copy_label }}"
+                            data-propose-copy-from="{{ session.pk }}">{% translate "Copy" %}</button>
+                    <span class="inline-flex items-center gap-1 font-medium text-success-text"
+                          hidden
+                          role="status"
+                          data-propose-copied>
+                        {% icon "check" class="size-3.5" variant="mini" %}
+                        {% translate "Copied" %}
+                    </span>
+                    <button type="button"
+                            class="font-medium text-primary underline underline-offset-3"
+                            hidden
+                            data-propose-copy-undo>{% translate "Undo" %}</button>
+                </span>
+            </li>
+        {% endfor %}
+    </ul>
+    <p class="mt-1.5 text-xs text-foreground-muted">
+        {% translate "Time slots and the cover image stay as they are: this is a new event." %}
+    </p>
+    {{ reusable_form_values|json_script:"propose-copy-values" }}
+</details>

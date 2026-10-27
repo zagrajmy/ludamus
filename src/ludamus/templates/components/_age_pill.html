@@ -1,0 +1,5 @@
+{% load i18n %}
+{# A session's minimum age as a pill. Coral only for an adults-only session; #}
+{# a lower bound reads like any other tag. Args: age. #}
+<span class="px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-full truncate {% if age >= 18 %}bg-coral-100 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300{% else %}bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300{% endif %}"
+      title="{% translate "Minimum age" %}: {{ age }} {% translate "years" %}">{{ age }}+</span>

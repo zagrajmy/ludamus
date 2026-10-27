@@ -19,8 +19,11 @@ def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     return None, ""
 
 
-def render_file_input(field: BoundField) -> str:
+def render_file_input(field: BoundField, *, strip: bool = False) -> str:
     """Render a styled drag-and-drop file input.
+
+    ``strip`` draws it as the cover strip a session card shows: a slim row
+    while empty, the card's own crop once an image is picked.
 
     Returns:
         HTML string of the dropzone element.
@@ -48,5 +51,6 @@ def render_file_input(field: BoundField) -> str:
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
             "crop": getattr(field.field.widget, "crop", None),
             "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
+            "strip": strip,
         },
     )

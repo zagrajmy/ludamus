@@ -2530,6 +2530,7 @@ msgid "Pick an option or type your own."
 msgstr "Wybierz opcję lub wpisz własną."
 
 #: src/ludamus/gates/web/django/dynamic_fields.py
+#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
@@ -3153,7 +3154,7 @@ msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
@@ -3513,7 +3514,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/chronology/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -3645,7 +3646,6 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
 msgstr "Minimalny Wiek"
@@ -4170,7 +4170,7 @@ msgid "Participants limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -5805,7 +5805,6 @@ msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_room_lanes.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
@@ -5862,11 +5861,13 @@ msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 #: src/ludamus/templates/landing/spotkanie.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Seats"
@@ -5966,8 +5967,7 @@ msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/components/_age_pill.html
 msgid "years"
 msgstr "lat"
 
@@ -6691,6 +6691,15 @@ msgstr "żadne"
 msgid "Venues under %(name)s:"
 msgstr "Lokalizacje w %(name)s:"
 
+# Login Required Page
+#: src/ludamus/templates/components/_inplace-field-heading.html
+#: src/ludamus/templates/components/dynamic-field-label.html
+#: src/ludamus/templates/components/label.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "required"
+msgstr "wymagane"
+
 #: src/ludamus/templates/components/_pagination.html
 #, python-format
 msgid ""
@@ -6793,13 +6802,7 @@ msgstr ""
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
 
-# Login Required Page
-#: src/ludamus/templates/components/dynamic-field-label.html
-#: src/ludamus/templates/components/label.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "required"
-msgstr "wymagane"
-
+#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/panel/bans.html
@@ -6809,10 +6812,12 @@ msgstr "wymagane"
 msgid "Remove"
 msgstr "Usuń"
 
+#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "This value is too long to add here."
 msgstr "Ta wartość jest za długa, aby ją dodać."
 
+#: src/ludamus/templates/components/dynamic-field-inplace.html
 #: src/ludamus/templates/components/dynamic-field.html
 #, python-format
 msgid "Custom value for: %(question)s"
@@ -7068,6 +7073,7 @@ msgstr "Widoczne publicznie"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
+#: src/ludamus/templates/event/propose/parts/details.html
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
@@ -8267,6 +8273,33 @@ msgstr ""
 "Zgłoszenia są weryfikowane przez organizatorów. Dostaniesz powiadomienie, "
 "gdy Twoje zostanie zaakceptowane i dodane do programu."
 
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copy from an earlier session"
+msgstr "Skopiuj z wcześniejszego punktu programu"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+#, python-format
+msgid "Copy %(title)s"
+msgstr "Skopiuj „%(title)s”"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+#: src/ludamus/templates/panel/space-copy.html
+msgid "Copy"
+msgstr "Kopiuj"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copied"
+msgstr "Skopiowano"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+#: src/ludamus/templates/panel/errata.html
+msgid "Undo"
+msgstr "Cofnij"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Time slots and the cover image stay as they are: this is a new event."
+msgstr "Przedziały czasowe i okładka zostają bez zmian, bo to nowe wydarzenie."
+
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
 msgid "Have an account?"
 msgstr "Masz konto?"
@@ -8285,6 +8318,20 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgid "Your name or nickname"
+msgstr "Twoje imię lub pseudonim"
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgid ""
+"What awaits participants: what it is about, how it goes, what to expect."
+msgstr ""
+"Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgid "no sign-up"
+msgstr "bez zapisów"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
@@ -8317,14 +8364,12 @@ msgid "Session Details"
 msgstr "Szczegóły punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session info — public by default. A 🔒 marks what only organizers see."
-msgstr ""
-"Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
-"widoczne tylko dla organizatorów."
+msgid "Session title"
+msgstr "Tytuł punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/details.html
-msgid "Select the tracks your session belongs to."
-msgstr "Wybierz bloki programowe dla tego punktu programu."
+msgid "Participants won't see this."
+msgstr "Uczestnicy tego nie zobaczą."
 
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session details saved. Next step coming soon."
@@ -10960,10 +11005,6 @@ msgid "Undo the announcement of %(title)s"
 msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Undo"
-msgstr "Cofnij"
-
-#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "Mark %(title)s as announced"
 msgstr "Oznacz jako ogłoszone: %(title)s"
@@ -12790,10 +12831,6 @@ msgstr ""
 "Kopiuje „%(name)s” i całą jej zawartość do wybranego wydarzenia jako nową "
 "przestrzeń najwyższego poziomu."
 
-#: src/ludamus/templates/panel/space-copy.html
-msgid "Copy"
-msgstr "Kopiuj"
-
 #: src/ludamus/templates/panel/space-form.html
 msgid "Edit space"
 msgstr "Edytuj przestrzeń"
@@ -13326,6 +13363,18 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "seats"
+#~ msgstr "os."
+
+#~ msgid ""
+#~ "Session info — public by default. A 🔒 marks what only organizers see."
+#~ msgstr ""
+#~ "Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
+#~ "widoczne tylko dla organizatorów."
+
+#~ msgid "Select the tracks your session belongs to."
+#~ msgstr "Wybierz bloki programowe dla tego punktu programu."
 
 #~ msgid "Player looking for a GM"
 #~ msgstr "Gracz szuka MG"

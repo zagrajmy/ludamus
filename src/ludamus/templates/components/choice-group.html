@@ -1,12 +1,24 @@
 {# Radio button or checkbox group. #}
 {# Variables: input_type ("radio"|"checkbox"), name, options (list of (value, label, checked, id)) #}
 {# Optional: has_errors (red border + aria-invalid on the group), aria_describedby, #}
-{# toggle (a short row of options drawn as buttons, as checkbox-toggle.html) #}
-<div class="mt-2 {% if toggle|default:False %}flex flex-wrap gap-2{% else %}space-y-2{% endif %}"
+{# toggle (a short row of options drawn as buttons, as checkbox-toggle.html), #}
+{# pills (options drawn as the field pills a session shows its answers in: #}
+{# a picked option is that pill, the rest are its dashed outline) #}
+<div class="{% if pills|default:False %}flex flex-wrap gap-1.5{% elif toggle|default:False %}mt-2 flex flex-wrap gap-2{% else %}mt-2 space-y-2{% endif %}"
      {% if has_errors|default:False %}aria-invalid="true"{% endif %}
      {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
     {% for value, label, checked, input_id in options %}
-        {% if toggle|default:False %}
+        {% if pills|default:False %}
+            <label class="relative inline-flex items-center rounded-2xl px-2.5 py-1 text-sm font-medium cursor-pointer select-none text-foreground-muted outline-1 outline-dashed outline-warm-400 dark:outline-neutral-600 transition-colors duration-150 hover:duration-0 hover:bg-foreground/5 has-checked:outline-none has-checked:bg-warm-200/80 dark:has-checked:bg-neutral-700 has-checked:text-warm-700 dark:has-checked:text-neutral-300 has-focus-visible:ring-2 has-focus-visible:ring-primary/40">
+                <input type="{{ input_type }}"
+                       id="{{ input_id }}"
+                       name="{{ name }}"
+                       value="{{ value }}"
+                       class="absolute inset-0 opacity-0 cursor-pointer"
+                       {% if checked %}checked{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+        {% elif toggle|default:False %}
             <label class="relative inline-flex items-center px-3 py-2 rounded-lg bg-bg-tertiary text-sm font-medium text-foreground whitespace-nowrap cursor-pointer select-none transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
                 <input type="{{ input_type }}"
                        id="{{ input_id }}"

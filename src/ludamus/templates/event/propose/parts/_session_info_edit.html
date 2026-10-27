@@ -1,0 +1,73 @@
+{% extends "chronology/parts/_session_info.html" %}
+{% load i18n tessera %}
+{% block host %}
+    {% include "components/avatar.html" with user=current_user size="size-9" %}
+    <div class="flex flex-1 min-w-0 font-medium text-foreground">
+        <label for="{{ form.facilitator_name.auto_id }}" class="sr-only">{{ form.facilitator_name.label }}</label>
+        {% translate "Your name or nickname" as facilitator_placeholder %}
+        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True outlined=True %}
+    </div>
+{% endblock host %}
+{% block description_label %}
+    <label for="{{ form.description.auto_id }}">{% translate "About this session" %}</label>
+{% endblock description_label %}
+{% block description %}
+    {# text-sm and leading-5 are what the modal's prose-sm description reads #}
+    {# at, so the text keeps its line breaks once it is published. #}
+    <div class="text-sm leading-5 text-foreground">
+        {% translate "What awaits participants: what it is about, how it goes, what to expect." as description_placeholder %}
+        {% tessera_inplace form.description placeholder=description_placeholder %}
+    </div>
+{% endblock description %}
+{% block fields_section %}
+    {% if field_descriptors or track_options %}{{ block.super }}{% endif %}
+{% endblock fields_section %}
+{% block fields %}
+    <div class="space-y-4">
+        {% for desc in field_descriptors %}
+            {% if desc.field.is_public %}
+                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer look="inplace" %}
+            {% endif %}
+        {% endfor %}
+        {% if track_options %}
+            <fieldset>
+                <legend class="text-sm font-semibold mb-1 text-foreground-secondary">
+                    {% translate "Tracks" %}
+                    <span class="text-danger"
+                          aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+                </legend>
+                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options pills=True has_errors=track_error only %}
+                {% if track_error %}<p class="mt-1 text-sm text-danger">{{ track_error }}</p>{% endif %}
+            </fieldset>
+        {% endif %}
+    </div>
+{% endblock fields %}
+{% block facts %}
+    {# Labelled here and not in the modal: a bare icon beside a control does #}
+    {# not say what it sets. The room is the organizers' to assign. #}
+    {% if "duration" in form.fields %}
+        {% tessera_sole_choice form.duration as sole_duration %}
+        {% if sole_duration %}
+            {% tessera_inplace form.duration %}
+        {% else %}
+            {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}
+                {% tessera_inplace form.duration placeholder="–" %}
+            {% end_session_fact %}
+        {% endif %}
+    {% endif %}
+    {% translate "Seats" as seats_label %}
+    {% translate "no sign-up" as no_sign_up %}
+    {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
+        {% if form.participants_limit.field.required %}
+            {% tessera_inplace form.participants_limit placeholder="–" %}
+        {% else %}
+            {% tessera_inplace form.participants_limit placeholder=no_sign_up %}
+        {% endif %}
+    {% end_session_fact %}
+    {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
+        <span class="inline-flex items-baseline">
+            {% tessera_inplace form.min_age placeholder="0" %}
+            <span>+</span>
+        </span>
+    {% end_session_fact %}
+{% endblock facts %}

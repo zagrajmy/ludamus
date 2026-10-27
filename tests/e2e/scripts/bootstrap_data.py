@@ -1390,6 +1390,131 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     return event
 
 
+def _reuse_fields(event: Event) -> list[SessionField]:
+    # The same questions on both editions, as an organizer running a series
+    # would set them up: an answer carries over by its field's slug.
+    system = SessionField.objects.create(
+        event=event,
+        name="System",
+        question="Which system will you run?",
+        slug="system",
+        field_type="text",
+        is_public=True,
+        icon="book-open",
+        order=0,
+    )
+    audience = SessionField.objects.create(
+        event=event,
+        name="Audience",
+        question="Who is it for?",
+        slug="audience",
+        field_type="select",
+        is_public=True,
+        icon="users",
+        order=1,
+    )
+    for order, value in enumerate(("Beginners", "Veterans", "Everyone")):
+        SessionFieldOption.objects.create(
+            field=audience, value=value, label=value, order=order
+        )
+    notes = SessionField.objects.create(
+        event=event,
+        name="Notes",
+        question="Anything the organizers should know?",
+        slug="notes",
+        field_type="text",
+        is_public=False,
+        order=2,
+    )
+    return [system, audience, notes]
+
+
+def _create_reuse_proposal_scenario(sphere: Sphere) -> None:
+    """Seed two editions of a series for propose-reuse.auth.spec.
+
+    The dedicated presenter ran a scheduled session at the past edition, whose
+    modal is the reference the propose page is compared against, and proposes
+    at the next one, which asks the same questions.
+    """
+    user = User.objects.create_user(
+        username="e2e-reuser",
+        email="e2e-reuser@test.local",
+        password="e2e-reuser-123",
+        name="Ola Wrzos",
+        slug="e2e-reuser",
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-reuser.json",
+    )
+    past = _create_event(
+        sphere,
+        name="Mothership Nights I",
+        slug="mothership-nights-1",
+        description="The first night of the Mothership series.",
+        start_offset=timedelta(days=-30),
+        duration_hours=8,
+        publication_offset=timedelta(days=40),
+    )
+    room = _create_space(
+        _create_area(
+            _create_venue(past, name="Hangar", slug="hangar"), name="Deck", slug="deck"
+        ),
+        name="Airlock",
+        slug="airlock",
+    )
+    session = _create_session(
+        past,
+        room,
+        title="First time at the table? Play Mothership",
+        slug="first-mothership",
+        presenter=user.name,
+        description=(
+            "Prospero's mining station stopped answering, and your ship is the "
+            "closest one. The rules take five minutes; the rest you find out "
+            "at the table."
+        ),
+        start_offset=timedelta(hours=2),
+        duration_hours=2,
+        participants_limit=4,
+        min_age=16,
+    )
+    session.presenter = user
+    session.duration = "PT2H"
+    session.save(update_fields=["presenter", "duration"])
+    system, audience, notes = _reuse_fields(past)
+    for field, value in (
+        (system, "Mothership 1e"),
+        (audience, "Beginners"),
+        (notes, "A table near a socket, please."),
+    ):
+        SessionFieldValue.objects.create(session=session, field=field, value=value)
+
+    upcoming = _create_event(
+        sphere,
+        name="Mothership Nights II",
+        slug="mothership-nights-2",
+        description="The second night of the Mothership series.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=upcoming,
+        name="RPG",
+        slug="rpg",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT2H", "PT3H"],
+    )
+    for order, field in enumerate(_reuse_fields(upcoming)):
+        SessionFieldRequirement.objects.create(
+            category=category, field=field, is_required=False, order=order
+        )
+
+
 def _create_discord_proposal_scenario(sphere: Sphere) -> None:
     """Seed an event asking proposers for their Discord handle, for discord-proposal.
 
@@ -1784,6 +1909,7 @@ def main() -> None:
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
     _create_discord_proposal_scenario(sphere)
+    _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
     _create_single_slot_event(sphere)
     _create_slot_states_event(sphere)

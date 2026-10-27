@@ -8,10 +8,7 @@
             {% endfor %}
         {% endfor %}
         {% if data.session.min_age > 0 %}
-            <span class="px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-full truncate bg-coral-100 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300"
-                  title="{% translate "Minimum age" %}: {{ data.session.min_age }} {% translate "years" %}">
-                {{ data.session.min_age }}+
-            </span>
+            {% include "components/_age_pill.html" with age=data.session.min_age only %}
         {% endif %}
         {% if data.cloud_overflow %}
             <div class="session-tags-more relative inline-flex items-center justify-center pointer-events-auto">

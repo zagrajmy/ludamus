@@ -1,0 +1,37 @@
+{% load i18n %}
+{# A session's body as people read it: who runs it, its facts, what it is, #}
+{# the organizer's questions. The session modal fills the blocks with values #}
+{# (_session_info_view.html), the propose page with the fields that write #}
+{# them (event/propose/parts/_session_info_edit.html), so a proposal is #}
+{# written in the shape it will be read in. #}
+<div data-session-info>
+    <div class="flex items-center gap-3 mb-4 flex-wrap text-sm">
+        {% block host %}
+        {% endblock host %}
+    </div>
+    {# The card's own facts line (when, where, how long, how many, how old), #}
+    {# so a session is summed up in the same words on the card and here. #}
+    <div class="flex flex-wrap items-end gap-x-5 gap-y-2 mb-6 text-sm text-foreground-secondary"
+         data-session-facts>
+        {% block facts %}
+        {% endblock facts %}
+    </div>
+    {% block description_section %}
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold mb-2 text-foreground-secondary"
+                data-morph="desc-label">
+                {% block description_label %}
+                    {% translate "About this session" %}
+                {% endblock description_label %}
+            </h3>
+            {% block description %}
+            {% endblock description %}
+        </div>
+    {% endblock description_section %}
+    {% block fields_section %}
+        <div class="mb-6">
+            {% block fields %}
+            {% endblock fields %}
+        </div>
+    {% endblock fields_section %}
+</div>

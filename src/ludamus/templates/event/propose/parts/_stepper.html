@@ -2,8 +2,10 @@
 {% load cfp_tags %}
 {% if wizard_steps|default:"" %}
     <nav aria-label="{% translate "Proposal progress" %}" class="mb-6">
-        <ol class="grid w-full"
-            style="grid-template-columns: repeat({{ wizard_steps|length }}, 1fr)">
+        {# Each step gets a column of at most 12rem, so two steps sit close #}
+        {# instead of at the ends of the page. #}
+        <ol class="grid w-full mx-auto max-w-[calc(var(--steps)*12rem)] grid-cols-[repeat(var(--steps),minmax(0,1fr))]"
+            style="--steps: {{ wizard_steps|length }}">
             {% for step_key in wizard_steps %}
                 {% with is_done_step=step_key|is_done:current_step is_current_step=step_key|is_current:current_step %}
                     <li class="flex flex-col items-center relative"

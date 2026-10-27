@@ -21,6 +21,7 @@ from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
+    REUSABLE_SESSIONS_LIMIT,
 )
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.fields import FieldValue
-    from ludamus.pacts.propose import ProposeRepos
+    from ludamus.pacts.propose import ProposeRepos, ReusableSessionDTO
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -135,6 +136,19 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             return False
         self._cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
         return True
+
+    def list_reusable_sessions(
+        self, *, user_id: int | None, event: EventDTO
+    ) -> list[ReusableSessionDTO]:
+        """List the proposer's sessions from the sphere's other events."""
+        if user_id is None:
+            return []
+        return self._repos.reusable_sessions.list_reusable(
+            user_id=user_id,
+            sphere_id=event.sphere_id,
+            exclude_event_id=event.pk,
+            limit=REUSABLE_SESSIONS_LIMIT,
+        )
 
     def _find_or_create_facilitator(
         self, *, event: EventDTO, display_name: str, user_id: int | None

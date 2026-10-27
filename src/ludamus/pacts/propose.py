@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.fields import FieldValue
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO
@@ -37,6 +39,29 @@ class AccountAnswersDTO(BaseModel):
     personal_data: dict[str, str] = {}
 
 
+class ReusableSessionDTO(BaseModel):
+    """One of the proposer's own sessions from an earlier event, to start from."""
+
+    pk: int
+    title: str
+    event_name: str
+    description: str
+    facilitator_name: str
+    participants_limit: int
+    min_age: int
+    duration: str
+    # Session fields belong to an event, so the slug is the only key that can
+    # carry an answer over to another event's form.
+    field_values: dict[str, FieldValue]
+
+
+class ReusableSessionRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_reusable(
+        *, user_id: int, sphere_id: int, exclude_event_id: int, limit: int
+    ) -> list[ReusableSessionDTO]: ...
+
+
 class ProposeRepos(NamedTuple):
     """The repos the propose wizard reads its steps and writes a proposal through."""
 
@@ -45,6 +70,7 @@ class ProposeRepos(NamedTuple):
     categories: ProposalCategoryRepositoryProtocol
     tracks: TrackRepositoryProtocol
     sessions: SessionRepositoryProtocol
+    reusable_sessions: ReusableSessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -75,6 +101,9 @@ class ProposeSessionServiceProtocol(Protocol):
         self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
     ) -> AccountAnswersDTO: ...
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool: ...
+    def list_reusable_sessions(
+        self, *, user_id: int | None, event: EventDTO
+    ) -> list[ReusableSessionDTO]: ...
     def submit(
         self,
         event: EventDTO,

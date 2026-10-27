@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load tessera %}
+{% load tessera django_vite %}
 {% block title %}
     {% translate "Propose Session" %}
 {% endblock title %}
@@ -11,16 +11,11 @@
     {% translate "Submit a session proposal for" %} {{ event.name }}
 {% endblock description %}
 {% block body %}
-    <div class="max-w-2xl mx-auto">
-        <div class="card">
-            <div class="card-body">{% include wizard_part_template %}</div>
-        </div>
-        <div class="card mt-6">
-            <div class="card-body">
-                <p class="text-sm text-foreground-muted">
-                    {% translate "Proposals are reviewed by organizers. You'll be notified when yours is accepted and added to the agenda." %}
-                </p>
-            </div>
-        </div>
-    </div>
+    {# Each step's root owns its container: most are a narrow card, the #}
+    {# session step is the session itself at the width it is read at. #}
+    {% include wizard_part_template %}
+    <p class="max-w-2xl mx-auto mt-6 text-sm text-center text-foreground-muted">
+        {% translate "Proposals are reviewed by organizers. You'll be notified when yours is accepted and added to the agenda." %}
+    </p>
+    {% vite_asset 'src/propose-copy.ts' %}
 {% endblock body %}
