@@ -3152,6 +3152,7 @@ msgstr "bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
@@ -5773,6 +5774,7 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -5963,6 +5965,7 @@ msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/components/_age_pill.html
 msgid "years"
 msgstr "lat"
@@ -8275,7 +8278,7 @@ msgstr "Cofnij"
 
 #: src/ludamus/templates/event/propose/parts/_copy_from.html
 msgid "Copy from an earlier session"
-msgstr "Skopiuj z wcześniejszego punktu programu"
+msgstr "Skopiuj z wcześniejszego"
 
 #: src/ludamus/templates/event/propose/parts/_copy_from.html
 msgid ""

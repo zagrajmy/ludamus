@@ -67,18 +67,21 @@
         {% endif %}
     {% endwith %}
     {% if data.takes_enrollment %}
+        {# One fact, as the others are: the state rides on the number's colour. #}
         {% session_fact icon="users" %}
             <span class="sr-only">{% translate "Capacity" %}:</span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if data.is_full %}bg-coral-100 dark:bg-coral-900/40 text-coral-700 dark:text-coral-400{% else %}bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-400{% endif %}">
-                {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
-            </span>
+            <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">{{ data.enrolled_count }}/{{ data.effective_participants_limit }}</span>
             {% if data.waiting_count > 0 %}
-                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
+                <span class="text-foreground-muted/70" aria-hidden="true">·</span>
+                <span class="text-warning-text">
+                    {% blocktranslate count counter=data.waiting_count %}{{ counter }} waiting{% plural %}{{ counter }} waiting{% endblocktranslate %}
+                </span>
             {% endif %}
         {% end_session_fact %}
     {% endif %}
     {% if data.session.min_age > 0 %}
-        {% include "components/_age_pill.html" with age=data.session.min_age only %}
+        <span class="tabular-nums {% if data.session.min_age >= 18 %}font-medium text-coral-700 dark:text-coral-400{% endif %}"
+              title="{% translate "Minimum age" %}: {{ data.session.min_age }} {% translate "years" %}"><span class="sr-only">{% translate "Minimum age" %}:</span>{{ data.session.min_age }}+</span>
     {% endif %}
 {% endblock facts %}
 {% block facts_aside %}
