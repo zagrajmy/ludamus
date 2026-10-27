@@ -1556,7 +1556,7 @@ def main() -> None:
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
 
-    # Staff manager user for panel e2e tests (logs in via /admin/)
+    # Staff manager user for panel e2e tests (helpers/auth.ts signInAsManager)
     manager = User.objects.create_user(
         username="e2e-manager",
         email="e2e-manager@test.local",
@@ -1566,6 +1566,11 @@ def main() -> None:
         is_staff=True,
     )
     sphere.managers.add(manager)
+    _write_storage_state(
+        manager,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
+    )
 
     local_manager = User.objects.create_user(
         username="auth0|local-manager",

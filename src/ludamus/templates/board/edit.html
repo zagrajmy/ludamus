@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Edit listing" %}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Edit listing" %}</h1>
+{% endblock header %}
+{% block body %}
+    <div class="w-full max-w-3xl mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% include "board/_form.html" with actions="board/_edit_actions.html" %}
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock body %}
