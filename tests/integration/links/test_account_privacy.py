@@ -90,8 +90,10 @@ def test_snapshot_does_not_survive_signed_link_withdrawal(
         reverse(
             "web:email-unsubscribe-confirm",
             kwargs={"token": promotion.unsubscribe_token},
-        )
+        ),
+        {"List-Unsubscribe": "One-Click"},
     )
+    assert not SphereSubscription.objects.filter(pk=subscription.pk).exists()
     if resubscribe:
         Services().sphere_subscriptions.subscribe(
             sphere_id=subscription.sphere_id, user_id=subscription.user_id
@@ -143,8 +145,10 @@ def test_queued_marketing_does_not_survive_signed_link_withdrawal(
             reverse(
                 "web:email-unsubscribe-confirm",
                 kwargs={"token": promotion.unsubscribe_token},
-            )
+            ),
+            {"List-Unsubscribe": "One-Click"},
         )
+        assert not SphereSubscription.objects.filter(pk=subscription.pk).exists()
         if resubscribe:
             Services().sphere_subscriptions.subscribe(
                 sphere_id=subscription.sphere_id, user_id=subscription.user_id
