@@ -23,18 +23,18 @@
     {% if public_field_descriptors or track_options %}{{ block.super }}{% endif %}
 {% endblock fields_section %}
 {% block fields %}
-    <div class="space-y-4">
+    <div>
         {% for desc in public_field_descriptors %}
-            {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer inplace=True %}
+            {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer visibility_badge=False %}
         {% endfor %}
         {% if track_options %}
             {% translate "Tracks" as tracks_label %}
-            <fieldset class="flex flex-col gap-y-1"
+            <fieldset class="flex flex-col gap-y-1 mb-4"
                       {% if track_error %}aria-describedby="propose-track-error"{% endif %}>
-                <legend class="text-sm font-semibold text-foreground-secondary">
+                <legend class="text-sm font-medium text-foreground-secondary">
                     {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True only %}
                 </legend>
-                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error inplace=True only %}
+                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error only %}
                 {% if track_error %}<p id="propose-track-error"
    class="text-sm text-danger">{{ track_error }}</p>{% endif %}
             </fieldset>
@@ -62,9 +62,6 @@
         {% tessera_inplace form.participants_limit %}
     {% end_session_fact %}
     {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
-        <span class="inline-flex items-baseline">
-            {% tessera_inplace form.min_age %}
-            <span>+</span>
-        </span>
+        {% tessera_inplace form.min_age unit="+" %}
     {% end_session_fact %}
 {% endblock facts %}

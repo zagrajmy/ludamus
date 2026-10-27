@@ -15,13 +15,8 @@ from django.template.loader import render_to_string
 from ludamus.pacts import FieldAnswer
 
 from ._registry import register
-from .inplace import inplace_look
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from django.utils.functional import Promise
-
     from ludamus.pacts import FieldValue, OrganizerFieldDTO
 
 
@@ -33,23 +28,11 @@ def _selected(value: FieldValue) -> list[str]:
     return [str(value)]
 
 
-def _name_blank_choice[V](
-    choices: Iterable[tuple[V, str | Promise]], name: str | Promise
-) -> list[tuple[V, str | Promise]]:
-    """Relabel the blank choice, so an empty select asks its question.
-
-    Returns:
-        The choices with the blank one, "" or None, labelled ``name``.
-    """
-    return [(value, name if value in {"", None} else label) for value, label in choices]
-
-
 def field_context(
     field: OrganizerFieldDTO,
     *,
     name_prefix: str,
     answer: FieldAnswer,
-    inplace: bool = False,
     visibility_badge: bool = True,
 ) -> dict[str, object]:
     # Everything the markup switches on, derived once. Kept separate from the
@@ -65,23 +48,7 @@ def field_context(
     return {
         "field": field,
         "label": field.question,
-        # A checkbox's question is what it says yes to, so it stays the label.
-        "heading": (
-            field.name if inplace and field.field_type != "checkbox" else field.question
-        ),
-        "placeholder": field.question if inplace else "",
-        "inplace": inplace,
-        # Where the box a field sits in already says who sees it, it says it
-        # once: in place, or inside the organizers-only box.
-        "visibility_badge": visibility_badge and not inplace,
-        "label_class": (
-            "text-sm font-semibold text-foreground-secondary"
-            if inplace
-            else "block text-sm font-medium text-foreground-secondary"
-            " first-letter:uppercase"
-        ),
-        "text_class": inplace_look(shape="text") if inplace else "",
-        "pill_class": inplace_look(shape="pill") if inplace else "",
+        "visibility_badge": visibility_badge,
         "icon_name": field.icon,
         "name": name,
         "input_id": input_id,
@@ -89,11 +56,7 @@ def field_context(
         "control_required": field.control_required(is_required=answer.is_required),
         "offers_custom": field.offers_custom_input,
         "errors": answer.errors,
-        "choices": (
-            _name_blank_choice(field.choices, field.question)
-            if inplace
-            else field.choices
-        ),
+        "choices": field.choices,
         "options": [
             (o.value, o.label, o.value in selected, f"{input_id}_{i}")
             for i, o in enumerate(options)
@@ -122,12 +85,10 @@ def dynamic_field(
     *,
     name_prefix: str,
     answer: FieldAnswer | None = None,
-    inplace: bool = False,
     visibility_badge: bool = True,
 ) -> str:
     """Render one organizer-defined field, switched on its type.
 
-    ``inplace`` writes it the way the session modal reads the answer;
     ``visibility_badge=False`` drops the eye/lock where the surrounding box
     already says who sees the field.
 
@@ -143,7 +104,6 @@ def dynamic_field(
             field,
             name_prefix=name_prefix,
             answer=answer or FieldAnswer(),
-            inplace=inplace,
             visibility_badge=visibility_badge,
         ),
     )

@@ -10,8 +10,10 @@ const customValue = (page: Page, question: string) =>
 // By role, not by label: a required field's label carries "(required)" and a
 // non-public one "organizers only", and getByLabel does not normalize the
 // markup's whitespace for a regex. The accessible name is normalized, and
-// anchoring keeps the companion's "Custom value for: …" out.
-const systemInput = (page: Page) => page.getByRole("textbox", { name: /^Which system\?/ });
+// anchoring keeps the companion's "Custom value for: …" out. The name leads
+// with the field's name, then its question.
+const systemInput = (page: Page) =>
+  page.getByRole("textbox", { name: /^System\b.*Which system\?/ });
 
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {

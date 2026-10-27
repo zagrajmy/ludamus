@@ -10,9 +10,10 @@ const pastEventUrl = "/chronology/event/mothership-nights-1/";
 const proposeUrl = "/event/mothership-nights-2/session/propose/";
 const title = "First time at the table? Play Mothership";
 
-// The facts row is labelled while proposing and bare in the modal, so it
-// differs by design; everything under it has to read the same once the
-// outlines that mark a field as editable are set aside.
+// The facts row is labelled while proposing and bare in the modal, and the
+// organizer's fields are asked as a form, so both differ by design; the
+// description between them has to read the same once the outlines that mark
+// a field as editable are set aside.
 const belowFacts = async (page: Page, info: Locator): Promise<Buffer> => {
   await info.evaluate((root) => {
     for (const el of root.querySelectorAll<HTMLElement>("input, textarea, select")) {
@@ -21,6 +22,7 @@ const belowFacts = async (page: Page, info: Locator): Promise<Buffer> => {
   });
   const root = (await info.boundingBox())!;
   const facts = (await info.locator("[data-session-facts]").boundingBox())!;
+  const fields = (await info.locator("[data-session-fields]").boundingBox())!;
   const top = Math.round(facts.y + facts.height);
   return page.screenshot({
     animations: "disabled",
@@ -28,7 +30,7 @@ const belowFacts = async (page: Page, info: Locator): Promise<Buffer> => {
       x: Math.round(root.x),
       y: top,
       width: Math.round(root.width),
-      height: Math.round(root.y + root.height) - top,
+      height: Math.round(fields.y) - top,
     },
   });
 };
@@ -87,7 +89,6 @@ test.describe("Proposing from an earlier session", () => {
       region: form,
       facts: { title, diff },
     });
-    // Only the select's chevron may differ.
     expect(diff.ratio).toBeLessThan(0.01);
 
     await page.getByRole("button", { name: "Undo" }).click();

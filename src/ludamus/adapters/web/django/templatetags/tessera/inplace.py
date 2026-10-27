@@ -2,11 +2,12 @@
 
 from typing import Literal
 
-type InplaceShape = Literal["text", "fit", "number", "textarea", "select", "pill"]
+type InplaceShape = Literal["text", "fit", "number", "textarea", "select"]
 
 # A control takes its type from the element around it and adds only a hover
 # wash, a focus ring and an outline at rest. Each shape is a whole class list
-# so Tailwind finds it here.
+# so Tailwind finds it here. Controls that size to their content keep a
+# minimum width, so an empty one is still a target worth aiming at.
 _INPLACE_BASE = (
     "[font:inherit] [color:inherit] [letter-spacing:inherit] bg-transparent"
     " border-0 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5"
@@ -18,9 +19,10 @@ _INPLACE_BASE = (
 )
 _INPLACE_SHAPES: dict[InplaceShape, str] = {
     "text": "not-focus:outline-dashed block w-[calc(100%+0.75rem)]",
-    "fit": "not-focus:outline-dotted field-sizing-content max-w-full",
+    "fit": "not-focus:outline-dotted field-sizing-content min-w-24 max-w-full",
     "number": (
-        "not-focus:outline-dashed field-sizing-content min-w-[2ch] tabular-nums"
+        "not-focus:outline-dashed field-sizing-content min-w-10 text-center"
+        " tabular-nums"
         " [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         " [&::-webkit-outer-spin-button]:appearance-none"
     ),
@@ -29,28 +31,14 @@ _INPLACE_SHAPES: dict[InplaceShape, str] = {
         " [@supports(field-sizing:content)]:resize-none field-sizing-content"
         " placeholder-shown:min-h-[3lh]"
     ),
-    "select": "not-focus:outline-dashed cursor-pointer",
+    "select": "not-focus:outline-dashed min-w-10 cursor-pointer",
 }
-# A choice from a short list reads as the pill its answer shows in.
-_INPLACE_PILL = (
-    "cursor-pointer border-0 rounded-2xl pl-2.5 py-1 text-sm font-medium"
-    " bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300"
-    " transition-[background-color,box-shadow] duration-150 hover:duration-0"
-    " hover:bg-warm-300 dark:hover:bg-neutral-600 focus:outline-none"
-    " focus-visible:ring-2 focus-visible:ring-primary/40 aria-invalid:outline-1"
-    " aria-invalid:outline-dashed aria-invalid:outline-danger"
-    " [&:has(option[value='']:checked)]:bg-transparent"
-    " [&:has(option[value='']:checked)]:text-foreground-muted"
-    " [&:has(option[value='']:checked)]:outline-1"
-    " [&:has(option[value='']:checked)]:outline-dashed"
-    " [&:has(option[value='']:checked)]:outline-warm-400"
-    " dark:[&:has(option[value='']:checked)]:outline-neutral-600"
-)
+# Room for a unit drawn over the control's right padding, inside its outline.
+UNIT_ROOM = "pr-[calc(0.375rem+1ch)]"
 
 
 _LOOKS: dict[InplaceShape, str] = {
-    **{shape: f"{_INPLACE_BASE} {extra}" for shape, extra in _INPLACE_SHAPES.items()},
-    "pill": _INPLACE_PILL,
+    shape: f"{_INPLACE_BASE} {extra}" for shape, extra in _INPLACE_SHAPES.items()
 }
 
 
@@ -58,7 +46,7 @@ def inplace_look(*, shape: InplaceShape) -> str:
     """Return the in-place look for a control of ``shape``.
 
     ``fit`` is sized to its content and dotted, for a value prefilled from the
-    account; ``pill`` is a choice dressed as the pill its answer shows in.
+    account.
 
     Returns:
         The control's whole class list.
