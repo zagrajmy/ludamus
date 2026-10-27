@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
+from django.db import connection
 from django.db.models import Q
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
@@ -73,6 +74,16 @@ class UserRepository(UserRepositoryProtocol):
         except User.DoesNotExist as exception:
             raise NotFoundError from exception
         return UserDTO.model_validate(user)
+
+    @staticmethod
+    def lock_username(username: str) -> None:
+        # SAFETY: row locks cannot serialize an identity before its row exists.
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
+                    ["ludamus.signup-identity", username],
+                )
 
     def read_by_email(self, email: str) -> UserDTO:
         # NOTE: a blank address would match every account that has none.

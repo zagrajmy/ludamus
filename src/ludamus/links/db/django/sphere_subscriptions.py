@@ -64,11 +64,16 @@ class SphereSubscriptionRepository(SphereSubscriptionRepositoryProtocol):
     def list_recipients(sphere_id: int) -> list[SubscriptionRecipientDTO]:
         return [
             SubscriptionRecipientDTO(
-                user_id=user_id, email=email, age_band=AgeBand(age_band)
+                subscription_id=subscription_id,
+                user_id=user_id,
+                email=email,
+                age_band=AgeBand(age_band),
             )
-            for user_id, email, age_band in SphereSubscription.objects.filter(
-                sphere_id=sphere_id
-            ).values_list("user_id", "user__email", "user__age_band")
+            for subscription_id, user_id, email, age_band in (
+                SphereSubscription.objects.filter(sphere_id=sphere_id).values_list(
+                    "pk", "user_id", "user__email", "user__age_band"
+                )
+            )
         ]
 
     @staticmethod

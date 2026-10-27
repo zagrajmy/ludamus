@@ -97,7 +97,15 @@ jobs:
       - uses: ./.github/actions/toolchain
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
       # no-op on the SQLite backend used by the `test-unit` job below.
-      - run: mise run test:postgres
+      - run: mise run test:postgres -- --cov
+        env:
+          COVERAGE_FILE: .coverage.postgres
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-postgres
+          path: .coverage.postgres
+          include-hidden-files: true
+          retention-days: 7
 
   test-unit:
     runs-on: ubuntu-latest
@@ -238,10 +246,9 @@ jobs:
           retention-days: 30
 
   # Named `test` because the branch ruleset requires that check; it now
-  # gates on the unit job and every e2e shard, and holds the 93% floor.
   test:
     runs-on: ubuntu-latest
-    needs: [test-unit, test-e2e]
+    needs: [test-unit, test-postgres, test-e2e]
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.
