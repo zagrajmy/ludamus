@@ -59,10 +59,14 @@ export function ActionsMenu({
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !trigger.current?.contains(target)) close(false);
     };
+    // The menu is fixed to the viewport, so it closes once its message moves.
+    const scrolled = () => close(false);
     document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("scroll", scrolled, true);
     addEventListener("resize", dismiss);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("scroll", scrolled, true);
       removeEventListener("resize", dismiss);
     };
   }, [open]);

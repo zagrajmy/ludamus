@@ -2,6 +2,7 @@ import { MessageScroller } from "@shadcn/react/message-scroller";
 
 import type { Bootstrap, Message, Room } from "./protocol";
 
+import { requestConfirm } from "../confirm";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
@@ -75,7 +76,8 @@ export function MessageItem({
               {
                 icon: "Trash",
                 label: copy.deleteLabel,
-                onSelect: () => remove(message.id),
+                onSelect: () =>
+                  requestConfirm(copy.deleteConfirm, copy.deleteLabel, () => remove(message.id)),
               } as const,
             ]
           : [
@@ -90,7 +92,10 @@ export function MessageItem({
               {
                 icon: "Trash",
                 label: copy.moderatorDelete,
-                onSelect: () => moderate(message.id),
+                onSelect: () =>
+                  requestConfirm(copy.deleteConfirm, copy.moderatorDelete, () =>
+                    moderate(message.id),
+                  ),
                 tone: "danger",
               },
               { heading: copy.muteLabel },
@@ -112,7 +117,10 @@ export function MessageItem({
               {
                 icon: "Mute",
                 label: copy.muteIndefinitely,
-                onSelect: () => mute(message.authorId, null),
+                onSelect: () =>
+                  requestConfirm(copy.muteConfirm, copy.muteIndefinitely, () =>
+                    mute(message.authorId, null),
+                  ),
               },
               {
                 icon: "Retry",

@@ -65,15 +65,16 @@ function Launcher({
   );
 }
 
-// One docked surface: the room list as a popover above the chat button, the
-// conversation as a window on the page's bottom edge. Phones get both full
-// screen.
+// The room list pops over the chat button; the conversation docks as a
+// window on the page's bottom edge beside it. Phones get both full screen.
 function Frame({ children, label, room }: { children: ReactNode; label: string; room: boolean }) {
   return (
     <div
       aria-label={label}
-      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg-secondary text-foreground sm:inset-auto sm:right-24 sm:bottom-0 sm:w-95 sm:rounded-t-2xl sm:border sm:border-b-0 sm:border-border sm:shadow-xl ${
-        room ? "sm:h-[min(35rem,calc(100dvh-1.5rem))]" : "sm:max-h-[min(30rem,calc(100dvh-1.5rem))]"
+      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg-secondary text-foreground sm:inset-auto sm:w-95 sm:border sm:border-border sm:shadow-xl ${
+        room
+          ? "sm:right-24 sm:bottom-0 sm:h-[min(35rem,calc(100dvh-1.5rem))] sm:rounded-t-2xl sm:border-b-0"
+          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4.5rem)] sm:max-h-[min(30rem,calc(100dvh-7rem))] sm:rounded-2xl"
       }`}
       id="parley-panel"
       role="dialog"

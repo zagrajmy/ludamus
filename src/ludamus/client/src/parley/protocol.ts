@@ -3,8 +3,10 @@ export type Copy = Record<
   | "closeLabel"
   | "connectionError"
   | "copyLink"
+  | "deleteConfirm"
   | "deletedMessage"
   | "deleteLabel"
+  | "emptyReadOnly"
   | "emptySession"
   | "emptySphere"
   | "errorArchived"
@@ -22,6 +24,8 @@ export type Copy = Record<
   | "messageListLabel"
   | "messageTooLong"
   | "moderatorDelete"
+  | "muteConfirm"
+  | "muted"
   | "muteIndefinitely"
   | "muteLabel"
   | "muteOneDay"
@@ -47,7 +51,8 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
-  | "writePlaceholder",
+  | "writePlaceholder"
+  | "writingRestored",
   string
 >;
 

@@ -19,6 +19,10 @@ const bootstrap = {
     connectionError: "Could not connect to Parley.",
     copyLink: "Copy message link",
     deletedMessage: "Message deleted",
+    deleteConfirm: "Delete this message for everyone?",
+    emptyReadOnly: "Nobody has written here yet.",
+    muteConfirm: "Mute this person indefinitely? They can still read.",
+    muted: "Writing access limited.",
     deleteLabel: "Delete message",
     emptySession: "You found the table first. Leave a note for the others.",
     emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
@@ -63,6 +67,7 @@ const bootstrap = {
     unreadCountMany: "%(count)s unread conversations",
     unreadCountOne: "%(count)s unread conversation",
     writePlaceholder: "Write a message…",
+    writingRestored: "Writing access restored.",
   },
   csrfToken: "mock-csrf",
   rooms: [

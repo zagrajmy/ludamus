@@ -109,7 +109,10 @@ export function Conversation({
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    (composer.current ?? closeButton.current)?.focus();
+    // On a phone, focusing the composer would raise the keyboard over a
+    // thread nobody has read yet.
+    const fine = globalThis.matchMedia("(pointer: fine)").matches;
+    ((fine ? composer.current : null) ?? closeButton.current)?.focus();
   }, []);
 
   useLayoutEffect(() => {
@@ -145,53 +148,66 @@ export function Conversation({
     } else setError(errorMessage(result.code, copy));
     composer.current?.focus();
   };
-  const remove = async (id: number) => {
-    const result = await agent.call<Result<{ id: number }>>("deleteOwnMessage", [
-      { messageId: id },
-    ]);
-    if (result.ok) tidy(id);
-    else setError(errorMessage(result.code, copy));
-  };
-  const moderate = async (id: number) => {
-    const result = await agent.call<Result<{ id: number }>>("deleteMessage", [{ messageId: id }]);
-    if (result.ok) tidy(id);
-    else setError(errorMessage(result.code, copy));
-  };
-  const mute = async (userId: string, action: MuteAction) => {
-    const result = await agent.call<Result<unknown>>(
-      action === "restore" ? "restoreWriting" : "muteUser",
-      [action === "restore" ? { userId } : { durationMs: action, userId }],
-    );
-    if (!result.ok) setError(errorMessage(result.code, copy));
-  };
-  const copyLink = async (messageId: number) => {
-    const url = new URL(globalThis.location.href);
-    url.hash = `parley:${room.id}:${messageId}`;
+  // Every action reports how it went: a refused call names the problem, a
+  // dropped connection says so, and nothing fails silently.
+  const act = async (run: () => Promise<{ error: string } | { notice: string | null }>) => {
+    setNotice(null);
     try {
-      await navigator.clipboard.writeText(url.toString());
-      setError(null);
-      setNotice(copy.linkCopied);
+      const outcome = await run();
+      if ("error" in outcome) setError(outcome.error);
+      else {
+        setError(null);
+        setNotice(outcome.notice);
+      }
     } catch {
-      setError(copy.errorUnknown);
+      setError(copy.connectionError);
     }
   };
-  const report = async (messageId: number) => {
-    const form = new FormData();
-    form.set("message_id", String(messageId));
-    form.set("room_id", room.id);
-    const response = await fetch("/parley/reports/", {
-      body: form,
-      headers: { "X-CSRFToken": bootstrap.csrfToken },
-      method: "POST",
-    });
-    if (response.ok) {
-      setError(null);
-      setNotice(copy.reported);
-    } else setError(copy.errorUnknown);
+  const call = async (method: string, input: Record<string, unknown>, notice: string | null) => {
+    const result = await withTimeout(agent.call<Result<unknown>>(method, [input]));
+    return result.ok ? { notice } : { error: errorMessage(result.code, copy) };
   };
+  const remove = (id: number) =>
+    act(async () => {
+      const outcome = await call("deleteOwnMessage", { messageId: id }, null);
+      if ("notice" in outcome) tidy(id);
+      return outcome;
+    });
+  const moderate = (id: number) =>
+    act(async () => {
+      const outcome = await call("deleteMessage", { messageId: id }, null);
+      if ("notice" in outcome) tidy(id);
+      return outcome;
+    });
+  const mute = (userId: string, action: MuteAction) =>
+    act(() =>
+      action === "restore"
+        ? call("restoreWriting", { userId }, copy.writingRestored)
+        : call("muteUser", { durationMs: action, userId }, copy.muted),
+    );
+  const copyLink = (messageId: number) =>
+    act(async () => {
+      const url = new URL(globalThis.location.href);
+      url.hash = `parley:${room.id}:${messageId}`;
+      await navigator.clipboard.writeText(url.toString());
+      return { notice: copy.linkCopied };
+    });
+  const report = (messageId: number) =>
+    act(async () => {
+      const form = new FormData();
+      form.set("message_id", String(messageId));
+      form.set("room_id", room.id);
+      const response = await fetch("/parley/reports/", {
+        body: form,
+        headers: { "X-CSRFToken": bootstrap.csrfToken },
+        method: "POST",
+      });
+      return response.ok ? { notice: copy.reported } : { error: copy.errorUnknown };
+    });
 
   const offline = agent.connectionError !== null;
-  const empty = room.kind === "sphere" ? copy.emptySphere : copy.emptySession;
+  const writableEmpty = room.kind === "sphere" ? copy.emptySphere : copy.emptySession;
+  const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
   const kind = room.kind === "sphere" ? copy.sphereRoom : copy.sessionRoom;
 
   return (

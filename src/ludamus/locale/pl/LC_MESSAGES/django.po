@@ -3859,6 +3859,26 @@ msgid "You can read this conversation, but not write in it."
 msgstr "Możesz czytać tę rozmowę, ale nie możesz w niej pisać."
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Nobody has written here yet."
+msgstr "Nikt jeszcze nic tu nie napisał."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete this message for everyone?"
+msgstr "Usunąć tę wiadomość dla wszystkich?"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute this person indefinitely? They can still read."
+msgstr "Wyciszyć tę osobę bezterminowo? Nadal będzie mogła czytać."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Writing access limited."
+msgstr "Ograniczono możliwość pisania."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Writing access restored."
+msgstr "Przywrócono możliwość pisania."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Message"
 msgstr "Wiadomość"
 
