@@ -4,7 +4,7 @@
 {# toggle (a short row of options drawn as buttons, as checkbox-toggle.html), #}
 {# inplace (options drawn as the field pills a session shows its answers in: #}
 {# a picked option is that pill, the rest are its dashed outline) #}
-<div class="{% if inplace|default:False %}group flex flex-wrap gap-1.5{% elif toggle|default:False %}mt-2 flex flex-wrap gap-2{% else %}mt-2 space-y-2{% endif %}"
+<div class="{% if inplace|default:False %}group flex flex-wrap gap-1.5{% elif toggle|default:False %}mt-2 flex flex-wrap gap-2{% else %}mt-2 space-y-1{% endif %}"
      {% if has_errors|default:False %}aria-invalid="true"{% endif %}
      {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
     {% for value, label, checked, input_id in options %}
