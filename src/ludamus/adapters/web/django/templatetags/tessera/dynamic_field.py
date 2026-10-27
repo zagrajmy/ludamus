@@ -14,11 +14,14 @@ from django.template.loader import render_to_string
 
 from ludamus.pacts import FieldAnswer
 
-from ._choices import name_blank_choice
 from ._registry import register
 from .inplace import inplace_look
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from django.utils.functional import Promise
+
     from ludamus.pacts import FieldValue, OrganizerFieldDTO
 
 
@@ -28,6 +31,17 @@ def _selected(value: FieldValue) -> list[str]:
     if isinstance(value, list):
         return [str(v) for v in value]
     return [str(value)]
+
+
+def _name_blank_choice[V](
+    choices: Iterable[tuple[V, str | Promise]], name: str | Promise
+) -> list[tuple[V, str | Promise]]:
+    """Relabel the blank choice, so an empty select asks its question.
+
+    Returns:
+        The choices with the blank one, "" or None, labelled ``name``.
+    """
+    return [(value, name if value in {"", None} else label) for value, label in choices]
 
 
 def field_context(
@@ -76,7 +90,7 @@ def field_context(
         "offers_custom": field.offers_custom_input,
         "errors": answer.errors,
         "choices": (
-            name_blank_choice(field.choices, field.question)
+            _name_blank_choice(field.choices, field.question)
             if inplace
             else field.choices
         ),

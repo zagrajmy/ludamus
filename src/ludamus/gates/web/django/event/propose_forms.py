@@ -49,19 +49,18 @@ def build_session_details_form(
     durations = category.durations if category else []
     # The only place a category's participant bounds bind — the panel form and a
     # facilitator's self-edit are deliberately unbounded — so a category of large
-    # rooms can refuse a two-person session. A floor also makes the number
-    # mandatory; with neither bound the field is optional and 0 means the
-    # session takes no enrollment. 0 stays valid under a ceiling too:
-    # no-sign-up sessions exist in every category.
+    # rooms can refuse a two-person session. Only a floor makes the number
+    # mandatory: without one, empty means 0 and the session takes no
+    # enrollment, which stays valid under a ceiling too, since no-sign-up
+    # sessions exist in every category.
     participants_kwargs: dict[str, Any] = {
         "label": _("Max participants"),
         "min_value": min_limit,
+        "required": bool(min_limit),
         "validators": [STORAGE_LIMIT_VALIDATOR],
     }
     if max_limit:
         participants_kwargs["max_value"] = max_limit
-    elif not min_limit:
-        participants_kwargs["required"] = False
     # The empty field says what it takes: the category's range, or that an
     # empty optional limit means the session takes no sign-up.
     if max_limit:

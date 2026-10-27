@@ -94,6 +94,21 @@ class TestBuildSessionDetailsFormParticipantLimits:
         assert not form.is_valid()
         assert "participants_limit" in form.errors
 
+    def test_only_max_set_accepts_an_empty_limit(self):
+        form_class = build_session_details_form(
+            [], category=category(min_participants_limit=0, max_participants_limit=10)
+        )
+        form = form_class(
+            {
+                "title": "Test",
+                "description": "A test session",
+                "facilitator_name": "Presenter",
+                "participants_limit": "",
+            }
+        )
+
+        assert form.is_valid()
+
     def test_only_max_set_accepts_zero(self):
         form_class = build_session_details_form(
             [], category=category(min_participants_limit=0, max_participants_limit=10)

@@ -13360,16 +13360,8 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
-#~ msgid ""
-#~ "Time slots and the cover image stay as they are: this is a new event."
-#~ msgstr ""
-#~ "Przedziały czasowe i okładka zostają bez zmian, bo to nowe wydarzenie."
-
 #~ msgid "0 = no age restriction"
 #~ msgstr "0 = brak ograniczenia wiekowego"
-
-#~ msgid "seats"
-#~ msgstr "os."
 
 #~ msgid ""
 #~ "Session info — public by default. A 🔒 marks what only organizers see."

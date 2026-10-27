@@ -79,9 +79,7 @@ def _render_field_input(
 ) -> str:
     widget = field.field.widget
     if isinstance(widget, Select):
-        return render_select(
-            field, inplace_class=inplace_class, placeholder=placeholder
-        )
+        return render_select(field, inplace_class=inplace_class)
     if isinstance(widget, Textarea):
         return render_textarea(
             field, inplace_class=inplace_class, placeholder=placeholder

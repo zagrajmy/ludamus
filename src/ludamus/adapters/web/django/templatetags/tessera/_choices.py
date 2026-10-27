@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from django.forms import BoundField
     from django.utils.functional import Promise
 
@@ -23,17 +21,6 @@ class SoleChoice(NamedTuple):
 
     value: object
     label: str | Promise
-
-
-def name_blank_choice[V](
-    choices: Iterable[tuple[V, str | Promise]], name: str | Promise
-) -> list[tuple[V, str | Promise]]:
-    """Relabel the blank choice, so an empty select asks its question.
-
-    Returns:
-        The choices with the blank one, "" or None, labelled ``name``.
-    """
-    return [(value, name if value in {"", None} else label) for value, label in choices]
 
 
 def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
