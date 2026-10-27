@@ -27,6 +27,7 @@ from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
+from ludamus.mills.listing import ListingService
 from ludamus.mills.multiverse import SitesService
 from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.printing import PrintablesReminderService
@@ -117,6 +118,16 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         users=repos.active_users,
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
+    )
+
+
+def build_listings() -> ListingService:
+    repos = Repositories()
+    return ListingService(
+        transaction=DjangoTransaction(),
+        listings=repos.listings,
+        users=repos.active_users,
+        tags=repos.tags,
     )
 
 

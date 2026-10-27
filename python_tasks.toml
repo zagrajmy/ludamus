@@ -79,18 +79,18 @@ depends = [
 
 ## Dependencies
 
-["dep:audit:py"]
-description = "Audit dependencies: known CVEs (pip-audit), drift (deptry)"
-run = ["pip-audit .", "deptry {{ env.SRC_PATHS }} {{ env.TEST_PATHS }}"]
+["dep:drift:py"]
+description = "Check Python dependency drift: unused or undeclared packages (deptry)"
+run = "deptry {{ env.SRC_PATHS }} {{ env.TEST_PATHS }}"
 
 ["dep:upgrade:py"]
+alias = "update"
 description = "Update all dependencies: mise tools, pip, Poetry packages"
 run = [
-    "mise upgrade --minimum-release-age=7d",
+    "mise upgrade --bump --exclude python --minimum-release-age=7d --local",
     "pip install -U pip",
     "poetry update",
     "deptry {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}",
-    "pip-audit .",
     "poetry show -o",
 ]
 

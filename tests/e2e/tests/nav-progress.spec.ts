@@ -1,3 +1,4 @@
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The panel shows a thin top-edge progress bar while a request is in flight
@@ -12,11 +13,9 @@ import { expect, test } from "./helpers/fixtures";
 const bar = (page: import("@playwright/test").Page) => page.getByRole("progressbar");
 
 test.describe("panel navigation progress bar", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
     await page.goto("/panel/");
     await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
   });

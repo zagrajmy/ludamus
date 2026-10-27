@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0182_user_age_band")]
+    dependencies = [("db_main", "0184_user_privacy_revision")]
 
     operations = [
         migrations.AddField(
