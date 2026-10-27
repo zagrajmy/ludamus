@@ -40,7 +40,8 @@ const read = (form: HTMLFormElement, names: string[]): Values =>
 
 const write = (form: HTMLFormElement, values: Values): void => {
   for (const [name, value] of Object.entries(values)) {
-    for (const el of controls(form, name)) {
+    const els = controls(form, name);
+    for (const el of els) {
       if (isChipsMirror(el)) {
         el.dispatchEvent(new CustomEvent("write-in:set", { detail: asText(value) }));
         continue;
@@ -48,7 +49,7 @@ const write = (form: HTMLFormElement, values: Values): void => {
       if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) {
         el.checked = Array.isArray(value)
           ? value.includes(el.value)
-          : value === true || value === el.value;
+          : (value === true && els.length === 1) || value === el.value;
       } else if (el instanceof HTMLSelectElement) {
         const wanted = asText(value);
         el.value = [...el.options].some((o) => o.value === wanted) ? wanted : "";
@@ -61,17 +62,11 @@ const write = (form: HTMLFormElement, values: Values): void => {
   }
 };
 
-const markCopied = (panel: HTMLElement, pk: string | null): void => {
-  for (const row of panel.querySelectorAll<HTMLElement>("[data-propose-copy-row]")) {
-    const on = row.dataset.proposeCopyRow === pk;
-    for (const el of row.querySelectorAll<HTMLElement>("[data-propose-copy-from]")) {
-      el.hidden = on;
-    }
-    for (const el of row.querySelectorAll<HTMLElement>(
-      "[data-propose-copied], [data-propose-copy-undo]",
-    )) {
-      el.hidden = !on;
-    }
+const markCopied = (panel: HTMLElement, copied: boolean): void => {
+  for (const el of panel.querySelectorAll<HTMLElement>(
+    "[data-propose-copied], [data-propose-copy-undo]",
+  )) {
+    el.hidden = !copied;
   }
 };
 
@@ -86,16 +81,15 @@ document.addEventListener("click", (event) => {
   const form = panel && document.getElementById(panel.dataset.proposeCopy ?? "");
   if (!button || !panel || !(form instanceof HTMLFormElement)) return;
 
-  const row = button.closest<HTMLElement>("[data-propose-copy-row]");
   const status = panel.querySelector<HTMLElement>("[data-propose-copy-status]");
   const pk = button.dataset.proposeCopyFrom;
   if (pk === undefined) {
     const before = snapshots.get(form);
     if (before) write(form, before);
     snapshots.delete(form);
-    markCopied(panel, null);
+    markCopied(panel, false);
     if (status) status.textContent = "";
-    row?.querySelector<HTMLElement>("[data-propose-copy-from]")?.focus();
+    panel.querySelector<HTMLElement>("[data-menu-button]")?.focus();
     return;
   }
 
@@ -108,10 +102,9 @@ document.addEventListener("click", (event) => {
   if (!values) return;
   if (!snapshots.has(form)) snapshots.set(form, read(form, Object.keys(values)));
   write(form, values);
-  markCopied(panel, pk);
+  markCopied(panel, true);
   if (status)
-    status.textContent = row?.querySelector("[data-propose-copied]")?.textContent?.trim() ?? "";
-  panel
-    .querySelector<HTMLElement>(`[data-propose-copy-row="${pk}"] [data-propose-copy-undo]`)
-    ?.focus();
+    status.textContent = panel.querySelector("[data-propose-copied]")?.textContent?.trim() ?? "";
+  // Focus leaving the menu closes it (menu.ts).
+  panel.querySelector<HTMLElement>("[data-propose-copy-undo]")?.focus();
 });

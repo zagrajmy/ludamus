@@ -1431,6 +1431,7 @@ def _reuse_fields(event: Event) -> list[SessionField]:
         name="Equipment",
         question="What do you need at the table?",
         slug="equipment",
+        icon="wrench",
         field_type="select",
         is_multiple=True,
         allow_custom=True,

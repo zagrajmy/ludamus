@@ -1,45 +1,30 @@
 {% load i18n tessera vite_tags %}
 {% vite_asset_once 'src/propose-copy.ts' %}
-{# Starting from one of your earlier sessions: an extra action, so a quiet #}
-{# disclosure beside the session on wide screens and under it on narrow #}
-{# ones. propose-copy.ts fills the form from the JSON below and can undo it. #}
-<details class="group w-full max-w-200 px-4 sm:px-0 lg:w-auto lg:max-w-80 lg:sticky lg:top-4"
-         data-propose-copy="propose-details-form">
-    <summary class="inline-flex items-center gap-1 min-h-11 cursor-pointer list-none whitespace-nowrap rounded-md text-sm font-medium text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground group-open:text-foreground-secondary [&::-webkit-details-marker]:hidden">
+{# propose-copy.ts fills the form from the JSON below and can undo it. #}
+<div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 mb-2 text-sm"
+     data-propose-copy="propose-details-form">
+    <span class="inline-flex items-center gap-1 font-medium text-success-text"
+          hidden
+          data-propose-copied>
+        {% icon "check" class="size-3.5" variant="mini" %}
+        {% translate "Copied" %}
+    </span>
+    <button type="button"
+            class="font-medium text-primary underline underline-offset-3"
+            hidden
+            data-propose-copy-undo>{% translate "Undo" %}</button>
+    {% tessera_action_dropdown id="propose-copy-menu" align="end" hover=False trigger_class="inline-flex items-center gap-1 min-h-11 font-medium text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground aria-expanded:text-foreground" %}
         {% icon "document-duplicate" class="size-4 shrink-0" variant="mini" %}
-        <span class="hover:underline underline-offset-3">{% translate "Copy from an earlier session" %}</span>
-    </summary>
-    <ul>
+        {% translate "Copy from an earlier session" %}
+        {% icon "chevron-down" class="size-4 shrink-0" variant="mini" %}
+        {% action_dropdown_menu %}
         {% for session in reusable_sessions %}
-            <li class="flex items-baseline justify-between gap-3 py-1.5 border-t border-border"
-                data-propose-copy-row="{{ session.pk }}">
-                <div class="grid min-w-0">
-                    <span class="text-sm font-medium leading-snug">{{ session.title }}</span>
-                    <span class="text-xs text-foreground-muted">{{ session.event_name }}</span>
-                </div>
-                <span class="shrink-0 inline-flex items-baseline gap-2 text-sm">
-                    {% blocktranslate asvar copy_label with title=session.title %}Copy {{ title }}{% endblocktranslate %}
-                    <button type="button"
-                            class="font-medium text-primary underline underline-offset-3"
-                            aria-label="{{ copy_label }}"
-                            data-propose-copy-from="{{ session.pk }}">{% translate "Copy" %}</button>
-                    <span class="inline-flex items-center gap-1 font-medium text-success-text"
-                          hidden
-                          data-propose-copied>
-                        {% icon "check" class="size-3.5" variant="mini" %}
-                        {% translate "Copied" %}
-                    </span>
-                    <button type="button"
-                            class="font-medium text-primary underline underline-offset-3"
-                            hidden
-                            data-propose-copy-undo>{% translate "Undo" %}</button>
-                </span>
-            </li>
+            {% tessera_action_dropdown_item session.title detail=session.event_name data_propose_copy_from=session.pk %}
         {% endfor %}
-    </ul>
-    <p class="mt-1.5 text-xs text-foreground-muted">
-        {% translate "Copies the title, description and answers. Time slots, tracks and the cover stay as they are." %}
-    </p>
+        <p class="max-w-72 px-3 pt-2 pb-1 border-t border-border text-xs text-foreground-muted whitespace-normal">
+            {% translate "Copies the title, description and answers. Time slots, tracks and the cover stay as they are." %}
+        </p>
+    {% end_tessera_action_dropdown %}
     <p class="sr-only" role="status" data-propose-copy-status></p>
     {{ reusable_form_values|json_script }}
-</details>
+</div>

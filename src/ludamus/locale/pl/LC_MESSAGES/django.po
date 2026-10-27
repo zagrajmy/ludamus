@@ -8265,20 +8265,6 @@ msgstr ""
 "gdy Twoje zostanie zaakceptowane i dodane do programu."
 
 #: src/ludamus/templates/event/propose/parts/_copy_from.html
-msgid "Copy from an earlier session"
-msgstr "Skopiuj z wcześniejszego punktu programu"
-
-#: src/ludamus/templates/event/propose/parts/_copy_from.html
-#, python-format
-msgid "Copy %(title)s"
-msgstr "Skopiuj „%(title)s”"
-
-#: src/ludamus/templates/event/propose/parts/_copy_from.html
-#: src/ludamus/templates/panel/space-copy.html
-msgid "Copy"
-msgstr "Kopiuj"
-
-#: src/ludamus/templates/event/propose/parts/_copy_from.html
 msgid "Copied"
 msgstr "Skopiowano"
 
@@ -8286,6 +8272,10 @@ msgstr "Skopiowano"
 #: src/ludamus/templates/panel/errata.html
 msgid "Undo"
 msgstr "Cofnij"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copy from an earlier session"
+msgstr "Skopiuj z wcześniejszego punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/_copy_from.html
 msgid ""
@@ -12823,6 +12813,10 @@ msgstr ""
 "Kopiuje „%(name)s” i całą jej zawartość do wybranego wydarzenia jako nową "
 "przestrzeń najwyższego poziomu."
 
+#: src/ludamus/templates/panel/space-copy.html
+msgid "Copy"
+msgstr "Kopiuj"
+
 #: src/ludamus/templates/panel/space-form.html
 msgid "Edit space"
 msgstr "Edytuj przestrzeń"
@@ -13355,6 +13349,10 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#, python-format
+#~ msgid "Copy %(title)s"
+#~ msgstr "Skopiuj „%(title)s”"
 
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."

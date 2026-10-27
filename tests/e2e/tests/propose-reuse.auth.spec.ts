@@ -53,8 +53,8 @@ test.describe("Proposing from an earlier session", () => {
     const form = page.locator("#propose-details-form");
     await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue("");
 
-    await page.getByText("Copy from an earlier session").click();
-    await page.getByRole("button", { name: `Copy ${title}` }).click();
+    await page.getByRole("button", { name: "Copy from an earlier session" }).click();
+    await page.getByRole("button", { name: title }).click();
 
     await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue(title);
     await expect(form.getByLabel("Presenter name")).toHaveValue("Ola Wrzos");
@@ -95,7 +95,8 @@ test.describe("Proposing from an earlier session", () => {
     await expect(form.getByLabel("System")).toHaveValue("");
     await expect(form.getByText("extension cord")).toHaveCount(0);
 
-    await page.getByRole("button", { name: `Copy ${title}` }).click();
+    await page.getByRole("button", { name: "Copy from an earlier session" }).click();
+    await page.getByRole("button", { name: title }).click();
     await page.getByRole("button", { name: /Continue/ }).click();
     const wizard = page.locator('[id="wizard-content"]');
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
