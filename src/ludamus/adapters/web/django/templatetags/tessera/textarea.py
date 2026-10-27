@@ -7,16 +7,15 @@ from typing import TYPE_CHECKING
 from django.template.loader import render_to_string
 
 from .errors import help_text_id
-from .input import inplace_class
 
 if TYPE_CHECKING:
     from django.forms import BoundField
 
 
 def render_textarea(
-    field: BoundField, *, inplace: bool = False, placeholder: str = ""
+    field: BoundField, *, inplace_class: str = "", placeholder: str = ""
 ) -> str:
-    """Render a styled ``<textarea>``, or with ``inplace`` one dressed as its text.
+    """Render a styled ``<textarea>``, or with ``inplace_class`` dressed as text.
 
     Returns:
         HTML string of the textarea element.
@@ -33,6 +32,6 @@ def render_textarea(
             "placeholder": placeholder or attrs.get("placeholder", ""),
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
-            "inplace_class": inplace_class(shape="textarea") if inplace else "",
+            "inplace_class": inplace_class,
         },
     )

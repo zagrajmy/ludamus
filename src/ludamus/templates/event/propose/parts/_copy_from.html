@@ -1,4 +1,5 @@
-{% load i18n tessera %}
+{% load i18n tessera vite_tags %}
+{% vite_asset_once 'src/propose-copy.ts' %}
 {# Starting from one of your earlier sessions: an extra action, so a quiet #}
 {# disclosure beside the session on wide screens and under it on narrow #}
 {# ones. propose-copy.ts fills the form from the JSON below and can undo it. #}

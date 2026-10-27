@@ -1,7 +1,7 @@
 {# Text input field. Always pass `name`. Other vars are optional — use `only` in includes. #}
 {# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, min, max, inputmode, pattern, autocomplete, datalist_id, spellcheck, has_errors, aria_label, aria_describedby, data_write_in_chips, chips_remove_label, chips_limit_error #}
 {# `class` appends to the component look — for layout (width, grow), not for restyling the field. #}
-{# inplace_class replaces the look with the in-place one (tessera `inplace_class`): a field dressed as the text it writes. #}
+{# inplace_class replaces the look with the in-place one (tessera `inplace_look`): a field dressed as the text it writes. #}
 {# text-base keeps inputs at 16px on mobile so iOS Safari doesn't auto-zoom on focus; sm:text-sm restores the compact desktop size. #}
 <input type="{{ input_type|default:"text" }}"
        {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}

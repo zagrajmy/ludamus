@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load tessera django_vite %}
+{% load tessera %}
 {% block title %}
     {% translate "Propose Session" %}
 {% endblock title %}
@@ -17,5 +17,4 @@
     <p class="max-w-2xl mx-auto mt-6 text-sm text-center text-foreground-muted">
         {% translate "Proposals are reviewed by organizers. You'll be notified when yours is accepted and added to the agenda." %}
     </p>
-    {% vite_asset 'src/propose-copy.ts' %}
 {% endblock body %}

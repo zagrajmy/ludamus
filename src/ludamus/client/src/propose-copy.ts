@@ -79,7 +79,7 @@ document.addEventListener("click", (event) => {
   }
 
   const all = JSON.parse(
-    document.getElementById("propose-copy-values")?.textContent ?? "{}",
+    panel.querySelector('script[type="application/json"]')?.textContent ?? "{}",
   ) as Record<string, Values>;
   const values = all[pk];
   if (!values) return;

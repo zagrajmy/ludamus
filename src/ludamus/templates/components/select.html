@@ -2,7 +2,7 @@
 {# Tag mode ({% select %}): attrs (safe string), extra_class, has_errors, slot (safe string) #}
 {# Form mode (render_select): name, id, choices, selected, required, has_errors, disabled, aria_describedby #}
 {# has_errors carries both cues in either mode — the red border and aria-invalid. #}
-{# Form mode also takes inplace_class (the in-place look, from tessera `inplace_class`) and placeholder, which names the blank choice. #}
+{# Form mode also takes inplace_class: the in-place look, from tessera `inplace_look`. #}
 <select class="{% if inplace_class|default:"" %}{{ inplace_class }}{% else %}w-full px-3 py-2 text-base sm:text-sm rounded-lg border border-border aria-invalid:border-danger bg-bg-secondary text-foreground disabled:opacity-50 disabled:cursor-not-allowed{% endif %}{% if extra_class|default:"" %} {{ extra_class }}{% endif %}" {% if has_errors|default:False %}aria-invalid="true"{% endif %} {% if attrs|default:"" %}{{ attrs }}{% else %}{% if id|default:"" %}id="{{ id }}"{% endif %} name="{{ name|default:"" }}" {% if required|default:False %}required{% endif %} {% if disabled|default:False %}disabled{% endif %} {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %} {% endif %}>
     {% if groups|default:"" %}
         {% for group in groups %}
@@ -10,11 +10,7 @@
             {% for value, label in group.options %}
                 <option value="{{ value }}"
                         {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>
-                    {% if value == "" and placeholder|default:"" %}
-                        {{ placeholder }}
-                    {% else %}
-                        {{ label }}
-                    {% endif %}
+                    {{ label }}
                 </option>
             {% endfor %}
             {% if group.label %}</optgroup>{% endif %}
@@ -23,11 +19,7 @@
         {% for value, label in choices %}
             <option value="{{ value }}"
                     {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>
-                {% if value == "" and placeholder|default:"" %}
-                    {{ placeholder }}
-                {% else %}
-                    {{ label }}
-                {% endif %}
+                {{ label }}
             </option>
         {% endfor %}
     {% else %}

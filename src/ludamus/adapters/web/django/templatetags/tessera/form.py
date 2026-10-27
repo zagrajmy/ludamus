@@ -10,9 +10,11 @@ from django.forms.widgets import (
     ChoiceWidget,
     FileInput,
     HiddenInput,
+    NumberInput,
     RadioSelect,
     Select,
     Textarea,
+    Widget,
 )
 from django.template.loader import render_to_string
 from django.utils.html import format_html, format_html_join
@@ -29,6 +31,7 @@ from .checkbox import (
 from .errors import render_errors, render_form_errors, render_help_text
 from .file_input import render_file_input
 from .form_select import render_select
+from .inplace import inplace_look
 from .input import render_input
 from .label import render_label
 from .textarea import render_textarea
@@ -72,21 +75,30 @@ def _sole_choice_input(field: BoundField) -> str | None:
 
 
 def _render_field_input(
-    field: BoundField,
-    *,
-    inplace: bool = False,
-    placeholder: str = "",
-    fit: bool = False,
-    pill: bool = False,
+    field: BoundField, *, inplace_class: str = "", placeholder: str = ""
 ) -> str:
     widget = field.field.widget
     if isinstance(widget, Select):
-        return render_select(field, inplace=inplace, pill=pill, placeholder=placeholder)
+        return render_select(
+            field, inplace_class=inplace_class, placeholder=placeholder
+        )
     if isinstance(widget, Textarea):
-        return render_textarea(field, inplace=inplace, placeholder=placeholder)
+        return render_textarea(
+            field, inplace_class=inplace_class, placeholder=placeholder
+        )
     if isinstance(widget, FileInput):
-        return render_file_input(field, inplace=inplace)
-    return render_input(field, inplace=inplace, fit=fit, placeholder=placeholder)
+        return render_file_input(field, inplace=bool(inplace_class))
+    return render_input(field, inplace_class=inplace_class, placeholder=placeholder)
+
+
+def _inplace_shape(widget: Widget, *, fit: bool) -> str:
+    if isinstance(widget, Textarea):
+        return "textarea"
+    if isinstance(widget, Select):
+        return "select"
+    if isinstance(widget, NumberInput):
+        return "number"
+    return "fit" if fit else "text"
 
 
 def _render_controls(field: BoundField, control: str) -> str:
@@ -152,13 +164,15 @@ def tessera_field(
 
 @register.simple_tag
 def tessera_inplace(
-    field: BoundField, *, placeholder: str = "", fit: bool = False, pill: bool = False
+    field: BoundField, *, placeholder: str = "", fit: bool = False
 ) -> str:
     """Render a field's control in place: dressed as the text it writes.
 
     For pages that show a thing in the shape it is read in, so the label is
-    the page's own; only the control, its help text and its errors render here. A select
-    with one option is still not asked, as in `tessera_field`.
+    the page's own; only the control, its help text and its errors render
+    here. ``fit`` sizes a text field to its content, for a value prefilled
+    from the account. A select with one option is still not asked, as in
+    `tessera_field`.
 
     Returns:
         HTML string of the control followed by its help text and errors.
@@ -170,10 +184,11 @@ def tessera_inplace(
     """
     if (hidden := _sole_choice_input(field)) is not None:
         return hidden
+    shape = _inplace_shape(field.field.widget, fit=fit)
     return _render_controls(
         field,
         _render_field_input(
-            field, inplace=True, placeholder=placeholder, fit=fit, pill=pill
+            field, inplace_class=inplace_look(shape=shape), placeholder=placeholder
         ),
     )
 

@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from ludamus.pacts import FieldAnswer
 
 from ._registry import register
-from .input import inplace_class
+from .inplace import inplace_look
 
 if TYPE_CHECKING:
     from ludamus.pacts import FieldValue, OrganizerFieldDTO
@@ -49,7 +49,10 @@ def field_context(
     return {
         "field": field,
         "label": field.question,
-        "heading": field.name if inplace else field.question,
+        # A checkbox's question is what it says yes to, so it stays the label.
+        "heading": (
+            field.name if inplace and field.field_type != "checkbox" else field.question
+        ),
         "placeholder": field.question if inplace else "",
         "inplace": inplace,
         "label_class": (
@@ -58,8 +61,8 @@ def field_context(
             else "block text-sm font-medium text-foreground-secondary"
             " first-letter:uppercase"
         ),
-        "text_class": inplace_class(shape="text") if inplace else "",
-        "pill_class": inplace_class(shape="pill") if inplace else "",
+        "text_class": inplace_look(shape="text") if inplace else "",
+        "pill_class": inplace_look(shape="pill") if inplace else "",
         "icon_name": field.icon,
         "name": name,
         "input_id": input_id,
@@ -67,7 +70,11 @@ def field_context(
         "control_required": field.control_required(is_required=answer.is_required),
         "offers_custom": field.offers_custom_input,
         "errors": answer.errors,
-        "choices": field.choices,
+        # In place the blank choice asks the question, as a placeholder would.
+        "choices": [
+            (value, field.question if inplace and not value else label)
+            for value, label in field.choices
+        ],
         "options": [
             (o.value, o.label, o.value in selected, f"{input_id}_{i}")
             for i, o in enumerate(options)

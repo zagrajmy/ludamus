@@ -33,8 +33,9 @@
                 <legend class="text-sm font-semibold text-foreground-secondary">
                     {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True inplace=True only %}
                 </legend>
-                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error inplace=True only %}
-                {% if track_error %}<p class="text-sm text-danger">{{ track_error }}</p>{% endif %}
+                {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error aria_describedby=track_error|yesno:"propose-track-error," inplace=True only %}
+                {% if track_error %}<p id="propose-track-error"
+   class="text-sm text-danger">{{ track_error }}</p>{% endif %}
             </fieldset>
         {% endif %}
     </div>
@@ -46,6 +47,9 @@
         {% tessera_sole_choice form.duration as sole_duration %}
         {% if sole_duration %}
             {% tessera_inplace form.duration %}
+            {% session_fact icon="clock" %}
+                {{ sole_duration }}
+            {% end_session_fact %}
         {% else %}
             {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}
                 {% tessera_inplace form.duration placeholder="–" %}
@@ -53,11 +57,13 @@
         {% endif %}
     {% endif %}
     {% translate "Seats" as seats_label %}
-    {% if not form.participants_limit.field.required %}
-        {% translate "no sign-up" as seats_placeholder %}
-    {% endif %}
     {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
-        {% tessera_inplace form.participants_limit placeholder=seats_placeholder|default:"–" %}
+        {% if form.participants_limit.field.required %}
+            {% tessera_inplace form.participants_limit placeholder="–" %}
+        {% else %}
+            {% translate "no sign-up" as no_sign_up %}
+            {% tessera_inplace form.participants_limit placeholder=no_sign_up %}
+        {% endif %}
     {% end_session_fact %}
     {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
         <span class="inline-flex items-baseline">
