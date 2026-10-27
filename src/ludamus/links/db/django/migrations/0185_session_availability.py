@@ -70,7 +70,7 @@ def carry_preferences_to_availability(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0183_listing")]
+    dependencies = [("db_main", "0184_user_privacy_revision")]
 
     operations = [
         migrations.CreateModel(

@@ -1475,6 +1475,27 @@ def _create_age_scenarios() -> None:
         )
 
 
+def _create_privacy_scenarios() -> None:
+    _create_site("ludamus.localhost:8001", name="Privacy root")
+    _create_site("another.ludamus.localhost:8001", name="Privacy sibling")
+    for scenario, age_band in (
+        ("revocation", AgeBand.SIXTEEN_PLUS),
+        ("loading", AgeBand.SIXTEEN_PLUS),
+        ("legacy", AgeBand.THIRTEEN_TO_FIFTEEN),
+    ):
+        user = User.objects.create_user(
+            username=f"e2e-privacy-{scenario}",
+            slug=f"e2e-privacy-{scenario}",
+            name="Privacy participant",
+            age_band=age_band,
+        )
+        _write_storage_state(
+            user,
+            domain=".ludamus.localhost",
+            path=REPO_ROOT / f"tests/e2e/.auth-state-privacy-{scenario}.json",
+        )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1492,6 +1513,7 @@ def main() -> None:
     # Test user for authenticated e2e tests
     tester = _create_test_user()
     _create_age_scenarios()
+    _create_privacy_scenarios()
 
     superuser = User.objects.create_superuser(
         username="admin",
