@@ -14,7 +14,7 @@ from django.template.loader import render_to_string
 
 from ludamus.pacts import FieldAnswer
 
-from ._choices import is_blank_choice
+from ._choices import name_blank_choice
 from ._registry import register
 from .inplace import inplace_look
 
@@ -75,11 +75,11 @@ def field_context(
         "control_required": field.control_required(is_required=answer.is_required),
         "offers_custom": field.offers_custom_input,
         "errors": answer.errors,
-        # In place the blank choice asks the question, as a placeholder would.
-        "choices": [
-            (value, field.question if inplace and is_blank_choice(value) else label)
-            for value, label in field.choices
-        ],
+        "choices": (
+            name_blank_choice(field.choices, field.question)
+            if inplace
+            else field.choices
+        ),
         "options": [
             (o.value, o.label, o.value in selected, f"{input_id}_{i}")
             for i, o in enumerate(options)

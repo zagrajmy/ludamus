@@ -36,7 +36,9 @@ from ludamus.pacts import (
 from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
+    EventFactory,
     ProposalCategoryFactory,
+    SessionFactory,
     TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
@@ -1101,6 +1103,41 @@ class TestProposeSessionPageView:
             template_name="event/propose/parts/details.html",
         )
         assert "track_pks" not in authenticated_client.session[f"propose_{event.slug}"]
+
+    def test_copy_values_answer_only_the_questions_this_event_asks(
+        self,
+        authenticated_client,
+        active_user,
+        event,
+        faker,
+        time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        asked = SessionField.objects.create(
+            event=event, name="System", question="Which system?", slug="system"
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=asked, is_required=False
+        )
+        past_event = EventFactory(sphere=event.sphere)
+        past = SessionFactory(
+            category=ProposalCategoryFactory(event=past_event),
+            presenter=active_user,
+            participants_limit=0,
+        )
+        for slug, value in (("system", "Fate"), ("legacy", "Old answer")):
+            field = SessionField.objects.create(
+                event=past_event, name=slug, question=slug, slug=slug
+            )
+            SessionFieldValue.objects.create(session=past, field=field, value=value)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        values = response.context["reusable_form_values"][str(past.pk)]
+        assert values["session_system"] == "Fate"
+        assert "session_legacy" not in values
+        assert not values["participants_limit"]
 
     def test_post_session_details_with_session_fields(
         self, authenticated_client, event, faker, time_zone, proposal_category

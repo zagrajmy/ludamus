@@ -216,7 +216,7 @@ class TestBuildSessionDetailsFormDurations:
         form = form_class()
 
         choices = form.fields["duration"].choices
-        assert choices[0] == ("", "---")
+        assert choices[0] == ("", "–")
 
     def test_duration_choices_include_one_entry_per_duration(self):
         durations = ["PT30M", "PT1H", "PT1H30M"]

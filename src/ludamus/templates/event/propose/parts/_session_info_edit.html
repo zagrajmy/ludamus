@@ -31,7 +31,7 @@
             {% translate "Tracks" as tracks_label %}
             <fieldset class="flex flex-col gap-y-1">
                 <legend class="text-sm font-semibold text-foreground-secondary">
-                    {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True inplace=True only %}
+                    {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True only %}
                 </legend>
                 {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error aria_describedby=track_error|yesno:"propose-track-error," inplace=True only %}
                 {% if track_error %}<p id="propose-track-error"
@@ -52,7 +52,7 @@
             {% end_session_fact %}
         {% else %}
             {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}
-                {% tessera_inplace form.duration placeholder="–" %}
+                {% tessera_inplace form.duration %}
             {% end_session_fact %}
         {% endif %}
     {% endif %}
@@ -62,7 +62,7 @@
     {% end_session_fact %}
     {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
         <span class="inline-flex items-baseline">
-            {% tessera_inplace form.min_age placeholder="0" %}
+            {% tessera_inplace form.min_age %}
             <span>+</span>
         </span>
     {% end_session_fact %}

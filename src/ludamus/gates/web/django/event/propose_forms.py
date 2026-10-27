@@ -17,6 +17,8 @@ from ludamus.pacts.durations import duration_choices
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from django.utils.functional import Promise
+
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
@@ -60,13 +62,16 @@ def build_session_details_form(
         participants_kwargs["max_value"] = max_limit
     elif not min_limit:
         participants_kwargs["required"] = False
-    # An empty optional limit means the session takes no sign-up, and says so.
+    # The empty field says what it takes: the category's range, or that an
+    # empty optional limit means the session takes no sign-up.
+    if max_limit:
+        seats_placeholder: str | Promise = f"{min_limit}–{max_limit}"
+    elif min_limit:
+        seats_placeholder = f"{min_limit}+"
+    else:
+        seats_placeholder = _("no sign-up")
     participants_kwargs["widget"] = forms.NumberInput(
-        attrs={
-            "placeholder": (
-                "–" if participants_kwargs.get("required", True) else _("no sign-up")
-            )
-        }
+        attrs={"placeholder": seats_placeholder}
     )
 
     fields: dict[str, forms.Field] = {
@@ -83,7 +88,7 @@ def build_session_details_form(
 
     if choices := duration_choices(durations):
         fields["duration"] = forms.ChoiceField(
-            label=_("Duration"), choices=[("", "---"), *choices]
+            label=_("Duration"), choices=[("", "–"), *choices]
         )
 
     custom_required = build_dynamic_fields(

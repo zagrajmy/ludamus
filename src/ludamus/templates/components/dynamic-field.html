@@ -13,10 +13,10 @@
         <fieldset>
             <legend class="{{ label_class }}">
                 {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
+                {# In place the legend leads with the field's name; a group has no #}
+                {# placeholder, so the question rides along in the legend. #}
+                {% if inplace %}<span class="block text-xs font-normal text-foreground-muted">{{ label }}</span>{% endif %}
             </legend>
-            {# In place the legend is the field's name; a group has no placeholder #}
-            {# to carry the question, so it is said here. #}
-            {% if inplace %}<p class="text-xs">{{ label }}</p>{% endif %}
             {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors aria_describedby=described_by inplace=inplace only %}
         </fieldset>
     {% elif field.field_type == "select" %}
