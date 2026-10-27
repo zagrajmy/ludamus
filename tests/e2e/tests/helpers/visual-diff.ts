@@ -33,27 +33,50 @@ export async function visualDiff(
           : 0;
       const pixels = (img: HTMLImageElement) => {
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = img.width;
+        canvas.height = img.height;
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0);
-        return ctx.getImageData(0, 0, width, height).data;
+        return ctx.getImageData(0, 0, img.width, img.height).data;
       };
       const pa = pixels(imgA);
       const pb = pixels(imgB);
+      // Luminance, not colour: a composited layer (the modal) draws text with
+      // greyscale anti-aliasing where the page uses subpixel colour fringes,
+      // so per-channel comparison flags every glyph edge on Linux.
+      const luma = (px: Uint8ClampedArray, i: number) =>
+        0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      const hit = (x: number, ya: number, yb: number) =>
+        Math.abs(luma(pa, (ya * imgA.width + x) * 4) - luma(pb, (yb * imgB.width + x) * 4)) > 32;
+      // The same rounding can shift one crop's content a pixel down; compare
+      // at the vertical offset (within the slack) where the two agree most.
+      const count = (dy: number) => {
+        let differing = 0;
+        for (let y = 0; y < height; y += 1) {
+          const yb = y + dy;
+          if (yb < 0 || yb >= imgB.height) continue;
+          for (let x = 0; x < width; x += 1) if (hit(x, y, yb)) differing += 1;
+        }
+        return differing;
+      };
+      let dy = 0;
+      let differing = count(0);
+      for (let shift = -slack; shift <= slack; shift += 1) {
+        const found = shift === 0 ? differing : count(shift);
+        if (found < differing) [dy, differing] = [shift, found];
+      }
       const out = new ImageData(width, height);
-      let differing = 0;
-      for (let i = 0; i < pa.length; i += 4) {
-        const delta =
-          Math.abs(pa[i] - pb[i]) +
-          Math.abs(pa[i + 1] - pb[i + 1]) +
-          Math.abs(pa[i + 2] - pb[i + 2]);
-        const hit = delta > 48;
-        if (hit) differing += 1;
-        out.data[i] = hit ? 230 : 180 + pa[i] * 0.25;
-        out.data[i + 1] = hit ? 30 : 180 + pa[i + 1] * 0.25;
-        out.data[i + 2] = hit ? 30 : 180 + pa[i + 2] * 0.25;
-        out.data[i + 3] = 255;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const i = (y * width + x) * 4;
+          const a = (y * imgA.width + x) * 4;
+          const yb = y + dy;
+          const red = yb >= 0 && yb < imgB.height && hit(x, y, yb);
+          out.data[i] = red ? 230 : 180 + pa[a] * 0.25;
+          out.data[i + 1] = red ? 30 : 180 + pa[a + 1] * 0.25;
+          out.data[i + 2] = red ? 30 : 180 + pa[a + 2] * 0.25;
+          out.data[i + 3] = 255;
+        }
       }
       const canvas = document.createElement("canvas");
       canvas.width = width;
