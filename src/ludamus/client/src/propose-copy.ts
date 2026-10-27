@@ -76,9 +76,12 @@ const markCopied = (panel: HTMLElement, pk: string | null): void => {
 };
 
 document.addEventListener("click", (event) => {
-  const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
-    "[data-propose-copy-from], [data-propose-copy-undo]",
-  );
+  const button =
+    event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>(
+          "[data-propose-copy-from], [data-propose-copy-undo]",
+        )
+      : null;
   const panel = button?.closest<HTMLElement>("[data-propose-copy]");
   const form = panel && document.getElementById(panel.dataset.proposeCopy ?? "");
   if (!button || !panel || !(form instanceof HTMLFormElement)) return;
@@ -96,6 +99,8 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  // SAFETY: the panel's own json_script of reusable_form_values, which the
+  // gate builds as a {pk: {field name: value}} map of the form's fields.
   const all = JSON.parse(
     panel.querySelector('script[type="application/json"]')?.textContent ?? "{}",
   ) as Record<string, Values>;

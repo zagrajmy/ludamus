@@ -8367,10 +8367,6 @@ msgstr "Tytuł punktu programu"
 msgid "Participants won't see this."
 msgstr "Uczestnicy tego nie zobaczą."
 
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session details saved. Next step coming soon."
-msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
-
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Your Information"
@@ -13359,6 +13355,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
 #~ msgid "0 = no age restriction"
 #~ msgstr "0 = brak ograniczenia wiekowego"

@@ -140,9 +140,10 @@ const initChipsInput = (draft: HTMLInputElement): void => {
 
   // Another script setting the answer (a copied session) replaces the chips.
   mirror.addEventListener("write-in:set", (event) => {
+    if (!(event instanceof CustomEvent) || typeof event.detail !== "string") return;
     for (const value of chips.keys()) removeChip(value);
     draft.value = "";
-    for (const value of splitValues((event as CustomEvent<string>).detail)) addChip(value);
+    for (const value of splitValues(event.detail)) addChip(value);
     sync();
   });
 

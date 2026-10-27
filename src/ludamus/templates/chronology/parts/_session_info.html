@@ -5,10 +5,12 @@
 {# them (event/propose/parts/_session_info_edit.html), so a proposal is #}
 {# written in the shape it will be read in. #}
 <div data-session-info>
-    <div class="flex items-center gap-3 mb-4 flex-wrap text-sm">
-        {% block host %}
-        {% endblock host %}
-    </div>
+    {% block host_section %}
+        <div class="flex items-center gap-3 mb-4 flex-wrap text-sm">
+            {% block host %}
+            {% endblock host %}
+        </div>
+    {% endblock host_section %}
     {# The card's own facts line (when, where, how long, how many, how old), #}
     {# so a session is summed up in the same words on the card and here. #}
     <div class="flex flex-wrap items-end gap-x-5 gap-y-2 mb-6 text-sm text-foreground-secondary"

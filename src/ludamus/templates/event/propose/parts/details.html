@@ -7,53 +7,49 @@
     <div class="w-full max-w-200 min-w-0">
         {% include "event/propose/parts/_proposal_description.html" %}
         {% include "event/propose/parts/_stepper.html" %}
-        {% if form|default:"" %}
-            <form id="propose-details-form"
-                  method="post"
-                  enctype="multipart/form-data"
-                  class="bg-bg-secondary border border-border rounded-2xl shadow-lg text-foreground"
-                  hx-post="{% url 'web:event:session-propose-details' event_slug=event.slug %}"
-                  hx-encoding="multipart/form-data"
-                  hx-target="#wizard-content"
-                  hx-swap="outerHTML show:#wizard-content:top">
-                {% csrf_token %}
-                <h2 class="sr-only">{% translate "Session Details" %}</h2>
-                {# Where the card shows its cover, at the card's own crop. #}
-                {% if image_form %}
-                    <div class="px-1 pt-1">{% tessera_inplace image_form.cover_image %}</div>
+        <form id="propose-details-form"
+              method="post"
+              enctype="multipart/form-data"
+              class="bg-bg-secondary border border-border rounded-2xl shadow-lg text-foreground"
+              hx-post="{% url 'web:event:session-propose-details' event_slug=event.slug %}"
+              hx-encoding="multipart/form-data"
+              hx-target="#wizard-content"
+              hx-swap="outerHTML show:#wizard-content:top">
+            {% csrf_token %}
+            <h2 class="sr-only">{% translate "Session Details" %}</h2>
+            {# Where the card shows its cover, at the card's own crop. #}
+            {% if image_form %}
+                <div class="px-1 pt-1">{% tessera_inplace image_form.cover_image %}</div>
+            {% endif %}
+            <div class="px-6 py-4 border-b border-border text-lg font-semibold text-foreground">
+                <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
+                {% translate "Session title" as title_placeholder %}
+                {% tessera_inplace form.title placeholder=title_placeholder %}
+            </div>
+            <div class="px-6 py-4">
+                {% include "event/propose/parts/_session_info_edit.html" %}
+                {% if private_field_descriptors %}
+                    <section class="rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 bg-proposal-surface p-4"
+                             aria-labelledby="propose-private-heading">
+                        <h3 id="propose-private-heading"
+                            class="flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary">
+                            {% include "components/icon-lock-closed.html" with size="w-4 h-4" %}
+                            {% translate "Visible to organizers only" %}
+                        </h3>
+                        <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
+                        {% for desc in private_field_descriptors %}
+                            {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer visibility_badge=False %}
+                        {% endfor %}
+                    </section>
                 {% endif %}
-                <div class="px-6 py-4 border-b border-border text-lg font-semibold text-foreground">
-                    <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
-                    {% translate "Session title" as title_placeholder %}
-                    {% tessera_inplace form.title placeholder=title_placeholder %}
-                </div>
-                <div class="px-6 py-4">
-                    {% include "event/propose/parts/_session_info_edit.html" %}
-                    {% if private_field_descriptors %}
-                        <section class="rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 bg-proposal-surface p-4"
-                                 aria-labelledby="propose-private-heading">
-                            <h3 id="propose-private-heading"
-                                class="flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary">
-                                {% include "components/icon-lock-closed.html" with size="w-4 h-4" %}
-                                {% translate "Visible to organizers only" %}
-                            </h3>
-                            <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
-                            {% for desc in private_field_descriptors %}
-                                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer visibility_badge=False %}
-                            {% endfor %}
-                        </section>
-                    {% endif %}
-                </div>
-                <div class="px-6 pb-6 border-t border-border">
-                    {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
-                    {% include "event/propose/parts/_nav.html" %}
-                </div>
-            </form>
-        {% elif submitted|default:False %}
-            <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>
-        {% endif %}
+            </div>
+            <div class="px-6 pb-6 border-t border-border">
+                {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
+                {% include "event/propose/parts/_nav.html" %}
+            </div>
+        </form>
     </div>
-    {% if form|default:"" and reusable_sessions %}
+    {% if reusable_sessions %}
         {% include "event/propose/parts/_copy_from.html" %}
     {% endif %}
 </div>
