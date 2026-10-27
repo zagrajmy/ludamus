@@ -164,7 +164,7 @@ def tessera_action_dropdown_item(
     )
     label = (
         format_html(
-            '<span class="grid"><span>{}</span>'
+            '<span class="grid whitespace-normal"><span>{}</span>'
             '<span class="text-xs font-normal text-foreground-muted">{}</span></span>',
             text,
             detail,
