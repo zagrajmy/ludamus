@@ -16,10 +16,11 @@ from ludamus.pacts.legacy import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos
+from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos, ReusableSessionDTO
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
+    REUSABLE_SESSIONS_LIMIT,
 )
 from tests.unit.factories import event_dto
 
@@ -117,6 +118,7 @@ def repos_fixture():
         categories=MagicMock(),
         tracks=MagicMock(),
         sessions=MagicMock(),
+        reusable_sessions=MagicMock(),
         session_fields=MagicMock(),
         personal_fields=MagicMock(),
         personal_data_field_values=MagicMock(),
@@ -694,6 +696,78 @@ class TestAccountAnswers:
         )
 
         assert answers.personal_data == {}
+
+
+def _reusable(pk: int) -> ReusableSessionDTO:
+    return ReusableSessionDTO(
+        pk=pk,
+        title=f"Session {pk}",
+        event_name="Earlier edition",
+        description="",
+        participants_limit=4,
+        min_age=0,
+        duration="",
+        field_values={},
+    )
+
+
+class FakeReusableSessions:
+    """Answers like the repo: a user's sessions in a sphere, but one event."""
+
+    def __init__(self, rows):
+        # Each row is an owner, a sphere and an event, then the session.
+        self.rows = rows
+
+    def list_reusable(self, *, user_id, sphere_id, exclude_event_id, limit):
+        return [
+            session
+            for owner, sphere, event, session in self.rows
+            if owner == user_id and sphere == sphere_id and event != exclude_event_id
+        ][:limit]
+
+
+class TestListReusableSessions:
+    @staticmethod
+    def _service(repos, rows):
+        return ProposeSessionService(
+            transaction=MagicMock(),
+            repos=repos._replace(reusable_sessions=FakeReusableSessions(rows)),
+            cache=FakeCache(),
+        )
+
+    def test_offers_an_anonymous_proposer_nothing(self, repos):
+        service = self._service(repos, [(None, 1, 2, _reusable(1))])
+
+        assert service.list_reusable_sessions(user_id=None, event=event_dto()) == []
+
+    def test_offers_the_users_sessions_from_the_spheres_other_events(self, repos):
+        event = event_dto(pk=10, sphere_id=1)
+        service = self._service(
+            repos,
+            [
+                (USER_PK, 1, 9, own := _reusable(1)),
+                (USER_PK, 1, 10, _reusable(2)),
+                (USER_PK, 2, 9, _reusable(3)),
+                (USER_PK + 1, 1, 9, _reusable(4)),
+            ],
+        )
+
+        assert service.list_reusable_sessions(user_id=USER_PK, event=event) == [own]
+
+    def test_offers_at_most_the_spec_limit(self, repos):
+        service = self._service(
+            repos,
+            [
+                (USER_PK, 1, 9, _reusable(pk))
+                for pk in range(REUSABLE_SESSIONS_LIMIT + 2)
+            ],
+        )
+
+        found = service.list_reusable_sessions(
+            user_id=USER_PK, event=event_dto(pk=10, sphere_id=1)
+        )
+
+        assert len(found) == REUSABLE_SESSIONS_LIMIT
 
 
 class FakeUsers:

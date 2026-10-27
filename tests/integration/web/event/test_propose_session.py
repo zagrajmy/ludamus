@@ -1137,6 +1137,7 @@ class TestProposeSessionPageView:
         values = response.context["reusable_form_values"][str(past.pk)]
         assert values["session_system"] == "Fate"
         assert "session_legacy" not in values
+        assert "facilitator_name" not in values
         assert not values["participants_limit"]
 
     def test_post_session_details_with_session_fields(

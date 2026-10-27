@@ -167,7 +167,6 @@ def _reusable_form_values(
         ),
         "title": session.title,
         "description": session.description,
-        "facilitator_name": session.facilitator_name,
         "participants_limit": str(session.participants_limit or ""),
         "min_age": str(session.min_age),
         "duration": session.duration,
@@ -175,7 +174,11 @@ def _reusable_form_values(
     # NOTE: another event asks other questions. An answer carries over only
     # to a field this form has, and every field it has is set, so a copy never
     # leaves half of what the proposer typed under another session's title.
-    return {name: copied.get(name, "") for name in form.fields}
+    # The proposer's own name stays: a session they co-ran was written under
+    # someone else's.
+    return {
+        name: copied.get(name, "") for name in form.fields if name != "facilitator_name"
+    }
 
 
 def _display_value(field: OrganizerFieldDTO, raw: object) -> object:

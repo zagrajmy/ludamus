@@ -46,7 +46,6 @@ class ReusableSessionDTO(BaseModel):
     title: str
     event_name: str
     description: str
-    facilitator_name: str
     participants_limit: int
     min_age: int
     duration: str

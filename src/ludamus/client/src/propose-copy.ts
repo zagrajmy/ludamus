@@ -3,6 +3,8 @@ type Values = Record<string, Value>;
 
 const snapshots = new WeakMap<HTMLFormElement, Values>();
 
+const asText = (value: Value): string => (typeof value === "string" ? value : "");
+
 // write-in-chips.ts keeps a write-in's answer in a hidden mirror input; any
 // other hidden input is the form's own (a one-option choice) and stays.
 const isChipsMirror = (el: Element): el is HTMLInputElement =>
@@ -40,9 +42,7 @@ const write = (form: HTMLFormElement, values: Values): void => {
   for (const [name, value] of Object.entries(values)) {
     for (const el of controls(form, name)) {
       if (isChipsMirror(el)) {
-        el.dispatchEvent(
-          new CustomEvent("write-in:set", { detail: typeof value === "string" ? value : "" }),
-        );
+        el.dispatchEvent(new CustomEvent("write-in:set", { detail: asText(value) }));
         continue;
       }
       if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) {
@@ -50,10 +50,10 @@ const write = (form: HTMLFormElement, values: Values): void => {
           ? value.includes(el.value)
           : value === true || value === el.value;
       } else if (el instanceof HTMLSelectElement) {
-        const wanted = typeof value === "string" ? value : "";
+        const wanted = asText(value);
         el.value = [...el.options].some((o) => o.value === wanted) ? wanted : "";
       } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-        el.value = Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : "";
+        el.value = Array.isArray(value) ? value.join(", ") : asText(value);
       }
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));

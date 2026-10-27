@@ -38,7 +38,6 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
                     title=session.title,
                     event_name=session.event.name,
                     description=session.description,
-                    facilitator_name=session.facilitator_name,
                     participants_limit=session.participants_limit,
                     min_age=session.min_age,
                     duration=session.duration,
