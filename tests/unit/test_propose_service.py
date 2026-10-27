@@ -20,7 +20,6 @@ from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos, ReusableSessi
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
-    REUSABLE_SESSIONS_LIMIT,
 )
 from tests.unit.factories import event_dto
 
@@ -753,21 +752,6 @@ class TestListReusableSessions:
         )
 
         assert service.list_reusable_sessions(user_id=USER_PK, event=event) == [own]
-
-    def test_offers_at_most_the_spec_limit(self, repos):
-        service = self._service(
-            repos,
-            [
-                (USER_PK, 1, 9, _reusable(pk))
-                for pk in range(REUSABLE_SESSIONS_LIMIT + 2)
-            ],
-        )
-
-        found = service.list_reusable_sessions(
-            user_id=USER_PK, event=event_dto(pk=10, sphere_id=1)
-        )
-
-        assert len(found) == REUSABLE_SESSIONS_LIMIT
 
 
 class FakeUsers:

@@ -15,9 +15,9 @@ def _session(*, event, **kwargs):
     return SessionFactory(category=ProposalCategoryFactory(event=event), **kwargs)
 
 
-def _list(*, user, sphere, current):
+def _list(*, user, sphere, current, limit=5):
     return ReusableSessionRepository.list_reusable(
-        user_id=user.pk, sphere_id=sphere.pk, exclude_event_id=current.pk, limit=5
+        user_id=user.pk, sphere_id=sphere.pk, exclude_event_id=current.pk, limit=limit
     )
 
 
@@ -78,6 +78,21 @@ class TestListReusable:
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
         assert [s.pk for s in found] == [latest.pk]
+
+    def test_stops_at_the_limit_with_the_newest(self):
+        user = UserFactory()
+        sphere = SphereFactory()
+        now = datetime.now(UTC)
+        older = EventFactory(sphere=sphere, start_time=now - timedelta(days=60))
+        newer = EventFactory(sphere=sphere, start_time=now - timedelta(days=30))
+        _session(event=older, presenter=user, title="Older")
+        newest = _session(event=newer, presenter=user, title="Newer")
+
+        found = _list(
+            user=user, sphere=sphere, current=EventFactory(sphere=sphere), limit=1
+        )
+
+        assert [s.pk for s in found] == [newest.pk]
 
     def test_carries_answers_by_field_slug(self):
         user = UserFactory()
