@@ -189,7 +189,12 @@ export function Conversation({
     act(async () => {
       const url = new URL(globalThis.location.href);
       url.hash = `parley:${room.id}:${messageId}`;
-      await navigator.clipboard.writeText(url.toString());
+      try {
+        await navigator.clipboard.writeText(url.toString());
+      } catch {
+        // A refused clipboard is the browser's call, not a lost connection.
+        return { error: copy.errorUnknown };
+      }
       return { notice: copy.linkCopied };
     });
   const report = (messageId: number) =>
