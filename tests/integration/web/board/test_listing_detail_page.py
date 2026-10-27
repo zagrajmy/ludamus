@@ -28,6 +28,9 @@ class TestListingDetailPageView:
                 "listing": listing_dto(listing),
                 "is_author": False,
                 "open_for_days": 30,
+                "own_response": None,
+                "response_form": None,
+                "waiting_count": None,
             },
             template_name="board/detail.html",
         )
@@ -49,6 +52,9 @@ class TestListingDetailPageView:
                 "listing": listing_dto(listing),
                 "is_author": True,
                 "open_for_days": 30,
+                "own_response": None,
+                "response_form": None,
+                "waiting_count": 0,
             },
             template_name="board/detail.html",
         )
@@ -104,6 +110,9 @@ class TestListingDetailPageView:
                 "listing": listing_dto(listing),
                 "is_author": True,
                 "open_for_days": 30,
+                "own_response": None,
+                "response_form": None,
+                "waiting_count": 0,
             },
             template_name="board/detail.html",
         )
