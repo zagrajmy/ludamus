@@ -10,6 +10,7 @@ from ludamus.inits.builders import (
     build_encounter_guests,
     build_encounters,
     build_konwencik_export,
+    build_listings,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -103,6 +104,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
@@ -122,6 +124,7 @@ from ludamus.pacts.timetable import TimetableRepos
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.konwencik import KonwencikExportService
+    from ludamus.mills.listing import ListingService
     from ludamus.pacts.chronology import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
@@ -198,7 +201,6 @@ class Services:
         return ProfileService(
             transaction=self._transaction,
             users=self._repos.active_users,
-            participations=self._repos.profile_stats,
             avatar_url=gravatar_url,
         )
 
@@ -217,6 +219,7 @@ class Services:
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            subscriptions=self._repos.sphere_subscriptions,
         )
 
     @cached_property
@@ -547,6 +550,14 @@ class Services:
     def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return FernetDecryptor(key)
+
+    @cached_property
+    def tags(self) -> TagService:
+        return TagService(self._transaction, self._repos.tags)
+
+    @cached_property
+    def listings(self) -> ListingService:
+        return build_listings()
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:

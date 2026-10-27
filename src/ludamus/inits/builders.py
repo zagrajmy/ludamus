@@ -20,12 +20,14 @@ from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
+from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.mills.crowd import EmailVerificationService
 from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
+from ludamus.mills.listing import ListingService
 from ludamus.mills.multiverse import SitesService
 from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.printing import PrintablesReminderService
@@ -77,6 +79,7 @@ def build_sphere_subscriptions() -> SphereSubscriptionService:
         transaction=DjangoTransaction(),
         subscriptions=Repositories().sphere_subscriptions,
         notifier=DjangoUserNotifier(),
+        tokens=DjangoSphereUnsubscribeTokenCodec(),
     )
 
 
@@ -115,6 +118,16 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         users=repos.active_users,
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
+    )
+
+
+def build_listings() -> ListingService:
+    repos = Repositories()
+    return ListingService(
+        transaction=DjangoTransaction(),
+        listings=repos.listings,
+        users=repos.active_users,
+        tags=repos.tags,
     )
 
 

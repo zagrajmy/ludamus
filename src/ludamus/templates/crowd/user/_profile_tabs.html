@@ -4,20 +4,24 @@
 {% url 'web:crowd:profile-avatar' as avatar_url %}
 {% url 'web:crowd:profile-safety' as safety_url %}
 {% url 'web:crowd:profile-notifications' as notifications_url %}
+{% url 'user:profile-privacy' as privacy_url %}
 {% tabs %}
     {% tab "profile" icon="user" href=profile_url %}
         {% translate "Personal Information" %}
-    {% endtab %}
+    {% end_tab %}
     {% tab "parties" icon="users" href=parties_url %}
         {% translate "Parties" %}
-    {% endtab %}
+    {% end_tab %}
     {% tab "avatar" icon="photo" href=avatar_url %}
         {% translate "Avatar" %}
-    {% endtab %}
+    {% end_tab %}
     {% tab "safety" icon="shield-exclamation" href=safety_url %}
         {% translate "Safety" %}
-    {% endtab %}
+    {% end_tab %}
     {% tab "notifications" icon="bell" href=notifications_url %}
         {% translate "Notifications" %}
-    {% endtab %}
-{% endtabs %}
+    {% end_tab %}
+    {% tab "privacy" icon="finger-print" href=privacy_url %}
+        {% translate "Privacy" %}
+    {% end_tab %}
+{% end_tabs %}

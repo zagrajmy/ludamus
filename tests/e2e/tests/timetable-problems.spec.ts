@@ -1,7 +1,7 @@
 import { type Browser, type Locator, type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Emberfall Convention" (bootstrap_timetable.py) is seeded for this spec
@@ -72,9 +72,8 @@ const restoreSeededSchedule = async (page: Page): Promise<void> => {
 };
 
 const withManager = async (browser: Browser, act: (page: Page) => Promise<void>): Promise<void> => {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ storageState: managerState });
   try {
-    await signInAsManager(page);
     await act(page);
   } finally {
     await page.close();
@@ -113,16 +112,14 @@ const shownOf = async (names: string[], locate: (name: string) => Locator) => {
 const countOf = (label: string, count: number) => new RegExp(`${label}\\s+${count}\\b`);
 
 test.describe("Timetable problems", () => {
+  test.use({ storageState: managerState });
+
   test.beforeAll(async ({ browser }) => {
     await withManager(browser, restoreSeededSchedule);
   });
 
   test.afterAll(async ({ browser }) => {
     await withManager(browser, restoreSeededSchedule);
-  });
-
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
   });
 
   test("organizer reviews every kind of scheduling problem", async ({ page }, testInfo) => {
@@ -235,5 +232,56 @@ test.describe("Timetable problems", () => {
     const roomOverlaps = conflictGroup(page, "Room overlaps");
     await expect(roomOverlaps).toContainText(countOf("Room overlaps", 1));
     await expect(roomOverlaps).toContainText(ROOM_CLASH);
+  });
+
+  test("arming a session shows where it fits before it is dropped", async ({ page }, testInfo) => {
+    await page.goto(TIMETABLE_URL);
+    const room = (name: string) => schedule(page).getByRole("group", { name });
+    const preview = page.locator("#timetable-hover-preview");
+    const hoverOver = async (target: Locator): Promise<void> => {
+      const box = await target.boundingBox();
+      if (!box) throw new Error("Hover target is not rendered");
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    const arm = async (title: string): Promise<void> => {
+      await schedule(page)
+        .getByRole("button", { name: new RegExp(title) })
+        .click();
+      const details = page.locator("#left-pane");
+      await expect(details.getByText(title, { exact: true })).toBeVisible();
+      await expect(details).not.toHaveClass(/\bhtmx-settling\b/);
+      await details.getByRole("button", { name: "Reassign" }).click();
+      await expect(page.locator(".timetable-column.assign-mode-active")).toHaveCount(ROOMS.length);
+    };
+
+    // 12:00-13:00 sits between the two slots, the same gap in every room.
+    for (const name of ROOMS) await expect(room(name).locator(".timetable-closed")).toHaveCount(1);
+
+    // Five seats fit every room: all green.
+    await arm("Clockwork Heist");
+    await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(0);
+    await hoverOver(room("Basalt Room").locator(".timetable-closed"));
+    await expect(preview).toContainText("Extends the day");
+    await hoverOver(room("Cobalt Room").getByRole("button", { name: /Tidepool Tales/ }));
+    await expect(preview).toContainText("Room taken");
+    await page.keyboard.press("Escape");
+
+    // Twenty seats fit none of them: all red, and the reason says why.
+    await arm("Giant Mech Brawl");
+    await expect(page.locator(".timetable-column.room-too-small")).toHaveCount(ROOMS.length);
+    await hoverOver(room("Amber Room").locator(".timetable-closed"));
+    await expect(preview).toContainText("Room too small");
+
+    await attachArtifacts(testInfo, {
+      name: "drop-affordances",
+      region: schedule(page),
+      facts: {
+        unsupportedRooms: await page
+          .locator(".timetable-column.room-too-small")
+          .evaluateAll((cols) => cols.map((col) => col.getAttribute("aria-label"))),
+        preview: squash(await preview.innerText()),
+      },
+    });
+    await page.keyboard.press("Escape");
   });
 });

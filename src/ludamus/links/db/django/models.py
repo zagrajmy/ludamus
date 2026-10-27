@@ -15,6 +15,7 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
+from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts import (
@@ -24,15 +25,27 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
 )
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EventVisibility
+from ludamus.pacts.listing import (
+    LISTING_TEXT_MAX_LENGTH,
+    LISTING_TITLE_MAX_LENGTH,
+    ListingContact,
+    ListingSeeking,
+    ListingStatus,
+)
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
+from ludamus.pacts.tags import (
+    TAG_NAME_MAX_LENGTH,
+    TAG_PATH_SEPARATOR,
+    TAG_SLUG_MAX_LENGTH,
+)
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 if TYPE_CHECKING:
@@ -121,6 +134,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         _("staff status"),
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
+    )
+    age_band = models.CharField(
+        max_length=16,
+        choices=[(band.value, band.name) for band in AgeBand],
+        default=AgeBand.UNKNOWN.value,
     )
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
@@ -289,6 +307,128 @@ class PartyMembership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.member_id} in party {self.party_id}"
+
+
+def tag_search_key(name: str) -> str:
+    return unidecode(name).lower()
+
+
+class TagCategory(models.Model):
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True)
+
+    class Meta:
+        db_table = "tag_category"
+        ordering: ClassVar = ["name"]
+        verbose_name_plural = "tag categories"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Tag(models.Model):
+    category = models.ForeignKey(
+        TagCategory, on_delete=models.PROTECT, related_name="tags"
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="children"
+    )
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH)
+    # tag_search_key(name): a plain `contains` finds "Mörk Borg" from "mork" on
+    # SQLite as well as Postgres. TextField: transliteration outgrows the name
+    # ("北" → "Bei ").
+    search_key = models.TextField(editable=False, db_index=True)
+
+    class Meta:
+        db_table = "tag"
+        ordering: ClassVar = ["name"]
+        constraints = (
+            models.UniqueConstraint(
+                fields=("category", "slug"), name="tag_has_unique_slug_per_category"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.parent}{TAG_PATH_SEPARATOR}{self.name}"
+            if self.parent
+            else self.name
+        )
+
+    def clean(self) -> None:
+        # The admin's only path to save; the repository sets search_key itself.
+        super().clean()
+        self.search_key = tag_search_key(self.name)
+        if self.pk and self.children.exclude(category_id=self.category_id).exists():
+            raise ValidationError(_("A tag with children cannot change its category."))
+        if self.parent is None:
+            return
+        if self.parent.category_id != self.category_id:
+            raise ValidationError(_("A tag must belong to its parent's category."))
+        ancestor: Tag | None = self.parent
+        while ancestor is not None:
+            if ancestor.pk == self.pk:
+                raise ValidationError(_("A tag cannot be its own ancestor."))
+            ancestor = ancestor.parent
+
+
+class Listing(models.Model):
+    sphere = models.ForeignKey(
+        "Sphere", on_delete=models.CASCADE, related_name="listings"
+    )
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="listings")
+    seeking = models.CharField(
+        max_length=16, choices=[(s.value, s.name) for s in ListingSeeking]
+    )
+    title = models.CharField(max_length=LISTING_TITLE_MAX_LENGTH)
+    what = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH)
+    description = models.TextField(blank=True, default="")
+    picked_tags = models.ManyToManyField(Tag, related_name="+", blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
+    medium = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    place = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    when_text = models.CharField(max_length=LISTING_TEXT_MAX_LENGTH, blank=True)
+    contact = models.CharField(
+        max_length=16, choices=[(c.value, c.name) for c in ListingContact]
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=[(s.value, s.name) for s in ListingStatus],
+        default=ListingStatus.DRAFT,
+    )
+    opened_at = models.DateTimeField(null=True, blank=True)
+    header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    header_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "listing"
+        indexes: ClassVar = [
+            models.Index(
+                fields=["sphere", "status", "opened_at"], name="listing_board_idx"
+            )
+        ]
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(starts_at__isnull=False) | ~Q(when_text=""),
+                name="listing_has_when",
+            ),
+            models.CheckConstraint(
+                condition=Q(status=ListingStatus.DRAFT) | Q(opened_at__isnull=False),
+                name="listing_published_has_opened_at",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def header_image_url(self) -> str:
+        return self.header_image.url if self.header_image else ""
 
 
 class SessionBookmark(models.Model):
@@ -935,8 +1075,9 @@ class Space(models.Model):
             seen.add(ancestor.pk)
             if depth > SPACE_MAX_DEPTH:
                 raise ValidationError(
-                    _("Spaces can be nested at most %(max)d levels deep.")
-                    % {"max": SPACE_MAX_DEPTH}
+                    _("Spaces can be nested at most %(max)d levels deep.") % {
+                        "max": SPACE_MAX_DEPTH
+                    }
                 )
 
     def _validate_leaf_parent(self) -> None:

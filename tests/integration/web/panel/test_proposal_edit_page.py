@@ -1,6 +1,6 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/edit/ page."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -37,7 +37,6 @@ from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FieldAnswer,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
@@ -553,7 +552,9 @@ class TestProposalEditPageView:
     def test_post_ignores_category_from_other_event(self, panel_client, sphere, event):
         session = _make_session(event)
         original_category_id = session.category_id
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign_category = ProposalCategory.objects.create(
             event=other_event, name="Foreign", slug="foreign"
         )
@@ -1164,14 +1165,7 @@ class TestProposalEditPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        session_count=1,
-                        slug="alice",
-                        user_id=None,
-                    )
+                    facilitator_list_item_dto(facilitator, session_count=1)
                 ],
                 "assigned_facilitator_pks": {facilitator.pk},
                 "field_descriptors": [],
@@ -1241,6 +1235,51 @@ class TestProposalEditPageView:
 
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
+
+    def test_post_saves_personal_data_of_facilitator_removed_in_same_save(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            order=0,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "facilitator_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        assert not session.facilitators.exists()
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value == "Peanuts"
 
     def test_post_saves_multiple_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
@@ -1674,40 +1713,54 @@ class TestProposalEditPageView:
             },
         )
 
-    def test_post_ignores_personal_data_for_facilitator_from_other_event(
-        self, panel_client, sphere, event
+    @pytest.mark.parametrize("from_other_event", (True, False))
+    @pytest.mark.parametrize("answer", ("Peanuts", "Far too long an answer"))
+    def test_post_ignores_personal_data_for_facilitator_not_on_proposal(
+        self, panel_client, sphere, event, from_other_event, answer
     ):
         session = _make_session(event)
-        other_event = EventFactory(sphere=sphere)
-        foreign_facilitator = Facilitator.objects.create(
-            event=other_event, display_name="Bob", slug="bob", user=None
+        unassigned = Facilitator.objects.create(
+            event=EventFactory(sphere=sphere) if from_other_event else event,
+            display_name="Bob",
+            slug="bob",
+            user=None,
         )
         PersonalDataField.objects.create(
             event=event,
-            name="Vegan",
-            question="Are you vegan?",
-            slug="vegan",
-            field_type="checkbox",
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=10,
             order=0,
         )
 
-        panel_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
-                "title": "Test Session",
+                "title": "Renamed",
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "personal_data_submitted": "1",
-                "personal_data_facilitator_ids": [foreign_facilitator.pk],
-                f"facilitator_{foreign_facilitator.pk}_personal_vegan": "true",
+                "personal_data_facilitator_ids": [unassigned.pk],
+                f"facilitator_{unassigned.pk}_personal_allergy": answer,
             },
         )
 
-        assert not PersonalDataFieldValue.objects.filter(
-            facilitator=foreign_facilitator
-        ).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.title == "Renamed"
+        assert not PersonalDataFieldValue.objects.exists()
 
     def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         session = _make_session(event)
@@ -2212,16 +2265,7 @@ class TestProposalEditPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
-                "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        session_count=0,
-                        slug="alice",
-                        user_id=None,
-                    )
-                ],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
                 "field_descriptors": [],
                 "orphan_values": [],

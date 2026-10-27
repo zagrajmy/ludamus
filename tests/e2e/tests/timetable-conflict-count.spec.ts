@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Lowtide Fair" (bootstrap_timetable.py) has one room, the Heron Room, with
@@ -25,9 +25,7 @@ const conflictCount = async (page: Page): Promise<number> => {
 const countWording = (count: number) => new RegExp(`^\\s*⚠\\s*${count} conflicts?\\s*$`);
 
 test.describe("Timetable conflict count", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("the conflicts heading follows the schedule as sessions come off and back on", async ({
     page,

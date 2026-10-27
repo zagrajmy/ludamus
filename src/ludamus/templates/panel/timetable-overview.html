@@ -116,7 +116,7 @@
                                     <td class="py-2 pr-4 font-medium">{{ tp.track_name }}</td>
                                     <td class="py-2 pr-4 text-foreground-muted">
                                         {% if tp.manager_names %}
-                                            {{ tp.manager_names|join:", " }}
+                                            <span data-ph-mask>{{ tp.manager_names|join:", " }}</span>
                                         {% else %}
                                             <span class="text-warning text-xs">{% translate "Unassigned" %}</span>
                                         {% endif %}
@@ -159,6 +159,6 @@
                     <p class="text-sm text-foreground-muted">{% translate "No tracks for this event." %}</p>
                 {% endif %}
             </section>
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

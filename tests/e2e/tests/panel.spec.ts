@@ -2,6 +2,7 @@ import { type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { EMPTY_SPHERE } from "./helpers/urls";
 
@@ -93,16 +94,7 @@ test("panel sends a manager of an empty sphere to create its first event", async
 test.describe.configure({ mode: "serial" });
 
 test.describe("Backoffice Panel", () => {
-  test.beforeEach(async ({ page }) => {
-    // Log in via Django admin as the manager user.
-    // Use domcontentloaded — the login form is interactable at DCL and
-    // Firefox occasionally never fires `load` for this page, hanging the
-    // default goto until the test timeout (CI run 25398374365).
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   test("opens panel dashboard with sidebar and stats", async ({ page }) => {
     await page.goto("/panel/");
@@ -384,7 +376,14 @@ test.describe("Backoffice Panel", () => {
 
   test("edits a space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    const originalVenue = page.getByRole("listitem").filter({
+      has: page.getByText("Aurora Convention Hall", { exact: true }),
+    });
+    const galleryEdit = originalVenue.getByRole("link", {
+      name: "Edit Frost Gallery",
+      exact: true,
+    });
+    await galleryEdit.click();
 
     await expect(page.locator("#id_name")).toHaveValue("Frost Gallery");
 
@@ -392,8 +391,8 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
 
-    // Restore original capacity
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    await galleryEdit.click();
+    await expect(page.locator("#id_capacity")).toHaveValue("40");
     await page.locator("#id_capacity").fill("30");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
@@ -674,7 +673,7 @@ test.describe("Backoffice Panel", () => {
   test("shows time slots page", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
 
-    await expect(page.getByRole("heading", { name: "Time Slots" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Time Slots", exact: true })).toBeVisible();
   });
 
   test("creates, edits, and deletes a time slot", async ({ page }) => {

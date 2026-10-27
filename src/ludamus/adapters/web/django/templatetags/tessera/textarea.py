@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
+from .errors import help_text_id
+
 if TYPE_CHECKING:
     from django.forms import BoundField
 
@@ -27,5 +29,6 @@ def render_textarea(field: BoundField) -> str:
             "rows": attrs.get("rows", 4),
             "placeholder": attrs.get("placeholder", ""),
             "has_errors": bool(field.errors),
+            "aria_describedby": help_text_id(field),
         },
     )

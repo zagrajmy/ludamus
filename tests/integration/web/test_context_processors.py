@@ -17,12 +17,15 @@ class TestSitesContext:
         assert has_panel_access is False
 
 
+@pytest.mark.usefixtures("sixteen_plus_user")
 class TestAnalyticsContext:
-    def test_configured_key_exposes_posthog_config(self, client, settings):
+    def test_configured_key_exposes_posthog_config(
+        self, authenticated_client, settings
+    ):
         settings.POSTHOG_API_KEY = "phc_integration"
         settings.POSTHOG_HOST = "https://eu.i.posthog.com"
 
-        response = client.get(reverse("web:index"))
+        response = authenticated_client.get(reverse("web:index"))
 
         posthog_config = response.context["posthog_config"]
         # The browser redacts the same segments the server does, from rules the
@@ -34,7 +37,7 @@ class TestAnalyticsContext:
         assert posthog_config == {
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
-            "user_id": None,
+            "user_id": f"test:{authenticated_client.session['_auth_user_id']}",
             "environment": "test",
             "redaction_rules": rules,
         }

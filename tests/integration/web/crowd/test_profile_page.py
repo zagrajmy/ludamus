@@ -15,7 +15,6 @@ def _expected_context(user):
         "user": UserDTO.model_validate(user),
         "form": ANY,
         "view": ANY,
-        "confirmed_participations_count": 0,
         "profile_active_tab": "profile",
     }
 

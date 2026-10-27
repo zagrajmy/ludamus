@@ -9,7 +9,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
@@ -23,6 +23,7 @@ from ludamus.links.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Listing,
     Party,
     PartyMembership,
     ProposalCategory,
@@ -34,6 +35,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
 )
 from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 from tests.template_checks import MissingTemplateVariableFilter
@@ -134,6 +136,13 @@ def sponsor_user(*, leader, member):
     return party
 
 
+@pytest.fixture
+def sixteen_plus_user(active_user):
+    active_user.age_band = "16_plus"
+    active_user.save(update_fields=["age_band"])
+    return active_user
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
@@ -172,6 +181,22 @@ class SphereFactory(DjangoModelFactory):
     site = SubFactory(SiteFactory)
     # A sphere that runs encounters, since most tests that touch them want one.
     encounters_policy = EncountersPolicy.EVERYONE
+
+
+def dst_free_midnight():
+    # NOTE: wall-clock expectations break when an event's days span a DST
+    # switch (02:00 repeats on the autumn one). Among 7 consecutive midnights
+    # one always clears the switch; search from a week out so the event never
+    # starts sooner, as tests postpone publication_time by a day.
+    tz = get_current_timezone()
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    midnights = (today + timedelta(days=days) for days in range(7, 14))
+    return next(
+        midnight
+        for midnight in midnights
+        if (midnight - timedelta(days=1)).astimezone(tz).utcoffset()
+        == (midnight + timedelta(days=5)).astimezone(tz).utcoffset()
+    )
 
 
 class EventFactory(DjangoModelFactory):
@@ -281,6 +306,21 @@ class EncounterFactory(DjangoModelFactory):
     place = Faker("city")
     max_participants = 6
     share_code = LazyAttribute(lambda __: token_urlsafe(4)[:6])
+
+
+class ListingFactory(DjangoModelFactory):
+    class Meta:
+        model = Listing
+
+    sphere = SubFactory(SphereFactory)
+    author = SubFactory(UserFactory)
+    seeking = ListingSeeking.PLAYERS
+    title = Faker("sentence", nb_words=4)
+    what = Faker("sentence", nb_words=3)
+    when_text = "Fridays"
+    contact = ListingContact.EMAIL
+    status = ListingStatus.OPEN
+    opened_at = LazyAttribute(lambda __: datetime.now(UTC))
 
 
 class EncounterRSVPFactory(DjangoModelFactory):
@@ -427,9 +467,7 @@ def non_root_sphere(settings, faker):
 @pytest.fixture(name="event")
 def event_fixture(sphere):
     now = datetime.now(UTC)
-    midnight = (now + timedelta(days=7)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
         start_time=midnight,

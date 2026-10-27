@@ -25,16 +25,11 @@
     {% if current_event %}
         {% tab_shell "panel/_cfp_tabs.html" %}
             {% tab_shell_body %}
-                <div class="alert backdrop-blur-lg alert-info mb-6">
-                    <div class="flex items-start gap-3">
-                        <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
-                        <div>
-                            <p class="text-sm font-medium">{% translate "What are Time Slots?" %}</p>
-                            <p class="text-sm mt-1">
-                                {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
-                            </p>
-                        </div>
-                    </div>
+                <div class="mb-6">
+                    <h2 class="text-sm font-semibold">{% translate "What are Time Slots?" %}</h2>
+                    <p class="text-sm text-foreground-muted mt-1">
+                        {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
+                    </p>
                 </div>
                 {% if event_days %}
                     {% if total_pages > 1 %}
@@ -121,21 +116,15 @@
                         {% endfor %}
                     </div>
                     {% if orphaned_slots %}
-                        <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                            <div class="flex items-start gap-3 mb-4">
-                                <span class="text-amber-600 flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
-                                <div>
-                                    <p class="text-sm font-medium text-amber-800">{% translate "Orphaned Time Slots" %}</p>
-                                    <p class="text-sm text-amber-700 mt-1">
-                                        {% translate "These time slots fall outside the current event dates. Edit them to move within event dates, or delete them." %}
-                                    </p>
-                                </div>
-                            </div>
+                        <div class="mt-6">
+                            <h2 class="text-sm font-semibold">{% translate "Orphaned Time Slots" %}</h2>
+                            <p class="text-sm text-foreground-muted mt-1 mb-4">
+                                {% translate "These time slots fall outside the current event dates. Edit them to move within event dates, or delete them." %}
+                            </p>
                             <div class="space-y-2">
                                 {% for slot in orphaned_slots %}
-                                    <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-bg-secondary">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-1 h-8 bg-amber-400 rounded-full"></div>
+                                    <div class="flex items-center justify-between gap-3 py-3">
+                                        <div class="min-w-0">
                                             <span class="text-sm font-medium text-foreground">
                                                 {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                             </span>
@@ -160,8 +149,8 @@
                         </a>
                     </div>
                 {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
         {% include "panel/_time-slot-create-modal.html" with modal_id="time-slot-create-modal" form=create_form current_event=current_event csrf_token=csrf_token only %}
     {% else %}
         <div class="card p-8 text-center">

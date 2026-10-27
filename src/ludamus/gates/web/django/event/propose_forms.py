@@ -38,11 +38,13 @@ def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:
 
 
 def build_session_details_form(
-    requirements: Sequence[SessionFieldRequirementDTO], *, category: ProposalCategoryDTO
+    requirements: Sequence[SessionFieldRequirementDTO],
+    *,
+    category: ProposalCategoryDTO | None,
 ) -> type[forms.Form]:
-    min_limit = category.min_participants_limit
-    max_limit = category.max_participants_limit
-    durations = category.durations
+    min_limit = category.min_participants_limit if category else 0
+    max_limit = category.max_participants_limit if category else 0
+    durations = category.durations if category else []
     # The only place a category's participant bounds bind — the panel form and a
     # facilitator's self-edit are deliberately unbounded — so a category of large
     # rooms can refuse a two-person session. A floor also makes the number
