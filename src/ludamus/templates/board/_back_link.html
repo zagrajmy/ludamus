@@ -1,0 +1,7 @@
+{% load i18n tessera %}
+{# A way back to the board for readers who arrived on a shared link. #}
+<a href="{% url 'web:board:index' %}"
+   class="inline-flex items-center gap-1 mb-4 text-sm text-foreground-muted hover:text-foreground-secondary">
+    {% icon "arrow-left" class="w-3.5 h-3.5" %}
+    {% translate "Board" %}
+</a>

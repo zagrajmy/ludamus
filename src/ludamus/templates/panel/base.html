@@ -113,7 +113,7 @@ floating UI for the same corner.{% endcomment %}
                             {% sidebar_link url="panel:discounts" slug=current_event.slug icon="ticket" label=t_discounts key="discounts" %}
                             {% translate "Google Docs Import" as t_google_docs_import %}
                             {% sidebar_link url="panel:import" slug=current_event.slug icon="arrow-down-tray" label=t_google_docs_import key="import" %}
-                        {% endsidebar_cat %}
+                        {% end_sidebar_cat %}
                         {% translate "Schedule" context "Sidebar category" as t_schedule_cat %}
                         {% sidebar_cat key="schedule" label=t_schedule_cat %}
                             {% translate "Venues" as t_venues %}
@@ -130,19 +130,19 @@ floating UI for the same corner.{% endcomment %}
                             {% translate "Print Materials" as t_print %}
                             {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
                             {% sidebar_link url="web:chronology:event-print" slug=current_event.slug icon="printer" label=t_print new_tab=True %}
-                        {% endsidebar_cat %}
+                        {% end_sidebar_cat %}
                         {% translate "Live" context "Sidebar category" as t_live_cat %}
                         {% sidebar_cat key="live" label=t_live_cat %}
                             {% translate "Errata" as t_errata %}
                             {% sidebar_link url="panel:errata" slug=current_event.slug icon="megaphone" label=t_errata key="errata" %}
-                        {% endsidebar_cat %}
+                        {% end_sidebar_cat %}
                         {% translate "Settings" as t_settings %}
                         {% sidebar_cat key="settings" label=t_settings %}
                             {% translate "Event Settings" as t_event_settings %}
                             {% sidebar_link url="panel:event-settings" slug=current_event.slug icon="cog-6-tooth" label=t_event_settings key="settings" %}
                             {% translate "Bans" as t_bans %}
                             {% sidebar_link url="panel:bans" slug=current_event.slug icon="no-symbol" label=t_bans key="bans" %}
-                        {% endsidebar_cat %}
+                        {% end_sidebar_cat %}
                     {% endif %}
                     {% translate "Sphere" as t_sphere %}
                     {# Sphere leads the sidebar when there is no event; otherwise it follows the event categories and takes a rule to separate it from them. #}
@@ -153,7 +153,7 @@ floating UI for the same corner.{% endcomment %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}
                         {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
-                    {% endsidebar_cat %}
+                    {% end_sidebar_cat %}
                 {% endblock sidebar_nav %}
             </nav>
         </aside>
@@ -173,7 +173,11 @@ floating UI for the same corner.{% endcomment %}
         Pages that run their cards to the viewport edge below sm mark their
         wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
         {% endcomment %}
-        <main class="flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
+        {% comment %}data-ph-mask masks every panel text node in session
+        recordings: these pages list other people's personal data, which the
+        organizer's own analytics consent does not cover.{% endcomment %}
+        <main data-ph-mask
+              class="flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
             <!-- Top Bar -->
             <header class="btn-strip-compact bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">

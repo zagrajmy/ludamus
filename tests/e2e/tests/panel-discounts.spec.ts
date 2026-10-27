@@ -1,5 +1,5 @@
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // frostfire-con is the panel-lab event: bootstrap_facilitators.py seeds it with
@@ -7,9 +7,7 @@ import { expect, test } from "./helpers/fixtures";
 const DISCOUNTS_URL = "/panel/event/frostfire-con/discounts/";
 
 test.describe("Panel discounts", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("a filter matching nobody keeps the toolbar and offers a way out", async ({
     page,

@@ -57,7 +57,7 @@ from ludamus.links.db.django.models import (
 from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.crowd import AgeBand, UserType
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.legacy import (
     EventVisibility,
@@ -263,6 +263,7 @@ def _create_test_user() -> User:
     """
     user = User.objects.create_user(
         username="e2e-tester",
+        age_band=AgeBand.SIXTEEN_PLUS,
         email="e2e@test.local",
         password="e2e-password-123",
         name="E2E Tester",
@@ -1436,6 +1437,48 @@ def _create_discord_proposal_scenario(sphere: Sphere) -> None:
     )
 
 
+def _create_age_scenarios() -> None:
+    unknown = User.objects.create_user(
+        username="e2e-age-unknown",
+        name="Privacy First",
+        slug="e2e-age-unknown",
+        password="e2e-age-unknown-123",
+    )
+    _write_storage_state(
+        unknown,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests/e2e/.auth-state-age-unknown.json",
+    )
+    for scenario in ("teen", "older", "child", "cross-sphere"):
+        session = SessionStore()
+        session["pending_signup"] = {
+            "userinfo": {"sub": f"e2e-age-{scenario}", "name": f"Age {scenario}"},
+            "redirect_to": (
+                "http://another.localhost:8000/" if scenario == "cross-sphere" else ""
+            ),
+            "confirmation_token": "",
+            "started_at": timezone.now().isoformat(),
+        }
+        session.create()
+        state = {
+            "cookies": [
+                {
+                    "name": "sessionid",
+                    "value": session.session_key,
+                    "domain": _cookie_domain(),
+                    "path": "/",
+                    "httpOnly": True,
+                    "secure": False,
+                    "sameSite": "Lax",
+                }
+            ],
+            "origins": [],
+        }
+        (REPO_ROOT / f"tests/e2e/.auth-state-age-{scenario}.json").write_text(
+            json.dumps(state), encoding="utf-8"
+        )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1452,6 +1495,7 @@ def main() -> None:
 
     # Test user for authenticated e2e tests
     tester = _create_test_user()
+    _create_age_scenarios()
 
     superuser = User.objects.create_superuser(
         username="admin",
@@ -1491,7 +1535,7 @@ def main() -> None:
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
 
-    # Staff manager user for panel e2e tests (logs in via /admin/)
+    # Staff manager user for panel e2e tests (helpers/auth.ts signInAsManager)
     manager = User.objects.create_user(
         username="e2e-manager",
         email="e2e-manager@test.local",
@@ -1501,6 +1545,11 @@ def main() -> None:
         is_staff=True,
     )
     sphere.managers.add(manager)
+    _write_storage_state(
+        manager,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
+    )
 
     local_manager = User.objects.create_user(
         username="auth0|local-manager",

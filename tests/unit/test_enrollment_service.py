@@ -11,7 +11,7 @@ from ludamus.mills.enrollment import (
     get_vc_available_slots,
 )
 from ludamus.mills.enrollment_windows import viewer_access
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     EnrollmentAccessDTO,
     EnrollmentRepos,
@@ -39,6 +39,7 @@ _GUEST_SLUG = re.compile(r"guest-[a-z0-9_-]{11}")
 
 def _user(pk, email="viewer@example.com", slug="viewer"):
     return UserDTO(
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=_NOW,
         discord_username="",

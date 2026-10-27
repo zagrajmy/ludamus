@@ -185,6 +185,26 @@ class TestFacilitatorMergeSearch:
             ),
         )
 
+    def test_basket_carries_the_organizer_name(self, panel_client, event):
+        organizer = UserFactory(name="Olga Organizer")
+        adam = _make_facilitator(
+            event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            organizer=organizer,
+        )
+
+        response = panel_client.get(
+            self.get_url(event), {"facilitator_slugs": ["adam-kowalski"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam]),
+        )
+
     def test_add_and_remove_adjust_the_basket(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"

@@ -480,6 +480,8 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     return FacilitatorListItemDTO(
         accreditation_type=facilitator.accreditation_type,
         display_name=facilitator.display_name,
+        organizer_id=facilitator.organizer_id,
+        organizer_name=facilitator.organizer.name if facilitator.organizer else None,
         pk=facilitator.pk,
         session_count=session_count,
         slug=facilitator.slug,

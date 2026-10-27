@@ -89,6 +89,7 @@ env = environ.Env(
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
+    MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
     ZEAL_RAISE=(bool, False),
@@ -224,6 +225,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
+                "ludamus.gates.web.django.context_processors.board",
                 "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -424,6 +426,14 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 # Support
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Sender's postal address, printed under every opt-in (non-transactional) email.
+MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
+
+# Board
+
+# NOTE: the navbar links the board only where this is on. Readers cannot answer
+# a listing yet (#1526, #1527), so production keeps the board undiscovered.
+BOARD_PUBLIC = IS_STAGING
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only

@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // A page can offer several write-ins, so each is named after its own question.
@@ -225,12 +226,7 @@ test.describe("Write-in answers", () => {
 });
 
 test.describe("Session field toggles", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   test("keeps multi-value and custom-value settings on the edit page", async ({ page }) => {
     const name = `Content notes ${Date.now()}`;
