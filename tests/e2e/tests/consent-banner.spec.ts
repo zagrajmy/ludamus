@@ -135,6 +135,41 @@ test.describe("Cookie consent banner", () => {
     expect(await posthogStarted(page)).toBe(false);
   });
 
+  test("failed SDK loading leaves privacy controls usable and never starts capture", async ({
+    page,
+  }, testInfo) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    let sdkAttempts = 0;
+    await page.route(/module\.full\.no-external[^/]*\.js/u, async (route) => {
+      sdkAttempts++;
+      await route.abort();
+    });
+    await page.goto("/");
+    const banner = page.getByRole("region", { name: "Cookie consent" });
+
+    await banner.getByRole("button", { name: "Cool" }).click();
+    await expect.poll(() => sdkAttempts).toBe(1);
+    await expect(banner).toBeHidden();
+    expect(await posthogStarted(page)).toBe(false);
+    await page.getByRole("button", { name: "Cookie settings" }).click();
+    await banner.getByRole("button", { name: "No cookies!" }).click();
+    await expect.poll(() => storedConsent(page)).toBe("declined");
+
+    await page.reload();
+
+    await expect(banner).toBeHidden();
+    expect(await storedConsent(page)).toBe("declined");
+    expect(await posthogStarted(page)).toBe(false);
+    expect(sdkAttempts).toBe(1);
+    expect(errors).toEqual([]);
+    await attachArtifacts(testInfo, {
+      name: "analytics-load-failure-withdrawn",
+      region: page.getByRole("main"),
+      facts: { sdkAttempts, errors, consent: await storedConsent(page) },
+    });
+  });
+
   test("disabling analytics after acceptance stays inert without a reload loop", async ({
     page,
   }, testInfo) => {
@@ -230,6 +265,50 @@ test.describe("Cookie consent banner", () => {
     await expect(banner).toBeHidden();
     await expect.poll(() => storedConsent(page)).toBe("accepted");
     await expect.poll(() => posthogStarted(page)).toBe(true);
+  });
+});
+
+test.describe("Unavailable analytics storage", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("blocked Cookie Store access fails closed without breaking the page", async ({
+    page,
+  }, testInfo) => {
+    const errors: string[] = [];
+    const sdkRequests: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("request", (request) => {
+      if (/module\.full\.no-external/u.test(request.url())) sdkRequests.push(request.url());
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("prologue.consent", "accepted");
+      localStorage.setItem("ph_old_posthog", "old-identity");
+      const store = window.cookieStore ?? {};
+      Object.defineProperty(store, "getAll", {
+        value: async () => {
+          throw new Error("Cookie Store deliberately unavailable");
+        },
+      });
+      Object.defineProperty(window, "cookieStore", { value: store });
+    });
+    const cleanupError = page.waitForEvent("console", {
+      predicate: (entry) =>
+        entry.type() === "error" && entry.text().includes("Cookie Store deliberately unavailable"),
+    });
+
+    await page.goto("/");
+    await cleanupError;
+
+    await expect(page.getByRole("main")).toBeVisible();
+    expect(await storedConsent(page)).toBeNull();
+    expect(await posthogStarted(page)).toBe(false);
+    expect(sdkRequests).toEqual([]);
+    expect(errors).toEqual([]);
+    await attachArtifacts(testInfo, {
+      name: "blocked-cookie-store-fails-closed",
+      region: page.getByRole("main"),
+      facts: { sdkRequests, errors, consent: null },
+    });
   });
 });
 

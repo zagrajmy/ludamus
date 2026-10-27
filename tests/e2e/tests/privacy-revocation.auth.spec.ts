@@ -207,6 +207,67 @@ test.describe("Privacy revision across sphere origins", () => {
   });
 });
 
+test.describe("Privacy revocation while the SDK is loading", () => {
+  test.use({
+    baseURL: "http://ludamus.localhost:8001",
+    storageState: state("loading"),
+    consentSeed: null,
+  });
+
+  test("a late SDK import cannot start capture after an age downgrade", async ({
+    page,
+    context,
+  }, testInfo) => {
+    const optionalRequests: string[] = [];
+    await context.route("https://*.posthog.com/**", async (route) => {
+      optionalRequests.push(route.request().url());
+      await route.fulfill({ contentType: "application/json", body: "{}" });
+    });
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(/module\.full\.no-external[^/]*\.js/u, async (route) => {
+      await released;
+      await route.continue();
+    });
+    const root = await context.newPage();
+    try {
+      await changeAge(root, "16 or older");
+      await page.goto(SPHERE_URL);
+      await expect(page.getByRole("button", { name: "Cookie settings" })).toBeVisible();
+      const requested = page.waitForRequest((request) => isSdk(request.url()));
+      await page
+        .getByRole("region", { name: "Cookie consent" })
+        .getByRole("button", { name: "Cool" })
+        .click();
+      const sdkUrl = (await requested).url();
+
+      await changeAge(root, "13–15");
+      await page.bringToFront();
+      await expect
+        .poll(() => page.evaluate(() => localStorage.getItem("prologue.consent")))
+        .toBeNull();
+      await expect(page.getByRole("button", { name: "Cookie settings" })).toBeHidden();
+      release();
+      await expect.poll(() => recordingStarted(page, sdkUrl)).toBe(false);
+
+      expect(
+        await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("ph_"))),
+      ).toBe(false);
+      expect(optionalRequests).toEqual([]);
+      await attachArtifacts(testInfo, {
+        name: "age-revoked-during-sdk-load",
+        region: page.getByRole("main"),
+        facts: { optionalRequests, recordingStarted: false, consent: null },
+      });
+    } finally {
+      release();
+      await root.close();
+    }
+  });
+});
+
 test.describe("Cookie cleanup without Cookie Store", () => {
   test.use({
     baseURL: "http://ludamus.localhost:8001",

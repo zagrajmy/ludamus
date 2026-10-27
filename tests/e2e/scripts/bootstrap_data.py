@@ -1484,6 +1484,7 @@ def _create_privacy_scenarios() -> None:
     _create_site("another.ludamus.localhost:8001", name="Privacy sibling")
     for scenario, age_band in (
         ("revocation", AgeBand.SIXTEEN_PLUS),
+        ("loading", AgeBand.SIXTEEN_PLUS),
         ("legacy", AgeBand.THIRTEEN_TO_FIFTEEN),
     ):
         user = User.objects.create_user(
