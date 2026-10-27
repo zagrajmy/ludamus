@@ -1,5 +1,9 @@
 """The in-place look: a control dressed as the text it writes."""
 
+from typing import Literal
+
+type InplaceShape = Literal["text", "fit", "number", "textarea", "select", "pill"]
+
 # A control takes its type from the element around it and adds only a hover
 # wash, a focus ring and an outline at rest. Each shape is a whole class list
 # so Tailwind finds it here.
@@ -12,7 +16,7 @@ _INPLACE_BASE = (
     " not-focus:outline-warm-400 dark:not-focus:outline-neutral-600"
     " aria-invalid:outline-danger"
 )
-_INPLACE_SHAPES = {
+_INPLACE_SHAPES: dict[InplaceShape, str] = {
     "text": "not-focus:outline-dashed block w-[calc(100%+0.75rem)]",
     "fit": "not-focus:outline-dotted field-sizing-content max-w-full",
     "number": (
@@ -44,16 +48,19 @@ _INPLACE_PILL = (
 )
 
 
-def inplace_look(*, shape: str) -> str:
+_LOOKS: dict[InplaceShape, str] = {
+    **{shape: f"{_INPLACE_BASE} {extra}" for shape, extra in _INPLACE_SHAPES.items()},
+    "pill": _INPLACE_PILL,
+}
+
+
+def inplace_look(*, shape: InplaceShape) -> str:
     """Return the in-place look for a control of ``shape``.
 
-    Shapes: ``text``, ``fit`` (sized to its content and dotted, for a value
-    prefilled from the account), ``number``, ``textarea``, ``select`` and
-    ``pill``.
+    ``fit`` is sized to its content and dotted, for a value prefilled from the
+    account; ``pill`` is a choice dressed as the pill its answer shows in.
 
     Returns:
         The control's whole class list.
     """
-    if shape == "pill":
-        return _INPLACE_PILL
-    return f"{_INPLACE_BASE} {_INPLACE_SHAPES[shape]}"
+    return _LOOKS[shape]

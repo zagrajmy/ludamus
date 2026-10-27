@@ -36,6 +36,7 @@ def field_context(
     name_prefix: str,
     answer: FieldAnswer,
     inplace: bool = False,
+    visibility_badge: bool = True,
 ) -> dict[str, object]:
     # Everything the markup switches on, derived once. Kept separate from the
     # render so the derivation can be checked without going through a template.
@@ -56,6 +57,9 @@ def field_context(
         ),
         "placeholder": field.question if inplace else "",
         "inplace": inplace,
+        # Where the box a field sits in already says who sees it, it says it
+        # once: in place, or inside the organizers-only box.
+        "visibility_badge": visibility_badge and not inplace,
         "label_class": (
             "text-sm font-semibold text-foreground-secondary"
             if inplace
@@ -105,10 +109,13 @@ def dynamic_field(
     name_prefix: str,
     answer: FieldAnswer | None = None,
     inplace: bool = False,
+    visibility_badge: bool = True,
 ) -> str:
     """Render one organizer-defined field, switched on its type.
 
-    ``inplace`` writes it the way the session modal reads the answer.
+    ``inplace`` writes it the way the session modal reads the answer;
+    ``visibility_badge=False`` drops the eye/lock where the surrounding box
+    already says who sees the field.
 
     Returns:
         HTML string for the field's label, input(s), help text and errors.
@@ -123,5 +130,6 @@ def dynamic_field(
             name_prefix=name_prefix,
             answer=answer or FieldAnswer(),
             inplace=inplace,
+            visibility_badge=visibility_badge,
         ),
     )

@@ -59,8 +59,15 @@ def build_session_details_form(
     if max_limit:
         participants_kwargs["max_value"] = max_limit
     elif not min_limit:
-        # NOTE: the propose page says "no sign-up" as the field's placeholder.
-        participants_kwargs |= {"required": False, "initial": 0}
+        participants_kwargs["required"] = False
+    # An empty optional limit means the session takes no sign-up, and says so.
+    participants_kwargs["widget"] = forms.NumberInput(
+        attrs={
+            "placeholder": (
+                "–" if participants_kwargs.get("required", True) else _("no sign-up")
+            )
+        }
+    )
 
     fields: dict[str, forms.Field] = {
         "title": forms.CharField(label=_("Title"), max_length=255),

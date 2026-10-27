@@ -12,7 +12,8 @@ class TestBuildSessionDetailsFormParticipantLimits:
         field = form.fields["participants_limit"]
         assert field.required is False
         assert field.min_value == 0
-        assert field.initial == 0
+        assert form["participants_limit"].value() is None
+        assert field.widget.attrs["placeholder"] == "no sign-up"
 
     def test_both_limits_zero_accepts_zero(self):
         form_class = build_session_details_form(

@@ -31,7 +31,7 @@ from .checkbox import (
 from .errors import render_errors, render_form_errors, render_help_text
 from .file_input import render_file_input
 from .form_select import render_select
-from .inplace import inplace_look
+from .inplace import InplaceShape, inplace_look
 from .input import render_input
 from .label import render_label
 from .textarea import render_textarea
@@ -91,7 +91,7 @@ def _render_field_input(
     return render_input(field, inplace_class=inplace_class, placeholder=placeholder)
 
 
-def _inplace_shape(widget: Widget, *, fit: bool) -> str | None:
+def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape | None:
     if isinstance(widget, FileInput):
         return None
     if isinstance(widget, Textarea):

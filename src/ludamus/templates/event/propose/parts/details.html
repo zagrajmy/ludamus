@@ -39,7 +39,7 @@
                             </h3>
                             <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
                             {% for desc in private_field_descriptors %}
-                                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
+                                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer visibility_badge=False %}
                             {% endfor %}
                         </section>
                     {% endif %}

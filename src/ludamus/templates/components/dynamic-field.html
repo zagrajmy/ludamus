@@ -12,7 +12,7 @@
         {# question is the group's legend instead of an orphan <label>. #}
         <fieldset>
             <legend class="{{ label_class }}">
-                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
             </legend>
             {# In place the legend is the field's name; a group has no placeholder #}
             {# to carry the question, so it is said here. #}
@@ -21,19 +21,19 @@
         </fieldset>
     {% elif field.field_type == "select" %}
         <label for="{{ input_id }}" class="{{ label_class }}">
-            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
         </label>
         {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by inplace_class=pill_class only %}
     {% elif field.field_type == "checkbox" %}
         <label class="inline-flex items-center cursor-pointer">
             {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked aria_describedby=described_by only %}
             <span class="ml-2 text-sm text-foreground first-letter:uppercase">
-                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
             </span>
         </label>
     {% else %}
         <label for="{{ input_id }}" class="{{ label_class }}">
-            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace visibility_badge=visibility_badge only %}
         </label>
         {% include "components/text-field.html" with name=name id=input_id value=text_value placeholder=placeholder maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by inplace_class=text_class only %}
     {% endif %}

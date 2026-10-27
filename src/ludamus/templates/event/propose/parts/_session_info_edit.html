@@ -58,12 +58,7 @@
     {% endif %}
     {% translate "Seats" context "session capacity" as seats_label %}
     {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
-        {% if form.participants_limit.field.required %}
-            {% tessera_inplace form.participants_limit placeholder="–" %}
-        {% else %}
-            {% translate "no sign-up" as no_sign_up %}
-            {% tessera_inplace form.participants_limit placeholder=no_sign_up %}
-        {% endif %}
+        {% tessera_inplace form.participants_limit %}
     {% end_session_fact %}
     {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
         <span class="inline-flex items-baseline">

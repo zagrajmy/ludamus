@@ -3147,6 +3147,10 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "no sign-up"
+msgstr "bez zapisów"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -8320,10 +8324,6 @@ msgstr ""
 msgctxt "session capacity"
 msgid "Seats"
 msgstr "Miejsca"
-
-#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
-msgid "no sign-up"
-msgstr "bez zapisów"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"

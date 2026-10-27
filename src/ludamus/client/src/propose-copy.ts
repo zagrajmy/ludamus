@@ -8,13 +8,19 @@ const snapshots = new WeakMap<HTMLFormElement, Values>();
 const isChipsMirror = (el: Element): el is HTMLInputElement =>
   el instanceof HTMLInputElement && el.dataset.writeInMirror !== undefined;
 
-const controls = (form: HTMLFormElement, name: string): Element[] =>
-  [...form.elements].filter(
-    (el) =>
-      (el as HTMLInputElement).name === name &&
-      (el as HTMLInputElement).type !== "file" &&
-      ((el as HTMLInputElement).type !== "hidden" || isChipsMirror(el)),
-  );
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+const isControl = (el: Element): el is Control =>
+  el instanceof HTMLInputElement ||
+  el instanceof HTMLSelectElement ||
+  el instanceof HTMLTextAreaElement;
+
+const controls = (form: HTMLFormElement, name: string): Control[] =>
+  [...form.elements]
+    .filter(isControl)
+    .filter(
+      (el) => el.name === name && el.type !== "file" && (el.type !== "hidden" || isChipsMirror(el)),
+    );
 
 const read = (form: HTMLFormElement, names: string[]): Values =>
   Object.fromEntries(
@@ -26,7 +32,7 @@ const read = (form: HTMLFormElement, names: string[]): Values =>
       );
       if (boxes.length > 1) return [name, boxes.filter((b) => b.checked).map((b) => b.value)];
       if (boxes.length === 1) return [name, boxes[0].checked];
-      return [name, (els[0] as HTMLInputElement | undefined)?.value ?? ""];
+      return [name, els[0]?.value ?? ""];
     }),
   );
 
