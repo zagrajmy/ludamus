@@ -65,6 +65,6 @@ test.describe("Accepting a proposal", () => {
     const details = page.getByRole("dialog");
     await expect(details).toContainText(namedRoom.trim());
     const [start, end] = namedSlot.trim().split("–");
-    await expect(details).toContainText(`${start.slice(-5)} - ${end}`);
+    await expect(details).toContainText(`${start.slice(-5)}–${end}`);
   });
 });

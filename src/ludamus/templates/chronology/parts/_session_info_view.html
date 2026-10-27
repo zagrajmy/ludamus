@@ -80,9 +80,10 @@
     {% if data.session.min_age > 0 %}
         {% include "components/_age_pill.html" with age=data.session.min_age only %}
     {% endif %}
-    {# With no seats there is no enroll button; the bookmark stands in for #}
-    {# it at the end of the line. #}
-    {% if not data.takes_enrollment %}
-        {% session_bookmark data "ml-auto" %}
-    {% endif %}
 {% endblock facts %}
+{% block facts_aside %}
+    {# With no seats there is no enroll button; the bookmark stands in for it. #}
+    {% if not data.takes_enrollment %}
+        {% session_bookmark data "shrink-0 min-w-14 flex justify-end" %}
+    {% endif %}
+{% endblock facts_aside %}

@@ -13,10 +13,15 @@
     {% endblock host_section %}
     {# The card's own facts line (when, where, how long, how many, how old), #}
     {# so a session is summed up in the same words on the card and here. #}
-    <div class="flex flex-wrap items-end gap-x-5 gap-y-2 mb-6 text-sm text-foreground-secondary"
-         data-session-facts>
-        {% block facts %}
-        {% endblock facts %}
+    <div class="flex items-end gap-3 mb-6" data-session-facts>
+        <div class="flex flex-1 min-w-0 flex-wrap items-end gap-x-5 gap-y-2 text-sm text-foreground-secondary">
+            {% block facts %}
+            {% endblock facts %}
+        </div>
+        {# Beside the line, not in it: what sits here may change width (a #}
+        {# bookmark's count) without the facts wrapping anew. #}
+        {% block facts_aside %}
+        {% endblock facts_aside %}
     </div>
     {% block description_section %}
         <div class="mb-6">
