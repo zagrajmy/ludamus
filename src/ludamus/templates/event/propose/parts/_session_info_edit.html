@@ -43,25 +43,28 @@
 {% endblock fields %}
 {% block facts %}
     {# Labelled here and not in the modal: a bare icon beside a control does #}
-    {# not say what it sets. The room is the organizers' to assign. #}
-    {% if "duration" in form.fields %}
-        {% tessera_sole_choice form.duration as sole_duration %}
-        {% if sole_duration %}
-            {% tessera_inplace form.duration %}
-            {% session_fact icon="clock" %}
-                {{ sole_duration }}
-            {% end_session_fact %}
-        {% else %}
-            {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}
+    {# not say what it sets. The room is the organizers' to assign. On a phone #}
+    {# the facts spread over the whole row; wider, they sit together. #}
+    <div class="grid grid-flow-col auto-cols-auto items-end justify-between sm:justify-start gap-x-4 sm:gap-x-6 w-full">
+        {% if "duration" in form.fields %}
+            {% tessera_sole_choice form.duration as sole_duration %}
+            {% if sole_duration %}
                 {% tessera_inplace form.duration %}
-            {% end_session_fact %}
+                {% session_fact icon="clock" %}
+                    {{ sole_duration }}
+                {% end_session_fact %}
+            {% else %}
+                {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}
+                    {% tessera_inplace form.duration %}
+                {% end_session_fact %}
+            {% endif %}
         {% endif %}
-    {% endif %}
-    {% translate "Seats" context "session capacity" as seats_label %}
-    {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
-        {% tessera_inplace form.participants_limit %}
-    {% end_session_fact %}
-    {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
-        {% tessera_inplace form.min_age unit="+" %}
-    {% end_session_fact %}
+        {% translate "Seats" context "session capacity" as seats_label %}
+        {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
+            {% tessera_inplace form.participants_limit %}
+        {% end_session_fact %}
+        {% session_fact label=form.min_age.label label_for=form.min_age.auto_id %}
+            {% tessera_inplace form.min_age unit="+" %}
+        {% end_session_fact %}
+    </div>
 {% endblock facts %}
