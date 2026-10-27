@@ -5,6 +5,7 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
+import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -28,6 +29,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
+    ProposalAcceptedNotification,
     ProposalScheduledError,
     SourceQuestion,
     SpaceTimeConflictError,
@@ -38,6 +40,8 @@ from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -55,8 +59,38 @@ if TYPE_CHECKING:
         SphereRepositoryProtocol,
         TimeSlotDTO,
     )
+    from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+
+
+def _announce_acceptance(
+    *,
+    sessions: SessionRepositoryProtocol,
+    notifier: ProposalAcceptedNotifierProtocol,
+    session: SessionDTO,
+    event: EventDTO,
+    placed: bool,
+) -> None:
+    # Everyone who runs the session hears about it: the account that proposed
+    # it and any facilitator profile linked to an account. A proposal sent
+    # without an account has no one to tell.
+    facilitators = sessions.read_facilitators(session.pk)
+    candidate_ids = (session.presenter_id, *(f.user_id for f in facilitators))
+    recipient_ids = {user_id for user_id in candidate_ids if user_id is not None}
+    if not recipient_ids:
+        logger.info("Accepted session %s has no account to notify", session.pk)
+    for recipient_id in sorted(recipient_ids):
+        notifier.notify_proposal_accepted(
+            ProposalAcceptedNotification(
+                recipient_user_id=recipient_id,
+                session_id=session.pk,
+                session_title=session.title,
+                event_name=event.name,
+                event_slug=event.slug,
+                placed=placed,
+            )
+        )
 
 
 class SessionConfirmationService:
@@ -154,10 +188,12 @@ class ProposalStatusService:
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
+        notifier: ProposalAcceptedNotifierProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda_items = agenda_items
+        self._notifier = notifier
 
     def mark_pending(self, *, event_pk: int, session_pk: int) -> None:
         self._set_status(
@@ -187,15 +223,25 @@ class ProposalStatusService:
             # concurrent request can't move the session to another event between
             # the check and the write (TOCTOU). `lock` raises for missing/dead.
             self._sessions.lock(session_pk)
-            require_session_in_event(
+            event = require_session_in_event(
                 sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
             )
-            if (
-                status != SessionStatus.ACCEPTED
-                and self._agenda_items.read_by_session(session_pk) is not None
-            ):
+            placed = self._agenda_items.read_by_session(session_pk) is not None
+            if status != SessionStatus.ACCEPTED and placed:
                 raise ProposalScheduledError
+            session = self._sessions.read(session_pk)
             self._sessions.update(session_pk, {"status": status})
+            if (
+                status == SessionStatus.ACCEPTED
+                and session.status != SessionStatus.ACCEPTED
+            ):
+                _announce_acceptance(
+                    sessions=self._sessions,
+                    notifier=self._notifier,
+                    session=session,
+                    event=event,
+                    placed=placed,
+                )
 
 
 class ProposalAcceptanceService:
@@ -207,12 +253,14 @@ class ProposalAcceptanceService:
         agenda_items: AgendaItemRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        notifier: ProposalAcceptedNotifierProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda_items = agenda_items
         self._active_users = active_users
         self._spheres = spheres
+        self._notifier = notifier
 
     def get_accept_context(
         self, *, session_id: int, user_slug: str, sphere_id: int
@@ -296,6 +344,14 @@ class ProposalAcceptanceService:
                     "end_time": time_slot.end_time,
                 }
             )
+            if session.status != SessionStatus.ACCEPTED:
+                _announce_acceptance(
+                    sessions=self._sessions,
+                    notifier=self._notifier,
+                    session=session,
+                    event=event,
+                    placed=True,
+                )
 
 
 class SessionEditNotAllowedError(Exception):
