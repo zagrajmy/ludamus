@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
@@ -168,15 +169,18 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             else []
         )
         session_pks = [row["session_pk"] for row in session_rows]
-        track_names = (
-            self._sessions.list_track_names_by_session(session_pks)
-            if session_pks
-            else {}
-        )
-        facilitator_names = (
-            self._sessions.list_facilitator_names_by_session(session_pks)
-            if session_pks
-            else {}
+        lookups = _Lookups(
+            track_names=(
+                self._sessions.list_track_names_by_session(session_pks)
+                if session_pks
+                else {}
+            ),
+            facilitator_names=(
+                self._sessions.list_facilitator_names_by_session(session_pks)
+                if session_pks
+                else {}
+            ),
+            track_pk=track_pk,
         )
 
         by_facilitator: dict[int, list[ConfirmationSessionRow]] = defaultdict(list)
@@ -185,11 +189,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
 
         facilitators = [
             _facilitator(
-                row=row,
-                sessions=by_facilitator.get(row["pk"], []),
-                track_names=track_names,
-                facilitator_names=facilitator_names,
-                track_pk=track_pk,
+                row=row, sessions=by_facilitator.get(row["pk"], []), lookups=lookups
             )
             for row in facilitator_rows
         ]
@@ -201,7 +201,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             row
             for row in session_rows
             if row["is_scheduled"]
-            and track_pk in track_names.get(row["session_pk"], {})
+            and track_pk in lookups.track_names.get(row["session_pk"], {})
         ]
         scheduled = len({row["session_pk"] for row in in_track})
         confirmed = len({row["session_pk"] for row in in_track if row["is_confirmed"]})
@@ -233,11 +233,13 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         return _facilitator(
             row=row,
             sessions=sessions,
-            track_names=self._sessions.list_track_names_by_session(session_pks),
-            facilitator_names=self._sessions.list_facilitator_names_by_session(
-                session_pks
+            lookups=_Lookups(
+                track_names=self._sessions.list_track_names_by_session(session_pks),
+                facilitator_names=self._sessions.list_facilitator_names_by_session(
+                    session_pks
+                ),
+                track_pk=track_pk,
             ),
-            track_pk=track_pk,
         )
 
     def set_confirmed(
@@ -312,15 +314,18 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _Lookups:
+    track_names: dict[int, dict[int, str]]
+    facilitator_names: dict[int, dict[int, str]]
+    track_pk: int
+
+
 def _session_dto(
-    *,
-    row: ConfirmationSessionRow,
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    *, row: ConfirmationSessionRow, lookups: _Lookups
 ) -> ConfirmationSessionDTO:
-    others = track_names.get(row["session_pk"], {})
-    co_facilitators = facilitator_names.get(row["session_pk"], {})
+    others = lookups.track_names.get(row["session_pk"], {})
+    co_facilitators = lookups.facilitator_names.get(row["session_pk"], {})
     return ConfirmationSessionDTO(
         session_pk=row["session_pk"],
         title=row["title"],
@@ -333,17 +338,14 @@ def _session_dto(
         co_facilitator_names=[
             name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
         ],
-        other_track_names=[name for pk, name in others.items() if pk != track_pk],
+        other_track_names=[
+            name for pk, name in others.items() if pk != lookups.track_pk
+        ],
     )
 
 
 def _email_group(
-    *,
-    contact_email: str,
-    rows: list[ConfirmationSessionRow],
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    *, contact_email: str, rows: list[ConfirmationSessionRow], lookups: _Lookups
 ) -> ConfirmationEmailGroupDTO:
     # Grouping runs on status and placement alone. Confirmation is a checkbox
     # on the row, so ticking one never moves it into another group.
@@ -359,12 +361,7 @@ def _email_group(
                 status=status,
                 is_scheduled=is_scheduled,
                 sessions=[
-                    _session_dto(
-                        row=row,
-                        track_names=track_names,
-                        facilitator_names=facilitator_names,
-                        track_pk=track_pk,
-                    )
+                    _session_dto(row=row, lookups=lookups)
                     for row in by_status[status, is_scheduled]
                 ],
             )
@@ -384,9 +381,7 @@ def _facilitator(
     *,
     row: ConfirmationFacilitatorRow,
     sessions: list[ConfirmationSessionRow],
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    lookups: _Lookups,
 ) -> ConfirmationFacilitatorDTO:
     # Only a placed session can be confirmed. Accepted-but-unplaced and pending
     # sessions become counts: there is nothing to tick, and pending detail may
@@ -408,13 +403,7 @@ def _facilitator(
         organizer_id=row["organizer_id"],
         organizer_name=row["organizer_name"],
         email_groups=[
-            _email_group(
-                contact_email=email,
-                rows=listed[email],
-                track_names=track_names,
-                facilitator_names=facilitator_names,
-                track_pk=track_pk,
-            )
+            _email_group(contact_email=email, rows=listed[email], lookups=lookups)
             # An address-less group sorts last: it is the one needing a fix,
             # not the one to start reading from.
             for email in sorted(listed, key=_email_sort_key)
