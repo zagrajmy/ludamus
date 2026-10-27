@@ -67,6 +67,9 @@ test.describe("Proposing from an earlier session", () => {
     await expect(form.getByLabel("Anything the organizers should know?")).toHaveValue(
       "A table near a socket, please.",
     );
+    const equipment = form.getByRole("group", { name: /What do you need at the table\?/ });
+    await expect(equipment.getByRole("checkbox", { name: "Projector" })).toBeChecked();
+    await expect(form.getByText("extension cord")).toBeVisible();
 
     await page.mouse.move(0, 0);
     await page
@@ -90,6 +93,7 @@ test.describe("Proposing from an earlier session", () => {
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue("");
     await expect(form.getByLabel("System")).toHaveValue("");
+    await expect(form.getByText("extension cord")).toHaveCount(0);
 
     await page.getByRole("button", { name: `Copy ${title}` }).click();
     await page.getByRole("button", { name: /Continue/ }).click();

@@ -1426,7 +1426,22 @@ def _reuse_fields(event: Event) -> list[SessionField]:
         is_public=False,
         order=2,
     )
-    return [system, audience, notes]
+    equipment = SessionField.objects.create(
+        event=event,
+        name="Equipment",
+        question="What do you need at the table?",
+        slug="equipment",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=False,
+        order=3,
+    )
+    for order, value in enumerate(("Projector", "Whiteboard")):
+        SessionFieldOption.objects.create(
+            field=equipment, value=value, label=value, order=order
+        )
+    return [system, audience, notes, equipment]
 
 
 def _create_reuse_proposal_scenario(sphere: Sphere) -> None:
@@ -1483,11 +1498,12 @@ def _create_reuse_proposal_scenario(sphere: Sphere) -> None:
     session.presenter = user
     session.duration = "PT2H"
     session.save(update_fields=["presenter", "duration"])
-    system, audience, notes = _reuse_fields(past)
+    system, audience, notes, equipment = _reuse_fields(past)
     for field, value in (
         (system, "Mothership 1e"),
         (audience, "Beginners"),
         (notes, "A table near a socket, please."),
+        (equipment, ["Projector", "extension cord"]),
     ):
         SessionFieldValue.objects.create(session=session, field=field, value=value)
 

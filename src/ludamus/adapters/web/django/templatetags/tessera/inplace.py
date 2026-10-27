@@ -1,8 +1,8 @@
 """The in-place look: a control dressed as the text it writes."""
 
-# The in-place look: a field dressed as the text it writes. It takes its type
-# from the element around it and adds only a hover wash, a focus ring and an
-# outline at rest. Each shape is a whole class list so Tailwind finds it here.
+# A control takes its type from the element around it and adds only a hover
+# wash, a focus ring and an outline at rest. Each shape is a whole class list
+# so Tailwind finds it here.
 _INPLACE_BASE = (
     "[font:inherit] [color:inherit] [letter-spacing:inherit] bg-transparent"
     " border-0 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5"
@@ -21,8 +21,9 @@ _INPLACE_SHAPES = {
         " [&::-webkit-outer-spin-button]:appearance-none"
     ),
     "textarea": (
-        "not-focus:outline-dashed block w-[calc(100%+0.75rem)] resize-none"
-        " field-sizing-content placeholder-shown:min-h-[3lh]"
+        "not-focus:outline-dashed block w-[calc(100%+0.75rem)]"
+        " [@supports(field-sizing:content)]:resize-none field-sizing-content"
+        " placeholder-shown:min-h-[3lh]"
     ),
     "select": "not-focus:outline-dashed cursor-pointer",
 }

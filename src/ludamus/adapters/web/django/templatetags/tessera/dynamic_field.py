@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 
 from ludamus.pacts import FieldAnswer
 
+from ._choices import is_blank_choice
 from ._registry import register
 from .inplace import inplace_look
 
@@ -72,7 +73,7 @@ def field_context(
         "errors": answer.errors,
         # In place the blank choice asks the question, as a placeholder would.
         "choices": [
-            (value, field.question if inplace and not value else label)
+            (value, field.question if inplace and is_blank_choice(value) else label)
             for value, label in field.choices
         ],
         "options": [

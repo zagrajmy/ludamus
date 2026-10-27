@@ -5860,7 +5860,6 @@ msgid "About this session"
 msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 #: src/ludamus/templates/landing/spotkanie.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Seats"
@@ -8316,6 +8315,11 @@ msgid ""
 "What awaits participants: what it is about, how it goes, what to expect."
 msgstr ""
 "Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgctxt "session capacity"
+msgid "Seats"
+msgstr "Miejsca"
 
 #: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 msgid "no sign-up"

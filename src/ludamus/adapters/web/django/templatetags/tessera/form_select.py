@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
-from ._choices import ChoiceGroup, grouped_choices
+from ._choices import ChoiceGroup, grouped_choices, is_blank_choice
 from .errors import help_text_id
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ def _name_blank_choice(
     return [
         group._replace(
             options=[
-                (value, placeholder if value in {"", None} else label)
+                (value, placeholder if is_blank_choice(value) else label)
                 for value, label in group.options
             ]
         )

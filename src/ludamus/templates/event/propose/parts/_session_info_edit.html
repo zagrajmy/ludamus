@@ -56,7 +56,7 @@
             {% end_session_fact %}
         {% endif %}
     {% endif %}
-    {% translate "Seats" as seats_label %}
+    {% translate "Seats" context "session capacity" as seats_label %}
     {% session_fact icon="users" label=seats_label label_for=form.participants_limit.auto_id %}
         {% if form.participants_limit.field.required %}
             {% tessera_inplace form.participants_limit placeholder="–" %}

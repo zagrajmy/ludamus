@@ -87,11 +87,13 @@ def _render_field_input(
             field, inplace_class=inplace_class, placeholder=placeholder
         )
     if isinstance(widget, FileInput):
-        return render_file_input(field, inplace=bool(inplace_class))
+        return render_file_input(field)
     return render_input(field, inplace_class=inplace_class, placeholder=placeholder)
 
 
-def _inplace_shape(widget: Widget, *, fit: bool) -> str:
+def _inplace_shape(widget: Widget, *, fit: bool) -> str | None:
+    if isinstance(widget, FileInput):
+        return None
     if isinstance(widget, Textarea):
         return "textarea"
     if isinstance(widget, Select):
@@ -185,12 +187,14 @@ def tessera_inplace(
     if (hidden := _sole_choice_input(field)) is not None:
         return hidden
     shape = _inplace_shape(field.field.widget, fit=fit)
-    return _render_controls(
-        field,
-        _render_field_input(
+    control = (
+        render_file_input(field, inplace=True)
+        if shape is None
+        else _render_field_input(
             field, inplace_class=inplace_look(shape=shape), placeholder=placeholder
-        ),
+        )
     )
+    return _render_controls(field, control)
 
 
 @register.simple_tag

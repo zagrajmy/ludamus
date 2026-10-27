@@ -3,11 +3,17 @@ type Values = Record<string, Value>;
 
 const snapshots = new WeakMap<HTMLFormElement, Values>();
 
+// write-in-chips.ts keeps a write-in's answer in a hidden mirror input; any
+// other hidden input is the form's own (a one-option choice) and stays.
+const isChipsMirror = (el: Element): el is HTMLInputElement =>
+  el instanceof HTMLInputElement && el.dataset.writeInMirror !== undefined;
+
 const controls = (form: HTMLFormElement, name: string): Element[] =>
   [...form.elements].filter(
     (el) =>
       (el as HTMLInputElement).name === name &&
-      !["file", "hidden"].includes((el as HTMLInputElement).type),
+      (el as HTMLInputElement).type !== "file" &&
+      ((el as HTMLInputElement).type !== "hidden" || isChipsMirror(el)),
   );
 
 const read = (form: HTMLFormElement, names: string[]): Values =>
@@ -27,6 +33,12 @@ const read = (form: HTMLFormElement, names: string[]): Values =>
 const write = (form: HTMLFormElement, values: Values): void => {
   for (const [name, value] of Object.entries(values)) {
     for (const el of controls(form, name)) {
+      if (isChipsMirror(el)) {
+        el.dispatchEvent(
+          new CustomEvent("write-in:set", { detail: typeof value === "string" ? value : "" }),
+        );
+        continue;
+      }
       if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) {
         el.checked = Array.isArray(value)
           ? value.includes(el.value)

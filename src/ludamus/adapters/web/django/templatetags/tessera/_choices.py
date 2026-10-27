@@ -23,6 +23,15 @@ class SoleChoice(NamedTuple):
     label: str | Promise
 
 
+def is_blank_choice(value: object) -> bool:
+    """Tell the "nothing picked" option apart from a real one.
+
+    Returns:
+        Whether ``value`` is the blank choice a select offers first.
+    """
+    return value in {"", None}
+
+
 def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     """Read a field's choices as groups.
 
