@@ -14,8 +14,10 @@ export type Copy = Record<
   | "errorMuted"
   | "errorRateLimited"
   | "errorUnknown"
+  | "linkCopied"
   | "loadEarlier"
   | "loading"
+  | "messageActions"
   | "messageLabel"
   | "messageListLabel"
   | "messageTooLong"
@@ -26,20 +28,25 @@ export type Copy = Record<
   | "muteOneHour"
   | "muteSevenDays"
   | "offline"
-  | "online"
-  | "presence"
+  | "presenceFew"
+  | "presenceMany"
+  | "presenceOne"
   | "readOnly"
   | "reported"
   | "reportMessage"
   | "restoreWriting"
   | "retry"
   | "roomsLabel"
+  | "scrollLatest"
   | "sending"
   | "sendLabel"
   | "sessionRoom"
   | "sphereRoom"
   | "title"
   | "unread"
+  | "unreadCountFew"
+  | "unreadCountMany"
+  | "unreadCountOne"
   | "writePlaceholder",
   string
 >;
@@ -71,6 +78,8 @@ export type Message = {
   id: number;
   nonce: string;
 };
+
+export type RoomActivity = { at: number; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

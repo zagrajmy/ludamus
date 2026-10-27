@@ -7,12 +7,15 @@ from typing import TYPE_CHECKING
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from ludamus.pacts.parley import ParleyReportData
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.http import HttpRequest
 
     from ludamus.pacts.legacy import RequestContext
@@ -26,8 +29,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# NOTE: the browser picks a plural form by count, so each phrase ships the
+# catalog's forms for the counts Polish distinguishes (1, 2, 5); the client
+# fills in %(count)s itself.
+def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
+    return {f"{key}One": phrase(1), f"{key}Few": phrase(2), f"{key}Many": phrase(5)}
+
+
 def _copy() -> dict[str, str]:
     return {
+        **_plural_forms(
+            "presence",
+            lambda count: ngettext(
+                "%(count)s person here", "%(count)s people here", count
+            ),
+        ),
+        **_plural_forms(
+            "unreadCount",
+            lambda count: ngettext(
+                "%(count)s unread conversation", "%(count)s unread conversations", count
+            ),
+        ),
         "title": _("Parley"),
         "closeLabel": _("Close Parley"),
         "loading": _("Gathering conversations…"),
@@ -36,10 +58,10 @@ def _copy() -> dict[str, str]:
             "Quiet in here. Say hello before someone starts a rules debate."
         ),
         "emptySession": _("You found the table first. Leave a note for the others."),
-        "readOnly": _("This parley has ended, but you can still read what was said."),
-        "presence": _("people around"),
+        "readOnly": _("You can read this conversation, but not write in it."),
         "messageLabel": _("Message"),
         "messageListLabel": _("Messages"),
+        "scrollLatest": _("Jump to the latest messages"),
         "sendLabel": _("Send message"),
         "roomsLabel": _("Conversations"),
         "backLabel": _("Back to conversations"),
@@ -58,7 +80,8 @@ def _copy() -> dict[str, str]:
         "errorRateLimited": _("Too many messages. Wait a moment and try again."),
         "errorUnknown": _("Something went wrong. Try again."),
         "deleteLabel": _("Delete message"),
-        "online": _("online"),
+        "messageActions": _("Message actions"),
+        "linkCopied": _("Link copied."),
         "sessionRoom": _("Programme point"),
         "sphereRoom": _("Common room"),
         "moderatorDelete": _("Delete as moderator"),

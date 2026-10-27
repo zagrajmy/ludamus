@@ -30,7 +30,9 @@ const bootstrap = {
     errorRateLimited: "Too many messages. Wait a moment and try again.",
     errorUnknown: "Something went wrong. Try again.",
     loadEarlier: "Load earlier messages",
+    linkCopied: "Link copied.",
     loading: "Gathering conversations…",
+    messageActions: "Message actions",
     messageLabel: "Message",
     messageListLabel: "Messages",
     messageTooLong: "Messages can be up to 1,000 characters.",
@@ -41,20 +43,25 @@ const bootstrap = {
     muteOneHour: "Mute for 1 hour",
     muteSevenDays: "Mute for 7 days",
     offline: "Parley lost the thread. Reconnecting…",
-    online: "online",
-    presence: "people around",
-    readOnly: "This parley has ended, but you can still read what was said.",
+    presenceFew: "%(count)s people here",
+    presenceMany: "%(count)s people here",
+    presenceOne: "%(count)s person here",
+    readOnly: "You can read this conversation, but not write in it.",
     reported: "Message reported.",
     reportMessage: "Report message",
     retry: "Try again",
     restoreWriting: "Restore writing access",
     roomsLabel: "Conversations",
+    scrollLatest: "Jump to the latest messages",
     sending: "Sending…",
     sendLabel: "Send message",
     sessionRoom: "Programme point",
     sphereRoom: "Common room",
     title: "Parley",
     unread: "Unread",
+    unreadCountFew: "%(count)s unread conversations",
+    unreadCountMany: "%(count)s unread conversations",
+    unreadCountOne: "%(count)s unread conversation",
     writePlaceholder: "Write a message…",
   },
   csrfToken: "mock-csrf",
@@ -68,7 +75,7 @@ const bootstrap = {
 
 test.describe.configure({ mode: "serial" });
 
-test("Parley launcher opens an accessible responsive conversation panel", async ({ page }) => {
+test("Parley launcher opens an accessible chat window from its room list", async ({ page }) => {
   await page.route("**/parley/bootstrap/", (route) =>
     route.fulfill({ contentType: "application/json", json: bootstrap }),
   );
@@ -94,11 +101,20 @@ test("Parley launcher opens an accessible responsive conversation panel", async 
     await launcher.click();
 
     const panel = page.getByRole("dialog", { name: "Parley" });
-    await expect(panel).toBeVisible();
-    await expect(panel.getByRole("navigation", { name: "Conversations" })).toBeVisible();
-    await expect(panel.getByLabel("Message", { exact: true })).toBeVisible();
+    const rooms = panel.getByRole("navigation", { name: "Conversations" });
+    await expect(rooms).toBeVisible();
+    await expect(launcher).toHaveAttribute("aria-expanded", "true");
+    await analyzePageAccessibility(page);
+
+    await rooms.getByRole("button", { name: /Zagrajmy/ }).click();
+    await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
+    await expect(panel.getByLabel("Message", { exact: true })).toBeFocused();
     await analyzePageAccessibility(page);
     await page.screenshot({ path: "screenshots/parley-desktop.png" });
+
+    await panel.getByRole("button", { name: "Back to conversations" }).click();
+    await rooms.getByRole("button", { name: /Mothership/ }).click();
+    await expect(panel.getByText(bootstrap.copy.readOnly)).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
@@ -106,7 +122,10 @@ test("Parley launcher opens an accessible responsive conversation panel", async 
 
     await page.setViewportSize({ height: 844, width: 390 });
     await launcher.click();
-    await expect(page.getByRole("dialog", { name: "Parley" })).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Conversations" })
+      .getByRole("button", { name: /Zagrajmy/ })
+      .click();
     await expect(page.getByPlaceholder("Write a message…")).toBeVisible();
     await page.screenshot({ path: "screenshots/parley-mobile.png" });
   } finally {

@@ -1,6 +1,6 @@
 import { callable } from "agents";
 
-import type { Message, RpcResult } from "./protocol";
+import type { Message, RoomActivity, RpcResult } from "./protocol";
 
 import { RoomAgent } from "./room-agent";
 
@@ -29,20 +29,30 @@ export class ParleySphereAgent extends RoomAgent {
   }
 
   @callable()
-  getUnreadCounts(): RpcResult<Record<string, boolean>> {
-    const userId = this.currentCapability().sub;
+  getActivity(): RpcResult<Record<string, RoomActivity>> {
+    const { rooms, sub } = this.currentCapability();
     const rows = this.sql<{
       latest_message_id: number;
       last_read_message_id: number | null;
       room_id: string;
+      updated_at: number;
     }>`
-      SELECT activity.room_id, activity.latest_message_id, positions.last_read_message_id
+      SELECT activity.room_id, activity.latest_message_id, activity.updated_at,
+        positions.last_read_message_id
       FROM room_activity activity
-      LEFT JOIN read_positions positions ON positions.room_id = activity.room_id AND positions.user_id = ${userId}`;
+      LEFT JOIN read_positions positions ON positions.room_id = activity.room_id AND positions.user_id = ${sub}`;
     return {
       ok: true,
       value: Object.fromEntries(
-        rows.map((row) => [row.room_id, row.latest_message_id > (row.last_read_message_id ?? 0)]),
+        rows
+          .filter((row) => rooms.includes(row.room_id))
+          .map((row) => [
+            row.room_id,
+            {
+              at: row.updated_at,
+              unread: row.latest_message_id > (row.last_read_message_id ?? 0),
+            },
+          ]),
       ),
     };
   }
@@ -85,7 +95,7 @@ export class ParleySphereAgent extends RoomAgent {
     this.emit({
       type: "room.activity",
       v: 1,
-      payload: { latestMessageId: input.latestMessageId, roomId: input.roomId },
+      payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
     });
   }
 
@@ -96,7 +106,7 @@ export class ParleySphereAgent extends RoomAgent {
     this.emit({
       type: "room.activity",
       v: 1,
-      payload: { latestMessageId: message.id, roomId: this.roomId },
+      payload: { at: message.createdAt, latestMessageId: message.id, roomId: this.roomId },
     });
   }
 }

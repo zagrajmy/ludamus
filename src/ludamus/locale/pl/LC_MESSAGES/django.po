@@ -3813,14 +3813,32 @@ msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
 #: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(count)s person here"
+msgid_plural "%(count)s people here"
+msgstr[0] "%(count)s osoba tutaj"
+msgstr[1] "%(count)s osoby tutaj"
+msgstr[2] "%(count)s osób tutaj"
+msgstr[3] "%(count)s osoby tutaj"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(count)s unread conversation"
+msgid_plural "%(count)s unread conversations"
+msgstr[0] "%(count)s nieprzeczytana rozmowa"
+msgstr[1] "%(count)s nieprzeczytane rozmowy"
+msgstr[2] "%(count)s nieprzeczytanych rozmów"
+msgstr[3] "%(count)s nieprzeczytanej rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Parley"
 msgstr "Parley"
 
-#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Close Parley"
 msgstr "Zamknij Parley"
 
-#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Gathering conversations…"
 msgstr "Zbieramy rozmowy…"
 
@@ -3837,12 +3855,8 @@ msgid "You found the table first. Leave a note for the others."
 msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "This parley has ended, but you can still read what was said."
-msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid "people around"
-msgstr "osób tutaj"
+msgid "You can read this conversation, but not write in it."
+msgstr "Możesz czytać tę rozmowę, ale nie możesz w niej pisać."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Message"
@@ -3851,6 +3865,10 @@ msgstr "Wiadomość"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Messages"
 msgstr "Wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Jump to the latest messages"
+msgstr "Przejdź do najnowszych wiadomości"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Send message"
@@ -3872,7 +3890,7 @@ msgstr "Wczytaj wcześniejsze wiadomości"
 msgid "Message deleted"
 msgstr "Wiadomość usunięta"
 
-#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
@@ -3884,7 +3902,7 @@ msgstr "Wysyłanie…"
 msgid "Write a message…"
 msgstr "Napisz wiadomość…"
 
-#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Could not connect to Parley."
 msgstr "Nie udało się połączyć z Parley."
 
@@ -3925,8 +3943,12 @@ msgid "Delete message"
 msgstr "Usuń wiadomość"
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "online"
-msgstr "online"
+msgid "Message actions"
+msgstr "Opcje wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Link copied."
+msgstr "Skopiowano link."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Programme point"
@@ -13205,6 +13227,15 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "This parley has ended, but you can still read what was said."
+#~ msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
+
+#~ msgid "people around"
+#~ msgstr "osób tutaj"
+
+#~ msgid "online"
+#~ msgstr "online"
 
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "

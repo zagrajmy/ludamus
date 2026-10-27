@@ -38,8 +38,14 @@ export type ServerEvent =
   | { type: "typing.changed"; v: 1; payload: { expiresAt: number; userId: string } }
   | { type: "restriction.changed"; v: 1; payload: { mutedUntil: number | null; userId: string } }
   | { type: "room.archived"; v: 1; payload: Record<string, never> }
-  | { type: "room.activity"; v: 1; payload: { latestMessageId: number; roomId: string } }
+  | {
+      type: "room.activity";
+      v: 1;
+      payload: { at: number; latestMessageId: number; roomId: string };
+    }
   | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } };
+
+export type RoomActivity = { at: number; unread: boolean };
 
 export type RpcError = {
   code: "archived" | "expired" | "forbidden" | "invalid" | "muted" | "rate_limited";

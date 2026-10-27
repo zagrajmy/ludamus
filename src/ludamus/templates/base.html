@@ -4,6 +4,7 @@
 {% load django_vite %}
 {% load heroicons %}
 {% load meta_tags %}
+{% load tessera %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -181,14 +182,18 @@
         {% if current_sphere.parley_enabled and current_user and current_user.is_active %}
             <div data-parley-root
                  data-ph-block
-                 data-bootstrap-url="{% url 'parley_bootstrap' %}">
+                 data-bootstrap-url="{% url 'parley_bootstrap' %}"
+                 data-close-label="{% translate 'Close Parley' %}"
+                 data-loading="{% translate 'Gathering conversations…' %}"
+                 data-connection-error="{% translate 'Could not connect to Parley.' %}"
+                 data-retry="{% translate 'Try again' %}">
                 <button type="button"
                         data-parley-launcher
                         aria-controls="parley-panel"
                         aria-expanded="false"
-                        class="fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] size-14 rounded-full bg-primary text-foreground-inverse shadow-lg hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                        class="fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] grid size-14 place-items-center rounded-full bg-primary text-foreground-inverse shadow-elevated hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
                         aria-label="{% translate 'Open Parley' %}">
-                    <span aria-hidden="true" class="text-xl">✦</span>
+                    {% icon "chat-bubble-oval-left-ellipsis" variant="mini" class="size-7" %}
                 </button>
             </div>
         {% endif %}
