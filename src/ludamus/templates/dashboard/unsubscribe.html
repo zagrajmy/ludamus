@@ -37,6 +37,7 @@
                           action="{% url 'web:email-unsubscribe-confirm' token=token %}"
                           class="mt-6">
                         {% csrf_token %}
+                        <input type="hidden" name="List-Unsubscribe" value="One-Click">
                         {% translate "Unsubscribe" as unsubscribe_label %}
                         {% tessera_button unsubscribe_label extra_class="w-full" %}
                     </form>
