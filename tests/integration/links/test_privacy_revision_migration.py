@@ -49,4 +49,8 @@ class TestPrivacyRevisionMigration:
                 == legacy_pks
             )
         finally:
-            MigrationExecutor(connection).migrate(after)
+            # Rolling back to `before` also unapplies any migration added after
+            # `after`, so the schema goes back to the graph's leaves, not to
+            # `after`.
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
