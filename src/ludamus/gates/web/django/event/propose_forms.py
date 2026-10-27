@@ -59,11 +59,8 @@ def build_session_details_form(
     if max_limit:
         participants_kwargs["max_value"] = max_limit
     elif not min_limit:
-        participants_kwargs |= {
-            "required": False,
-            "initial": 0,
-            "help_text": _("Empty or 0 = no enrollment"),
-        }
+        # NOTE: the propose page says "no sign-up" as the field's placeholder.
+        participants_kwargs |= {"required": False, "initial": 0}
 
     fields: dict[str, forms.Field] = {
         "title": forms.CharField(label=_("Title"), max_length=255),
@@ -72,12 +69,7 @@ def build_session_details_form(
         ),
         "participants_limit": forms.IntegerField(**participants_kwargs),
         "min_age": forms.IntegerField(
-            label=_("Minimum age"),
-            required=False,
-            min_value=0,
-            max_value=80,
-            initial=0,
-            help_text=_("0 = no age restriction"),
+            label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),
         "facilitator_name": forms.CharField(label=_("Presenter name"), max_length=255),
     }

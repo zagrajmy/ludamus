@@ -29,22 +29,20 @@
                 </div>
                 <div class="px-6 py-4">
                     {% include "event/propose/parts/_session_info_edit.html" %}
-                    <div class="space-y-6">
-                        {% if private_field_descriptors %}
-                            <section class="rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 bg-proposal-surface p-4"
-                                     aria-labelledby="propose-private-heading">
-                                <h3 id="propose-private-heading"
-                                    class="flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary">
-                                    {% include "components/icon-lock-closed.html" with size="w-4 h-4" %}
-                                    {% translate "Visible to organizers only" %}
-                                </h3>
-                                <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
-                                {% for desc in private_field_descriptors %}
-                                    {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
-                                {% endfor %}
-                            </section>
-                        {% endif %}
-                    </div>
+                    {% if private_field_descriptors %}
+                        <section class="rounded-xl border border-dashed border-warm-400 dark:border-neutral-600 bg-proposal-surface p-4"
+                                 aria-labelledby="propose-private-heading">
+                            <h3 id="propose-private-heading"
+                                class="flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary">
+                                {% include "components/icon-lock-closed.html" with size="w-4 h-4" %}
+                                {% translate "Visible to organizers only" %}
+                            </h3>
+                            <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
+                            {% for desc in private_field_descriptors %}
+                                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
+                            {% endfor %}
+                        </section>
+                    {% endif %}
                 </div>
                 <div class="px-6 pb-6 border-t border-border">
                     {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}

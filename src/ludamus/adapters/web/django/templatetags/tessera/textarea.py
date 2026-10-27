@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.template.loader import render_to_string
 
 from .errors import help_text_id
-from .input import INPLACE_CLASS
+from .input import inplace_class
 
 if TYPE_CHECKING:
     from django.forms import BoundField
@@ -33,7 +33,6 @@ def render_textarea(
             "placeholder": placeholder or attrs.get("placeholder", ""),
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
-            "inplace": inplace,
-            "inplace_class": INPLACE_CLASS,
+            "inplace_class": inplace_class(shape="textarea") if inplace else "",
         },
     )

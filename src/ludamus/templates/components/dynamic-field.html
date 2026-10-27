@@ -11,17 +11,16 @@
         {# A checkbox group has no single control to point a label at, so the #}
         {# question is the group's legend instead of an orphan <label>. #}
         <fieldset>
-            <legend class="{% if inplace %}text-sm font-semibold text-foreground-secondary{% else %}block text-sm font-medium text-foreground-secondary first-letter:uppercase{% endif %}">
+            <legend class="{{ label_class }}">
                 {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
             </legend>
             {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors aria_describedby=described_by inplace=inplace only %}
         </fieldset>
     {% elif field.field_type == "select" %}
-        <label for="{{ input_id }}"
-               class="{% if inplace %}text-sm font-semibold text-foreground-secondary{% else %}block text-sm font-medium text-foreground-secondary first-letter:uppercase{% endif %}">
+        <label for="{{ input_id }}" class="{{ label_class }}">
             {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
         </label>
-        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by pill=inplace placeholder=placeholder only %}
+        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by inplace_class=pill_class placeholder=placeholder only %}
     {% elif field.field_type == "checkbox" %}
         <label class="inline-flex items-center cursor-pointer">
             {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked aria_describedby=described_by only %}
@@ -30,11 +29,10 @@
             </span>
         </label>
     {% else %}
-        <label for="{{ input_id }}"
-               class="{% if inplace %}text-sm font-semibold text-foreground-secondary{% else %}block text-sm font-medium text-foreground-secondary first-letter:uppercase{% endif %}">
+        <label for="{{ input_id }}" class="{{ label_class }}">
             {% include "components/dynamic-field-label.html" with icon_name=icon_name label=heading is_required=is_required is_public=field.is_public inplace=inplace only %}
         </label>
-        {% include "components/text-field.html" with name=name id=input_id value=text_value placeholder=placeholder maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by inplace=inplace inplace_class=inplace_class only %}
+        {% include "components/text-field.html" with name=name id=input_id value=text_value placeholder=placeholder maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by inplace_class=text_class only %}
     {% endif %}
     {% if offers_custom %}
         {# A page can offer several write-ins, so the accessible name carries #}

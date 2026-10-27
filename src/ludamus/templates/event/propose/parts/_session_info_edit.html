@@ -5,7 +5,7 @@
     <div class="flex flex-1 min-w-0 font-medium text-foreground">
         <label for="{{ form.facilitator_name.auto_id }}" class="sr-only">{{ form.facilitator_name.label }}</label>
         {% translate "Your name or nickname" as facilitator_placeholder %}
-        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True dotted=True %}
+        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True %}
     </div>
 {% endblock host %}
 {% block description_label %}

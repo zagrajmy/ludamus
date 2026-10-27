@@ -59,15 +59,45 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
     )
 
 
-def _render_field_input(field: BoundField) -> str:
+def _sole_choice_input(field: BoundField) -> str | None:
+    # One selectable option is not a question, so the form carries the answer
+    # and the page spends nothing on asking it.
+    if isinstance(field.field.widget, ChoiceWidget) and (
+        sole := sole_required_choice(field)
+    ):
+        return format_html(
+            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
+        )
+    return None
+
+
+def _render_field_input(
+    field: BoundField,
+    *,
+    inplace: bool = False,
+    placeholder: str = "",
+    fit: bool = False,
+    pill: bool = False,
+) -> str:
     widget = field.field.widget
     if isinstance(widget, Select):
-        return render_select(field)
+        return render_select(field, inplace=inplace, pill=pill, placeholder=placeholder)
     if isinstance(widget, Textarea):
-        return render_textarea(field)
+        return render_textarea(field, inplace=inplace, placeholder=placeholder)
     if isinstance(widget, FileInput):
-        return render_file_input(field)
-    return render_input(field)
+        return render_file_input(field, inplace=inplace)
+    return render_input(field, inplace=inplace, fit=fit, placeholder=placeholder)
+
+
+def _render_controls(field: BoundField, control: str) -> str:
+    # File inputs surface their errors inside the dropzone itself.
+    is_file = isinstance(field.field.widget, FileInput)
+    return format_html(
+        "{}\n{}\n{}",
+        control,
+        render_help_text(field),
+        "" if is_file else render_errors(field),
+    )
 
 
 @register.simple_tag
@@ -93,15 +123,8 @@ def tessera_field(
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
         return str(field)  # BoundField.__str__ is already safe
-    # One selectable option is not a question, so the form carries the answer
-    # and the page spends nothing on asking it.
-    if (
-        isinstance(widget, ChoiceWidget)
-        and (sole := sole_required_choice(field)) is not None
-    ):
-        return format_html(
-            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
-        )
+    if (hidden := _sole_choice_input(field)) is not None:
+        return hidden
 
     container_class = "flex gap-y-0.5 not-last:mb-4"
     container_class += " flex-col" if layout == "vertical" else " max-sm:flex-col"
@@ -129,43 +152,30 @@ def tessera_field(
 
 @register.simple_tag
 def tessera_inplace(
-    field: BoundField,
-    *,
-    placeholder: str = "",
-    fit: bool = False,
-    dotted: bool = False,
-    pill: bool = False,
+    field: BoundField, *, placeholder: str = "", fit: bool = False, pill: bool = False
 ) -> str:
     """Render a field's control in place: dressed as the text it writes.
 
     For pages that show a thing in the shape it is read in, so the label is
-    the page's own; only the control and its errors render here. A select
+    the page's own; only the control, its help text and its errors render here. A select
     with one option is still not asked, as in `tessera_field`.
 
     Returns:
-        HTML string of the control followed by its errors.
+        HTML string of the control followed by its help text and errors.
 
     Usage:
         {% tessera_inplace form.title placeholder=title_placeholder %}
-        {% tessera_inplace form.facilitator_name fit=True dotted=True %}
+        {% tessera_inplace form.facilitator_name fit=True %}
         {% tessera_inplace image_form.cover_image %}
     """
-    widget = field.field.widget
-    if isinstance(widget, ChoiceWidget) and (sole := sole_required_choice(field)):
-        return format_html(
-            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
-        )
-    if isinstance(widget, FileInput):
-        control = render_file_input(field, inplace=True)
-    elif isinstance(widget, Select):
-        control = render_select(field, inplace=True, pill=pill, placeholder=placeholder)
-    elif isinstance(widget, Textarea):
-        control = render_textarea(field, inplace=True, placeholder=placeholder)
-    else:
-        control = render_input(
-            field, inplace=True, fit=fit, dotted=dotted, placeholder=placeholder
-        )
-    return format_html("{}{}", control, render_errors(field))
+    if (hidden := _sole_choice_input(field)) is not None:
+        return hidden
+    return _render_controls(
+        field,
+        _render_field_input(
+            field, inplace=True, placeholder=placeholder, fit=fit, pill=pill
+        ),
+    )
 
 
 @register.simple_tag
@@ -191,14 +201,7 @@ def tessera_sole_choice(field: BoundField) -> str:
 def _render_labelled_field(
     field: BoundField, *, layout: str, required: bool | None, label_action_template: str
 ) -> str:
-    # File inputs surface their errors inside the dropzone itself.
-    is_file = isinstance(field.field.widget, FileInput)
-    controls = format_html(
-        "{}\n{}\n{}",
-        _render_field_input(field),
-        render_help_text(field),
-        "" if is_file else render_errors(field),
-    )
+    controls = _render_controls(field, _render_field_input(field))
     label = render_label(field, required=required)
     if label_action_template:
         label = format_html(

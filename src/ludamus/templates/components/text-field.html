@@ -1,6 +1,26 @@
 {# Text input field. Always pass `name`. Other vars are optional — use `only` in includes. #}
 {# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, min, max, inputmode, pattern, autocomplete, datalist_id, spellcheck, has_errors, aria_label, aria_describedby, data_write_in_chips, chips_remove_label, chips_limit_error #}
 {# `class` appends to the component look — for layout (width, grow), not for restyling the field. #}
-{# inplace (with inplace_class) dresses it as the text it writes; then fit sizes it to its content and dotted marks a prefilled value. #}
+{# inplace_class replaces the look with the in-place one (tessera `inplace_class`): a field dressed as the text it writes. #}
 {# text-base keeps inputs at 16px on mobile so iOS Safari doesn't auto-zoom on focus; sm:text-sm restores the compact desktop size. #}
-<input type="{{ input_type|default:"text" }}" {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %} {% if datalist_id|default:"" %}list="{{ datalist_id }}"{% endif %} {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %} class="{% if inplace|default:False %}{{ inplace_class }} {% if dotted|default:False %}not-focus:outline-dotted{% else %}not-focus:outline-dashed{% endif %} {% if input_type == "number" %}field-sizing-content min-w-[2ch] tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none{% elif fit|default:False %}field-sizing-content max-w-full{% else %}block w-[calc(100%+0.75rem)]{% endif %}{% else %}w-full px-3 py-2 text-base sm:text-sm rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% endif %}{% if class|default:"" %} {{ class }}{% endif %}" name="{{ name }}" {% if id|default:"" %}id="{{ id }}"{% endif %} {% if placeholder|default:"" %}placeholder="{{ placeholder }}"{% endif %} {% if value|default:"" %}value="{{ value }}"{% endif %} {% if maxlength|default:"" %}maxlength="{{ maxlength }}"{% endif %} {% if min|default:"" %}min="{{ min }}"{% endif %} {% if max|default:"" %}max="{{ max }}"{% endif %} {% if inputmode|default:"" %}inputmode="{{ inputmode }}"{% endif %} {% if pattern|default:"" %}pattern="{{ pattern }}"{% endif %} {% if required|default:False %}required{% endif %} {% if disabled|default:False %}disabled{% endif %} {% if readonly|default:False %}readonly{% endif %} {% if has_errors|default:False %}aria-invalid="true"{% endif %} {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %} {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %} {% if data_write_in_chips|default:False %}data-write-in-chips data-chips-remove-label="{{ chips_remove_label }}" data-chips-limit-error="{{ chips_limit_error }}"{% endif %}>
+<input type="{{ input_type|default:"text" }}"
+       {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
+       {% if datalist_id|default:"" %}list="{{ datalist_id }}"{% endif %}
+       {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %}
+       class="{% if inplace_class|default:"" %}{{ inplace_class }}{% else %}w-full px-3 py-2 text-base sm:text-sm rounded-lg border border-border aria-invalid:border-danger bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% endif %}{% if class|default:"" %} {{ class }}{% endif %}"
+       name="{{ name }}"
+       {% if id|default:"" %}id="{{ id }}"{% endif %}
+       {% if placeholder|default:"" %}placeholder="{{ placeholder }}"{% endif %}
+       {% if value|default:"" %}value="{{ value }}"{% endif %}
+       {% if maxlength|default:"" %}maxlength="{{ maxlength }}"{% endif %}
+       {% if min|default:"" %}min="{{ min }}"{% endif %}
+       {% if max|default:"" %}max="{{ max }}"{% endif %}
+       {% if inputmode|default:"" %}inputmode="{{ inputmode }}"{% endif %}
+       {% if pattern|default:"" %}pattern="{{ pattern }}"{% endif %}
+       {% if required|default:False %}required{% endif %}
+       {% if disabled|default:False %}disabled{% endif %}
+       {% if readonly|default:False %}readonly{% endif %}
+       {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+       {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}
+       {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
+       {% if data_write_in_chips|default:False %}data-write-in-chips data-chips-remove-label="{{ chips_remove_label }}" data-chips-limit-error="{{ chips_limit_error }}"{% endif %}>

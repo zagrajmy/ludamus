@@ -3147,20 +3147,11 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no enrollment"
-msgstr "Puste pole lub 0 = bez zapisów"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
-
-#: src/ludamus/gates/web/django/event/propose_forms.py
-msgid "0 = no age restriction"
-msgstr "0 = brak ograniczenia wiekowego"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
@@ -3639,6 +3630,10 @@ msgstr "Email kontaktowy"
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Participants Limit"
 msgstr "Limit uczestników"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
@@ -13356,6 +13351,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "0 = no age restriction"
+#~ msgstr "0 = brak ograniczenia wiekowego"
 
 #~ msgid "seats"
 #~ msgstr "os."

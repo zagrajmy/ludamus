@@ -1,4 +1,15 @@
 {# Textarea field. #}
-{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace (with inplace_class: dressed as the text it writes, growing with it) #}
+{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace_class (the in-place look: dressed as the text it writes) #}
 {# text-base on mobile keeps the textarea at 16px so iOS Safari doesn't auto-zoom on focus; the sm: size restores the compact desktop scale. #}
-<textarea class="{% if inplace|default:False %}{{ inplace_class }} not-focus:outline-dashed block w-[calc(100%+0.75rem)] resize-none field-sizing-content placeholder-shown:min-h-[3lh]{% else %}w-full px-3 py-2 {% if monospace|default:False %}font-mono text-base sm:text-xs{% else %}text-base sm:text-sm leading-relaxed{% endif %} rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% endif %}" {% if id|default:"" %}id="{{ id }}"{% endif %} {% if name|default:"" %}name="{{ name }}"{% endif %} rows="{{ rows|default:'4' }}" {% if placeholder|default:"" %}placeholder="{{ placeholder }}"{% endif %} {% if required|default:False %}required{% endif %} {% if has_errors|default:False %}aria-invalid="true"{% endif %} {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %} {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %} {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %} {% if autocapitalize|default:"" %}autocapitalize="{{ autocapitalize }}"{% endif %} {% if autocorrect|default:"" %}autocorrect="{{ autocorrect }}"{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>
+<textarea class="{% if inplace_class|default:"" %}{{ inplace_class }}{% else %}w-full px-3 py-2 rounded-lg border border-border aria-invalid:border-danger bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% endif %}{% if monospace|default:False %} font-mono text-base sm:text-xs{% elif not inplace_class|default:"" %} text-base sm:text-sm leading-relaxed{% endif %}"
+          {% if id|default:"" %}id="{{ id }}"{% endif %}
+          {% if name|default:"" %}name="{{ name }}"{% endif %}
+          rows="{{ rows|default:'4' }}"
+          {% if placeholder|default:"" %}placeholder="{{ placeholder }}"{% endif %}
+          {% if required|default:False %}required{% endif %}
+          {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+          {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
+          {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
+          {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %}
+          {% if autocapitalize|default:"" %}autocapitalize="{{ autocapitalize }}"{% endif %}
+          {% if autocorrect|default:"" %}autocorrect="{{ autocorrect }}"{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>

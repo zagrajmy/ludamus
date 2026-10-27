@@ -21,6 +21,16 @@ export async function visualDiff(
       const [imgA, imgB] = await Promise.all([load(srcA), load(srcB)]);
       const width = Math.min(imgA.width, imgB.width);
       const height = Math.min(imgA.height, imgB.height);
+      const fullWidth = Math.max(imgA.width, imgB.width);
+      const fullHeight = Math.max(imgA.height, imgB.height);
+      // NOTE: two crops of one layout can land a pixel apart in rounding.
+      // Past that, whatever only one image has (a field missing from the
+      // other) counts as different instead of being cropped away.
+      const slack = 2;
+      const unshared =
+        fullWidth - width > slack || fullHeight - height > slack
+          ? fullWidth * fullHeight - width * height
+          : 0;
       const pixels = (img: HTMLImageElement) => {
         const canvas = document.createElement("canvas");
         canvas.width = width;
@@ -50,7 +60,7 @@ export async function visualDiff(
       canvas.height = height;
       canvas.getContext("2d")!.putImageData(out, 0, 0);
       return {
-        ratio: differing / (width * height),
+        ratio: (differing + unshared) / (fullWidth * fullHeight),
         size: { a: [imgA.width, imgA.height], b: [imgB.width, imgB.height] },
         diff: canvas.toDataURL("image/png"),
       };

@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
 
 from ._choices import grouped_choices
 from .errors import help_text_id
-from .input import INPLACE_CLASS
+from .input import inplace_class
 
 if TYPE_CHECKING:
     from django.forms import BoundField
@@ -40,9 +40,9 @@ def render_select(
             "disabled": field.field.disabled,
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
-            "inplace": inplace,
-            "inplace_class": INPLACE_CLASS,
-            "pill": pill,
+            "inplace_class": (
+                inplace_class(shape="pill" if pill else "select") if inplace else ""
+            ),
             "placeholder": placeholder,
         },
     )

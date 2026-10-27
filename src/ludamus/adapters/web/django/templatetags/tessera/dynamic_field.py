@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from ludamus.pacts import FieldAnswer
 
 from ._registry import register
-from .input import INPLACE_CLASS
+from .input import inplace_class
 
 if TYPE_CHECKING:
     from ludamus.pacts import FieldValue, OrganizerFieldDTO
@@ -52,7 +52,14 @@ def field_context(
         "heading": field.name if inplace else field.question,
         "placeholder": field.question if inplace else "",
         "inplace": inplace,
-        "inplace_class": INPLACE_CLASS,
+        "label_class": (
+            "text-sm font-semibold text-foreground-secondary"
+            if inplace
+            else "block text-sm font-medium text-foreground-secondary"
+            " first-letter:uppercase"
+        ),
+        "text_class": inplace_class(shape="text") if inplace else "",
+        "pill_class": inplace_class(shape="pill") if inplace else "",
         "icon_name": field.icon,
         "name": name,
         "input_id": input_id,
