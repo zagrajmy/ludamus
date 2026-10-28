@@ -89,9 +89,7 @@ def _render_field_input(
     return render_input(field, inplace_class=inplace_class, placeholder=placeholder)
 
 
-def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape | None:
-    if isinstance(widget, FileInput):
-        return None
+def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape:
     if isinstance(widget, Textarea):
         return "textarea"
     if isinstance(widget, Select):
@@ -186,8 +184,9 @@ def tessera_inplace(
     """
     if (hidden := _sole_choice_input(field)) is not None:
         return hidden
-    if (shape := _inplace_shape(field.field.widget, fit=fit)) is None:
+    if isinstance(field.field.widget, FileInput):
         return _render_controls(field, render_file_input(field, inplace=True))
+    shape = _inplace_shape(field.field.widget, fit=fit)
     look = (
         f"{inplace_look(shape=shape)} {UNIT_ROOM}"
         if unit

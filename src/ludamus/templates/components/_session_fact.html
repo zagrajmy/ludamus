@@ -7,11 +7,18 @@
     <div class="grid gap-0.5 min-w-0">
         <label {% if label_for %}for="{{ label_for }}"{% endif %}
                class="text-xs text-foreground-muted">{{ label }}</label>
+        <span class="inline-flex items-center gap-3 min-w-0">
+            {% if icon_name %}
+                {% icon icon_name class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+            {% endif %}
+            {{ value }}
+        </span>
+    </div>
+{% else %}
+    <span class="inline-flex items-center gap-1.5 min-w-0">
+        {% if icon_name %}
+            {% icon icon_name class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+        {% endif %}
+        {{ value }}
+    </span>
 {% endif %}
-<span class="inline-flex items-center {% if label %}gap-3{% else %}gap-1.5{% endif %} min-w-0">
-    {% if icon_name %}
-        {% icon icon_name class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
-    {% endif %}
-    {{ value }}
-</span>
-{% if label %}</div>{% endif %}
