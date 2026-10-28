@@ -1,5 +1,5 @@
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: runs add events nobody can delete; a 2001 start keeps /panel/ redirects as is.
@@ -7,9 +7,10 @@ const START = "2001-05-04T10:00";
 const END = "2001-05-04T18:00";
 
 test.describe("Panel event creation", () => {
+  test.use({ storageState: managerState });
+
   test("organizer creates an event from another event's setup", async ({ page }, testInfo) => {
     const slug = `thornwood-copy-${Date.now()}`;
-    await signInAsManager(page);
     await page.goto("/panel/event/thornwood-days/");
 
     await page.getByRole("link", { name: "New event" }).click();

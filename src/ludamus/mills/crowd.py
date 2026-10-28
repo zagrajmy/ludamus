@@ -10,6 +10,7 @@ import secrets
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, assert_never
+from uuid import uuid4
 
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
@@ -134,6 +135,15 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
     ) -> AuthProvisionDTO:
+        with self._transaction.atomic():
+            self._users.lock_username(username)
+            return self._provision_locked(
+                username=username, create_data=create_data, claim_token=claim_token
+            )
+
+    def _provision_locked(
+        self, *, username: str, create_data: UserData, claim_token: str = ""
+    ) -> AuthProvisionDTO:
         claim_outcome: ClaimOutcome | None = None
         if claim_token:
             with self._transaction.atomic():
@@ -165,6 +175,22 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             email_conflict=email_conflict,
         )
 
+    def reject_signup(self, *, username: str, slug: str, password: str) -> None:
+        with self._transaction.atomic():
+            self._users.lock_username(username)
+            result = self._provision_locked(
+                username=username,
+                create_data=UserData(
+                    username=username,
+                    slug=slug,
+                    password=password,
+                    user_type=UserType.ACTIVE,
+                    age_band=AgeBand.UNKNOWN,
+                    is_active=False,
+                ),
+            )
+            self.disable_underage_account(result.user.slug)
+
     def disable_underage_account(self, user_slug: str) -> None:
         with self._transaction.atomic():
             self._set_age_band(user_slug, AgeBand.UNKNOWN)
@@ -178,7 +204,8 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             return self._set_age_band(user_slug, age_band)
 
     def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
-        previous = self._users.set_age_band(user_slug, age_band)
+        if (previous := self._users.set_age_band(user_slug, age_band)) != age_band:
+            self._users.update(user_slug, UserData(privacy_revision=uuid4()))
         # A subscription made under one age range is no consent under another:
         # only an account that was and stays 16+ keeps its subscriptions.
         if previous.allows_optional_features and age_band.allows_optional_features:

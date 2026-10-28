@@ -23,6 +23,18 @@ def render_form_errors(form: BaseForm) -> str:
     )
 
 
+def help_text_id(field: BoundField) -> str:
+    """Name the help text a control points `aria-describedby` at.
+
+    Returns:
+        The id `render_help_text` gives the paragraph, or an empty string
+        when none renders: an error replaces the help text.
+    """
+    if not field.help_text or field.errors or not field.auto_id:
+        return ""
+    return f"{field.auto_id}_help"
+
+
 def render_help_text(field: BoundField) -> str:
     """Render field help text.
 
@@ -33,7 +45,9 @@ def render_help_text(field: BoundField) -> str:
         return ""
 
     return format_html(
-        '<p class="text-xs mt-1 text-foreground-muted">{}</p>', field.help_text
+        '<p{} class="text-xs mt-1 text-foreground-muted">{}</p>',
+        format_html(' id="{}"', help_id) if (help_id := help_text_id(field)) else "",
+        field.help_text,
     )
 
 

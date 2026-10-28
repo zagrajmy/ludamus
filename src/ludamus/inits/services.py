@@ -10,6 +10,7 @@ from ludamus.inits.builders import (
     build_encounter_guests,
     build_encounters,
     build_konwencik_export,
+    build_listings,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -123,6 +124,7 @@ from ludamus.pacts.timetable import TimetableRepos
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.konwencik import KonwencikExportService
+    from ludamus.mills.listing import ListingService
     from ludamus.pacts.chronology import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
@@ -552,6 +554,10 @@ class Services:
     @cached_property
     def tags(self) -> TagService:
         return TagService(self._transaction, self._repos.tags)
+
+    @cached_property
+    def listings(self) -> ListingService:
+        return build_listings()
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:

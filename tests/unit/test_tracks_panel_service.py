@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, call
+from uuid import UUID
 
 import pytest
 
@@ -164,6 +165,7 @@ class TestTracksPanelService:
 
 def _user(pk):
     return UserDTO(
+        privacy_revision=UUID(int=1),
         age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=NOW,

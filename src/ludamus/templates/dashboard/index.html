@@ -42,9 +42,14 @@
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <h2 id="dashboard-for-you-heading"
                         class="text-xl font-bold text-foreground">{% translate "For you" %}</h2>
-                    {% if can_create_encounter %}
-                        {% include "components/create_encounter_button.html" %}
-                    {% endif %}
+                    <div class="flex flex-wrap gap-2">
+                        {% translate "Board" as board_label %}
+                        {% url 'web:board:index' as board_url %}
+                        {% tessera_button board_label href=board_url variant="secondary" icon="megaphone" %}
+                        {% if can_create_encounter %}
+                            {% include "components/create_encounter_button.html" %}
+                        {% endif %}
+                    </div>
                 </div>
                 {% if dashboard.open_encounters %}
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

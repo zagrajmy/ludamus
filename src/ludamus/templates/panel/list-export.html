@@ -21,6 +21,6 @@
             {# The chooser submits back to this page: the download is the same #}
             {# URL with the ticked columns on it. #}
             {% include "panel/parts/_columns_chooser.html" with form_id="export-form" method="get" heading=heading action_url=request.path help_text=help_text hidden_params=hidden_params chosen_columns=chosen_columns available_columns=available_columns error=error only %}
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% blocktranslate with title=listing.title %}Responses to {{ title }}{% endblocktranslate %}
+{% endblock title %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <div class="max-w-3xl w-full mx-auto">
+        <a href="{% url 'web:board:detail' pk=listing.pk %}"
+           class="inline-flex items-center gap-1 mb-4 text-sm text-foreground-muted hover:text-foreground-secondary">
+            {% icon "arrow-left" class="w-3.5 h-3.5" %}
+            {{ listing.title }}
+        </a>
+        <h1 class="mb-2 text-2xl sm:text-3xl font-bold text-foreground">{% translate "Responses" %}</h1>
+        <p class="mb-6 text-sm text-foreground-secondary">
+            {% translate "Contacts are shared once someone joins your party." %}
+        </p>
+        {% url 'web:board:responses' pk=listing.pk as responses_url %}
+        {% tabs %}
+            {% tab "waiting" href=responses_url|add:"?tab=waiting" %}
+                {% blocktranslate with count=counts.waiting %}Interested ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
+            {% tab "declined" href=responses_url|add:"?tab=declined" %}
+                {% blocktranslate with count=counts.declined %}Not this time ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
+        {% end_tabs %}
+        {% if responses %}
+            <ul class="mt-4 rounded-lg border border-border bg-bg-secondary divide-y divide-border overflow-hidden">
+                {% for response in responses %}
+                    <li class="flex flex-col gap-3 p-4">
+                        <div>
+                            <p class="font-medium text-foreground-primary">{{ response.user_name }}</p>
+                            <p class="text-xs text-foreground-muted">
+                                <time datetime="{{ response.creation_time|date:'c' }}">{{ response.creation_time|date:"SHORT_DATETIME_FORMAT" }}</time>
+                            </p>
+                        </div>
+                        {% if response.message %}
+                            <p class="whitespace-pre-line break-words text-sm text-foreground-secondary">{{ response.message }}</p>
+                        {% endif %}
+                        {% if response.status == "waiting" %}
+                            <details>
+                                <summary class="cursor-pointer text-sm font-medium text-foreground-secondary hover:text-foreground-primary">
+                                    {% translate "Not this time" %}
+                                </summary>
+                                <form method="post"
+                                      action="{% url 'web:board:decline' pk=listing.pk response_pk=response.pk %}"
+                                      class="mt-3 flex flex-col">
+                                    {% csrf_token %}
+                                    {% tessera_field decline_form.message %}
+                                    {% translate "Send “Not this time”" as t_decline %}
+                                    {% tessera_button text=t_decline variant="secondary" %}
+                                </form>
+                            </details>
+                        {% elif response.decline_message %}
+                            <p class="whitespace-pre-line break-words text-sm text-foreground-muted">{{ response.decline_message }}</p>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="mt-4 rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
+                {% icon "inbox" class="w-8 h-8 mx-auto text-foreground-muted" %}
+                {% if active_tab == "waiting" %}
+                    <p class="mt-3 font-medium text-foreground-primary">{% translate "Nobody is waiting for an answer" %}</p>
+                    <p class="mt-1 text-sm text-foreground-secondary">
+                        {% translate "People who click “I'm interested” on your listing show up here." %}
+                    </p>
+                {% else %}
+                    <p class="mt-3 font-medium text-foreground-primary">{% translate "You haven't turned anyone down" %}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock body %}

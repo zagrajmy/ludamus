@@ -1479,6 +1479,27 @@ def _create_age_scenarios() -> None:
         )
 
 
+def _create_privacy_scenarios() -> None:
+    _create_site("ludamus.localhost:8001", name="Privacy root")
+    _create_site("another.ludamus.localhost:8001", name="Privacy sibling")
+    for scenario, age_band in (
+        ("revocation", AgeBand.SIXTEEN_PLUS),
+        ("loading", AgeBand.SIXTEEN_PLUS),
+        ("legacy", AgeBand.THIRTEEN_TO_FIFTEEN),
+    ):
+        user = User.objects.create_user(
+            username=f"e2e-privacy-{scenario}",
+            slug=f"e2e-privacy-{scenario}",
+            name="Privacy participant",
+            age_band=age_band,
+        )
+        _write_storage_state(
+            user,
+            domain=".ludamus.localhost",
+            path=REPO_ROOT / f"tests/e2e/.auth-state-privacy-{scenario}.json",
+        )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -1496,6 +1517,7 @@ def main() -> None:
     # Test user for authenticated e2e tests
     tester = _create_test_user()
     _create_age_scenarios()
+    _create_privacy_scenarios()
 
     superuser = User.objects.create_superuser(
         username="admin",
@@ -1535,7 +1557,7 @@ def main() -> None:
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
 
-    # Staff manager user for panel e2e tests (logs in via /admin/)
+    # Staff manager user for panel e2e tests (helpers/auth.ts signInAsManager)
     manager = User.objects.create_user(
         username="e2e-manager",
         email="e2e-manager@test.local",
@@ -1545,6 +1567,11 @@ def main() -> None:
         is_staff=True,
     )
     sphere.managers.add(manager)
+    _write_storage_state(
+        manager,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
+    )
 
     local_manager = User.objects.create_user(
         username="auth0|local-manager",

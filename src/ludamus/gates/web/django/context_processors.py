@@ -61,6 +61,10 @@ def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
+def board(_request: HttpRequest) -> dict[str, bool]:
+    return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
+
+
 class PosthogConfig(TypedDict):
     api_key: str
     environment: str
@@ -68,7 +72,8 @@ class PosthogConfig(TypedDict):
     # Derived from the URLconf so the browser redacts the same segments the
     # server does, rather than keeping its own copy of the route list.
     redaction_rules: list[list[str]]
-    user_id: str | None
+    user_id: str
+    privacy_revision: str
 
 
 class AnalyticsContextData(TypedDict):
@@ -94,6 +99,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
             user_id=identity.distinct_id(user.pk),
+            privacy_revision=str(user.privacy_revision),
             environment=identity.environment(),
             redaction_rules=redaction.client_patterns(),
         )

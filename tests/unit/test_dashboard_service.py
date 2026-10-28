@@ -128,7 +128,9 @@ def _announcement():
 
 
 def _recipient(user_id, email, age_band=AgeBand.SIXTEEN_PLUS):
-    return SubscriptionRecipientDTO(user_id=user_id, email=email, age_band=age_band)
+    return SubscriptionRecipientDTO(
+        subscription_id=1000 + user_id, user_id=user_id, email=email, age_band=age_band
+    )
 
 
 def _service(repo, notifier):

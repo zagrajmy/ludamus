@@ -2,7 +2,7 @@ import { type Browser, type Page } from "@playwright/test";
 import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { BASE_URL, CREW_SPHERE } from "./helpers/urls";
 
@@ -17,31 +17,25 @@ test.use({ storageState: path.join(__dirname, "..", ".auth-state-invitee.json") 
 interface SphereCase {
   label: string;
   origin: string;
-  signIn: (page: Page) => Promise<void>;
-  storageState?: string;
+  storageState: string;
 }
 
 const SPHERES: SphereCase[] = [
   {
     label: "root sphere",
     origin: BASE_URL,
-    signIn: async (page: Page) => signInAsManager(page),
+    storageState: managerState,
   },
   {
     label: "non-root sphere",
     origin: CREW_SPHERE,
-    // Crew's manager holds a session cookie for that host, written by
-    // bootstrap_data.py, so there is nothing to sign in to.
-    signIn: async () => {},
     storageState: path.join(__dirname, "..", ".auth-state-crew-manager.json"),
   },
 ];
 
 const managerPage = async (browser: Browser, sphere: SphereCase): Promise<Page> => {
   const context = await browser.newContext({ storageState: sphere.storageState });
-  const page = await context.newPage();
-  await sphere.signIn(page);
-  return page;
+  return context.newPage();
 };
 
 for (const sphere of SPHERES) {

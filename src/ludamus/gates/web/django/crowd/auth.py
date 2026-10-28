@@ -189,9 +189,12 @@ class Auth0UserInfo(BaseModel):
 
 
 def _provision_user(
-    request: RootRequest, *, userinfo: Auth0UserInfo, age_band: AgeBand
+    request: RootRequest,
+    *,
+    userinfo: Auth0UserInfo,
+    age_band: AgeBand,
+    claim_token: str,
 ) -> UserDTO:
-    claim_token = request.session.pop("pending_claim_token", "")
     result = request.services.crowd_auth.provision_user(
         username=userinfo.username,
         create_data=userinfo.to_create_data(
@@ -228,11 +231,14 @@ def _finish_login(
     userinfo: Auth0UserInfo,
     redirect_to: str,
     age_band: AgeBand,
+    claim_token: str,
 ) -> str:
     """Provision and log in. `age_band` only reaches an account created here."""
     index_url = request.build_absolute_uri(reverse("web:index"))
     request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
-    user = _provision_user(request, userinfo=userinfo, age_band=age_band)
+    user = _provision_user(
+        request, userinfo=userinfo, age_band=age_band, claim_token=claim_token
+    )
     if not user.is_active:
         messages.error(
             request, _("This account is inactive. Contact support for help.")
@@ -283,9 +289,13 @@ class Auth0LoginCallbackActionView(RedirectView):
             return redirect_to or index_url
 
         userinfo = self._get_userinfo()
+        claim_token = self.request.session.pop("pending_claim_token", "")
         if not self.request.services.crowd_auth.has_account(userinfo.username):
             self.request.session[PENDING_SIGNUP_SESSION_KEY] = _PendingSignup(
-                userinfo=userinfo, redirect_to=redirect_to, started_at=datetime.now(UTC)
+                userinfo=userinfo,
+                claim_token=claim_token,
+                redirect_to=redirect_to,
+                started_at=datetime.now(UTC),
             ).model_dump(mode="json")
             return self.request.build_absolute_uri(
                 reverse("web:crowd:auth0:signup-age")
@@ -295,6 +305,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             userinfo=userinfo,
             redirect_to=redirect_to,
             age_band=AgeBand.UNKNOWN,
+            claim_token=claim_token,
         )
 
     def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
@@ -392,6 +403,7 @@ def sign_out_to_guardian_page(request: RootRequest) -> TemplateResponse:
 
 class _PendingSignup(BaseModel):
     userinfo: Auth0UserInfo
+    claim_token: str = ""
     redirect_to: str = ""
     confirmation_token: str = ""
     started_at: datetime
@@ -446,6 +458,11 @@ class Auth0SignupAgePageView(View):
         if not form.is_valid():
             return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
         if (age_band := form.cleaned_data["age_band"]) is None:
+            request.services.crowd_auth.reject_signup(
+                username=pending.userinfo.username,
+                slug=slugify(pending.userinfo.username),
+                password=make_password(None),
+            )
             logger.info("Independent signup declined: below minimum age")
             return sign_out_to_guardian_page(request)
         logger.info("Signup age range confirmed")
@@ -454,6 +471,7 @@ class Auth0SignupAgePageView(View):
             userinfo=pending.userinfo,
             redirect_to=pending.redirect_to,
             age_band=age_band,
+            claim_token=pending.claim_token,
         )
         # NOTE: CSP form-action stops a form POST from redirecting to another
         # sphere's host, so a cross-host destination is reached from a page.

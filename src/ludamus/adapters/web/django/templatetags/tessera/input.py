@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
+from .errors import help_text_id
+
 if TYPE_CHECKING:
     from django.forms import BoundField
 
@@ -66,5 +68,6 @@ def render_input(field: BoundField) -> str:
             "datalist_id": attrs.get("list", ""),
             "spellcheck": spellcheck or "",
             "has_errors": bool(field.errors),
+            "aria_describedby": help_text_id(field),
         },
     )

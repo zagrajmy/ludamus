@@ -56,6 +56,8 @@ def _list_item(pk=1, accreditation_type="standard"):
     return FacilitatorListItemDTO(
         accreditation_type=accreditation_type,
         display_name="Ada",
+        organizer_id=None,
+        organizer_name=None,
         pk=pk,
         session_count=0,
         slug=f"ada-{pk}",

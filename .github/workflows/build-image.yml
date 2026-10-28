@@ -12,18 +12,19 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   build:
     name: Build and push prod image to GHCR
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -31,7 +32,7 @@ jobs:
 
       - name: Image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
           # `sha-<full-sha>` is the deploy-addressable tag; `latest` tracks main.
@@ -40,7 +41,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: docker/Dockerfile
@@ -54,3 +55,31 @@ jobs:
             DJANGO_SETTINGS_MODULE=ludamus.edges.settings
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+
+      # advisory until the base-image baseline is triaged into .trivyignore
+      - name: Scan image for CVEs
+        continue-on-error: true
+        run: >-
+          mise run dep:audit:image --
+          --format json --list-all-pkgs --output trivy.json
+          ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+      - name: Convert scan to SARIF and SBOM
+        if: always() && hashFiles('trivy.json') != ''
+        run: |
+          mise x trivy@0.76.1 -- trivy convert --format sarif --output trivy.sarif trivy.json
+          mise x trivy@0.76.1 -- trivy convert --format cyclonedx --output sbom.cdx.json trivy.json
+
+      - name: Upload scan to code scanning
+        if: always() && hashFiles('trivy.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
