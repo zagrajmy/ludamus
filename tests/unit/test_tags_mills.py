@@ -3,6 +3,7 @@ from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
     TAG_SLUG_MAX_LENGTH,
+    TagCategoryOptionsDTO,
     TagDTO,
     TagImportReportDTO,
     TagOptionDTO,
@@ -17,8 +18,8 @@ class FakeTags:
         self.categories = set(categories) | {key[0] for key in self.tags}
         self.writes = []
 
-    def category_slugs(self):
-        return set(self.categories)
+    def category_names(self):
+        return {slug: slug.title() for slug in self.categories}
 
     def read_all(self):
         return [
@@ -234,8 +235,8 @@ class TestImportRows:
         assert repo.categories == {"activity", "genre"}
 
 
-class TestOptions:
-    def test_paths_of_one_category_sorted(self):
+class TestPicker:
+    def test_paths_per_category_sorted(self):
         repo = FakeTags(
             [
                 _tag("ttrpg", name="TTRPG"),
@@ -245,12 +246,22 @@ class TestOptions:
             ]
         )
 
-        options = TagService(FakeTransaction(), repo).options("activity")
+        picker = TagService(FakeTransaction(), repo).picker()
 
-        assert options == [
-            TagOptionDTO(pk=1, path="TTRPG"),
-            TagOptionDTO(pk=2, path=TAG_PATH_SEPARATOR.join(["TTRPG", "OSR"])),
-            TagOptionDTO(
-                pk=3, path=TAG_PATH_SEPARATOR.join(["TTRPG", "OSR", "Mörk Borg"])
+        assert picker == [
+            TagCategoryOptionsDTO(
+                slug="activity",
+                name="Activity",
+                options=[
+                    TagOptionDTO(pk=1, path="TTRPG"),
+                    TagOptionDTO(pk=2, path=TAG_PATH_SEPARATOR.join(["TTRPG", "OSR"])),
+                    TagOptionDTO(
+                        pk=3,
+                        path=TAG_PATH_SEPARATOR.join(["TTRPG", "OSR", "Mörk Borg"]),
+                    ),
+                ],
+            ),
+            TagCategoryOptionsDTO(
+                slug="genre", name="Genre", options=[TagOptionDTO(pk=4, path="Horror")]
             ),
         ]

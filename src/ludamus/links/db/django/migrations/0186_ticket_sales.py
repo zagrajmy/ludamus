@@ -10,7 +10,7 @@ import ludamus.pacts.tickets
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0182_user_age_band")]
+    dependencies = [("db_main", "0185_listing_response")]
 
     operations = [
         migrations.CreateModel(

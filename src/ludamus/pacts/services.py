@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
+    from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
     from ludamus.pacts.multiverse import (
@@ -243,6 +244,8 @@ class ServicesProtocol(Protocol):
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
     @property
     def tags(self) -> TagServiceProtocol: ...
+    @property
+    def listings(self) -> ListingServiceProtocol: ...
     @property
     def propose_session(self) -> ProposeSessionServiceProtocol: ...
     @property

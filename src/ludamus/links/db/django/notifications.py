@@ -17,19 +17,22 @@ from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils.formats import date_format
+from django.utils.text import Truncator
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
+    NOTIFICATION_TITLE_MAX_LENGTH,
     Announcement,
     Notification,
     NotificationSubscription,
     Session,
+    SphereSubscription,
     User,
 )
-from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE
+from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import (
     ClaimedAnnouncementDTO,
@@ -45,6 +48,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.listing import (
+        ListingDeclinedNotification,
+        ListingInterestedNotification,
+        ListingNotification,
+    )
     from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
         HeldSeatNotification,
@@ -97,18 +105,77 @@ def _session_host(session_id: int) -> str:
     return domain
 
 
-class _OptInMail:
-    """What a mail the recipient chose to get carries on top of its message.
+def _ring(
+    notification: ListingNotification,
+    *,
+    kind: NotificationKind,
+    title: str,
+    body: str,
+    url_name: str = "web:board:detail",
+) -> None:
+    # Board notices land in the bell only; no mail goes out for them.
+    Notification.objects.create(
+        recipient_id=notification.recipient_user_id,
+        kind=kind.value,
+        title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
+        body=body,
+        url=absolute_url(
+            reverse(url_name, kwargs={"pk": notification.listing_id}),
+            domain=str(settings.ROOT_DOMAIN),
+        ),
+        payload={"listing_id": notification.listing_id},
+    )
 
-    Transactional mail (a seat, a party, an address proof) needs none of it;
-    a subscription the recipient can drop needs a way out that works without
-    a login, in the body and as RFC 8058 one-click headers, plus the sender's
-    postal address.
+
+class _SphereSubscriptionMail:
+    """Promotional delivery authorized by the exact subscription selected.
+
+    Deletion revokes queued mail even if the recipient becomes eligible again
+    or opts in through a replacement subscription before delivery.
     """
 
-    def __init__(self, *, sphere_name: str, unsubscribe_token: str) -> None:
+    def __init__(
+        self,
+        *,
+        subscription_id: int,
+        recipient_id: int,
+        sphere_name: str,
+        unsubscribe_token: str,
+    ) -> None:
+        self._subscription_id = subscription_id
+        self._recipient_id = recipient_id
         self._sphere_name = sphere_name
         self._token = unsubscribe_token
+
+    def _authorized(self) -> bool:
+        return SphereSubscription.objects.filter(
+            pk=self._subscription_id,
+            user_id=self._recipient_id,
+            user__age_band=AgeBand.SIXTEEN_PLUS,
+        ).exists()
+
+    def deliver(self, notification: Notification) -> None:
+        if not self._authorized():
+            logger.info("Promotional notification skipped: consent is no longer valid")
+            return
+        notification.save()
+        if not (email := _deliverable_email(self._recipient_id)):
+            logger.info("No deliverable address for promotional notification")
+            return
+        body = f"{notification.body}\n\n{notification.url}\n\n-- \n{self.footer()}"
+        headers = self.headers()
+
+        def _send_email() -> None:
+            if not self._authorized():
+                logger.info(
+                    "Queued promotional email skipped: consent is no longer valid"
+                )
+                return
+            EmailMessage(
+                subject=notification.title, body=body, to=[email], headers=headers
+            ).send(fail_silently=True)
+
+        transaction.on_commit(_send_email)
 
     def _url(self, name: str) -> str:
         return absolute_url(
@@ -397,8 +464,56 @@ class DjangoUserNotifier:
             )
         )
 
+    @staticmethod
+    def notify_listing_interested(notification: ListingInterestedNotification) -> None:
+        title = _("%(name)s is interested in %(listing)s") % {
+            "name": notification.responder_name,
+            "listing": notification.listing_title,
+        }
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_INTERESTED,
+            title=title,
+            body=notification.message,
+            url_name="web:board:responses",
+        )
+
+    @staticmethod
+    def notify_listing_declined(notification: ListingDeclinedNotification) -> None:
+        title = _("Not this time: %(listing)s") % {
+            "listing": notification.listing_title
+        }
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_DECLINED,
+            title=title,
+            body=notification.message
+            or _("The author went with other people this time."),
+        )
+
+    @staticmethod
+    def notify_listing_not_chosen(notification: ListingNotification) -> None:
+        title = _("%(listing)s has closed") % {"listing": notification.listing_title}
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_NOT_CHOSEN,
+            title=title,
+            body=_("You weren't chosen this time. Thanks for responding."),
+        )
+
+    @staticmethod
+    def notify_listing_changed(notification: ListingNotification) -> None:
+        title = _("%(listing)s has changed") % {"listing": notification.listing_title}
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_CHANGED,
+            title=title,
+            body=_("The author edited the listing you responded to."),
+        )
+
+    @staticmethod
     def notify_sphere_event_published(
-        self, notification: SphereEventPublishedNotification
+        notification: SphereEventPublishedNotification,
     ) -> None:
         url = absolute_url(
             reverse("web:chronology:event", kwargs={"slug": notification.event_slug}),
@@ -412,7 +527,12 @@ class DjangoUserNotifier:
             "You subscribe to %(sphere)s. Its programme for %(event)s is up — "
             "open it to see what is on and sign up."
         ) % {"sphere": notification.sphere_name, "event": notification.event_name}
-        self._deliver(
+        _SphereSubscriptionMail(
+            subscription_id=notification.subscription_id,
+            recipient_id=notification.recipient_user_id,
+            sphere_name=notification.sphere_name,
+            unsubscribe_token=notification.unsubscribe_token,
+        ).deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.SPHERE_EVENT_PUBLISHED.value,
@@ -420,11 +540,7 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"event_slug": notification.event_slug},
-            ),
-            opt_in=_OptInMail(
-                sphere_name=notification.sphere_name,
-                unsubscribe_token=notification.unsubscribe_token,
-            ),
+            )
         )
 
     def notify_shadowbanned_signup(
@@ -477,19 +593,14 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
-    def _deliver(
-        notification: Notification, *, opt_in: _OptInMail | None = None
-    ) -> None:
+    def _deliver(notification: Notification) -> None:
         DjangoUserNotifier._deliver_to(
             notification=notification,
             email=_deliverable_email(notification.recipient_id),
-            opt_in=opt_in,
         )
 
     @staticmethod
-    def _deliver_to(
-        *, notification: Notification, email: str, opt_in: _OptInMail | None = None
-    ) -> None:
+    def _deliver_to(*, notification: Notification, email: str) -> None:
         """Deliver to an explicit address, trusting the caller's choice of it.
 
         `_deliver` is the default path and passes the recipient's proven
@@ -514,15 +625,11 @@ class DjangoUserNotifier:
             return
 
         body = f"{notification.body}\n\n{notification.url}"
-        headers: dict[str, str] = {}
-        if opt_in is not None:
-            body = f"{body}\n\n-- \n{opt_in.footer()}"
-            headers = opt_in.headers()
 
         def _send_email() -> None:
-            EmailMessage(
-                subject=notification.title, body=body, to=[email], headers=headers
-            ).send(fail_silently=True)
+            EmailMessage(subject=notification.title, body=body, to=[email]).send(
+                fail_silently=True
+            )
 
         transaction.on_commit(_send_email)
 

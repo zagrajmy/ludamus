@@ -1,5 +1,6 @@
 from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime
+from uuid import UUID
 
 from ludamus.pacts import (
     EventDTO,
@@ -32,6 +33,7 @@ class FakeTransaction:
 def user_dto(**overrides) -> UserDTO:
     defaults = {
         "age_band": AgeBand.UNKNOWN,
+        "privacy_revision": UUID(int=1),
         "avatar_url": "",
         "date_joined": DEFAULT_JOINED,
         "discord_username": "",
