@@ -111,10 +111,25 @@ class TestRenderMarkdown:
         )
 
     def test_double_tildes_strike_through(self):
-        assert render_markdown("~~cancelled~~").strip() == "<p><del>cancelled</del></p>"
+        assert render_markdown("~~gone~~").strip() == "<p><del>gone</del></p>"
 
-    def test_a_lone_tilde_for_approximately_stays_literal(self):
-        assert render_markdown("~20 players").strip() == "<p>~20 players</p>"
+    def test_lone_tildes_for_about_and_ranges_do_not_strike_through(self):
+        html = render_markdown("~20 people, 10~12h")
+
+        assert html.strip() == "<p>~20 people, 10~12h</p>"
+
+    def test_lone_tildes_in_a_code_span_render_without_a_backslash(self):
+        assert render_markdown("`a~b~c`").strip() == "<p><code>a~b~c</code></p>"
+
+    def test_a_tilde_fenced_block_keeps_its_content_verbatim(self):
+        html = render_markdown("~~~\nx ~y~ ~~z~~\n~~~")
+
+        assert html.strip() == "<pre><code>x ~y~ ~~z~~\n</code></pre>"
+
+    def test_a_lone_tilde_in_a_bare_url_stays_in_its_href(self):
+        html = render_markdown("https://example.test/~club")
+
+        assert 'href="https://example.test/~club"' in html
 
 
 class TestCalendarExports:
