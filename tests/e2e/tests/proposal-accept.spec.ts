@@ -1,3 +1,6 @@
+import path from "node:path";
+
+import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
@@ -9,6 +12,8 @@ test.describe.configure({ mode: "serial" });
 
 const EVENT = "accept-lab";
 const ROOM = "The Only Room";
+// NOTE: both proposals are presented by the default e2e-tester (bootstrap_data.py).
+const proposerState = path.join(__dirname, "..", ".auth-state.json");
 
 async function reviewProposal(page: import("@playwright/test").Page, title: string) {
   await page.goto(`/event/${EVENT}/`);
@@ -52,7 +57,7 @@ test.describe("Accepting a proposal", () => {
     expect(cardTop).toBeGreaterThanOrEqual(navBottom);
   });
 
-  test("the room and time it names are the ones it submits", async ({ page }) => {
+  test("the room and time it names are the ones it submits", async ({ browser, page }) => {
     const decision = await reviewProposal(page, "Solo Encore");
     const [namedRoom, namedSlot] = await decision.locator("dd").allInnerTexts();
 
@@ -66,5 +71,25 @@ test.describe("Accepting a proposal", () => {
     await expect(details).toContainText(namedRoom.trim());
     const [start, end] = namedSlot.trim().split("–");
     await expect(details).toContainText(`${start.slice(-5)} - ${end}`);
+
+    // The proposer hears about it in the bell, and the link opens the session.
+    const proposer = await browser.newContext({ storageState: proposerState });
+    const proposerPage = await proposer.newPage();
+    await proposerPage.goto(`/event/${EVENT}/`);
+    await proposerPage.getByRole("button", { name: /Notifications/ }).click();
+    const panel = proposerPage.locator("#navbar-notifications-panel");
+    const notification = panel.getByRole("link", { name: /Accepted: Solo Encore/ });
+    await expect(notification).toContainText(
+      "Your proposal for Solo Room Convention was accepted and added to the agenda.",
+    );
+    await attachArtifacts(test.info(), {
+      name: "proposal-accepted-notification",
+      region: panel,
+      facts: { title: "Accepted: Solo Encore", event: EVENT },
+    });
+    await notification.click();
+    await expect(proposerPage).toHaveURL(new RegExp(`/event/${EVENT}/\\?session=\\d+$`));
+    await expect(proposerPage.getByRole("dialog")).toContainText("Solo Encore");
+    await proposer.close();
   });
 });
