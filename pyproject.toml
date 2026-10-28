@@ -25,7 +25,7 @@ package-mode = false
 requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
-authlib = "~1.8.0"
+authlib = "~1.9.1"
 cryptography = "~50.0.1"
 dbos = ">=3.2.0,<4"
 django = "~6.1.0"
@@ -41,7 +41,7 @@ markdown = "~3.11.2"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~13.0.0"
-posthog = "~7.67.0"
+posthog = "~7.75.6"
 psycopg = "~3.3.6"
 pydantic = "~2.14.0"
 requests = "~2.34.2"
@@ -67,13 +67,12 @@ factory-boy = "^3.3.3"
 faker = "^40.39.0"
 freezegun = "^1.5.2"
 honcho = "^2.0.0"
-hypothesis = { version = "^6.169.0", extras = ["crosshair"] }
+hypothesis = { version = "^6.170.5", extras = ["crosshair"] }
 import-linter = "^2.15"
 ipython = "^9.17.1"
 lxml-stubs = "^0.5.1"
 mutmut = "^3.8.0"
 mypy = "^2.4.0"
-pip-audit = "^2.10.1"
 pylint = "^4.0.3"
 pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
@@ -81,10 +80,14 @@ pytest-django = "^4.14.0"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 pytest-xdist = "^3.8.0"
+# Imported directly by scripts/djlint_underscore_end.py, the copy of djlint's
+# T038 rule. djlint compiles its patterns with regex, not stdlib re, and the
+# copy has to use the same flavour.
+regex = "^2026.7.19"
 responses = "^0.26.0"
 ruff = "^0.17.0"
 taplo = "^0.9.3"
-tingle = "^0.8.0"
+tingle = "^0.9.0"
 types-authlib = "^1.7.2.20260724"
 types-requests = "^2.33.0.20261006"
 vulture = "^2.16"
@@ -145,6 +148,8 @@ exclude_also = [
     # with it — a bare `case _:` pattern would also silence the several real
     # fallbacks that carry logic.
     """case _:\\n\\s*assert_never\\([^)]*\\)""",
+    # Exclude one line functions that only return stuff
+    """def .*\\n[ ]+return[a-z\\. ]*""",
 ]
 
 [tool.coverage.django_coverage_plugin]
@@ -153,7 +158,9 @@ template_extensions = 'html'
 # DJLINT
 
 [tool.djlint]
-ignore = "H021,H031,H037,D018"
+# T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
+# `{% end_name %}` closers as well as `{% endname %}`.
+ignore = "H021,H031,H037,D018,T038"
 custom_blocks = "select,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
@@ -173,7 +180,10 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar", "vekna", "zeal"]
+# djlint and regex: scripts/djlint_underscore_end.py is a djlint plugin, so it
+# imports the linter it extends and the regex flavour djlint compiles its
+# patterns with. Lint-time only, never at runtime.
+DEP004 = ["debug_toolbar", "djlint", "regex", "vekna", "zeal"]
 
 # MYPY
 

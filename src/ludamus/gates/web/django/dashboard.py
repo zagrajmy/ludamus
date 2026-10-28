@@ -140,6 +140,8 @@ class UnsubscribeActionView(View):
 
     @staticmethod
     def post(request: RootRequest, token: str) -> HttpResponse:
+        if request.POST.get("List-Unsubscribe") != "One-Click":
+            return redirect(reverse("web:email-unsubscribe", kwargs={"token": token}))
         payload = request.services.sphere_subscriptions.unsubscribe_by_token(token)
         if payload is None:
             logger.warning("Unsubscribe refused: bad token")

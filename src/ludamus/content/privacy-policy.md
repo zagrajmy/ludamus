@@ -208,10 +208,11 @@ Konto zostanie usunięte w ciągu 30 dni od otrzymania żądania.
 ### 9.1 Rodzaje używanych cookies:
 
 - **Cookies sesji:** niezbędne do funkcjonowania strony
-- **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony oraz decyzja o zgodzie na analitykę)
+- **Cookie ochrony prywatności (`ludamus.privacy`):** niezbędny plik sesyjny współdzielony między subdomenami serwisu. Zawiera wartość `off` albo losowy identyfikator stanu ochrony prywatności. Pozwala zatrzymać opcjonalną analitykę i nagrywanie w otwartych kartach po zmianie przedziału wieku lub wylogowaniu. Nie zawiera imienia, daty urodzenia ani decyzji o zgodzie na analitykę. Nie służy do analizy zachowania użytkownika
+- **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony)
 - **Cookies analityczne:** zapisywane przez narzędzie analityczne wskazane w punkcie 4.2, wyłącznie po wyrażeniu zgody przez zalogowanego użytkownika z zadeklarowanym przedziałem 16+
 
-Poza plikami cookies korzystamy też z pamięci lokalnej przeglądarki (`localStorage`). Przechowujemy w niej decyzję o zgodzie na analitykę oraz dane zapisywane przez narzędzie analityczne po jej wyrażeniu. Czyści się ją tak samo jak cookies, w ustawieniach przeglądarki.
+Poza plikami cookies korzystamy też z pamięci lokalnej przeglądarki (`localStorage`). Przechowujemy w niej decyzję o zgodzie na analitykę oraz dane zapisywane przez narzędzie analityczne po jej wyrażeniu. Czyści się ją tak samo jak cookies, w ustawieniach przeglądarki. Zgoda jest powiązana z aktualnym stanem ochrony prywatności konta; po zmianie przedziału wieku jej ponowne udzielenie wymaga nowej decyzji użytkownika.
 
 ### 9.2 Zarządzanie cookies:
 

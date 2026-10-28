@@ -160,6 +160,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -225,6 +226,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
+                "ludamus.gates.web.django.context_processors.board",
                 "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -427,6 +429,12 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 # Sender's postal address, printed under every opt-in (non-transactional) email.
 MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
+
+# Board
+
+# NOTE: the navbar links the board only where this is on. Readers cannot answer
+# a listing yet (#1526, #1527), so production keeps the board undiscovered.
+BOARD_PUBLIC = IS_STAGING
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only

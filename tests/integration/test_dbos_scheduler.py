@@ -11,7 +11,7 @@ point is that every line of the adapter executes on 3.14.
 
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from dbos import DBOS
@@ -23,7 +23,8 @@ from ludamus.links.db.django.models import (
     Notification,
     NotificationSubscription,
 )
-from tests.integration.conftest import SphereFactory, UserFactory
+from ludamus.pacts.listing import ListingStatus
+from tests.integration.conftest import ListingFactory, SphereFactory, UserFactory
 
 _MISSING_PARTICIPATION_ID = 10_000_000
 # The scheduled workflow has zero delay; this is slack for the DBOS worker
@@ -118,8 +119,9 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     announcement = Announcement.objects.create(
         sphere=sphere, title="Doors open at 9", content="Hall B."
     )
-
     now = datetime.now(UTC)
+    stale = ListingFactory(sphere=sphere, opened_at=now - timedelta(days=31))
+
     try:
         # The cron trigger itself is DBOS's croniter loop; drive the same
         # workflows manually and assert the sweeps complete against the DB.
@@ -142,11 +144,14 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
         DBOS.start_workflow(
             scheduler_module.encounter_invitee_purge_tick, now, now
         ).get_result()
+        DBOS.start_workflow(scheduler_module.listing_close_tick, now, now).get_result()
     finally:
         DBOS.destroy()
 
     notification = Notification.objects.get(recipient=subscriber)
     assert notification.payload == {"announcement_id": announcement.pk}
+    stale.refresh_from_db()
+    assert stale.status == ListingStatus.CLOSED
 
 
 def test_launch_scheduler_skips_when_cron(settings, monkeypatch):

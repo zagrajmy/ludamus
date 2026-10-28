@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
@@ -99,6 +100,7 @@ def _candidate():
 def _warning():
     return SessionShadowbanWarningDTO(
         user=UserDTO(
+            privacy_revision=UUID(int=1),
             age_band=AgeBand.UNKNOWN,
             avatar_url="",
             date_joined=_NOW,

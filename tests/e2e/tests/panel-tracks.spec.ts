@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: "Thornwood Tabletop Days" (bootstrap_data.py) is seeded for this spec
@@ -20,8 +20,9 @@ const deleteLeftoverTrack = async (page: Page): Promise<void> => {
 };
 
 test.describe("Panel track setup", () => {
+  test.use({ storageState: managerState });
+
   test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
     await deleteLeftoverTrack(page);
   });
 
