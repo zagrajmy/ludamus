@@ -291,8 +291,7 @@ class ProposalSettingsForm(forms.Form):
     """Form for proposal settings (description, dates, apply-to-categories)."""
 
     proposal_description = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "data-markdown-editor": True}),
+        required=False, widget=forms.Textarea(attrs={"rows": 4})
     )
     proposal_start_time = forms.DateTimeField(
         required=False,
