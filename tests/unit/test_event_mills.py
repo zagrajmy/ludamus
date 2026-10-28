@@ -239,12 +239,13 @@ class TestRequireInEvent:
         with pytest.raises(NotFoundError):
             require_session_in_event(sessions=sessions, session_pk=5, event_pk=EVENT)
 
-    def test_a_session_of_the_event_passes(self):
-        sessions = FakeSessions({5: _event(pk=EVENT)})
+    def test_a_session_of_the_event_yields_its_event(self):
+        event = _event(pk=EVENT)
+        sessions = FakeSessions({5: event})
 
         assert (
             require_session_in_event(sessions=sessions, session_pk=5, event_pk=EVENT)
-            is None
+            == event
         )
 
     def test_a_track_of_another_event_is_not_found(self):

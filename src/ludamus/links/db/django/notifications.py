@@ -41,6 +41,7 @@ from ludamus.pacts.notifications import (
 )
 
 if TYPE_CHECKING:
+    from ludamus.pacts.chronology import ProposalAcceptedNotification
     from ludamus.pacts.crowd import (
         EmailChangeCompletedNotification,
         EmailChangeRequestedNotification,
@@ -540,6 +541,49 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"event_slug": notification.event_slug},
+            )
+        )
+
+    def notify_proposal_accepted(
+        self, notification: ProposalAcceptedNotification
+    ) -> None:
+        # Once per session and person: accepting again, or after a rejection
+        # nobody was told about, is no news to them.
+        if Notification.objects.filter(
+            recipient_id=notification.recipient_user_id,
+            kind=NotificationKind.PROPOSAL_ACCEPTED.value,
+            payload__session_id=notification.session_id,
+        ).exists():
+            logger.info(
+                "Acceptance of session %s already announced to user %s",
+                notification.session_id,
+                notification.recipient_user_id,
+            )
+            return
+        url = absolute_url(
+            reverse("web:chronology:event", kwargs={"slug": notification.event_slug}),
+            domain=_session_host(notification.session_id),
+        )
+        if notification.placed:
+            url = f"{url}?session={notification.session_id}"
+            body = _(
+                "Your proposal for %(event)s was accepted and added to the agenda."
+            ) % {"event": notification.event_name}
+        else:
+            body = _(
+                "Your proposal for %(event)s was accepted. It will appear on the "
+                "agenda once the organizers give it a time and place."
+            ) % {"event": notification.event_name}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PROPOSAL_ACCEPTED.value,
+                title=Truncator(
+                    _("Accepted: %(session)s") % {"session": notification.session_title}
+                ).chars(NOTIFICATION_TITLE_MAX_LENGTH),
+                body=body,
+                url=url,
+                payload={"session_id": notification.session_id},
             )
         )
 

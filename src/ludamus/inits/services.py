@@ -449,6 +449,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property
@@ -459,6 +460,7 @@ class Services:
             agenda_items=self._repos.agenda_items,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property

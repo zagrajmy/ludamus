@@ -4953,6 +4953,26 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "Your proposal for %(event)s was accepted and added to the agenda."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Your proposal for %(event)s was accepted. It will appear on the agenda once "
+"the organizers give it a time and place."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
+"gdy organizatorzy nadadzą mu termin i miejsce."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Accepted: %(session)s"
+msgstr "Zaakceptowano: %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "A shadowbanned player joined %(session)s with you"
 msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
 
