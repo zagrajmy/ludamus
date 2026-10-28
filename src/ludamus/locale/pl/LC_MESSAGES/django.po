@@ -860,6 +860,7 @@ msgid "Description"
 msgstr "Opis"
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Supports Markdown formatting."
 msgstr "Obsługuje formatowanie Markdown."
@@ -3666,10 +3667,6 @@ msgstr "Tytuł jest wymagany."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Presenter name is required."
 msgstr "Nazwa prowadzącego jest wymagana."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Markdown supported."
-msgstr "Obsługuje Markdown."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
@@ -13509,6 +13506,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "Markdown supported."
+#~ msgstr "Obsługuje Markdown."
 
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."

@@ -763,7 +763,7 @@ class SessionEditForm(forms.Form):
         widget=forms.Textarea(
             attrs={"rows": 5, "data-markdown-editor": True, "data-ph-unmask": True}
         ),
-        help_text=_("Markdown supported."),
+        help_text=_("Supports Markdown formatting."),
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
