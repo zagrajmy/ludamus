@@ -29,7 +29,11 @@ def _selected(value: FieldValue) -> list[str]:
 
 
 def field_context(
-    field: OrganizerFieldDTO, *, name_prefix: str, answer: FieldAnswer
+    field: OrganizerFieldDTO,
+    *,
+    name_prefix: str,
+    answer: FieldAnswer,
+    visibility_badge: bool = True,
 ) -> dict[str, object]:
     # Everything the markup switches on, derived once. Kept separate from the
     # render so the derivation can be checked without going through a template.
@@ -44,6 +48,7 @@ def field_context(
     return {
         "field": field,
         "label": field.question,
+        "visibility_badge": visibility_badge,
         "icon_name": field.icon,
         "name": name,
         "input_id": input_id,
@@ -76,9 +81,16 @@ def field_context(
 
 @register.simple_tag
 def dynamic_field(
-    field: OrganizerFieldDTO, *, name_prefix: str, answer: FieldAnswer | None = None
+    field: OrganizerFieldDTO,
+    *,
+    name_prefix: str,
+    answer: FieldAnswer | None = None,
+    visibility_badge: bool = True,
 ) -> str:
     """Render one organizer-defined field, switched on its type.
+
+    ``visibility_badge=False`` drops the eye/lock where the surrounding box
+    already says who sees the field.
 
     Returns:
         HTML string for the field's label, input(s), help text and errors.
@@ -88,5 +100,10 @@ def dynamic_field(
     """
     return render_to_string(
         "components/dynamic-field.html",
-        field_context(field, name_prefix=name_prefix, answer=answer or FieldAnswer()),
+        field_context(
+            field,
+            name_prefix=name_prefix,
+            answer=answer or FieldAnswer(),
+            visibility_badge=visibility_badge,
+        ),
     )

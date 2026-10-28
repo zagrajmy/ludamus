@@ -17,8 +17,10 @@ test.describe("Anonymous proposals", () => {
 
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
     await page.getByLabel(/title/i).fill("Anonymous One-Shot");
-    await page.getByLabel(/description/i).fill("A drop-in adventure pitched without an account.");
-    await page.getByLabel(/max participants/i).fill("5");
+    await page
+      .getByLabel(/about this session/i)
+      .fill("A drop-in adventure pitched without an account.");
+    await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     // The category offers a single duration, so the wizard answers for the
     // proposer: nothing to read and nothing to operate. That the value still

@@ -13,7 +13,7 @@ test.describe("Organizer-defined fields", () => {
   });
 
   test("names a multi-select group with a legend instead of an orphan label", async ({ page }) => {
-    const group = page.getByRole("group", { name: /What tone should players expect\?/ });
+    const group = page.getByRole("group", { name: /^Tone/ });
 
     await expect(group).toBeVisible();
     await expect(group.locator('input[type="checkbox"]')).toHaveCount(2);

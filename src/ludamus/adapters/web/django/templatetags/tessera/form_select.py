@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from django.forms import BoundField
 
 
-def render_select(field: BoundField) -> str:
-    """Render a styled ``<select>``.
+def render_select(field: BoundField, *, inplace_class: str = "") -> str:
+    """Render a styled ``<select>``, or with ``inplace_class`` dressed as its text.
 
     Returns:
         HTML string of the select element.
@@ -30,5 +30,6 @@ def render_select(field: BoundField) -> str:
             "disabled": field.field.disabled,
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace_class": inplace_class,
         },
     )

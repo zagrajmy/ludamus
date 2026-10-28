@@ -5,8 +5,11 @@
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
+const wired = new WeakSet<HTMLElement>();
 
 const init = (root: HTMLElement): void => {
+  if (wired.has(root)) return;
+  wired.add(root);
   const button = root.querySelector<HTMLElement>("[data-menu-button]");
   const panel = root.querySelector<HTMLElement>("[data-menu-panel]");
   const surface = panel?.querySelector<HTMLElement>("[data-menu-surface]");
@@ -90,14 +93,20 @@ const init = (root: HTMLElement): void => {
   });
 };
 
-const wire = (): void => {
-  for (const root of document.querySelectorAll<HTMLElement>("[data-menu]")) {
+const wire = (scope: ParentNode = document): void => {
+  if (scope instanceof HTMLElement && scope.matches("[data-menu]")) init(scope);
+  for (const root of scope.querySelectorAll<HTMLElement>("[data-menu]")) {
     init(root);
   }
 };
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", wire);
+  document.addEventListener("DOMContentLoaded", () => wire());
 } else {
   wire();
 }
+
+document.addEventListener("htmx:load", (evt) => {
+  const el = (evt as CustomEvent).detail?.elt;
+  if (el instanceof Element) wire(el);
+});

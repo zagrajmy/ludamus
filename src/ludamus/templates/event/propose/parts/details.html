@@ -1,65 +1,51 @@
-{% load i18n %}
-{% load markdown_tags %}
-{% load tessera %}
-<div id="wizard-content">
-    {% include "event/propose/parts/_proposal_description.html" %}
-    {% include "event/propose/parts/_stepper.html" %}
-    {% if form|default:"" %}
-        <h2 class="text-lg font-semibold mb-1">{% translate "Session Details" %}</h2>
-        <p class="text-sm text-foreground-muted mb-5">
-            {% blocktranslate %}Session info — public by default. A 🔒 marks what only organizers see.{% endblocktranslate %}
-        </p>
-        <form method="post"
+{% load i18n tessera %}
+{# The session step is the session as the event page's modal will show it, #}
+{# written in place: same layout (chronology/parts/_session_info.html), with #}
+{# the fields standing where their answers will be read. #}
+<div id="wizard-content" class="flex justify-center">
+    <div class="w-full max-w-200 min-w-0">
+        {% include "event/propose/parts/_proposal_description.html" %}
+        {% if reusable_sessions %}
+            {% include "event/propose/parts/_copy_from.html" %}
+        {% endif %}
+        <form id="propose-details-form"
+              method="post"
               enctype="multipart/form-data"
+              class="bg-bg-secondary border border-border rounded-2xl shadow-lg text-foreground"
               hx-post="{% url 'web:event:session-propose-details' event_slug=event.slug %}"
               hx-encoding="multipart/form-data"
               hx-target="#wizard-content"
               hx-swap="outerHTML show:#wizard-content:top">
             {% csrf_token %}
-            <div class="space-y-6">
-                {% tessera_field form.title %}
-                {% if image_form %}
-                    {% tessera_field image_form.cover_image %}
-                {% endif %}
-                {% tessera_field form.description %}
-                {% tessera_field form.participants_limit %}
-                {% tessera_field form.min_age %}
-                {% if "duration" in form.fields %}
-                    {% tessera_field form.duration %}
-                {% endif %}
-                {% tessera_field form.facilitator_name %}
-                {% if public_tracks %}
-                    <div>
-                        <h3 class="text-sm font-medium text-foreground-secondary mb-3">
-                            {% translate "Tracks" %}
-                            <span class="text-danger" aria-hidden="true">*</span>
-                        </h3>
-                        <p class="text-xs text-foreground-muted mb-3">{% translate "Select the tracks your session belongs to." %}</p>
-                        <div class="flex flex-wrap gap-2">
-                            {% for track in public_tracks %}
-                                <label class="cursor-pointer">
-                                    <input type="checkbox"
-                                           name="track_pks"
-                                           value="{{ track.pk }}"
-                                           class="peer sr-only"
-                                           {% if track.pk in selected_track_pks %}checked{% endif %}>
-                                    <span class="inline-block border-2 border-border rounded-full px-4 py-2 text-sm text-foreground transition-colors peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">
-                                        {{ track.name }}
-                                    </span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                        {% if track_error %}<p class="text-sm text-danger mt-2">{{ track_error }}</p>{% endif %}
-                    </div>
-                {% endif %}
-                {% for desc in field_descriptors|default:"" %}
-                    {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
-                {% endfor %}
+            <h2 class="sr-only">{% translate "Session Details" %}</h2>
+            <div class="px-6 pt-6">{% include "event/propose/parts/_stepper.html" %}</div>
+            {# Where the card shows its cover, at the card's own crop. #}
+            {% if image_form %}
+                <div class="px-6 pb-2">{% tessera_inplace image_form.cover_image %}</div>
+            {% endif %}
+            <div class="px-6 py-4 border-b border-border text-lg font-semibold text-foreground">
+                <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
+                {% tessera_inplace form.title %}
             </div>
-            {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
-            {% include "event/propose/parts/_nav.html" %}
+            <div class="px-6 py-4">{% include "event/propose/parts/_session_info_edit.html" %}</div>
+            {% if private_field_descriptors %}
+                <section class="border-t border-border bg-proposal-surface dark:bg-black/25 px-6 py-4"
+                         aria-labelledby="propose-private-heading">
+                    <h3 id="propose-private-heading"
+                        class="flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary">
+                        {% include "components/icon-lock-closed.html" with size="w-4 h-4" %}
+                        {% translate "Visible to organizers only" %}
+                    </h3>
+                    <p class="mb-4 text-sm text-foreground-muted">{% translate "Participants won't see this." %}</p>
+                    {% for desc in private_field_descriptors %}
+                        {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer visibility_badge=False %}
+                    {% endfor %}
+                </section>
+            {% endif %}
+            <div class="px-6 pb-6 border-t border-border">
+                {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
+                {% include "event/propose/parts/_nav.html" %}
+            </div>
         </form>
-    {% elif submitted|default:False %}
-        <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>
-    {% endif %}
+    </div>
 </div>

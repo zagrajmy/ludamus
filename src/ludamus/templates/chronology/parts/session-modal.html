@@ -1,4 +1,4 @@
-{% load i18n tessera cfp_tags date_tags markdown_tags schedule_tags %}
+{% load i18n tessera %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
@@ -59,112 +59,7 @@
                  {% if show_roster %}role="tabpanel"{% endif %}
                  class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
                  data-active>
-                <!-- Host & location -->
-                <div class="flex items-center gap-3 mb-6 flex-wrap">
-                    {# Paired with the card's own guard: both rows appear or neither #}
-                    {# does, or the card-to-modal morph is left with unmatched groups. #}
-                    {% if data.session.facilitator_name %}
-                        <span class="shrink-0 relative" data-morph="avatar">
-                            {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
-                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
-                        </span>
-                    {% endif %}
-                    {# flex-1 zeroes this group's flex basis so the outer row never #}
-                    {# wraps it whole — a long room path breaks inside the group, #}
-                    {# under the name, instead of orphaning the avatar on its own row. #}
-                    {# The two gaps are separate on purpose: 12px reads as separation #}
-                    {# between name and room while they share a row, but as soon as #}
-                    {# the room wraps that same value becomes the row gap and pushes #}
-                    {# a sub-label 12px off the name it belongs to. #}
-                    <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                        {% if data.session.facilitator_name %}
-                            <div class="font-medium text-foreground"
-                                 data-morph="host"
-                                 data-ph-mask>{{ data.presenter.full_name }}</div>
-                        {% endif %}
-                        {% if data.location_crumbs %}
-                            {# The room sits beside a name that is still flying in from #}
-                            {# the card, so at its final spot it reads as arriving alone. #}
-                            {# Its own group lets it land with the other static labels. #}
-                            <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted"
-                                  data-morph="venue">
-                                {# The pin is decoration next to a labelled path; on the #}
-                                {# narrowest phones its 16px plus the gap is width the #}
-                                {# room name itself needs. #}
-                                {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
-                                {% include "chronology/_session_location.html" with show_map_link=True %}
-                            </span>
-                        {% endif %}
-                        {% if data.session.facilitator_name and data.presenter.pk %}
-                            {% with host=data.presenter %}
-                                {% if host.discord_username %}
-                                    <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                    {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
-                                {% endif %}
-                            {% endwith %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% if data.session.description %}
-                    <!-- Description -->
-                    <div class="mb-6">
-                        <h3 class="font-semibold mb-2 text-foreground-secondary"
-                            data-morph="desc-label">{% translate "About this session" %}</h3>
-                        {# Deliberately NOT a morph group. A named element is hoisted #}
-                        {# into the view-transition layer whole and unclipped, so a #}
-                        {# description longer than the dialog spilled past its bottom #}
-                        {# edge for the length of the morph. Left unnamed it stays in #}
-                        {# the dialog's own snapshot, which the dialog's #}
-                        {# overflow-hidden clips. Nesting it under the dialog's group #}
-                        {# would keep the morph and the clip, but view-transition-group #}
-                        {# is Chromium-only and this ships to Safari. #}
-                        {# leading-5 is the card excerpt's text-sm leading, kept #}
-                        {# here so a session reads at the same density in both #}
-                        {# places rather than loosening to prose-sm's 1.71. #}
-                        <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
-                             data-session-description>{{ data.session.description|render_markdown }}</div>
-                    </div>
-                {% endif %}
-                {% if data.field_values %}
-                    <!-- Session Fields -->
-                    <div class="mb-6">{% include "components/_session_field_values.html" with field_values=data.field_values %}</div>
-                {% endif %}
-                <!-- Details grid -->
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                        <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
-                        <div class="font-medium text-foreground">
-                            {{ data.agenda_item.start_time|date:"l, F j" }}
-                            <br>
-                            {{ data.agenda_item.start_time|time:"G:i" }} - {{ data.agenda_item.end_time|time:"G:i" }}
-                        </div>
-                    </div>
-                    {% if data.takes_enrollment %}
-                        <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                            <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
-                            <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 dark:bg-coral-900/40 text-coral-700 dark:text-coral-400{% else %}bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-400{% endif %}">
-                                    {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
-                                </span>
-                                {% if data.waiting_count > 0 %}
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endif %}
-                    {% if data.session.min_age > 0 %}
-                        <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                            <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                            <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
-                        </div>
-                    {% endif %}
-                    {# With no seats there is no enroll button; the bookmark stands in #}
-                    {# for it, level with the bottom of the time box and flush with the #}
-                    {# close button. A minimum-age box pushes it to the next row. #}
-                    {% if not data.takes_enrollment %}
-                        {% session_bookmark data "col-start-2 self-end justify-self-end" %}
-                    {% endif %}
-                </div>
+                {% include "chronology/parts/_session_info_view.html" %}
                 <!-- Enrollment Status for Authenticated Users -->
                 {# Only when the footer has no state badge of its own (past #}
                 {# sessions), so the two never repeat the same sentence. #}

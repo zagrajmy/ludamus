@@ -16,11 +16,17 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
+from ludamus.pacts.propose import (
+    AccountAnswersDTO,
+    ProposeSessionServiceProtocol,
+    ReusableSessionDTO,
+)
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
+    REUSABLE_SESSIONS_LIMIT,
+    carried_answers,
 )
 
 if TYPE_CHECKING:
@@ -135,6 +141,36 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             return False
         self._cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
         return True
+
+    def list_reusable_sessions(
+        self, *, user_id: int | None, event: EventDTO
+    ) -> list[ReusableSessionDTO]:
+        """List the proposer's sessions from the sphere's other events."""
+        if user_id is None:
+            return []
+        records = self._repos.reusable_sessions.list_reusable(
+            user_id=user_id,
+            sphere_id=event.sphere_id,
+            exclude_event_id=event.pk,
+            limit=REUSABLE_SESSIONS_LIMIT,
+        )
+        return [
+            ReusableSessionDTO(
+                pk=record.pk,
+                title=record.title,
+                event_name=record.event_name,
+                description=record.description,
+                participants_limit=record.participants_limit,
+                min_age=record.min_age,
+                duration=record.duration,
+                field_values=carried_answers(
+                    public=record.public_answers,
+                    private=record.private_answers,
+                    presented=record.presented,
+                ),
+            )
+            for record in records
+        ]
 
     def _find_or_create_facilitator(
         self, *, event: EventDTO, display_name: str, user_id: int | None
