@@ -60,7 +60,10 @@ test.describe("Accepting a proposal", () => {
     expect(cardTop).toBeGreaterThanOrEqual(navBottom);
   });
 
-  test("the time it is given is the time it books, and the proposer is told", async ({ browser, page }) => {
+  test("the time it is given is the time it books, and the proposer is told", async ({
+    browser,
+    page,
+  }) => {
     const decision = await reviewProposal(page, "Solo Encore");
     const startsAt = decision.getByLabel("Starts at");
     const chosen = (await startsAt.inputValue()).slice(0, 16);
