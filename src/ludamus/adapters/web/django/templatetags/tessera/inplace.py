@@ -34,21 +34,17 @@ _INPLACE_SHAPES: dict[InplaceShape, str] = {
     "select": "not-focus:outline-dashed min-w-10 cursor-pointer",
 }
 # Room for a unit drawn over the control's right padding, inside its outline.
-UNIT_ROOM = "pr-[calc(0.375rem+1ch)]"
+_UNIT_ROOM = "pr-[calc(0.375rem+1ch)]"
 
 
-_LOOKS: dict[InplaceShape, str] = {
-    shape: f"{_INPLACE_BASE} {extra}" for shape, extra in _INPLACE_SHAPES.items()
-}
-
-
-def inplace_look(*, shape: InplaceShape) -> str:
+def inplace_look(*, shape: InplaceShape, unit: bool = False) -> str:
     """Return the in-place look for a control of ``shape``.
 
     ``fit`` is sized to its content and dotted, for a value prefilled from the
-    account.
+    account. ``unit`` leaves room for a unit drawn after the value.
 
     Returns:
         The control's whole class list.
     """
-    return _LOOKS[shape]
+    look = f"{_INPLACE_BASE} {_INPLACE_SHAPES[shape]}"
+    return f"{look} {_UNIT_ROOM}" if unit else look

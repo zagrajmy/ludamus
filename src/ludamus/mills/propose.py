@@ -156,13 +156,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         )
         return [
             ReusableSessionDTO(
-                pk=record.pk,
-                title=record.title,
-                event_name=record.event_name,
-                description=record.description,
-                participants_limit=record.participants_limit,
-                min_age=record.min_age,
-                duration=record.duration,
+                session=record.session,
                 field_values=carried_answers(
                     public=record.public_answers,
                     private=record.private_answers,

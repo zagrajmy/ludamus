@@ -28,7 +28,7 @@
             <fieldset class="flex flex-col gap-y-1 mb-4"
                       {% if track_error %}aria-describedby="propose-track-error"{% endif %}>
                 <legend class="text-sm font-medium text-foreground-secondary">
-                    {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True only %}
+                    {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True visibility_badge=False only %}
                 </legend>
                 {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error only %}
                 {% if track_error %}<p id="propose-track-error"
@@ -47,7 +47,7 @@
             {% if sole_duration %}
                 {% tessera_inplace form.duration %}
                 {% session_fact icon="clock" %}
-                    {{ sole_duration }}
+                    <span class="sr-only">{{ form.duration.label }}:</span>{{ sole_duration }}
                 {% end_session_fact %}
             {% else %}
                 {% session_fact icon="clock" label=form.duration.label label_for=form.duration.auto_id %}

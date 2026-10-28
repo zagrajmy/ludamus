@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
+FACILITATOR_NAME_FIELD = "facilitator_name"
+
 
 def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
@@ -97,7 +99,7 @@ def build_session_details_form(
         "min_age": forms.IntegerField(
             label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),
-        "facilitator_name": forms.CharField(
+        FACILITATOR_NAME_FIELD: forms.CharField(
             label=_("Presenter name"),
             max_length=255,
             widget=forms.TextInput(attrs={"placeholder": _("Your name or nickname")}),

@@ -12,6 +12,12 @@ from ludamus.pacts.images import StoredFile
 if TYPE_CHECKING:
     from django.forms import BoundField
 
+_INPLACE_LOOK = (
+    "h-40 px-4 rounded-xl border border-dashed border-warm-400"
+    " dark:border-neutral-600 transition-colors duration-150 hover:duration-0"
+    " hover:bg-foreground/5 data-[state=image]:border-0"
+)
+
 
 def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     if isinstance(initial, StoredFile):
@@ -49,8 +55,8 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
-            "crop": getattr(field.field.widget, "crop", None),
+            "crop": None if inplace else getattr(field.field.widget, "crop", None),
             "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
-            "inplace": inplace,
+            "inplace_class": _INPLACE_LOOK if inplace else "",
         },
     )
