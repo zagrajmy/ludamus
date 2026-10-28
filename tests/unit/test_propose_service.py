@@ -16,7 +16,7 @@ from ludamus.pacts.legacy import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos
+from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos, ReusableSessionRecord
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
@@ -117,6 +117,7 @@ def repos_fixture():
         categories=MagicMock(),
         tracks=MagicMock(),
         sessions=MagicMock(),
+        reusable_sessions=MagicMock(),
         session_fields=MagicMock(),
         personal_fields=MagicMock(),
         personal_data_field_values=MagicMock(),
@@ -694,6 +695,54 @@ class TestAccountAnswers:
         )
 
         assert answers.personal_data == {}
+
+
+def _reusable(pk: int, *, presented: bool = True) -> ReusableSessionRecord:
+    return ReusableSessionRecord(
+        pk=pk,
+        title=f"Session {pk}",
+        event_name="Earlier edition",
+        description="",
+        participants_limit=4,
+        min_age=0,
+        duration="",
+        public_answers={"system": "Fate"},
+        private_answers={"notes": "Bring a socket"},
+        presented=presented,
+    )
+
+
+class FakeReusableSessions:
+    def __init__(self, sessions):
+        self.sessions = sessions
+
+    def list_reusable(self, **_):
+        return self.sessions
+
+
+class TestListReusableSessions:
+    @staticmethod
+    def _service(repos, sessions):
+        return ProposeSessionService(
+            transaction=MagicMock(),
+            repos=repos._replace(reusable_sessions=FakeReusableSessions(sessions)),
+            cache=FakeCache(),
+        )
+
+    def test_offers_an_anonymous_proposer_nothing(self, repos):
+        service = self._service(repos, [_reusable(1)])
+
+        assert service.list_reusable_sessions(user_id=None, event=event_dto()) == []
+
+    def test_keeps_organizer_only_answers_only_where_the_user_presented(self, repos):
+        service = self._service(repos, [_reusable(1), _reusable(2, presented=False)])
+
+        found = service.list_reusable_sessions(user_id=USER_PK, event=event_dto())
+
+        assert [s.field_values for s in found] == [
+            {"system": "Fate", "notes": "Bring a socket"},
+            {"system": "Fate"},
+        ]
 
 
 class FakeUsers:

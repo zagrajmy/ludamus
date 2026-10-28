@@ -17,6 +17,8 @@ from ludamus.pacts.durations import duration_choices
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from django.utils.functional import Promise
+
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
@@ -47,44 +49,62 @@ def build_session_details_form(
     durations = category.durations if category else []
     # The only place a category's participant bounds bind — the panel form and a
     # facilitator's self-edit are deliberately unbounded — so a category of large
-    # rooms can refuse a two-person session. A floor also makes the number
-    # mandatory; with neither bound the field is optional and 0 means the
-    # session takes no enrollment. 0 stays valid under a ceiling too:
-    # no-sign-up sessions exist in every category.
+    # rooms can refuse a two-person session. Only a floor makes the number
+    # mandatory: without one, empty means 0 and the session takes no
+    # enrollment, which stays valid under a ceiling too, since no-sign-up
+    # sessions exist in every category.
     participants_kwargs: dict[str, Any] = {
         "label": _("Max participants"),
         "min_value": min_limit,
+        "required": bool(min_limit),
         "validators": [STORAGE_LIMIT_VALIDATOR],
     }
     if max_limit:
         participants_kwargs["max_value"] = max_limit
-    elif not min_limit:
-        participants_kwargs |= {
-            "required": False,
-            "initial": 0,
-            "help_text": _("Empty or 0 = no enrollment"),
-        }
+    # The empty field says what it takes: the category's range, or that an
+    # empty optional limit means the session takes no sign-up.
+    if max_limit:
+        seats_placeholder: str | Promise = f"{min_limit}–{max_limit}"
+    elif min_limit:
+        seats_placeholder = f"{min_limit}+"
+    else:
+        seats_placeholder = _("no sign-up")
+    participants_kwargs["widget"] = forms.NumberInput(
+        attrs={"placeholder": seats_placeholder}
+    )
 
     fields: dict[str, forms.Field] = {
-        "title": forms.CharField(label=_("Title"), max_length=255),
+        "title": forms.CharField(
+            label=_("Title"),
+            max_length=255,
+            widget=forms.TextInput(attrs={"placeholder": _("Session title")}),
+        ),
         "description": forms.CharField(
-            label=_("Description"), widget=forms.Textarea(attrs={"rows": 4})
+            label=_("Description"),
+            widget=forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": _(
+                        "What awaits participants: what it is about, how it goes,"
+                        " what to expect."
+                    ),
+                }
+            ),
         ),
         "participants_limit": forms.IntegerField(**participants_kwargs),
         "min_age": forms.IntegerField(
-            label=_("Minimum age"),
-            required=False,
-            min_value=0,
-            max_value=80,
-            initial=0,
-            help_text=_("0 = no age restriction"),
+            label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),
-        "facilitator_name": forms.CharField(label=_("Presenter name"), max_length=255),
+        "facilitator_name": forms.CharField(
+            label=_("Presenter name"),
+            max_length=255,
+            widget=forms.TextInput(attrs={"placeholder": _("Your name or nickname")}),
+        ),
     }
 
     if choices := duration_choices(durations):
         fields["duration"] = forms.ChoiceField(
-            label=_("Duration"), choices=[("", "---"), *choices]
+            label=_("Duration"), choices=[("", "–"), *choices]
         )
 
     custom_required = build_dynamic_fields(

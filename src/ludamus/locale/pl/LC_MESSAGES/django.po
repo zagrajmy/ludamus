@@ -3176,20 +3176,30 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no enrollment"
-msgstr "Puste pole lub 0 = bez zapisów"
+msgid "no sign-up"
+msgstr "bez zapisów"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "Session title"
+msgstr "Tytuł punktu programu"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid ""
+"What awaits participants: what it is about, how it goes, what to expect."
+msgstr ""
+"Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
+#: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-msgid "0 = no age restriction"
-msgstr "0 = brak ograniczenia wiekowego"
+msgid "Your name or nickname"
+msgstr "Twoje imię lub pseudonim"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
@@ -3542,7 +3552,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/chronology/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -3670,11 +3680,14 @@ msgid "Participants Limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
 msgstr "Minimalny Wiek"
@@ -3727,7 +3740,6 @@ msgstr "Twórca programu"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Accreditation type"
 msgstr "Rodzaj akredytacji"
@@ -4199,7 +4211,7 @@ msgid "Participants limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -5931,6 +5943,7 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -5960,7 +5973,6 @@ msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_room_lanes.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
@@ -6017,7 +6029,8 @@ msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
 
@@ -6121,8 +6134,8 @@ msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
+#: src/ludamus/templates/components/_age_pill.html
 msgid "years"
 msgstr "lat"
 
@@ -7223,6 +7236,7 @@ msgstr "Widoczne publicznie"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
+#: src/ludamus/templates/event/propose/parts/details.html
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
@@ -8422,6 +8436,27 @@ msgstr ""
 "Zgłoszenia są weryfikowane przez organizatorów. Dostaniesz powiadomienie, "
 "gdy Twoje zostanie zaakceptowane i dodane do programu."
 
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copied"
+msgstr "Skopiowano"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+#: src/ludamus/templates/panel/errata.html
+msgid "Undo"
+msgstr "Cofnij"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copy from an earlier session"
+msgstr "Skopiuj z wcześniejszego"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid ""
+"Copies the title, description and answers. Time slots, tracks and the cover "
+"stay as they are."
+msgstr ""
+"Kopiuje tytuł, opis i odpowiedzi. Przedziały czasowe, bloki programowe i "
+"okładka zostają bez zmian."
+
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
 msgid "Have an account?"
 msgstr "Masz konto?"
@@ -8440,6 +8475,11 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgctxt "session capacity"
+msgid "Seats"
+msgstr "Miejsca"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
@@ -8472,18 +8512,8 @@ msgid "Session Details"
 msgstr "Szczegóły punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session info — public by default. A 🔒 marks what only organizers see."
-msgstr ""
-"Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
-"widoczne tylko dla organizatorów."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Select the tracks your session belongs to."
-msgstr "Wybierz bloki programowe dla tego punktu programu."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session details saved. Next step coming soon."
-msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+msgid "Participants won't see this."
+msgstr "Uczestnicy tego nie zobaczą."
 
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -11115,10 +11145,6 @@ msgid "Undo the announcement of %(title)s"
 msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Undo"
-msgstr "Cofnij"
-
-#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "Mark %(title)s as announced"
 msgstr "Oznacz jako ogłoszone: %(title)s"
@@ -13481,6 +13507,21 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "0 = no age restriction"
+#~ msgstr "0 = brak ograniczenia wiekowego"
+
+#~ msgid ""
+#~ "Session info — public by default. A 🔒 marks what only organizers see."
+#~ msgstr ""
+#~ "Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
+#~ "widoczne tylko dla organizatorów."
+
+#~ msgid "Select the tracks your session belongs to."
+#~ msgstr "Wybierz bloki programowe dla tego punktu programu."
+
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
 #~ msgid "Invalid redirect URL."
 #~ msgstr "Nieprawidłowy adres URL przekierowania."
