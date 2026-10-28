@@ -13,6 +13,7 @@ from ludamus.gates.web.django.dynamic_fields import (
 )
 from ludamus.gates.web.django.forms import STORAGE_LIMIT_VALIDATOR, cover_image_field
 from ludamus.pacts.durations import duration_choices
+from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -88,6 +89,8 @@ def build_session_details_form(
                         "What awaits participants: what it is about, how it goes,"
                         " what to expect."
                     ),
+                    "data-markdown-editor": True,
+                    "data-ph-unmask": True,
                 }
             ),
         ),
@@ -95,7 +98,7 @@ def build_session_details_form(
         "min_age": forms.IntegerField(
             label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),
-        "facilitator_name": forms.CharField(
+        FACILITATOR_NAME_FIELD: forms.CharField(
             label=_("Presenter name"),
             max_length=255,
             widget=forms.TextInput(attrs={"placeholder": _("Your name or nickname")}),
