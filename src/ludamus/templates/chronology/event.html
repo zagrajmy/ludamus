@@ -69,7 +69,7 @@
                         {% include "chronology/_event_status_pills.html" with extra_class="print:hidden" %}
                     </div>
                     {% if event.description %}
-                        <div class="prose prose-lg dark:prose-invert max-w-2xl text-foreground-muted prose-p:text-foreground-muted prose-p:my-0 prose-p:leading-normal">
+                        <div class="prose prose-lg dark:prose-invert max-w-2xl text-foreground-muted prose-p:text-foreground-muted prose-p:leading-normal prose-li:text-foreground-muted prose-headings:text-foreground-muted">
                             {{ event.description|render_markdown }}
                         </div>
                     {% endif %}
