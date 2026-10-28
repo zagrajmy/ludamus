@@ -17,12 +17,14 @@ from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils.formats import date_format
+from django.utils.text import Truncator
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
+    NOTIFICATION_TITLE_MAX_LENGTH,
     Announcement,
     Notification,
     NotificationSubscription,
@@ -46,6 +48,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.listing import (
+        ListingDeclinedNotification,
+        ListingInterestedNotification,
+        ListingNotification,
+    )
     from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
         HeldSeatNotification,
@@ -96,6 +103,28 @@ def _session_host(session_id: int) -> str:
         )
         return str(settings.ROOT_DOMAIN)
     return domain
+
+
+def _ring(
+    notification: ListingNotification,
+    *,
+    kind: NotificationKind,
+    title: str,
+    body: str,
+    url_name: str = "web:board:detail",
+) -> None:
+    # Board notices land in the bell only; no mail goes out for them.
+    Notification.objects.create(
+        recipient_id=notification.recipient_user_id,
+        kind=kind.value,
+        title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
+        body=body,
+        url=absolute_url(
+            reverse(url_name, kwargs={"pk": notification.listing_id}),
+            domain=str(settings.ROOT_DOMAIN),
+        ),
+        payload={"listing_id": notification.listing_id},
+    )
 
 
 class _SphereSubscriptionMail:
@@ -433,6 +462,53 @@ class DjangoUserNotifier:
                 url=url,
                 payload={"event_slug": notification.event_slug},
             )
+        )
+
+    @staticmethod
+    def notify_listing_interested(notification: ListingInterestedNotification) -> None:
+        title = _("%(name)s is interested in %(listing)s") % {
+            "name": notification.responder_name,
+            "listing": notification.listing_title,
+        }
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_INTERESTED,
+            title=title,
+            body=notification.message,
+            url_name="web:board:responses",
+        )
+
+    @staticmethod
+    def notify_listing_declined(notification: ListingDeclinedNotification) -> None:
+        title = _("Not this time: %(listing)s") % {
+            "listing": notification.listing_title
+        }
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_DECLINED,
+            title=title,
+            body=notification.message
+            or _("The author went with other people this time."),
+        )
+
+    @staticmethod
+    def notify_listing_not_chosen(notification: ListingNotification) -> None:
+        title = _("%(listing)s has closed") % {"listing": notification.listing_title}
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_NOT_CHOSEN,
+            title=title,
+            body=_("You weren't chosen this time. Thanks for responding."),
+        )
+
+    @staticmethod
+    def notify_listing_changed(notification: ListingNotification) -> None:
+        title = _("%(listing)s has changed") % {"listing": notification.listing_title}
+        _ring(
+            notification,
+            kind=NotificationKind.LISTING_CHANGED,
+            title=title,
+            body=_("The author edited the listing you responded to."),
         )
 
     @staticmethod

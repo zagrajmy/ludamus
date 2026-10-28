@@ -9,6 +9,7 @@ on the same row, so enrollment history is preserved.
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, TypedDict
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -53,6 +54,7 @@ class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     age_band: AgeBand
+    privacy_revision: UUID
     avatar_url: str
     date_joined: datetime
     discord_username: str
@@ -89,6 +91,7 @@ class CompanionDTO(UserDTO):
 
 class UserData(TypedDict, total=False):
     age_band: AgeBand
+    privacy_revision: UUID
     avatar_url: str
     discord_username: str
     email: str

@@ -69,7 +69,7 @@ jobs:
         continue-on-error: true
         run: mise run fallow
 
-  audit:
+  audit-deps:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
