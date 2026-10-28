@@ -73,10 +73,12 @@ def test_proposal_without_categories_can_be_submitted(
             "category": None,
             "form": ANY,
             "image_form": ANY,
-            "field_descriptors": [],
-            "public_tracks": [],
-            "selected_track_pks": [],
+            "track_options": [],
             "track_error": None,
+            "public_field_descriptors": [],
+            "private_field_descriptors": [],
+            "reusable_sessions": [],
+            "reusable_form_values": {},
             **(
                 {}
                 if anonymous

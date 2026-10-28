@@ -147,8 +147,11 @@ class EventSettingsForm(forms.Form):
         max_length=50, error_messages={"required": _("Event slug is required.")}
     )
     description = forms.CharField(
+        label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=forms.Textarea(
+            attrs={"rows": 3, "data-markdown-editor": True, "data-ph-unmask": True}
+        ),
         help_text=_("Aim for about 230 characters."),
     )
     address = forms.CharField(
@@ -722,7 +725,12 @@ class SessionEditForm(forms.Form):
         error_messages={"required": _("Presenter name is required.")},
     )
     description = forms.CharField(
-        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
+        required=False,
+        label=_("Description"),
+        widget=forms.Textarea(
+            attrs={"rows": 5, "data-markdown-editor": True, "data-ph-unmask": True}
+        ),
+        help_text=_("Supports Markdown formatting."),
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(

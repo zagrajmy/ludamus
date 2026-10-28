@@ -28,13 +28,13 @@ for (const anonymous of [true, false]) {
         await expect(wizard.getByText("Time slots", { exact: true })).toHaveCount(0);
         await page.getByLabel(/title/i).fill(title);
         await page
-          .getByLabel(/description/i)
+          .getByLabel(/about this session/i)
           .fill("A proposal that needs no organizer configuration.");
         await page.getByLabel(/presenter name/i).fill("Independent Host");
-        await page.getByLabel(/max participants/i).fill("-1");
+        await page.getByLabel(/seats/i).fill("-1");
         await page.getByRole("button", { name: /Continue/ }).click();
         await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-        await page.getByLabel(/max participants/i).fill("");
+        await page.getByLabel(/seats/i).fill("");
         await attachArtifacts(test.info(), {
           name: `uncategorized-details-${anonymous ? "anon" : "member"}`,
           region: wizard,

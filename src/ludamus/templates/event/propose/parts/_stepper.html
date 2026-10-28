@@ -2,11 +2,11 @@
 {% load cfp_tags %}
 {% if wizard_steps|default:"" %}
     <nav aria-label="{% translate "Proposal progress" %}" class="mb-6">
-        <ol class="grid w-full"
-            style="grid-template-columns: repeat({{ wizard_steps|length }}, 1fr)">
+        {# Shrink-wrapped, so every column takes the widest label's width. #}
+        <ol class="grid w-fit max-w-full mx-auto grid-flow-col auto-cols-[minmax(0,1fr)]">
             {% for step_key in wizard_steps %}
                 {% with is_done_step=step_key|is_done:current_step is_current_step=step_key|is_current:current_step %}
-                    <li class="flex flex-col items-center relative"
+                    <li class="flex flex-col items-center relative px-2"
                         {% if is_current_step %}aria-current="step"{% endif %}>
                         {% if not forloop.first %}
                             <span aria-hidden="true"

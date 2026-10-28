@@ -5,12 +5,14 @@ from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
+from django.core import mail
 from django.urls import reverse
 from django.utils.text import slugify
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Notification,
     Session,
     SessionField,
     SessionFieldValue,
@@ -461,6 +463,34 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.start_time == start
         # The end follows from the proposal's own length, nothing the form asks.
         assert session.agenda_item.end_time == start + timedelta(hours=1)
+
+    def test_post_tells_the_proposer_the_session_is_on_the_agenda(
+        self,
+        active_user,
+        pending_session,
+        space,
+        manager_client,
+        django_capture_on_commit_callbacks,
+    ):
+        event = pending_session.event
+        start = _wall_clock(event)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            manager_client.post(
+                self._get_url(pending_session.id, event.slug),
+                data={"space": space.id, "start_time": start.strftime(POSTED_START)},
+            )
+
+        event_url = reverse("web:chronology:event", kwargs={"slug": event.slug})
+        body = f"Your proposal for {event.name} was accepted and added to the agenda."
+        session_url = (
+            f"https://{event.sphere.site.domain}{event_url}"
+            f"?session={pending_session.pk}"
+        )
+        assert list(
+            Notification.objects.values_list("recipient", "title", "body", "url")
+        ) == [(active_user.pk, f"Accepted: {pending_session.title}", body, session_url)]
+        assert [message.to for message in mail.outbox] == [[active_user.email]]
 
     def test_post_confirms_the_schedule_when_the_event_auto_confirms(
         self, event, pending_session, space, manager_client

@@ -8,9 +8,11 @@ from urllib.parse import quote
 
 import pytest
 from django.contrib import messages
+from django.core import mail
 from django.urls import reverse
 
-from tests.integration.conftest import EventFactory
+from ludamus.links.db.django.models import Notification
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -19,6 +21,7 @@ from tests.integration.web.panel.helpers import (
     assert_proposal_status_applied,
     assert_proposal_status_unchanged,
     assert_scheduled_proposal_refused,
+    make_facilitator,
     make_proposal,
     make_scheduled_proposal,
 )
@@ -206,3 +209,77 @@ class TestScheduledProposal:
             response=response, event=event, session=session
         )
         assert_proposal_status_unchanged(session, "accepted")
+
+
+class TestAcceptanceNotification:
+    def test_accepting_tells_everyone_running_the_session_once(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        proposer = UserFactory(username="proposer")
+        co_host = UserFactory(username="cohost")
+        UserFactory(username="bystander")
+        session = make_proposal(event, presenter=proposer, title="Dungeon Night")
+        session.facilitators.add(
+            make_facilitator(event, user=co_host),
+            make_facilitator(event, display_name="Guest", slug="guest"),
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        event_url = "https://testserver" + reverse(
+            "web:chronology:event", kwargs={"slug": event.slug}
+        )
+        body = (
+            f"Your proposal for {event.name} was accepted. It will appear on the "
+            "agenda once the organizers give it a time and place."
+        )
+        assert list(
+            Notification.objects.order_by("recipient__username").values_list(
+                "recipient__username", "kind", "title", "body", "url", "payload"
+            )
+        ) == [
+            (
+                username,
+                "proposal_accepted",
+                "Accepted: Dungeon Night",
+                body,
+                event_url,
+                {"session_id": session.pk},
+            )
+            for username in ("cohost", "proposer")
+        ]
+        assert sorted(message.to for message in mail.outbox) == sorted(
+            [[co_host.email], [proposer.email]]
+        )
+
+    def test_accepting_again_after_a_rejection_tells_no_one_twice(
+        self, panel_client, event
+    ):
+        proposer = UserFactory(username="proposer")
+        session = make_proposal(event, presenter=proposer)
+
+        for action in (ACCEPT, REJECT, ACCEPT, ACCEPT):
+            panel_client.post(_url(event, proposal_id=session.pk, action=action))
+
+        assert Notification.objects.filter(recipient=proposer).count() == 1
+
+    def test_a_proposal_sent_without_an_account_notifies_no_one(
+        self, panel_client, event
+    ):
+        session = make_proposal(event, contact_email="guest@example.com")
+        session.facilitators.add(make_facilitator(event))
+
+        panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        session.refresh_from_db()
+        assert session.status == "accepted"
+        assert not Notification.objects.exists()
+
+    def test_other_status_changes_notify_no_one(self, panel_client, event):
+        session = make_proposal(event, presenter=UserFactory(username="proposer"))
+
+        for action in (HOLD, REJECT, PENDING):
+            panel_client.post(_url(event, proposal_id=session.pk, action=action))
+
+        assert not Notification.objects.exists()

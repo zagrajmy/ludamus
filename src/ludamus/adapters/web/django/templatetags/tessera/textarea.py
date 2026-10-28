@@ -12,8 +12,13 @@ if TYPE_CHECKING:
     from django.forms import BoundField
 
 
-def render_textarea(field: BoundField) -> str:
-    """Render a styled ``<textarea>``.
+def render_textarea(field: BoundField, *, inplace_class: str = "") -> str:
+    """Render a styled ``<textarea>``, or with ``inplace_class`` dressed as text.
+
+    A form marks a field whose text is read as Markdown with the widget attr
+    ``data-markdown-editor``, and the textarea gets the Markdown editor. One
+    whose text is published, never personal, sets ``data-ph-unmask`` and
+    stays readable in session recordings.
 
     Returns:
         HTML string of the textarea element.
@@ -30,5 +35,8 @@ def render_textarea(field: BoundField) -> str:
             "placeholder": attrs.get("placeholder", ""),
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace_class": inplace_class,
+            "markdown": bool(attrs.get("data-markdown-editor")),
+            "unmask": bool(attrs.get("data-ph-unmask")),
         },
     )

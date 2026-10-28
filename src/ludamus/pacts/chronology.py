@@ -281,6 +281,22 @@ class ProposalStatusServiceProtocol(Protocol):
     def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
+class ProposalAcceptedNotification(BaseModel):
+    recipient_user_id: int
+    session_id: int
+    session_title: str
+    event_name: str
+    event_slug: str
+    # Placed sessions are on the public agenda, so the link can open them.
+    placed: bool
+
+
+class ProposalAcceptedNotifierProtocol(Protocol):
+    def notify_proposal_accepted(
+        self, notification: ProposalAcceptedNotification
+    ) -> None: ...
+
+
 class SpaceTimeConflictError(Exception):
     """Another session already occupies that space during the chosen slot."""
 
