@@ -74,24 +74,18 @@ def _sole_choice_input(field: BoundField) -> str | None:
     return None
 
 
-def _render_field_input(
-    field: BoundField, *, inplace_class: str = "", placeholder: str = ""
-) -> str:
+def _render_field_input(field: BoundField, *, inplace_class: str = "") -> str:
     widget = field.field.widget
     if isinstance(widget, Select):
         return render_select(field, inplace_class=inplace_class)
     if isinstance(widget, Textarea):
-        return render_textarea(
-            field, inplace_class=inplace_class, placeholder=placeholder
-        )
+        return render_textarea(field, inplace_class=inplace_class)
     if isinstance(widget, FileInput):
         return render_file_input(field)
-    return render_input(field, inplace_class=inplace_class, placeholder=placeholder)
+    return render_input(field, inplace_class=inplace_class)
 
 
-def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape | None:
-    if isinstance(widget, FileInput):
-        return None
+def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape:
     if isinstance(widget, Textarea):
         return "textarea"
     if isinstance(widget, Select):
@@ -163,9 +157,7 @@ def tessera_field(
 
 
 @register.simple_tag
-def tessera_inplace(
-    field: BoundField, *, placeholder: str = "", fit: bool = False, unit: str = ""
-) -> str:
+def tessera_inplace(field: BoundField, *, fit: bool = False, unit: str = "") -> str:
     """Render a field's control in place: dressed as the text it writes.
 
     For pages that show a thing in the shape it is read in, so the label is
@@ -179,21 +171,22 @@ def tessera_inplace(
         HTML string of the control followed by its help text and errors.
 
     Usage:
-        {% tessera_inplace form.title placeholder=title_placeholder %}
+        {% tessera_inplace form.title %}
         {% tessera_inplace form.facilitator_name fit=True %}
         {% tessera_inplace form.min_age unit="+" %}
         {% tessera_inplace image_form.cover_image %}
     """
     if (hidden := _sole_choice_input(field)) is not None:
         return hidden
-    if (shape := _inplace_shape(field.field.widget, fit=fit)) is None:
+    if isinstance(field.field.widget, FileInput):
         return _render_controls(field, render_file_input(field, inplace=True))
+    shape = _inplace_shape(field.field.widget, fit=fit)
     look = (
         f"{inplace_look(shape=shape)} {UNIT_ROOM}"
         if unit
         else inplace_look(shape=shape)
     )
-    control = _render_field_input(field, inplace_class=look, placeholder=placeholder)
+    control = _render_field_input(field, inplace_class=look)
     if unit:
         control = format_html(
             '<span class="relative inline-flex">{}<span aria-hidden="true"'

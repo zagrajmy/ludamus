@@ -23,9 +23,7 @@ _INPUTMODE_BY_TYPE = {
 _NO_SPELLCHECK_TYPES = frozenset({"email", "url", "tel", "password"})
 
 
-def render_input(
-    field: BoundField, *, inplace_class: str = "", placeholder: str = ""
-) -> str:
+def render_input(field: BoundField, *, inplace_class: str = "") -> str:
     """Render a styled ``<input>``, or with ``inplace_class`` dressed as its text.
 
     Returns:
@@ -56,7 +54,7 @@ def render_input(
             "required": field.field.required,
             "disabled": attrs.get("disabled", False),
             "readonly": attrs.get("readonly", False),
-            "placeholder": placeholder or attrs.get("placeholder", ""),
+            "placeholder": attrs.get("placeholder", ""),
             "maxlength": attrs.get("maxlength", ""),
             # Widget attrs (e.g. Django's NumberInput derives them from
             # min_value/max_value); stringified so a 0 bound still renders.

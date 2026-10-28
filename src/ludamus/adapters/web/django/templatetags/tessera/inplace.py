@@ -10,7 +10,7 @@ type InplaceShape = Literal["text", "fit", "number", "textarea", "select"]
 # minimum width, so an empty one is still a target worth aiming at.
 _INPLACE_BASE = (
     "[font:inherit] [color:inherit] [letter-spacing:inherit] bg-transparent"
-    " border-0 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5"
+    " border-0 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 max-sm:text-base"
     " transition-[background-color,box-shadow] duration-150 hover:duration-0"
     " hover:bg-foreground/5 focus:outline-none focus:ring-2 focus:ring-primary/40"
     " placeholder:text-foreground-muted not-focus:outline-1"

@@ -106,4 +106,33 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [s.field_values for s in found] == [{"system": "Fate"}]
+        assert [s.private_answers for s in found] == [{"system": "Fate"}]
+
+    def test_splits_answers_by_visibility_and_says_who_presented(self):
+        user = UserFactory()
+        sphere = SphereFactory()
+        past = EventFactory(sphere=sphere)
+        co_run = _session(event=past, presenter=UserFactory())
+        co_run.facilitators.add(
+            Facilitator.objects.create(
+                event=past, user=user, display_name="Ola", slug="ola"
+            )
+        )
+        public = SessionField.objects.create(
+            event=past,
+            name="System",
+            question="Which system?",
+            slug="system",
+            is_public=True,
+        )
+        private = SessionField.objects.create(
+            event=past, name="Notes", question="Anything else?", slug="notes"
+        )
+        SessionFieldValue.objects.create(session=co_run, field=public, value="Fate")
+        SessionFieldValue.objects.create(session=co_run, field=private, value="A note")
+
+        found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
+
+        assert [(s.public_answers, s.private_answers, s.presented) for s in found] == [
+            ({"system": "Fate"}, {"notes": "A note"}, False)
+        ]
