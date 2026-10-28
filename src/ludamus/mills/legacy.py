@@ -29,6 +29,7 @@ _MARKDOWN_ALLOWED_TAGS = {
     "blockquote",
     "br",
     "code",
+    "del",
     "em",
     "h1",
     "h2",
@@ -47,6 +48,8 @@ _MARKDOWN_ALLOWED_TAGS = {
 }
 _MARKDOWN_ALLOWED_ATTRIBUTES = {"a": {"href", "title"}, "abbr": {"title"}}
 _MARKDOWN_EXTENSIONS = comrak.ExtensionOptions()
+_MARKDOWN_EXTENSIONS.autolink = True
+_MARKDOWN_EXTENSIONS.strikethrough = True
 _MARKDOWN_RENDER = comrak.RenderOptions()
 _MARKDOWN_RENDER.hardbreaks = True
 # SAFETY: raw HTML passes through comrak on purpose; nh3 below is the only

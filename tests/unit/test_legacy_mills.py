@@ -102,6 +102,20 @@ class TestRenderMarkdown:
         assert "javascript" not in html
         assert "href" not in html
 
+    def test_links_a_bare_url_and_keeps_its_rel(self):
+        html = render_markdown("See https://example.test/rules.")
+
+        assert html.strip() == (
+            '<p>See <a href="https://example.test/rules" rel="noopener noreferrer">'
+            "https://example.test/rules</a>.</p>"
+        )
+
+    def test_double_tildes_strike_through(self):
+        assert render_markdown("~~cancelled~~").strip() == "<p><del>cancelled</del></p>"
+
+    def test_a_lone_tilde_for_approximately_stays_literal(self):
+        assert render_markdown("~20 players").strip() == "<p>~20 players</p>"
+
 
 class TestCalendarExports:
     def test_ics_carries_uid_start_and_url_but_no_end_for_open_ended(self):
