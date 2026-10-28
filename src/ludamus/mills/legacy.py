@@ -58,9 +58,10 @@ _MARKDOWN_RENDER.hardbreaks = True
 _MARKDOWN_RENDER.unsafe_ = True
 # NOTE: GFM strikes `~a~` too, but Polish writes a lone tilde for "about" and
 # ranges (~20 osób, 10~12h). comrak has no double-tilde-only switch, so a lone
-# tilde goes in as a private-use stand-in that no Markdown rule reacts to, and
-# comes back as itself everywhere: text, code, raw HTML and (percent-encoded)
-# link targets.
+# tilde goes in as a private-use stand-in that strikethrough ignores, and comes
+# back as itself everywhere: text, code, raw HTML and (percent-encoded) link
+# targets. Unlike `~` it isn't punctuation, so `*`/`_` right beside a lone
+# tilde may open or close emphasis differently.
 _LONE_TILDE = re.compile(r"(?<![~\\])~(?!~)")
 _TILDE_STAND_IN = "\ue000"
 _TILDE_STAND_IN_IN_URL = "%EE%80%80"

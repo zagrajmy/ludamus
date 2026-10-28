@@ -118,7 +118,7 @@ class TestRenderMarkdown:
 
         assert html.strip() == "<p>~20 people, 10~12h</p>"
 
-    def test_lone_tildes_in_a_code_span_render_without_a_backslash(self):
+    def test_lone_tildes_in_a_code_span_stay_as_typed(self):
         assert render_markdown("`a~b~c`").strip() == "<p><code>a~b~c</code></p>"
 
     def test_a_tilde_fenced_block_keeps_its_content_verbatim(self):
