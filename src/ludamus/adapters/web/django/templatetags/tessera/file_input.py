@@ -9,6 +9,8 @@ from django.template.loader import render_to_string
 
 from ludamus.pacts.images import StoredFile
 
+from .inplace import INPLACE_DROPZONE_LOOK
+
 if TYPE_CHECKING:
     from django.forms import BoundField
 
@@ -49,8 +51,8 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
-            "crop": getattr(field.field.widget, "crop", None),
+            "crop": None if inplace else getattr(field.field.widget, "crop", None),
             "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
-            "inplace": inplace,
+            "inplace_class": INPLACE_DROPZONE_LOOK if inplace else "",
         },
     )

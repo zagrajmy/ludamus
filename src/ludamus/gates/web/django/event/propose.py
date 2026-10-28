@@ -43,6 +43,7 @@ from ludamus.pacts.availability import (
     availability_value,
     offered_parts_by_day,
 )
+from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -90,8 +91,8 @@ def _canonicalize_wizard_state(state: WizardState) -> None:
     if not isinstance(session_data, dict):
         return
     legacy_name = session_data.pop("display_name", None)
-    if "facilitator_name" not in session_data and legacy_name is not None:
-        session_data["facilitator_name"] = legacy_name
+    if FACILITATOR_NAME_FIELD not in session_data and legacy_name is not None:
+        session_data[FACILITATOR_NAME_FIELD] = legacy_name
 
 
 def _propose_url(event_slug: str) -> str:
@@ -173,15 +174,16 @@ def _availability_descriptors(
 
 
 def _reusable_form_values(
-    session: ReusableSessionDTO,
+    reusable: ReusableSessionDTO,
     *,
     form: Form,
     requirements: Sequence[SessionFieldRequirementDTO],
 ) -> WizardData:
-    """Return what the details form would hold had the proposer typed `session`."""
+    """Return what the details form would hold had the proposer typed `reusable`."""
+    session = reusable.session
     copied: WizardData = {
         **unfold_custom_answers(
-            stored={f"session_{slug}": v for slug, v in session.field_values.items()},
+            stored={f"session_{slug}": v for slug, v in reusable.field_values.items()},
             fields=[req.field for req in requirements],
             prefix="session",
         ),
@@ -197,7 +199,9 @@ def _reusable_form_values(
     # The proposer's own name stays: a session they co-ran was written under
     # someone else's.
     return {
-        name: copied.get(name, "") for name in form.fields if name != "facilitator_name"
+        name: copied.get(name, "")
+        for name in form.fields
+        if name != FACILITATOR_NAME_FIELD
     }
 
 
@@ -487,9 +491,9 @@ def _details_context(
             fields=[req.field for req in requirements],
             prefix="session",
         )
-        if "facilitator_name" not in initial:
+        if FACILITATOR_NAME_FIELD not in initial:
             # AnonymousUser carries no `name`.
-            initial["facilitator_name"] = getattr(wizard.request.user, "name", "")
+            initial[FACILITATOR_NAME_FIELD] = getattr(wizard.request.user, "name", "")
         form = build_session_details_form(requirements, category=category)(
             initial=initial
         )
@@ -500,7 +504,7 @@ def _details_context(
     selected_tracks = set(
         state.get("track_pks", []) if selected_track_pks is None else selected_track_pks
     )
-    reusable = wizard.service.list_reusable_sessions(
+    reusable_sessions = wizard.service.list_reusable_sessions(
         user_id=wizard.request.context.current_user_id, event=wizard.event
     )
     return {
@@ -517,12 +521,12 @@ def _details_context(
             for track in wizard.service.get_public_tracks(wizard.event.pk)
         ],
         "track_error": track_error,
-        "reusable_sessions": reusable,
+        "reusable_sessions": reusable_sessions,
         "reusable_form_values": {
-            str(session.pk): _reusable_form_values(
-                session, form=form, requirements=requirements
+            str(reusable.session.pk): _reusable_form_values(
+                reusable, form=form, requirements=requirements
             )
-            for session in reusable
+            for reusable in reusable_sessions
         },
     }
 
@@ -552,7 +556,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
         "category_name": category.name if category else "",
-        "facilitator_name": session_data.get("facilitator_name", ""),
+        "facilitator_name": session_data.get(FACILITATOR_NAME_FIELD, ""),
         "title": session_data.get("title", ""),
         "description": session_data.get("description", ""),
         "participants_limit": session_data.get("participants_limit", ""),

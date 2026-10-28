@@ -18,6 +18,7 @@ from ludamus.pacts import (
 from ludamus.pacts.availability import availability_from_value
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import (
+    FACILITATOR_NAME_FIELD,
     AccountAnswersDTO,
     ProposeSessionServiceProtocol,
     ReusableSessionDTO,
@@ -154,13 +155,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         )
         return [
             ReusableSessionDTO(
-                pk=record.pk,
-                title=record.title,
-                event_name=record.event_name,
-                description=record.description,
-                participants_limit=record.participants_limit,
-                min_age=record.min_age,
-                duration=record.duration,
+                session=record.session,
                 field_values=carried_answers(
                     public=record.public_answers,
                     private=record.private_answers,
@@ -223,7 +218,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         presenter_id = current_user.pk if current_user else None
 
         facilitator_name = str(
-            session_data.get("facilitator_name", default_facilitator_name)
+            session_data.get(FACILITATOR_NAME_FIELD, default_facilitator_name)
         )
         slug = self._generate_unique_slug(
             title, lambda s: self._repos.sessions.slug_exists(event.pk, s)
