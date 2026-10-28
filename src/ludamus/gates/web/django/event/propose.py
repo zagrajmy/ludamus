@@ -20,7 +20,6 @@ from ludamus.gates.web.django.dynamic_fields import (
     unfold_custom_answers,
 )
 from ludamus.gates.web.django.event.propose_forms import (
-    FACILITATOR_NAME_FIELD,
     SessionCoverImageForm,
     build_personal_data_form,
     build_session_details_form,
@@ -34,6 +33,7 @@ from ludamus.gates.web.django.propose_cover import (
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence

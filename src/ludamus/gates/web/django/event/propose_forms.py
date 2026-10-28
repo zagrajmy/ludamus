@@ -13,6 +13,7 @@ from ludamus.gates.web.django.dynamic_fields import (
 )
 from ludamus.gates.web.django.forms import STORAGE_LIMIT_VALIDATOR, cover_image_field
 from ludamus.pacts.durations import duration_choices
+from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -21,8 +22,6 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
-
-FACILITATOR_NAME_FIELD = "facilitator_name"
 
 
 def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:

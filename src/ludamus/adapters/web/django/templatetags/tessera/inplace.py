@@ -48,3 +48,11 @@ def inplace_look(*, shape: InplaceShape, unit: bool = False) -> str:
     """
     look = f"{_INPLACE_BASE} {_INPLACE_SHAPES[shape]}"
     return f"{look} {_UNIT_ROOM}" if unit else look
+
+
+# The cover's dropzone, at the height of the card strip it fills.
+INPLACE_DROPZONE_LOOK = (
+    "h-40 px-4 rounded-xl border border-dashed border-warm-400"
+    " dark:border-neutral-600 transition-colors duration-150 hover:duration-0"
+    " hover:bg-foreground/5 data-[state=image]:border-0"
+)

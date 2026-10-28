@@ -31,6 +31,11 @@ if TYPE_CHECKING:
     )
 
 
+# NOTE: the wizard stores the presenter name under this key; the gate writes
+# it, the mill reads it.
+FACILITATOR_NAME_FIELD = "facilitator_name"
+
+
 class AccountAnswersDTO(BaseModel):
     """What the proposer's account already answers on the personal step."""
 

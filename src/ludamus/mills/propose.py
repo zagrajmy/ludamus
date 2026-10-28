@@ -17,6 +17,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import (
+    FACILITATOR_NAME_FIELD,
     AccountAnswersDTO,
     ProposeSessionServiceProtocol,
     ReusableSessionDTO,
@@ -215,7 +216,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         presenter_id = current_user.pk if current_user else None
 
         facilitator_name = str(
-            session_data.get("facilitator_name", default_facilitator_name)
+            session_data.get(FACILITATOR_NAME_FIELD, default_facilitator_name)
         )
         slug = self._generate_unique_slug(
             title, lambda s: self._repos.sessions.slug_exists(event.pk, s)
