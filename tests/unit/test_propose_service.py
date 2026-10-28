@@ -16,7 +16,12 @@ from ludamus.pacts.legacy import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.propose import AccountAnswersDTO, ProposeRepos, ReusableSessionRecord
+from ludamus.pacts.propose import (
+    AccountAnswersDTO,
+    EarlierSessionDTO,
+    ProposeRepos,
+    ReusableSessionRecord,
+)
 from ludamus.specs.proposal import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
@@ -699,13 +704,15 @@ class TestAccountAnswers:
 
 def _reusable(pk: int, *, presented: bool = True) -> ReusableSessionRecord:
     return ReusableSessionRecord(
-        pk=pk,
-        title=f"Session {pk}",
-        event_name="Earlier edition",
-        description="",
-        participants_limit=4,
-        min_age=0,
-        duration="",
+        session=EarlierSessionDTO(
+            pk=pk,
+            title=f"Session {pk}",
+            event_name="Earlier edition",
+            description="",
+            participants_limit=4,
+            min_age=0,
+            duration="",
+        ),
         public_answers={"system": "Fate"},
         private_answers={"notes": "Bring a socket"},
         presented=presented,

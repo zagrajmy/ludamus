@@ -31,6 +31,11 @@ if TYPE_CHECKING:
     )
 
 
+# NOTE: the wizard stores the presenter name under this key; the gate writes
+# it, the mill reads it.
+FACILITATOR_NAME_FIELD = "facilitator_name"
+
+
 class AccountAnswersDTO(BaseModel):
     """What the proposer's account already answers on the personal step."""
 
@@ -39,8 +44,13 @@ class AccountAnswersDTO(BaseModel):
     personal_data: dict[str, str] = {}
 
 
-class ReusableSessionRecord(BaseModel):
-    """An earlier session as stored, before deciding which answers carry over."""
+# NOTE: session fields belong to an event, so the slug is the only key that
+# can carry an answer over to another event's form.
+type AnswersBySlug = dict[str, FieldValue]
+
+
+class EarlierSessionDTO(BaseModel):
+    """One of the proposer's own sessions from an earlier event."""
 
     pk: int
     title: str
@@ -49,26 +59,22 @@ class ReusableSessionRecord(BaseModel):
     participants_limit: int
     min_age: int
     duration: str
-    # NOTE: session fields belong to an event, so the slug is the only key
-    # that can carry an answer over to another event's form.
-    public_answers: dict[str, FieldValue]
-    private_answers: dict[str, FieldValue]
+
+
+class ReusableSessionRecord(BaseModel):
+    """An earlier session as stored, before deciding which answers carry over."""
+
+    session: EarlierSessionDTO
+    public_answers: AnswersBySlug
+    private_answers: AnswersBySlug
     presented: bool
 
 
 class ReusableSessionDTO(BaseModel):
-    """One of the proposer's own sessions from an earlier event, to start from."""
+    """An earlier session to start from, with the answers that carry over."""
 
-    pk: int
-    title: str
-    event_name: str
-    description: str
-    participants_limit: int
-    min_age: int
-    duration: str
-    # NOTE: session fields belong to an event, so the slug is the only key
-    # that can carry an answer over to another event's form.
-    field_values: dict[str, FieldValue]
+    session: EarlierSessionDTO
+    field_values: AnswersBySlug
 
 
 class ReusableSessionRepositoryProtocol(Protocol):

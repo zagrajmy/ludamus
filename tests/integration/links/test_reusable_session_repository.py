@@ -34,7 +34,7 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=current)
 
-        assert [s.pk for s in found] == [own.pk]
+        assert [s.session.pk for s in found] == [own.pk]
 
     def test_counts_a_session_the_user_facilitates_without_presenting(self):
         user = UserFactory()
@@ -49,7 +49,7 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [s.pk for s in found] == [imported.pk]
+        assert [s.session.pk for s in found] == [imported.pk]
 
     def test_skips_a_session_held_only_through_a_deleted_facilitator(self):
         user = UserFactory()
@@ -77,7 +77,7 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [s.pk for s in found] == [latest.pk]
+        assert [s.session.pk for s in found] == [latest.pk]
 
     def test_stops_at_the_limit_with_the_newest(self):
         user = UserFactory()
@@ -92,7 +92,7 @@ class TestListReusable:
             user=user, sphere=sphere, current=EventFactory(sphere=sphere), limit=1
         )
 
-        assert [s.pk for s in found] == [newest.pk]
+        assert [s.session.pk for s in found] == [newest.pk]
 
     def test_carries_answers_by_field_slug(self):
         user = UserFactory()

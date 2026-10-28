@@ -1,9 +1,11 @@
 from django.db.models import F, Prefetch, Window
 from django.db.models.functions import Lower, RowNumber, Trim
 
-from ludamus.links.db.django.models import SessionFieldValue
+from ludamus.links.db.django.models import Session, SessionFieldValue
 from ludamus.links.db.django.repositories.sessions import sessions_run_by
 from ludamus.pacts.propose import (
+    AnswersBySlug,
+    EarlierSessionDTO,
     ReusableSessionRecord,
     ReusableSessionRepositoryProtocol,
 )
@@ -37,26 +39,25 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
             )
             .order_by(*_NEWEST_FIRST)[:limit]
         )
-        return [
-            ReusableSessionRecord(
-                pk=session.pk,
-                title=session.title,
-                event_name=session.event.name,
-                description=session.description,
-                participants_limit=session.participants_limit,
-                min_age=session.min_age,
-                duration=session.duration,
-                public_answers={
-                    fv.field.slug: fv.value
-                    for fv in session.field_values.all()
-                    if fv.field.is_public
-                },
-                private_answers={
-                    fv.field.slug: fv.value
-                    for fv in session.field_values.all()
-                    if not fv.field.is_public
-                },
-                presented=session.presenter_id == user_id,
-            )
-            for session in sessions
-        ]
+        return [_record(session, user_id=user_id) for session in sessions]
+
+
+def _record(session: Session, *, user_id: int) -> ReusableSessionRecord:
+    public: AnswersBySlug = {}
+    private: AnswersBySlug = {}
+    for fv in session.field_values.all():
+        (public if fv.field.is_public else private)[fv.field.slug] = fv.value
+    return ReusableSessionRecord(
+        session=EarlierSessionDTO(
+            pk=session.pk,
+            title=session.title,
+            event_name=session.event.name,
+            description=session.description,
+            participants_limit=session.participants_limit,
+            min_age=session.min_age,
+            duration=session.duration,
+        ),
+        public_answers=public,
+        private_answers=private,
+        presented=session.presenter_id == user_id,
+    )

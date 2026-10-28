@@ -31,7 +31,7 @@ from .checkbox import (
 from .errors import render_errors, render_form_errors, render_help_text
 from .file_input import render_file_input
 from .form_select import render_select
-from .inplace import UNIT_ROOM, InplaceShape, inplace_look
+from .inplace import InplaceShape, inplace_look
 from .input import render_input
 from .label import render_label
 from .textarea import render_textarea
@@ -180,11 +180,8 @@ def tessera_inplace(field: BoundField, *, fit: bool = False, unit: str = "") -> 
         return hidden
     if isinstance(field.field.widget, FileInput):
         return _render_controls(field, render_file_input(field, inplace=True))
-    shape = _inplace_shape(field.field.widget, fit=fit)
-    look = (
-        f"{inplace_look(shape=shape)} {UNIT_ROOM}"
-        if unit
-        else inplace_look(shape=shape)
+    look = inplace_look(
+        shape=_inplace_shape(field.field.widget, fit=fit), unit=bool(unit)
     )
     control = _render_field_input(field, inplace_class=look)
     if unit:

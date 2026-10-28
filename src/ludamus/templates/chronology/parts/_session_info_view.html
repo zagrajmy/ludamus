@@ -62,7 +62,7 @@
     {% with duration_label=data.session.duration|format_duration %}
         {% if duration_label %}
             {% session_fact icon="clock" %}
-                {{ duration_label }}
+                <span class="sr-only">{% translate "Duration" %}:</span>{{ duration_label }}
             {% end_session_fact %}
         {% endif %}
     {% endwith %}
