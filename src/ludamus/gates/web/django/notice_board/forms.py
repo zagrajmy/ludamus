@@ -21,7 +21,7 @@ class EncounterForm(forms.Form):
     description = forms.CharField(
         label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4}),
+        widget=forms.Textarea(attrs={"rows": 4, "data-markdown-editor": True}),
         help_text=_("Supports Markdown formatting."),
     )
     game = forms.CharField(label=_("Game"), max_length=255, required=False)

@@ -1,5 +1,9 @@
+{% load vite_tags %}
 {# Textarea field. #}
-{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace_class (the in-place look: dressed as the text it writes) #}
+{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace_class (the in-place look: dressed as the text it writes), markdown (bool: text read as Markdown, edited with markdown-editor.ts) #}
+{% if markdown|default:False %}
+    {% vite_asset_once 'src/markdown-editor.ts' %}
+{% endif %}
 {# text-base on mobile keeps the textarea at 16px so iOS Safari doesn't auto-zoom on focus; the sm: size restores the compact desktop scale. #}
 <textarea class="{% if inplace_class|default:"" %}{{ inplace_class }}{% else %}w-full px-3 py-2 rounded-lg border border-border aria-invalid:border-danger bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% endif %}{% if monospace|default:False %} font-mono text-base sm:text-xs{% elif not inplace_class|default:"" %} text-base sm:text-sm leading-relaxed{% endif %}"
           {% if id|default:"" %}id="{{ id }}"{% endif %}
@@ -12,4 +16,5 @@
           {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
           {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %}
           {% if autocapitalize|default:"" %}autocapitalize="{{ autocapitalize }}"{% endif %}
-          {% if autocorrect|default:"" %}autocorrect="{{ autocorrect }}"{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>
+          {% if autocorrect|default:"" %}autocorrect="{{ autocorrect }}"{% endif %}
+          {% if markdown|default:False %}data-markdown-editor{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>

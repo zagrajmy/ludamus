@@ -102,7 +102,7 @@ class ListingForm(forms.Form):
     description = forms.CharField(
         label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 5}),
+        widget=forms.Textarea(attrs={"rows": 5, "data-markdown-editor": True}),
         help_text=_("Supports Markdown formatting."),
     )
     starts_at = forms.DateTimeField(

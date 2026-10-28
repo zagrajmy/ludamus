@@ -76,7 +76,8 @@ def build_session_details_form(
     fields: dict[str, forms.Field] = {
         "title": forms.CharField(label=_("Title"), max_length=255),
         "description": forms.CharField(
-            label=_("Description"), widget=forms.Textarea(attrs={"rows": 4})
+            label=_("Description"),
+            widget=forms.Textarea(attrs={"rows": 4, "data-markdown-editor": True}),
         ),
         "participants_limit": forms.IntegerField(**participants_kwargs),
         "min_age": forms.IntegerField(

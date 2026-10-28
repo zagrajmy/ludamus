@@ -17,6 +17,9 @@ def render_textarea(
 ) -> str:
     """Render a styled ``<textarea>``, or with ``inplace_class`` dressed as text.
 
+    A form marks a field whose text is read as Markdown with the widget attr
+    ``data-markdown-editor``, and the textarea gets the Markdown editor.
+
     Returns:
         HTML string of the textarea element.
     """
@@ -33,5 +36,6 @@ def render_textarea(
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
             "inplace_class": inplace_class,
+            "markdown": bool(attrs.get("data-markdown-editor")),
         },
     )

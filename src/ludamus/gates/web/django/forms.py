@@ -288,7 +288,8 @@ class ProposalSettingsForm(forms.Form):
     """Form for proposal settings (description, dates, apply-to-categories)."""
 
     proposal_description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 4})
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "data-markdown-editor": True}),
     )
     proposal_start_time = forms.DateTimeField(
         required=False,
@@ -755,7 +756,10 @@ class SessionEditForm(forms.Form):
         error_messages={"required": _("Presenter name is required.")},
     )
     description = forms.CharField(
-        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
+        required=False,
+        label=_("Description"),
+        widget=forms.Textarea(attrs={"rows": 5, "data-markdown-editor": True}),
+        help_text=_("Markdown supported."),
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
