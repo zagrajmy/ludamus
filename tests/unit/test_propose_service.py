@@ -697,7 +697,7 @@ class TestAccountAnswers:
         assert answers.personal_data == {}
 
 
-def _reusable(pk: int) -> ReusableSessionDTO:
+def _reusable(pk: int, *, presented: bool = True) -> ReusableSessionDTO:
     return ReusableSessionDTO(
         pk=pk,
         title=f"Session {pk}",
@@ -706,52 +706,43 @@ def _reusable(pk: int) -> ReusableSessionDTO:
         participants_limit=4,
         min_age=0,
         duration="",
-        field_values={},
+        field_values={"system": "Fate", "notes": "Bring a socket"},
+        public_field_slugs=frozenset({"system"}),
+        presented=presented,
     )
 
 
 class FakeReusableSessions:
-    """Answers like the repo: a user's sessions in a sphere, but one event."""
+    def __init__(self, sessions):
+        self.sessions = sessions
 
-    def __init__(self, rows):
-        # Each row is an owner, a sphere and an event, then the session.
-        self.rows = rows
-
-    def list_reusable(self, *, user_id, sphere_id, exclude_event_id, limit):
-        return [
-            session
-            for owner, sphere, event, session in self.rows
-            if owner == user_id and sphere == sphere_id and event != exclude_event_id
-        ][:limit]
+    def list_reusable(self, **_):
+        return self.sessions
 
 
 class TestListReusableSessions:
     @staticmethod
-    def _service(repos, rows):
+    def _service(repos, sessions):
         return ProposeSessionService(
             transaction=MagicMock(),
-            repos=repos._replace(reusable_sessions=FakeReusableSessions(rows)),
+            repos=repos._replace(reusable_sessions=FakeReusableSessions(sessions)),
             cache=FakeCache(),
         )
 
     def test_offers_an_anonymous_proposer_nothing(self, repos):
-        service = self._service(repos, [(None, 1, 2, _reusable(1))])
+        service = self._service(repos, [_reusable(1)])
 
         assert service.list_reusable_sessions(user_id=None, event=event_dto()) == []
 
-    def test_offers_the_users_sessions_from_the_spheres_other_events(self, repos):
-        event = event_dto(pk=10, sphere_id=1)
-        service = self._service(
-            repos,
-            [
-                (USER_PK, 1, 9, own := _reusable(1)),
-                (USER_PK, 1, 10, _reusable(2)),
-                (USER_PK, 2, 9, _reusable(3)),
-                (USER_PK + 1, 1, 9, _reusable(4)),
-            ],
-        )
+    def test_keeps_organizer_only_answers_only_where_the_user_presented(self, repos):
+        service = self._service(repos, [_reusable(1), _reusable(2, presented=False)])
 
-        assert service.list_reusable_sessions(user_id=USER_PK, event=event) == [own]
+        found = service.list_reusable_sessions(user_id=USER_PK, event=event_dto())
+
+        assert [s.field_values for s in found] == [
+            {"system": "Fate", "notes": "Bring a socket"},
+            {"system": "Fate"},
+        ]
 
 
 class FakeUsers:

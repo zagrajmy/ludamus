@@ -44,10 +44,14 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
                 min_age=session.min_age,
                 duration=session.duration,
                 field_values={
-                    fv.field.slug: fv.value
-                    for fv in session.field_values.all()
-                    if fv.field.is_public or session.presenter_id == user_id
+                    fv.field.slug: fv.value for fv in session.field_values.all()
                 },
+                public_field_slugs=frozenset(
+                    fv.field.slug
+                    for fv in session.field_values.all()
+                    if fv.field.is_public
+                ),
+                presented=session.presenter_id == user_id,
             )
             for session in sessions
         ]

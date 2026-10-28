@@ -108,7 +108,7 @@ class TestListReusable:
 
         assert [s.field_values for s in found] == [{"system": "Fate"}]
 
-    def test_keeps_organizer_only_answers_from_someone_elses_session(self):
+    def test_marks_which_answers_are_public_and_whether_the_user_presented(self):
         user = UserFactory()
         sphere = SphereFactory()
         past = EventFactory(sphere=sphere)
@@ -129,10 +129,10 @@ class TestListReusable:
             event=past, name="Notes", question="Anything else?", slug="notes"
         )
         SessionFieldValue.objects.create(session=co_run, field=public, value="Fate")
-        SessionFieldValue.objects.create(
-            session=co_run, field=private, value="The presenter's own note"
-        )
+        SessionFieldValue.objects.create(session=co_run, field=private, value="A note")
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [s.field_values for s in found] == [{"system": "Fate"}]
+        assert [(s.public_field_slugs, s.presented) for s in found] == [
+            (frozenset({"system"}), False)
+        ]

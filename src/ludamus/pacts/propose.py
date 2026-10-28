@@ -52,6 +52,8 @@ class ReusableSessionDTO(BaseModel):
     # NOTE: session fields belong to an event, so the slug is the only key
     # that can carry an answer over to another event's form.
     field_values: dict[str, FieldValue]
+    public_field_slugs: frozenset[str]
+    presented: bool
 
 
 class ReusableSessionRepositoryProtocol(Protocol):

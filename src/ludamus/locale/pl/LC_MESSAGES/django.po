@@ -13512,10 +13512,6 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
-#, python-format
-#~ msgid "Copy %(title)s"
-#~ msgstr "Skopiuj „%(title)s”"
-
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 

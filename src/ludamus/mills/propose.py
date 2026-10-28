@@ -143,12 +143,22 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         """List the proposer's sessions from the sphere's other events."""
         if user_id is None:
             return []
-        return self._repos.reusable_sessions.list_reusable(
+        sessions = self._repos.reusable_sessions.list_reusable(
             user_id=user_id,
             sphere_id=event.sphere_id,
             exclude_event_id=event.pk,
             limit=REUSABLE_SESSIONS_LIMIT,
         )
+        # Organizer-only answers are the presenter's own; a co-facilitator
+        # reaches the session but never saw them.
+        for session in sessions:
+            if not session.presented:
+                session.field_values = {
+                    slug: value
+                    for slug, value in session.field_values.items()
+                    if slug in session.public_field_slugs
+                }
+        return sessions
 
     def _find_or_create_facilitator(
         self, *, event: EventDTO, display_name: str, user_id: int | None
