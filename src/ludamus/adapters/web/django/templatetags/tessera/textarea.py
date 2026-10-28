@@ -12,8 +12,8 @@ if TYPE_CHECKING:
     from django.forms import BoundField
 
 
-def render_textarea(field: BoundField) -> str:
-    """Render a styled ``<textarea>``.
+def render_textarea(field: BoundField, *, inplace_class: str = "") -> str:
+    """Render a styled ``<textarea>``, or with ``inplace_class`` dressed as text.
 
     Returns:
         HTML string of the textarea element.
@@ -30,5 +30,6 @@ def render_textarea(field: BoundField) -> str:
             "placeholder": attrs.get("placeholder", ""),
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace_class": inplace_class,
         },
     )
