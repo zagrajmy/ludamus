@@ -36,7 +36,7 @@ google-auth = "~2.61.0"
 gunicorn = "~26.2.0"
 heroicons = { version = "~2.14.0", extras = ["django"] }
 lxml = "~6.1.1"
-markdown = "~3.11.1"
+markdown = "~3.11.2"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~13.0.0"
