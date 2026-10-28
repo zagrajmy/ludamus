@@ -83,10 +83,8 @@ class MarkdownTextarea(forms.Textarea):
 
     ``published`` text is shown to everyone the page is shown to, never
     personal, so session recordings keep it readable; anything else stays
-    masked like every other input. The tessera textarea renderer reads both.
+    masked like every other input.
     """
-
-    markdown = True
 
     def __init__(
         self,
@@ -312,7 +310,7 @@ class ProposalSettingsForm(forms.Form):
         label=_("Proposal Description"),
         required=False,
         widget=MarkdownTextarea(published=True, attrs={"rows": 4}),
-        help_text=_("Displayed on the first page of the proposal form."),
+        help_text=_("Shown above every step of the proposal form."),
     )
     proposal_start_time = forms.DateTimeField(
         required=False,
