@@ -8,6 +8,9 @@ import { isKey } from "yace/plugins/isKey";
 // because Outfit ships no italic face and the browser synthesises one; a real
 // italic face would drift the caret.
 const PRE_CLASS = [
+  "relative z-2 m-0 box-border w-full",
+  "pointer-events-none whitespace-pre-wrap wrap-break-word break-keep",
+  "border-solid border-transparent",
   "[&_b]:[font-weight:inherit]",
   "[&_.mdhl-heading]:[text-shadow:0.35px_0_0_currentColor]",
   "[&_.mdhl-strong]:[text-shadow:0.35px_0_0_currentColor]",
@@ -33,6 +36,7 @@ const MIRRORED = [
   "wordSpacing",
   "tabSize",
   "color",
+  "opacity",
   "paddingTop",
   "paddingRight",
   "paddingBottom",
@@ -85,21 +89,36 @@ const onKeydown = (event: KeyboardEvent): void => {
   event.preventDefault();
 };
 
-const mirrors = new Map<Element, () => void>();
+type Editor = { mirror: () => void; repaint: () => void };
+
+const editors = new Map<HTMLTextAreaElement, Editor>();
+const editorOf = (node: Node): Editor | undefined =>
+  node instanceof HTMLTextAreaElement ? editors.get(node) : undefined;
 const resized = new ResizeObserver((entries) => {
-  for (const { target } of entries) mirrors.get(target)?.();
+  for (const { target } of entries) editorOf(target)?.mirror();
 });
 // NOTE: the theme script swaps a light/dark class on <html>, and the painted
 // text takes its colour from the textarea's.
 new MutationObserver(() => {
-  for (const mirror of mirrors.values()) mirror();
+  for (const { mirror } of editors.values()) mirror();
 }).observe(document.documentElement, { attributeFilter: ["class"] });
+const toggled = new MutationObserver((records) => {
+  for (const { target } of records) editorOf(target)?.mirror();
+});
+
+// NOTE: a reset fires no input event and restores the value only after its
+// own event has run.
+document.addEventListener("reset", (event) => {
+  for (const [textarea, { repaint }] of editors) {
+    if (textarea.form === event.target) setTimeout(repaint);
+  }
+});
 
 const forgetDetached = (): void => {
-  for (const textarea of mirrors.keys()) {
+  for (const textarea of editors.keys()) {
     if (textarea.isConnected) continue;
     resized.unobserve(textarea);
-    mirrors.delete(textarea);
+    editors.delete(textarea);
   }
 };
 
@@ -109,35 +128,20 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
 
   const before = getComputedStyle(textarea);
   const root = document.createElement("div");
-  Object.assign(root.style, {
-    borderRadius: before.borderRadius,
-    boxSizing: "border-box",
-    margin: before.margin,
-    position: "relative",
-  });
+  root.className = "relative box-border";
+  Object.assign(root.style, { borderRadius: before.borderRadius, margin: before.margin });
+  // NOTE: painted over the textarea, which keeps its own themed background,
+  // hover wash and caret; only its glyphs go transparent.
   const pre = document.createElement("pre");
   pre.className = PRE_CLASS;
   pre.setAttribute("aria-hidden", "true");
   // SAFETY: recordings show only text the page marks as published; the
   // painted copy of anything else is masked like the input it mirrors.
-  if (!textarea.closest("[data-ph-unmask]")) pre.dataset.phMask = "";
-  // NOTE: painted over the textarea, which keeps its own themed background,
-  // hover wash and caret; only its glyphs go transparent.
-  Object.assign(pre.style, {
-    borderColor: "transparent",
-    borderStyle: "solid",
-    boxSizing: "border-box",
-    margin: "0",
-    overflowWrap: "break-word",
-    pointerEvents: "none",
-    position: "relative",
-    whiteSpace: "pre-wrap",
-    width: "100%",
-    wordBreak: "keep-all",
-    zIndex: "2",
-  });
+  if (!("phUnmask" in textarea.dataset)) pre.dataset.phMask = "";
+  const focused = document.activeElement === textarea;
   textarea.before(root);
   root.append(textarea, pre);
+  if (focused) textarea.focus({ preventScroll: true });
 
   Object.assign(textarea.style, {
     height: "100%",
@@ -175,8 +179,8 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
   };
   paint();
   mirror();
-  mirrors.set(textarea, mirror);
   resized.observe(textarea);
+  toggled.observe(textarea, { attributeFilter: ["disabled"] });
 
   let empty = !textarea.value;
   const repaint = (): void => {
@@ -187,11 +191,9 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
     empty = !empty;
     mirror();
   };
+  editors.set(textarea, { mirror, repaint });
   textarea.addEventListener("input", repaint);
   textarea.addEventListener("keydown", onKeydown);
-  // NOTE: a reset fires no input event and restores the value only after its
-  // own event has run.
-  textarea.form?.addEventListener("reset", () => setTimeout(repaint));
 };
 
 const enhanceAll = (): void => {
