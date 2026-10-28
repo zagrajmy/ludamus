@@ -4,6 +4,8 @@ import { isKey } from "yace/plugins/isKey";
 
 const EDITOR = "[data-markdown-editor]";
 const LIST_ITEM = /^(\s*)([-*+]|(\d+)([.)]))(\s+)(.*)$/;
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 const highlight = markdown();
 
@@ -22,15 +24,29 @@ const insertText = (textarea: HTMLTextAreaElement, text: string): void => {
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
+const insideFence = (text: string): boolean => {
+  let open = "";
+  for (const line of text.split("\n")) {
+    const fence = FENCE.exec(line)?.[1];
+    if (!fence) continue;
+    if (!open) open = fence;
+    else if (fence[0] === open[0] && fence.length >= open.length && line.trim() === fence) {
+      open = "";
+    }
+  }
+  return Boolean(open);
+};
+
 const continueList = (textarea: HTMLTextAreaElement): boolean => {
   const { selectionEnd, selectionStart, value } = textarea;
   if (selectionStart !== selectionEnd) return false;
   const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
-  const match = LIST_ITEM.exec(value.slice(lineStart, selectionStart));
-  if (!match) return false;
-  const [, indent, bullet, number, delimiter, gap, content] = match;
   const lineEnd = value.indexOf("\n", selectionStart);
-  const rest = value.slice(selectionStart, lineEnd === -1 ? undefined : lineEnd);
+  const line = value.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+  const match = LIST_ITEM.exec(value.slice(lineStart, selectionStart));
+  if (!match || THEMATIC_BREAK.test(line) || insideFence(value.slice(0, lineStart))) return false;
+  const [, indent, bullet, number, delimiter, gap, content] = match;
+  const rest = line.slice(selectionStart - lineStart);
   if (!content.trim() && !rest.trim()) {
     // NOTE: a blank line ends the list; without it Markdown reads the next
     // line as more of the last item.

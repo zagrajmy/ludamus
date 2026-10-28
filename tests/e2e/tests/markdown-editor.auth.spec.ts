@@ -63,6 +63,25 @@ test.describe("Markdown descriptions", () => {
     await expect(description).toHaveValue("1. one\n\nafter\n\n- \n- item");
   });
 
+  test("a thematic break or a fenced code line is not continued as a list", async ({ page }) => {
+    await page.goto("/encounters/create/");
+
+    const description = page.getByLabel("Description");
+    await description.click();
+    await page.keyboard.type("* * *");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("```");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("- not an item");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("```");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("- item");
+    await page.keyboard.press("Enter");
+
+    await expect(description).toHaveValue("* * *\n```\n- not an item\n```\n- item\n- ");
+  });
+
   test("without scripts the description is a plain textarea", async ({ browser }) => {
     // NOTE: a context of its own; the page fixture records script coverage,
     // which needs scripts.
