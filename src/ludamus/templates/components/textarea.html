@@ -30,6 +30,7 @@
     {# Until the script paints, the pre holds the raw value invisibly, sizing the cell. relative keeps it over a textarea that disabled opacity lifts into a layer of its own. Emphasis is colour, slant and a hairline shadow, never a heavier weight, which would widen glyphs off the caret; <i> keeps its width only because Outfit ships no italic face and the browser synthesises one. #}
     {# SAFETY: recordings show only text the page marks as published; the painted copy of anything else is masked like the input it mirrors. #}
     <pre aria-hidden="true"
+         translate="no"
          {% if not unmask|default:False %}data-ph-mask{% endif %}
          class="{{ look }}{% if type|default:"" %} {{ type }}{% endif %} relative [grid-area:1/1] pointer-events-none invisible group-data-ready/markdown:visible [font-family:inherit] text-start whitespace-pre-wrap wrap-break-word break-keep bg-transparent! border-transparent! outline-none! peer-disabled:opacity-50 [&_b]:[font-weight:inherit] [&_.mdhl-heading]:[text-shadow:0.35px_0_0_currentColor] [&_.mdhl-strong]:[text-shadow:0.35px_0_0_currentColor] [&_.mdhl-link]:underline [&_.mdhl-link]:decoration-foreground-muted/60 [&_.mdhl-link]:underline-offset-2 [&_.mdhl-bullet]:text-foreground-muted [&_.mdhl-blockquote]:text-foreground-muted [&_.mdhl-hr]:text-foreground-muted [&_.mdhl-inlineCode]:bg-foreground/5 [&_.mdhl-inlineCode]:rounded-sm [&_.mdhl-codeInFences]:text-foreground-muted [&_.mdhl-blockCode]:text-foreground-muted">{% if value|default:"" %}{{ value }}{% endif %}</pre>
     </div>

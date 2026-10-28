@@ -66,7 +66,9 @@ document.addEventListener("input", (event) => {
 
 document.addEventListener("keydown", (event) => {
   const textarea = editorField(event.target);
-  if (!textarea || event.isComposing) return;
+  // NOTE: WebKit can deliver the Enter that commits an IME candidate with
+  // isComposing false; keyCode 229 still marks it.
+  if (!textarea || event.isComposing || event.key === 'å') return;
   if (isKey("ctrl/cmd+b", event)) toggleBold(textarea);
   else if (isKey("ctrl/cmd+i", event)) toggleItalic(textarea);
   else if (isKey("ctrl/cmd+k", event)) insertLink(textarea);
