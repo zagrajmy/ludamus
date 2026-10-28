@@ -1,5 +1,9 @@
+import type { Locator } from "@playwright/test";
+
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+
+const paintedLayer = (field: Locator): Locator => field.locator("xpath=following-sibling::pre[1]");
 
 test.describe("Markdown descriptions", () => {
   test("formats with shortcuts, continues lists, and publishes rendered", async ({ page }) => {
@@ -51,5 +55,41 @@ test.describe("Markdown descriptions", () => {
     await page.keyboard.type("after");
 
     await expect(description).toHaveValue("1. one\n\nafter");
+
+    await page.keyboard.type("\n\n- item");
+    for (const _ of "item") await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Enter");
+
+    await expect(description).toHaveValue("1. one\n\nafter\n\n- \n- item");
+  });
+
+  test("a step that comes back with errors keeps the painting over its field", async ({ page }) => {
+    await page.goto("/event/mothership-nights-2/session/propose/");
+    const form = page.locator("#propose-details-form");
+    await form.evaluate((el: HTMLFormElement) => {
+      el.noValidate = true;
+    });
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await expect(form.getByRole("textbox", { name: "Title" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    const description = form.getByLabel("About this session");
+    await description.fill("Still **painted**");
+    const layer = paintedLayer(description);
+    await expect(layer.locator(".mdhl-strong")).toHaveText("**painted**");
+    expect(await layer.boundingBox()).toEqual(await description.boundingBox());
+  });
+
+  test("replays mask the painted copy unless the text is published", async ({ page }) => {
+    await page.goto("/encounters/create/");
+    const published = paintedLayer(page.getByLabel("Description"));
+    await expect(published).toBeAttached();
+    await expect(published).not.toHaveAttribute("data-ph-mask");
+
+    await page.goto("/board/create/");
+    const personal = paintedLayer(page.getByLabel("Description"));
+    await expect(personal).toHaveAttribute("data-ph-mask", "");
   });
 });
