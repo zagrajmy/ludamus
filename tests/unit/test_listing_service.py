@@ -1,3 +1,4 @@
+import itertools
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,7 +12,14 @@ from ludamus.pacts.listing import (
     ListingBoardRowDTO,
     ListingContact,
     ListingContactMissingError,
+    ListingDeclinedNotification,
+    ListingDetailDTO,
     ListingDTO,
+    ListingInterestedNotification,
+    ListingNotification,
+    ListingResponseDTO,
+    ListingResponsesDTO,
+    ListingResponseStatus,
     ListingSeeking,
     ListingStatus,
     ListingStatusError,
@@ -73,11 +81,15 @@ class FakeListings:
         assert sphere_id == SPHERE_PK
         return self.rows[pk]
 
-    def lock_authored(self, *, pk, sphere_id, author_id):
+    lock = read
+
+    def read_authored(self, *, pk, sphere_id, author_id):
         listing = self.read(pk=pk, sphere_id=sphere_id)
         if listing.author_id != author_id:
             raise NotFoundError
         return listing
+
+    lock_authored = read_authored
 
     def open(self, *, pk, at):
         self.update(pk, {"status": ListingStatus.OPEN, "opened_at": at})
@@ -95,7 +107,10 @@ class FakeListings:
         ]
         for pk in stale:
             self.close(pk)
-        return len(stale)
+        return stale
+
+    def read_many(self, pks):
+        return [self.rows[pk] for pk in pks]
 
     def board_rows(self, *, sphere_id, seeking, statuses):
         return [
@@ -155,19 +170,135 @@ class FakeTags:
 
 class FakeUsers:
     def __init__(self, **profile):
-        self.user = user_dto(pk=AUTHOR_PK, **profile)
+        self.users = {
+            AUTHOR_PK: user_dto(pk=AUTHOR_PK, **profile),
+            STRANGER_PK: user_dto(
+                pk=STRANGER_PK, full_name="Ola", discord_username="ola#1", email=""
+            ),
+        }
 
     def read_by_id(self, pk):
-        assert pk == AUTHOR_PK
-        return self.user
+        return self.users[pk]
 
 
-def _service(listings, **profile):
+class FakeResponses:
+    def __init__(self, listings=None):
+        self.listings = listings
+        self.rows: dict[int, ListingResponseDTO] = {}
+        self._pks = itertools.count(1)
+
+    def create(self, data):
+        pk = next(self._pks)
+        self.rows[pk] = ListingResponseDTO(
+            pk=pk,
+            listing_id=data["listing_id"],
+            user_id=data["user_id"],
+            user_name="",
+            message=data["message"],
+            status=ListingResponseStatus.WAITING,
+            decline_message="",
+            creation_time=NOW,
+        )
+        return pk
+
+    def add(self, listing_id, *, user_id=STRANGER_PK):
+        return self.create(
+            {
+                "listing_id": listing_id,
+                "user_id": user_id,
+                "message": "",
+                "contact": ListingContact.DISCORD,
+            }
+        )
+
+    def read(self, *, pk, listing_id):
+        response = self.rows.get(pk)
+        if response is None or response.listing_id != listing_id:
+            raise NotFoundError
+        return response
+
+    def read_own(self, *, listing_id, user_id):
+        return next(
+            (
+                response
+                for response in self.rows.values()
+                if (response.listing_id, response.user_id) == (listing_id, user_id)
+            ),
+            None,
+        )
+
+    def list_for_listing(self, *, listing_id, status):
+        return [
+            response
+            for response in self.rows.values()
+            if response.listing_id == listing_id and response.status is status
+        ]
+
+    def count_by_status(self, listing_id):
+        return {
+            status: len(self.list_for_listing(listing_id=listing_id, status=status))
+            for status in ListingResponseStatus
+        }
+
+    def waiting_user_ids(self, listing_id):
+        return [
+            response.user_id
+            for response in self.list_for_listing(
+                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            )
+        ]
+
+    def decline(self, *, pk, message):
+        self._set(pk, status=ListingResponseStatus.DECLINED, decline_message=message)
+
+    def dismiss_waiting(self, listing_ids):
+        dismissed = []
+        for listing_id in listing_ids:
+            for response in self.list_for_listing(
+                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            ):
+                self._set(response.pk, status=ListingResponseStatus.NOT_CHOSEN)
+                dismissed.append(
+                    ListingNotification(
+                        recipient_user_id=response.user_id,
+                        listing_id=listing_id,
+                        listing_title=self.listings.rows[listing_id].title,
+                    )
+                )
+        return dismissed
+
+    def delete(self, pk):
+        del self.rows[pk]
+
+    def _set(self, pk, **changes):
+        self.rows[pk] = self.rows[pk].model_copy(update=changes)
+
+
+class FakeNotifier:
+    def __init__(self):
+        self.sent: list[tuple[str, ListingNotification]] = []
+
+    def notify_listing_interested(self, notification):
+        self.sent.append(("interested", notification))
+
+    def notify_listing_declined(self, notification):
+        self.sent.append(("declined", notification))
+
+    def notify_listing_not_chosen(self, notification):
+        self.sent.append(("not_chosen", notification))
+
+    def notify_listing_changed(self, notification):
+        self.sent.append(("changed", notification))
+
+
+def _service(listings, *, responses=None, notifier=None, **profile):
     return ListingService(
         transaction=FakeTransaction(),
         listings=listings,
+        responses=responses or FakeResponses(),
         users=FakeUsers(**profile),
         tags=FakeTags(),
+        notifier=notifier or FakeNotifier(),
     )
 
 
@@ -250,13 +381,13 @@ class TestUpdate:
             )
 
 
-class TestReadVisible:
+class TestDetail:
     def test_draft_is_hidden_from_others(self):
         listings = FakeListings()
         listing = listings.add()
 
         with pytest.raises(NotFoundError):
-            _service(listings).read_visible(
+            _service(listings).detail(
                 pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
             )
 
@@ -265,9 +396,9 @@ class TestReadVisible:
         listing = listings.add()
 
         assert (
-            _service(listings).read_visible(
-                pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK
-            )
+            _service(listings)
+            .detail(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK)
+            .listing
             == listing
         )
 
@@ -278,9 +409,41 @@ class TestReadVisible:
 
         assert (
             _service(listings)
-            .read_visible(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=None)
-            .status
+            .detail(pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=None)
+            .listing.status
             is ListingStatus.OPEN
+        )
+
+    def test_a_stranger_may_respond_once(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        service = _service(listings, responses=responses)
+
+        before = service.detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+        responses.add(listing.pk)
+        after = service.detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+
+        assert (before, after) == (
+            ListingDetailDTO(
+                listing=listing,
+                is_author=False,
+                own_response=None,
+                can_respond=True,
+                waiting_count=None,
+                open_for_days=30,
+            ),
+            ListingDetailDTO(
+                listing=listing,
+                is_author=False,
+                own_response=responses.rows[1],
+                can_respond=False,
+                waiting_count=None,
+                open_for_days=30,
+            ),
         )
 
 
@@ -364,6 +527,294 @@ def test_close_stale_closes_only_listings_open_longer_than_the_open_period():
         1,
         ListingStatus.CLOSED,
         ListingStatus.OPEN,
+    )
+
+
+def _open_listing(listings, **overrides):
+    listing = listings.add(**overrides)
+    listings.open(pk=listing.pk, at=NOW)
+    return listings.rows[listing.pk]
+
+
+class TestRespond:
+    def _respond(self, service, listing, *, contact=ListingContact.DISCORD):
+        service.respond(
+            pk=listing.pk,
+            sphere_id=SPHERE_PK,
+            user_id=STRANGER_PK,
+            message="Count me in",
+            contact=contact,
+        )
+
+    def test_saves_a_waiting_response_and_tells_the_author(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        listing = _open_listing(listings)
+
+        self._respond(
+            _service(listings, responses=responses, notifier=notifier), listing
+        )
+
+        assert (responses.waiting_user_ids(listing.pk), notifier.sent) == (
+            [STRANGER_PK],
+            [
+                (
+                    "interested",
+                    ListingInterestedNotification(
+                        recipient_user_id=AUTHOR_PK,
+                        listing_id=listing.pk,
+                        listing_title="Zew Cthulhu",
+                        responder_name="Ola",
+                        message="Count me in",
+                    ),
+                )
+            ],
+        )
+
+    @pytest.mark.parametrize(
+        "case", ("draft", "closed", "own listing", "already responded")
+    )
+    def test_refuses_where_no_response_is_due(self, case):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        listing = _open_listing(
+            listings, author_id=STRANGER_PK if case == "own listing" else AUTHOR_PK
+        )
+        match case:
+            case "draft":
+                listings.update(listing.pk, {"status": ListingStatus.DRAFT})
+            case "closed":
+                listings.close(listing.pk)
+            case "already responded":
+                responses.add(listing.pk)
+        before = dict(responses.rows)
+
+        with pytest.raises(ListingStatusError):
+            self._respond(
+                _service(listings, responses=responses, notifier=notifier), listing
+            )
+
+        assert (responses.rows, notifier.sent) == (before, [])
+
+    def test_refuses_a_contact_missing_from_the_responders_profile(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+
+        with pytest.raises(ListingContactMissingError):
+            self._respond(
+                _service(listings, responses=responses),
+                listing,
+                contact=ListingContact.EMAIL,
+            )
+
+        assert not responses.rows
+
+
+class TestWithdraw:
+    def test_deletes_a_waiting_response(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses.add(listing.pk)
+
+        _service(listings, responses=responses).withdraw(
+            pk=listing.pk, sphere_id=SPHERE_PK, user_id=STRANGER_PK
+        )
+
+        assert not responses.rows
+
+    def test_refuses_without_a_response(self):
+        listings = FakeListings()
+        listing = _open_listing(listings)
+
+        with pytest.raises(ListingStatusError):
+            _service(listings).withdraw(
+                pk=listing.pk, sphere_id=SPHERE_PK, user_id=STRANGER_PK
+            )
+
+    def test_refuses_a_declined_response(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses.decline(pk=responses.add(listing.pk), message="")
+        before = dict(responses.rows)
+
+        with pytest.raises(ListingStatusError):
+            _service(listings, responses=responses).withdraw(
+                pk=listing.pk, sphere_id=SPHERE_PK, user_id=STRANGER_PK
+            )
+
+        assert responses.rows == before
+
+
+class TestDecline:
+    def _decline(self, service, listing, response_pk):
+        service.decline(
+            **_ids(listing), response_id=response_pk, message="Table is full"
+        )
+
+    def test_declines_and_tells_the_responder_why(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        listing = _open_listing(listings)
+        response_pk = responses.add(listing.pk)
+
+        self._decline(
+            _service(listings, responses=responses, notifier=notifier),
+            listing,
+            response_pk,
+        )
+
+        assert (
+            responses.rows[response_pk].status,
+            responses.rows[response_pk].decline_message,
+            notifier.sent,
+        ) == (
+            ListingResponseStatus.DECLINED,
+            "Table is full",
+            [
+                (
+                    "declined",
+                    ListingDeclinedNotification(
+                        recipient_user_id=STRANGER_PK,
+                        listing_id=listing.pk,
+                        listing_title="Zew Cthulhu",
+                        message="Table is full",
+                    ),
+                )
+            ],
+        )
+
+    def test_refuses_a_response_no_longer_waiting(self):
+        listings, notifier = FakeListings(), FakeNotifier()
+        responses = FakeResponses(listings)
+        listing = _open_listing(listings)
+        response_pk = responses.add(listing.pk)
+        responses.dismiss_waiting([listing.pk])
+
+        with pytest.raises(ListingStatusError):
+            self._decline(
+                _service(listings, responses=responses, notifier=notifier),
+                listing,
+                response_pk,
+            )
+
+        assert (responses.rows[response_pk].status, notifier.sent) == (
+            ListingResponseStatus.NOT_CHOSEN,
+            [],
+        )
+
+    def test_response_to_another_listing_is_not_found(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        other_pk = responses.add(_open_listing(listings).pk)
+
+        with pytest.raises(NotFoundError):
+            self._decline(_service(listings, responses=responses), listing, other_pk)
+
+        assert responses.rows[other_pk].status is ListingResponseStatus.WAITING
+
+
+class TestResponses:
+    def test_lists_responses_in_the_asked_status(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        waiting_pk = responses.add(listing.pk)
+        responses.decline(pk=responses.add(listing.pk, user_id=4), message="")
+
+        result = _service(listings, responses=responses).responses(
+            **_ids(listing), status=ListingResponseStatus.WAITING
+        )
+
+        assert result == ListingResponsesDTO(
+            listing=listing,
+            responses=[responses.rows[waiting_pk]],
+            counts={
+                ListingResponseStatus.WAITING: 1,
+                ListingResponseStatus.DECLINED: 1,
+                ListingResponseStatus.NOT_CHOSEN: 0,
+            },
+        )
+
+    def test_another_authors_listing_is_not_found(self):
+        listings = FakeListings()
+        listing = _open_listing(listings, author_id=STRANGER_PK)
+
+        with pytest.raises(NotFoundError):
+            _service(listings).responses(
+                **_ids(listing), status=ListingResponseStatus.WAITING
+            )
+
+
+def test_update_tells_waiting_responders_the_new_title():
+    listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+    listing = _open_listing(listings)
+    responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier, **DISCORD_ONLY).update(
+        **_ids(listing), data=_WRITE | {"title": "Renamed"}, tag_ids=[]
+    )
+
+    assert notifier.sent == [
+        (
+            "changed",
+            ListingNotification(
+                recipient_user_id=STRANGER_PK,
+                listing_id=listing.pk,
+                listing_title="Renamed",
+            ),
+        )
+    ]
+
+
+def test_update_that_changes_nothing_tells_no_one():
+    listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+    listing = _open_listing(listings)
+    responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier, **DISCORD_ONLY).update(
+        **_ids(listing), data=_WRITE, tag_ids=[]
+    )
+
+    assert not notifier.sent
+
+
+def test_update_that_changes_only_tags_tells_waiting_responders():
+    listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+    listing = _open_listing(listings)
+    responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier, **DISCORD_ONLY).update(
+        **_ids(listing), data=_WRITE, tag_ids=[HORROR]
+    )
+
+    assert notifier.sent == [
+        (
+            "changed",
+            ListingNotification(
+                recipient_user_id=STRANGER_PK,
+                listing_id=listing.pk,
+                listing_title=listing.title,
+            ),
+        )
+    ]
+
+
+def test_close_tells_waiting_responders_they_were_not_chosen():
+    listings, notifier = FakeListings(), FakeNotifier()
+    responses = FakeResponses(listings)
+    listing = _open_listing(listings)
+    response_pk = responses.add(listing.pk)
+
+    _service(listings, responses=responses, notifier=notifier).close(**_ids(listing))
+
+    assert (responses.rows[response_pk].status, notifier.sent) == (
+        ListingResponseStatus.NOT_CHOSEN,
+        [
+            (
+                "not_chosen",
+                ListingNotification(
+                    recipient_user_id=STRANGER_PK,
+                    listing_id=listing.pk,
+                    listing_title="Zew Cthulhu",
+                ),
+            )
+        ],
     )
 
 
