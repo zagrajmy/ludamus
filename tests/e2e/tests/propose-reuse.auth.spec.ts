@@ -105,4 +105,22 @@ test.describe("Proposing from an earlier session", () => {
     await page.getByRole("button", { name: "Submit Proposal" }).click();
     await expect(page.getByText(title).first()).toBeVisible();
   });
+
+  test("still offers earlier sessions after the step comes back with errors", async ({ page }) => {
+    await page.goto(proposeUrl);
+    const form = page.locator("#propose-details-form");
+    // Past the browser's own checks, so the server answers with the step again.
+    await form.evaluate((el: HTMLFormElement) => {
+      el.noValidate = true;
+    });
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await expect(form.getByRole("textbox", { name: "Title" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    await page.getByRole("button", { name: "Copy from an earlier session" }).click();
+    await page.getByRole("button", { name: title }).click();
+    await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue(title);
+  });
 });
