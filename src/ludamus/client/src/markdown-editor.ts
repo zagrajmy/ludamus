@@ -90,7 +90,6 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
   const root = document.createElement("div");
   root.style.margin = before.margin;
   root.style.borderRadius = before.borderRadius;
-  root.style.backgroundColor = before.backgroundColor;
   textarea.before(root);
 
   const { placeholder } = textarea;
@@ -107,11 +106,12 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
   });
   editor.pre.className = PRE_CLASS;
   editor.pre.setAttribute("aria-hidden", "true");
+  // Painted over the textarea, which keeps its own themed background, hover
+  // wash and caret; only its glyphs go transparent.
+  Object.assign(editor.pre.style, { pointerEvents: "none", position: "relative", zIndex: "2" });
   editor.textarea.replaceWith(textarea);
 
   Object.assign(textarea.style, {
-    background: "transparent",
-    caretColor: before.color,
     height: "100%",
     inset: "0",
     margin: "0",
@@ -138,6 +138,11 @@ const enhance = (textarea: HTMLTextAreaElement): void => {
   };
   mirror();
   new ResizeObserver(mirror).observe(textarea);
+  // The theme script swaps a light/dark class on <html>, and the painted
+  // text takes its colour from the textarea's.
+  new MutationObserver(mirror).observe(document.documentElement, {
+    attributeFilter: ["class"],
+  });
 
   textarea.addEventListener("input", () => {
     editor.update({ value: textarea.value });
