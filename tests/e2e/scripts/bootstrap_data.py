@@ -2102,30 +2102,39 @@ def _seed_feed_cards_sphere(tester: User) -> None:
     sphere.save()
     tz = get_current_timezone()
     now = timezone.now()
-    for name, slug, start, end in (
+    # Harvest Convention's description is Markdown, driven by
+    # event-description.spec.ts: rendered on its page, plain text on its card.
+    for name, slug, start, end, description in (
         (
             "Harvest Convention",
             "harvest-convention",
             datetime(2031, 10, 30, 10, tzinfo=tz),
             datetime(2031, 11, 1, 18, tzinfo=tz),
+            (
+                "Three days of **board games** and [open tables]"
+                "(https://example.com/tables).\n\nThe bar stays open late."
+            ),
         ),
         (
             "Sunday Pub Session",
             "sunday-pub-session",
             datetime(2031, 11, 9, 13, tzinfo=tz),
             datetime(2031, 11, 9, 18, tzinfo=tz),
+            "",
         ),
         (
             "Running Marathon",
             "running-marathon",
             now - timedelta(days=1),
             now + timedelta(days=1),
+            "",
         ),
     ):
         Event.objects.create(
             sphere=sphere,
             name=name,
             slug=slug,
+            description=description,
             start_time=start,
             end_time=end,
             publication_time=min(start, now) - timedelta(days=1),

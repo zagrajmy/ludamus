@@ -88,6 +88,8 @@ def build_session_details_form(
                         "What awaits participants: what it is about, how it goes,"
                         " what to expect."
                     ),
+                    "data-markdown-editor": True,
+                    "data-ph-unmask": True,
                 }
             ),
         ),

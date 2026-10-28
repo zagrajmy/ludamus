@@ -853,15 +853,14 @@ msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
 msgid "Description"
 msgstr "Opis"
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Supports Markdown formatting."
 msgstr "Obsługuje formatowanie Markdown."
@@ -6722,10 +6721,6 @@ msgstr "Pełny harmonogram"
 #, python-format
 msgid "Sheet %(sheet)s of %(total)s"
 msgstr "Arkusz %(sheet)s z %(total)s"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-msgid "Markdown supported."
-msgstr "Obsługuje Markdown."
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -13511,6 +13506,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "Markdown supported."
+#~ msgstr "Obsługuje Markdown."
 
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
