@@ -35,7 +35,7 @@ test.describe("Markdown descriptions", () => {
     await attachArtifacts(test.info(), {
       name: "markdown-published",
       region: body,
-      facts: { source: await page.url() },
+      facts: { source: page.url() },
     });
   });
 
