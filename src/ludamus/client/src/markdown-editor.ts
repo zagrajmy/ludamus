@@ -2,55 +2,19 @@ import { insertLink, toggleBold, toggleItalic } from "markdown-actions";
 import { markdown } from "yace/highlighters/markdown";
 import { isKey } from "yace/plugins/isKey";
 
-// NOTE: the painted layer must keep every glyph's width or it drifts from the
-// textarea's caret, so emphasis is colour, slant and a hairline shadow, never
-// a heavier weight. The highlighter's <i> slants at the same width only
-// because Outfit ships no italic face and the browser synthesises one; a real
-// italic face would drift the caret.
-const PRE_CLASS = [
-  "relative z-2 m-0 box-border w-full",
-  "pointer-events-none whitespace-pre-wrap wrap-break-word break-keep",
-  "border-solid border-transparent",
-  "[&_b]:[font-weight:inherit]",
-  "[&_.mdhl-heading]:[text-shadow:0.35px_0_0_currentColor]",
-  "[&_.mdhl-strong]:[text-shadow:0.35px_0_0_currentColor]",
-  "[&_.mdhl-link]:underline",
-  "[&_.mdhl-link]:decoration-foreground-muted/60",
-  "[&_.mdhl-link]:underline-offset-2",
-  "[&_.mdhl-bullet]:text-foreground-muted",
-  "[&_.mdhl-blockquote]:text-foreground-muted",
-  "[&_.mdhl-hr]:text-foreground-muted",
-  "[&_.mdhl-inlineCode]:bg-foreground/5",
-  "[&_.mdhl-inlineCode]:rounded-sm",
-  "[&_.mdhl-codeInFences]:text-foreground-muted",
-  "[&_.mdhl-blockCode]:text-foreground-muted",
-  "[&_.mdhl-placeholder]:text-foreground-muted",
-].join(" ");
-
-const MIRRORED = [
-  "fontFamily",
-  "fontSize",
-  "fontWeight",
-  "lineHeight",
-  "letterSpacing",
-  "wordSpacing",
-  "tabSize",
-  "color",
-  "opacity",
-  "paddingTop",
-  "paddingRight",
-  "paddingBottom",
-  "paddingLeft",
-  "borderTopWidth",
-  "borderRightWidth",
-  "borderBottomWidth",
-  "borderLeftWidth",
-] as const;
-
+const EDITOR = "[data-markdown-editor]";
 const LIST_ITEM = /^(\s*)([-*+]|(\d+)([.)]))(\s+)(.*)$/;
 
-const escapeHtml = (text: string): string =>
-  text.replaceAll(/[&<>"']/g, (c) => `&#${c.codePointAt(0)};`);
+const highlight = markdown();
+
+const editorField = (target: EventTarget | null): HTMLTextAreaElement | null =>
+  target instanceof HTMLTextAreaElement && target.parentElement?.matches(EDITOR) ? target : null;
+
+const paint = (textarea: HTMLTextAreaElement): void => {
+  const pre = textarea.nextElementSibling;
+  // NOTE: a trailing newline takes up a line only when something follows.
+  if (pre instanceof HTMLPreElement) pre.innerHTML = `${highlight(textarea.value)}<br/>`;
+};
 
 const insertText = (textarea: HTMLTextAreaElement, text: string): void => {
   if (document.execCommand("insertText", false, text)) return;
@@ -79,133 +43,39 @@ const continueList = (textarea: HTMLTextAreaElement): boolean => {
   return true;
 };
 
-const onKeydown = (event: KeyboardEvent): void => {
-  const textarea = event.currentTarget;
-  if (!(textarea instanceof HTMLTextAreaElement) || event.isComposing) return;
+document.addEventListener("input", (event) => {
+  const textarea = editorField(event.target);
+  if (textarea) paint(textarea);
+});
+
+document.addEventListener("keydown", (event) => {
+  const textarea = editorField(event.target);
+  if (!textarea || event.isComposing) return;
   if (isKey("ctrl/cmd+b", event)) toggleBold(textarea);
   else if (isKey("ctrl/cmd+i", event)) toggleItalic(textarea);
   else if (isKey("ctrl/cmd+k", event)) insertLink(textarea);
   else if (!(isKey("enter", event) && continueList(textarea))) return;
   event.preventDefault();
-};
-
-type Editor = { mirror: () => void; repaint: () => void };
-
-const editors = new Map<HTMLTextAreaElement, Editor>();
-const editorOf = (node: Node): Editor | undefined =>
-  node instanceof HTMLTextAreaElement ? editors.get(node) : undefined;
-const resized = new ResizeObserver((entries) => {
-  for (const { target } of entries) editorOf(target)?.mirror();
-});
-// NOTE: the theme script swaps a light/dark class on <html>, and the painted
-// text takes its colour from the textarea's.
-new MutationObserver(() => {
-  for (const { mirror } of editors.values()) mirror();
-}).observe(document.documentElement, { attributeFilter: ["class"] });
-const toggled = new MutationObserver((records) => {
-  for (const { target } of records) editorOf(target)?.mirror();
 });
 
 // NOTE: a reset fires no input event and restores the value only after its
 // own event has run.
 document.addEventListener("reset", (event) => {
-  for (const [textarea, { repaint }] of editors) {
-    if (textarea.form === event.target) setTimeout(repaint);
+  if (!(event.target instanceof HTMLFormElement)) return;
+  for (const element of event.target.elements) {
+    const textarea = editorField(element);
+    if (textarea) setTimeout(paint, 0, textarea);
   }
 });
 
-const forgetDetached = (): void => {
-  for (const textarea of editors.keys()) {
-    if (textarea.isConnected) continue;
-    resized.unobserve(textarea);
-    editors.delete(textarea);
-  }
-};
-
-const enhance = (textarea: HTMLTextAreaElement): void => {
-  if (textarea.dataset.markdownEditor === "ready") return;
-  textarea.dataset.markdownEditor = "ready";
-
-  const before = getComputedStyle(textarea);
-  const root = document.createElement("div");
-  root.className = "relative box-border";
-  Object.assign(root.style, { borderRadius: before.borderRadius, margin: before.margin });
-  // NOTE: painted over the textarea, which keeps its own themed background,
-  // hover wash and caret; only its glyphs go transparent.
-  const pre = document.createElement("pre");
-  pre.className = PRE_CLASS;
-  pre.setAttribute("aria-hidden", "true");
-  // SAFETY: recordings show only text the page marks as published; the
-  // painted copy of anything else is masked like the input it mirrors.
-  if (!("phUnmask" in textarea.dataset)) pre.dataset.phMask = "";
-  const focused = document.activeElement === textarea;
-  textarea.before(root);
-  root.append(textarea, pre);
-  if (focused) textarea.focus({ preventScroll: true });
-
-  Object.assign(textarea.style, {
-    height: "100%",
-    inset: "0",
-    margin: "0",
-    overflow: "hidden",
-    overflowWrap: "break-word",
-    position: "absolute",
-    resize: "none",
-    webkitTextFillColor: "transparent",
-    whiteSpace: "pre-wrap",
-    width: "100%",
-    wordBreak: "keep-all",
-    zIndex: "1",
-  });
-
-  const { placeholder } = textarea;
-  const highlight = markdown();
-  const paint = (): void => {
-    const { value } = textarea;
-    const html = value
-      ? highlight(value)
-      : `<span class="mdhl-placeholder">${escapeHtml(placeholder)}</span>`;
-    // NOTE: a trailing newline takes up a line only when something follows.
-    pre.innerHTML = `${html}<br/>`;
-  };
-
-  const mirror = (): void => {
-    const style = getComputedStyle(textarea);
-    for (const property of MIRRORED) pre.style[property] = style[property];
-    root.style.minHeight =
-      style.getPropertyValue("field-sizing") === "content"
-        ? style.minHeight
-        : `calc(${textarea.rows} * ${style.lineHeight} + ${style.paddingTop} + ${style.paddingBottom} + ${style.borderTopWidth} + ${style.borderBottomWidth})`;
-  };
-  paint();
-  mirror();
-  resized.observe(textarea);
-  toggled.observe(textarea, { attributeFilter: ["disabled"] });
-
-  let empty = !textarea.value;
-  const repaint = (): void => {
-    paint();
-    // NOTE: a textarea's min-height may follow :placeholder-shown, which
-    // flips only when the value empties or fills.
-    if (empty === !textarea.value) return;
-    empty = !empty;
-    mirror();
-  };
-  editors.set(textarea, { mirror, repaint });
-  textarea.addEventListener("input", repaint);
-  textarea.addEventListener("keydown", onKeydown);
-};
-
 const enhanceAll = (): void => {
-  forgetDetached();
-  for (const textarea of document.querySelectorAll<HTMLTextAreaElement>(
-    "textarea[data-markdown-editor]",
-  )) {
-    enhance(textarea);
+  for (const root of document.querySelectorAll<HTMLElement>(`${EDITOR}:not([data-ready])`)) {
+    const textarea = root.querySelector("textarea");
+    if (!textarea) continue;
+    paint(textarea);
+    root.dataset.ready = "";
   }
 };
 
 enhanceAll();
-// NOTE: until a swap settles, htmx dresses a new element in the style of the
-// one it replaces, then puts its own back over any style set meanwhile.
-document.body.addEventListener("htmx:afterSettle", enhanceAll);
+document.addEventListener("htmx:load", enhanceAll);

@@ -63,6 +63,22 @@ test.describe("Markdown descriptions", () => {
     await expect(description).toHaveValue("1. one\n\nafter\n\n- \n- item");
   });
 
+  test("without scripts the description is a plain textarea", async ({ browser }) => {
+    // NOTE: a context of its own; the page fixture records script coverage,
+    // which needs scripts.
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/encounters/create/");
+
+    const description = page.getByLabel("Description");
+    await description.fill("Plain **text**");
+
+    await expect(description).toHaveValue("Plain **text**");
+    await expect(description).not.toHaveCSS("-webkit-text-fill-color", "rgba(0, 0, 0, 0)");
+    await expect(paintedLayer(description)).toBeHidden();
+    await context.close();
+  });
+
   test("a step that comes back with errors keeps the painting over its field", async ({ page }) => {
     await page.goto("/event/mothership-nights-2/session/propose/");
     const form = page.locator("#propose-details-form");
@@ -79,7 +95,21 @@ test.describe("Markdown descriptions", () => {
     await description.fill("Still **painted**");
     const layer = paintedLayer(description);
     await expect(layer.locator(".mdhl-strong")).toHaveText("**painted**");
-    expect(await layer.boundingBox()).toEqual(await description.boundingBox());
+    await expect
+      .poll(async () => {
+        const [painted, typed] = await Promise.all([
+          layer.boundingBox(),
+          description.boundingBox(),
+        ]);
+        if (!painted || !typed) return null;
+        return {
+          x: painted.x - typed.x,
+          y: painted.y - typed.y,
+          width: painted.width - typed.width,
+          height: painted.height - typed.height,
+        };
+      })
+      .toEqual({ x: 0, y: 0, width: 0, height: 0 });
   });
 
   test("replays mask the painted copy unless the text is published", async ({ page }) => {
