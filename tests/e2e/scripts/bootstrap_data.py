@@ -2103,7 +2103,8 @@ def _seed_feed_cards_sphere(tester: User) -> None:
     tz = get_current_timezone()
     now = timezone.now()
     # Harvest Convention's description is Markdown, driven by
-    # event-description.spec.ts: rendered on its page, plain text on its card.
+    # event-description.spec.ts: rendered on its page, plain text on its card
+    # and in its link preview.
     for name, slug, start, end, description in (
         (
             "Harvest Convention",

@@ -8,7 +8,7 @@ from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
-from ludamus.gates.web.django.forms import cover_image_field
+from ludamus.gates.web.django.forms import MarkdownTextarea, cover_image_field
 
 # NOTE: each address gets mail from our domain; the cap keeps one encounter
 # from turning the form into a bulk mailer.
@@ -21,9 +21,7 @@ class EncounterForm(forms.Form):
     description = forms.CharField(
         label=_("Description"),
         required=False,
-        widget=forms.Textarea(
-            attrs={"rows": 4, "data-markdown-editor": True, "data-ph-unmask": True}
-        ),
+        widget=MarkdownTextarea(published=True, attrs={"rows": 4}),
         help_text=_("Supports Markdown formatting."),
     )
     game = forms.CharField(label=_("Game"), max_length=255, required=False)
