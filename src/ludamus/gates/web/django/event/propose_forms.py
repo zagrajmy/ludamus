@@ -11,7 +11,11 @@ from ludamus.gates.web.django.dynamic_fields import (
     build_dynamic_fields,
     requirement_fields,
 )
-from ludamus.gates.web.django.forms import STORAGE_LIMIT_VALIDATOR, cover_image_field
+from ludamus.gates.web.django.forms import (
+    STORAGE_LIMIT_VALIDATOR,
+    MarkdownTextarea,
+    cover_image_field,
+)
 from ludamus.pacts.durations import duration_choices
 
 if TYPE_CHECKING:
@@ -81,16 +85,15 @@ def build_session_details_form(
         ),
         "description": forms.CharField(
             label=_("Description"),
-            widget=forms.Textarea(
+            widget=MarkdownTextarea(
+                published=True,
                 attrs={
                     "rows": 4,
                     "placeholder": _(
                         "What awaits participants: what it is about, how it goes,"
                         " what to expect."
                     ),
-                    "data-markdown-editor": True,
-                    "data-ph-unmask": True,
-                }
+                },
             ),
         ),
         "participants_limit": forms.IntegerField(**participants_kwargs),

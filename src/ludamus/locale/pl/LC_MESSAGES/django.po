@@ -3427,6 +3427,14 @@ msgstr ""
 "stronie wydarzeń dla wszystkich."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Proposal Description"
+msgstr "Opis zgłoszenia"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Displayed on the first page of the proposal form."
+msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
 msgstr "Nazwa kategorii jest za długa (max 255 znaków)."
 
@@ -12732,14 +12740,6 @@ msgstr ""
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"
 msgstr "Ustawienia zgłoszeń"
-
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Proposal Description"
-msgstr "Opis zgłoszenia"
-
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Displayed on the first page of the proposal form."
-msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Period"

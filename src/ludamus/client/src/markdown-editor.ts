@@ -6,6 +6,7 @@ const EDITOR = "[data-markdown-editor]";
 const LIST_ITEM = /^(\s*)([-*+]|(\d+)([.)]))(\s+)(.*)$/;
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const CODE_INDENT = 4;
 
 const highlight = markdown();
 
@@ -37,6 +38,26 @@ const insideFence = (text: string): boolean => {
   return Boolean(open);
 };
 
+const leadingSpaces = (line: string): number => line.length - line.trimStart().length;
+
+// NOTE: four spaces of indent start an indented code block, unless the line
+// sits inside a list item above it, as a nested item does.
+const nestsInList = (above: string[], indent: number): boolean => {
+  let shallowest = indent;
+  for (let index = above.length - 1; index >= 0; index -= 1) {
+    const line = above[index];
+    if (!line.trim()) continue;
+    const item = LIST_ITEM.exec(line);
+    if (item) {
+      const content = item[1].length + item[2].length + item[5].length;
+      if (content <= shallowest) return indent - content < CODE_INDENT;
+    }
+    shallowest = Math.min(shallowest, leadingSpaces(line));
+    if (shallowest === 0) return false;
+  }
+  return false;
+};
+
 const continueList = (textarea: HTMLTextAreaElement): boolean => {
   const { selectionEnd, selectionStart, value } = textarea;
   if (selectionStart !== selectionEnd) return false;
@@ -46,6 +67,10 @@ const continueList = (textarea: HTMLTextAreaElement): boolean => {
   const match = LIST_ITEM.exec(value.slice(lineStart, selectionStart));
   if (!match || THEMATIC_BREAK.test(line) || insideFence(value.slice(0, lineStart))) return false;
   const [, indent, bullet, number, delimiter, gap, content] = match;
+  const codeIndented = indent.length >= CODE_INDENT;
+  if (codeIndented && !nestsInList(value.slice(0, lineStart).split("\n"), indent.length)) {
+    return false;
+  }
   const rest = line.slice(selectionStart - lineStart);
   if (!content.trim() && !rest.trim()) {
     // NOTE: a blank line ends the list; without it Markdown reads the next

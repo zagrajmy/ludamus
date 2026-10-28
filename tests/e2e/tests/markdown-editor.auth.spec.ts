@@ -82,6 +82,28 @@ test.describe("Markdown descriptions", () => {
     await expect(description).toHaveValue("* * *\n```\n- not an item\n```\n- item\n- ");
   });
 
+  test("an indented code line is not continued, a nested item is", async ({ page }) => {
+    await page.goto("/encounters/create/");
+
+    const description = page.getByLabel("Description");
+    const pressEnterAtEnd = async (value: string) => {
+      await description.fill(value);
+      await description.evaluate((el: HTMLTextAreaElement) => {
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+      await page.keyboard.press("Enter");
+    };
+
+    await pressEnterAtEnd("Example:\n\n    - not an item");
+    await expect(description).toHaveValue("Example:\n\n    - not an item\n");
+
+    await pressEnterAtEnd("- dice\n    - d20");
+    await expect(description).toHaveValue("- dice\n    - d20\n    - ");
+
+    await pressEnterAtEnd("- dice\n\n        - code in an item");
+    await expect(description).toHaveValue("- dice\n\n        - code in an item\n");
+  });
+
   test("without scripts the description is a plain textarea", async ({ browser }) => {
     // NOTE: a context of its own; the page fixture records script coverage,
     // which needs scripts.

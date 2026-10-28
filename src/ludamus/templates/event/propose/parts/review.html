@@ -1,6 +1,7 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera django_vite %}
+{% load markdown_tags %}
 <div id="wizard-content" class="card card-body max-w-2xl mx-auto">
     {% include "event/propose/parts/_proposal_description.html" %}
     {% include "event/propose/parts/_stepper.html" %}
@@ -35,8 +36,8 @@
                     {% if review.description %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Description" %}</dt>
-                            <dd class="text-foreground text-sm whitespace-pre-line">
-                                {{ review.description }}
+                            <dd class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground">
+                                {{ review.description|render_markdown }}
                             </dd>
                         </div>
                     {% endif %}

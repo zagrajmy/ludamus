@@ -1,0 +1,37 @@
+id: unmask-not-personal
+valid:
+  - '<textarea name="description" data-ph-unmask></textarea>'
+  - '<textarea name="{{ name }}" {% if unmask|default:False %}data-ph-unmask{% endif %}></textarea>'
+  - '<input type="email" name="contact_email">'
+invalid:
+  - '<input type="email" name="contact" data-ph-unmask>'
+  - '<input type="tel" data-ph-unmask>'
+  - '<input name="facilitator_name" data-ph-unmask>'
+  - '<input type="password" id="pw" data-ph-unmask>'
+  - '<input autocomplete="given-name" data-ph-unmask>'
+  - '<textarea name="email" {% if unmask %}data-ph-unmask{% endif %}></textarea>'
+---
+id: unmask-not-in-dynamic-field
+valid:
+  - '{% include "components/text-field.html" with name=name id=input_id only %}'
+invalid:
+  - '{% include "components/textarea.html" with name=name unmask=True only %}'
+  - '<input name="{{ name }}" data-ph-unmask>'
+---
+id: unmask-not-personal-py
+valid:
+  - 'description = forms.CharField(widget=MarkdownTextarea(published=True))'
+  - '{"description": forms.CharField(widget=MarkdownTextarea(published=True))}'
+  - 'contact_email = forms.EmailField()'
+  - 'notes = forms.CharField(widget=MarkdownTextarea(published=False))'
+invalid:
+  - 'widget = forms.Textarea(attrs={"data-ph-unmask": True})'
+  - 'contact_email = forms.CharField(widget=MarkdownTextarea(published=True))'
+  - '{"facilitator_name": forms.CharField(widget=MarkdownTextarea(published=True, attrs={"rows": 2}))}'
+  - 'format_html("<input {}>", "data-ph-unmask")'
+---
+id: unmask-not-in-dynamic-field-py
+valid:
+  - 'fields[key] = forms.CharField(widget=MarkdownTextarea(published=False))'
+invalid:
+  - 'fields[key] = forms.CharField(widget=MarkdownTextarea(published=True))'
