@@ -466,7 +466,10 @@ def non_root_sphere(settings, faker):
 
 @pytest.fixture(name="event")
 def event_fixture(sphere):
-    now = datetime.now(UTC)
+    # NOTE: noon keeps the proposal window's wall-clock times clear of the
+    # 02:00 hour a DST switch skips or repeats, which forms reject as
+    # ambiguous when a test posts them back.
+    now = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
     midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
