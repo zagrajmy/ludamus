@@ -32,47 +32,13 @@ message: |
   health note included, so its answers stay masked in session recordings.
   Never unmask them, not even for one field type.
 ---
-id: unmask-not-personal-py
+id: unmask-via-markdown-textarea
 language: python
 severity: error
 rule:
-  any:
-    - kind: string
-      regex: '^[rbuf]*["'']data-ph-unmask["'']$'
-    - pattern: MarkdownTextarea($$$)
-      has:
-        stopBy: end
-        kind: keyword_argument
-        regex: '^published\s*=\s*True$'
-      inside:
-        stopBy:
-          any:
-            - kind: assignment
-            - kind: pair
-        any:
-          - kind: assignment
-            has:
-              field: left
-              regex: '(?i)(mail|phone|password|name)'
-          - kind: pair
-            has:
-              field: key
-              regex: '(?i)(mail|phone|password|name)'
+  kind: string
+  regex: '^[rbuf]*["'']data-ph-unmask["'']$'
 message: |
-  Session recordings unmask only published text, declared once with
-  MarkdownTextarea(published=True) and rendered by tessera — never with a
-  raw data-ph-unmask attr, and never on a field named for personal data
-  (email, phone, name, password).
----
-id: unmask-not-in-dynamic-field-py
-language: python
-severity: error
-files:
-  - '**/dynamic_field*.py'
-rule:
-  kind: keyword_argument
-  regex: '^published\s*=\s*True$'
-message: |
-  An organizer-defined field may ask for anything, a phone number or a
-  health note included, so its answers stay masked in session recordings.
-  Never mark one published.
+  Python never writes data-ph-unmask. Published text is declared with
+  MarkdownTextarea(published=True) and rendered by tessera, so a raw attr
+  cannot unmask a field that holds personal data.

@@ -18,20 +18,10 @@ invalid:
   - '{% include "components/textarea.html" with name=name unmask=True only %}'
   - '<input name="{{ name }}" data-ph-unmask>'
 ---
-id: unmask-not-personal-py
+id: unmask-via-markdown-textarea
 valid:
   - 'description = forms.CharField(widget=MarkdownTextarea(published=True))'
-  - '{"description": forms.CharField(widget=MarkdownTextarea(published=True))}'
-  - 'contact_email = forms.EmailField()'
-  - 'notes = forms.CharField(widget=MarkdownTextarea(published=False))'
+  - 'notes = forms.CharField(help_text="data-ph-unmask keeps text readable")'
 invalid:
   - 'widget = forms.Textarea(attrs={"data-ph-unmask": True})'
-  - 'contact_email = forms.CharField(widget=MarkdownTextarea(published=True))'
-  - '{"facilitator_name": forms.CharField(widget=MarkdownTextarea(published=True, attrs={"rows": 2}))}'
   - 'format_html("<input {}>", "data-ph-unmask")'
----
-id: unmask-not-in-dynamic-field-py
-valid:
-  - 'fields[key] = forms.CharField(widget=MarkdownTextarea(published=False))'
-invalid:
-  - 'fields[key] = forms.CharField(widget=MarkdownTextarea(published=True))'

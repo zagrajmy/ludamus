@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
-from ludamus.gates.web.django.forms import MarkdownTextarea
-
 from .errors import help_text_id
 
 if TYPE_CHECKING:
@@ -17,8 +15,8 @@ if TYPE_CHECKING:
 def render_textarea(field: BoundField, *, inplace_class: str = "") -> str:
     """Render a styled ``<textarea>``, or with ``inplace_class`` dressed as text.
 
-    A ``MarkdownTextarea`` gets the Markdown editor, and a published one stays
-    readable in session recordings.
+    A widget with ``markdown`` set gets the Markdown editor, and one with
+    ``published`` set stays readable in session recordings.
 
     Returns:
         HTML string of the textarea element.
@@ -37,7 +35,7 @@ def render_textarea(field: BoundField, *, inplace_class: str = "") -> str:
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
             "inplace_class": inplace_class,
-            "markdown": isinstance(widget, MarkdownTextarea),
-            "unmask": isinstance(widget, MarkdownTextarea) and widget.published,
+            "markdown": getattr(widget, "markdown", False),
+            "unmask": getattr(widget, "published", False),
         },
     )

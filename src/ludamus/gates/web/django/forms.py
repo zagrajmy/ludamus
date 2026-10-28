@@ -83,8 +83,10 @@ class MarkdownTextarea(forms.Textarea):
 
     ``published`` text is shown to everyone the page is shown to, never
     personal, so session recordings keep it readable; anything else stays
-    masked like every other input.
+    masked like every other input. The tessera textarea renderer reads both.
     """
+
+    markdown = True
 
     def __init__(
         self,

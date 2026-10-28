@@ -297,18 +297,21 @@ test.describe("Backoffice Panel", () => {
 
     const description = page.getByRole("textbox", { name: "Proposal Description" });
     const original = await description.inputValue();
-    await description.fill("Bring **one-shots**");
-    await expect(
-      description.locator("xpath=following-sibling::pre[1]").locator(".mdhl-strong"),
-    ).toHaveText("**one-shots**");
-    await page.getByRole("button", { name: "Save Settings" }).click();
+    try {
+      await description.fill("Bring **one-shots**");
+      await expect(
+        description.locator("xpath=following-sibling::pre[1]").locator(".mdhl-strong"),
+      ).toHaveText("**one-shots**");
+      await page.getByRole("button", { name: "Save Settings" }).click();
 
-    await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
-    await expect(description).toHaveValue("Bring **one-shots**");
-
-    await description.fill(original);
-    await page.getByRole("button", { name: "Save Settings" }).click();
-    await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+      await expect(description).toHaveValue("Bring **one-shots**");
+    } finally {
+      await page.goto("/panel/event/frostfire-con/settings/proposals/");
+      await description.fill(original);
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+    }
   });
 
   // --- Step 2: Venues List, Create, Detail, Edit ---

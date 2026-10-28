@@ -28,6 +28,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.gates.web.django.meta import LinkPreview
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
     Session,
@@ -1193,6 +1194,31 @@ class TestEventPageView:
             response,
             HTTPStatus.OK,
             context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_link_preview_summarises_markdown_description(self, client, event):
+        event.description = (
+            "Three days of **board games** & [open tables](https://example.com).\n\n"
+            "The bar stays open late."
+        )
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                link_preview=LinkPreview(
+                    description=(
+                        "Three days of board games & open tables. "
+                        "The bar stays open late."
+                    )
+                ),
+            ),
             template_name=["chronology/event.html"],
         )
 
