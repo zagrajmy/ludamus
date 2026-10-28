@@ -81,7 +81,26 @@ class TestRenderMarkdown:
             '<a href="/x" hreflang="en" onclick="y">l</a><u>u</u>'
         )
 
-        assert html.strip() == '<p><a href="/x" rel="noopener noreferrer">l</a>u</p>'
+        assert html.strip() == '<a href="/x" rel="noopener noreferrer">l</a>u'
+
+    def test_list_right_after_a_line_of_text_is_a_list(self):
+        html = render_markdown("Bring:\n- dice\n- pencil")
+
+        assert html.split() == [
+            "<p>Bring:</p>",
+            "<ul>",
+            "<li>dice</li>",
+            "<li>pencil</li>",
+            "</ul>",
+        ]
+
+    def test_drops_javascript_hrefs_from_markdown_and_html_links(self):
+        html = render_markdown(
+            '[md](javascript:alert(1)) <a href="javascript:alert(2)">raw</a>'
+        )
+
+        assert "javascript" not in html
+        assert "href" not in html
 
 
 class TestCalendarExports:

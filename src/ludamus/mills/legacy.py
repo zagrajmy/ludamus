@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from secrets import choice as _secret_choice
 from typing import TYPE_CHECKING
 
-import markdown as _md
+import comrak
 import nh3
 
 from ludamus.mills.calendar import google_calendar_url as google_calendar_link
@@ -46,11 +46,17 @@ _MARKDOWN_ALLOWED_TAGS = {
     "ul",
 }
 _MARKDOWN_ALLOWED_ATTRIBUTES = {"a": {"href", "title"}, "abbr": {"title"}}
+_MARKDOWN_EXTENSIONS = comrak.ExtensionOptions()
+_MARKDOWN_RENDER = comrak.RenderOptions()
+_MARKDOWN_RENDER.hardbreaks = True
+# SAFETY: raw HTML passes through comrak on purpose; nh3 below is the only
+# sanitiser, so it must run on every result.
+_MARKDOWN_RENDER.unsafe_ = True
 
 
 def render_markdown(text: str) -> str:
-    result: str = _md.markdown(  # type: ignore [misc]
-        text, extensions=["nl2br", "fenced_code"]
+    result = comrak.render_markdown(
+        text, extension_options=_MARKDOWN_EXTENSIONS, render_options=_MARKDOWN_RENDER
     )
     return nh3.clean(
         result, tags=_MARKDOWN_ALLOWED_TAGS, attributes=_MARKDOWN_ALLOWED_ATTRIBUTES
