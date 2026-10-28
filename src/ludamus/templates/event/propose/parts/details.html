@@ -25,8 +25,7 @@
             {% endif %}
             <div class="px-6 py-4 border-b border-border text-lg font-semibold text-foreground">
                 <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
-                {% translate "Session title" as title_placeholder %}
-                {% tessera_inplace form.title placeholder=title_placeholder %}
+                {% tessera_inplace form.title %}
             </div>
             <div class="px-6 py-4">{% include "event/propose/parts/_session_info_edit.html" %}</div>
             {% if private_field_descriptors %}

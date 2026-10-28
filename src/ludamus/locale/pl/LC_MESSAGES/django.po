@@ -3184,12 +3184,26 @@ msgid "no sign-up"
 msgstr "bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "Session title"
+msgstr "Tytuł punktu programu"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid ""
+"What awaits participants: what it is about, how it goes, what to expect."
+msgstr ""
+"Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "Your name or nickname"
+msgstr "Twoje imię lub pseudonim"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
@@ -8467,16 +8481,6 @@ msgid "Back"
 msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/_session_info_edit.html
-msgid "Your name or nickname"
-msgstr "Twoje imię lub pseudonim"
-
-#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
-msgid ""
-"What awaits participants: what it is about, how it goes, what to expect."
-msgstr ""
-"Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
-
-#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 msgctxt "session capacity"
 msgid "Seats"
 msgstr "Miejsca"
@@ -8510,10 +8514,6 @@ msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session Details"
 msgstr "Szczegóły punktu programu"
-
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session title"
-msgstr "Tytuł punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Participants won't see this."

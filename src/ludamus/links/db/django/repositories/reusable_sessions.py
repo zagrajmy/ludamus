@@ -3,7 +3,10 @@ from django.db.models.functions import Lower, RowNumber, Trim
 
 from ludamus.links.db.django.models import SessionFieldValue
 from ludamus.links.db.django.repositories.sessions import sessions_run_by
-from ludamus.pacts.propose import ReusableSessionDTO, ReusableSessionRepositoryProtocol
+from ludamus.pacts.propose import (
+    ReusableSessionRecord,
+    ReusableSessionRepositoryProtocol,
+)
 
 _NEWEST_FIRST = (F("event__start_time").desc(), F("creation_time").desc())
 
@@ -12,7 +15,7 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
     @staticmethod
     def list_reusable(
         *, user_id: int, sphere_id: int, exclude_event_id: int, limit: int
-    ) -> list[ReusableSessionDTO]:
+    ) -> list[ReusableSessionRecord]:
         sessions = (
             sessions_run_by(user_id)
             .filter(event__sphere_id=sphere_id)
@@ -35,7 +38,7 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
             .order_by(*_NEWEST_FIRST)[:limit]
         )
         return [
-            ReusableSessionDTO(
+            ReusableSessionRecord(
                 pk=session.pk,
                 title=session.title,
                 event_name=session.event.name,
@@ -43,14 +46,16 @@ class ReusableSessionRepository(ReusableSessionRepositoryProtocol):
                 participants_limit=session.participants_limit,
                 min_age=session.min_age,
                 duration=session.duration,
-                field_values={
-                    fv.field.slug: fv.value for fv in session.field_values.all()
-                },
-                public_field_slugs=frozenset(
-                    fv.field.slug
+                public_answers={
+                    fv.field.slug: fv.value
                     for fv in session.field_values.all()
                     if fv.field.is_public
-                ),
+                },
+                private_answers={
+                    fv.field.slug: fv.value
+                    for fv in session.field_values.all()
+                    if not fv.field.is_public
+                },
                 presented=session.presenter_id == user_id,
             )
             for session in sessions

@@ -4,8 +4,7 @@
     {% include "components/avatar.html" with user=current_user size="size-9" %}
     <div class="flex flex-1 min-w-0 font-medium text-foreground">
         <label for="{{ form.facilitator_name.auto_id }}" class="sr-only">{{ form.facilitator_name.label }}</label>
-        {% translate "Your name or nickname" as facilitator_placeholder %}
-        {% tessera_inplace form.facilitator_name placeholder=facilitator_placeholder fit=True %}
+        {% tessera_inplace form.facilitator_name fit=True %}
     </div>
 {% endblock host %}
 {% block description_label %}
@@ -14,10 +13,7 @@
 {% block description %}
     {# text-sm and leading-5 are what the modal's prose-sm description reads #}
     {# at, so the text keeps its line breaks once it is published. #}
-    <div class="text-sm leading-5 text-foreground">
-        {% translate "What awaits participants: what it is about, how it goes, what to expect." as description_placeholder %}
-        {% tessera_inplace form.description placeholder=description_placeholder %}
-    </div>
+    <div class="text-sm leading-5 text-foreground">{% tessera_inplace form.description %}</div>
 {% endblock description %}
 {% block fields_section %}
     {% if public_field_descriptors or track_options %}{{ block.super }}{% endif %}

@@ -39,6 +39,23 @@ class AccountAnswersDTO(BaseModel):
     personal_data: dict[str, str] = {}
 
 
+class ReusableSessionRecord(BaseModel):
+    """An earlier session as stored, before deciding which answers carry over."""
+
+    pk: int
+    title: str
+    event_name: str
+    description: str
+    participants_limit: int
+    min_age: int
+    duration: str
+    # NOTE: session fields belong to an event, so the slug is the only key
+    # that can carry an answer over to another event's form.
+    public_answers: dict[str, FieldValue]
+    private_answers: dict[str, FieldValue]
+    presented: bool
+
+
 class ReusableSessionDTO(BaseModel):
     """One of the proposer's own sessions from an earlier event, to start from."""
 
@@ -52,15 +69,13 @@ class ReusableSessionDTO(BaseModel):
     # NOTE: session fields belong to an event, so the slug is the only key
     # that can carry an answer over to another event's form.
     field_values: dict[str, FieldValue]
-    public_field_slugs: frozenset[str]
-    presented: bool
 
 
 class ReusableSessionRepositoryProtocol(Protocol):
     @staticmethod
     def list_reusable(
         *, user_id: int, sphere_id: int, exclude_event_id: int, limit: int
-    ) -> list[ReusableSessionDTO]: ...
+    ) -> list[ReusableSessionRecord]: ...
 
 
 class ProposeRepos(NamedTuple):

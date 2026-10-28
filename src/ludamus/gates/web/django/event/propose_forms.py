@@ -74,15 +74,32 @@ def build_session_details_form(
     )
 
     fields: dict[str, forms.Field] = {
-        "title": forms.CharField(label=_("Title"), max_length=255),
+        "title": forms.CharField(
+            label=_("Title"),
+            max_length=255,
+            widget=forms.TextInput(attrs={"placeholder": _("Session title")}),
+        ),
         "description": forms.CharField(
-            label=_("Description"), widget=forms.Textarea(attrs={"rows": 4})
+            label=_("Description"),
+            widget=forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": _(
+                        "What awaits participants: what it is about, how it goes,"
+                        " what to expect."
+                    ),
+                }
+            ),
         ),
         "participants_limit": forms.IntegerField(**participants_kwargs),
         "min_age": forms.IntegerField(
             label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),
-        "facilitator_name": forms.CharField(label=_("Presenter name"), max_length=255),
+        "facilitator_name": forms.CharField(
+            label=_("Presenter name"),
+            max_length=255,
+            widget=forms.TextInput(attrs={"placeholder": _("Your name or nickname")}),
+        ),
     }
 
     if choices := duration_choices(durations):

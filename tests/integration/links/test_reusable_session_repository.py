@@ -106,9 +106,9 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [s.field_values for s in found] == [{"system": "Fate"}]
+        assert [s.private_answers for s in found] == [{"system": "Fate"}]
 
-    def test_marks_which_answers_are_public_and_whether_the_user_presented(self):
+    def test_splits_answers_by_visibility_and_says_who_presented(self):
         user = UserFactory()
         sphere = SphereFactory()
         past = EventFactory(sphere=sphere)
@@ -133,6 +133,6 @@ class TestListReusable:
 
         found = _list(user=user, sphere=sphere, current=EventFactory(sphere=sphere))
 
-        assert [(s.public_field_slugs, s.presented) for s in found] == [
-            (frozenset({"system"}), False)
+        assert [(s.public_answers, s.private_answers, s.presented) for s in found] == [
+            ({"system": "Fate"}, {"notes": "A note"}, False)
         ]
