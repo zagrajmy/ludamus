@@ -848,6 +848,7 @@ msgid "For example: a Mörk Borg campaign, or painting D&D minis."
 msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/event/panel/forms.py
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
@@ -2895,20 +2896,6 @@ msgstr "Nazwa"
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "What the buyer picks, e.g. “Weekend pass” or “Saturday only”."
 msgstr "To, co wybiera kupujący, np. „Karnet weekendowy” albo „Tylko sobota”."
-
-#: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Description"
-msgstr "Opis"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Optional. What the ticket includes."

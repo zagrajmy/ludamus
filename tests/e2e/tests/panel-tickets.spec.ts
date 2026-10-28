@@ -1,13 +1,11 @@
 import { attachArtifacts } from "./helpers/artifacts";
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const TICKETS_URL = "/panel/event/ticket-fair/tickets/";
 
 test.describe("Panel tickets", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("shows takings, ticket types and orders", async ({ page }, testInfo) => {
     await page.goto(TICKETS_URL);
