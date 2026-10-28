@@ -215,7 +215,11 @@ const initPosthog = async (
       // with data-ph-block; it shows as a same-size placeholder in replay.
       // The pii-attribute-needs-block ast-grep rule enforces the pairing.
       blockSelector: "[data-ph-no-capture], [data-ph-block]",
+      // Inputs are masked unless they hold published text (session, encounter
+      // and event descriptions), whose bugs are worth seeing in a replay.
       maskAllInputs: true,
+      maskInputFn: (text: string, element?: HTMLElement) =>
+        element?.closest("[data-ph-unmask]") ? text : "*".repeat(text.length),
       maskTextSelector: "[data-ph-mask]",
       // base.html puts the current URL in og:url, and rrweb serialises social
       // meta into the snapshot unless told not to. On a claim or offer page

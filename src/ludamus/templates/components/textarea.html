@@ -1,6 +1,6 @@
 {% load vite_tags %}
 {# Textarea field. #}
-{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace_class (the in-place look: dressed as the text it writes), markdown (bool: text read as Markdown, edited with markdown-editor.ts) #}
+{# Variables: id, name, rows (default 4), placeholder, value, required (bool), has_errors, aria_describedby, autocomplete, spellcheck, autocapitalize, autocorrect, monospace (bool), inplace_class (the in-place look: dressed as the text it writes), markdown (bool: text read as Markdown, edited with markdown-editor.ts), unmask (bool: published text, readable in session recordings) #}
 {% if markdown|default:False %}
     {% vite_asset_once 'src/markdown-editor.ts' %}
 {% endif %}
@@ -17,4 +17,5 @@
           {% if spellcheck|default:"" %}spellcheck="{{ spellcheck }}"{% endif %}
           {% if autocapitalize|default:"" %}autocapitalize="{{ autocapitalize }}"{% endif %}
           {% if autocorrect|default:"" %}autocorrect="{{ autocorrect }}"{% endif %}
-          {% if markdown|default:False %}data-markdown-editor{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>
+          {% if markdown|default:False %}data-markdown-editor{% endif %}
+          {% if unmask|default:False %}data-ph-unmask{% endif %}>{% if value|default:"" %}{{ value }}{% endif %}</textarea>

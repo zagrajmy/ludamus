@@ -856,7 +856,6 @@ msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
 msgid "Description"
 msgstr "Opis"
 
