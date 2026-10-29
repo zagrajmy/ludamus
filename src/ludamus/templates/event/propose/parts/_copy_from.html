@@ -1,0 +1,30 @@
+{% load i18n tessera vite_tags %}
+{% vite_asset_once 'src/propose-copy.ts' %}
+{# propose-copy.ts fills the form from the JSON below and can undo it. #}
+<div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 mb-2 text-sm"
+     data-propose-copy="propose-details-form">
+    <span class="inline-flex items-center gap-1 font-medium text-success-text"
+          hidden
+          data-propose-copied>
+        {% icon "check" class="size-3.5" variant="mini" %}
+        <span class="max-sm:sr-only">{% translate "Copied" %}</span>
+    </span>
+    <button type="button"
+            class="font-medium text-primary underline underline-offset-3"
+            hidden
+            data-propose-copy-undo>{% translate "Undo" %}</button>
+    {% tessera_action_dropdown id="propose-copy-menu" align="end" hover=False trigger_class="inline-flex items-center gap-1 min-h-11 font-medium text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground aria-expanded:text-foreground" %}
+        {% icon "document-duplicate" class="size-4 shrink-0" variant="mini" %}
+        {% translate "Copy from an earlier session" %}
+        {% icon "chevron-down" class="size-4 shrink-0" variant="mini" %}
+        {% action_dropdown_menu %}
+        {% for reusable in reusable_sessions %}
+            {% tessera_action_dropdown_item reusable.session.title detail=reusable.session.event_name data_propose_copy_from=reusable.session.pk %}
+        {% endfor %}
+        <p class="max-w-72 px-3 pt-2 pb-1 border-t border-border text-xs text-foreground-muted whitespace-normal">
+            {% translate "Copies the title, description and answers. Time slots, tracks and the cover stay as they are." %}
+        </p>
+    {% end_tessera_action_dropdown %}
+    <p class="sr-only" role="status" data-propose-copy-status></p>
+    {{ reusable_form_values|json_script }}
+</div>

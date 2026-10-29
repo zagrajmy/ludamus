@@ -801,6 +801,26 @@ msgstr "Tytuł lub co będziemy robić"
 msgid "Show closed"
 msgstr "Pokaż zakończone"
 
+#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
+msgid "Contact"
+msgstr "Kontakt"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Message"
+msgstr "Wiadomość"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Optional. Say a few words about yourself."
+msgstr "Opcjonalnie. Napisz kilka słów o sobie."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Shown to the author once you join their party."
+msgstr "Autor zobaczy go, gdy dołączysz do drużyny."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Optional. They see it in their notifications."
+msgstr "Opcjonalnie. Zobaczy ją w powiadomieniach."
+
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Looking for"
 msgstr "Szukam"
@@ -833,15 +853,14 @@ msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
 msgid "Description"
 msgstr "Opis"
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Supports Markdown formatting."
 msgstr "Obsługuje formatowanie Markdown."
@@ -895,10 +914,6 @@ msgstr ""
 msgid "Tags"
 msgstr "Tagi"
 
-#: src/ludamus/gates/web/django/board/forms.py src/ludamus/templates/base.html
-msgid "Contact"
-msgstr "Kontakt"
-
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Shown only to the people in the party you form."
 msgstr "Widoczny tylko dla osób z drużyny, którą utworzysz."
@@ -924,6 +939,23 @@ msgid "Add an email address to your profile, or pick another contact."
 msgstr "Dodaj do profilu adres e-mail albo wybierz inny kontakt."
 
 #: src/ludamus/gates/web/django/board/views.py
+msgid "This listing has already changed. Nothing was done."
+msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "The author will see you're interested."
+msgstr "Autor zobaczy Twoje zgłoszenie."
+
+#: src/ludamus/gates/web/django/board/views.py
+#, python-format
+msgid "Keep the message under %(limit)d characters."
+msgstr "Wiadomość może mieć najwyżej %(limit)d znaków."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "They'll be told it's not this time."
+msgstr "Dostanie wiadomość „Nie tym razem”."
+
+#: src/ludamus/gates/web/django/board/views.py
 msgid "Listing published."
 msgstr "Ogłoszenie opublikowane."
 
@@ -936,12 +968,12 @@ msgid "Listing updated."
 msgstr "Ogłoszenie zaktualizowane."
 
 #: src/ludamus/gates/web/django/board/views.py
-msgid "This listing has already changed. Nothing was done."
-msgstr "To ogłoszenie już się zmieniło. Nic nie zrobiono."
-
-#: src/ludamus/gates/web/django/board/views.py
 msgid "Listing closed."
 msgstr "Ogłoszenie zamknięte."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Your response is withdrawn."
+msgstr "Zgłoszenie wycofane."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing reopened."
@@ -3147,24 +3179,35 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no enrollment"
-msgstr "Puste pole lub 0 = bez zapisów"
+msgid "no sign-up"
+msgstr "bez zapisów"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "Session title"
+msgstr "Tytuł punktu programu"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid ""
+"What awaits participants: what it is about, how it goes, what to expect."
+msgstr ""
+"Co czeka uczestników: o czym to jest, jak to wygląda, czego się spodziewać."
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
+#: src/ludamus/templates/components/_age_pill.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-msgid "0 = no age restriction"
-msgstr "0 = brak ograniczenia wiekowego"
+msgid "Your name or nickname"
+msgstr "Twoje imię lub pseudonim"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/proposal-duration.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -3385,6 +3428,14 @@ msgstr ""
 "stronie wydarzeń dla wszystkich."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Proposal Description"
+msgstr "Opis zgłoszenia"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Shown above every step of the proposal form."
+msgstr "Wyświetlane nad każdym krokiem formularza zgłoszenia."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
 msgstr "Nazwa kategorii jest za długa (max 255 znaków)."
 
@@ -3513,7 +3564,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #: src/ludamus/templates/chronology/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -3641,11 +3692,14 @@ msgid "Participants Limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
 msgstr "Minimalny Wiek"
@@ -3698,7 +3752,6 @@ msgstr "Twórca programu"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Accreditation type"
 msgstr "Rodzaj akredytacji"
@@ -4170,7 +4223,7 @@ msgid "Participants limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -4657,6 +4710,38 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "%(name)s is interested in %(listing)s"
+msgstr "Nowe zgłoszenie od %(name)s: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Not this time: %(listing)s"
+msgstr "Nie tym razem: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "The author went with other people this time."
+msgstr "Tym razem wybrano inne osoby."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(listing)s has closed"
+msgstr "Ogłoszenie zamknięte: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "You weren't chosen this time. Thanks for responding."
+msgstr "Tym razem się nie udało. Dzięki za zgłoszenie."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(listing)s has changed"
+msgstr "Ogłoszenie zmienione: %(listing)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "The author edited the listing you responded to."
+msgstr "Ogłoszenie, do którego masz zgłoszenie, zostało zmienione."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "%(sphere)s announced %(event)s"
 msgstr "%(sphere)s ogłasza: %(event)s"
 
@@ -4668,6 +4753,26 @@ msgid ""
 msgstr ""
 "Subskrybujesz sferę %(sphere)s. Program wydarzenia %(event)s jest już "
 "dostępny — zajrzyj, co w nim będzie, i zapisz się."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Your proposal for %(event)s was accepted and added to the agenda."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Your proposal for %(event)s was accepted. It will appear on the agenda once "
+"the organizers give it a time and place."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
+"gdy organizatorzy nadadzą mu termin i miejsce."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Accepted: %(session)s"
+msgstr "Zaakceptowano: %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -5452,6 +5557,31 @@ msgstr ""
 "Wymagane, także w szkicu: podaj datę i godzinę, opisz termin własnymi "
 "słowami albo jedno i drugie."
 
+#: src/ludamus/templates/board/_respond.html
+msgid ""
+"You're interested. The author will add you to their party or let you know."
+msgstr "Zgłoszenie wysłane. Autor doda Cię do drużyny albo da znać."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Withdraw response"
+msgstr "Wycofaj zgłoszenie"
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Not this time."
+msgstr "Nie tym razem."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "The listing closed. You weren't chosen this time."
+msgstr "Ogłoszenie zamknięte. Tym razem się nie udało."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "I'm interested"
+msgstr "Zgłaszam się"
+
+#: src/ludamus/templates/board/_respond.html
+msgid "Log in to respond"
+msgstr "Zaloguj się, aby się zgłosić"
+
 #: src/ludamus/templates/board/_status.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Draft"
@@ -5507,6 +5637,11 @@ msgstr "Wznów ogłoszenie"
 msgid "Edit listing"
 msgstr "Edytuj ogłoszenie"
 
+#: src/ludamus/templates/board/detail.html
+#, python-format
+msgid "Responses (%(waiting_count)s)"
+msgstr "Zgłoszenia (%(waiting_count)s)"
+
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
 msgstr "MG, gracze i grupy szukają siebie nawzajem."
@@ -5552,6 +5687,50 @@ msgstr "Nie masz jeszcze ogłoszeń"
 msgid ""
 "Add one, and people looking for the same thing will find you on the board."
 msgstr "Dodaj ogłoszenie, a osoby szukające tego samego znajdą cię na tablicy."
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Responses to %(title)s"
+msgstr "Zgłoszenia: %(title)s"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Responses"
+msgstr "Zgłoszenia"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Contacts are shared once someone joins your party."
+msgstr "Kontakty zobaczycie, gdy ktoś dołączy do Twojej drużyny."
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Interested (%(count)s)"
+msgstr "Czekają (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Not this time (%(count)s)"
+msgstr "Nie tym razem (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Not this time"
+msgstr "Nie tym razem"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Send “Not this time”"
+msgstr "Wyślij „Nie tym razem”"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Nobody is waiting for an answer"
+msgstr "Nikt nie czeka na odpowiedź"
+
+#: src/ludamus/templates/board/responses.html
+msgid "People who click “I'm interested” on your listing show up here."
+msgstr ""
+"Tu pojawią się osoby, które klikną „Zgłaszam się” przy Twoim ogłoszeniu."
+
+#: src/ludamus/templates/board/responses.html
+msgid "You haven't turned anyone down"
+msgstr "Nikt jeszcze nie dostał odpowiedzi „Nie tym razem”"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -5776,6 +5955,7 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -5805,7 +5985,6 @@ msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_room_lanes.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
@@ -5862,7 +6041,8 @@ msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_info.html
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
 
@@ -5966,8 +6146,8 @@ msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/session_tags_cloud.html
+#: src/ludamus/templates/chronology/parts/_session_info_view.html
+#: src/ludamus/templates/components/_age_pill.html
 msgid "years"
 msgstr "lat"
 
@@ -6552,10 +6732,6 @@ msgid "Sheet %(sheet)s of %(total)s"
 msgstr "Arkusz %(sheet)s z %(total)s"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-msgid "Markdown supported."
-msgstr "Obsługuje Markdown."
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Saved"
 msgstr "Zapisano"
@@ -7068,6 +7244,7 @@ msgstr "Widoczne publicznie"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
+#: src/ludamus/templates/event/propose/parts/details.html
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
@@ -8267,6 +8444,27 @@ msgstr ""
 "Zgłoszenia są weryfikowane przez organizatorów. Dostaniesz powiadomienie, "
 "gdy Twoje zostanie zaakceptowane i dodane do programu."
 
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copied"
+msgstr "Skopiowano"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+#: src/ludamus/templates/panel/errata.html
+msgid "Undo"
+msgstr "Cofnij"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid "Copy from an earlier session"
+msgstr "Skopiuj z wcześniejszego"
+
+#: src/ludamus/templates/event/propose/parts/_copy_from.html
+msgid ""
+"Copies the title, description and answers. Time slots, tracks and the cover "
+"stay as they are."
+msgstr ""
+"Kopiuje tytuł, opis i odpowiedzi. Przedziały czasowe, bloki programowe i "
+"okładka zostają bez zmian."
+
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
 msgid "Have an account?"
 msgstr "Masz konto?"
@@ -8285,6 +8483,11 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/_session_info_edit.html
+msgctxt "session capacity"
+msgid "Seats"
+msgstr "Miejsca"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgid "Proposal progress"
@@ -8317,18 +8520,8 @@ msgid "Session Details"
 msgstr "Szczegóły punktu programu"
 
 #: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session info — public by default. A 🔒 marks what only organizers see."
-msgstr ""
-"Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
-"widoczne tylko dla organizatorów."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Select the tracks your session belongs to."
-msgstr "Wybierz bloki programowe dla tego punktu programu."
-
-#: src/ludamus/templates/event/propose/parts/details.html
-msgid "Session details saved. Next step coming soon."
-msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+msgid "Participants won't see this."
+msgstr "Uczestnicy tego nie zobaczą."
 
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -10960,10 +11153,6 @@ msgid "Undo the announcement of %(title)s"
 msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Undo"
-msgstr "Cofnij"
-
-#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "Mark %(title)s as announced"
 msgstr "Oznacz jako ogłoszone: %(title)s"
@@ -12554,14 +12743,6 @@ msgid "Proposal Settings"
 msgstr "Ustawienia zgłoszeń"
 
 #: src/ludamus/templates/panel/proposal-settings.html
-msgid "Proposal Description"
-msgstr "Opis zgłoszenia"
-
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Displayed on the first page of the proposal form."
-msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
-
-#: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Period"
 msgstr "Okres zgłoszeń"
 
@@ -13326,6 +13507,24 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "Markdown supported."
+#~ msgstr "Obsługuje Markdown."
+
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+
+#~ msgid "0 = no age restriction"
+#~ msgstr "0 = brak ograniczenia wiekowego"
+
+#~ msgid ""
+#~ "Session info — public by default. A 🔒 marks what only organizers see."
+#~ msgstr ""
+#~ "Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
+#~ "widoczne tylko dla organizatorów."
+
+#~ msgid "Select the tracks your session belongs to."
+#~ msgstr "Wybierz bloki programowe dla tego punktu programu."
 
 #~ msgid "Player looking for a GM"
 #~ msgstr "Gracz szuka MG"
