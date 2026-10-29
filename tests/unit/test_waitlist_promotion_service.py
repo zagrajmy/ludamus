@@ -152,11 +152,14 @@ def _wp(pid, *, sponsor_id=None, order=0):
     )
 
 
-def _state(waiting, *, mode=PromotionMode.AUTO, seats=1):
+def _state(
+    waiting, *, mode=PromotionMode.AUTO, seats=1, start=_NOW + timedelta(days=7)
+):
     return PromotionStateDTO(
         session_id=_SESSION_ID,
         session_title="Dragons",
         event_slug="con",
+        start_time=start,
         promotion_mode=mode,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
@@ -258,6 +261,63 @@ class TestFillFreedSeats:
         assert result.offered == [1, 2]
         assert repo.log.offered[0]["ids"] == [1, 2]
         assert notifier.offered[0].recipient_user_id == _MANAGER_ID
+
+    def test_offer_that_would_outlive_the_start_seats_the_waiter(self):
+        service, repo, notifier, scheduler = _build(
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=_NOW + timedelta(hours=2),
+                )
+            ]
+        )
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult(promoted=[1])
+        assert repo.log.confirmed == [[1]]
+        assert not repo.log.offered
+        assert [n.recipient_user_id for n in notifier.promoted] == [1]
+        assert not notifier.offered
+        assert not scheduler.scheduled
+
+    def test_offer_ending_exactly_at_the_start_is_still_made(self):
+        service, repo, _, scheduler = _build(
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=_NOW + timedelta(hours=24),
+                )
+            ]
+        )
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult(offered=[1])
+        assert not repo.log.confirmed
+        assert scheduler.scheduled == [(1, _NOW + timedelta(hours=24))]
+
+    @pytest.mark.parametrize("mode", (PromotionMode.AUTO, PromotionMode.OFFER_CLAIM))
+    @pytest.mark.parametrize("start", (_NOW, _NOW - timedelta(hours=1)))
+    def test_started_session_promotes_nobody(self, caplog, mode, start):
+        service, repo, notifier, scheduler = _build(
+            states=[_state([_wp(1)], mode=mode, start=start)]
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult()
+        assert not repo.log.confirmed
+        assert not repo.log.offered
+        assert not notifier.promoted
+        assert not notifier.offered
+        assert not scheduler.scheduled
+        assert caplog.messages == [
+            f"Session {_SESSION_ID} promotes nobody: it has already started"
+        ]
 
 
 class TestClaimOffer:
@@ -610,7 +670,13 @@ class TestFillFreedSeatsOutcomes:
     def test_a_fresh_claim_token_is_long_and_url_safe(self, monkeypatch):
         monkeypatch.undo()
         service, repo, _, _ = _build(
-            states=[_state([_wp(1)], mode=PromotionMode.OFFER_CLAIM)]
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=datetime.now(UTC) + timedelta(days=7),
+                )
+            ]
         )
 
         service.fill_freed_seats(session_id=_SESSION_ID)
