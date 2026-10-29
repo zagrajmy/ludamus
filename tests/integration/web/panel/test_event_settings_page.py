@@ -10,7 +10,11 @@ from PIL import Image
 
 from ludamus.pacts import EventDTO, NotFoundError
 from tests.integration.conftest import PNG_BYTES, EventFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -418,12 +422,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=["Image dimensions are too large."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Image dimensions are too large."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -441,12 +447,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=["Image too large. Maximum size is 8 MB."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Image too large. Maximum size is 8 MB."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -460,12 +468,16 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=[
+                        "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+                    ]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -500,12 +512,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    logo=["Image too large. Maximum size is 8 MB."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["logo"] == [
-            "Image too large. Maximum size is 8 MB."
-        ]
         event.refresh_from_db()
         assert not event.logo
 
@@ -574,12 +588,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    name=["Event name is too long (max 255 characters)."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["name"] == [
-            "Event name is too long (max 255 characters)."
-        ]
         event.refresh_from_db()
         assert event.name == original_name
 
@@ -596,12 +612,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    end_time=["End time must be after start time."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["end_time"] == [
-            "End time must be after start time."
-        ]
         event.refresh_from_db()
         assert event.end_time == original_end
 
@@ -618,12 +636,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    publication_time=["Publication time must not be after start time."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["publication_time"] == [
-            "Publication time must not be after start time."
-        ]
         event.refresh_from_db()
         assert event.publication_time == original_publication
 
@@ -654,12 +674,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    slug=["An event with this slug already exists."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["slug"] == [
-            "An event with this slug already exists."
-        ]
         event.refresh_from_db()
         assert event.slug == original_slug
 
