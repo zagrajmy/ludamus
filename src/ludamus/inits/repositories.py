@@ -125,6 +125,10 @@ class Repositories:
         return repositories.EventProposalSettingsRepository()
 
     @cached_property
+    def reusable_sessions(self) -> repositories.ReusableSessionRepository:
+        return repositories.ReusableSessionRepository()
+
+    @cached_property
     def sessions(self) -> repositories.SessionRepository:
         return repositories.SessionRepository()
 

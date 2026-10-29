@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0185_listing_response")]
+    dependencies = [("db_main", "0186_alter_notification_kind")]
 
     operations = [
         migrations.AddField(

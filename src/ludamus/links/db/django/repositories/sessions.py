@@ -99,6 +99,15 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     return hours * 60 + minutes
 
 
+def sessions_run_by(user_id: int) -> QuerySet[Session]:
+    # A subquery rather than a join: joining facilitators would repeat each
+    # session once per facilitator and inflate every count annotated on it.
+    return Session.objects.filter(
+        Q(presenter_id=user_id)
+        | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
+    )
+
+
 def annotate_session_participation_counts(
     queryset: QuerySet[Session],
 ) -> QuerySet[Session]:

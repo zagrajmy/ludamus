@@ -36,9 +36,11 @@
     "@shadcn/react": "0.2.0",
     "agents": "0.29.0",
     "cuelume": "0.1.0",
+    "markdown-actions": "1.1.2",
     "posthog-js": "1.410.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "slugify": "1.6.6"
+    "slugify": "1.6.6",
+    "yace": "1.1.1"
   }
 }

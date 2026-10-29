@@ -70,7 +70,7 @@ test.describe("Modal surfaces using page scroll lock", () => {
   });
 });
 
-test("a seatless session's modal offers the bookmark beside its time", async ({
+test("a seatless session's modal offers the bookmark at the end of its facts", async ({
   browser,
   browserName,
 }) => {
@@ -93,16 +93,18 @@ test("a seatless session's modal offers the bookmark beside its time", async ({
 
   const bookmark = dialog.getByRole("button", { name: "Bookmark session" });
   const close = dialog.getByRole("button", { name: "Close" });
-  const time = dialog.getByText("Time", { exact: true }).locator("..");
-  const [bookmarkBox, closeBox, timeBox] = await Promise.all([
+  const facts = dialog.locator("[data-session-facts]");
+  const factsList = facts.locator("> :first-child");
+  const listWidth = (await factsList.boundingBox())?.width;
+  const [bookmarkBox, closeBox, factsBox] = await Promise.all([
     bookmark.boundingBox(),
     close.boundingBox(),
-    time.boundingBox(),
+    facts.boundingBox(),
   ]);
-  expect(bookmarkBox && closeBox && timeBox).toBeTruthy();
-  if (!bookmarkBox || !closeBox || !timeBox) return;
+  expect(bookmarkBox && closeBox && factsBox).toBeTruthy();
+  if (!bookmarkBox || !closeBox || !factsBox) return;
   expect(bookmarkBox.x + bookmarkBox.width).toBeCloseTo(closeBox.x + closeBox.width, 0);
-  expect(bookmarkBox.y + bookmarkBox.height).toBeCloseTo(timeBox.y + timeBox.height, 0);
+  expect(bookmarkBox.y + bookmarkBox.height).toBeCloseTo(factsBox.y + factsBox.height, 0);
 
   // Each toggle paints twice (optimistic, then settled), and the settled paint
   // runs in the same tick that releases the in-flight guard. Counting paints
@@ -123,8 +125,8 @@ test("a seatless session's modal offers the bookmark beside its time", async ({
   expect((await toggled).ok()).toBe(true);
   await expect.poll(paints).toBe(2);
   await expect(bookmark).toHaveAttribute("aria-pressed", String(was !== "true"));
-  // The count showing up or going away must not reflow the time box.
-  expect((await time.boundingBox())?.width).toBe(timeBox.width);
+  // The count showing up or going away must not take width from the facts.
+  expect((await factsList.boundingBox())?.width).toBe(listWidth);
 
   const restored = page.waitForResponse(/\/bookmark\/$/);
   await bookmark.click();

@@ -78,6 +78,24 @@ class DropzoneFileInput(forms.ClearableFileInput):
         self.crop = crop
 
 
+class MarkdownTextarea(forms.Textarea):
+    """A textarea whose text is read as Markdown, edited with highlighting.
+
+    ``published`` text is shown to everyone the page is shown to, never
+    personal, so session recordings keep it readable; anything else stays
+    masked like every other input.
+    """
+
+    def __init__(
+        self,
+        *,
+        published: bool,
+        attrs: dict[str, str | int | _StrPromise] | None = None,
+    ) -> None:
+        super().__init__(attrs)
+        self.published = published
+
+
 def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
@@ -147,8 +165,9 @@ class EventSettingsForm(forms.Form):
         max_length=50, error_messages={"required": _("Event slug is required.")}
     )
     description = forms.CharField(
+        label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=MarkdownTextarea(published=True, attrs={"rows": 3}),
         help_text=_("Aim for about 230 characters."),
     )
     address = forms.CharField(
@@ -295,7 +314,10 @@ class ProposalSettingsForm(forms.Form):
     """Form for proposal settings (description, dates, apply-to-categories)."""
 
     proposal_description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 4})
+        label=_("Proposal Description"),
+        required=False,
+        widget=MarkdownTextarea(published=True, attrs={"rows": 4}),
+        help_text=_("Shown above every step of the proposal form."),
     )
     proposal_start_time = forms.DateTimeField(
         required=False,
@@ -762,7 +784,10 @@ class SessionEditForm(forms.Form):
         error_messages={"required": _("Presenter name is required.")},
     )
     description = forms.CharField(
-        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
+        required=False,
+        label=_("Description"),
+        widget=MarkdownTextarea(published=True, attrs={"rows": 5}),
+        help_text=_("Supports Markdown formatting."),
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(

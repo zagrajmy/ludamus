@@ -288,6 +288,7 @@ class NotificationKind(StrEnum):
     LISTING_DECLINED = auto()
     LISTING_NOT_CHOSEN = auto()
     LISTING_CHANGED = auto()
+    PROPOSAL_ACCEPTED = auto()
 
 
 class SpaceDTO(BaseModel):

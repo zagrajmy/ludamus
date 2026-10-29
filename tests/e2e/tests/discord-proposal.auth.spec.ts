@@ -28,8 +28,10 @@ test.describe("Discord handle on the proposal wizard", () => {
       await expect(wizard.getByRole("button", { name: /Back/ })).toHaveCount(0);
 
       await page.getByLabel(/title/i).fill("Pub Crawl of Cthulhu");
-      await page.getByLabel(/description/i).fill("Investigators, pints and unspeakable things.");
-      await page.getByLabel(/max participants/i).fill("4");
+      await page
+        .getByLabel(/about this session/i)
+        .fill("Investigators, pints and unspeakable things.");
+      await page.getByLabel(/seats/i).fill("4");
       await page.getByRole("button", { name: /Continue/ }).click();
 
       await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();

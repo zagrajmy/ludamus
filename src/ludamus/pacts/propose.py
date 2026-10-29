@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.fields import FieldValue
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO
@@ -29,12 +31,57 @@ if TYPE_CHECKING:
     )
 
 
+# NOTE: the wizard stores the presenter name under this key; the gate writes
+# it, the mill reads it.
+FACILITATOR_NAME_FIELD = "facilitator_name"
+
+
 class AccountAnswersDTO(BaseModel):
     """What the proposer's account already answers on the personal step."""
 
     email: str = ""
     # Wizard keys (`personal_<slug>`) to answers.
     personal_data: dict[str, str] = {}
+
+
+# NOTE: session fields belong to an event, so the slug is the only key that
+# can carry an answer over to another event's form.
+type AnswersBySlug = dict[str, FieldValue]
+
+
+class EarlierSessionDTO(BaseModel):
+    """One of the proposer's own sessions from an earlier event."""
+
+    pk: int
+    title: str
+    event_name: str
+    description: str
+    participants_limit: int
+    min_age: int
+    duration: str
+
+
+class ReusableSessionRecord(BaseModel):
+    """An earlier session as stored, before deciding which answers carry over."""
+
+    session: EarlierSessionDTO
+    public_answers: AnswersBySlug
+    private_answers: AnswersBySlug
+    presented: bool
+
+
+class ReusableSessionDTO(BaseModel):
+    """An earlier session to start from, with the answers that carry over."""
+
+    session: EarlierSessionDTO
+    field_values: AnswersBySlug
+
+
+class ReusableSessionRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_reusable(
+        *, user_id: int, sphere_id: int, exclude_event_id: int, limit: int
+    ) -> list[ReusableSessionRecord]: ...
 
 
 class ProposeRepos(NamedTuple):
@@ -45,6 +92,7 @@ class ProposeRepos(NamedTuple):
     categories: ProposalCategoryRepositoryProtocol
     tracks: TrackRepositoryProtocol
     sessions: SessionRepositoryProtocol
+    reusable_sessions: ReusableSessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -75,6 +123,9 @@ class ProposeSessionServiceProtocol(Protocol):
         self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
     ) -> AccountAnswersDTO: ...
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool: ...
+    def list_reusable_sessions(
+        self, *, user_id: int | None, event: EventDTO
+    ) -> list[ReusableSessionDTO]: ...
     def submit(
         self,
         event: EventDTO,

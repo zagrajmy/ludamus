@@ -24,6 +24,9 @@ from ludamus.links.db.django.repositories.notice_board import (
     EncounterRepository,
     EncounterRSVPRepository,
 )
+from ludamus.links.db.django.repositories.reusable_sessions import (
+    ReusableSessionRepository,
+)
 from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.repositories.submissions import (
@@ -63,6 +66,7 @@ __all__ = [
     "PersonalDataFieldRepository",
     "PersonalDataFieldValueRepository",
     "ProposalCategoryRepository",
+    "ReusableSessionRepository",
     "SessionFieldRepository",
     "SessionRepository",
     "SpaceRepository",

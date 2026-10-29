@@ -23,8 +23,8 @@ _INPUTMODE_BY_TYPE = {
 _NO_SPELLCHECK_TYPES = frozenset({"email", "url", "tel", "password"})
 
 
-def render_input(field: BoundField) -> str:
-    """Render a styled ``<input>``.
+def render_input(field: BoundField, *, inplace_class: str = "") -> str:
+    """Render a styled ``<input>``, or with ``inplace_class`` dressed as its text.
 
     Returns:
         HTML string of the input element.
@@ -69,5 +69,6 @@ def render_input(field: BoundField) -> str:
             "spellcheck": spellcheck or "",
             "has_errors": bool(field.errors),
             "aria_describedby": help_text_id(field),
+            "inplace_class": inplace_class,
         },
     )
