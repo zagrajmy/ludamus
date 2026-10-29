@@ -157,6 +157,11 @@ class WaitlistPromotionService:
                     "Session %s promotes nobody: it is gone or unscheduled", session_id
                 )
                 return result
+            if (now := _now()) >= state.start_time:
+                logger.info(
+                    "Session %s promotes nobody: it has already started", session_id
+                )
+                return result
             if not (parties := select_promotable_parties(state)):
                 logger.info(
                     "Session %s promotes nobody: %s seats free, %s waiting, mode %s",
@@ -166,10 +171,15 @@ class WaitlistPromotionService:
                     state.promotion_mode.value,
                 )
                 return result
-            if state.promotion_mode == PromotionMode.AUTO:
+            # An offer that could outlive the start would hold the seat empty
+            # through the session, so the next waiter is seated instead.
+            if (
+                state.promotion_mode == PromotionMode.AUTO
+                or now + state.offer_claim_window > state.start_time
+            ):
                 self._confirm(parties, state, result, promotions)
             else:
-                self._offer(parties, state, result, offers, expiries)
+                self._offer(parties, state, result, offers, expiries, now=now)
 
         for promotion in promotions:
             self._notifier.notify_promoted(promotion)
@@ -210,8 +220,9 @@ class WaitlistPromotionService:
         result: PromotionResult,
         offers: list[OfferNotification],
         expiries: list[tuple[int, datetime]],
+        *,
+        now: datetime,
     ) -> None:
-        now = _now()
         expires_at = now + state.offer_claim_window
         for party in parties:
             ids = [p.participation_id for p in party]
