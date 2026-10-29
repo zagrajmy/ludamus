@@ -2,6 +2,7 @@ import { getAgentByName, type Connection, type ConnectionContext } from "agents"
 
 import type { Capability, ConnectionState, Message } from "./protocol";
 
+import { lifecycleOf } from "./access";
 import { RoomAgent, type Env } from "./room-agent";
 import { ParleySphereAgent } from "./sphere-agent";
 
@@ -31,20 +32,8 @@ export class ParleySessionAgent extends RoomAgent {
   ): ReturnType<RoomAgent["writeError"]> {
     const error = super.writeError(capability);
     if (error !== null) return error;
-    const lifecycle = capability.lifecycle?.[this.roomId];
-    if (lifecycle !== undefined) {
-      void this.sql`INSERT INTO lifecycle (singleton, delete_at, read_only_at, token_iat)
-        VALUES (1, ${lifecycle.deleteAt}, ${lifecycle.readOnlyAt}, ${capability.iat})
-        ON CONFLICT(singleton) DO UPDATE SET
-          delete_at = excluded.delete_at, read_only_at = excluded.read_only_at, token_iat = excluded.token_iat
-        WHERE excluded.token_iat > token_iat`;
-    }
-    const row = this.sql<{
-      read_only_at: number;
-    }>`SELECT read_only_at FROM lifecycle WHERE singleton = 1`[0];
-    return row !== undefined && row.read_only_at * 1_000 <= Date.now()
-      ? { ok: false, code: "archived" }
-      : null;
+    const lifecycle = this.storeLifecycle(capability);
+    return lifecycle.read_only_at * 1_000 <= Date.now() ? { ok: false, code: "archived" } : null;
   }
 
   protected afterMessage(message: Message): void {
@@ -104,18 +93,38 @@ export class ParleySessionAgent extends RoomAgent {
     }
   }
 
-  private syncLifecycle(capability: ConnectionState["capability"]): void {
-    const lifecycle = capability.lifecycle?.[this.roomId];
-    if (lifecycle === undefined) return;
-    void this.sql`INSERT INTO lifecycle (singleton, delete_at, read_only_at, token_iat)
-      VALUES (1, ${lifecycle.deleteAt}, ${lifecycle.readOnlyAt}, ${capability.iat})
-      ON CONFLICT(singleton) DO UPDATE SET delete_at = excluded.delete_at, read_only_at = excluded.read_only_at, token_iat = excluded.token_iat
-      WHERE excluded.token_iat > token_iat`;
-    void this.schedule(new Date(lifecycle.readOnlyAt * 1_000), "archiveRoom", undefined, {
+  private syncLifecycle(capability: Capability): void {
+    const lifecycle = this.storeLifecycle(capability);
+    void this.schedule(new Date(lifecycle.read_only_at * 1_000), "archiveRoom", undefined, {
       idempotent: true,
     });
-    void this.schedule(new Date(lifecycle.deleteAt * 1_000), "deleteRoom", undefined, {
+    void this.schedule(new Date(lifecycle.delete_at * 1_000), "deleteRoom", undefined, {
       idempotent: true,
     });
+  }
+
+  // A member's grant carries the session's end, so the newest member token
+  // sets the deadlines. A manager's token carries no sessions; a room only
+  // managers have opened falls back to the retention window from its first
+  // visit, at token_iat 0, so any member's token overrides it.
+  private storeLifecycle(capability: Capability): { delete_at: number; read_only_at: number } {
+    const room = this.room;
+    const lifecycle = room === null ? null : lifecycleOf(capability, room);
+    if (lifecycle === null) {
+      const fallback = Math.floor(Date.now() / 1_000) + capability.retainFor;
+      void this.sql`INSERT INTO lifecycle (singleton, delete_at, read_only_at, token_iat)
+        VALUES (1, ${fallback}, ${fallback}, 0)
+        ON CONFLICT(singleton) DO NOTHING`;
+    } else {
+      void this.sql`INSERT INTO lifecycle (singleton, delete_at, read_only_at, token_iat)
+        VALUES (1, ${lifecycle.deleteAt}, ${lifecycle.readOnlyAt}, ${capability.iat})
+        ON CONFLICT(singleton) DO UPDATE SET
+          delete_at = excluded.delete_at, read_only_at = excluded.read_only_at, token_iat = excluded.token_iat
+        WHERE excluded.token_iat > token_iat`;
+    }
+    return this.sql<{
+      delete_at: number;
+      read_only_at: number;
+    }>`SELECT delete_at, read_only_at FROM lifecycle WHERE singleton = 1`[0];
   }
 }

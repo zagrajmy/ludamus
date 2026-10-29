@@ -17,6 +17,11 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 
+# NOTE: browsers drop a cookie whose name, value and attributes pass 4096
+# bytes, and the Worker stores the token as one; half leaves room for a long
+# name and avatar URL.
+COOKIE_BUDGET = 2048
+
 
 @pytest.fixture(name="parley_settings")
 def _parley_settings(settings):
@@ -98,14 +103,14 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "canModerate": False,
         },
         {
-            "id": f"session:{confirmed.pk}",
+            "id": f"session:{sphere.pk}:{confirmed.pk}",
             "kind": "session",
             "title": "Mothership",
             "canWrite": True,
             "canModerate": False,
         },
         {
-            "id": f"session:{facilitated.pk}",
+            "id": f"session:{sphere.pk}:{facilitated.pk}",
             "kind": "session",
             "title": "Workshop",
             "canWrite": False,
@@ -120,15 +125,38 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     assert claims["aud"] == "parley"
     assert claims["sub"] == str(active_user.pk)
     assert claims["sphere"] == str(sphere.pk)
-    assert claims["rooms"] == [
-        f"sphere:{sphere.pk}",
-        f"session:{confirmed.pk}",
-        f"session:{facilitated.pk}",
-    ]
-    assert claims["writes"] == [f"sphere:{sphere.pk}", f"session:{confirmed.pk}"]
+    ends_at = int(event.end_time.timestamp())
+    assert claims["role"] == "member"
+    assert claims["sessions"] == {
+        str(confirmed.pk): {"endsAt": ends_at, "writable": True},
+        str(facilitated.pk): {"endsAt": ends_at, "writable": False},
+    }
+    assert claims["readOnlyAfter"] == 48 * 3600
+    assert claims["retainFor"] == 30 * 24 * 3600
     parley_settings.verify(
         base64.urlsafe_b64decode(signature + "=" * (-len(signature) % 4)),
         f"{header}.{body}".encode(),
         padding.PKCS1v15(),
         hashes.SHA256(),
     )
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_manager_token_does_not_grow_with_the_sphere(
+    authenticated_client, active_user, event, sphere
+):
+    sphere.parley_enabled = True
+    sphere.save()
+    sphere.managers.add(active_user)
+    SessionFactory(event=event, category=None)
+
+    small = authenticated_client.get(reverse("parley_bootstrap")).json()
+    SessionFactory.create_batch(200, event=event, category=None)
+    large = authenticated_client.get(reverse("parley_bootstrap")).json()
+
+    assert len(large["rooms"]) == len(small["rooms"]) + 200
+    assert len(large["capabilityToken"]) == len(small["capabilityToken"])
+    assert len(large["capabilityToken"]) < COOKIE_BUDGET
+    claims = _decode_segment(large["capabilityToken"].split(".")[1])
+    assert claims["role"] == "manager"
+    assert claims["sessions"] == {}

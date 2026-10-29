@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
@@ -12,14 +12,19 @@ class ParleyRoomKind(StrEnum):
     SESSION = "session"
 
 
+class ParleyRole(StrEnum):
+    MANAGER = "manager"
+    MEMBER = "member"
+
+
 class ParleyRoomDTO(BaseModel):
     id: str
     kind: ParleyRoomKind
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
-    read_only_at: int | None = Field(default=None, exclude=True)
-    delete_at: int | None = Field(default=None, exclude=True)
+    session_id: int | None = Field(default=None, exclude=True)
+    ends_at: int | None = Field(default=None, exclude=True)
 
 
 class ParleyAccessDTO(BaseModel):
@@ -29,7 +34,7 @@ class ParleyAccessDTO(BaseModel):
     user_name: str
     user_avatar_url: str
     rooms: list[ParleyRoomDTO]
-    moderated_room_ids: list[str]
+    is_manager: bool
 
 
 class ParleyBootstrapDTO(BaseModel):
@@ -42,17 +47,28 @@ class ParleyBootstrapDTO(BaseModel):
     agent_host: str = Field(serialization_alias="agentHost")
 
 
+class ParleySessionGrant(BaseModel):
+    model_config = ConfigDict(serialize_by_alias=True)
+
+    ends_at: int = Field(serialization_alias="endsAt")
+    writable: bool
+
+
 class ParleyCapabilityClaims(BaseModel):
+    model_config = ConfigDict(serialize_by_alias=True)
+
     iss: str
     aud: str
     sub: str
     sphere: str
     name: str
     avatar: str
-    rooms: list[str]
-    writes: list[str]
-    moderates: list[str]
-    lifecycle: dict[str, dict[str, int]]
+    role: ParleyRole
+    # Only a member's own sessions: a manager's role covers every room of the
+    # sphere, so their token stays the same size however many rooms it has.
+    sessions: dict[str, ParleySessionGrant]
+    read_only_after: int = Field(serialization_alias="readOnlyAfter")
+    retain_for: int = Field(serialization_alias="retainFor")
     iat: int
     exp: int
     jti: str
@@ -70,8 +86,6 @@ class ParleyTimeWindow(BaseModel):
     now: datetime
     retained_after: datetime
     writable_after: datetime
-    read_only_delay: timedelta
-    retention: timedelta
 
 
 class ParleyRepositoryProtocol(Protocol):

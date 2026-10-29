@@ -1,5 +1,9 @@
 export type RoomKind = "sphere" | "session";
 
+export type SessionGrant = { endsAt: number; writable: boolean };
+
+// The token holds a role, not a list of rooms: a manager covers every room of
+// the sphere, a member the sphere room plus the sessions they take part in.
 export type Capability = {
   aud: "parley";
   avatar: string;
@@ -7,13 +11,13 @@ export type Capability = {
   iat: number;
   iss: "ludamus";
   jti: string;
-  lifecycle?: Record<string, { deleteAt: number; readOnlyAt: number }>;
-  moderates: string[];
   name: string;
-  rooms: string[];
+  readOnlyAfter: number;
+  retainFor: number;
+  role: "manager" | "member";
+  sessions: Record<string, SessionGrant>;
   sphere: string;
   sub: string;
-  writes: string[];
 };
 
 export type ConnectionState = {

@@ -72,7 +72,13 @@ const bootstrap = {
   csrfToken: "mock-csrf",
   rooms: [
     { canModerate: true, canWrite: true, id: "sphere:1", kind: "sphere", title: "Zagrajmy" },
-    { canModerate: true, canWrite: false, id: "session:42", kind: "session", title: "Mothership" },
+    {
+      canModerate: true,
+      canWrite: false,
+      id: "session:1:42",
+      kind: "session",
+      title: "Mothership",
+    },
   ],
   sphere: { id: "1", name: "Zagrajmy" },
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },

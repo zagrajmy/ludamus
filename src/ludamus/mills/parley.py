@@ -9,6 +9,8 @@ from ludamus.pacts.parley import (
     ParleyCapabilitySignerProtocol,
     ParleyReportData,
     ParleyRepositoryProtocol,
+    ParleyRole,
+    ParleySessionGrant,
     ParleyTimeWindow,
 )
 from ludamus.specs.parley import (
@@ -50,14 +52,20 @@ class ParleyService:
             sphere=str(access.sphere_id),
             name=access.user_name,
             avatar=access.user_avatar_url,
-            rooms=[room.id for room in access.rooms],
-            writes=[room.id for room in access.rooms if room.can_write],
-            moderates=access.moderated_room_ids,
-            lifecycle={
-                room.id: {"readOnlyAt": room.read_only_at, "deleteAt": room.delete_at}
-                for room in access.rooms
-                if room.read_only_at is not None and room.delete_at is not None
-            },
+            role=ParleyRole.MANAGER if access.is_manager else ParleyRole.MEMBER,
+            sessions=(
+                {}
+                if access.is_manager
+                else {
+                    str(room.session_id): ParleySessionGrant(
+                        ends_at=room.ends_at, writable=room.can_write
+                    )
+                    for room in access.rooms
+                    if room.session_id is not None and room.ends_at is not None
+                }
+            ),
+            read_only_after=int(PARLEY_SESSION_READ_ONLY_DELAY.total_seconds()),
+            retain_for=int(PARLEY_SESSION_RETENTION.total_seconds()),
             iat=issued_at,
             exp=int((now + PARLEY_TOKEN_LIFETIME).timestamp()),
             jti=token_urlsafe(18),
@@ -83,6 +91,4 @@ class ParleyService:
             now=now,
             retained_after=now - PARLEY_SESSION_RETENTION,
             writable_after=now - PARLEY_SESSION_READ_ONLY_DELAY,
-            read_only_delay=PARLEY_SESSION_READ_ONLY_DELAY,
-            retention=PARLEY_SESSION_RETENTION,
         )

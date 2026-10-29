@@ -11,7 +11,7 @@ from ludamus.pacts.parley import (
 )
 
 
-def test_bootstrap_signs_exact_room_permissions() -> None:
+def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
     now = datetime(2026, 8, 6, 12, tzinfo=UTC)
     access = ParleyAccessDTO(
         sphere_id=45,
@@ -27,15 +27,15 @@ def test_bootstrap_signs_exact_room_permissions() -> None:
                 can_write=True,
             ),
             ParleyRoomDTO(
-                id="session:981",
+                id="session:45:981",
                 kind=ParleyRoomKind.SESSION,
                 title="Mothership",
                 can_write=False,
-                read_only_at=1_786_000_000,
-                delete_at=1_788_000_000,
+                session_id=981,
+                ends_at=1_786_000_000,
             ),
         ],
-        moderated_room_ids=["sphere:45"],
+        is_manager=False,
     )
     repository = Mock()
     repository.read_access.return_value = access
@@ -64,7 +64,7 @@ def test_bootstrap_signs_exact_room_permissions() -> None:
                 "canModerate": False,
             },
             {
-                "id": "session:981",
+                "id": "session:45:981",
                 "kind": "session",
                 "title": "Mothership",
                 "canWrite": False,
@@ -87,16 +87,58 @@ def test_bootstrap_signs_exact_room_permissions() -> None:
         "sphere": "45",
         "name": "Ada",
         "avatar": "https://example.com/ada.png",
-        "rooms": ["sphere:45", "session:981"],
-        "writes": ["sphere:45"],
-        "moderates": ["sphere:45"],
-        "lifecycle": {
-            "session:981": {"readOnlyAt": 1_786_000_000, "deleteAt": 1_788_000_000}
-        },
+        "role": "member",
+        "sessions": {"981": {"endsAt": 1_786_000_000, "writable": False}},
+        "readOnlyAfter": 48 * 3600,
+        "retainFor": 30 * 24 * 3600,
         "iat": 1_786_017_600,
         "exp": 1_786_018_500,
     }
     assert claims.jti
+
+
+def test_bootstrap_signs_a_manager_role_without_listing_rooms() -> None:
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+    repository = Mock()
+    repository.read_access.return_value = ParleyAccessDTO(
+        sphere_id=45,
+        sphere_name="Bachanalia",
+        user_id=123,
+        user_name="Ada",
+        user_avatar_url="",
+        rooms=[
+            ParleyRoomDTO(
+                id="sphere:45",
+                kind=ParleyRoomKind.SPHERE,
+                title="Bachanalia",
+                can_write=True,
+            ),
+            *(
+                ParleyRoomDTO(
+                    id=f"session:45:{pk}",
+                    kind=ParleyRoomKind.SESSION,
+                    title=f"Session {pk}",
+                    can_write=True,
+                    can_moderate=True,
+                    session_id=pk,
+                    ends_at=1_786_000_000,
+                )
+                for pk in range(1, 1001)
+            ),
+        ],
+        is_manager=True,
+    )
+    signer = Mock()
+    signer.sign.return_value = "signed-token"
+    service = ParleyService(
+        repository=repository, signer=signer, agent_host="parley.example.com"
+    )
+
+    service.bootstrap(sphere_id=45, user_id=123, now=now)
+
+    claims = signer.sign.call_args.args[0]
+    assert claims.role == "manager"
+    assert claims.sessions == {}
 
 
 def test_bootstrap_stops_when_repository_denies_access() -> None:

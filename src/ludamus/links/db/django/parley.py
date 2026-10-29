@@ -52,7 +52,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
         ]
         rooms.extend(
             ParleyRoomDTO(
-                id=f"session:{session.pk}",
+                id=f"session:{sphere.pk}:{session.pk}",
                 kind=ParleyRoomKind.SESSION,
                 title=session.title,
                 can_write=(
@@ -60,10 +60,8 @@ class ParleyRepository(ParleyRepositoryProtocol):
                     and session.event.end_time > window.writable_after
                 ),
                 can_moderate=is_manager,
-                read_only_at=int(
-                    (session.event.end_time + window.read_only_delay).timestamp()
-                ),
-                delete_at=int((session.event.end_time + window.retention).timestamp()),
+                session_id=session.pk,
+                ends_at=int(session.event.end_time.timestamp()),
             )
             for session in (
                 sessions.select_related("event")
@@ -78,7 +76,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
             user_name=user.get_full_name(),
             user_avatar_url=user.avatar_url,
             rooms=rooms,
-            moderated_room_ids=([room.id for room in rooms] if is_manager else []),
+            is_manager=is_manager,
         )
 
     def create_report(

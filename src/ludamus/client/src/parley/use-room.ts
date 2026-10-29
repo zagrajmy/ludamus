@@ -47,7 +47,8 @@ export function useRoom(room: Room, agentHost: string): UseRoomResult {
   const agent: RoomAgent = useAgent({
     agent: room.kind === "sphere" ? "ParleySphereAgent" : "ParleySessionAgent",
     host: url.host,
-    name: room.id.split(":", 2)[1],
+    // NOTE: everything after the kind; a session room's name is "<sphere>:<session>".
+    name: room.id.slice(room.id.indexOf(":") + 1),
     protocol: url.protocol === "https:" ? "wss" : "ws",
   });
 

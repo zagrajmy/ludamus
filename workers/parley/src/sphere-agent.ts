@@ -2,6 +2,7 @@ import { callable } from "agents";
 
 import type { Message, RoomActivity, RpcResult } from "./protocol";
 
+import { canSeeRoom } from "./access";
 import { RoomAgent } from "./room-agent";
 
 export class ParleySphereAgent extends RoomAgent {
@@ -24,13 +25,8 @@ export class ParleySphereAgent extends RoomAgent {
   }
 
   @callable()
-  listRooms(): RpcResult<string[]> {
-    return { ok: true, value: this.currentCapability().rooms };
-  }
-
-  @callable()
   getActivity(): RpcResult<Record<string, RoomActivity>> {
-    const { rooms, sub } = this.currentCapability();
+    const capability = this.currentCapability();
     const rows = this.sql<{
       latest_message_id: number;
       last_read_message_id: number | null;
@@ -40,12 +36,12 @@ export class ParleySphereAgent extends RoomAgent {
       SELECT activity.room_id, activity.latest_message_id, activity.updated_at,
         positions.last_read_message_id
       FROM room_activity activity
-      LEFT JOIN read_positions positions ON positions.room_id = activity.room_id AND positions.user_id = ${sub}`;
+      LEFT JOIN read_positions positions ON positions.room_id = activity.room_id AND positions.user_id = ${capability.sub}`;
     return {
       ok: true,
       value: Object.fromEntries(
         rows
-          .filter((row) => rooms.includes(row.room_id))
+          .filter((row) => canSeeRoom(capability, row.room_id))
           .map((row) => [
             row.room_id,
             {
@@ -62,7 +58,7 @@ export class ParleySphereAgent extends RoomAgent {
     const capability = this.currentCapability();
     if (
       typeof input?.roomId !== "string" ||
-      !capability.rooms.includes(input.roomId) ||
+      !canSeeRoom(capability, input.roomId) ||
       typeof input.messageId !== "number"
     ) {
       return { ok: false, code: "invalid" };
@@ -89,7 +85,7 @@ export class ParleySphereAgent extends RoomAgent {
     if (
       input.secret !== this.workerEnv.PARLEY_INTERNAL_SECRET ||
       input.sphere !== this.name ||
-      !input.roomId.startsWith("session:")
+      !input.roomId.startsWith(`session:${this.name}:`)
     ) {
       throw new Error("Invalid room activity");
     }

@@ -29,8 +29,6 @@ def _window(now: datetime) -> ParleyTimeWindow:
         now=now,
         retained_after=now - PARLEY_SESSION_RETENTION,
         writable_after=now - PARLEY_SESSION_READ_ONLY_DELAY,
-        read_only_delay=PARLEY_SESSION_READ_ONLY_DELAY,
-        retention=PARLEY_SESSION_RETENTION,
     )
 
 
@@ -113,7 +111,7 @@ def test_manager_sees_unbanned_unexpired_sessions_only(
     assert access is not None
     assert [room.title for room in access.rooms] == [sphere.name, readable.title]
     assert access.rooms[1].can_write is True
-    assert access.moderated_room_ids == [room.id for room in access.rooms]
+    assert access.is_manager is True
 
 
 @pytest.mark.parametrize("attribute", ("parley_enabled", "is_active", "user_type"))

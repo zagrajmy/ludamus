@@ -29,6 +29,22 @@ export function capabilityCookie(request: Request): string | null {
   return null;
 }
 
+function isSeconds(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0;
+}
+
+function isSessionGrants(value: unknown): value is Capability["sessions"] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.entries(value).every(
+    ([session, grant]) =>
+      /^\d+$/u.test(session) &&
+      typeof grant === "object" &&
+      grant !== null &&
+      isSeconds((grant as { endsAt?: unknown }).endsAt) &&
+      typeof (grant as { writable?: unknown }).writable === "boolean",
+  );
+}
+
 export async function verifyCapability(token: string, env: AuthEnv): Promise<Capability> {
   const publicKey = await importSPKI(env.PARLEY_PUBLIC_KEY.replaceAll("\\n", "\n"), "RS256");
   const { payload } = await jwtVerify(token, publicKey, {
@@ -42,9 +58,10 @@ export async function verifyCapability(token: string, env: AuthEnv): Promise<Cap
     typeof payload.name !== "string" ||
     typeof payload.avatar !== "string" ||
     typeof payload.jti !== "string" ||
-    !Array.isArray(payload.rooms) ||
-    !Array.isArray(payload.writes) ||
-    !Array.isArray(payload.moderates)
+    (payload.role !== "manager" && payload.role !== "member") ||
+    !isSeconds(payload.readOnlyAfter) ||
+    !isSeconds(payload.retainFor) ||
+    !isSessionGrants(payload.sessions)
   ) {
     throw new Error("Invalid capability");
   }

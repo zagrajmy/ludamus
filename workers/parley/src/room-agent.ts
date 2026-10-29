@@ -12,6 +12,7 @@ import type { Capability, ConnectionState, Message, RpcResult, ServerEvent } fro
 import type { ParleySessionAgent } from "./session-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
+import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { integer, normalizeMessage } from "./limits";
 
@@ -53,6 +54,10 @@ export abstract class RoomAgent extends Agent<Env> {
     return `${this.roomPrefix}:${this.name}`;
   }
 
+  protected get room(): Room | null {
+    return parseRoom(this.roomPrefix, this.name);
+  }
+
   async onStart(): Promise<void> {
     void this.sql`CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +90,8 @@ export abstract class RoomAgent extends Agent<Env> {
     context: ConnectionContext,
   ): Promise<void> {
     const capability = await capabilityFromRequest(context.request, this.workerEnv);
-    if (!capability.rooms.includes(this.roomId)) throw new Error("Forbidden room");
+    const room = this.room;
+    if (room === null || !canRead(capability, room)) throw new Error("Forbidden room");
     connection.setState({ capability });
     this.emit({ type: "presence.changed", v: 1, payload: { count: this.presentUsers() } });
   }
@@ -166,7 +172,7 @@ export abstract class RoomAgent extends Agent<Env> {
   @callable()
   deleteMessage(input: { messageId?: unknown }): RpcResult<{ id: number }> {
     const capability = this.currentCapability();
-    if (!capability.moderates.includes(this.roomId)) return { ok: false, code: "forbidden" };
+    if (!this.moderates(capability)) return { ok: false, code: "forbidden" };
     const messageId = integer(input?.messageId);
     if (messageId === null) return { ok: false, code: "invalid" };
     const row = this.sql<{
@@ -184,7 +190,7 @@ export abstract class RoomAgent extends Agent<Env> {
   @callable()
   muteUser(input: { durationMs?: unknown; userId?: unknown }): RpcResult<Record<string, never>> {
     const capability = this.currentCapability();
-    if (!capability.moderates.includes(this.roomId) || typeof input?.userId !== "string") {
+    if (!this.moderates(capability) || typeof input?.userId !== "string") {
       return { ok: false, code: "forbidden" };
     }
     const allowedDurations = new Set([3_600_000, 86_400_000, 604_800_000]);
@@ -205,7 +211,7 @@ export abstract class RoomAgent extends Agent<Env> {
   @callable()
   restoreWriting(input: { userId?: unknown }): RpcResult<Record<string, never>> {
     const capability = this.currentCapability();
-    if (!capability.moderates.includes(this.roomId) || typeof input?.userId !== "string") {
+    if (!this.moderates(capability) || typeof input?.userId !== "string") {
       return { ok: false, code: "forbidden" };
     }
     void this.sql`DELETE FROM restrictions WHERE user_id = ${input.userId}`;
@@ -221,8 +227,7 @@ export abstract class RoomAgent extends Agent<Env> {
   loadAround(input: { messageId?: unknown }): RpcResult<Message[]> {
     const capability = this.currentCapability();
     const messageId = integer(input?.messageId);
-    if (!capability.moderates.includes(this.roomId) || messageId === null)
-      return { ok: false, code: "forbidden" };
+    if (!this.moderates(capability) || messageId === null) return { ok: false, code: "forbidden" };
     const rows = this
       .sql<MessageRow>`SELECT * FROM messages WHERE id BETWEEN ${Math.max(1, messageId - 10)} AND ${messageId + 10} ORDER BY id`;
     return { ok: true, value: rows.map((row) => this.message(row)) };
@@ -268,6 +273,11 @@ export abstract class RoomAgent extends Agent<Env> {
     return connection.state.capability as Capability;
   }
 
+  protected moderates(capability: Capability): boolean {
+    const room = this.room;
+    return room !== null && canModerate(capability, room);
+  }
+
   protected emit(event: ServerEvent): void {
     this.broadcast(JSON.stringify(event));
   }
@@ -281,7 +291,8 @@ export abstract class RoomAgent extends Agent<Env> {
 
   protected writeError(capability: Capability): Extract<RpcResult<never>, { ok: false }> | null {
     if (capability.exp * 1_000 <= Date.now()) return { ok: false, code: "expired" };
-    if (!capability.writes.includes(this.roomId)) return { ok: false, code: "forbidden" };
+    const room = this.room;
+    if (room === null || !canWrite(capability, room)) return { ok: false, code: "forbidden" };
     const restriction = this.sql<{
       muted_until: number | null;
     }>`SELECT muted_until FROM restrictions WHERE user_id = ${capability.sub}`[0];
