@@ -69,9 +69,10 @@ logger = logging.getLogger(__name__)
 # assert membership of, and every panel service needs one of them.
 def require_session_in_event(
     *, sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
-) -> None:
-    if sessions.read_event(session_pk).pk != event_pk:
+) -> EventDTO:
+    if (event := sessions.read_event(session_pk)).pk != event_pk:
         raise NotFoundError
+    return event
 
 
 def require_session_in_sphere(

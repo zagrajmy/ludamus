@@ -430,6 +430,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property
@@ -440,6 +441,7 @@ class Services:
             agenda_items=self._repos.agenda_items,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property
@@ -663,6 +665,7 @@ class Services:
                 categories=self._repos.proposal_categories,
                 tracks=self._repos.tracks,
                 sessions=self._repos.sessions,
+                reusable_sessions=self._repos.reusable_sessions,
                 session_fields=self._repos.session_fields,
                 personal_fields=self._repos.personal_data_fields,
                 personal_data_field_values=self._repos.personal_data_field_values,

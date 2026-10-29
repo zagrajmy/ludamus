@@ -2,7 +2,7 @@
 {# Variables: input_type ("radio"|"checkbox"), name, options (list of (value, label, checked, id)) #}
 {# Optional: has_errors (red border + aria-invalid on the group), aria_describedby, #}
 {# toggle (a short row of options drawn as buttons, as checkbox-toggle.html) #}
-<div class="mt-2 {% if toggle|default:False %}flex flex-wrap gap-2{% else %}space-y-2{% endif %}"
+<div class="mt-2 {% if toggle|default:False %}flex flex-wrap gap-2{% else %}space-y-1{% endif %}"
      {% if has_errors|default:False %}aria-invalid="true"{% endif %}
      {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
     {% for value, label, checked, input_id in options %}

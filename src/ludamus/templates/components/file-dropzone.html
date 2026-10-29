@@ -3,7 +3,7 @@
 <label for="{{ id }}"
        data-dropzone
        data-state="{{ dropzone_state }}"
-       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 {% if crop %}data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
+       class="group relative flex flex-col w-full items-center justify-center cursor-pointer overflow-hidden has-[input[aria-invalid=true]]:border-danger {% if inplace_class|default:"" %}{{ inplace_class }}{% else %}min-h-44 sm:min-h-48 px-4 py-6 bg-bg-tertiary border border-border rounded-lg transition-colors hover:bg-bg-secondary hover:border-primary/40{% endif %}{% if crop %} data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %}">
     <input type="file"
            id="{{ id }}"
            name="{{ name }}"
@@ -35,7 +35,7 @@
    class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
     </div>
     <div data-dropzone-selected
-         class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-lg group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
+         class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-[inherit] group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">
         <div class="pointer-events-none absolute inset-0 hidden group-data-[state=image]:block">
             <img data-dropzone-preview
                  src="{{ initial_url|default:'' }}"

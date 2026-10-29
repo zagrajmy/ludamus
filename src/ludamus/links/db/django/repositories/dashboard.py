@@ -19,7 +19,6 @@ from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     Encounter,
     Event,
-    Facilitator,
     Session,
     SessionParticipation,
     Sphere,
@@ -29,6 +28,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
+    sessions_run_by,
 )
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
@@ -42,7 +42,6 @@ from ludamus.pacts.multiverse import SphereVisibility
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from django.db.models import QuerySet
 
 _start_time = attrgetter("start_time")
 
@@ -142,17 +141,8 @@ def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]
         # A lapsed offer waits for the expiry sweep; a claim button on it
         # could only fail.
         .exclude(status=SessionParticipationStatus.OFFERED, offer_expires_at__lte=now)
-        .exclude(session_id__in=_sessions_run_by(user_id))
+        .exclude(session_id__in=sessions_run_by(user_id))
         .select_related("session__agenda_item__space", "session__event__sphere__site")
-    )
-
-
-def _sessions_run_by(user_id: int) -> QuerySet[Session]:
-    # A subquery rather than a join: joining facilitators would repeat each
-    # session once per facilitator and inflate every count annotated on it.
-    return Session.objects.filter(
-        Q(presenter_id=user_id)
-        | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
     )
 
 
@@ -160,7 +150,7 @@ def _run_sessions(user_id: int, *, now: datetime) -> list[Session]:
     return list(
         annotate_session_participation_counts(
             Session.objects.filter(
-                pk__in=_sessions_run_by(user_id), agenda_item__start_time__gte=now
+                pk__in=sessions_run_by(user_id), agenda_item__start_time__gte=now
             ).select_related("agenda_item__space", "event__sphere__site")
         )
     )
@@ -181,7 +171,7 @@ def _bookmarked_sessions(user_id: int, *, now: datetime) -> list[Session]:
                     "session_id"
                 )
             )
-            .exclude(pk__in=_sessions_run_by(user_id))
+            .exclude(pk__in=sessions_run_by(user_id))
             .select_related("agenda_item__space", "event__sphere__site")
         )
     )
@@ -354,7 +344,7 @@ class DashboardRepository(DashboardRepositoryProtocol):
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
             | Q(bookmarks__user_id=user_id)
-            | Q(pk__in=_sessions_run_by(user_id)),
+            | Q(pk__in=sessions_run_by(user_id)),
             agenda_item__isnull=False,
         ).values("event_id")
         events = (
