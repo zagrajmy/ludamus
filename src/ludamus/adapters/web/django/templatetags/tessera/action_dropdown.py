@@ -121,6 +121,7 @@ def tessera_action_dropdown_item(
     href: str = "",
     form: str = "",
     icon: str = "",
+    detail: str = "",
     external: bool = False,
     **attrs: str | int | bool | None,
 ) -> str:
@@ -128,8 +129,8 @@ def tessera_action_dropdown_item(
 
     ``href`` renders a link and ``form`` a submit button associated with that
     form's id; with neither the row is a plain button for a script to wire
-    through its ``data_*`` attributes. ``external`` marks links that open in
-    a new tab.
+    through its ``data_*`` attributes. ``detail`` adds a muted second line.
+    ``external`` marks links that open in a new tab.
 
     Returns:
         HTML string of the rendered menu item.
@@ -161,6 +162,16 @@ def tessera_action_dropdown_item(
         if external
         else ""
     )
+    label = (
+        format_html(
+            '<span class="grid whitespace-normal"><span>{}</span>'
+            '<span class="text-xs font-normal text-foreground-muted">{}</span></span>',
+            text,
+            detail,
+        )
+        if detail
+        else format_html("<span>{}</span>", text)
+    )
     extra_attrs = format_html(" {}", format_tag_attrs(attrs)) if attrs else ""
     if not href:
         form_attrs = (
@@ -169,24 +180,24 @@ def tessera_action_dropdown_item(
             else mark_safe(' type="button"')
         )
         return format_html(
-            '<button{} class="{} w-full text-left"{}>{}<span>{}</span></button>',
+            '<button{} class="{} w-full text-left"{}>{}{}</button>',
             form_attrs,
             _ITEM_CLASS,
             extra_attrs,
             leading,
-            text,
+            label,
         )
 
     external_attrs = (
         format_html(' target="_blank" rel="{}"', "noopener") if external else ""
     )
     return format_html(
-        '<a href="{}" class="{}"{}{}>{}<span>{}</span>{}</a>',
+        '<a href="{}" class="{}"{}{}>{}{}{}</a>',
         href,
         _ITEM_CLASS,
         external_attrs,
         extra_attrs,
         leading,
-        text,
+        label,
         trailing,
     )

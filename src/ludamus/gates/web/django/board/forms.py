@@ -5,7 +5,11 @@ from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
-from ludamus.gates.web.django.forms import ToggleRadioSelect, cover_image_field
+from ludamus.gates.web.django.forms import (
+    MarkdownTextarea,
+    ToggleRadioSelect,
+    cover_image_field,
+)
 from ludamus.pacts.listing import (
     LISTING_MESSAGE_MAX_LENGTH,
     LISTING_TEXT_MAX_LENGTH,
@@ -150,7 +154,7 @@ class ListingForm(forms.Form):
     description = forms.CharField(
         label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 5}),
+        widget=MarkdownTextarea(published=False, attrs={"rows": 5}),
         help_text=_("Supports Markdown formatting."),
     )
     starts_at = forms.DateTimeField(

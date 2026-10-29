@@ -26,6 +26,7 @@ requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
 authlib = "~1.9.1"
+comrak = "0.0.16"
 cryptography = "~50.0.1"
 dbos = ">=3.2.0,<4"
 django = "~6.1.0"
@@ -37,7 +38,6 @@ google-auth = "~2.61.0"
 gunicorn = "~26.2.0"
 heroicons = { version = "~2.14.0", extras = ["django"] }
 lxml = "~6.1.1"
-markdown = "~3.11.2"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~13.0.0"
@@ -162,7 +162,7 @@ template_extensions = 'html'
 # T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
 # `{% end_name %}` closers as well as `{% endname %}`.
 ignore = "H021,H031,H037,D018,T038"
-custom_blocks = "select,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,session_fact,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -235,10 +235,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["environ"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["markdown"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -628,6 +624,10 @@ ignore_names = [
     "ViteAwareCompressedManifestStaticFilesStorage",
     # False positives
     "get_navbar",
+    "autolink",
+    "hardbreaks",
+    "strikethrough",
+    "unsafe_",
     # Pydantic
     "model_config",
     # Dead since panel_time_slots service owns deletion; remove from

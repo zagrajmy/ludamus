@@ -9,6 +9,8 @@ from django.template.loader import render_to_string
 
 from ludamus.pacts.images import StoredFile
 
+from .inplace import INPLACE_DROPZONE_LOOK
+
 if TYPE_CHECKING:
     from django.forms import BoundField
 
@@ -19,8 +21,11 @@ def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     return None, ""
 
 
-def render_file_input(field: BoundField) -> str:
+def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
     """Render a styled drag-and-drop file input.
+
+    ``inplace`` draws it as the cover strip a session card shows: a slim row
+    while empty, the card's own crop once an image is picked.
 
     Returns:
         HTML string of the dropzone element.
@@ -46,7 +51,8 @@ def render_file_input(field: BoundField) -> str:
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
-            "crop": getattr(field.field.widget, "crop", None),
+            "crop": None if inplace else getattr(field.field.widget, "crop", None),
             "multiple": getattr(field.field.widget, "allow_multiple_selected", False),
+            "inplace_class": INPLACE_DROPZONE_LOOK if inplace else "",
         },
     )

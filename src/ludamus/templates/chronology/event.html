@@ -11,15 +11,9 @@
 {% endblock title %}
 {% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
 {% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
-{% block meta_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock meta_description %}
-{% block og_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock og_description %}
-{% block twitter_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock twitter_description %}
+{% block meta_description %}{{ link_preview.description|default:default_description }}{% endblock meta_description %}
+{% block og_description %}{{ link_preview.description|default:default_description }}{% endblock og_description %}
+{% block twitter_description %}{{ link_preview.description|default:default_description }}{% endblock twitter_description %}
 {% block extra_head %}
     {# "Never listed" has to hold for search engines too, once the link is posted somewhere public. #}
     {% if event.visibility == "unlisted" %}<meta name="robots" content="noindex">{% endif %}
@@ -69,7 +63,9 @@
                         {% include "chronology/_event_status_pills.html" with extra_class="print:hidden" %}
                     </div>
                     {% if event.description %}
-                        <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
+                        <div class="prose prose-lg dark:prose-invert max-w-2xl text-foreground-muted prose-p:text-foreground-muted prose-p:leading-normal prose-li:text-foreground-muted prose-headings:text-foreground-muted">
+                            {{ event.description|render_markdown }}
+                        </div>
                     {% endif %}
                     <!-- Event meta -->
                     <div class="flex flex-col items-start gap-2 text-sm sm:gap-3 lg:col-start-2 lg:row-start-1 lg:row-span-3">

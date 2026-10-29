@@ -1,0 +1,44 @@
+id: unmask-not-personal
+language: html
+severity: error
+rule:
+  kind: attribute
+  # Unanchored: a conditional {% if %}data-ph-unmask{% endif %} parses as one
+  # attribute with the template tags glued on.
+  regex: 'data-ph-unmask'
+  inside:
+    kind: start_tag
+    has:
+      kind: attribute
+      # A literal value only: {{ name }} says nothing about what the field is.
+      regex: '(?i)^(name|type|autocomplete|id)\s*=\s*["'']?[^"''{]*(mail|phone|password|name|\btel\b)'
+message: |
+  data-ph-unmask shows what is typed here in session recordings, and this
+  input's name, type or autocomplete says it holds personal data. Leave it
+  masked: only published text (a description everyone reads) is unmasked.
+---
+id: unmask-not-in-dynamic-field
+language: html
+severity: error
+files:
+  - '**/dynamic-field*.html'
+rule:
+  any:
+    - kind: attribute
+    - kind: text
+  regex: '\bunmask|data-ph-unmask'
+message: |
+  An organizer-defined field may ask for anything, a phone number or a
+  health note included, so its answers stay masked in session recordings.
+  Never unmask them, not even for one field type.
+---
+id: unmask-via-markdown-textarea
+language: python
+severity: error
+rule:
+  kind: string
+  regex: '^[rbuf]*["'']data-ph-unmask["'']$'
+message: |
+  Python never writes data-ph-unmask. Published text is declared with
+  MarkdownTextarea(published=True) and rendered by tessera, so a raw attr
+  cannot unmask a field that holds personal data.

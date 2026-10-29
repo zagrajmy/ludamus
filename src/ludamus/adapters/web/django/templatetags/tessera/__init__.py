@@ -40,6 +40,7 @@ from .form import (
     tessera_errors,
     tessera_field,
     tessera_form,
+    tessera_inplace,
     tessera_sole_choice,
 )
 from .icon import icon
@@ -88,6 +89,7 @@ __all__ = [
     "tessera_form",
     "tessera_icon_button",
     "tessera_icon_toggle",
+    "tessera_inplace",
     "tessera_segment",
     "tessera_sole_choice",
     "tessera_switcher",
