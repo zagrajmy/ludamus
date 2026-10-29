@@ -13,5 +13,8 @@ describe("agent routes", () => {
       response.webSocket?.accept();
       response.webSocket?.close();
     },
+    // NOTE: the first socket boots the Durable Object in workerd, which on a
+    // cold run outlasts Vitest's default 5 s.
+    20_000,
   );
 });
