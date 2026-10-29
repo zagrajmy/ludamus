@@ -33,6 +33,7 @@ from ludamus.gates.web.django.propose_cover import (
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -51,7 +52,11 @@ if TYPE_CHECKING:
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
-    from ludamus.pacts.propose import AccountAnswersDTO, ProposeSessionServiceProtocol
+    from ludamus.pacts.propose import (
+        AccountAnswersDTO,
+        ProposeSessionServiceProtocol,
+        ReusableSessionDTO,
+    )
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -76,8 +81,8 @@ def _canonicalize_wizard_state(state: WizardState) -> None:
     if not isinstance(session_data, dict):
         return
     legacy_name = session_data.pop("display_name", None)
-    if "facilitator_name" not in session_data and legacy_name is not None:
-        session_data["facilitator_name"] = legacy_name
+    if FACILITATOR_NAME_FIELD not in session_data and legacy_name is not None:
+        session_data[FACILITATOR_NAME_FIELD] = legacy_name
 
 
 def _propose_url(event_slug: str) -> str:
@@ -146,6 +151,38 @@ def _timeslot_descriptors(
         }
         groups.setdefault(req.time_slot.start_time.date(), []).append(slot)
     return [{"day": day, "slots": slots} for day, slots in sorted(groups.items())]
+
+
+def _reusable_form_values(
+    reusable: ReusableSessionDTO,
+    *,
+    form: Form,
+    requirements: Sequence[SessionFieldRequirementDTO],
+) -> WizardData:
+    """Return what the details form would hold had the proposer typed `reusable`."""
+    session = reusable.session
+    copied: WizardData = {
+        **unfold_custom_answers(
+            stored={f"session_{slug}": v for slug, v in reusable.field_values.items()},
+            fields=[req.field for req in requirements],
+            prefix="session",
+        ),
+        "title": session.title,
+        "description": session.description,
+        "participants_limit": str(session.participants_limit or ""),
+        "min_age": str(session.min_age),
+        "duration": session.duration,
+    }
+    # NOTE: another event asks other questions. An answer carries over only
+    # to a field this form has, and every field it has is set, so a copy never
+    # leaves half of what the proposer typed under another session's title.
+    # The proposer's own name stays: a session they co-ran was written under
+    # someone else's.
+    return {
+        name: copied.get(name, "")
+        for name in form.fields
+        if name != FACILITATOR_NAME_FIELD
+    }
 
 
 def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
@@ -403,28 +440,43 @@ def _details_context(
             fields=[req.field for req in requirements],
             prefix="session",
         )
-        if "facilitator_name" not in initial:
+        if FACILITATOR_NAME_FIELD not in initial:
             # AnonymousUser carries no `name`.
-            initial["facilitator_name"] = getattr(wizard.request.user, "name", "")
+            initial[FACILITATOR_NAME_FIELD] = getattr(wizard.request.user, "name", "")
         form = build_session_details_form(requirements, category=category)(
             initial=initial
         )
 
+    descriptors = field_descriptors(
+        prefix="session", fields=requirement_fields(requirements), form=form
+    )
+    selected_tracks = set(
+        state.get("track_pks", []) if selected_track_pks is None else selected_track_pks
+    )
+    reusable_sessions = wizard.service.list_reusable_sessions(
+        user_id=wizard.request.context.current_user_id, event=wizard.event
+    )
     return {
         **wizard.base_context("details"),
         "category": category,
         "form": form,
         "image_form": image_form or _wizard_image_form(state),
-        "field_descriptors": field_descriptors(
-            prefix="session", fields=requirement_fields(requirements), form=form
-        ),
-        "public_tracks": wizard.service.get_public_tracks(wizard.event.pk),
-        "selected_track_pks": (
-            state.get("track_pks", [])
-            if selected_track_pks is None
-            else list(selected_track_pks)
-        ),
+        "public_field_descriptors": [d for d in descriptors if d["field"].is_public],
+        "private_field_descriptors": [
+            d for d in descriptors if not d["field"].is_public
+        ],
+        "track_options": [
+            (track.pk, track.name, track.pk in selected_tracks, f"id_track_{track.pk}")
+            for track in wizard.service.get_public_tracks(wizard.event.pk)
+        ],
         "track_error": track_error,
+        "reusable_sessions": reusable_sessions,
+        "reusable_form_values": {
+            str(reusable.session.pk): _reusable_form_values(
+                reusable, form=form, requirements=requirements
+            )
+            for reusable in reusable_sessions
+        },
     }
 
 
@@ -451,7 +503,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
         "category_name": category.name if category else "",
-        "facilitator_name": session_data.get("facilitator_name", ""),
+        "facilitator_name": session_data.get(FACILITATOR_NAME_FIELD, ""),
         "title": session_data.get("title", ""),
         "description": session_data.get("description", ""),
         "participants_limit": session_data.get("participants_limit", ""),

@@ -5,8 +5,13 @@ from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
-from ludamus.gates.web.django.forms import ToggleRadioSelect, cover_image_field
+from ludamus.gates.web.django.forms import (
+    MarkdownTextarea,
+    ToggleRadioSelect,
+    cover_image_field,
+)
 from ludamus.pacts.listing import (
+    LISTING_MESSAGE_MAX_LENGTH,
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
     ListingContact,
@@ -15,6 +20,7 @@ from ludamus.pacts.listing import (
 
 if TYPE_CHECKING:
     from django.http import QueryDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts.listing import BoardFiltersDict
     from ludamus.pacts.tags import TagCategoryOptionsDTO
@@ -89,6 +95,52 @@ class BoardFilterForm(forms.Form):
         }
 
 
+def contact_field(
+    contact_channels: list[ListingContact], *, help_text: str | _StrPromise
+) -> forms.ChoiceField:
+    # NOTE: only channels on the profile are offered, and a single choice
+    # renders as no picker. With none, both stay so the mill can say what to add.
+    choices = [
+        choice for choice in CONTACT_CHOICES if choice[0] in contact_channels
+    ] or list(CONTACT_CHOICES)
+    return forms.ChoiceField(
+        label=_("Contact"),
+        choices=choices,
+        initial=choices[0][0] if len(choices) == 1 else None,
+        widget=forms.RadioSelect,
+        help_text=help_text,
+    )
+
+
+class ListingResponseForm(forms.Form):
+    message = forms.CharField(
+        label=_("Message"),
+        required=False,
+        max_length=LISTING_MESSAGE_MAX_LENGTH,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Optional. Say a few words about yourself."),
+    )
+
+    def __init__(
+        self, data: QueryDict | None = None, *, contact_channels: list[ListingContact]
+    ) -> None:
+        super().__init__(data)
+        self.fields["contact"] = contact_field(
+            contact_channels,
+            help_text=_("Shown to the author once you join their party."),
+        )
+
+
+class ListingDeclineForm(forms.Form):
+    message = forms.CharField(
+        label=_("Message"),
+        required=False,
+        max_length=LISTING_MESSAGE_MAX_LENGTH,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text=_("Optional. They see it in their notifications."),
+    )
+
+
 class ListingForm(forms.Form):
     seeking = forms.ChoiceField(
         label=_("Looking for"), choices=SEEKING_CHOICES, widget=ToggleRadioSelect
@@ -102,7 +154,7 @@ class ListingForm(forms.Form):
     description = forms.CharField(
         label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 5}),
+        widget=MarkdownTextarea(published=False, attrs={"rows": 5}),
         help_text=_("Supports Markdown formatting."),
     )
     starts_at = forms.DateTimeField(
@@ -158,16 +210,8 @@ class ListingForm(forms.Form):
                 for option in category.options
             ],
         )
-        # NOTE: only channels on the profile are offered, and a single choice
-        # renders as no picker. With none, both stay so a draft can still save.
-        choices = [
-            choice for choice in CONTACT_CHOICES if choice[0] in contact_channels
-        ] or list(CONTACT_CHOICES)
-        self.fields["contact"] = forms.ChoiceField(
-            label=_("Contact"),
-            choices=choices,
-            initial=choices[0][0] if len(choices) == 1 else None,
-            widget=forms.RadioSelect,
+        self.fields["contact"] = contact_field(
+            contact_channels,
             help_text=(
                 _("Shown only to the people in the party you form.")
                 if contact_channels

@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
 from freezegun import freeze_time
@@ -39,6 +40,7 @@ _GUEST_SLUG = re.compile(r"guest-[a-z0-9_-]{11}")
 
 def _user(pk, email="viewer@example.com", slug="viewer"):
     return UserDTO(
+        privacy_revision=UUID(int=1),
         age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=_NOW,

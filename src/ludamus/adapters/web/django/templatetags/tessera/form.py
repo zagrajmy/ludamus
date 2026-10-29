@@ -10,9 +10,11 @@ from django.forms.widgets import (
     ChoiceWidget,
     FileInput,
     HiddenInput,
+    NumberInput,
     RadioSelect,
     Select,
     Textarea,
+    Widget,
 )
 from django.template.loader import render_to_string
 from django.utils.html import format_html, format_html_join
@@ -29,6 +31,7 @@ from .checkbox import (
 from .errors import render_errors, render_form_errors, render_help_text
 from .file_input import render_file_input
 from .form_select import render_select
+from .inplace import InplaceShape, inplace_look
 from .input import render_input
 from .label import render_label
 from .textarea import render_textarea
@@ -59,15 +62,48 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
     )
 
 
-def _render_field_input(field: BoundField) -> str:
+def _sole_choice_input(field: BoundField) -> str | None:
+    # One selectable option is not a question, so the form carries the answer
+    # and the page spends nothing on asking it.
+    if isinstance(field.field.widget, ChoiceWidget) and (
+        sole := sole_required_choice(field)
+    ):
+        return format_html(
+            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
+        )
+    return None
+
+
+def _render_field_input(field: BoundField, *, inplace_class: str = "") -> str:
     widget = field.field.widget
     if isinstance(widget, Select):
-        return render_select(field)
+        return render_select(field, inplace_class=inplace_class)
     if isinstance(widget, Textarea):
-        return render_textarea(field)
+        return render_textarea(field, inplace_class=inplace_class)
     if isinstance(widget, FileInput):
         return render_file_input(field)
-    return render_input(field)
+    return render_input(field, inplace_class=inplace_class)
+
+
+def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape:
+    if isinstance(widget, Textarea):
+        return "textarea"
+    if isinstance(widget, Select):
+        return "select"
+    if isinstance(widget, NumberInput):
+        return "number"
+    return "fit" if fit else "text"
+
+
+def _render_controls(field: BoundField, control: str) -> str:
+    # File inputs surface their errors inside the dropzone itself.
+    is_file = isinstance(field.field.widget, FileInput)
+    return format_html(
+        "{}\n{}\n{}",
+        control,
+        render_help_text(field),
+        "" if is_file else render_errors(field),
+    )
 
 
 @register.simple_tag
@@ -93,15 +129,8 @@ def tessera_field(
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
         return str(field)  # BoundField.__str__ is already safe
-    # One selectable option is not a question, so the form carries the answer
-    # and the page spends nothing on asking it.
-    if (
-        isinstance(widget, ChoiceWidget)
-        and (sole := sole_required_choice(field)) is not None
-    ):
-        return format_html(
-            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
-        )
+    if (hidden := _sole_choice_input(field)) is not None:
+        return hidden
 
     container_class = "flex gap-y-0.5 not-last:mb-4"
     container_class += " flex-col" if layout == "vertical" else " max-sm:flex-col"
@@ -128,6 +157,45 @@ def tessera_field(
 
 
 @register.simple_tag
+def tessera_inplace(field: BoundField, *, fit: bool = False, unit: str = "") -> str:
+    """Render a field's control in place: dressed as the text it writes.
+
+    For pages that show a thing in the shape it is read in, so the label is
+    the page's own; only the control, its help text and its errors render
+    here. ``fit`` sizes a text field to its content, for a value prefilled
+    from the account. ``unit`` is drawn inside the control's outline after
+    the value, as in "16+". A select with one option is still not asked, as
+    in `tessera_field`.
+
+    Returns:
+        HTML string of the control followed by its help text and errors.
+
+    Usage:
+        {% tessera_inplace form.title %}
+        {% tessera_inplace form.facilitator_name fit=True %}
+        {% tessera_inplace form.min_age unit="+" %}
+        {% tessera_inplace image_form.cover_image %}
+    """
+    if (hidden := _sole_choice_input(field)) is not None:
+        return hidden
+    if isinstance(field.field.widget, FileInput):
+        return _render_controls(field, render_file_input(field, inplace=True))
+    look = inplace_look(
+        shape=_inplace_shape(field.field.widget, fit=fit), unit=bool(unit)
+    )
+    control = _render_field_input(field, inplace_class=look)
+    if unit:
+        control = format_html(
+            '<span class="relative inline-flex">{}<span aria-hidden="true"'
+            ' class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2">'
+            "{}</span></span>",
+            control,
+            unit,
+        )
+    return _render_controls(field, control)
+
+
+@register.simple_tag
 def tessera_sole_choice(field: BoundField) -> str:
     """Name the answer `tessera_field` stopped asking for.
 
@@ -150,14 +218,7 @@ def tessera_sole_choice(field: BoundField) -> str:
 def _render_labelled_field(
     field: BoundField, *, layout: str, required: bool | None, label_action_template: str
 ) -> str:
-    # File inputs surface their errors inside the dropzone itself.
-    is_file = isinstance(field.field.widget, FileInput)
-    controls = format_html(
-        "{}\n{}\n{}",
-        _render_field_input(field),
-        render_help_text(field),
-        "" if is_file else render_errors(field),
-    )
+    controls = _render_controls(field, _render_field_input(field))
     label = render_label(field, required=required)
     if label_action_template:
         label = format_html(

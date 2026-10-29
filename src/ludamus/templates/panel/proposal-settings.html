@@ -26,13 +26,8 @@
                       class="max-w-2xl">
                     {% csrf_token %}
                     <div class="space-y-6">
-                        <!-- Proposal Description -->
                         <div class="card">
-                            <div class="card-body">
-                                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Description" %}</h3>
-                                <p class="text-sm text-foreground-muted mb-6">{% translate "Displayed on the first page of the proposal form." %}</p>
-                                {% include "components/textarea.html" with name="proposal_description" id="id_proposal_description" rows="4" value=form.proposal_description.value|default:"" only %}
-                            </div>
+                            <div class="card-body">{% tessera_field form.proposal_description %}</div>
                         </div>
                         <!-- Proposal Dates -->
                         <div class="card">

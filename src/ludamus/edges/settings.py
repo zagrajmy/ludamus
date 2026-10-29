@@ -160,6 +160,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -675,10 +676,6 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
-        # The markdown lib logs every extension load at DEBUG on each call;
-        # render_markdown runs once per session, so on big event pages this
-        # floods the dev console and dominates render time. Quiet it.
-        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",

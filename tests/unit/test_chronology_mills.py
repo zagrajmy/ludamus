@@ -29,6 +29,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
+    ProposalAcceptedNotification,
     ProposalScheduledError,
     SpaceTimeConflictError,
 )
@@ -517,6 +518,7 @@ class TestProposalAcceptanceService:
             agenda_items=agenda_items,
             active_users=active_users,
             spheres=spheres,
+            notifier=MagicMock(),
         )
 
     @staticmethod
@@ -944,12 +946,67 @@ class TestSessionDeletion:
         assert sessions.calls["restored"] == [(_SESSION_PK, _EVENT_PK)]
 
 
+class _RecordingNotifier:
+    def __init__(self):
+        self.sent = []
+
+    def notify_proposal_accepted(self, notification):
+        self.sent.append(notification)
+
+
 class TestProposalStatus:
     @staticmethod
-    def _service(sessions, agenda_items):
+    def _service(sessions, agenda_items, notifier=None):
         return ProposalStatusService(
-            transaction=FakeTransaction(), sessions=sessions, agenda_items=agenda_items
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            agenda_items=agenda_items,
+            notifier=notifier or _RecordingNotifier(),
         )
+
+    def test_accepting_tells_the_presenter_and_facilitators_with_accounts(self):
+        sessions = _FakeSessions(_session_dto(presenter_id=7, title="Dungeon Night"))
+        sessions.related["facilitators"] = {
+            1: _facilitator_dto(1, "Presenter").model_copy(update={"user_id": 7}),
+            2: _facilitator_dto(2, "Co-host").model_copy(update={"user_id": 8}),
+            3: _facilitator_dto(3, "Guest"),
+        }
+        sessions.related_ids["facilitators"] = [1, 2, 3]
+        notifier = _RecordingNotifier()
+
+        self._service(sessions, _FakeAgendaItems(), notifier).mark_accepted(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert notifier.sent == [
+            ProposalAcceptedNotification(
+                recipient_user_id=recipient,
+                session_id=_SESSION_PK,
+                session_title="Dungeon Night",
+                event_name="Con",
+                event_slug="con",
+                placed=False,
+            )
+            for recipient in (7, 8)
+        ]
+
+    @pytest.mark.parametrize(
+        ("method", "status"),
+        (
+            ("mark_accepted", SessionStatus.ACCEPTED),
+            ("mark_on_hold", SessionStatus.PENDING),
+            ("mark_rejected", SessionStatus.PENDING),
+        ),
+    )
+    def test_only_a_new_acceptance_tells_anyone(self, method, status):
+        sessions = _FakeSessions(_session_dto(presenter_id=7, status=status))
+        notifier = _RecordingNotifier()
+
+        getattr(self._service(sessions, _FakeAgendaItems(), notifier), method)(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert not notifier.sent
 
     @pytest.mark.parametrize(
         ("method", "status"),
@@ -1270,13 +1327,14 @@ class TestProposalAcceptanceWithFakes:
         return sessions
 
     @staticmethod
-    def _service(sessions, agenda_items):
+    def _service(sessions, agenda_items, notifier=None):
         return ProposalAcceptanceService(
             transaction=FakeTransaction(),
             sessions=sessions,
             agenda_items=agenda_items,
             active_users=_FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
+            notifier=notifier or _RecordingNotifier(),
         )
 
     def test_accept_context_reads_everything_about_the_session(self):
@@ -1335,6 +1393,26 @@ class TestProposalAcceptanceWithFakes:
                 "end_time": self._SLOT.end_time,
             }
         ]
+
+    @pytest.mark.parametrize(
+        ("status", "placed_links"),
+        ((SessionStatus.PENDING, [True]), (SessionStatus.ACCEPTED, [])),
+        ids=["pending", "already-accepted"],
+    )
+    def test_accept_session_tells_the_presenter_once(self, status, placed_links):
+        sessions = self._sessions()
+        sessions.rows[_SESSION_PK] = _session_dto(presenter_id=7, status=status)
+        notifier = _RecordingNotifier()
+
+        self._service(sessions, _FakeAgendaItems(), notifier).accept_session(
+            session_id=_SESSION_PK,
+            space_id=7,
+            time_slot_id=2,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        assert [sent.placed for sent in notifier.sent] == placed_links
 
     def test_another_spheres_session_has_no_accept_context(self):
         sessions = self._sessions()

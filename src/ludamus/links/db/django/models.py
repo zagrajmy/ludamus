@@ -4,6 +4,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
@@ -34,6 +35,7 @@ from ludamus.pacts.listing import (
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
     ListingContact,
+    ListingResponseStatus,
     ListingSeeking,
     ListingStatus,
 )
@@ -135,6 +137,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
+    privacy_revision = models.UUIDField(default=uuid4, editable=False)
     age_band = models.CharField(
         max_length=16,
         choices=[(band.value, band.name) for band in AgeBand],
@@ -429,6 +432,37 @@ class Listing(models.Model):
     @property
     def header_image_url(self) -> str:
         return self.header_image.url if self.header_image else ""
+
+
+class ListingResponse(models.Model):
+    listing = models.ForeignKey(
+        Listing, on_delete=models.CASCADE, related_name="responses"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="listing_responses"
+    )
+    message = models.TextField(blank=True, default="")
+    contact = models.CharField(
+        max_length=16, choices=[(c.value, c.name) for c in ListingContact]
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=[(s.value, s.name) for s in ListingResponseStatus],
+        default=ListingResponseStatus.WAITING,
+    )
+    decline_message = models.TextField(blank=True, default="")
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "listing_response"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("listing", "user"), name="listing_response_unique_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} responded to listing {self.listing_id}"
 
 
 class SessionBookmark(models.Model):
@@ -1600,6 +1634,9 @@ class SessionParticipation(models.Model):
         return f"{self.user.name} {self.status} on {self.session}"
 
 
+NOTIFICATION_TITLE_MAX_LENGTH = 255
+
+
 class Notification(models.Model):
     """In-app notification for a single recipient.
 
@@ -1616,7 +1653,7 @@ class Notification(models.Model):
     )
     # Localised, ready-to-render copy plus structured refs (session/event ids,
     # claim url, deadline). Rendered by the recipient's request, not at send.
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=NOTIFICATION_TITLE_MAX_LENGTH)
     body = models.TextField(blank=True, default="")
     url = models.CharField(max_length=512, blank=True, default="")
     payload = models.JSONField(default=dict, blank=True)

@@ -20,7 +20,7 @@ from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.listing import ListingRepository
+from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
 from ludamus.links.db.django.notifications import (
     AnnouncementFanoutRepository,
     NotificationReadRepository,
@@ -92,6 +92,10 @@ class Repositories:
         return ListingRepository()
 
     @cached_property
+    def listing_responses(self) -> ListingResponseRepository:
+        return ListingResponseRepository()
+
+    @cached_property
     def party_session_history(self) -> repositories.PartySessionHistoryRepository:
         return repositories.PartySessionHistoryRepository()
 
@@ -118,6 +122,10 @@ class Repositories:
     @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
         return repositories.EventProposalSettingsRepository()
+
+    @cached_property
+    def reusable_sessions(self) -> repositories.ReusableSessionRepository:
+        return repositories.ReusableSessionRepository()
 
     @cached_property
     def sessions(self) -> repositories.SessionRepository:
