@@ -653,10 +653,13 @@ class TestEventSettingsPageViewPost:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "An event with this slug already exists.")],
-            url=f"/panel/event/{original_slug}/settings/",
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
         )
+        assert response.context["form"].errors["slug"] == [
+            "An event with this slug already exists."
+        ]
         event.refresh_from_db()
         assert event.slug == original_slug
 

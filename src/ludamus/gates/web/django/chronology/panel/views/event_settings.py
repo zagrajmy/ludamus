@@ -153,8 +153,8 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 data=_event_update_data(cd, new_slug),
             )
         except EventSlugTakenError:
-            messages.error(self.request, _("An event with this slug already exists."))
-            return redirect("panel:event-settings", slug=slug)
+            form.add_error("slug", _("An event with this slug already exists."))
+            return self._render_with_form(context=context, slug=slug, form=form)
         except EventDatesInvalidError:
             form.add_error("end_time", _("End time must be after start time."))
             return self._render_with_form(context=context, slug=slug, form=form)
