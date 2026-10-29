@@ -583,6 +583,50 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == original_name
 
+    def test_error_on_end_not_after_start(self, panel_client, event):
+        original_end = event.end_time
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, end_time=event.start_time.strftime("%Y-%m-%dT%H:%M")
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
+        )
+        assert response.context["form"].errors["end_time"] == [
+            "End time must be after start time."
+        ]
+        event.refresh_from_db()
+        assert event.end_time == original_end
+
+    def test_error_on_publication_after_start(self, panel_client, event):
+        original_publication = event.publication_time
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
+        )
+        assert response.context["form"].errors["publication_time"] == [
+            "Publication time must not be after start time."
+        ]
+        event.refresh_from_db()
+        assert event.publication_time == original_publication
+
     def test_error_event_not_found_during_update(self, panel_client, event):
         with patch(
             "ludamus.links.db.django.repositories.EventRepository.update",

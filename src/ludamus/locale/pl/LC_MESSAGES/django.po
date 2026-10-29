@@ -1407,6 +1407,16 @@ msgid "An event with this slug already exists."
 msgstr "Wydarzenie o tym slugu już istnieje."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/event/panel/views/event_create.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Publication time must not be after start time."
+msgstr "Czas publikacji nie może być późniejszy niż czas rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Event settings saved successfully."
 msgstr "Ustawienia wydarzenia zostały zapisane."
 
@@ -2923,11 +2933,6 @@ msgstr "Usunięto okno zapisów."
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Another event in this sphere uses this slug."
 msgstr "Inne wydarzenie w tej sferze ma już ten slug."
-
-#: src/ludamus/gates/web/django/event/panel/views/event_create.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "End time must be after start time."
-msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Pick an event from this sphere."

@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import EventVisibility
@@ -154,6 +155,14 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         except EventSlugTakenError:
             messages.error(self.request, _("An event with this slug already exists."))
             return redirect("panel:event-settings", slug=slug)
+        except EventDatesInvalidError:
+            form.add_error("end_time", _("End time must be after start time."))
+            return self._render_with_form(context=context, slug=slug, form=form)
+        except EventPublicationInvalidError:
+            form.add_error(
+                "publication_time", _("Publication time must not be after start time.")
+            )
+            return self._render_with_form(context=context, slug=slug, form=form)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
