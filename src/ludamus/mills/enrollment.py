@@ -143,9 +143,10 @@ class WaitlistPromotionService:
 
     def fill_freed_seats(self, *, session_id: int) -> PromotionResult:
         # Idempotent / re-entrant: lock the session, pick the next eligible
-        # parties (FIFO, whole-party) and either confirm them (AUTO) or hold and
-        # offer them (OFFER_CLAIM). Notifications and expiry timers fire only
-        # after the mutation commits.
+        # parties (FIFO, whole-party) and either confirm them (AUTO, or
+        # OFFER_CLAIM when the offer would outlive the start) or hold and offer
+        # them (OFFER_CLAIM); a started session promotes nobody. Notifications
+        # and expiry timers fire only after the mutation commits.
         promotions: list[PromotionNotification] = []
         offers: list[OfferNotification] = []
         expiries: list[tuple[int, datetime]] = []
@@ -173,13 +174,22 @@ class WaitlistPromotionService:
                 return result
             # An offer that could outlive the start would hold the seat empty
             # through the session, so the next waiter is seated instead.
+            expires_at = now + state.offer_claim_window
             if (
                 state.promotion_mode == PromotionMode.AUTO
-                or now + state.offer_claim_window > state.start_time
+                or expires_at > state.start_time
             ):
                 self._confirm(parties, state, result, promotions)
             else:
-                self._offer(parties, state, result, offers, expiries, now=now)
+                self._offer(
+                    parties,
+                    state,
+                    result,
+                    offers,
+                    expiries,
+                    offered_at=now,
+                    expires_at=expires_at,
+                )
 
         for promotion in promotions:
             self._notifier.notify_promoted(promotion)
@@ -221,14 +231,17 @@ class WaitlistPromotionService:
         offers: list[OfferNotification],
         expiries: list[tuple[int, datetime]],
         *,
-        now: datetime,
+        offered_at: datetime,
+        expires_at: datetime,
     ) -> None:
-        expires_at = now + state.offer_claim_window
         for party in parties:
             ids = [p.participation_id for p in party]
             token = _token()
             self._participations.offer(
-                ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
+                ids,
+                offered_at=offered_at,
+                offer_expires_at=expires_at,
+                claim_token=token,
             )
             result.offered.extend(ids)
             offers.extend(
